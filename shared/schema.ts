@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, bigint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -6,7 +6,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  cashBalance: integer("cash_balance").default(0).notNull(), // FCF in cents
+  cashBalance: bigint("cash_balance", { mode: "number" }).default(0).notNull(), // FCF in cents
 });
 
 export const transactions = pgTable("transactions", {
@@ -14,7 +14,7 @@ export const transactions = pgTable("transactions", {
   userId: integer("user_id").notNull(),
   type: text("type").notNull(), // 'income', 'expense', 'buy', 'sell'
   category: text("category").notNull(),
-  amount: integer("amount").notNull(), // cents
+  amount: bigint("amount", { mode: "number" }).notNull(), // cents
   description: text("description"),
   date: timestamp("date").defaultNow().notNull(),
 });
@@ -24,13 +24,13 @@ export const investments = pgTable("investments", {
   userId: integer("user_id").notNull(),
   symbol: text("symbol").notNull(),
   quantity: integer("quantity").notNull(),
-  avgPrice: integer("avg_price").notNull(), // cents
+  avgPrice: bigint("avg_price", { mode: "number" }).notNull(), // cents
 });
 
 export const targets = pgTable("targets", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  targetAmount: integer("target_amount").notNull(), // cents
+  targetAmount: bigint("target_amount", { mode: "number" }).notNull(), // cents
   durationMonths: integer("duration_months").notNull(),
   startDate: timestamp("start_date").defaultNow().notNull(),
 });
