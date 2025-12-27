@@ -8,24 +8,24 @@
   --font-body: 'Inter', sans-serif;
   --font-display: 'Inter', sans-serif;
 
-  /* Light Periwinkle + White + Blue Theme */
-  --background: 218 50% 88%;
-  --foreground: 222 13% 20%;
+  /* Clean Blue & White Professional Theme */
+  --background: 0 0% 100%;
+  --foreground: 217 33% 17%;
 
   --card: 0 0% 100%;
-  --card-foreground: 222 13% 20%;
+  --card-foreground: 217 33% 17%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222 13% 20%;
+  --popover-foreground: 217 33% 17%;
 
   --primary: 217 100% 50%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 218 50% 95%;
-  --secondary-foreground: 222 13% 20%;
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 217 33% 17%;
 
-  --muted: 218 20% 80%;
-  --muted-foreground: 222 13% 40%;
+  --muted: 220 14% 91%;
+  --muted-foreground: 217 33% 40%;
 
   --accent: 217 100% 50%;
   --accent-foreground: 0 0% 100%;
@@ -33,13 +33,13 @@
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 218 30% 90%;
-  --input: 218 30% 95%;
+  --border: 220 14% 91%;
+  --input: 220 14% 96%;
   --ring: 217 100% 50%;
 
-  --radius: 1.5rem;
+  --radius: 0.75rem;
   
-  /* Chart colors for badges */
+  /* Chart colors */
   --chart-1: 217 100% 50%;
   --chart-2: 34 88% 52%;
   --chart-3: 120 73% 75%;
@@ -48,23 +48,23 @@
 }
 
 .dark {
-  --background: 218 50% 88%;
-  --foreground: 222 13% 20%;
+  --background: 0 0% 100%;
+  --foreground: 217 33% 17%;
 
   --card: 0 0% 100%;
-  --card-foreground: 222 13% 20%;
+  --card-foreground: 217 33% 17%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222 13% 20%;
+  --popover-foreground: 217 33% 17%;
 
   --primary: 217 100% 50%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 218 50% 95%;
-  --secondary-foreground: 222 13% 20%;
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 217 33% 17%;
 
-  --muted: 218 20% 80%;
-  --muted-foreground: 222 13% 40%;
+  --muted: 220 14% 91%;
+  --muted-foreground: 217 33% 40%;
 
   --accent: 217 100% 50%;
   --accent-foreground: 0 0% 100%;
@@ -72,8 +72,8 @@
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 218 30% 90%;
-  --input: 218 30% 95%;
+  --border: 220 14% 91%;
+  --input: 220 14% 96%;
   --ring: 217 100% 50%;
 }
 
@@ -105,14 +105,4 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
-}
-
-/* Smooth elevation utilities */
-@layer utilities {
-  .hover-elevate {
-    @apply transition-all duration-200;
-  }
-  .hover-elevate:hover {
-    @apply shadow-lg;
-  }
 }
