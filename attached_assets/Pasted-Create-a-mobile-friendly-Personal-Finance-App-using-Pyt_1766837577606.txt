@@ -1,0 +1,40 @@
+Create a mobile-friendly Personal Finance App using Python and Streamlit. The app must use `sqlite3` or a JSON file for persistent data storage. Use `st.session_state` to manage app navigation and dynamic variables.
+
+STRUCTURE & LOGIC:
+
+1. **Home Page (Dashboard):**
+   - Display "FREE CASH FLOW" (FCF) in a large, bold metric font at the top.
+   - Layout: 3 columns for navigation buttons: [Income], [Expense], [Investment].
+   - Below that: Button [Set Target].
+   - Below that: Button [Performance].
+
+2. **Income Page:**
+   - Feature: Manage Categories. Allow user to add new income categories to a list.
+   - Input: Select Category (Dropdown from list), Input Amount (Float).
+   - Logic: Submit button adds Amount to FCF and logs the transaction.
+
+3. **Expense Page:**
+   - Display: "Dana Bebas" (Available Funds/FCF).
+   - Input: Expense Amount (Float), Description.
+   - Logic: Validate input. If Expense Amount > FCF, show error "Insufficient Funds". Else, subtract from FCF and log transaction.
+
+4. **Investment Page (2 Columns/Tabs):**
+   - **Buy Side:** Input Stock Name, Buy Price, Quantity. Logic: Subtract (Price * Qty) from FCF. Store portfolio data (avg price, total qty).
+   - **Sell Side:** Dropdown (Owned Stocks), Input Sell Price, Qty to Sell. Logic: Add (Sell Price * Qty) to FCF. Update portfolio quantity.
+
+5. **Set Target Page:**
+   - Inputs: Current Cash (adds to FCF immediately), Target Amount (Goal), Duration (Months).
+   - Logic: Calculate and display "Required Savings per Month" = Target / Duration. Store these variables.
+
+6. **Performance Page:**
+   - **Metrics:** Total Money vs Target (Progress Bar %).
+   - **Summary:** Total Income vs Total Expenses (Text).
+   - **Rankings:** List top Income sources by % contribution.
+   - **Charts:** Bar chart comparing Income vs Expense.
+   - **Month Reset Logic (Critical):** - Add a button "GANTI BULAN" (Next Month). 
+     - Algorithm: Decrease Duration by 1. Recalculate Monthly Target = (Target Amount - Current Total Money) / New Duration.
+     - Display the new "Required Monthly Savings" to reach the goal on time.
+
+STYLE:
+- Clean, minimal UI suitable for mobile screens.
+- Use Streamlit native components for responsiveness.
