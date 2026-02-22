@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
-import { insertTransactionSchema, insertTargetSchema } from "@shared/schema";
+import { insertTransactionSchema, insertTargetSchema } from "../shared/schema.js";
 import { z } from "zod";
 
 // IMPORT AI DARI FILE LAMA ANDA
