@@ -8,7 +8,7 @@ import {
   type ForexAsset, 
   type Debt, type InsertDebt,
   type Subscription, type InsertSubscription 
-} from "../shared/schema"; 
+} from "../shared/schema.js"; 
 // -------------------------------------------------------
 
 export interface IStorage {
