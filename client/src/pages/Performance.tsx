@@ -1,137 +1,349 @@
+import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
-import { Button, Card, StatCard } from "@/components/UIComponents";
-import { useUser, useTransactions, useInvestments, useTarget, useResetMonth } from "@/hooks/use-finance";
+import { Card } from "@/components/UIComponents";
+import { useUser, useTransactions, useTarget, useInvestments } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { AlertTriangle, Award, RefreshCw } from "lucide-react";
+import { Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Trophy, RefreshCcw } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Performance() {
   const { data: user } = useUser();
   const { data: transactions } = useTransactions();
-  const { data: investments } = useInvestments();
   const { data: target } = useTarget();
-  const resetMonth = useResetMonth();
+  const { data: investments } = useInvestments(); 
 
-  const fcf = user?.cashBalance || 0;
-  const investmentValue = investments?.reduce((acc, inv) => acc + (inv.quantity * inv.avgPrice), 0) || 0;
-  const totalWealth = fcf + investmentValue;
+  const now = new Date();
+  const currentMonthIdx = now.getMonth();
+  const currentYear = now.getFullYear();
 
-  const totalIncome = transactions?.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0) || 0;
-  const totalExpense = transactions?.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0) || 0;
+  const [forexValue, setForexValue] = useState(0);
+  const [expandedDetail, setExpandedDetail] = useState<'income' | 'expense' | null>(null);
 
-  // Chart Data
-  const data = [
-    { name: 'Income', amount: totalIncome / 100 },
-    { name: 'Expense', amount: totalExpense / 100 },
-  ];
+  useEffect(() => {
+      const fetchForex = async () => {
+          try {
+              const [resRates, resAssets] = await Promise.all([
+                  fetch("/api/forex/rates"),
+                  fetch("/api/forex")
+              ]);
+              if (resRates.ok && resAssets.ok) {
+                  const rates = await resRates.json();
+                  const assets = await resAssets.json();
+                  const total = assets.reduce((acc: number, asset: any) => {
+                      return acc + (asset.amount * (rates[asset.currency] || 0));
+                  }, 0);
+                  setForexValue(total);
+              }
+          } catch (e) { console.error("Gagal hitung valas", e); }
+      };
+      fetchForex();
+  }, []);
 
-  // Top Income Sources
-  const incomeMap = new Map<string, number>();
-  transactions?.filter(t => t.type === 'income').forEach(t => {
-     incomeMap.set(t.category, (incomeMap.get(t.category) || 0) + t.amount);
-  });
-  const topIncome = Array.from(incomeMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const cashReal = (user?.cashBalance || 0); 
+  
+  const investmentReal = investments?.reduce((acc, inv) => {
+      const isSaham = inv.type === 'saham' || (!inv.type && inv.symbol.length === 4);
+      const multiplier = isSaham ? 100 : 1;
+      return acc + (inv.quantity * inv.avgPrice * multiplier);
+  }, 0) || 0;
 
-  // Target Progress
-  const targetProgress = target ? Math.min(100, (totalWealth / target.targetAmount) * 100) : 0;
+  const currentWealth = cashReal + investmentReal + forexValue;
+
+  let targetIncomeMonth = 0;
+  let savingRequired = 0;
+  let expenseLimit = 0;
+  let monthsRemaining = 1; 
+  let progressPercent = 0;
+  let gap = 0;
+  let isPeriodEnded = false;
+  let isTargetAchieved = false;
+
+  if (target && target.targetAmount > 0) {
+      const targetGoal = target.targetAmount;
+      expenseLimit = (target.monthlyBudget || 0);
+
+      const startM = target.startMonth || (currentMonthIdx + 1);
+      const startY = target.startYear || currentYear;
+      const duration = target.durationMonths || 12;
+
+      const startTotalMonths = (startY * 12) + startM;
+      const currentTotalMonths = (currentYear * 12) + (currentMonthIdx + 1);
+      const monthsPassed = Math.max(0, currentTotalMonths - startTotalMonths);
+      
+      monthsRemaining = Math.max(1, duration - monthsPassed);
+      gap = Math.max(0, targetGoal - currentWealth);
+      savingRequired = Math.ceil(gap / monthsRemaining);
+      targetIncomeMonth = savingRequired + expenseLimit;
+      progressPercent = Math.min(100, Math.max(0, (currentWealth / targetGoal) * 100));
+
+      if (monthsPassed >= duration) {
+          isPeriodEnded = true;
+          isTargetAchieved = currentWealth >= targetGoal;
+      }
+  } else if (target && target.monthlyBudget > 0) {
+      expenseLimit = target.monthlyBudget;
+  }
+
+  const thisMonthTx = transactions?.filter(t => {
+      const d = new Date(t.date);
+      return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
+  }) || [];
+
+  const monthlyIncome = thisMonthTx.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0); 
+  const monthlyExpense = thisMonthTx.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0); 
+  const monthlyNet = monthlyIncome - monthlyExpense;
+  
+  const isSafe = monthlyNet >= savingRequired; 
+  const isOverBudget = expenseLimit > 0 && monthlyExpense > expenseLimit;
+
+  const detailList = thisMonthTx
+      .filter(t => expandedDetail ? t.type === expandedDetail : false)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const formatRp = (val: number) => {
+      if (isNaN(val)) return "Rp 0";
+      return formatCurrency(val).split(",")[0];
+  };
 
   return (
-    <MobileLayout title="Performance">
-       <div className="space-y-6">
-          
-          {/* Progress to Target */}
-          {target && (
-             <Card className="bg-primary text-primary-foreground border-none">
-                <div className="flex justify-between items-center mb-2">
-                   <h3 className="font-bold">Goal Progress</h3>
-                   <span className="text-xs bg-white/20 px-2 py-1 rounded-full">{targetProgress.toFixed(1)}%</span>
-                </div>
-                <div className="h-4 bg-black/20 rounded-full overflow-hidden mb-2">
-                   <div 
-                     className="h-full bg-white rounded-full transition-all duration-1000 ease-out"
-                     style={{ width: `${targetProgress}%` }}
-                   ></div>
-                </div>
-                <div className="flex justify-between text-xs opacity-80">
-                   <span>Current: {formatCurrency(totalWealth / 100)}</span>
-                   <span>Target: {formatCurrency(target.targetAmount / 100)}</span>
-                </div>
-             </Card>
-          )}
+    <MobileLayout title="Analisa Performa" showBack>
+      <div className="space-y-6 pt-4 pb-24 px-1">
 
-          {/* Monthly Stats */}
-          <div className="grid grid-cols-2 gap-4">
-             <StatCard 
-               label="Total Income" 
-               value={formatCurrency(totalIncome / 100)} 
-               type="positive"
-             />
-             <StatCard 
-               label="Total Expense" 
-               value={formatCurrency(totalExpense / 100)} 
-               type="negative"
-             />
-          </div>
-
-          {/* Chart */}
-          <Card className="h-64 pt-6">
-             <h3 className="font-bold mb-4 px-2">Cash Flow Overview</h3>
-             <ResponsiveContainer width="100%" height="80%">
-                <BarChart data={data}>
-                   <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                   <YAxis hide />
-                   <Tooltip 
-                     cursor={{ fill: 'transparent' }}
-                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                   />
-                   <Bar dataKey="amount" radius={[8, 8, 0, 0]}>
-                      {data.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : '#f43f5e'} />
-                      ))}
-                   </Bar>
-                </BarChart>
-             </ResponsiveContainer>
-          </Card>
-
-          {/* Top Sources */}
-          {topIncome.length > 0 && (
-            <Card>
-               <h3 className="font-bold mb-4 flex items-center gap-2">
-                  <Award className="w-5 h-5 text-yellow-500" /> Top Income Sources
-               </h3>
-               <div className="space-y-3">
-                  {topIncome.map(([category, amount], i) => (
-                     <div key={category} className="flex items-center justify-between pb-2 border-b border-border/50 last:border-0 last:pb-0">
-                        <div className="flex items-center gap-3">
-                           <span className="font-mono text-sm text-muted-foreground w-4">#{i + 1}</span>
-                           <span className="font-medium">{category}</span>
+        {isPeriodEnded && (
+            <div className={`p-5 rounded-[24px] text-white shadow-lg animate-in slide-in-from-top-4 ${isTargetAchieved ? 'bg-gradient-to-br from-yellow-400 to-amber-600' : 'bg-gradient-to-br from-rose-500 to-red-600'}`}>
+                {isTargetAchieved ? (
+                    <div className="flex items-center gap-4">
+                        <div className="bg-white/20 p-3 rounded-full"><Trophy className="w-8 h-8 text-white"/></div>
+                        <div>
+                            <h3 className="font-extrabold text-xl">Luar Biasa! 🎉</h3>
+                            <p className="text-xs text-white/90">Target finansialmu tercapai tepat waktu.</p>
                         </div>
-                        <span className="font-bold text-emerald-600">{formatCurrency(amount / 100)}</span>
-                     </div>
-                  ))}
-               </div>
-            </Card>
-          )}
+                    </div>
+                ) : (
+                    <div>
+                        <h3 className="font-extrabold text-xl flex items-center gap-2"><AlertCircle className="w-6 h-6"/> Waktu Habis</h3>
+                        <p className="text-xs text-white/90 mt-1 mb-4 leading-relaxed">Target belum sepenuhnya tercapai. Jangan menyerah, atur ulang strategi untuk melanjutkan sisa target.</p>
+                        <Link href="/target">
+                            <button className="bg-white text-rose-600 px-5 py-3 rounded-full text-xs font-extrabold shadow flex items-center justify-center gap-2 w-full active:scale-95 transition-transform">
+                                <RefreshCcw className="w-4 h-4"/> PERPANJANG DURASI STRATEGI
+                            </button>
+                        </Link>
+                    </div>
+                )}
+            </div>
+        )}
 
-          {/* Reset Month Button */}
-          <div className="pt-4 pb-8">
-             <Button 
-               variant="outline" 
-               className="w-full border-dashed border-2 hover:bg-muted"
-               onClick={() => {
-                  if(confirm("Are you sure? This will archive current month stats.")) {
-                     resetMonth.mutate();
-                  }
-               }}
-               isLoading={resetMonth.isPending}
-             >
-               <RefreshCw className="w-4 h-4 mr-2" /> Start Next Month
-             </Button>
-             <p className="text-xs text-center text-muted-foreground mt-2">
-               Resets tracking for the new period. Balance remains.
-             </p>
-          </div>
-       </div>
+        {/* HERO CARD Wondr/Bale Style */}
+        <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-800 text-white p-7 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden">
+            <div className="relative z-10 mb-6">
+                
+                {/* BARIS 1: JUDUL & TOMBOL EDIT (Sejajar di atas) */}
+                <div className="flex justify-between items-center mb-1">
+                    <p className="text-[11px] text-blue-200 uppercase tracking-widest font-bold">Total Kekayaan Bersih</p>
+                    
+                    {/* Tombol dipindah ke atas, padding dikecilkan sedikit */}
+                    {target && (
+                        <Link href="/target">
+                            <button className="bg-yellow-400 hover:bg-yellow-500 text-indigo-950 px-3 py-1.5 rounded-full text-[9px] font-extrabold shadow-md transition-all active:scale-95 uppercase tracking-wider whitespace-nowrap">
+                                {target.targetAmount > 0 ? "EDIT TARGET" : "TAMBAH TARGET"}
+                            </button>
+                        </Link>
+                    )}
+                </div>
+
+                {/* BARIS 2: ANGKA SALDO (Bebas tanpa halangan) */}
+                <h2 className="text-4xl font-extrabold font-display text-white truncate block w-full">{formatRp(currentWealth)}</h2>
+                
+                {/* BARIS 3: PILLS */}
+                <div className="flex flex-wrap gap-2 mt-4 text-[10px] font-bold">
+                    <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Tunai: {formatRp(cashReal)}</span>
+                    <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Aset: {formatRp(investmentReal)}</span>
+                    {forexValue > 0 && <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-emerald-200">Valas: {formatRp(forexValue)}</span>}
+                </div>
+            </div>
+
+            {target && target.targetAmount > 0 && (
+                <div className="relative z-10 bg-black/20 p-4 rounded-[20px] backdrop-blur-sm border border-white/10">
+                    <div className="flex justify-between text-[11px] text-blue-100 mb-2 font-bold uppercase tracking-wider">
+                        <span>Target Impian</span>
+                        <span className="text-emerald-300">{progressPercent.toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-black/30 h-3 rounded-full overflow-hidden mb-3">
+                        <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-300 transition-all duration-1000 rounded-full" style={{ width: `${progressPercent}%` }}></div>
+                    </div>
+                    <div className="flex justify-between text-xs font-bold text-white">
+                        <span>{formatRp(target.targetAmount)}</span>
+                        <span className="flex items-center gap-1 opacity-80"><CalendarClock className="w-4 h-4"/> Sisa {monthsRemaining} Bln</span>
+                    </div>
+                </div>
+            )}
+            <div className="absolute right-0 top-0 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
+            <div className="absolute left-0 bottom-0 w-32 h-32 bg-emerald-400/20 rounded-tr-full blur-2xl pointer-events-none"></div>
+        </div>
+
+        {target ? (
+            <div className="grid grid-cols-1 gap-5">
+                
+                {target.targetAmount > 0 && (
+                    <div className="p-6 rounded-[32px] bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100">
+                        <h3 className="font-extrabold text-slate-800 flex items-center gap-2 mb-5">
+                            <Target className="w-5 h-5 text-indigo-500"/> Goal Bulan Ini
+                        </h3>
+                        
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div className="bg-indigo-50/50 p-4 rounded-[20px] border border-indigo-100/50">
+                                <p className="text-[10px] text-indigo-500 uppercase font-extrabold tracking-widest mb-1">Wajib Nabung</p>
+                                <p className="font-extrabold text-indigo-700 text-lg">{formatRp(savingRequired)}</p>
+                            </div>
+                            {expenseLimit > 0 ? (
+                                <div className="bg-rose-50/50 p-4 rounded-[20px] border border-rose-100/50">
+                                    <p className="text-[10px] text-rose-500 uppercase font-extrabold tracking-widest mb-1">Batas Keluar</p>
+                                    <p className="font-extrabold text-rose-700 text-lg">{formatRp(expenseLimit)}</p>
+                                </div>
+                            ) : (
+                                <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100">
+                                    <p className="text-[10px] text-slate-500 uppercase font-extrabold tracking-widest mb-1">Batas Keluar</p>
+                                    <p className="font-extrabold text-slate-400 text-sm mt-1">Tanpa Batas (Bebas)</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {expenseLimit > 0 && (
+                            <div className="mt-4 p-4 bg-slate-800 rounded-[20px] flex justify-between items-center text-white shadow-md">
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Harus Dapat Pemasukan:</span>
+                                <span className="text-lg font-extrabold text-emerald-400">{formatRp(targetIncomeMonth)}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                <div className="p-0 border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] bg-white overflow-hidden rounded-[32px]">
+                    <div className="p-6 border-b border-slate-100">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="font-extrabold text-slate-800 text-base">Realisasi & Cashflow</h3>
+                                <p className="text-[11px] text-slate-400 font-medium">Klik grafik untuk rincian</p>
+                            </div>
+                            <span className={`text-[11px] font-extrabold px-3 py-1.5 rounded-full border ${monthlyNet >= 0 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                Net: {monthlyNet > 0 ? '+' : ''}{formatRp(monthlyNet)}
+                            </span>
+                        </div>
+
+                        <div className="flex items-end justify-around h-40 gap-4">
+                            <div 
+                                onClick={() => setExpandedDetail(expandedDetail === 'income' ? null : 'income')}
+                                className={`flex flex-col items-center gap-2 w-full h-full justify-end group cursor-pointer p-2 rounded-[20px] transition-all ${expandedDetail === 'income' ? 'bg-emerald-50 ring-2 ring-emerald-400 ring-offset-2' : 'hover:bg-slate-50'}`}
+                            >
+                                <span className="text-[11px] font-extrabold text-emerald-600">{formatRp(monthlyIncome)}</span>
+                                <div className="w-full bg-emerald-400 rounded-t-xl transition-all duration-1000 shadow-sm" style={{ height: `${Math.max(monthlyIncome/Math.max(monthlyIncome, monthlyExpense, 1)*100, 10)}%` }}></div>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mt-1">
+                                    <ArrowDownCircle className="w-3.5 h-3.5"/> Masuk
+                                    {expandedDetail === 'income' ? <ChevronUp className="w-3 h-3 text-emerald-500"/> : <ChevronDown className="w-3 h-3 opacity-30"/>}
+                                </span>
+                            </div>
+
+                            <div 
+                                onClick={() => setExpandedDetail(expandedDetail === 'expense' ? null : 'expense')}
+                                className={`flex flex-col items-center gap-2 w-full h-full justify-end group cursor-pointer p-2 rounded-[20px] transition-all ${expandedDetail === 'expense' ? 'bg-rose-50 ring-2 ring-rose-400 ring-offset-2' : 'hover:bg-slate-50'}`}
+                            >
+                                <span className="text-[11px] font-extrabold text-rose-600">{formatRp(monthlyExpense)}</span>
+                                <div className="w-full bg-rose-400 rounded-t-xl transition-all duration-1000 shadow-sm" style={{ height: `${Math.max(monthlyExpense/Math.max(monthlyIncome, monthlyExpense, 1)*100, 10)}%` }}></div>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mt-1">
+                                    <ArrowUpCircle className="w-3.5 h-3.5"/> Keluar
+                                    {expandedDetail === 'expense' ? <ChevronUp className="w-3 h-3 text-rose-500"/> : <ChevronDown className="w-3 h-3 opacity-30"/>}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className={`transition-all duration-500 ease-in-out overflow-hidden bg-slate-50/50 ${expandedDetail ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div className="p-5">
+                            <div className="flex justify-between items-center mb-4">
+                                <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest">
+                                    Riwayat {expandedDetail === 'income' ? 'Pemasukan' : 'Pengeluaran'}
+                                </span>
+                                <button onClick={() => setExpandedDetail(null)} className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Tutup</button>
+                            </div>
+                            
+                            <div className="space-y-3 max-h-56 overflow-y-auto custom-scrollbar pr-1">
+                                {detailList.length > 0 ? detailList.map((t, idx) => (
+                                    <div key={idx} className="bg-white p-4 rounded-[20px] border border-slate-100 shadow-sm flex justify-between items-center">
+                                        <div>
+                                            <p className="text-sm font-extrabold text-slate-800">{t.category}</p>
+                                            <p className="text-[11px] text-slate-500 line-clamp-1">{t.description || "Tanpa keterangan"}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className={`text-sm font-extrabold ${t.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                {t.type === 'income' ? '+' : '-'}{formatRp(t.amount)}
+                                            </p>
+                                            <p className="text-[10px] text-slate-400 font-medium">{new Date(t.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</p>
+                                        </div>
+                                    </div>
+                                )) : (
+                                    <p className="text-center text-xs text-slate-400 italic py-6 bg-white rounded-[20px] border border-dashed border-slate-200">Belum ada transaksi bulan ini.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {target.targetAmount > 0 && (
+                    <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm ${isSafe ? "border-emerald-100 bg-emerald-50" : "border-orange-100 bg-orange-50"}`}>
+                        <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Diagnosa Bulan Ini</p>
+                        {isSafe ? (
+                            <>
+                                <h3 className="text-xl font-extrabold text-emerald-600 mb-2">AMAN (ON TRACK) 🎉</h3>
+                                <p className="text-xs text-emerald-700 leading-relaxed font-medium">
+                                    Sisa uang bulan ini {formatRp(monthlyNet)}.<br/>
+                                    Memenuhi syarat minimal nabung ({formatRp(savingRequired)}).
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <h3 className="text-xl font-extrabold text-orange-600 mb-2">KURANG (OFF TRACK) ⚠️</h3>
+                                <p className="text-xs text-orange-700 leading-relaxed font-medium">
+                                    Sisa uang hanya {formatRp(monthlyNet)}.<br/>
+                                    Masih kurang <b>{formatRp(savingRequired - monthlyNet)}</b> untuk mencapai target tabungan bulan ini.
+                                </p>
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {target.targetAmount === 0 && expenseLimit > 0 && (
+                    <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm ${!isOverBudget ? "border-emerald-100 bg-emerald-50" : "border-rose-100 bg-rose-50"}`}>
+                        <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Kontrol Pengeluaran</p>
+                        {!isOverBudget ? (
+                            <>
+                                <h3 className="text-xl font-extrabold text-emerald-600 mb-2">PENGELUARAN AMAN 🛡️</h3>
+                                <p className="text-xs text-emerald-700 font-medium">Kamu masih punya sisa budget {formatRp(expenseLimit - monthlyExpense)} bulan ini.</p>
+                            </>
+                        ) : (
+                            <>
+                                <h3 className="text-xl font-extrabold text-rose-600 mb-2">AWAS OVERBUDGET 🚨</h3>
+                                <p className="text-xs text-rose-700 font-medium">Pengeluaran menembus batas! Kelebihan {formatRp(monthlyExpense - expenseLimit)}.</p>
+                            </>
+                        )}
+                    </div>
+                )}
+
+            </div>
+        ) : (
+            <div className="flex flex-col items-center justify-center py-24 text-slate-400 bg-white rounded-[32px] shadow-sm border border-slate-100 mt-4">
+                <div className="bg-slate-50 p-5 rounded-full mb-4">
+                    <AlertCircle className="w-12 h-12 text-slate-300"/>
+                </div>
+                <p className="font-extrabold text-slate-600 text-base mb-1">Belum ada strategi aktif.</p>
+                <p className="text-xs text-slate-400 mb-6">Atur tujuan finansialmu sekarang.</p>
+                <Link href="/target">
+                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-full text-sm font-extrabold shadow-lg shadow-indigo-200 transition-transform active:scale-95">
+                        MULAI SETUP STRATEGI
+                    </button>
+                </Link>
+            </div>
+        )}
+
+      </div>
     </MobileLayout>
   );
 }

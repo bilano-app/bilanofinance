@@ -1,219 +1,199 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl } from "@shared/routes";
-import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
+import { 
+  User, Transaction, InsertTransaction, Investment, InsertInvestment, 
+  Target, InsertTarget, Category, InsertCategory, ForexAsset, Debt, Subscription 
+} from "@shared/schema";
 
-// ============================================
-// USER & BALANCE
-// ============================================
+const getHeaders = () => {
+    const email = localStorage.getItem("bilano_email");
+    return { 
+        "Content-Type": "application/json",
+        "x-user-email": email || "guest" 
+    };
+};
 
+const CACHE_TIME = 1000 * 60; // 1 Menit
+
+// 1. USER
 export function useUser() {
-  return useQuery({
-    queryKey: [api.user.get.path],
+  return useQuery<User>({
+    queryKey: ["user"],
     queryFn: async () => {
-      const res = await fetch(api.user.get.path);
-      if (!res.ok) {
-        if (res.status === 404) return null;
-        throw new Error("Failed to fetch user");
-      }
-      return api.user.get.responses[200].parse(await res.json());
+      const res = await fetch("/api/user", { headers: getHeaders() });
+      if (!res.ok) throw new Error("Gagal ambil data user");
+      return res.json();
     },
+    staleTime: CACHE_TIME, 
   });
 }
 
-export function useUpdateBalance() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
-    mutationFn: async (amount: number) => {
-      const res = await fetch(api.user.updateBalance.path, {
-        method: api.user.updateBalance.method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount }),
-      });
-      if (!res.ok) throw new Error("Failed to update balance");
-      return api.user.updateBalance.responses[200].parse(await res.json());
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.user.get.path] });
-      toast({ title: "Success", description: "Balance updated successfully" });
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
-}
-
-// ============================================
-// TRANSACTIONS
-// ============================================
-
+// 2. TRANSACTIONS
 export function useTransactions() {
-  return useQuery({
-    queryKey: [api.transactions.list.path],
+  return useQuery<Transaction[]>({
+    queryKey: ["transactions"],
     queryFn: async () => {
-      const res = await fetch(api.transactions.list.path);
-      if (!res.ok) throw new Error("Failed to fetch transactions");
-      return api.transactions.list.responses[200].parse(await res.json());
+      const res = await fetch("/api/transactions", { headers: getHeaders() });
+      return res.json();
     },
+    staleTime: CACHE_TIME,
   });
 }
 
-export function useCreateTransaction() {
+export function useAddTransaction() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-
   return useMutation({
-    mutationFn: async (data: z.infer<typeof api.transactions.create.input>) => {
-      const res = await fetch(api.transactions.create.path, {
-        method: api.transactions.create.method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+    mutationFn: async (tx: InsertTransaction) => {
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(tx),
       });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to create transaction");
-      }
-      return api.transactions.create.responses[201].parse(await res.json());
+      if (!res.ok) throw new Error("Gagal buat transaksi");
+      return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.transactions.list.path] });
-      queryClient.invalidateQueries({ queryKey: [api.user.get.path] }); // Balance changes
-      toast({ title: "Success", description: "Transaction recorded" });
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["user"] });
     },
   });
 }
 
-// ============================================
-// INVESTMENTS
-// ============================================
-
+// 3. INVESTMENTS
 export function useInvestments() {
-  return useQuery({
-    queryKey: [api.investments.list.path],
+  return useQuery<Investment[]>({
+    queryKey: ["investments"],
     queryFn: async () => {
-      const res = await fetch(api.investments.list.path);
-      if (!res.ok) throw new Error("Failed to fetch investments");
-      return api.investments.list.responses[200].parse(await res.json());
+      const res = await fetch("/api/investments", { headers: getHeaders() });
+      return res.json();
     },
+    staleTime: CACHE_TIME,
   });
 }
 
 export function useBuyInvestment() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-
   return useMutation({
-    mutationFn: async (data: z.infer<typeof api.investments.buy.input>) => {
-      const res = await fetch(api.investments.buy.path, {
-        method: api.investments.buy.method,
-        headers: { "Content-Type": "application/json" },
+    mutationFn: async (data: any) => {
+      const res = await fetch("/api/investments/buy", {
+        method: "POST",
+        headers: getHeaders(),
         body: JSON.stringify(data),
       });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to buy investment");
-      }
-      return api.investments.buy.responses[200].parse(await res.json());
+      if (!res.ok) throw new Error("Gagal beli investasi");
+      return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.investments.list.path] });
-      queryClient.invalidateQueries({ queryKey: [api.user.get.path] });
-      toast({ title: "Purchase Successful", description: "Investment added to your portfolio" });
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      queryClient.invalidateQueries({ queryKey: ["investments"] });
+      queryClient.invalidateQueries({ queryKey: ["user"] });
     },
   });
 }
 
 export function useSellInvestment() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-
   return useMutation({
-    mutationFn: async (data: z.infer<typeof api.investments.sell.input>) => {
-      const res = await fetch(api.investments.sell.path, {
-        method: api.investments.sell.method,
-        headers: { "Content-Type": "application/json" },
+    mutationFn: async (data: any) => {
+      const res = await fetch("/api/investments/sell", {
+        method: "POST",
+        headers: getHeaders(),
         body: JSON.stringify(data),
       });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to sell investment");
-      }
-      return api.investments.sell.responses[200].parse(await res.json());
+      if (!res.ok) throw new Error("Gagal jual investasi");
+      return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.investments.list.path] });
-      queryClient.invalidateQueries({ queryKey: [api.user.get.path] });
-      toast({ title: "Sale Successful", description: "Funds added to your balance" });
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      queryClient.invalidateQueries({ queryKey: ["investments"] });
+      queryClient.invalidateQueries({ queryKey: ["user"] });
     },
   });
 }
 
-// ============================================
-// TARGETS
-// ============================================
-
+// 4. TARGET
 export function useTarget() {
-  return useQuery({
-    queryKey: [api.target.get.path],
+  return useQuery<Target | null>({
+    queryKey: ["target"],
     queryFn: async () => {
-      const res = await fetch(api.target.get.path);
-      if (!res.ok) throw new Error("Failed to fetch target");
-      return api.target.get.responses[200].parse(await res.json());
+      const res = await fetch("/api/target", { headers: getHeaders() });
+      const data = await res.json();
+      return data || null; 
     },
+    staleTime: CACHE_TIME,
   });
 }
 
-export function useSetTarget() {
+export function useUpdateTarget() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-
   return useMutation({
-    mutationFn: async (data: z.infer<typeof api.target.set.input>) => {
-      const res = await fetch(api.target.set.path, {
-        method: api.target.set.method,
-        headers: { "Content-Type": "application/json" },
+    mutationFn: async (data: any) => {
+      const res = await fetch("/api/target", {
+        method: "POST",
+        headers: getHeaders(),
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to set target");
-      return api.target.set.responses[200].parse(await res.json());
+      if (!res.ok) throw new Error("Gagal update target");
+      return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.target.get.path] });
-      queryClient.invalidateQueries({ queryKey: [api.user.get.path] });
-      toast({ title: "Target Set", description: "Your financial goals have been updated" });
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      queryClient.invalidateQueries({ queryKey: ["target"] });
+      queryClient.invalidateQueries({ queryKey: ["user"] });
     },
   });
 }
 
-export function useResetMonth() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  return useMutation({
-    mutationFn: async () => {
-      const res = await fetch(api.target.resetMonth.path, {
-        method: api.target.resetMonth.method,
-      });
-      if (!res.ok) throw new Error("Failed to reset month");
-      return api.target.resetMonth.responses[200].parse(await res.json());
+// 5. LAIN-LAIN
+export function useCategories() {
+  return useQuery<Category[]>({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const res = await fetch("/api/categories", { headers: getHeaders() });
+      return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.target.get.path] });
-      toast({ title: "New Month Started", description: "Good luck with your goals this month!" });
-    },
+    staleTime: Infinity,
   });
+}
+
+export function useForexAssets() {
+    return useQuery<ForexAsset[]>({
+        queryKey: ["forex"],
+        queryFn: async () => {
+            const res = await fetch("/api/forex", { headers: getHeaders() });
+            return res.json();
+        },
+        staleTime: CACHE_TIME,
+    });
+}
+
+export function useDebts() {
+    return useQuery<Debt[]>({
+        queryKey: ["debts"],
+        queryFn: async () => {
+            const res = await fetch("/api/debts", { headers: getHeaders() });
+            return res.json();
+        },
+        staleTime: CACHE_TIME,
+    });
+}
+
+export function useSubscriptions() {
+    return useQuery<Subscription[]>({
+        queryKey: ["subscriptions"],
+        queryFn: async () => {
+            const res = await fetch("/api/subscriptions", { headers: getHeaders() });
+            return res.json();
+        },
+        staleTime: CACHE_TIME,
+    });
+}
+
+// --- BARU: HOOK UNTUK LAPORAN ---
+export function useReportsData() {
+    return useQuery({
+        queryKey: ["reports"],
+        queryFn: async () => {
+            const res = await fetch("/api/reports/data", { headers: getHeaders() });
+            if (!res.ok) throw new Error("Gagal ambil data laporan");
+            return res.json();
+        },
+        staleTime: CACHE_TIME,
+    });
 }

@@ -1,70 +1,51 @@
-import { ReactNode } from "react";
-import { Link, useLocation } from "wouter";
-import { Home, PieChart, Wallet, TrendingUp, Target } from "lucide-react";
-import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { Link } from "wouter";
+import { ArrowLeft } from "lucide-react";
 
-export function MobileLayout({ children, title, showBack = false }: { children: ReactNode; title?: string; showBack?: boolean }) {
-  const [location] = useLocation();
+interface LayoutProps {
+  children: React.ReactNode;
+  title?: string;
+  showBack?: boolean;
+}
 
+export function MobileLayout({ children, title, showBack = false }: LayoutProps) {
   return (
-    <div className="min-h-screen bg-background text-foreground pb-24 font-body selection:bg-primary/20">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {showBack && (
-            <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-muted transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-left"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+    // WRAPPER UTAMA: Kunci tinggi layar (h-screen) tapi konten boleh scroll
+    <div className="h-screen bg-slate-50 text-foreground font-sans flex flex-col mx-auto max-w-md shadow-2xl border-x border-slate-200 overflow-hidden relative">
+      
+      {/* --- HEADER (LOGO TENGAH) --- */}
+      <header className="shrink-0 h-16 bg-white/95 backdrop-blur-md border-b border-slate-100 flex items-center justify-center relative z-40 px-4">
+        
+        {/* Tombol Back (Hanya muncul di sub-halaman) */}
+        {showBack && (
+          <div className="absolute left-4 top-1/2 -translate-y-1/2">
+            <Link href="/">
+              <button className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors text-slate-600">
+                <ArrowLeft className="h-6 w-6" />
+              </button>
             </Link>
-          )}
-          <h1 className="text-xl font-display font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            {title || "FinFlow"}
-          </h1>
-        </div>
-        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-          U
+          </div>
+        )}
+
+        {/* LOGO TENGAH MUTLAK */}
+        <div className="flex items-center justify-center">
+           {title ? (
+               <h1 className="font-bold text-lg text-slate-800">{title}</h1>
+           ) : (
+               <img 
+                 src="/bilano_logo_horiz.png" 
+                 alt="BILANO" 
+                 className="h-9 w-auto object-contain" 
+               />
+           )}
         </div>
       </header>
 
-      {/* Content */}
-      <main className="px-4 py-6 max-w-md mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.3 }}
-        >
-          {children}
-        </motion.div>
+      {/* --- CONTENT AREA --- */}
+      {/* flex-1 & overflow-y-auto: Agar konten mengisi sisa ruang & bisa discroll jika panjang */}
+      <main className="flex-1 overflow-y-auto scrollbar-hide p-5 pb-8 relative">
+        {children}
       </main>
-
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border/50 px-6 py-2 pb-6 z-50">
-        <div className="max-w-md mx-auto flex justify-between items-center">
-          <NavItem href="/" icon={<Home size={22} />} label="Home" active={location === "/"} />
-          <NavItem href="/income" icon={<Wallet size={22} />} label="Income" active={location === "/income"} />
-          <NavItem href="/expense" icon={<PieChart size={22} />} label="Expense" active={location === "/expense"} />
-          <NavItem href="/investment" icon={<TrendingUp size={22} />} label="Invest" active={location === "/investment"} />
-          <NavItem href="/performance" icon={<Target size={22} />} label="Stats" active={location === "/performance"} />
-        </div>
-      </nav>
+      
     </div>
-  );
-}
-
-function NavItem({ href, icon, label, active }: { href: string; icon: ReactNode; label: string; active: boolean }) {
-  return (
-    <Link href={href} className={cn(
-      "flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-200",
-      active ? "text-primary bg-primary/5" : "text-muted-foreground hover:text-foreground"
-    )}>
-      <motion.div
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-      >
-        {icon}
-      </motion.div>
-      <span className="text-[10px] font-medium">{label}</span>
-    </Link>
   );
 }

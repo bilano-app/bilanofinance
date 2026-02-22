@@ -1,114 +1,151 @@
-import React, { ButtonHTMLAttributes, InputHTMLAttributes } from "react";
+import React, { InputHTMLAttributes, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
-export function Button({ 
-  children, 
-  className, 
-  variant = "primary", 
-  isLoading, 
-  disabled,
-  ...props 
-}: ButtonHTMLAttributes<HTMLButtonElement> & { 
-  variant?: "primary" | "secondary" | "outline" | "danger" | "ghost",
-  isLoading?: boolean 
-}) {
-  const variants = {
-    primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20",
-    secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-    outline: "border-2 border-primary text-primary hover:bg-primary/5 bg-transparent",
-    danger: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-lg shadow-destructive/20",
-    ghost: "hover:bg-muted text-foreground bg-transparent"
+// --- BUTTON ---
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "default" | "outline" | "ghost" | "danger" | "secondary";
+  size?: "default" | "sm" | "lg" | "icon";
+  isLoading?: boolean;
+}
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = "default", size = "default", isLoading, children, ...props }, ref) => {
+    const variants = {
+      default: "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-200",
+      outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+      ghost: "hover:bg-accent hover:text-accent-foreground",
+      danger: "bg-rose-600 text-white hover:bg-rose-700 shadow-rose-200",
+      secondary: "bg-slate-800 text-white hover:bg-slate-900",
+    };
+    const sizes = {
+      default: "h-10 px-4 py-2",
+      sm: "h-9 rounded-md px-3",
+      lg: "h-12 rounded-xl px-8",
+      icon: "h-10 w-10",
+    };
+    return (
+      <button
+        ref={ref}
+        className={cn("inline-flex items-center justify-center rounded-xl text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50", variants[variant], sizes[size], className)}
+        disabled={isLoading || props.disabled}
+        {...props}
+      >
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {children}
+      </button>
+    );
+  }
+);
+Button.displayName = "Button";
+
+// --- INPUT ---
+export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {}
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => {
+    return (
+      <input
+        type={type}
+        className={cn("flex h-12 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50", className)}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+Input.displayName = "Input";
+
+// --- SELECT (INI YANG KITA TAMBAHKAN) ---
+interface SelectOption {
+    value: string;
+    label: string;
+}
+
+interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+    options: SelectOption[];
+}
+
+export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
+    ({ className, options, ...props }, ref) => {
+        return (
+            <div className="relative">
+                <select
+                    className={cn(
+                        "flex h-12 w-full appearance-none rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50",
+                        className
+                    )}
+                    ref={ref}
+                    {...props}
+                >
+                    {options.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                        </option>
+                    ))}
+                </select>
+                {/* Ikon Panah ke Bawah */}
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </div>
+            </div>
+        );
+    }
+);
+Select.displayName = "Select";
+
+// --- CURRENCY INPUT ---
+interface CurrencyInputProps extends Omit<InputProps, 'onChange'> {
+  label?: string;
+  value: string | number;
+  onChange: (value: string) => void;
+}
+export const CurrencyInput = ({ label, value, onChange, className, ...props }: CurrencyInputProps) => {
+  const formatNumber = (numStr: string) => {
+    if (!numStr) return "";
+    const num = numStr.replace(/\D/g, ""); 
+    return new Intl.NumberFormat("id-ID").format(Number(num));
   };
-
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/\./g, ""); 
+    if (!isNaN(Number(rawValue))) onChange(rawValue);
+  };
   return (
-    <button
-      disabled={disabled || isLoading}
-      className={cn(
-        "relative flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-semibold transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed",
-        variants[variant],
-        className
-      )}
-      {...props}
-    >
-      {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
-      {children}
-    </button>
-  );
-}
-
-export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      className={cn(
-        "w-full px-4 py-4 rounded-xl bg-muted/50 border border-transparent focus:bg-background focus:border-primary/50 focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all duration-200 placeholder:text-muted-foreground/50",
-        className
-      )}
-      {...props}
-    />
-  );
-}
-
-export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cn("bg-card rounded-3xl p-6 shadow-sm border border-border/50", className)}>
-      {children}
-    </div>
-  );
-}
-
-export function CurrencyInput({ 
-  value, 
-  onChange, 
-  placeholder = "0.00",
-  label 
-}: { 
-  value: string, 
-  onChange: (val: string) => void,
-  placeholder?: string,
-  label?: string
-}) {
-  return (
-    <div className="space-y-2">
-      {label && <label className="text-sm font-medium text-muted-foreground ml-1">{label}</label>}
+    <div className={cn("space-y-2", className)}>
+      {label && <label className="text-sm font-medium leading-none ml-1">{label}</label>}
       <div className="relative">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">$</span>
-        <Input
-          type="number"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="pl-8 text-lg font-medium"
-        />
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm pointer-events-none">Rp</div>
+        <Input type="text" inputMode="numeric" className="pl-10 font-mono text-lg" value={formatNumber(value.toString())} onChange={handleChange} {...props} />
       </div>
     </div>
   );
+};
+
+// --- CARD SYSTEM ---
+export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("rounded-2xl border bg-card text-card-foreground shadow-sm bg-white", className)} {...props} />;
+}
+export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("flex flex-col space-y-1.5 p-6 pb-2", className)} {...props} />;
+}
+export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+  return <h3 className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props} />;
+}
+export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("p-6 pt-0", className)} {...props} />;
 }
 
-import { ReactNode } from "react";
-
-export function StatCard({ label, value, subtext, icon, type = "neutral" }: { 
-  label: string, 
-  value: string, 
-  subtext?: string, 
-  icon?: ReactNode,
-  type?: "positive" | "negative" | "neutral" | "brand"
-}) {
-  const typeStyles = {
-    positive: "bg-emerald-50 text-emerald-900 border-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-50 dark:border-emerald-900/50",
-    negative: "bg-rose-50 text-rose-900 border-rose-100 dark:bg-rose-950/30 dark:text-rose-50 dark:border-rose-900/50",
-    neutral: "bg-card text-foreground border-border/50",
-    brand: "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
+// --- STAT CARD ---
+export const StatCard = ({ label, value, type = 'neutral', icon }: { label: string, value: string, type?: 'positive' | 'negative' | 'neutral' | 'brand', icon?: React.ReactNode }) => {
+  const colors = {
+    positive: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    negative: "bg-rose-50 text-rose-700 border-rose-100",
+    neutral: "bg-card border-border",
+    brand: "bg-primary text-primary-foreground border-primary"
   };
-
   return (
-    <div className={cn("rounded-2xl p-5 border shadow-sm flex flex-col gap-1", typeStyles[type])}>
-      <div className="flex justify-between items-start">
-        <span className={cn("text-sm font-medium opacity-80", type === "brand" ? "text-primary-foreground/80" : "text-muted-foreground")}>{label}</span>
-        {icon && <div className="opacity-80">{icon}</div>}
-      </div>
-      <div className="text-2xl font-bold font-display tracking-tight mt-1">{value}</div>
-      {subtext && <div className={cn("text-xs mt-1 font-medium opacity-70")}>{subtext}</div>}
+    <div className={cn("p-4 rounded-2xl border flex flex-col justify-between h-28 shadow-sm", colors[type])}>
+       <div className="flex justify-between items-start"><span className="text-xs font-bold uppercase tracking-wider opacity-70">{label}</span>{icon}</div>
+       <span className="text-xl sm:text-2xl font-bold font-display truncate">{value}</span>
     </div>
   );
-}
+};

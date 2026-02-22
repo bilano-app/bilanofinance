@@ -114,4 +114,71 @@ export function buildUrl(path: string, params?: Record<string, string | number>)
     });
   }
   return url;
+
+// =================================================================
+  // 8. AI CONTEXT PROVIDER (Data Feed untuk Chatbot)
+  // =================================================================
+  
+  app.get("/api/ai/context", async (req, res) => {
+      const userId = 1;
+      const user = await storage.getUser(userId);
+      const target = await storage.getTarget(userId);
+      const allTx = await storage.getTransactions(userId);
+      const investments = await storage.getInvestments(userId);
+      
+      // 1. Analisa Arus Kas (30 Hari Terakhir)
+      const now = new Date();
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      
+      const recentTx = allTx.filter(t => new Date(t.date) >= thirtyDaysAgo);
+      const income = recentTx.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+      const expense = recentTx.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+      
+      // Top Pengeluaran
+      const expenseCats: Record<string, number> = {};
+      recentTx.filter(t => t.type === 'expense').forEach(t => {
+          expenseCats[t.category] = (expenseCats[t.category] || 0) + t.amount;
+      });
+      const topExpense = Object.entries(expenseCats).sort((a,b) => b[1] - a[1])[0]; // Kategori terboros
+
+      // 2. Analisa Portfolio
+      let totalInvested = 0;
+      let portfolioMap: Record<string, number> = {};
+      
+      investments.forEach(inv => {
+          const type = inv.type || (inv.symbol.length === 4 ? 'saham' : 'other');
+          const multiplier = (type === 'saham') ? 100 : 1;
+          const val = inv.quantity * inv.avgPrice * multiplier;
+          
+          totalInvested += val;
+          portfolioMap[type] = (portfolioMap[type] || 0) + val;
+      });
+
+      // 3. Status Target
+      const cash = user?.cashBalance || 0;
+      const totalWealth = cash + totalInvested;
+      
+      let targetStatus = "Belum ada target.";
+      if (target && target.targetAmount > 0) {
+          const progress = (totalWealth / target.targetAmount) * 100;
+          targetStatus = `Target: Rp${target.targetAmount/100}, Tercapai: ${progress.toFixed(1)}%. Sisa waktu: ${target.durationMonths} bulan.`;
+      }
+
+      // Rangkum Data untuk AI
+      const context = {
+          cash,
+          income,
+          expense,
+          cashflow: income - expense,
+          topExpenseCategory: topExpense ? topExpense[0] : "Tidak ada",
+          totalInvested,
+          portfolioMap, // Sebaran aset (misal: saham 50%, crypto 20%)
+          totalWealth,
+          targetStatus,
+          txCount: recentTx.length
+      };
+
+      res.json(context);
+  });
 }

@@ -1,115 +1,124 @@
 import { useState } from "react";
+import { useAddTransaction, useUser } from "@/hooks/use-finance";
 import { MobileLayout } from "@/components/Layout";
-import { Button, Card, CurrencyInput, Input } from "@/components/UIComponents";
-import { useCreateTransaction } from "@/hooks/use-finance";
-import { useLocation } from "wouter";
-import { Plus, Tag, DollarSign } from "lucide-react";
-import { motion } from "framer-motion";
+import { Button, Input } from "@/components/UIComponents";
+import { Loader2, Wallet } from "lucide-react";
+import { queryClient } from "@/lib/queryClient";
 
 export default function Income() {
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("");
-  const [isCustomCategory, setIsCustomCategory] = useState(false);
-  const [, setLocation] = useLocation();
+  const { data: user } = useUser();
+  const addTransaction = useAddTransaction();
   
-  const createTx = useCreateTransaction();
+  const [amountStr, setAmountStr] = useState("");
+  const [category, setCategory] = useState("Gaji");
+  const [description, setDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!amount || !category) return;
+  const formatRp = (val: number) => "Rp " + val.toLocaleString("id-ID");
+  const currentCash = user?.cashBalance || 0;
 
-    await createTx.mutateAsync({
-      type: "income",
-      amount: Math.round(parseFloat(amount) * 100), // Convert to cents
-      category: category,
-      description: "Income entry",
-    });
-    
-    setLocation("/");
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/\D/g, "");
+    if (rawValue === "") {
+        setAmountStr("");
+    } else {
+        const numberValue = parseInt(rawValue, 10);
+        setAmountStr(new Intl.NumberFormat("id-ID").format(numberValue));
+    }
   };
 
-  const categories = ["Salary", "Freelance", "Gift", "Investment Return", "Bonus"];
+  const handleSubmit = async () => {
+    const cleanAmount = parseInt(amountStr.replace(/\./g, ""), 10);
+
+    if (!cleanAmount || cleanAmount <= 0) {
+        alert("Masukkan jumlah uang yang valid");
+        return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await addTransaction.mutateAsync({
+        amount: cleanAmount, 
+        type: "income",
+        category,
+        description: description || "Pemasukan Rutin",
+        date: new Date().toISOString(),
+      });
+      
+      await queryClient.invalidateQueries();
+      window.location.href = "/";
+      
+    } catch (error) {
+      alert("Gagal menyimpan data");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <MobileLayout title="Add Income" showBack>
-      <div className="space-y-6 mt-4">
+    <MobileLayout title="Catat Pemasukan" showBack>
+      <div className="space-y-6 pt-4 relative pb-20 px-2">
         
-        {/* Header Icon */}
-        <div className="flex justify-center mb-8">
-          <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center text-emerald-600 animate-in zoom-in duration-300">
-             <DollarSign className="w-10 h-10" />
-          </div>
+        {/* INFO SALDO UTAMA */}
+        <div className="text-center space-y-2 animate-in slide-in-from-top-4 pb-4">
+            <div className="inline-flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-full">
+                <Wallet className="w-3.5 h-3.5" /> Saldo Tunai (Cash)
+            </div>
+            <div className="text-4xl font-extrabold text-slate-800 tracking-tight">
+                {formatRp(currentCash)}
+            </div>
+            <div className="mt-2 text-xs text-emerald-600 bg-emerald-50 border border-emerald-100 inline-block px-4 py-1.5 rounded-full font-bold">
+                + Tambah Pemasukan
+            </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Card className="space-y-6 border-emerald-100 dark:border-emerald-900/30 shadow-lg shadow-emerald-500/5">
-            <CurrencyInput 
-              label="Amount Received"
-              value={amount}
-              onChange={setAmount}
-              placeholder="0.00"
-            />
-
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-muted-foreground ml-1 flex items-center gap-2">
-                <Tag className="w-4 h-4" /> Category
-              </label>
+        {/* FORM INPUT */}
+        <div className="bg-white p-6 rounded-[32px] space-y-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
+            <div className="space-y-5">
               
-              {!isCustomCategory ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setCategory(cat)}
-                      className={`p-3 rounded-xl text-sm font-medium transition-all ${
-                        category === cat 
-                          ? "bg-emerald-600 text-white shadow-md shadow-emerald-200" 
-                          : "bg-muted hover:bg-muted/80 text-foreground"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => { setIsCustomCategory(true); setCategory(""); }}
-                    className="p-3 rounded-xl text-sm font-medium bg-muted/50 border border-dashed border-border hover:bg-muted text-muted-foreground flex items-center justify-center gap-1"
-                  >
-                    <Plus className="w-4 h-4" /> Custom
-                  </button>
+              <div>
+                <label className="text-[11px] uppercase tracking-widest font-bold text-slate-400 block mb-2 ml-1">Nominal Pemasukan</label>
+                <div className="relative">
+                    <span className="absolute left-4 top-4 font-extrabold text-slate-400 text-lg">Rp</span>
+                    <Input
+                      type="tel" 
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={amountStr}
+                      onChange={handleAmountChange}
+                      className="pl-14 h-16 text-2xl font-extrabold text-slate-800 bg-slate-50 border-transparent focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 rounded-[20px] transition-all"
+                    />
                 </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Input 
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    placeholder="Enter source name..."
-                    className="flex-1"
-                    autoFocus
-                  />
-                  <Button 
-                    type="button" 
-                    variant="secondary" 
-                    onClick={() => setIsCustomCategory(false)}
-                    className="px-4"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
-            </div>
-          </Card>
+              </div>
 
-          <Button 
-            type="submit" 
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200"
-            disabled={!amount || !category}
-            isLoading={createTx.isPending}
-          >
-            Add Income
-          </Button>
-        </form>
+              <div>
+                <label className="text-[11px] uppercase tracking-widest font-bold text-slate-400 block mb-2 ml-1">Kategori</label>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                    {["Gaji", "Bonus", "Bisnis", "Hadiah"].map((cat) => (
+                        <button key={cat} type="button" onClick={() => setCategory(cat)} className={`text-sm py-3.5 px-4 rounded-[16px] font-bold border transition-all ${category === cat ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"}`}>{cat}</button>
+                    ))}
+                </div>
+                <Input placeholder="Ketik kategori lainnya..." value={category} onChange={(e) => setCategory(e.target.value)} className="text-sm font-medium mb-3 h-14 rounded-[16px] bg-slate-50 border-transparent focus:bg-white focus:border-emerald-500"/>
+                
+                <textarea
+                  placeholder="Catatan Tambahan (Opsional)"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full bg-slate-50 border border-transparent rounded-[16px] px-4 py-4 outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all text-sm min-h-[100px] resize-none"
+                />
+              </div>
+
+            </div>
+
+            <Button 
+                onClick={() => handleSubmit()} 
+                className="w-full h-16 bg-emerald-500 hover:bg-emerald-600 text-white text-lg font-extrabold shadow-lg shadow-emerald-200 rounded-full active:scale-95 transition-transform"
+                disabled={isSubmitting}
+            >
+                {isSubmitting ? <Loader2 className="animate-spin w-6 h-6" /> : "SIMPAN PEMASUKAN"}
+            </Button>
+        </div>
+
       </div>
     </MobileLayout>
   );

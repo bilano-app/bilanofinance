@@ -8,38 +8,28 @@
   --font-body: 'Inter', sans-serif;
   --font-display: 'Inter', sans-serif;
 
-  /* Professional Blue & White Theme - Single Color */
+  /* Professional Blue & White Theme */
   --background: 0 0% 100%;
   --foreground: 0 0% 0%;
-
   --card: 0 0% 100%;
   --card-foreground: 0 0% 0%;
-
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 0%;
-
   --primary: 214 97% 48%;
   --primary-foreground: 0 0% 100%;
-
   --secondary: 0 0% 96%;
   --secondary-foreground: 0 0% 0%;
-
   --muted: 0 0% 90%;
   --muted-foreground: 0 0% 40%;
-
   --accent: 214 97% 48%;
   --accent-foreground: 0 0% 100%;
-
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-
   --border: 0 0% 88%;
   --input: 0 0% 95%;
   --ring: 214 97% 48%;
-
   --radius: 0.75rem;
   
-  /* Chart colors - single blue tone */
   --chart-1: 214 97% 48%;
   --chart-2: 214 97% 55%;
   --chart-3: 214 97% 40%;
@@ -50,28 +40,20 @@
 .dark {
   --background: 0 0% 100%;
   --foreground: 0 0% 0%;
-
   --card: 0 0% 100%;
   --card-foreground: 0 0% 0%;
-
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 0%;
-
   --primary: 214 97% 48%;
   --primary-foreground: 0 0% 100%;
-
   --secondary: 0 0% 96%;
   --secondary-foreground: 0 0% 0%;
-
   --muted: 0 0% 90%;
   --muted-foreground: 0 0% 40%;
-
   --accent: 214 97% 48%;
   --accent-foreground: 0 0% 100%;
-
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-
   --border: 0 0% 88%;
   --input: 0 0% 95%;
   --ring: 214 97% 48%;
@@ -91,18 +73,29 @@
   }
 }
 
-/* Custom Scrollbar for sleek look */
+/* --- TEKNIK "APP SHELL" UNTUK MEMBUAT TAMPILAN STATIC/DIAM --- */
+
+/* 1. Kunci Scroll Browser Utama */
+html, body {
+  height: 100%;       /* Paksa tinggi layar 100% */
+  width: 100%;
+  overflow: hidden;   /* MATIKAN scroll di body (menghilangkan scrollbar browser) */
+  overscroll-behavior: none; /* MATIKAN efek membal (rubber banding) di iOS/Mac */
+}
+
+/* 2. Pindahkan Scroll ke dalam Aplikasi (#root) */
+#root {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;   /* Scroll terjadi di sini JIKA konten lebih panjang dari layar */
+  -webkit-overflow-scrolling: touch; /* Agar scroll tetap licin di HP */
+}
+
+/* 3. Sembunyikan Bar Scroll (Visual Only) */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  display: none;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
