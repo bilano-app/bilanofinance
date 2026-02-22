@@ -64,13 +64,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   updateRatesBackground();
 
   // --- HELPER DETEKSI USER ---
-  const getUser = async (req: any) => {
+// --- HELPER DETEKSI USER ---
+    const getUser = async (req: any) => {
     const email = req.headers["x-user-email"];
-    if (!email || email === "guest") return await storage.getUser(1); 
-    let user = await storage.getUserByUsername(email as string);
-    if (!user) user = await storage.createUser({ username: email as string, password: "123", email: email as string });
-    return user;
-  };
+
+    // Jika masuk sebagai Guest
+    if (!email || email === "guest") {
+        let user = await storage.getUser(1);
+        // JIKA USER 1 KOSONG, BUATKAN OTOMATIS
+        if (!user) {
+            user = await storage.createUser({ username: "guest", password: "123", email: "guest@bilano.app" });
+        }
+        return user;
+    }
+
+  // Jika masuk menggunakan Email
+  let user = await storage.getUserByUsername(email as string);
+  if (!user) {
+      user = await storage.createUser({ username: email as string, password: "123", email: email as string });
+  }
+  return user;
+};
 
   // =================================================================
   // 🤖 AI CHAT ENDPOINT (MENGGUNAKAN LOGIKA PINTAR LAMA ANDA)
