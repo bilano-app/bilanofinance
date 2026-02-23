@@ -145,7 +145,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // --- VALAS ---
   app.get("/api/forex", async (req, res) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
-  app.get("/api/forex/rates", async (req, res) => { res.json(cachedRates); updateRatesBackground(); });
+  app.get("/api/forex/rates", async (req, res) => { 
+      try {
+          // 1. Ambil data live dari API
+          const response = await fetch("https://open.er-api.com/v6/latest/USD");
+          if (response.ok) {
+              const data = await response.json();
+              const rates = data.rates;
+              const idrBase = rates.IDR;
+              
+              // 2. Hitung kurs live
+              const liveRates = {
+                  "USD": idrBase, 
+                  "EUR": idrBase / rates.EUR, 
+                  "SGD": idrBase / rates.SGD,
+                  "JPY": idrBase / rates.JPY, 
+                  "AUD": idrBase / rates.AUD, 
+                  "GBP": idrBase / rates.GBP,
+                  "CNY": idrBase / rates.CNY, 
+                  "MYR": idrBase / rates.MYR, 
+                  "SAR": idrBase / rates.SAR, 
+                  "KRW": idrBase / rates.KRW
+              };
+              return res.json(liveRates); // Kirim harga live ke aplikasi
+          }
+      } catch (e) { 
+          console.log("Gagal fetch kurs live, pakai patokan darurat."); 
+      }
+
+      // 3. Hanya dipakai kalau API sedang down/error
+      res.json({ 
+          "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
+          "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12 
+      }); 
+  });
   app.post("/api/forex/transaction", async (req, res) => {
       const user = await getUser(req);
       const { type, currency, amount } = req.body;
