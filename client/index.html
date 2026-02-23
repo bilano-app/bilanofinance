@@ -1,5 +1,26 @@
 <!DOCTYPE html>
 <html lang="id">
+  <style>
+    /* Mengecilkan semua elemen secara proporsional khusus di HP */
+    @media (max-width: 768px) {
+      html {
+        font-size: 13px !important; /* Standar web biasanya 16px, kita padatkan ke 13px */
+      }
+    }
+    
+    /* Membuat aplikasi tidak bisa di-blok/copy teksnya agar terasa seperti aplikasi asli */
+    body {
+      -webkit-tap-highlight-color: transparent;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    
+    /* Izinkan input teks agar tetap bisa diketik */
+    input, textarea {
+      -webkit-user-select: auto;
+      user-select: auto;
+    }
+  </style>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover" />
