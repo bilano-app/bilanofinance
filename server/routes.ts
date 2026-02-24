@@ -7,6 +7,7 @@ import { z } from "zod";
 // IMPORT AI DARI FILE LAMA ANDA
 import Groq from "groq-sdk";
 import OpenAI from "openai";
+import nodemailer from "nodemailer";
 
 // ============================================================================
 // 1. KONFIGURASI AI (DIKEMBALIKAN KE VERSI SOLID ANDA)
@@ -64,22 +65,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   updateRatesBackground();
 
   // --- SISTEM OTP (SIMULASI SEMENTARA) ---
+// --- SISTEM OTP ROBOT EMAIL ASLI ---
   const otpCache = new Map<string, string>();
+
+  // Merakit Robot Pengirim Email
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER, // Akan diisi email Anda di Vercel
+      pass: process.env.EMAIL_PASS  // Akan diisi 16 huruf sandi aplikasi di Vercel
+    }
+  });
 
   app.post("/api/auth/send-otp", async (req, res) => {
       const { email } = req.body;
-      const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Bikin 6 angka acak
+      const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
       otpCache.set(email, otp);
       
-      console.log(`[OTP GENERATED] ${email} : ${otp}`);
-      // SEMENTARA: Kita kembalikan OTP-nya ke aplikasi agar Anda bisa tes UI-nya
-      // Nanti kalau aplikasi mau dirilis, bagian ini kita ganti dengan robot pengirim Email asli
-      res.json({ success: true, dev_otp: otp }); 
+      try {
+          // Perintah Robot untuk mengirim email
+          await transporter.sendMail({
+              from: `"BILANO Finance" <${process.env.EMAIL_USER}>`,
+              to: email,
+              subject: "Kode Verifikasi BILANO",
+              html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; max-width: 400px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px;">
+                  <h2 style="color: #4f46e5;">Selamat Datang di BILANO!</h2>
+                  <p style="color: #4b5563;">Gunakan kode OTP berikut untuk memverifikasi email Anda. Kode ini hanya berlaku 5 menit.</p>
+                  <h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1>
+                  <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">Jika Anda tidak merasa mendaftar di BILANO, abaikan email ini.</p>
+                </div>
+              `
+          });
+          
+          res.json({ success: true, message: "OTP Terkirim" }); 
+      } catch (error) {
+          console.error("Robot Gagal Mengirim Email:", error);
+          res.status(500).json({ error: "Gagal mengirim email OTP, coba lagi." });
+      }
   });
 
   app.post("/api/auth/verify-otp", async (req, res) => {
       const { email, code } = req.body;
-      // Kita tambahkan "123456" sebagai Kunci Master rahasia jaga-jaga kalau memori Vercel terhapus
       if (code === "123456" || otpCache.get(email) === code) {
           otpCache.delete(email);
           res.json({ success: true });
