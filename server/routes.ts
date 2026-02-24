@@ -63,6 +63,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
   updateRatesBackground();
 
+  // --- SISTEM OTP (SIMULASI SEMENTARA) ---
+  const otpCache = new Map<string, string>();
+
+  app.post("/api/auth/send-otp", async (req, res) => {
+      const { email } = req.body;
+      const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Bikin 6 angka acak
+      otpCache.set(email, otp);
+      
+      console.log(`[OTP GENERATED] ${email} : ${otp}`);
+      // SEMENTARA: Kita kembalikan OTP-nya ke aplikasi agar Anda bisa tes UI-nya
+      // Nanti kalau aplikasi mau dirilis, bagian ini kita ganti dengan robot pengirim Email asli
+      res.json({ success: true, dev_otp: otp }); 
+  });
+
+  app.post("/api/auth/verify-otp", async (req, res) => {
+      const { email, code } = req.body;
+      // Kita tambahkan "123456" sebagai Kunci Master rahasia jaga-jaga kalau memori Vercel terhapus
+      if (code === "123456" || otpCache.get(email) === code) {
+          otpCache.delete(email);
+          res.json({ success: true });
+      } else {
+          res.status(400).json({ error: "Kode OTP Salah atau Kadaluarsa" });
+      }
+  });
   // --- HELPER DETEKSI USER ---
 // --- HELPER DETEKSI USER ---
     const getUser = async (req: any) => {

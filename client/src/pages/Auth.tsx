@@ -30,7 +30,6 @@ export default function Auth() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // PENANGKAP HASIL LOGIN GOOGLE DARI REDIRECT
   useEffect(() => {
       setLoading(true);
       getRedirectResult(auth).then(async (result) => {
@@ -62,10 +61,7 @@ export default function Auth() {
           try {
               await fetch("/api/user/profile", {
                   method: "PATCH",
-                  headers: { 
-                      "Content-Type": "application/json",
-                      "x-user-email": user.email || "" 
-                  },
+                  headers: { "Content-Type": "application/json", "x-user-email": user.email || "" },
                   body: JSON.stringify({ firstName, lastName })
               });
           } catch (e) {
@@ -125,7 +121,8 @@ export default function Auth() {
           if (res.ok) {
               setStep('otp'); 
               setResendCooldown(60); 
-              toast({ title: "Kode Terkirim", description: "Cek inbox/spam email Anda." });
+              // TAMPILKAN BOCORAN OTP DI LAYAR AGAR BISA DITES
+              toast({ title: "Cek Kode OTP", description: data.dev_otp ? `Kode Anda: ${data.dev_otp}` : "Kode Terkirim!" });
           } else {
               throw new Error(data.error || "Gagal kirim kode");
           }
@@ -165,7 +162,6 @@ export default function Auth() {
       }
   };
 
-  // MENGGUNAKAN REDIRECT, BUKAN POP-UP (AGAR BISA JALAN DI APK ANDROID)
   const handleGoogleLogin = async () => {
       try {
           setLoading(true);
@@ -254,7 +250,7 @@ export default function Auth() {
                       <div className="relative"><Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/><Input type="password" placeholder="••••••••" className="pl-10 h-12" value={password} onChange={(e) => setPassword(e.target.value)}/></div>
                   </div>
                   <Button disabled={loading} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold text-md shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
-                      {loading ? <RefreshCw className="animate-spin w-5 h-5"/> : (isLogin ? "MASUK SEKARANG" : "KIRIM KODE VERIFIKASI")}
+                      {loading ? <RefreshCw className="animate-spin w-5 h-5"/> : (isLogin ? "MASUK SEKARANG" : "DAFTAR SEKARANG")}
                   </Button>
               </form>
           </div>
