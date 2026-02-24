@@ -5,6 +5,18 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 
+const originalFetch = window.fetch;
+window.fetch = async (input, init = {}) => {
+  const email = localStorage.getItem("bilano_email");
+  if (email && typeof input === 'string' && input.startsWith('/api')) {
+    init.headers = {
+      ...init.headers,
+      'x-user-email': email
+    };
+  }
+  return originalFetch(input, init);
+};
+
 // Import Halaman Utama
 import Home from "@/pages/Home";
 import Target from "@/pages/Target";
