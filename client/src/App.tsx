@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
+import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -19,12 +20,21 @@ import ChatAI from "@/pages/ChatAI";
 import Profile from "@/pages/Profile";
 import Performance from "@/pages/Performance";
 import Paywall from "@/pages/Paywall";
-
-// PENTING: Pastikan nama file ini sesuai dengan yang ada di folder pages Anda
-import Debts from "@/pages/Debts"; // Perhatikan huruf 's' (Debts.tsx)
+import Debts from "@/pages/Debts"; 
 import SmartScan from "@/pages/SmartScan"; 
 
 function Router() {
+  const [location, setLocation] = useLocation();
+
+  // SISTEM GEMBOK (SATKAM LOKAL)
+  useEffect(() => {
+    const isAuth = localStorage.getItem("bilano_auth");
+    // Jika belum login dan sedang tidak berada di halaman auth, tendang ke /auth
+    if (!isAuth && location !== "/auth") {
+      setLocation("/auth");
+    }
+  }, [location, setLocation]);
+
   return (
     <Switch>
       <Route path="/" component={Home} />
