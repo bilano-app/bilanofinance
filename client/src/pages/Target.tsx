@@ -45,7 +45,6 @@ export default function Target() {
     
     const [rawCurrentCash, setRawCurrentCash] = useState("");
     
-    // Accordions
     const [hasForex, setHasForex] = useState(false);
     const [forexItems, setForexItems] = useState<ForexItem[]>([]);
     const [tempForexCurrency, setTempForexCurrency] = useState("USD");
@@ -86,7 +85,9 @@ export default function Target() {
 
     const handleNumberChange = (setter: (val: string) => void, value: string) => setter(formatNumber(value));
 
-    // CEK APAKAH USER SEDANG EDIT TARGET ATAU PENGGUNA BARU
+    // AMBIL EMAIL PENGGUNA UNTUK DIKIRIM KE SERVER
+    const userEmail = localStorage.getItem("bilano_email") || "";
+
     const isEditMode = target && target.targetAmount !== undefined;
 
     useEffect(() => {
@@ -99,9 +100,14 @@ export default function Target() {
                     setAvailableCurrencies(Object.keys(rates)); 
                 }
 
-                const resTarget = await fetch("/api/target");
+                // MEMASUKKAN KTP EMAIL AGAR TIDAK SALAH BACA DATA GUEST
+                const resTarget = await fetch("/api/target", {
+                    headers: { "x-user-email": userEmail }
+                });
+                
                 if (resTarget.ok) {
                     const data = await resTarget.json();
+                    // Pastikan data benar-benar ada isinya (bukan objek kosong)
                     if (data && data.targetAmount !== undefined) {
                         setTarget(data);
                         setRawTargetAmount(data.targetAmount.toString());
@@ -114,7 +120,7 @@ export default function Target() {
             finally { setLoading(false); }
         };
         loadInitial();
-    }, []);
+    }, [userEmail]);
 
     const addForexItem = () => {
         if (!tempForexAmount || parseNumber(tempForexAmount) <= 0) return;
@@ -201,9 +207,6 @@ export default function Target() {
     };
     const handleBudgetAnswer = (answer: boolean) => { if (answer) setStep('budget-setup'); else handleSubmitFinal(false); };
 
-    // ==========================================
-    // LOGIKA SIMPAN & REDIRECT YANG DIPERBAIKI
-    // ==========================================
     const handleSubmitFinal = async (withBudget: boolean) => {
         const budgetVal = parseNumber(rawBudgetAmount);
         if (withBudget && !budgetVal) { toast({title: "Error", description: "Nominal batas harus diisi!", variant: "destructive"}); return; }
@@ -225,16 +228,19 @@ export default function Target() {
                 startYear: target?.startYear || now.getFullYear()
             };
 
+            // MEMASUKKAN KTP EMAIL AGAR TERSIMPAN KE AKUN YANG BENAR
             const res = await fetch("/api/target", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "x-user-email": userEmail
+                },
                 body: JSON.stringify(payload)
             });
 
             if (res.ok) {
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
                 
-                // PENTING: Pengguna Baru lempar ke Paywall, Pengguna Lama lempar ke Home
                 if (!isEditMode) {
                     window.location.href = "/paywall"; 
                 } else {
@@ -493,7 +499,6 @@ export default function Target() {
                         </div>
                         <div className="pt-2 space-y-3">
                             <Button onClick={nextToBudgetAsk} className="w-full bg-indigo-600 hover:bg-indigo-700 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-indigo-200">LANJUTKAN</Button>
-                            {/* Tombol KEMBALI Dinamis */}
                             <Button variant="ghost" onClick={() => setStep(isEditMode ? 'intro' : 'assets-setup')} className="w-full text-slate-400 font-bold">KEMBALI</Button>
                         </div>
                     </div>
