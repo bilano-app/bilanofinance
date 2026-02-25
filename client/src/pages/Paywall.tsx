@@ -12,7 +12,6 @@ export default function Paywall() {
   const [hasStartedTrial, setHasStartedTrial] = useState(false);
 
   useEffect(() => {
-      // Jika memori "bilano_trial_start" sudah ada, berarti ini bukan pertama kalinya
       if (localStorage.getItem("bilano_trial_start")) {
           setHasStartedTrial(true);
       }
@@ -28,8 +27,7 @@ export default function Paywall() {
   const handleBerlangganan = () => {
       setIsLoading(true);
       
-      // 👇 PASTIKAN LINK MAYAR ANDA MASIH ADA DI SINI 👇
-      const mayarLink = "https://adrienfandra.myr.id/pl/langganan-bilano-pro-1-tahun"; // Ganti dengan link Mayar asli Anda
+      const mayarLink = "https://adrienfandra.myr.id/pl/langganan-bilano-pro-1-tahun"; 
       
       setTimeout(() => {
           window.location.href = mayarLink;
@@ -38,14 +36,11 @@ export default function Paywall() {
 
   return (
     <MobileLayout>
-        {/* Latar Belakang Gelap (Pakai overflow-y-auto agar aman saat di-scroll) */}
         <div className="min-h-screen bg-slate-900 text-white relative overflow-y-auto overflow-x-hidden">
             
-            {/* Hiasan Cahaya di Background */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute bottom-1/4 left-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-            {/* TOMBOL CLOSE (X) - HANYA MUNCUL JIKA SUDAH PERNAH TRIAL */}
             {hasStartedTrial && (
                 <button 
                     onClick={() => window.location.href = "/"}
@@ -55,10 +50,8 @@ export default function Paywall() {
                 </button>
             )}
 
-            {/* KONTEN UTAMA */}
             <div className={`px-6 relative z-10 flex flex-col pb-12 ${hasStartedTrial ? 'pt-8' : 'pt-12'}`}>
                 
-                {/* Badge Sultan */}
                 <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest text-amber-400 mb-4 backdrop-blur-md self-start">
                     <Crown className="w-3.5 h-3.5" /> Akses Eksklusif
                 </div>
@@ -71,7 +64,6 @@ export default function Paywall() {
                     Catat lebih cepat, analisa lebih tajam, dan capai target keuanganmu tanpa batas.
                 </p>
 
-                {/* 👇 LIST FITUR PRO YANG SUDAH DITAMBAH INVESTASI 👇 */}
                 <div className="space-y-4 mb-8">
                     {[
                         { title: "Tanya AI Assistant 24/7", desc: "Konsultasi keuangan cerdas tanpa batas kuota harian." },
@@ -92,7 +84,6 @@ export default function Paywall() {
                     ))}
                 </div>
 
-                {/* Harga Core */}
                 <div className="bg-gradient-to-br from-indigo-600 to-violet-800 p-5 rounded-[24px] border border-indigo-400/30 shadow-2xl relative animate-in zoom-in-95 delay-300 mb-6">
                     <div className="absolute -top-3 right-4 bg-amber-400 text-amber-950 text-[9px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
                         Penawaran Spesial
@@ -109,7 +100,6 @@ export default function Paywall() {
                     <p className="text-[10px] text-indigo-300 flex items-center gap-1 font-medium">✨ Setara hanya Rp 8.250 / bulan. Aman didukung Mayar.id</p>
                 </div>
 
-                {/* AREA TOMBOL BAWAH */}
                 <div className="w-full relative z-10 animate-in slide-in-from-bottom-8 delay-500">
                     <Button 
                         onClick={handleBerlangganan} 
@@ -120,22 +110,11 @@ export default function Paywall() {
                         {isLoading ? "Menyiapkan..." : "BERLANGGANAN SEKARANG"}
                     </Button>
                     
-                    {/* TOMBOL "COBA DULU" */}
                     {!hasStartedTrial && (
                         <button onClick={handleMulaiCoba} className="w-full mt-4 h-12 text-slate-400 hover:text-white text-xs font-bold rounded-full transition-colors flex items-center justify-center gap-1">
                             Nanti Saja, Saya Mau Coba Gratis Dulu <ArrowRight className="w-4 h-4"/>
                         </button>
                     )}
-                </div>
-
-                {/* TOMBOL RESET RAHASIA UNTUK TESTING */}
-                <div className="mt-12 text-center opacity-30 hover:opacity-100 transition-opacity">
-                    <button 
-                        onClick={() => { localStorage.removeItem("bilano_trial_start"); window.location.reload(); }} 
-                        className="text-[10px] text-white underline cursor-pointer"
-                    >
-                        Dev Mode: Ulangi Tes Sebagai Pengguna Baru
-                    </button>
                 </div>
 
             </div>

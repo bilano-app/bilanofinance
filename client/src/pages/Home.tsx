@@ -6,6 +6,7 @@ import {
 } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { MobileLayout } from "@/components/Layout";
+import { Button } from "@/components/UIComponents"; // <-- Ini tambahan baru
 import { 
   ArrowUpCircle, ArrowDownCircle, 
   TrendingUp, Sparkles, DollarSign, 
@@ -27,33 +28,25 @@ export default function Home() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileZoomed, setIsProfileZoomed] = useState(false);
+  const [showTargetModal, setShowTargetModal] = useState(false); // <-- State pop-up target
   const [forexRates, setForexRates] = useState<Record<string, number>>({});
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
 
   const userEmail = localStorage.getItem("bilano_email") || "Pengguna";
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
 
-  // ==========================================
-  // CEK STATUS PRO PENGGUNA
-  // Asumsi database memiliki field isPro, plan, dsb. Kita juga cek localStorage untuk testing
-  // ==========================================
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
-  // LOGIKA MASA COBA 3 HARI
   useEffect(() => {
-      // JIKA PENGGUNA SUDAH PRO, HENTIKAN SEMUA LOGIKA TRIAL (Jangan munculkan banner/redirect)
       if (isUserPro) return;
-
       const trialStart = localStorage.getItem("bilano_trial_start");
       if (trialStart) {
           const startTime = parseInt(trialStart);
           const currentTime = Date.now();
           const daysPassed = (currentTime - startTime) / (1000 * 60 * 60 * 24);
-          
           const TRIAL_DURATION_DAYS = 3; 
 
           if (daysPassed >= TRIAL_DURATION_DAYS) {
-              // Terkunci! Lempar ke Paywall jika waktu habis
               setLocation("/paywall");
           } else {
               setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
@@ -92,6 +85,28 @@ export default function Home() {
   };
 
   const forexValue = calculateForexTotal();
+  const cashRupiah = (user?.cashBalance || 0); 
+  const totalBalance = cashRupiah + forexValue; 
+
+  // ==========================================
+  // LOGIKA DETEKSI TARGET TERCAPAI
+  // ==========================================
+  useEffect(() => {
+    if (target && target.targetAmount > 0 && totalBalance >= target.targetAmount) {
+        // Cek apakah user sudah pernah memencet "Biarkan Saja" untuk target ini
+        const isDismissed = localStorage.getItem(`bilano_target_done_${target.id}`);
+        if (!isDismissed) {
+            setShowTargetModal(true);
+        }
+    }
+  }, [target, totalBalance]);
+
+  const dismissTargetModal = () => {
+      if (target?.id) {
+          localStorage.setItem(`bilano_target_done_${target.id}`, "true");
+      }
+      setShowTargetModal(false);
+  };
 
   const handleLogout = async () => {
     try {
@@ -116,9 +131,6 @@ export default function Home() {
       return t.type === 'expense' && (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
   }).reduce((acc, t) => acc + t.amount, 0) || 0;
   
-  const cashRupiah = (user?.cashBalance || 0); 
-  const totalBalance = cashRupiah + forexValue; 
-
   if (isUserLoading || isTargetLoading) {
       return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 animate-pulse">Memuat Data...</div>;
   }
@@ -128,6 +140,25 @@ export default function Home() {
 
   return (
     <MobileLayout>
+      {/* ========================================== */}
+      {/* MODAL / POP-UP TARGET TERCAPAI */}
+      {/* ========================================== */}
+      {showTargetModal && (
+          <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border-4 border-emerald-100">
+                  <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Crown className="w-10 h-10" />
+                  </div>
+                  <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Target Tercapai! 🎉</h2>
+                  <p className="text-slate-500 text-sm mb-8">Luar biasa! Saldo kamu sudah melebihi impian yang kamu targetkan. Ingin membuat target baru?</p>
+                  <div className="space-y-3">
+                      <Button onClick={() => { dismissTargetModal(); setLocation('/target'); }} className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 font-bold rounded-full text-lg shadow-lg shadow-emerald-200">BUAT TARGET BARU</Button>
+                      <Button variant="ghost" onClick={dismissTargetModal} className="w-full h-14 font-bold text-slate-400 hover:text-slate-600 rounded-full">BIARKAN SAJA</Button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {isProfileZoomed && (
         <div className="fixed inset-0 z-[999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsProfileZoomed(false)}>
             <div className="relative animate-in fade-in zoom-in duration-200">
@@ -159,7 +190,6 @@ export default function Home() {
                 <div>
                     <div className="flex items-center gap-2">
                         <p className="text-xs font-medium text-slate-500">Selamat datang,</p>
-                        {/* Jika PRO, Munculkan Mahkota Kecil di Sebelah Nama */}
                         {isUserPro && <Crown className="w-3.5 h-3.5 text-amber-500" />}
                     </div>
                     <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight">{greetingName}</h2>
@@ -193,7 +223,7 @@ export default function Home() {
             </div>
         </div>
 
-        {/* BANNER TRIAL (HANYA MUNCUL JIKA SEDANG MASA COBA & BELUM PRO) */}
+        {/* BANNER TRIAL */}
         {!isUserPro && trialDaysLeft !== null && (
             <div className="mx-1 mt-[-10px] bg-gradient-to-r from-amber-400 to-yellow-500 rounded-[20px] p-4 shadow-lg flex items-center justify-between text-amber-950 animate-in slide-in-from-top-4">
                 <div className="flex items-center gap-3">

@@ -133,15 +133,12 @@ export default function Performance() {
             </div>
         )}
 
-        {/* HERO CARD Wondr/Bale Style */}
         <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-800 text-white p-7 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden">
             <div className="relative z-10 mb-6">
                 
-                {/* BARIS 1: JUDUL & TOMBOL EDIT (Sejajar di atas) */}
                 <div className="flex justify-between items-center mb-1">
                     <p className="text-[11px] text-blue-200 uppercase tracking-widest font-bold">Total Kekayaan Bersih</p>
                     
-                    {/* Tombol dipindah ke atas, padding dikecilkan sedikit */}
                     {target && (
                         <Link href="/target">
                             <button className="bg-yellow-400 hover:bg-yellow-500 text-indigo-950 px-3 py-1.5 rounded-full text-[9px] font-extrabold shadow-md transition-all active:scale-95 uppercase tracking-wider whitespace-nowrap">
@@ -151,10 +148,8 @@ export default function Performance() {
                     )}
                 </div>
 
-                {/* BARIS 2: ANGKA SALDO (Bebas tanpa halangan) */}
                 <h2 className="text-4xl font-extrabold font-display text-white truncate block w-full">{formatRp(currentWealth)}</h2>
                 
-                {/* BARIS 3: PILLS */}
                 <div className="flex flex-wrap gap-2 mt-4 text-[10px] font-bold">
                     <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Tunai: {formatRp(cashReal)}</span>
                     <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Aset: {formatRp(investmentReal)}</span>
@@ -191,27 +186,27 @@ export default function Performance() {
                         </h3>
                         
                         <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="bg-indigo-50/50 p-4 rounded-[20px] border border-indigo-100/50">
-                                <p className="text-[10px] text-indigo-500 uppercase font-extrabold tracking-widest mb-1">Wajib Nabung</p>
-                                <p className="font-extrabold text-indigo-700 text-lg">{formatRp(savingRequired)}</p>
+                            <div className="bg-indigo-50/50 p-4 rounded-[20px] border border-indigo-100/50 min-w-0">
+                                <p className="text-[10px] text-indigo-500 uppercase font-extrabold tracking-widest mb-1 truncate">Wajib Nabung</p>
+                                <p className="font-extrabold text-indigo-700 text-base truncate" title={formatRp(savingRequired)}>{formatRp(savingRequired)}</p>
                             </div>
                             {expenseLimit > 0 ? (
-                                <div className="bg-rose-50/50 p-4 rounded-[20px] border border-rose-100/50">
-                                    <p className="text-[10px] text-rose-500 uppercase font-extrabold tracking-widest mb-1">Batas Keluar</p>
-                                    <p className="font-extrabold text-rose-700 text-lg">{formatRp(expenseLimit)}</p>
+                                <div className="bg-rose-50/50 p-4 rounded-[20px] border border-rose-100/50 min-w-0">
+                                    <p className="text-[10px] text-rose-500 uppercase font-extrabold tracking-widest mb-1 truncate">Batas Keluar</p>
+                                    <p className="font-extrabold text-rose-700 text-base truncate" title={formatRp(expenseLimit)}>{formatRp(expenseLimit)}</p>
                                 </div>
                             ) : (
-                                <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100">
-                                    <p className="text-[10px] text-slate-500 uppercase font-extrabold tracking-widest mb-1">Batas Keluar</p>
-                                    <p className="font-extrabold text-slate-400 text-sm mt-1">Tanpa Batas (Bebas)</p>
+                                <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100 min-w-0">
+                                    <p className="text-[10px] text-slate-500 uppercase font-extrabold tracking-widest mb-1 truncate">Batas Keluar</p>
+                                    <p className="font-extrabold text-slate-400 text-sm mt-1 truncate">Tanpa Batas</p>
                                 </div>
                             )}
                         </div>
 
                         {expenseLimit > 0 && (
-                            <div className="mt-4 p-4 bg-slate-800 rounded-[20px] flex justify-between items-center text-white shadow-md">
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Harus Dapat Pemasukan:</span>
-                                <span className="text-lg font-extrabold text-emerald-400">{formatRp(targetIncomeMonth)}</span>
+                            <div className="mt-4 p-4 bg-slate-800 rounded-[20px] flex justify-between items-center text-white shadow-md gap-2">
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300 min-w-0 flex-shrink">Harus Dapat Pemasukan:</span>
+                                <span className="text-base font-extrabold text-emerald-400 truncate flex-shrink-0 max-w-[50%] text-right" title={formatRp(targetIncomeMonth)}>{formatRp(targetIncomeMonth)}</span>
                             </div>
                         )}
                     </div>
@@ -234,7 +229,7 @@ export default function Performance() {
                                 onClick={() => setExpandedDetail(expandedDetail === 'income' ? null : 'income')}
                                 className={`flex flex-col items-center gap-2 w-full h-full justify-end group cursor-pointer p-2 rounded-[20px] transition-all ${expandedDetail === 'income' ? 'bg-emerald-50 ring-2 ring-emerald-400 ring-offset-2' : 'hover:bg-slate-50'}`}
                             >
-                                <span className="text-[11px] font-extrabold text-emerald-600">{formatRp(monthlyIncome)}</span>
+                                <span className="text-[11px] font-extrabold text-emerald-600 truncate max-w-full px-1">{formatRp(monthlyIncome)}</span>
                                 <div className="w-full bg-emerald-400 rounded-t-xl transition-all duration-1000 shadow-sm" style={{ height: `${Math.max(monthlyIncome/Math.max(monthlyIncome, monthlyExpense, 1)*100, 10)}%` }}></div>
                                 <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mt-1">
                                     <ArrowDownCircle className="w-3.5 h-3.5"/> Masuk
@@ -246,7 +241,7 @@ export default function Performance() {
                                 onClick={() => setExpandedDetail(expandedDetail === 'expense' ? null : 'expense')}
                                 className={`flex flex-col items-center gap-2 w-full h-full justify-end group cursor-pointer p-2 rounded-[20px] transition-all ${expandedDetail === 'expense' ? 'bg-rose-50 ring-2 ring-rose-400 ring-offset-2' : 'hover:bg-slate-50'}`}
                             >
-                                <span className="text-[11px] font-extrabold text-rose-600">{formatRp(monthlyExpense)}</span>
+                                <span className="text-[11px] font-extrabold text-rose-600 truncate max-w-full px-1">{formatRp(monthlyExpense)}</span>
                                 <div className="w-full bg-rose-400 rounded-t-xl transition-all duration-1000 shadow-sm" style={{ height: `${Math.max(monthlyExpense/Math.max(monthlyIncome, monthlyExpense, 1)*100, 10)}%` }}></div>
                                 <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mt-1">
                                     <ArrowUpCircle className="w-3.5 h-3.5"/> Keluar
