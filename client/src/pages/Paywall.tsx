@@ -2,45 +2,41 @@ import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
 import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 export default function Paywall() {
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Deteksi apakah pengguna sudah pernah menekan tombol coba sebelumnya
   const [hasStartedTrial, setHasStartedTrial] = useState(false);
 
+  // Kunci spesifik per email agar tidak bocor ke akun testing lain
+  const userEmail = localStorage.getItem("bilano_email") || "";
+  const trialKey = `bilano_trial_start_${userEmail}`;
+
   useEffect(() => {
-      if (localStorage.getItem("bilano_trial_start")) {
+      if (localStorage.getItem(trialKey)) {
           setHasStartedTrial(true);
       }
-  }, []);
+  }, [trialKey]);
 
   const handleMulaiCoba = () => {
-      if (!localStorage.getItem("bilano_trial_start")) {
-          localStorage.setItem("bilano_trial_start", Date.now().toString());
+      if (!localStorage.getItem(trialKey)) {
+          localStorage.setItem(trialKey, Date.now().toString());
       }
       window.location.href = "/";
   };
 
   const handleBerlangganan = () => {
       setIsLoading(true);
-      
       const mayarLink = "https://adrienfandra.myr.id/pl/langganan-bilano-pro-1-tahun"; 
-      
-      setTimeout(() => {
-          window.location.href = mayarLink;
-      }, 800);
+      setTimeout(() => { window.location.href = mayarLink; }, 800);
   };
 
   return (
     <MobileLayout>
         <div className="min-h-screen bg-slate-900 text-white relative overflow-y-auto overflow-x-hidden">
-            
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute bottom-1/4 left-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
+            {/* TOMBOL CLOSE (X) - HANYA MUNCUL JIKA SUDAH PERNAH TRIAL */}
             {hasStartedTrial && (
                 <button 
                     onClick={() => window.location.href = "/"}
@@ -110,13 +106,13 @@ export default function Paywall() {
                         {isLoading ? "Menyiapkan..." : "BERLANGGANAN SEKARANG"}
                     </Button>
                     
+                    {/* TOMBOL "COBA DULU" HANYA MUNCUL JIKA BELUM PERNAH TRIAL */}
                     {!hasStartedTrial && (
                         <button onClick={handleMulaiCoba} className="w-full mt-4 h-12 text-slate-400 hover:text-white text-xs font-bold rounded-full transition-colors flex items-center justify-center gap-1">
                             Nanti Saja, Saya Mau Coba Gratis Dulu <ArrowRight className="w-4 h-4"/>
                         </button>
                     )}
                 </div>
-
             </div>
         </div>
     </MobileLayout>

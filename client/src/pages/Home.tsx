@@ -6,7 +6,7 @@ import {
 } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { MobileLayout } from "@/components/Layout";
-import { Button } from "@/components/UIComponents"; // <-- Ini tambahan baru
+import { Button } from "@/components/UIComponents";
 import { 
   ArrowUpCircle, ArrowDownCircle, 
   TrendingUp, Sparkles, DollarSign, 
@@ -28,38 +28,32 @@ export default function Home() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileZoomed, setIsProfileZoomed] = useState(false);
-  const [showTargetModal, setShowTargetModal] = useState(false); // <-- State pop-up target
+  const [showTargetModal, setShowTargetModal] = useState(false); 
   const [forexRates, setForexRates] = useState<Record<string, number>>({});
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
 
   const userEmail = localStorage.getItem("bilano_email") || "Pengguna";
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
-
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
   useEffect(() => {
       if (isUserPro) return;
-      const trialStart = localStorage.getItem("bilano_trial_start");
+      const trialKey = `bilano_trial_start_${userEmail}`;
+      const trialStart = localStorage.getItem(trialKey);
       if (trialStart) {
           const startTime = parseInt(trialStart);
           const currentTime = Date.now();
           const daysPassed = (currentTime - startTime) / (1000 * 60 * 60 * 24);
           const TRIAL_DURATION_DAYS = 3; 
-
-          if (daysPassed >= TRIAL_DURATION_DAYS) {
-              setLocation("/paywall");
-          } else {
-              setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
-          }
+          if (daysPassed >= TRIAL_DURATION_DAYS) setLocation("/paywall");
+          else setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
       }
-  }, [setLocation, isUserPro]);
+  }, [setLocation, isUserPro, userEmail]);
 
   useEffect(() => {
       if (!isUserLoading && !isTargetLoading) {
           const isTargetEmpty = !target || (typeof target === 'object' && Object.keys(target).length === 0);
-          if (isTargetEmpty) {
-              setLocation("/target");
-          }
+          if (isTargetEmpty) setLocation("/target");
       }
   }, [target, isUserLoading, isTargetLoading, setLocation]);
 
@@ -67,10 +61,7 @@ export default function Home() {
     const fetchRates = async () => {
         try {
             const res = await fetch("/api/forex/rates");
-            if (res.ok) {
-                const rates = await res.json();
-                setForexRates(rates);
-            }
+            if (res.ok) setForexRates(await res.json());
         } catch (e) { console.error("Gagal fetch rates home", e); }
     };
     fetchRates();
@@ -78,33 +69,22 @@ export default function Home() {
 
   const calculateForexTotal = () => {
       if (!forexAssets || Object.keys(forexRates).length === 0) return 0;
-      return forexAssets.reduce((acc, asset) => {
-          const rate = forexRates[asset.currency] || 0; 
-          return acc + (asset.amount * rate);
-      }, 0);
+      return forexAssets.reduce((acc, asset) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
   };
 
   const forexValue = calculateForexTotal();
   const cashRupiah = (user?.cashBalance || 0); 
   const totalBalance = cashRupiah + forexValue; 
 
-  // ==========================================
-  // LOGIKA DETEKSI TARGET TERCAPAI
-  // ==========================================
   useEffect(() => {
     if (target && target.targetAmount > 0 && totalBalance >= target.targetAmount) {
-        // Cek apakah user sudah pernah memencet "Biarkan Saja" untuk target ini
         const isDismissed = localStorage.getItem(`bilano_target_done_${target.id}`);
-        if (!isDismissed) {
-            setShowTargetModal(true);
-        }
+        if (!isDismissed) setShowTargetModal(true);
     }
   }, [target, totalBalance]);
 
   const dismissTargetModal = () => {
-      if (target?.id) {
-          localStorage.setItem(`bilano_target_done_${target.id}`, "true");
-      }
+      if (target?.id) localStorage.setItem(`bilano_target_done_${target.id}`, "true");
       setShowTargetModal(false);
   };
 
@@ -126,23 +106,20 @@ export default function Home() {
       return t.type === 'income' && (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
   }).reduce((acc, t) => acc + t.amount, 0) || 0;
 
+  // FIX: Coret kategori yang mengandung kata "Invest" dari Pengeluaran
   const expense = transactions?.filter(t => {
       const d = new Date(t.date);
-      return t.type === 'expense' && (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
+      const isInvestment = t.category?.toLowerCase().includes('invest');
+      return t.type === 'expense' && !isInvestment && (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
   }).reduce((acc, t) => acc + t.amount, 0) || 0;
   
-  if (isUserLoading || isTargetLoading) {
-      return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 animate-pulse">Memuat Data...</div>;
-  }
+  if (isUserLoading || isTargetLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 animate-pulse">Memuat Data...</div>;
 
   const isTargetEmpty = !target || (typeof target === 'object' && Object.keys(target).length === 0);
   if (isTargetEmpty) return null;
 
   return (
     <MobileLayout>
-      {/* ========================================== */}
-      {/* MODAL / POP-UP TARGET TERCAPAI */}
-      {/* ========================================== */}
       {showTargetModal && (
           <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border-4 border-emerald-100">
@@ -174,8 +151,6 @@ export default function Home() {
       )}
 
       <div className="flex flex-col gap-6">
-        
-        {/* HEADER */}
         <div className="flex items-center justify-between px-2 pt-2">
             <div className="flex items-center gap-3">
                 <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100">
@@ -223,7 +198,6 @@ export default function Home() {
             </div>
         </div>
 
-        {/* BANNER TRIAL */}
         {!isUserPro && trialDaysLeft !== null && (
             <div className="mx-1 mt-[-10px] bg-gradient-to-r from-amber-400 to-yellow-500 rounded-[20px] p-4 shadow-lg flex items-center justify-between text-amber-950 animate-in slide-in-from-top-4">
                 <div className="flex items-center gap-3">
@@ -243,7 +217,6 @@ export default function Home() {
             </div>
         )}
         
-        {/* KARTU SALDO */}
         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
               <p className="text-[11px] font-bold text-blue-100 mb-1 uppercase tracking-widest">Total Cash</p>
@@ -266,7 +239,6 @@ export default function Home() {
            <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
         </div>
 
-        {/* MASUK / KELUAR */}
         <div className="grid grid-cols-2 gap-4 px-1">
            <Link href="/income">
                <div className="bg-white p-4 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col justify-between h-28 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)]">
@@ -292,7 +264,6 @@ export default function Home() {
            </Link>
         </div>
 
-        {/* GRID MENU */}
         <div className="px-1 mt-2">
             <h3 className="font-bold text-slate-800 text-sm mb-4">Fitur Pilihan</h3>
             <div className="grid grid-cols-3 gap-y-6 gap-x-3">
@@ -305,7 +276,6 @@ export default function Home() {
             </div>
         </div>
 
-        {/* AI & PERFORMA */}
         <div className="flex flex-col gap-4 mt-2 px-1">
             <Link href="/chat-ai">
                 <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
@@ -338,7 +308,6 @@ export default function Home() {
                 </div>
             </Link>
         </div>
-
       </div>
     </MobileLayout>
   );

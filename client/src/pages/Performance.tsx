@@ -29,9 +29,7 @@ export default function Performance() {
               if (resRates.ok && resAssets.ok) {
                   const rates = await resRates.json();
                   const assets = await resAssets.json();
-                  const total = assets.reduce((acc: number, asset: any) => {
-                      return acc + (asset.amount * (rates[asset.currency] || 0));
-                  }, 0);
+                  const total = assets.reduce((acc: number, asset: any) => acc + (asset.amount * (rates[asset.currency] || 0)), 0);
                   setForexValue(total);
               }
           } catch (e) { console.error("Gagal hitung valas", e); }
@@ -43,8 +41,7 @@ export default function Performance() {
   
   const investmentReal = investments?.reduce((acc, inv) => {
       const isSaham = inv.type === 'saham' || (!inv.type && inv.symbol.length === 4);
-      const multiplier = isSaham ? 100 : 1;
-      return acc + (inv.quantity * inv.avgPrice * multiplier);
+      return acc + (inv.quantity * inv.avgPrice * (isSaham ? 100 : 1));
   }, 0) || 0;
 
   const currentWealth = cashReal + investmentReal + forexValue;
@@ -90,14 +87,24 @@ export default function Performance() {
   }) || [];
 
   const monthlyIncome = thisMonthTx.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0); 
-  const monthlyExpense = thisMonthTx.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0); 
+  
+  // FIX: Coret kategori investasi agar tidak dihitung pemborosan
+  const monthlyExpense = thisMonthTx
+      .filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest'))
+      .reduce((acc, t) => acc + t.amount, 0); 
+      
   const monthlyNet = monthlyIncome - monthlyExpense;
   
   const isSafe = monthlyNet >= savingRequired; 
   const isOverBudget = expenseLimit > 0 && monthlyExpense > expenseLimit;
 
+  // Sembunyikan investasi dari rincian drop-down pengeluaran
   const detailList = thisMonthTx
-      .filter(t => expandedDetail ? t.type === expandedDetail : false)
+      .filter(t => {
+          if (!expandedDetail) return false;
+          if (expandedDetail === 'expense') return t.type === 'expense' && !t.category?.toLowerCase().includes('invest');
+          return t.type === expandedDetail;
+      })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const formatRp = (val: number) => {

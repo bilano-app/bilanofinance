@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { Send, Bot, User, Sparkles, Loader2, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { useUser } from "@/hooks/use-finance"; // Ditambahkan untuk mengambil data User (termasuk Foto)
+import { useUser } from "@/hooks/use-finance"; 
 
 interface Message {
     id: number;
@@ -13,18 +13,13 @@ interface Message {
 }
 
 export default function ChatAI() {
-    // AMBIL DATA USER (Untuk Foto Profil)
     const { data: user } = useUser();
 
-    // 1. LOGIKA PENYIMPANAN OTOMATIS (AUTO-SAVE)
-    // Saat aplikasi dibuka, dia langsung cek memori HP dulu
     const [messages, setMessages] = useState<Message[]>(() => {
-        // Cek apakah ada riwayat tersimpan?
         const savedChat = localStorage.getItem("bilano_chat_history");
         if (savedChat) {
             return JSON.parse(savedChat);
         } else {
-            // Jika tidak ada (pengguna baru), tampilkan pesan sambutan
             return [{ 
                 id: 1, 
                 sender: 'ai', 
@@ -38,7 +33,6 @@ export default function ChatAI() {
     const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // 2. SETIAP KALI CHAT BERUBAH, SIMPAN KE MEMORI HP
     useEffect(() => {
         localStorage.setItem("bilano_chat_history", JSON.stringify(messages));
         scrollToBottom();
@@ -48,7 +42,6 @@ export default function ChatAI() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    // Fungsi untuk Menghapus Riwayat (Reset)
     const clearHistory = () => {
         if (confirm("Hapus semua riwayat chat?")) {
             const defaultMsg: Message[] = [{ 
@@ -83,6 +76,8 @@ export default function ChatAI() {
                 body: JSON.stringify({ message: userMsg.text })
             });
 
+            if (!res.ok) throw new Error("Server Error");
+
             const data = await res.json();
 
             const aiMsg: Message = {
@@ -98,8 +93,8 @@ export default function ChatAI() {
             setMessages(prev => [...prev, { 
                 id: Date.now(), 
                 sender: 'ai', 
-                text: "⚠️ Koneksi terputus. Pastikan internet lancar.", 
-                time: "" 
+                text: "⚠️ Koneksi ke otak AI terputus. Pastikan internet Anda lancar dan API Key sudah disetel di Vercel.", 
+                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             }]);
         } finally {
             setIsTyping(false);
@@ -108,7 +103,6 @@ export default function ChatAI() {
 
     return (
         <MobileLayout title="BILANO Intelligence" showBack>
-            {/* Tombol Hapus History di Pojok Kanan Atas (Floating) */}
             <div className="absolute top-4 right-4 z-50">
                 <button 
                     onClick={clearHistory}
@@ -125,14 +119,11 @@ export default function ChatAI() {
                         <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
                             <div className={`flex gap-2 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                                 
-                                {/* AVATAR LOGIC (DIPERBARUI) */}
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden ${msg.sender === 'user' ? 'bg-white border border-slate-200' : 'bg-gradient-to-br from-indigo-600 to-purple-700'}`}>
                                     {msg.sender === 'user' ? (
                                         user?.profilePicture ? (
-                                            // Tampilkan Foto Profil jika ada
                                             <img src={user.profilePicture} alt="User" className="w-full h-full object-cover" />
                                         ) : (
-                                            // Fallback ke Ikon Standar jika belum set foto
                                             <User className="w-5 h-5 text-slate-600"/>
                                         )
                                     ) : (
@@ -140,7 +131,8 @@ export default function ChatAI() {
                                     )}
                                 </div>
                                 
-                                <div className={`px-4 py-3 rounded-2xl text-sm shadow-sm leading-relaxed ${
+                                {/* FIX COPY TEXT: Ditambahkan class "select-text" dan "cursor-text" agar teks bisa ditahan dan disalin */}
+                                <div className={`px-4 py-3 rounded-2xl text-sm shadow-sm leading-relaxed select-text cursor-text ${
                                     msg.sender === 'user' 
                                     ? 'bg-slate-800 text-white rounded-tr-none' 
                                     : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none'
