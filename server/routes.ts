@@ -12,7 +12,7 @@ import nodemailer from "nodemailer";
 // 1. KONFIGURASI AI (SUDAH DIAMANKAN)
 // ============================================================================
 // Kita mengambil kunci dari Vercel agar tidak diblokir otomatis oleh Groq
-const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY || "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" });
+const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY || "KUNCI_SUDAH_DIAMANKAN_DI_VERCEL" });
 const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "ISI_KEY_OPENAI_DISINI_NANTI" });
 
 async function askSmartAI(systemPrompt: string, userMessage: string) {
