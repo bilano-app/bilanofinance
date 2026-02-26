@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
-import { Download, FileText, Globe, Wallet, FileBarChart, Loader2, Target } from "lucide-react";
+import { Download, FileText, Globe, Wallet, FileBarChart, Loader2, Target, Briefcase, HandCoins } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -10,7 +10,7 @@ export default function Reports() {
   const { toast } = useToast();
   const [data, setData] = useState<any>(null);
   const [forexRates, setForexRates] = useState<any>({});
-  const [targetData, setTargetData] = useState<any>(null); // State tambahan untuk Target
+  const [targetData, setTargetData] = useState<any>(null); 
   
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -24,7 +24,6 @@ export default function Reports() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Ambil Data Serentak (Keuangan, Kurs Live, Target)
         const [resData, resRates, resTarget] = await Promise.all([
             fetch("/api/reports/data"),
             fetch("/api/forex/rates"),
@@ -54,10 +53,7 @@ export default function Reports() {
         try {
             const img = new Image();
             img.src = '/bilano_logo_horiz.png';
-            await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = reject;
-            });
+            await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
             doc.addImage(img, 'PNG', 14, 10, 35, 12);
         } catch (e) {
             doc.setTextColor(79, 70, 229);
@@ -105,42 +101,52 @@ export default function Reports() {
         const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
         const netWorth = totalAsset - totalDebt;
 
+        // FILTER: Pisahkan Transaksi Arus Kas Murni vs Transaksi Aset
+        const pureTransactions = data.transactions.filter((t:any) => t.type === 'income' || t.type === 'expense');
+        const investTransactions = data.transactions.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
+
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const recentTx = data.transactions.filter((t:any) => new Date(t.date) >= thirtyDaysAgo);
-        const totalIncome = recentTx.filter((t:any) => t.type === 'income').reduce((acc:number, t:any) => acc + t.amount, 0);
-        const totalExpense = recentTx.filter((t:any) => t.type === 'expense').reduce((acc:number, t:any) => acc + t.amount, 0);
+        const recentPureTx = pureTransactions.filter((t:any) => new Date(t.date) >= thirtyDaysAgo);
+        
+        const totalIncome = recentPureTx.filter((t:any) => t.type === 'income').reduce((acc:number, t:any) => acc + t.amount, 0);
+        const totalExpense = recentPureTx.filter((t:any) => t.type === 'expense').reduce((acc:number, t:any) => acc + t.amount, 0);
+
+        // FUNGSI BANTUAN UNTUK PINDAH HALAMAN
+        let currentY = 108;
+        const checkPageBreak = (neededSpace: number) => {
+            if (currentY + neededSpace > 280) {
+                doc.addPage();
+                currentY = 20;
+            }
+        };
 
         // --- 3. HERO SECTION (BIG NUMBERS) ---
         doc.setTextColor(50, 50, 50);
         doc.setFontSize(11);
         doc.text("TOTAL KEKAYAAN BERSIH (NET WORTH)", 14, 60);
-        
         doc.setTextColor(16, 185, 129); // Emerald Green
         doc.setFontSize(26);
         doc.text(formatRp(netWorth), 14, 70);
 
-        // --- 4. ARUS KAS (CASHFLOW RINGKAS) ---
+        // --- 4. ARUS KAS MURNI RINGKAS ---
         doc.setDrawColor(226, 232, 240);
         doc.line(14, 78, 196, 78);
 
         doc.setTextColor(50, 50, 50);
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
-        doc.text("Ringkasan Arus Kas (30 Hari Terakhir)", 14, 88);
+        doc.text("Ringkasan Arus Kas Murni (30 Hari Terakhir)", 14, 88);
 
         doc.setFont("helvetica", "normal");
         doc.setTextColor(16, 185, 129); 
         doc.text(`Pemasukan: + ${formatRp(totalIncome)}`, 14, 95);
-        
         doc.setTextColor(244, 63, 94); 
         doc.text(`Pengeluaran: - ${formatRp(totalExpense)}`, 80, 95);
 
-        // Variabel pelacak tinggi PDF (Y-Axis)
-        let currentY = 108;
-
         // --- 5. PERFORMA TARGET (JIKA ADA) ---
         if (targetData && targetData.targetAmount > 0) {
+            checkPageBreak(40);
             doc.setTextColor(50, 50, 50);
             doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
@@ -156,34 +162,24 @@ export default function Reports() {
             doc.text(`Terkumpul saat ini: ${formatRp(netWorth)} (${progress.toFixed(1)}%)`, 14, currentY + 11);
             
             if (sisa > 0) {
-                doc.setTextColor(244, 63, 94); // Merah
-                doc.text(`Kekurangan: ${formatRp(sisa)}`, 14, currentY + 16);
+                doc.setTextColor(244, 63, 94); doc.text(`Kekurangan: ${formatRp(sisa)}`, 14, currentY + 16);
             } else {
-                doc.setTextColor(16, 185, 129); // Hijau
-                doc.setFont("helvetica", "bold");
-                doc.text(`Tercapai! Anda berhasil mencapai target.`, 14, currentY + 16);
+                doc.setTextColor(16, 185, 129); doc.setFont("helvetica", "bold"); doc.text(`Tercapai! Anda berhasil mencapai target.`, 14, currentY + 16);
             }
 
-            // Draw Visual Progress Bar
-            doc.setFillColor(226, 232, 240); // Base bar (abu-abu)
-            doc.roundedRect(14, currentY + 20, 182, 4, 2, 2, 'F');
-            
-            if (progress > 0) {
-                doc.setFillColor(16, 185, 129); // Progress bar (Hijau Emerald)
-                const fillWidth = (progress / 100) * 182;
-                doc.roundedRect(14, currentY + 20, fillWidth, 4, 2, 2, 'F');
-            }
-
-            currentY += 32; // Geser komponen berikutnya ke bawah
+            doc.setFillColor(226, 232, 240); doc.roundedRect(14, currentY + 20, 182, 4, 2, 2, 'F');
+            if (progress > 0) { doc.setFillColor(16, 185, 129); doc.roundedRect(14, currentY + 20, (progress / 100) * 182, 4, 2, 2, 'F'); }
+            currentY += 32; 
         }
 
         // --- 6. TABEL PORTFOLIO & ASET ---
+        checkPageBreak(50);
         autoTable(doc, {
           startY: currentY,
-          head: [['Rincian Aset & Kewajiban', 'Nominal (IDR)']],
+          head: [['Rincian Aset & Kewajiban (Neraca)', 'Nominal (IDR)']],
           body: [
             ["Saldo Tunai Kas", formatRp(user.cashBalance)],
-            ["Aset Investasi (Saham, Crypto, dll)", formatRp(totalInvest)],
+            ["Aset Investasi (Saham, Crypto, Emas, dll)", formatRp(totalInvest)],
             ["Aset Mata Uang Asing (Valas)", formatRp(totalForexIDR)],
             ["Piutang (Uang di Pihak Lain)", formatRp(totalPiutang)],
             ["Hutang (Kewajiban)", `(${formatRp(totalDebt)})`]
@@ -193,19 +189,17 @@ export default function Reports() {
           columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
           alternateRowStyles: { fillColor: [248, 250, 252] },
         });
-
         currentY = (doc as any).lastAutoTable.finalY + 15;
 
-        // --- 7. TABEL VALAS (JIKA ADA) ---
+        // --- 7. TABEL VALAS ---
         if (forexRows.length > 0) {
-            doc.setTextColor(50, 50, 50);
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
-            doc.text("Detail Kepemilikan Valas (Live Rate)", 14, currentY);
+            checkPageBreak(40);
+            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text("Detail Kepemilikan Valas (Berdasarkan Kurs Live)", 14, currentY);
             
             autoTable(doc, {
                 startY: currentY + 5,
-                head: [['Mata Uang', 'Jumlah', 'Kurs Saat Ini', 'Estimasi IDR']],
+                head: [['Mata Uang', 'Jumlah Kepemilikan', 'Kurs Saat Ini', 'Estimasi Nilai IDR']],
                 body: forexRows,
                 theme: 'striped',
                 headStyles: { fillColor: [14, 165, 233] }, 
@@ -214,18 +208,61 @@ export default function Reports() {
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
-        // --- 8. TABEL TRANSAKSI TERAKHIR ---
-        if (currentY > 230) {
-            doc.addPage();
-            currentY = 20;
+        // --- 8. TABEL RIWAYAT INVESTASI (DIPISAH DARI ARUS KAS) ---
+        if (investTransactions.length > 0) {
+            checkPageBreak(40);
+            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text("Riwayat Transaksi Investasi (Capital & Yield)", 14, currentY);
+
+            const invRows = investTransactions.map((t: any) => [
+                new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+                t.type === 'invest_buy' ? 'Beli Aset' : 'Jual Aset',
+                t.description, // Berisi "10 lot BBCA @ Rp 9000 (P/L: +Rp 50.000)"
+                formatRp(t.amount)
+            ]);
+
+            autoTable(doc, {
+                startY: currentY + 5,
+                head: [['Tanggal', 'Tindakan', 'Detail Aset (Volume & Harga/Unit)', 'Total Nilai']],
+                body: invRows,
+                theme: 'grid',
+                headStyles: { fillColor: [16, 185, 129] }, // Emerald untuk Investasi
+                columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } },
+            });
+            currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
-        doc.setTextColor(50, 50, 50);
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.text("Riwayat Transaksi Terakhir", 14, currentY);
+        // --- 9. TABEL RINCIAN HUTANG & PIUTANG ---
+        if (data.debts && data.debts.length > 0) {
+            checkPageBreak(40);
+            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text("Daftar Rincian Hutang & Piutang", 14, currentY);
 
-        const txRows = data.transactions.slice(0, 20).map((t: any) => [
+            const debtRows = data.debts.map((d: any) => [
+                d.type === 'hutang' ? 'HUTANG (Kewajiban)' : 'PIUTANG (Hak)',
+                d.name,
+                formatRp(d.amount),
+                d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tanpa Tenggat',
+                d.isPaid ? 'LUNAS' : 'Belum Lunas'
+            ]);
+
+            autoTable(doc, {
+                startY: currentY + 5,
+                head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']],
+                body: debtRows,
+                theme: 'grid',
+                headStyles: { fillColor: [236, 72, 153] }, // Pink/Rose untuk Hutang
+                columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } },
+            });
+            currentY = (doc as any).lastAutoTable.finalY + 15;
+        }
+
+        // --- 10. TABEL TRANSAKSI ARUS KAS MURNI (REVENUE & EXPENSE) ---
+        checkPageBreak(40);
+        doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+        doc.text("Riwayat Transaksi Arus Kas Murni (Pemasukan & Pengeluaran)", 14, currentY);
+
+        const txRows = pureTransactions.slice(0, 30).map((t: any) => [
           new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
           t.type === 'income' ? 'Masuk' : 'Keluar',
           t.category,
@@ -235,14 +272,11 @@ export default function Reports() {
 
         autoTable(doc, {
           startY: currentY + 5,
-          head: [['Tanggal', 'Tipe', 'Kategori', 'Catatan', 'Nominal']],
+          head: [['Tanggal', 'Arus', 'Kategori', 'Catatan', 'Nominal']],
           body: txRows,
           theme: 'grid',
-          headStyles: { fillColor: [249, 115, 22] }, // Orange
-          columnStyles: { 
-              1: { halign: 'center', fontStyle: 'bold' }, 
-              4: { halign: 'right', fontStyle: 'bold' } 
-          },
+          headStyles: { fillColor: [249, 115, 22] }, // Orange untuk Cashflow
+          columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } },
           didParseCell: function (data) {
               if (data.section === 'body' && data.column.index === 1) {
                   if (data.cell.raw === 'Masuk') data.cell.styles.textColor = [16, 185, 129];
@@ -251,7 +285,7 @@ export default function Reports() {
           }
         });
 
-        // --- 9. FOOTER & DISCLAIMER ---
+        // --- 11. FOOTER & DISCLAIMER ---
         const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
             doc.setPage(i);
@@ -288,7 +322,7 @@ export default function Reports() {
                 </div>
                 <h2 className="text-2xl font-extrabold mb-2">Cetak Laporan</h2>
                 <p className="text-indigo-100 text-xs mb-8 px-4 leading-relaxed opacity-90 font-medium">
-                    Download laporan PDF profesional lengkap dengan neraca, arus kas, dan pencapaian target.
+                    Download laporan PDF profesional lengkap dengan neraca, arus kas, hutang, dan riwayat investasi.
                 </p>
                 <Button 
                     onClick={generatePDF} 
@@ -306,30 +340,17 @@ export default function Reports() {
         {/* LIST ISI LAPORAN */}
         <div>
             <h3 className="font-extrabold text-slate-800 mb-4 text-sm flex items-center gap-2 px-2">
-                <FileText className="w-5 h-5 text-indigo-500"/> Isi Laporan PDF:
+                <FileText className="w-5 h-5 text-indigo-500"/> Apa saja yang ada di dalam PDF?
             </h3>
             <div className="space-y-3">
                 
-                {/* Visual Tambahan Performa Target (jika pasang target) */}
-                {targetData && targetData.targetAmount > 0 && (
-                    <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                        <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
-                            <Target className="w-5 h-5"/>
-                        </div>
-                        <div className="flex-1">
-                            <h4 className="font-extrabold text-slate-800 text-sm">Pencapaian Target</h4>
-                            <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Progress bar dan kalkulasi target impianmu</p>
-                        </div>
-                    </div>
-                )}
-
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
                     <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
                         <Wallet className="w-5 h-5"/>
                     </div>
                     <div className="flex-1">
-                        <h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Total Tunai + Investasi + Valas - Hutang</p>
+                        <h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan Terpadu</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap total Kas, Investasi, Valas, dan Hutang/Piutang.</p>
                     </div>
                 </div>
 
@@ -338,18 +359,38 @@ export default function Reports() {
                         <FileText className="w-5 h-5"/>
                     </div>
                     <div className="flex-1">
-                        <h4 className="font-extrabold text-slate-800 text-sm">Arus Kas & Riwayat</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap Pemasukan & Pengeluaran terbaru</p>
+                        <h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Cashflow)</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional sehari-hari.</p>
                     </div>
                 </div>
 
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
                     <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+                        <Briefcase className="w-5 h-5"/>
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="font-extrabold text-slate-800 text-sm">Riwayat Mutasi Investasi</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Data harga beli aset, total nominal, serta kalkulasi P/L.</p>
+                    </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform">
+                        <HandCoins className="w-5 h-5"/>
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="font-extrabold text-slate-800 text-sm">Detail Hutang & Piutang</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Daftar pihak terkait, total nominal, dan jatuh temponya.</p>
+                    </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-full bg-cyan-50 flex items-center justify-center text-cyan-600 group-hover:scale-110 transition-transform">
                         <Globe className="w-5 h-5"/>
                     </div>
                     <div className="flex-1">
-                        <h4 className="font-extrabold text-slate-800 text-sm">Rincian Valas Live</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Tabel aset asing dikali kurs hari ini.</p>
+                        <h4 className="font-extrabold text-slate-800 text-sm">Estimasi Valas Live</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Tabel aset mata uang asing dikali kurs pertukaran hari ini.</p>
                     </div>
                 </div>
             </div>
