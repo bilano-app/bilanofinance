@@ -4,6 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
+import Security from "./pages/Security";
 
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
@@ -65,6 +66,7 @@ function Router() {
       <Route path="/performance" component={Performance} />
       <Route path="/scan" component={SmartScan} />
       <Route path="/paywall" component={Paywall} />
+      <Route path="/security" component={Security} />
       <Route component={NotFound} />
     </Switch>
   );

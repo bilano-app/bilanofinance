@@ -11,7 +11,7 @@ import {
   ArrowUpCircle, ArrowDownCircle, 
   TrendingUp, Sparkles, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
-  MoreVertical, ShieldCheck, ScanLine, Crown
+  MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -31,6 +31,49 @@ export default function Home() {
   const [showTargetModal, setShowTargetModal] = useState(false); 
   const [forexRates, setForexRates] = useState<Record<string, number>>({});
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
+
+  // === FITUR KEAMANAN (PIN & PRIVASI) ===
+  const [isPrivacyMode, setIsPrivacyMode] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
+
+  useEffect(() => {
+      // Cek Mode Privasi
+      setIsPrivacyMode(localStorage.getItem("bilano_privacy") === "true");
+      
+      // Cek Kunci PIN
+      const savedPin = localStorage.getItem("bilano_app_pin");
+      const isUnlockedSession = sessionStorage.getItem("bilano_session_unlocked") === "true";
+      
+      if (savedPin && !isUnlockedSession) {
+          setIsLocked(true);
+      }
+  }, []);
+
+  const handlePinUnlock = (num: string) => {
+      setPinError(false);
+      const newVal = pinInput + num;
+      setPinInput(newVal);
+      
+      if (newVal.length === 6) {
+          const savedPin = localStorage.getItem("bilano_app_pin");
+          if (newVal === savedPin) {
+              sessionStorage.setItem("bilano_session_unlocked", "true");
+              setIsLocked(false);
+          } else {
+              setPinError(true);
+              setTimeout(() => setPinInput(""), 300);
+          }
+      }
+  };
+
+  const togglePrivacy = () => {
+      const newVal = !isPrivacyMode;
+      setIsPrivacyMode(newVal);
+      localStorage.setItem("bilano_privacy", newVal.toString());
+  };
+  // === AKHIR FITUR KEAMANAN ===
 
   const userEmail = localStorage.getItem("bilano_email") || "Pengguna";
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
@@ -93,6 +136,7 @@ export default function Home() {
         await signOut(auth); 
         localStorage.removeItem("bilano_auth");
         localStorage.removeItem("bilano_email");
+        sessionStorage.removeItem("bilano_session_unlocked");
         toast({ title: "Berhasil Keluar", description: "Sampai jumpa lagi!" });
         setLocation("/auth"); 
     } catch (error) { console.error(error); }
@@ -106,13 +150,37 @@ export default function Home() {
       return t.type === 'income' && (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
   }).reduce((acc, t) => acc + t.amount, 0) || 0;
 
-  // FIX: Coret kategori yang mengandung kata "Invest" dari Pengeluaran
   const expense = transactions?.filter(t => {
       const d = new Date(t.date);
-      const isInvestment = t.category?.toLowerCase().includes('invest');
-      return t.type === 'expense' && !isInvestment && (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
+      return t.type === 'expense' && (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
   }).reduce((acc, t) => acc + t.amount, 0) || 0;
   
+  // RENDER LAYAR KUNCI (PIN) JIKA AKTIF
+  if (isLocked) {
+      return (
+        <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center text-white">
+            <Lock className={`w-12 h-12 mb-4 ${pinError ? 'text-rose-500 animate-bounce' : 'text-indigo-500'}`} />
+            <h2 className="text-xl font-bold mb-2">BILANO Terkunci</h2>
+            <p className="text-sm text-slate-400 mb-8">{pinError ? "PIN Salah. Coba lagi." : "Masukkan PIN Keamanan"}</p>
+            <div className={`flex gap-4 mb-12 ${pinError ? 'animate-pulse' : ''}`}>
+                {[...Array(6)].map((_, i) => (
+                    <div key={i} className={`w-4 h-4 rounded-full transition-colors ${pinInput.length > i ? (pinError ? 'bg-rose-500' : 'bg-indigo-500') : 'bg-slate-700'}`} />
+                ))}
+            </div>
+            <div className="grid grid-cols-3 gap-6 max-w-xs mx-auto">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                    <button key={num} onClick={() => handlePinUnlock(num.toString())} className="w-16 h-16 rounded-full bg-slate-800 text-2xl font-bold hover:bg-slate-700 active:bg-slate-600 transition-colors">{num}</button>
+                ))}
+                <div />
+                <button onClick={() => handlePinUnlock('0')} className="w-16 h-16 rounded-full bg-slate-800 text-2xl font-bold hover:bg-slate-700 active:bg-slate-600 transition-colors">0</button>
+                <button onClick={() => setPinInput(p => p.slice(0, -1))} className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 active:bg-slate-600 transition-colors">
+                    <X className="w-8 h-8"/>
+                </button>
+            </div>
+        </div>
+      );
+  }
+
   if (isUserLoading || isTargetLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 animate-pulse">Memuat Data...</div>;
 
   const isTargetEmpty = !target || (typeof target === 'object' && Object.keys(target).length === 0);
@@ -186,9 +254,12 @@ export default function Home() {
                                 <User className="w-4 h-4 text-slate-400"/> Edit Profil
                             </button>
                         </Link>
-                        <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3">
-                            <ShieldCheck className="w-4 h-4 text-slate-400"/> Keamanan
-                        </button>
+                        {/* TAUTAN MENU KEAMANAN DIHUBUNGKAN KE /security */}
+                        <Link href="/security">
+                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3">
+                                <ShieldCheck className="w-4 h-4 text-slate-400"/> Keamanan
+                            </button>
+                        </Link>
                         <div className="h-px bg-slate-100 my-1 mx-2"></div>
                         <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold">
                             <LogOut className="w-4 h-4 text-rose-500"/> Keluar
@@ -219,17 +290,25 @@ export default function Home() {
         
         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
-              <p className="text-[11px] font-bold text-blue-100 mb-1 uppercase tracking-widest">Total Cash</p>
-              <h2 className="text-4xl font-extrabold tracking-tight text-white mb-6 drop-shadow-sm">
-                 {formatCurrency(totalBalance).split(",")[0]}
+              <div className="flex justify-between items-center mb-1">
+                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">Total Cash</p>
+                  {/* TOMBOL MATA UNTUK TOGGLE SENSOR SALDO */}
+                  <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-blue-200">
+                      {isPrivacyMode ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                  </button>
+              </div>
+              
+              <h2 className="text-4xl font-extrabold tracking-tight text-white mb-6 drop-shadow-sm flex items-center h-10">
+                 {/* SENSOR BINTANG JIKA PRIVACY MODE AKTIF */}
+                 {isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0]}
               </h2>
               <div className="flex gap-3">
                   <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                      <span>IDR:</span> <span className="font-bold text-white">{formatCurrency(cashRupiah).split(",")[0]}</span>
+                      <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                   </div>
                   {forexValue > 0 && (
                       <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                          <span>Valas:</span> <span className="font-bold text-white">{formatCurrency(forexValue).split(",")[0]}</span>
+                          <span>Valas:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(forexValue).split(",")[0]}</span>
                       </div>
                   )}
               </div>
@@ -247,7 +326,7 @@ export default function Home() {
                     </div>
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pemasukan</p>
-                        <p className="text-base font-extrabold text-slate-800 leading-tight">{formatCurrency(income).split(",")[0]}</p>
+                        <p className="text-base font-extrabold text-slate-800 leading-tight">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
                     </div>
                </div>
            </Link>
@@ -258,7 +337,7 @@ export default function Home() {
                     </div>
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pengeluaran</p>
-                        <p className="text-base font-extrabold text-slate-800 leading-tight">{formatCurrency(expense).split(",")[0]}</p>
+                        <p className="text-base font-extrabold text-slate-800 leading-tight">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
                     </div>
                </div>
            </Link>
