@@ -11,7 +11,9 @@ export const users = pgTable("users", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   profilePicture: text("profile_picture"),
-  cashBalance: integer("cash_balance").default(0).notNull(), 
+  cashBalance: integer("cash_balance").default(0).notNull(),
+  isPro: boolean("is_pro").default(false),
+  proValidUntil: timestamp("pro_valid_until"), 
 });
 
 // --- 2. TRANSACTIONS ---

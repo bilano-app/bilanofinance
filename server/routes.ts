@@ -128,6 +128,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!user) {
         user = await storage.createUser({ username: email as string, password: "123", email: email as string });
     }
+
+    // CEK JAM DINDING: Cabut status PRO jika waktu 365 hari sudah lewat!
+    if (user.isPro && user.proValidUntil) {
+        const now = new Date();
+        const validUntil = new Date(user.proValidUntil);
+        if (now > validUntil) {
+            console.log(`[SISTEM] Masa aktif PRO untuk ${user.username} telah habis.`);
+            // Perintahkan database untuk mencabut statusnya
+            user = await storage.updateUserProStatus(user.id, false, null);
+        }
+    }
+
     return user;
   };
 
@@ -368,9 +380,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payment/webhook", async (req, res) => {
       try {
           const data = req.body;
+          // Jika Mayar bilang Lunas
           if (data.status === 'SUCCESS' || data.status === 'PAID') {
               const userId = parseInt(data.reference_id.split('-')[2]);
-              console.log(`✅ PEMBAYARAN MAYAR BERHASIL UNTUK USER ID: ${userId}`);
+              
+              // Hitung Argo 365 Hari dari detik ini
+              const validUntil = new Date();
+              validUntil.setDate(validUntil.getDate() + 365);
+              
+              // Nyalakan status PRO dan stempel tanggalnya di Database
+              await storage.updateUserProStatus(userId, true, validUntil);
+              
+              console.log(`✅ PEMBAYARAN SUKSES! User ID: ${userId} menjadi PRO hingga ${validUntil.toLocaleDateString()}`);
           }
           res.json({ success: true });
       } catch (error) {

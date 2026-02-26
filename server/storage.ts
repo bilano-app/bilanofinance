@@ -51,6 +51,8 @@ export interface IStorage {
   toggleSubscriptionStatus(id: number, isActive: boolean): Promise<Subscription>;
   deleteSubscription(id: number): Promise<void>;
   processDueSubscriptions(userId: number): Promise<string[]>; 
+
+  updateUserProStatus(userId: number, isPro: boolean, validUntil: Date | null): Promise<User>;
 }
 
 // ============================================================================
@@ -83,6 +85,14 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.update(users).set({ cashBalance: newBalance }).where(eq(users.id, id)).returning();
     if (!user) throw new Error("User not found");
     return user;
+  }
+
+  async updateUserProStatus(userId: number, isPro: boolean, validUntil: Date | null): Promise<User> {
+    const [updatedUser] = await db.update(users)
+        .set({ isPro, proValidUntil: validUntil })
+        .where(eq(users.id, userId))
+        .returning();
+    return updatedUser;
   }
 
   async updateUserProfile(id: number, firstName: string, lastName: string, profilePicture?: string): Promise<User> {
