@@ -11,7 +11,8 @@ import {
   ArrowUpCircle, ArrowDownCircle, 
   TrendingUp, Sparkles, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
-  MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2
+  MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
+  BellRing, Mic, Camera // <-- Ikon baru untuk layar izin akses
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -37,7 +38,10 @@ export default function Home() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
 
-  // === DATA PENGHITUNG VALAS LINTAS FITUR ===
+  // === STATE UNTUK LAYAR PERMINTAAN IZIN ===
+  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
+  const [isRequestingPerms, setIsRequestingPerms] = useState(false);
+
   const [forexRates, setForexRates] = useState<Record<string, number>>({});
   const [debtsData, setDebtsData] = useState<any[]>([]);
 
@@ -47,6 +51,12 @@ export default function Home() {
       const isUnlockedSession = sessionStorage.getItem("bilano_session_unlocked") === "true";
       
       if (savedPin && !isUnlockedSession) setIsLocked(true);
+
+      // Cek apakah pengguna sudah pernah melihat layar permintaan izin
+      const hasPrompted = localStorage.getItem("bilano_permissions_prompted");
+      if (!hasPrompted) {
+          setShowPermissionPrompt(true);
+      }
   }, []);
 
   const handlePinUnlock = (num: string) => {
@@ -107,7 +117,6 @@ export default function Home() {
       }
   }, [target, isUserLoading, isTargetLoading, setLocation]);
 
-  // === AMBIL DATA RATES & HUTANG ===
   useEffect(() => {
     const fetchHomeData = async () => {
         try {
@@ -127,7 +136,36 @@ export default function Home() {
     fetchHomeData();
   }, []);
 
-  // === KALKULASI NET WORTH DENGAN KURS LIVE ===
+  // === FUNGSI PEMINTA IZIN AKSES HP ===
+  const requestAllPermissions = async () => {
+      setIsRequestingPerms(true);
+      try {
+          // 1. Minta Izin Notifikasi
+          if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+              await Notification.requestPermission();
+          }
+          // 2. Minta Izin Kamera & Mic
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+              await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {
+                  // Catch silent error jika user menolak atau perangkat tidak mendukung
+              });
+          }
+      } catch (e) {
+          console.error("Gagal meminta izin:", e);
+      } finally {
+          localStorage.setItem("bilano_permissions_prompted", "true"); // Tandai agar tidak muncul lagi
+          setShowPermissionPrompt(false);
+          setIsRequestingPerms(false);
+          toast({ title: "Terima Kasih!", description: "Aplikasi sekarang siap digunakan secara maksimal." });
+      }
+  };
+
+  const skipPermissions = () => {
+      localStorage.setItem("bilano_permissions_prompted", "true");
+      setShowPermissionPrompt(false);
+  };
+
+  // === KALKULASI NET WORTH ===
   const cashRupiah = (user?.cashBalance || 0); 
   const forexValue = (forexAssets || []).reduce((acc, asset) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
   
@@ -231,6 +269,62 @@ export default function Home() {
 
   return (
     <MobileLayout>
+      {/* === MODAL BUJUKAN IZIN AKSES (SOFT PROMPT) === */}
+      {showPermissionPrompt && (
+          <div className="fixed inset-0 z-[99999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100">
+                  <div className="text-center mb-6">
+                      <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-100">
+                          <Sparkles className="w-10 h-10 text-indigo-600"/>
+                      </div>
+                      <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">Satu Langkah Lagi!</h2>
+                      <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">Biar BILANO makin pintar bantu kelola uangmu, kami butuh sedikit izin untuk fitur ini:</p>
+                  </div>
+
+                  <div className="space-y-4 mb-8">
+                      <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
+                          <div className="bg-blue-100 p-2.5 rounded-full text-blue-600"><BellRing className="w-5 h-5"/></div>
+                          <div>
+                              <h4 className="font-bold text-slate-800 text-sm">Notifikasi Pengingat</h4>
+                              <p className="text-[11px] text-slate-500 mt-0.5">Biar kamu gak lupa catat jajan hari ini.</p>
+                          </div>
+                      </div>
+                      <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
+                          <div className="bg-rose-100 p-2.5 rounded-full text-rose-600"><Mic className="w-5 h-5"/></div>
+                          <div>
+                              <h4 className="font-bold text-slate-800 text-sm">Akses Mikrofon</h4>
+                              <p className="text-[11px] text-slate-500 mt-0.5">Catat cepat pakai perintah suara AI.</p>
+                          </div>
+                      </div>
+                      <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
+                          <div className="bg-emerald-100 p-2.5 rounded-full text-emerald-600"><Camera className="w-5 h-5"/></div>
+                          <div>
+                              <h4 className="font-bold text-slate-800 text-sm">Akses Kamera</h4>
+                              <p className="text-[11px] text-slate-500 mt-0.5">Biar bisa scan struk belanja otomatis.</p>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div className="space-y-3">
+                      <Button 
+                          onClick={requestAllPermissions} 
+                          disabled={isRequestingPerms} 
+                          className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-extrabold rounded-full shadow-lg shadow-indigo-200 active:scale-95 transition-transform"
+                      >
+                          {isRequestingPerms ? <Loader2 className="w-6 h-6 animate-spin"/> : "IZINKAN SEMUA"}
+                      </Button>
+                      <Button 
+                          variant="ghost" 
+                          onClick={skipPermissions} 
+                          className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full"
+                      >
+                          Nanti Saja
+                      </Button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {showTargetModal && (
           <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border-4 border-emerald-100">
@@ -432,7 +526,6 @@ export default function Home() {
             </Link>
         </div>
 
-        {/* --- FOOTER PENUTUP HALAMAN --- */}
         <div className="mt-10 mb-8 flex flex-col items-center justify-center opacity-60">
             <div className="w-12 h-1 bg-slate-200 rounded-full mb-4"></div>
             <p className="text-xs font-extrabold text-slate-400 tracking-widest uppercase">BILANO Finance</p>
