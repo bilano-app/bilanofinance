@@ -148,7 +148,6 @@ export default function Home() {
       setShowPermissionPrompt(false);
   };
 
-  // === FIX 2: KALKULASI HOME KEMBALI HANYA UNTUK CASH + VALAS ===
   const cashRupiah = (user?.cashBalance || 0); 
   const forexValue = (forexAssets || []).reduce((acc, asset) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
   const totalBalance = cashRupiah + forexValue;
@@ -231,7 +230,6 @@ export default function Home() {
 
   return (
     <MobileLayout>
-      {/* === FIX 1: MODAL IZIN DENGAN LOGO PROFESIONAL === */}
       {showPermissionPrompt && (
           <div className="fixed inset-0 z-[99999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100">
@@ -388,11 +386,11 @@ export default function Home() {
             </div>
         )}
         
-        {/* KOTAK SALDO HOME */}
+        {/* === FIX: TEKS "SALDO KAS" === */}
         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
               <div className="flex justify-between items-center mb-1">
-                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">Saldo Tunai & Valas</p>
+                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">Saldo Kas</p>
                   <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-blue-200">
                       {isPrivacyMode ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                   </button>
@@ -401,12 +399,12 @@ export default function Home() {
               <h2 className="text-4xl font-extrabold tracking-tight text-white mb-6 drop-shadow-sm flex items-center h-10">
                  {isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0]}
               </h2>
-              <div className="flex flex-wrap gap-2">
-                  <div className="flex items-center gap-1.5 text-[10px] text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
+              <div className="flex gap-3">
+                  <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
                       <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                   </div>
                   {forexValue > 0 && (
-                      <div className="flex items-center gap-1.5 text-[10px] text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
+                      <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
                           <span>Valas:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(forexValue).split(",")[0]}</span>
                       </div>
                   )}
@@ -487,7 +485,6 @@ export default function Home() {
             </Link>
         </div>
 
-        {/* === FIX 3: FOOTER LEBIH CLEAN DAN DEKAT === */}
         <div className="mt-8 mb-6 flex flex-col items-center justify-center opacity-60">
             <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Smart Wealth Management</p>
             <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
