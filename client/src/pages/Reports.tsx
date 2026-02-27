@@ -17,20 +17,18 @@ export default function Reports() {
 
   const formatRp = (val: number) => {
       const num = Number(val) || 0;
-      return "Rp " + num.toLocaleString("id-ID");
+      return "Rp " + Math.round(num).toLocaleString("id-ID");
   };
 
-  // === FIX CACHE BOCOR LINTAS AKUN ===
   useEffect(() => {
     const fetchData = async () => {
       try {
         const userEmail = localStorage.getItem("bilano_email") || "";
         const fetchOpts = { 
             headers: { "x-user-email": userEmail },
-            cache: "no-store" as RequestCache // Paksa agar tidak pakai cache lama
+            cache: "no-store" as RequestCache
         };
 
-        // Tambahkan ?t=... agar browser selalu anggap ini URL baru yang segar
         const timestamp = Date.now();
         const [resData, resRates, resTarget] = await Promise.all([
             fetch(`/api/reports/data?t=${timestamp}`, fetchOpts),
@@ -91,13 +89,26 @@ export default function Reports() {
         doc.setFontSize(14);
         doc.text("WEALTH MANAGEMENT REPORT", 20, 41);
 
+        // === KALKULASI NET WORTH PDF DENGAN KURS LIVE ===
         const totalInvest = data.investments.reduce((acc: number, inv: any) => {
-            const m = (inv.type === 'saham' || (inv.symbol.length === 4 && inv.type !== 'crypto')) ? 100 : 1;
-            return acc + (inv.quantity * inv.avgPrice * m);
+            const [sym, curr] = (inv.symbol || "").split('|');
+            const rate = (curr && curr !== 'IDR') ? (forexRates[curr] || 1) : 1;
+            const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
+            const m = (isSaham && (!curr || curr === 'IDR')) ? 100 : 1;
+            return acc + (inv.quantity * inv.avgPrice * m * rate);
         }, 0);
         
-        const totalDebt = data.debts.filter((d:any) => d.type === 'hutang' && !d.isPaid).reduce((acc: number, d: any) => acc + d.amount, 0);
-        const totalPiutang = data.debts.filter((d:any) => d.type === 'piutang' && !d.isPaid).reduce((acc: number, d: any) => acc + d.amount, 0);
+        const totalDebt = data.debts.filter((d:any) => d.type === 'hutang' && !d.isPaid).reduce((acc: number, d: any) => {
+            const [, curr] = (d.name || "").split('|');
+            const rate = (curr && curr !== 'IDR') ? (forexRates[curr] || 1) : 1;
+            return acc + (d.amount * rate);
+        }, 0);
+        
+        const totalPiutang = data.debts.filter((d:any) => d.type === 'piutang' && !d.isPaid).reduce((acc: number, d: any) => {
+            const [, curr] = (d.name || "").split('|');
+            const rate = (curr && curr !== 'IDR') ? (forexRates[curr] || 1) : 1;
+            return acc + (d.amount * rate);
+        }, 0);
         
         let totalForexIDR = 0;
         const forexRows = data.forexAssets.map((f: any) => {
@@ -179,7 +190,7 @@ export default function Reports() {
         checkPageBreak(50);
         autoTable(doc, {
           startY: currentY,
-          head: [['Rincian Aset & Kewajiban (Neraca)', 'Nominal (IDR)']],
+          head: [['Rincian Aset & Kewajiban (Neraca)', 'Estimasi Nominal (IDR)']],
           body: [
             ["Saldo Tunai Kas", formatRp(user.cashBalance)],
             ["Aset Investasi (Saham, Crypto, Emas, dll)", formatRp(totalInvest)],
@@ -224,7 +235,7 @@ export default function Reports() {
 
             autoTable(doc, {
                 startY: currentY + 5,
-                head: [['Tanggal', 'Tindakan', 'Detail Aset (Volume & Harga/Unit)', 'Total Nilai']],
+                head: [['Tanggal', 'Tindakan', 'Detail Aset (Volume & Harga/Unit)', 'Total Nilai (IDR)']],
                 body: invRows,
                 theme: 'grid',
                 headStyles: { fillColor: [16, 185, 129] }, 
@@ -238,13 +249,20 @@ export default function Reports() {
             doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
             doc.text("Daftar Rincian Hutang & Piutang", 14, currentY);
 
-            const debtRows = data.debts.map((d: any) => [
-                d.type === 'hutang' ? 'HUTANG (Kewajiban)' : 'PIUTANG (Hak)',
-                d.name,
-                formatRp(d.amount),
-                d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tanpa Tenggat',
-                d.isPaid ? 'LUNAS' : 'Belum Lunas'
-            ]);
+            const debtRows = data.debts.map((d: any) => {
+                const [displayName, curr] = (d.name || "").split('|');
+                const actualCurr = curr || 'IDR';
+                const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || 1);
+                const valIDR = d.amount * rate;
+                
+                return [
+                    d.type === 'hutang' ? 'HUTANG' : 'PIUTANG',
+                    displayName,
+                    actualCurr !== 'IDR' ? `${actualCurr} ${d.amount.toLocaleString()} (≈ ${formatRp(valIDR)})` : formatRp(d.amount),
+                    d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tanpa Tenggat',
+                    d.isPaid ? 'LUNAS' : 'Belum Lunas'
+                ]
+            });
 
             autoTable(doc, {
                 startY: currentY + 5,

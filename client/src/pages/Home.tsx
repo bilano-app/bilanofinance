@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   useUser, useTransactions, useTarget, 
-  useForexAssets 
+  useForexAssets, useInvestments 
 } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { MobileLayout } from "@/components/Layout";
@@ -21,6 +21,7 @@ export default function Home() {
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: transactions } = useTransactions();
   const { data: forexAssets } = useForexAssets(); 
+  const { data: investments } = useInvestments();
   const { data: target, isLoading: isTargetLoading } = useTarget(); 
 
   const [, setLocation] = useLocation();
@@ -29,13 +30,16 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileZoomed, setIsProfileZoomed] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false); 
-  const [forexRates, setForexRates] = useState<Record<string, number>>({});
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
 
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
+
+  // === DATA PENGHITUNG VALAS LINTAS FITUR ===
+  const [forexRates, setForexRates] = useState<Record<string, number>>({});
+  const [debtsData, setDebtsData] = useState<any[]>([]);
 
   useEffect(() => {
       setIsPrivacyMode(localStorage.getItem("bilano_privacy") === "true");
@@ -72,13 +76,11 @@ export default function Home() {
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
-  // === PERBAIKAN ARGO TRIAL DI SINI ===
   useEffect(() => {
       if (isUserPro) return;
       const trialKey = `bilano_trial_start_${userEmail}`;
       let trialStart = localStorage.getItem(trialKey);
       
-      // FIX: Jika belum ada tanggal mulai, buat sekarang!
       if (!trialStart) {
           trialStart = Date.now().toString();
           localStorage.setItem(trialKey, trialStart);
@@ -105,24 +107,51 @@ export default function Home() {
       }
   }, [target, isUserLoading, isTargetLoading, setLocation]);
 
+  // === AMBIL DATA RATES & HUTANG ===
   useEffect(() => {
-    const fetchRates = async () => {
+    const fetchHomeData = async () => {
         try {
-            const res = await fetch("/api/forex/rates");
-            if (res.ok) setForexRates(await res.json());
-        } catch (e) { console.error("Gagal fetch rates home", e); }
+            const userEmail = localStorage.getItem("bilano_email") || "";
+            const t = Date.now();
+            const fetchOpts = { headers: { "x-user-email": userEmail }, cache: "no-store" as RequestCache };
+            
+            const [resRates, resDebts] = await Promise.all([
+                fetch(`/api/forex/rates?t=${t}`, fetchOpts),
+                fetch(`/api/debts?t=${t}`, fetchOpts)
+            ]);
+            
+            if (resRates.ok) setForexRates(await resRates.json());
+            if (resDebts.ok) setDebtsData(await resDebts.json());
+        } catch (e) { console.error("Gagal fetch data home", e); }
     };
-    fetchRates();
+    fetchHomeData();
   }, []);
 
-  const calculateForexTotal = () => {
-      if (!forexAssets || Object.keys(forexRates).length === 0) return 0;
-      return forexAssets.reduce((acc, asset) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
-  };
-
-  const forexValue = calculateForexTotal();
+  // === KALKULASI NET WORTH DENGAN KURS LIVE ===
   const cashRupiah = (user?.cashBalance || 0); 
-  const totalBalance = cashRupiah + forexValue; 
+  const forexValue = (forexAssets || []).reduce((acc, asset) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
+  
+  const investmentValue = (investments || []).reduce((acc, inv) => {
+      const [sym, curr] = (inv.symbol || "").split('|');
+      const rate = (curr && curr !== 'IDR') ? (forexRates[curr] || 1) : 1;
+      const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
+      const m = (isSaham && (!curr || curr === 'IDR')) ? 100 : 1;
+      return acc + (inv.quantity * inv.avgPrice * m * rate);
+  }, 0);
+
+  const piutangValue = debtsData.filter(d => d.type === 'piutang' && !d.isPaid).reduce((acc, d) => {
+      const [, curr] = (d.name || "").split('|');
+      const rate = (curr && curr !== 'IDR') ? (forexRates[curr] || 1) : 1;
+      return acc + (d.amount * rate);
+  }, 0);
+
+  const hutangValue = debtsData.filter(d => d.type === 'hutang' && !d.isPaid).reduce((acc, d) => {
+      const [, curr] = (d.name || "").split('|');
+      const rate = (curr && curr !== 'IDR') ? (forexRates[curr] || 1) : 1;
+      return acc + (d.amount * rate);
+  }, 0);
+
+  const totalBalance = cashRupiah + forexValue + investmentValue + piutangValue - hutangValue;
 
   useEffect(() => {
     if (target && target.targetAmount > 0 && totalBalance >= target.targetAmount) {
@@ -282,7 +311,6 @@ export default function Home() {
             </div>
         </div>
 
-        {/* FIX: TAMPILAN BANNER JADI MERAH JIKA HABIS */}
         {!isUserPro && trialDaysLeft !== null && (
             <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${trialDaysLeft === 0 ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
                 <div className="flex items-center gap-3">
@@ -309,7 +337,7 @@ export default function Home() {
         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
               <div className="flex justify-between items-center mb-1">
-                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">Total Cash</p>
+                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">Kekayaan Bersih (Net Worth)</p>
                   <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-blue-200">
                       {isPrivacyMode ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                   </button>
@@ -318,13 +346,13 @@ export default function Home() {
               <h2 className="text-4xl font-extrabold tracking-tight text-white mb-6 drop-shadow-sm flex items-center h-10">
                  {isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0]}
               </h2>
-              <div className="flex gap-3">
-                  <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                      <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+              <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center gap-1.5 text-[10px] text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
+                      <span>Tunai:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                   </div>
-                  {forexValue > 0 && (
-                      <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                          <span>Valas:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(forexValue).split(",")[0]}</span>
+                  {(forexValue > 0 || investmentValue > 0) && (
+                      <div className="flex items-center gap-1.5 text-[10px] text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
+                          <span>Aset:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(forexValue + investmentValue).split(",")[0]}</span>
                       </div>
                   )}
               </div>
@@ -403,6 +431,17 @@ export default function Home() {
                 </div>
             </Link>
         </div>
+
+        {/* --- FOOTER PENUTUP HALAMAN --- */}
+        <div className="mt-10 mb-8 flex flex-col items-center justify-center opacity-60">
+            <div className="w-12 h-1 bg-slate-200 rounded-full mb-4"></div>
+            <p className="text-xs font-extrabold text-slate-400 tracking-widest uppercase">BILANO Finance</p>
+            <p className="text-[10px] font-medium text-slate-400 mt-1">Smart Wealth Management</p>
+            <p className="text-[9px] text-slate-400 mt-4 font-medium">
+                © {new Date().getFullYear()} • Dirancang oleh Adrien Fandra
+            </p>
+        </div>
+
       </div>
     </MobileLayout>
   );

@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
-    Target as TargetIcon, ShieldCheck, PiggyBank, Calculator, Wallet, ArrowRight, ArrowLeft,
+    Target as TargetIcon, ShieldCheck, PiggyBank, Calculator, Wallet, 
     Globe, Plus, Trash2, X, ListPlus, HandCoins, Briefcase, Landmark, ChevronDown, ChevronUp, ShieldAlert, Loader2 
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -21,10 +21,10 @@ interface TargetData {
 
 interface ExpenseItem { id: number; name: string; amount: number; }
 interface ForexItem { id: number; currency: string; amount: string; }
-interface DebtRecvItem { id: number; name: string; amount: string; }
-interface InvItem { id: number; type: string; symbol: string; quantity: string; price: string; }
+// FIX: Tambahan interface currency untuk initial setup
+interface DebtRecvItem { id: number; name: string; amount: string; currency: string; }
+interface InvItem { id: number; type: string; symbol: string; quantity: string; price: string; currency: string; }
 
-const CURRENCIES = ["USD", "EUR", "SGD", "JPY", "GBP", "AUD", "MYR", "SAR", "CNY", "HKD", "KRW", "THB"];
 const INV_TYPES = ["Saham", "Crypto", "Reksadana", "Emas", "P2P", "Obligasi"];
 
 const formatNumber = (val: string) => {
@@ -54,6 +54,7 @@ export default function Target() {
     const [recvItems, setRecvItems] = useState<DebtRecvItem[]>([]);
     const [tempRecvName, setTempRecvName] = useState("");
     const [tempRecvAmount, setTempRecvAmount] = useState("");
+    const [tempRecvCurrency, setTempRecvCurrency] = useState("IDR");
 
     const [hasInv, setHasInv] = useState(false);
     const [invItems, setInvItems] = useState<InvItem[]>([]);
@@ -61,11 +62,13 @@ export default function Target() {
     const [tempInvSymbol, setTempInvSymbol] = useState("");
     const [tempInvQty, setTempInvQty] = useState("");
     const [tempInvPrice, setTempInvPrice] = useState("");
+    const [tempInvCurrency, setTempInvCurrency] = useState("IDR");
 
     const [hasDebt, setHasDebt] = useState(false);
     const [debtItems, setDebtItems] = useState<DebtRecvItem[]>([]);
     const [tempDebtName, setTempDebtName] = useState("");
     const [tempDebtAmount, setTempDebtAmount] = useState("");
+    const [tempDebtCurrency, setTempDebtCurrency] = useState("IDR");
     
     const [forexRates, setForexRates] = useState<Record<string, number>>({});
     const [availableCurrencies, setAvailableCurrencies] = useState<string[]>([]);
@@ -84,30 +87,22 @@ export default function Target() {
     const now = new Date();
 
     const handleNumberChange = (setter: (val: string) => void, value: string) => setter(formatNumber(value));
-
-    // AMBIL EMAIL PENGGUNA UNTUK DIKIRIM KE SERVER
     const userEmail = localStorage.getItem("bilano_email") || "";
-
     const isEditMode = target && target.targetAmount !== undefined;
 
     useEffect(() => {
         const loadInitial = async () => {
             try {
-                const resRates = await fetch("/api/forex/rates");
+                const resRates = await fetch(`/api/forex/rates?t=${Date.now()}`, { headers: { "x-user-email": userEmail }});
                 if (resRates.ok) {
                     const rates = await resRates.json();
                     setForexRates(rates);
                     setAvailableCurrencies(Object.keys(rates)); 
                 }
 
-                // MEMASUKKAN KTP EMAIL AGAR TIDAK SALAH BACA DATA GUEST
-                const resTarget = await fetch("/api/target", {
-                    headers: { "x-user-email": userEmail }
-                });
-                
+                const resTarget = await fetch(`/api/target?t=${Date.now()}`, { headers: { "x-user-email": userEmail }});
                 if (resTarget.ok) {
                     const data = await resTarget.json();
-                    // Pastikan data benar-benar ada isinya (bukan objek kosong)
                     if (data && data.targetAmount !== undefined) {
                         setTarget(data);
                         setRawTargetAmount(data.targetAmount.toString());
@@ -131,22 +126,22 @@ export default function Target() {
 
     const addRecvItem = () => {
         if (!tempRecvName || !tempRecvAmount) return;
-        setRecvItems([...recvItems, { id: Date.now(), name: tempRecvName, amount: tempRecvAmount }]);
-        setTempRecvName(""); setTempRecvAmount("");
+        setRecvItems([...recvItems, { id: Date.now(), name: tempRecvName, amount: tempRecvAmount, currency: tempRecvCurrency }]);
+        setTempRecvName(""); setTempRecvAmount(""); setTempRecvCurrency("IDR");
     };
     const removeRecvItem = (id: number) => setRecvItems(recvItems.filter(i => i.id !== id));
 
     const addInvItem = () => {
         if (!tempInvSymbol || !tempInvQty || !tempInvPrice) return;
-        setInvItems([...invItems, { id: Date.now(), type: tempInvType, symbol: tempInvSymbol, quantity: tempInvQty, price: tempInvPrice }]);
-        setTempInvSymbol(""); setTempInvQty(""); setTempInvPrice("");
+        setInvItems([...invItems, { id: Date.now(), type: tempInvType, symbol: tempInvSymbol, quantity: tempInvQty, price: tempInvPrice, currency: tempInvCurrency }]);
+        setTempInvSymbol(""); setTempInvQty(""); setTempInvPrice(""); setTempInvCurrency("IDR");
     };
     const removeInvItem = (id: number) => setInvItems(invItems.filter(i => i.id !== id));
 
     const addDebtItem = () => {
         if (!tempDebtName || !tempDebtAmount) return;
-        setDebtItems([...debtItems, { id: Date.now(), name: tempDebtName, amount: tempDebtAmount }]);
-        setTempDebtName(""); setTempDebtAmount("");
+        setDebtItems([...debtItems, { id: Date.now(), name: tempDebtName, amount: tempDebtAmount, currency: tempDebtCurrency }]);
+        setTempDebtName(""); setTempDebtAmount(""); setTempDebtCurrency("IDR");
     };
     const removeDebtItem = (id: number) => setDebtItems(debtItems.filter(i => i.id !== id));
 
@@ -158,37 +153,37 @@ export default function Target() {
     const removeBreakdownItem = (id: number) => { setBreakdownItems(breakdownItems.filter(item => item.id !== id)); };
     const saveBreakdownTotal = () => {
         const total = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
-        setRawBudgetAmount(total.toString()); 
-        setIsBreakdownOpen(false);
+        setRawBudgetAmount(total.toString()); setIsBreakdownOpen(false);
         toast({ title: "Terhitung!", description: `Budget diset ke ${formatRp(total)}` });
     };
     const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
 
+    // KALKULASI TOTAL KEKAYAAN AWAL DENGAN LIVE RATES
     const cashPreview = parseNumber(rawCurrentCash);
     const totalForexInIDR = forexItems.reduce((acc, item) => acc + (parseNumber(item.amount) * (forexRates[item.currency] || 0)), 0) + (parseNumber(tempForexAmount) * (forexRates[tempForexCurrency] || 0));
-    const totalRecvInIDR = recvItems.reduce((acc, i) => acc + parseNumber(i.amount), 0) + parseNumber(tempRecvAmount);
-    const totalDebtInIDR = debtItems.reduce((acc, i) => acc + parseNumber(i.amount), 0) + parseNumber(tempDebtAmount);
-    const totalInvInIDR = invItems.reduce((acc, i) => {
-        const m = (i.type.toLowerCase() === 'saham' || (i.symbol.length === 4 && i.type.toLowerCase() !== 'crypto')) ? 100 : 1;
-        return acc + (parseNumber(i.quantity) * parseNumber(i.price) * m);
-    }, 0) + ((parseNumber(tempInvQty)||0) * parseNumber(tempInvPrice) * ((tempInvType.toLowerCase() === 'saham' || (tempInvSymbol.length === 4 && tempInvType.toLowerCase() !== 'crypto')) ? 100 : 1));
+    
+    const getRate = (curr: string) => curr === 'IDR' ? 1 : (forexRates[curr] || 1);
+    
+    const totalRecvInIDR = recvItems.reduce((acc, i) => acc + (parseNumber(i.amount) * getRate(i.currency)), 0) + (parseNumber(tempRecvAmount) * getRate(tempRecvCurrency));
+    const totalDebtInIDR = debtItems.reduce((acc, i) => acc + (parseNumber(i.amount) * getRate(i.currency)), 0) + (parseNumber(tempDebtAmount) * getRate(tempDebtCurrency));
+    
+    const calcInv = (type: string, symbol: string, qty: string, price: string, curr: string) => {
+        const isSaham = type.toLowerCase() === 'saham' || (symbol.length === 4 && type.toLowerCase() !== 'crypto');
+        const m = isSaham && curr === 'IDR' ? 100 : 1;
+        return parseNumber(qty) * parseNumber(price) * m * getRate(curr);
+    };
+    const totalInvInIDR = invItems.reduce((acc, i) => acc + calcInv(i.type, i.symbol, i.quantity, i.price, i.currency), 0) + calcInv(tempInvType, tempInvSymbol, tempInvQty, tempInvPrice, tempInvCurrency);
 
     const totalStart = cashPreview + totalForexInIDR + totalRecvInIDR + totalInvInIDR - totalDebtInIDR;
 
     const startSetup = (mode: 'target' | 'saving') => {
         setIsTargetMode(mode === 'target');
-        
         if (!isEditMode) {
             if (mode === 'saving') { setRawTargetAmount("0"); setInputDuration("12"); } 
             else { setRawTargetAmount(""); setInputDuration(""); }
         }
-
-        if (isEditMode) {
-            if (mode === 'target') setStep('target-input');
-            else setStep('budget-ask');
-        } else {
-            setStep('assets-setup'); 
-        }
+        if (isEditMode) { mode === 'target' ? setStep('target-input') : setStep('budget-ask'); } 
+        else { setStep('assets-setup'); }
     };
     
     const nextToTarget = () => { 
@@ -197,8 +192,7 @@ export default function Target() {
         if (hasInv && tempInvSymbol && tempInvQty && tempInvPrice) addInvItem();
         if (hasDebt && tempDebtName && tempDebtAmount) addDebtItem();
 
-        if (isTargetMode) setStep('target-input'); 
-        else setStep('budget-ask'); 
+        if (isTargetMode) setStep('target-input'); else setStep('budget-ask'); 
     };
 
     const nextToBudgetAsk = () => { 
@@ -212,6 +206,7 @@ export default function Target() {
         if (withBudget && !budgetVal) { toast({title: "Error", description: "Nominal batas harus diisi!", variant: "destructive"}); return; }
 
         try {
+            // MENGGUNAKAN TRIK SANDI "|CURRENCY" SAAT MENYIMPAN KE DATABASE
             const payload = {
                 targetAmount: parseNumber(rawTargetAmount),
                 durationMonths: Number(inputDuration) || 12,
@@ -220,56 +215,39 @@ export default function Target() {
                 
                 addCurrentCash: !isEditMode ? parseNumber(rawCurrentCash) : undefined,
                 initialForexList: !isEditMode && hasForex ? forexItems.map(f => ({ currency: f.currency, amount: parseNumber(f.amount) })) : undefined,
-                initialReceivables: !isEditMode && hasRecv ? recvItems.map(r => ({ name: r.name, amount: parseNumber(r.amount) })) : undefined,
-                initialDebts: !isEditMode && hasDebt ? debtItems.map(d => ({ name: d.name, amount: parseNumber(d.amount) })) : undefined,
-                initialInvestments: !isEditMode && hasInv ? invItems.map(i => ({ type: i.type, symbol: i.symbol, quantity: parseNumber(i.quantity), price: parseNumber(i.price) })) : undefined,
+                initialReceivables: !isEditMode && hasRecv ? recvItems.map(r => ({ name: `${r.name}|${r.currency}`, amount: parseNumber(r.amount) })) : undefined,
+                initialDebts: !isEditMode && hasDebt ? debtItems.map(d => ({ name: `${d.name}|${d.currency}`, amount: parseNumber(d.amount) })) : undefined,
+                initialInvestments: !isEditMode && hasInv ? invItems.map(i => ({ type: i.type, symbol: `${i.symbol}|${i.currency}`, quantity: parseNumber(i.quantity), price: parseNumber(i.price) })) : undefined,
                 
                 startMonth: target?.startMonth || now.getMonth() + 1,
                 startYear: target?.startYear || now.getFullYear()
             };
 
-            // MEMASUKKAN KTP EMAIL AGAR TERSIMPAN KE AKUN YANG BENAR
             const res = await fetch("/api/target", {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "x-user-email": userEmail
-                },
+                method: "POST", headers: { "Content-Type": "application/json", "x-user-email": userEmail },
                 body: JSON.stringify(payload)
             });
 
             if (res.ok) {
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
-                
-                if (!isEditMode) {
-                    window.location.href = "/paywall"; 
-                } else {
-                    window.location.href = "/"; 
-                }
-
-            } else {
-                toast({ title: "Gagal", description: "Terjadi kesalahan sistem.", variant: "destructive" });
-            }
+                if (!isEditMode) window.location.href = "/paywall"; else window.location.href = "/"; 
+            } else { toast({ title: "Gagal", description: "Terjadi kesalahan sistem.", variant: "destructive" }); }
         } catch (e) { toast({ title: "Error Koneksi", variant: "destructive" }); }
     };
     
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
-                <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-                <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
-                    <Loader2 className="w-4 h-4 animate-spin"/>
-                    <span>Memuat Data...</span>
-                </div>
-            </div>
-        );
-    }
+    if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-indigo-500"/></div>;
+
+    const CurrencySelector = ({ value, onChange }: { value: string, onChange: (val: string) => void }) => (
+        <select value={value} onChange={e => onChange(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
+            <option value="IDR">IDR</option>
+            {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+    );
 
     return (
         <MobileLayout title={isEditMode ? "Edit Strategi & Target" : "Atur Strategi Baru"} showBack>
             <div className="space-y-6 pt-4 px-2 pb-20">
-                
-                {/* MODAL BREAKDOWN */}
+                {/* ... (Modal Breakdown sama seperti sebelumnya) ... */}
                 {isBreakdownOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in p-4">
                         <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 border border-slate-100">
@@ -296,7 +274,6 @@ export default function Target() {
                     </div>
                 )}
 
-                {/* STEPS 1: INTRO */}
                 {step === 'intro' && (
                     <div className="space-y-5 animate-in slide-in-from-bottom-4">
                         <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-[32px] text-white text-center shadow-xl relative overflow-hidden">
@@ -320,7 +297,6 @@ export default function Target() {
                     </div>
                 )}
 
-                {/* STEP 2: CEK DOMPET */}
                 {step === 'assets-setup' && !isEditMode && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-2">
                         <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6">
@@ -341,11 +317,11 @@ export default function Target() {
                                 </div>
                             </div>
                             
-                            {/* 1. Accordion Valas */}
+                            {/* 1. Accordion Valas Kas */}
                             <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
                                 <div onClick={() => setHasForex(!hasForex)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
-                                        <div className="p-2 bg-blue-100 text-blue-600 rounded-full"><Globe className="w-4 h-4"/></div> Punya Valas?
+                                        <div className="p-2 bg-blue-100 text-blue-600 rounded-full"><Globe className="w-4 h-4"/></div> Punya Valas Tunai?
                                     </label>
                                     {hasForex ? <ChevronUp className="w-5 h-5 text-slate-400"/> : <ChevronDown className="w-5 h-5 text-slate-400"/>}
                                 </div>
@@ -363,7 +339,7 @@ export default function Target() {
                                         )}
                                         <div className="flex gap-2">
                                             <select value={tempForexCurrency} onChange={(e) => setTempForexCurrency(e.target.value)} className="p-3 rounded-[16px] border-transparent bg-slate-50 font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none w-28">
-                                                {availableCurrencies.length > 0 ? availableCurrencies.map(curr => <option key={curr} value={curr}>{curr}</option>) : <option value="USD">USD</option>}
+                                                {availableCurrencies.filter(c => c !== 'IDR').map(curr => <option key={curr} value={curr}>{curr}</option>)}
                                             </select>
                                             <Input type="tel" placeholder="Nominal" value={tempForexAmount} onChange={(e) => handleNumberChange(setTempForexAmount, e.target.value)} className="flex-1 font-bold h-12 rounded-[16px] border-transparent bg-slate-50 focus:bg-white focus:border-blue-500"/>
                                             <button onClick={addForexItem} className="bg-blue-600 text-white w-12 h-12 flex items-center justify-center rounded-[16px] hover:bg-blue-700 shadow-sm"><Plus className="w-5 h-5"/></button>
@@ -372,7 +348,7 @@ export default function Target() {
                                 )}
                             </div>
 
-                            {/* 2. Accordion Piutang */}
+                            {/* 2. Accordion Piutang + Valas */}
                             <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
                                 <div onClick={() => setHasRecv(!hasRecv)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
@@ -385,23 +361,32 @@ export default function Target() {
                                         {recvItems.length > 0 && (
                                             <div className="space-y-2">
                                                 {recvItems.map((item) => (
-                                                    <div key={item.id} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-200 text-sm">
-                                                        <span className="font-medium text-slate-700">{item.name}</span>
-                                                        <div className="flex items-center gap-3"><span className="font-bold text-emerald-600">{formatRp(parseNumber(item.amount))}</span><button onClick={() => removeRecvItem(item.id)} className="text-slate-300 hover:text-rose-500"><Trash2 className="w-4 h-4"/></button></div>
+                                                    <div key={item.id} className="flex justify-between items-center bg-white p-3 rounded-[16px] border border-slate-200 text-sm">
+                                                        <div>
+                                                            <span className="font-bold text-slate-700">{item.name}</span>
+                                                            {item.currency !== 'IDR' && <span className="ml-2 text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-bold">{item.currency} {formatNumber(item.amount)}</span>}
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="font-bold text-emerald-600">{formatRp(parseNumber(item.amount) * getRate(item.currency))}</span>
+                                                            <button onClick={() => removeRecvItem(item.id)} className="text-slate-300 hover:text-rose-500"><Trash2 className="w-4 h-4"/></button>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
                                         )}
-                                        <div className="flex gap-2">
-                                            <Input type="text" placeholder="Nama" value={tempRecvName} onChange={(e) => setTempRecvName(e.target.value)} className="w-1/3 h-11"/>
-                                            <Input type="text" placeholder="Rp" value={tempRecvAmount} onChange={(e) => handleNumberChange(setTempRecvAmount, e.target.value)} className="flex-1 font-bold h-11"/>
-                                            <button onClick={addRecvItem} className="bg-emerald-600 text-white p-2.5 rounded-lg hover:bg-emerald-700 shadow-sm"><Plus className="w-5 h-5"/></button>
+                                        <div className="flex flex-col gap-2">
+                                            <Input type="text" placeholder="Nama Pihak" value={tempRecvName} onChange={(e) => setTempRecvName(e.target.value)} className="h-12 rounded-[16px] border-slate-100"/>
+                                            <div className="flex gap-2">
+                                                <CurrencySelector value={tempRecvCurrency} onChange={setTempRecvCurrency} />
+                                                <Input type="text" placeholder="Nominal" value={tempRecvAmount} onChange={(e) => handleNumberChange(setTempRecvAmount, e.target.value)} className="flex-1 font-bold h-12 rounded-[16px] border-slate-100"/>
+                                                <button onClick={addRecvItem} className="bg-emerald-600 text-white p-3 rounded-[16px] hover:bg-emerald-700 shadow-sm"><Plus className="w-5 h-5"/></button>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
                             </div>
 
-                            {/* 3. Accordion Investasi */}
+                            {/* 3. Accordion Investasi + Valas */}
                             <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
                                 <div onClick={() => setHasInv(!hasInv)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
@@ -416,10 +401,10 @@ export default function Target() {
                                                 {invItems.map((item) => (
                                                     <div key={item.id} className="bg-slate-50 p-3 rounded-[16px] border border-slate-100 text-sm relative">
                                                         <button onClick={() => removeInvItem(item.id)} className="absolute top-3 right-3 text-slate-300 hover:text-rose-500"><X className="w-4 h-4"/></button>
-                                                        <div className="font-extrabold text-indigo-600 mb-1">{item.symbol} <span className="text-[10px] font-medium text-slate-400">({item.type})</span></div>
+                                                        <div className="font-extrabold text-indigo-600 mb-1">{item.symbol} <span className="text-[10px] font-medium text-slate-400">({item.type}) {item.currency !== 'IDR' ? ` - ${item.currency}` : ''}</span></div>
                                                         <div className="text-[11px] font-bold text-slate-500 flex justify-between">
                                                             <span>Jml: {formatNumber(item.quantity)}</span>
-                                                            <span>@ Rp {formatNumber(item.price)}</span>
+                                                            <span>@ {item.currency !== 'IDR' ? item.currency : 'Rp'} {formatNumber(item.price)}</span>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -427,14 +412,15 @@ export default function Target() {
                                         )}
                                         <div className="space-y-2">
                                             <div className="flex gap-2">
-                                                <select value={tempInvType} onChange={(e) => setTempInvType(e.target.value)} className="p-3 border-transparent rounded-[16px] bg-slate-50 text-xs w-1/3 outline-none focus:ring-2 focus:ring-indigo-500">
+                                                <select value={tempInvType} onChange={(e) => setTempInvType(e.target.value)} className="p-3 border-slate-100 rounded-[16px] text-xs w-1/3 outline-none focus:ring-2 focus:ring-indigo-500">
                                                     {INV_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                                 </select>
-                                                <Input type="text" placeholder="Simbol (BBCA)" value={tempInvSymbol} onChange={(e) => setTempInvSymbol(e.target.value.toUpperCase())} className="flex-1 text-sm h-11 rounded-[16px] border-transparent bg-slate-50"/>
+                                                <Input type="text" placeholder="Simbol (Cth: BBCA / AAPL)" value={tempInvSymbol} onChange={(e) => setTempInvSymbol(e.target.value.toUpperCase())} className="flex-1 text-sm h-11 rounded-[16px] border-slate-100"/>
                                             </div>
                                             <div className="flex gap-2">
-                                                <Input type="tel" placeholder="Lot/Unit" value={tempInvQty} onChange={(e) => handleNumberChange(setTempInvQty, e.target.value)} className="w-1/3 text-sm h-11 rounded-[16px] border-transparent bg-slate-50"/>
-                                                <Input type="tel" placeholder="Harga Beli (Rp)" value={tempInvPrice} onChange={(e) => handleNumberChange(setTempInvPrice, e.target.value)} className="flex-1 text-sm h-11 rounded-[16px] border-transparent bg-slate-50 font-bold"/>
+                                                <Input type="tel" placeholder="Lot/Unit" value={tempInvQty} onChange={(e) => handleNumberChange(setTempInvQty, e.target.value)} className="w-1/3 text-sm h-11 rounded-[16px] border-slate-100"/>
+                                                <CurrencySelector value={tempInvCurrency} onChange={setTempInvCurrency} />
+                                                <Input type="tel" placeholder="Harga Beli" value={tempInvPrice} onChange={(e) => handleNumberChange(setTempInvPrice, e.target.value)} className="flex-1 text-sm h-11 rounded-[16px] border-slate-100 font-bold"/>
                                             </div>
                                             <Button onClick={addInvItem} className="w-full bg-indigo-50 text-indigo-700 font-bold h-11 rounded-[16px] hover:bg-indigo-100 text-xs">TAMBAHKAN ASET INI</Button>
                                         </div>
@@ -442,7 +428,7 @@ export default function Target() {
                                 )}
                             </div>
 
-                            {/* 4. Accordion Hutang */}
+                            {/* 4. Accordion Hutang + Valas */}
                             <div className="border border-rose-100 rounded-[24px] bg-rose-50/30 overflow-hidden transition-all">
                                 <div onClick={() => setHasDebt(!hasDebt)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-rose-50 transition">
                                     <label className="text-sm font-bold text-rose-700 flex items-center gap-3 pointer-events-none">
@@ -456,16 +442,25 @@ export default function Target() {
                                             <div className="space-y-2">
                                                 {debtItems.map((item) => (
                                                     <div key={item.id} className="flex justify-between items-center bg-rose-50 p-3 rounded-[16px] border border-rose-100 text-sm">
-                                                        <span className="font-bold text-slate-700">{item.name}</span>
-                                                        <div className="flex items-center gap-3"><span className="font-extrabold text-rose-600">- Rp {formatNumber(item.amount)}</span><button onClick={() => removeDebtItem(item.id)} className="text-rose-300 hover:text-rose-600"><Trash2 className="w-4 h-4"/></button></div>
+                                                        <div>
+                                                            <span className="font-bold text-slate-700">{item.name}</span>
+                                                            {item.currency !== 'IDR' && <span className="ml-2 text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold">{item.currency} {formatNumber(item.amount)}</span>}
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="font-extrabold text-rose-600">- {formatRp(parseNumber(item.amount) * getRate(item.currency))}</span>
+                                                            <button onClick={() => removeDebtItem(item.id)} className="text-rose-300 hover:text-rose-600"><Trash2 className="w-4 h-4"/></button>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
                                         )}
-                                        <div className="flex gap-2">
-                                            <Input type="text" placeholder="Ke Siapa?" value={tempDebtName} onChange={(e) => setTempDebtName(e.target.value)} className="w-1/3 h-12 rounded-[16px] border-transparent bg-slate-50 text-sm"/>
-                                            <Input type="tel" placeholder="Rp Nominal" value={tempDebtAmount} onChange={(e) => handleNumberChange(setTempDebtAmount, e.target.value)} className="flex-1 font-bold h-12 rounded-[16px] border-transparent bg-slate-50 focus:bg-white focus:border-rose-500 text-rose-600"/>
-                                            <button onClick={addDebtItem} className="bg-rose-500 text-white w-12 h-12 flex items-center justify-center rounded-[16px] hover:bg-rose-600 shadow-sm"><Plus className="w-5 h-5"/></button>
+                                        <div className="flex flex-col gap-2">
+                                            <Input type="text" placeholder="Hutang ke Siapa?" value={tempDebtName} onChange={(e) => setTempDebtName(e.target.value)} className="h-12 rounded-[16px] border-slate-100 text-sm"/>
+                                            <div className="flex gap-2">
+                                                <CurrencySelector value={tempDebtCurrency} onChange={setTempDebtCurrency} />
+                                                <Input type="tel" placeholder="Nominal" value={tempDebtAmount} onChange={(e) => handleNumberChange(setTempDebtAmount, e.target.value)} className="flex-1 font-bold h-12 rounded-[16px] border-slate-100 text-rose-600"/>
+                                                <button onClick={addDebtItem} className="bg-rose-500 text-white p-3 rounded-[16px] hover:bg-rose-600 shadow-sm"><Plus className="w-5 h-5"/></button>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -485,7 +480,7 @@ export default function Target() {
                     </div>
                 )}
 
-                {/* SISA STEPS */}
+                {/* SISA STEPS KALKULATOR TARGET SAMA SEPERTI SEBELUMNYA */}
                 {step === 'target-input' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-2">
                         <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6 text-center">

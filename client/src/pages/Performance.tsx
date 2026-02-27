@@ -17,34 +17,68 @@ export default function Performance() {
   const currentYear = now.getFullYear();
 
   const [forexValue, setForexValue] = useState(0);
+  const [debtsData, setDebtsData] = useState<any[]>([]);
+  const [forexRates, setForexRates] = useState<Record<string, number>>({});
   const [expandedDetail, setExpandedDetail] = useState<'income' | 'expense' | null>(null);
 
+  // === AMBIL DATA PENDUKUNG (VALAS & HUTANG) ===
   useEffect(() => {
-      const fetchForex = async () => {
+      const fetchData = async () => {
           try {
-              const [resRates, resAssets] = await Promise.all([
-                  fetch("/api/forex/rates"),
-                  fetch("/api/forex")
+              const userEmail = localStorage.getItem("bilano_email") || "";
+              const t = Date.now();
+              const [resRates, resAssets, resDebts] = await Promise.all([
+                  fetch(`/api/forex/rates?t=${t}`, { headers: { "x-user-email": userEmail } }),
+                  fetch(`/api/forex?t=${t}`, { headers: { "x-user-email": userEmail } }),
+                  fetch(`/api/debts?t=${t}`, { headers: { "x-user-email": userEmail } })
               ]);
-              if (resRates.ok && resAssets.ok) {
-                  const rates = await resRates.json();
+              
+              let fetchedRates: Record<string, number> = {};
+              if (resRates.ok) {
+                  fetchedRates = await resRates.json();
+                  setForexRates(fetchedRates);
+              }
+              if (resAssets.ok) {
                   const assets = await resAssets.json();
-                  const total = assets.reduce((acc: number, asset: any) => acc + (asset.amount * (rates[asset.currency] || 0)), 0);
+                  const total = assets.reduce((acc: number, asset: any) => acc + (asset.amount * (fetchedRates[asset.currency] || 0)), 0);
                   setForexValue(total);
               }
-          } catch (e) { console.error("Gagal hitung valas", e); }
+              if (resDebts.ok) {
+                  setDebtsData(await resDebts.json());
+              }
+          } catch (e) { console.error("Gagal hitung valas & hutang", e); }
       };
-      fetchForex();
+      fetchData();
   }, []);
 
+  // === KALKULASI TOTAL NET WORTH LIVE ===
   const cashReal = (user?.cashBalance || 0); 
   
   const investmentReal = investments?.reduce((acc, inv) => {
-      const isSaham = inv.type === 'saham' || (!inv.type && inv.symbol.length === 4);
-      return acc + (inv.quantity * inv.avgPrice * (isSaham ? 100 : 1));
+      const [sym, curr] = (inv.symbol || "").split('|');
+      const actualCurr = curr || 'IDR';
+      const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || 1);
+      
+      const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
+      const m = (isSaham && actualCurr === 'IDR') ? 100 : 1;
+      
+      return acc + (inv.quantity * inv.avgPrice * m * rate);
   }, 0) || 0;
 
-  const currentWealth = cashReal + investmentReal + forexValue;
+  let piutangReal = 0;
+  let hutangReal = 0;
+  
+  debtsData.forEach(d => {
+      if (d.isPaid) return;
+      const [, curr] = (d.name || "").split('|');
+      const actualCurr = curr || 'IDR';
+      const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || 1);
+      
+      if (d.type === 'piutang') piutangReal += (d.amount * rate);
+      else if (d.type === 'hutang') hutangReal += (d.amount * rate);
+  });
+
+  const currentWealth = cashReal + investmentReal + forexValue + piutangReal - hutangReal;
 
   let targetIncomeMonth = 0;
   let savingRequired = 0;
@@ -110,7 +144,6 @@ export default function Performance() {
       return formatCurrency(val).split(",")[0];
   };
 
-  // === LOADING SCREEN KUSTOM BILANO ===
   if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
@@ -170,8 +203,12 @@ export default function Performance() {
                 
                 <div className="flex flex-wrap gap-2 mt-4 text-[10px] font-bold">
                     <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Tunai: {formatRp(cashReal)}</span>
-                    <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Aset: {formatRp(investmentReal)}</span>
-                    {forexValue > 0 && <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-emerald-200">Valas: {formatRp(forexValue)}</span>}
+                    <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Aset: {formatRp(investmentReal + forexValue)}</span>
+                    {(piutangReal > 0 || hutangReal > 0) && (
+                        <span className={`bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 ${piutangReal - hutangReal >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>
+                            Hutang/Piutang: {formatRp(piutangReal - hutangReal)}
+                        </span>
+                    )}
                 </div>
             </div>
 
