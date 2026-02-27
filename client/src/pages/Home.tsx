@@ -32,7 +32,6 @@ export default function Home() {
   const [forexRates, setForexRates] = useState<Record<string, number>>({});
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
 
-  // === FITUR KEAMANAN (PIN & PRIVASI) ===
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [pinInput, setPinInput] = useState("");
@@ -43,9 +42,7 @@ export default function Home() {
       const savedPin = localStorage.getItem("bilano_app_pin");
       const isUnlockedSession = sessionStorage.getItem("bilano_session_unlocked") === "true";
       
-      if (savedPin && !isUnlockedSession) {
-          setIsLocked(true);
-      }
+      if (savedPin && !isUnlockedSession) setIsLocked(true);
   }, []);
 
   const handlePinUnlock = (num: string) => {
@@ -75,19 +72,31 @@ export default function Home() {
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
+  // === PERBAIKAN ARGO TRIAL DI SINI ===
   useEffect(() => {
       if (isUserPro) return;
       const trialKey = `bilano_trial_start_${userEmail}`;
-      const trialStart = localStorage.getItem(trialKey);
-      if (trialStart) {
-          const startTime = parseInt(trialStart);
-          const currentTime = Date.now();
-          const daysPassed = (currentTime - startTime) / (1000 * 60 * 60 * 24);
-          const TRIAL_DURATION_DAYS = 3; 
-          if (daysPassed >= TRIAL_DURATION_DAYS) setLocation("/paywall");
-          else setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
+      let trialStart = localStorage.getItem(trialKey);
+      
+      // FIX: Jika belum ada tanggal mulai, buat sekarang!
+      if (!trialStart) {
+          trialStart = Date.now().toString();
+          localStorage.setItem(trialKey, trialStart);
       }
-  }, [setLocation, isUserPro, userEmail]);
+
+      const startTime = parseInt(trialStart);
+      const currentTime = Date.now();
+      const daysPassed = (currentTime - startTime) / (1000 * 60 * 60 * 24);
+      const TRIAL_DURATION_DAYS = 3; 
+
+      if (daysPassed >= TRIAL_DURATION_DAYS) {
+          setTrialDaysLeft(0);
+          localStorage.setItem("bilano_trial_expired", "true");
+      } else {
+          setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
+          localStorage.setItem("bilano_trial_expired", "false");
+      }
+  }, [isUserPro, userEmail]);
 
   useEffect(() => {
       if (!isUserLoading && !isTargetLoading) {
@@ -176,7 +185,6 @@ export default function Home() {
       );
   }
 
-  // === LOADING SCREEN KUSTOM BILANO ===
   if (isUserLoading || isTargetLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
@@ -274,20 +282,25 @@ export default function Home() {
             </div>
         </div>
 
+        {/* FIX: TAMPILAN BANNER JADI MERAH JIKA HABIS */}
         {!isUserPro && trialDaysLeft !== null && (
-            <div className="mx-1 mt-[-10px] bg-gradient-to-r from-amber-400 to-yellow-500 rounded-[20px] p-4 shadow-lg flex items-center justify-between text-amber-950 animate-in slide-in-from-top-4">
+            <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${trialDaysLeft === 0 ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
                 <div className="flex items-center gap-3">
                     <div className="bg-white/20 p-2 rounded-full">
-                        <Crown className="w-5 h-5" />
+                        {trialDaysLeft === 0 ? <Lock className="w-5 h-5" /> : <Crown className="w-5 h-5" />}
                     </div>
                     <div>
-                        <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">Masa Coba Gratis</p>
-                        <p className="text-xs font-medium opacity-90">Sisa waktu: <b>{trialDaysLeft} Hari</b></p>
+                        <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">
+                            {trialDaysLeft === 0 ? "MASA COBA HABIS" : "Masa Coba Gratis"}
+                        </p>
+                        <p className="text-xs font-medium opacity-90">
+                            {trialDaysLeft === 0 ? "Fungsi aplikasi dikunci." : <span>Sisa waktu: <b>{trialDaysLeft} Hari</b></span>}
+                        </p>
                     </div>
                 </div>
                 <Link href="/paywall">
                     <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-full text-[10px] font-extrabold backdrop-blur-sm transition-all active:scale-95 shadow-sm">
-                        UPGRADE PRO
+                        {trialDaysLeft === 0 ? "BUKA KUNCI" : "UPGRADE PRO"}
                     </button>
                 </Link>
             </div>

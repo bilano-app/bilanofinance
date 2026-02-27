@@ -3,7 +3,10 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { Send, Bot, User, Sparkles, Loader2, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { useUser } from "@/hooks/use-finance"; 
+import { 
+    useUser, useTransactions, useForexAssets, 
+    useInvestments, useTarget 
+} from "@/hooks/use-finance"; 
 
 interface Message {
     id: number;
@@ -13,7 +16,12 @@ interface Message {
 }
 
 export default function ChatAI() {
-    const { data: user, isLoading } = useUser();
+    // === TARIK SEMUA PENGETAHUAN UNTUK AI ===
+    const { data: user, isLoading: isUserLoading } = useUser();
+    const { data: transactions } = useTransactions();
+    const { data: forexAssets } = useForexAssets();
+    const { data: investments } = useInvestments();
+    const { data: target } = useTarget();
 
     const [messages, setMessages] = useState<Message[]>(() => {
         const savedChat = localStorage.getItem("bilano_chat_history");
@@ -69,11 +77,23 @@ export default function ChatAI() {
         setInputText("");
         setIsTyping(true);
 
+        // === RANGKAIAN INTELIJEN AI (MENGIRIM KONTEKS DIAM-DIAM) ===
+        const totalCash = user?.cashBalance || 0;
+        const txSummary = transactions?.slice(0, 10).map(t => `${t.date.split('T')[0]} - ${t.type} - ${t.category}: Rp${t.amount}`).join(" | ") || "Belum ada transaksi";
+        const forexSummary = forexAssets?.map(f => `${f.amount} ${f.currency}`).join(", ") || "Tidak ada valas";
+        const investSummary = investments?.map(i => `${i.quantity} ${i.symbol}`).join(", ") || "Tidak ada investasi";
+        const targetSummary = target ? `Target: Rp${target.targetAmount}, Limit Keluar: Rp${target.monthlyBudget}` : "Tidak ada target";
+
+        const systemContext = `[INFO SISTEM: Kamu adalah BILANO AI, konsultan keuangan pribadi. Jawab dengan ramah, santai, analitis, dan kritis. Berikut adalah data keuangan user saat ini: Saldo IDR: ${totalCash}, Kepemilikan Valas: ${forexSummary}, Portofolio Investasi: ${investSummary}, Strategi Keuangan: ${targetSummary}, 10 Transaksi Terakhir: ${txSummary}].\n\nPertanyaan User: ${userMsg.text}`;
+
         try {
             const res = await fetch("/api/chat/ask", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: userMsg.text })
+                headers: { 
+                    "Content-Type": "application/json",
+                    "x-user-email": localStorage.getItem("bilano_email") || ""
+                },
+                body: JSON.stringify({ message: systemContext }) // Kirim prompt rahasia!
             });
 
             if (!res.ok) throw new Error("Server Error");
@@ -101,8 +121,7 @@ export default function ChatAI() {
         }
     };
 
-    // === LOADING SCREEN KUSTOM BILANO ===
-    if (isLoading) {
+    if (isUserLoading) {
         return (
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
                 <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
@@ -126,8 +145,8 @@ export default function ChatAI() {
                 </button>
             </div>
 
-            <div className="flex flex-col h-[calc(100vh-140px)] mt-2 bg-slate-50">
-                <div className="flex-1 overflow-y-auto space-y-4 p-4 pb-4">
+            <div className="flex flex-col h-[calc(100dvh-75px)] -mx-4 -mb-4 bg-slate-50 relative">
+                <div className="flex-1 overflow-y-auto space-y-4 p-4 pb-6">
                     {messages.map((msg) => (
                         <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
                             <div className={`flex gap-2 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -144,7 +163,6 @@ export default function ChatAI() {
                                     )}
                                 </div>
                                 
-                                {/* FIX COPY TEXT: Ditambahkan class "select-text" dan "cursor-text" agar teks bisa ditahan dan disalin */}
                                 <div className={`px-4 py-3 rounded-2xl text-sm shadow-sm leading-relaxed select-text cursor-text ${
                                     msg.sender === 'user' 
                                     ? 'bg-slate-800 text-white rounded-tr-none' 
@@ -177,23 +195,23 @@ export default function ChatAI() {
                         <div className="flex justify-start animate-in fade-in pl-1">
                             <div className="bg-white border border-slate-200 p-3 rounded-2xl rounded-tl-none flex items-center gap-2 shadow-sm">
                                 <Loader2 className="w-4 h-4 text-indigo-500 animate-spin"/>
-                                <span className="text-xs text-slate-400 italic">Sedang mengetik...</span>
+                                <span className="text-xs text-slate-400 italic">Sedang menganalisa...</span>
                             </div>
                         </div>
                     )}
                     <div ref={messagesEndRef} />
                 </div>
 
-                <div className="p-4 bg-white border-t border-slate-100 shadow-lg z-10">
+                <div className="p-3 bg-white border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] z-10 pb-4 md:pb-3">
                     <div className="flex gap-2">
                         <Input 
                             value={inputText} 
                             onChange={e => setInputText(e.target.value)} 
                             onKeyDown={e => e.key === 'Enter' && handleSend()}
-                            placeholder="Tanya..." 
-                            className="flex-1 bg-slate-50 border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all h-11"
+                            placeholder="Tanya AI Assistant..." 
+                            className="flex-1 bg-slate-50 border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all h-12 rounded-full px-4"
                         />
-                        <Button onClick={handleSend} disabled={!inputText || isTyping} className="bg-indigo-600 hover:bg-indigo-700 w-12 h-11 px-0 shadow-md transition-transform active:scale-95">
+                        <Button onClick={handleSend} disabled={!inputText || isTyping} className="bg-indigo-600 hover:bg-indigo-700 w-12 h-12 px-0 rounded-full shadow-md transition-transform active:scale-95">
                             <Send className="w-5 h-5"/>
                         </Button>
                     </div>

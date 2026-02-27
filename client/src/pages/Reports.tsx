@@ -15,19 +15,27 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // --- FORMATTER ANGKA ---
   const formatRp = (val: number) => {
       const num = Number(val) || 0;
       return "Rp " + num.toLocaleString("id-ID");
   };
 
+  // === FIX CACHE BOCOR LINTAS AKUN ===
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const userEmail = localStorage.getItem("bilano_email") || "";
+        const fetchOpts = { 
+            headers: { "x-user-email": userEmail },
+            cache: "no-store" as RequestCache // Paksa agar tidak pakai cache lama
+        };
+
+        // Tambahkan ?t=... agar browser selalu anggap ini URL baru yang segar
+        const timestamp = Date.now();
         const [resData, resRates, resTarget] = await Promise.all([
-            fetch("/api/reports/data"),
-            fetch("/api/forex/rates"),
-            fetch("/api/target")
+            fetch(`/api/reports/data?t=${timestamp}`, fetchOpts),
+            fetch(`/api/forex/rates?t=${timestamp}`, fetchOpts),
+            fetch(`/api/target?t=${timestamp}`, fetchOpts)
         ]);
 
         if (resData.ok) setData(await resData.json());
@@ -40,13 +48,12 @@ export default function Reports() {
     fetchData();
   }, []);
 
-  // --- GENERATOR PDF SUPER PREMIUM ---
   const generatePDF = async () => {
     if (localStorage.getItem("bilano_trial_expired") === "true") {
         window.dispatchEvent(new Event('trigger-paywall-lock')); 
         return;
     }
-    
+
     if (!data) return;
     setIsGenerating(true);
 
@@ -54,7 +61,6 @@ export default function Reports() {
         const doc = new jsPDF('p', 'mm', 'a4');
         const user = data.user;
         
-        // --- 1. HEADER (LOGO BILING & KOP SURAT) ---
         try {
             const img = new Image();
             img.src = '/bilano_logo_horiz.png';
@@ -77,7 +83,6 @@ export default function Reports() {
         doc.setLineWidth(0.5);
         doc.line(14, 26, 196, 26);
 
-        // --- 2. BANNER JUDUL (INDIGO) ---
         doc.setFillColor(79, 70, 229); 
         doc.rect(14, 32, 182, 14, 'F');
         
@@ -86,7 +91,6 @@ export default function Reports() {
         doc.setFontSize(14);
         doc.text("WEALTH MANAGEMENT REPORT", 20, 41);
 
-        // --- PREPARE DATA ---
         const totalInvest = data.investments.reduce((acc: number, inv: any) => {
             const m = (inv.type === 'saham' || (inv.symbol.length === 4 && inv.type !== 'crypto')) ? 100 : 1;
             return acc + (inv.quantity * inv.avgPrice * m);
@@ -106,7 +110,6 @@ export default function Reports() {
         const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
         const netWorth = totalAsset - totalDebt;
 
-        // FILTER: Pisahkan Transaksi Arus Kas Murni vs Transaksi Aset
         const pureTransactions = data.transactions.filter((t:any) => t.type === 'income' || t.type === 'expense');
         const investTransactions = data.transactions.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
 
@@ -117,7 +120,6 @@ export default function Reports() {
         const totalIncome = recentPureTx.filter((t:any) => t.type === 'income').reduce((acc:number, t:any) => acc + t.amount, 0);
         const totalExpense = recentPureTx.filter((t:any) => t.type === 'expense').reduce((acc:number, t:any) => acc + t.amount, 0);
 
-        // FUNGSI BANTUAN UNTUK PINDAH HALAMAN
         let currentY = 108;
         const checkPageBreak = (neededSpace: number) => {
             if (currentY + neededSpace > 280) {
@@ -126,15 +128,13 @@ export default function Reports() {
             }
         };
 
-        // --- 3. HERO SECTION (BIG NUMBERS) ---
         doc.setTextColor(50, 50, 50);
         doc.setFontSize(11);
         doc.text("TOTAL KEKAYAAN BERSIH (NET WORTH)", 14, 60);
-        doc.setTextColor(16, 185, 129); // Emerald Green
+        doc.setTextColor(16, 185, 129); 
         doc.setFontSize(26);
         doc.text(formatRp(netWorth), 14, 70);
 
-        // --- 4. ARUS KAS MURNI RINGKAS ---
         doc.setDrawColor(226, 232, 240);
         doc.line(14, 78, 196, 78);
 
@@ -149,7 +149,6 @@ export default function Reports() {
         doc.setTextColor(244, 63, 94); 
         doc.text(`Pengeluaran: - ${formatRp(totalExpense)}`, 80, 95);
 
-        // --- 5. PERFORMA TARGET (JIKA ADA) ---
         if (targetData && targetData.targetAmount > 0) {
             checkPageBreak(40);
             doc.setTextColor(50, 50, 50);
@@ -177,7 +176,6 @@ export default function Reports() {
             currentY += 32; 
         }
 
-        // --- 6. TABEL PORTFOLIO & ASET ---
         checkPageBreak(50);
         autoTable(doc, {
           startY: currentY,
@@ -196,7 +194,6 @@ export default function Reports() {
         });
         currentY = (doc as any).lastAutoTable.finalY + 15;
 
-        // --- 7. TABEL VALAS ---
         if (forexRows.length > 0) {
             checkPageBreak(40);
             doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
@@ -213,7 +210,6 @@ export default function Reports() {
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
-        // --- 8. TABEL RIWAYAT INVESTASI (DIPISAH DARI ARUS KAS) ---
         if (investTransactions.length > 0) {
             checkPageBreak(40);
             doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
@@ -237,7 +233,6 @@ export default function Reports() {
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
-        // --- 9. TABEL RINCIAN HUTANG & PIUTANG ---
         if (data.debts && data.debts.length > 0) {
             checkPageBreak(40);
             doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
@@ -262,7 +257,6 @@ export default function Reports() {
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
-        // --- 10. TABEL TRANSAKSI ARUS KAS MURNI (REVENUE & EXPENSE) ---
         checkPageBreak(40);
         doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
         doc.text("Riwayat Transaksi Arus Kas Murni (Pemasukan & Pengeluaran)", 14, currentY);
@@ -290,7 +284,6 @@ export default function Reports() {
           }
         });
 
-        // --- 11. FOOTER & DISCLAIMER ---
         const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
             doc.setPage(i);
@@ -301,7 +294,6 @@ export default function Reports() {
             doc.text(`Halaman ${i} dari ${pageCount}`, 196, 285, { align: 'right' });
         }
 
-        // --- SAVE ---
         const fileName = `Laporan_Keuangan_BILANO_${Date.now()}.pdf`;
         doc.save(fileName);
         toast({ title: "Berhasil Mengunduh!", description: "Laporan PDF Premium siap dilihat." });
@@ -329,7 +321,6 @@ export default function Reports() {
     <MobileLayout title="Pusat Laporan" showBack>
       <div className="space-y-6 pt-4 pb-20 px-2">
         
-        {/* HERO CARD */}
         <div className="bg-gradient-to-br from-violet-600 to-indigo-600 p-8 rounded-[32px] text-white shadow-xl shadow-indigo-200 text-center relative overflow-hidden">
             <div className="relative z-10">
                 <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 backdrop-blur-sm border border-white/20">
@@ -352,13 +343,11 @@ export default function Reports() {
             <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
         </div>
 
-        {/* LIST ISI LAPORAN */}
         <div>
             <h3 className="font-extrabold text-slate-800 mb-4 text-sm flex items-center gap-2 px-2">
                 <FileText className="w-5 h-5 text-indigo-500"/> Apa saja yang ada di dalam PDF?
             </h3>
             <div className="space-y-3">
-                
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
                     <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
                         <Wallet className="w-5 h-5"/>

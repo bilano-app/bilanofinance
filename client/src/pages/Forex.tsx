@@ -11,7 +11,6 @@ import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from "recharts";
 
-// --- DATABASE MATA UANG (LENGKAP) ---
 const CURRENCY_LIST = [
     { code: "USD", name: "US Dollar", country: "United States" },
     { code: "EUR", name: "Euro", country: "European Union" },
@@ -42,26 +41,21 @@ export default function Forex() {
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // --- STATE TAB UTAMA ---
   const [activeTab, setActiveTab] = useState<'exchange' | 'mutation'>('mutation');
 
-  // STATE: TRADING (TUKAR RUPIAH <-> VALAS)
   const [exchangeMode, setExchangeMode] = useState<'buy' | 'sell'>('buy');
   const [amountExchange, setAmountExchange] = useState("");
   const [rateExchange, setRateExchange] = useState("");
 
-  // STATE: MUTASI (CATAT MANUAL MASUK/KELUAR)
   const [mutationMode, setMutationMode] = useState<'in' | 'out'>('in');
   const [amountMutation, setAmountMutation] = useState("");
   const [noteMutation, setNoteMutation] = useState(""); 
   
-  // STATE PENCARIAN
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCurr, setSelectedCurr] = useState(CURRENCY_LIST[0]); 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // STATE GRAFIK
   const [chartCurr, setChartCurr] = useState<string | null>(null); 
   const [chartData, setChartData] = useState<any[]>([]);
   const [loadingChart, setLoadingChart] = useState(false);
@@ -74,7 +68,6 @@ export default function Forex() {
       c.country.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Close dropdown saat klik di luar
   useEffect(() => {
       function handleClickOutside(event: MouseEvent) {
           if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -85,12 +78,20 @@ export default function Forex() {
       return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // === FIX CACHE BOCOR LINTAS AKUN ===
   const fetchData = async () => {
       setRefreshing(true);
       try {
+          const userEmail = localStorage.getItem("bilano_email") || "";
+          const fetchOpts = { 
+              headers: { "x-user-email": userEmail },
+              cache: "no-store" as RequestCache
+          };
+          const timestamp = Date.now();
+
           const [resRates, resAssets] = await Promise.all([
-              fetch("/api/forex/rates"),
-              fetch("/api/forex")
+              fetch(`/api/forex/rates?t=${timestamp}`, fetchOpts),
+              fetch(`/api/forex?t=${timestamp}`, fetchOpts)
           ]);
           if (resRates.ok) setRates(await resRates.json());
           if (resAssets.ok) setAssets(await resAssets.json());
@@ -103,7 +104,6 @@ export default function Forex() {
 
   useEffect(() => { fetchData(); }, []);
 
-  // --- LOGIC GRAFIK (FRANKFURTER API) ---
   const handleCurrencyClick = async (currencyCode: string) => {
       setChartCurr(currencyCode);
       setLoadingChart(true);
@@ -115,7 +115,6 @@ export default function Forex() {
           startDateObj.setDate(startDateObj.getDate() - 30);
           const startDate = startDateObj.toISOString().split('T')[0];
 
-          // Ambil data 30 hari terakhir
           const res = await fetch(`https://api.frankfurter.app/${startDate}..${endDate}?from=${currencyCode}&to=IDR`);
           
           if (!res.ok) throw new Error("Grafik tidak tersedia");
@@ -136,15 +135,12 @@ export default function Forex() {
       }
   };
 
-  // --- LOGIC TUKAR VALAS (JUAL/BELI DENGAN RUPIAH) ---
   const handleExchange = async () => {
       const qty = parseFloat(amountExchange);
       const rate = parseFloat(rateExchange);
       if (!qty || !rate) { toast({ title: "Error", description: "Isi jumlah dan kurs.", variant: "destructive" }); return; }
 
       try {
-          // 1. Update Aset Valas
-          // Buy = Income (Valas Nambah), Sell = Expense (Valas Kurang)
           const forexType = exchangeMode === 'buy' ? 'income' : 'expense';
           
           const resForex = await fetch("/api/forex/transaction", {
@@ -158,8 +154,6 @@ export default function Forex() {
           
           if (!resForex.ok) { toast({ title: "Gagal", description: "Cek saldo valas Anda.", variant: "destructive" }); return; }
 
-          // 2. Update Saldo Rupiah (Kebalikan)
-          // Beli Valas = Expense Rupiah, Jual Valas = Income Rupiah
           const totalRp = qty * rate;
           const txType = exchangeMode === 'buy' ? 'expense' : 'income';
           const txDesc = exchangeMode === 'buy' ? `Beli ${selectedCurr.code} ${qty}` : `Jual ${selectedCurr.code} ${qty}`;
@@ -177,11 +171,10 @@ export default function Forex() {
 
           toast({ title: "Sukses", description: "Transaksi pertukaran berhasil." });
           setAmountExchange(""); setRateExchange(""); 
-          fetchData(); // Refresh data
+          fetchData(); 
       } catch (e) { toast({ title: "Error", variant: "destructive" }); }
   };
 
-  // --- LOGIC CATAT MUTASI (HANYA UBAH SALDO VALAS) ---
   const handleMutation = async () => {
       const qty = parseFloat(amountMutation);
       if (!qty) { toast({ title: "Error", description: "Isi nominal.", variant: "destructive" }); return; }
@@ -189,7 +182,6 @@ export default function Forex() {
       const note = noteMutation.trim() || "Koreksi Saldo";
 
       try {
-          // Kirim ke endpoint khusus Valas
           const res = await fetch("/api/forex/transaction", {
               method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
@@ -234,7 +226,6 @@ export default function Forex() {
     <MobileLayout title="Dompet Valas" showBack>
       <div className="space-y-6 pt-4 pb-20">
 
-        {/* HEADER: TOTAL ASET */}
         <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl relative overflow-hidden">
             <div className="relative z-10 flex justify-between items-start">
                 <div>
@@ -250,7 +241,6 @@ export default function Forex() {
             <div className="absolute right-0 bottom-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl"></div>
         </div>
 
-        {/* LIVE RATES GRID */}
         <div>
             <div className="flex justify-between items-end mb-2 px-1">
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Live Market Rates</h3>
@@ -268,7 +258,6 @@ export default function Forex() {
             </div>
         </div>
 
-        {/* MODAL GRAFIK */}
         {chartCurr && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
                 <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl animate-in zoom-in-95 relative">
@@ -301,9 +290,7 @@ export default function Forex() {
             </div>
         )}
 
-        {/* INPUT CARD: MUTASI & TUKAR */}
         <Card className="p-0 overflow-hidden shadow-lg border border-slate-200">
-            {/* TABS */}
             <div className="flex border-b border-slate-200">
                 <button onClick={() => setActiveTab('mutation')} className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'mutation' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'bg-slate-50 text-slate-400'}`}>
                     <FileText className="w-4 h-4"/> CATAT MUTASI
@@ -314,7 +301,6 @@ export default function Forex() {
             </div>
 
             <div className="p-5 space-y-5 bg-white">
-                {/* PILIH MATA UANG */}
                 <div className="relative" ref={dropdownRef}>
                     <label className="text-xs font-bold text-slate-500 mb-1 block">Mata Uang Asing</label>
                     <div onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="w-full h-12 border border-slate-300 rounded-xl flex items-center px-4 justify-between cursor-pointer bg-white hover:border-blue-400 transition-colors">
@@ -345,7 +331,6 @@ export default function Forex() {
                     )}
                 </div>
 
-                {/* FORM: MUTASI */}
                 {activeTab === 'mutation' && (
                     <div className="space-y-4 animate-in fade-in slide-in-from-left-2">
                         <div className="flex bg-slate-100 p-1 rounded-xl">
@@ -367,7 +352,6 @@ export default function Forex() {
                     </div>
                 )}
 
-                {/* FORM: TUKAR */}
                 {activeTab === 'exchange' && (
                     <div className="space-y-4 animate-in fade-in slide-in-from-right-2">
                         <div className="flex bg-slate-100 p-1 rounded-xl">
@@ -391,7 +375,6 @@ export default function Forex() {
             </div>
         </Card>
 
-        {/* LIST PORTOFOLIO */}
         <div>
             <h3 className="text-xs font-bold text-slate-500 mb-3 px-1 uppercase tracking-wider">Portofolio Saya</h3>
             <div className="space-y-3">
