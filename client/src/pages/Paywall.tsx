@@ -1,189 +1,126 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
-import { 
-    Crown, CheckCircle2, X, Sparkles, 
-    Globe, FileText, ScanLine, Bot, ShieldCheck, Loader2
-} from "lucide-react";
-import { Button } from "@/components/UIComponents";
-import { useToast } from "@/hooks/use-toast";
 import { MobileLayout } from "@/components/Layout";
+import { Button } from "@/components/UIComponents";
+import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X } from "lucide-react";
 
 export default function Paywall() {
-    const [, setLocation] = useLocation();
-    const { toast } = useToast();
-    
-    // === LOGIKA PINTAR TOMBOL ===
-    const [isFirstTime, setIsFirstTime] = useState(false);
-    const [isExpired, setIsExpired] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    
-    const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
-    const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasStartedTrial, setHasStartedTrial] = useState(false);
+  const [isExpired, setIsExpired] = useState(false);
 
-    const userEmail = localStorage.getItem("bilano_email") || "guest";
+  // Kunci spesifik per email agar tidak bocor ke akun testing lain
+  const userEmail = localStorage.getItem("bilano_email") || "";
+  const trialKey = `bilano_trial_start_${userEmail}`;
 
-    useEffect(() => {
-        const seenKey = `bilano_paywall_seen_${userEmail}`;
-        const hasSeen = localStorage.getItem(seenKey);
-        const expired = localStorage.getItem("bilano_trial_expired") === "true";
+  useEffect(() => {
+      // 1. Cek apakah pengguna sudah pernah memencet tombol coba gratis
+      if (localStorage.getItem(trialKey)) {
+          setHasStartedTrial(true);
+      }
+      // 2. Cek apakah masa trial sudah habis dari storage Home
+      if (localStorage.getItem("bilano_trial_expired") === "true") {
+          setIsExpired(true);
+      }
+  }, [trialKey]);
 
-        if (!hasSeen) {
-            setIsFirstTime(true);
-        }
-        if (expired) {
-            setIsExpired(true);
-        }
-        
-        setIsLoading(false);
-    }, [userEmail]);
+  const handleMulaiCoba = () => {
+      if (!localStorage.getItem(trialKey)) {
+          localStorage.setItem(trialKey, Date.now().toString());
+      }
+      window.location.href = "/";
+  };
 
-    const handleStartTrial = () => {
-        localStorage.setItem(`bilano_paywall_seen_${userEmail}`, "true");
-        toast({ 
-            title: "Masa Coba Dimulai! 🎉", 
-            description: "Selamat menikmati seluruh fitur BILANO Pro selama 3 hari ke depan." 
-        });
-        setLocation("/"); 
-    };
+  const handleBerlangganan = () => {
+      setIsLoading(true);
+      const mayarLink = "https://adrienfandra.myr.id/pl/langganan-bilano-pro-1-tahun"; 
+      setTimeout(() => { window.location.href = mayarLink; }, 800);
+  };
 
-    const handleClose = () => {
-        localStorage.setItem(`bilano_paywall_seen_${userEmail}`, "true");
-        setLocation("/");
-    };
+  return (
+    <MobileLayout>
+        <div className="min-h-screen bg-slate-900 text-white relative overflow-y-auto overflow-x-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute bottom-1/4 left-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-    const handleSubscribe = () => {
-        setIsProcessing(true);
-        toast({ title: "Mengarahkan ke Pembayaran...", description: "Menyiapkan gerbang aman." });
-        
-        setTimeout(() => {
-            localStorage.setItem("bilano_pro", "true");
-            localStorage.setItem("bilano_trial_expired", "false");
-            setIsProcessing(false);
-            toast({ title: "Pembayaran Berhasil! 👑", description: "Akun Anda sekarang adalah BILANO PRO." });
-            window.location.href = "/";
-        }, 2000);
-    };
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-4"/>
-                <p className="text-sm font-bold text-slate-500">Membuka Akses Premium...</p>
-            </div>
-        );
-    }
-
-    return (
-        // Menggunakan desain putih/bersih agar selaras dengan keseluruhan aplikasi
-        <div className="min-h-screen bg-slate-50 text-slate-800 relative pb-28 animate-in fade-in duration-500">
-            
-            {/* EFEK CAHAYA LATAR */}
-            <div className="fixed top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-100/50 to-transparent pointer-events-none"></div>
-
-            {/* TOMBOL CLOSE (MUNCUL JIKA BUKAN FIRST TIME) */}
-            {!isFirstTime && (
+            {/* TOMBOL CLOSE (X) - HANYA MUNCUL JIKA SUDAH PERNAH MENEKAN TRIAL */}
+            {hasStartedTrial && (
                 <button 
-                    onClick={handleClose} 
-                    className="absolute top-6 right-4 z-50 p-2.5 bg-white shadow-sm rounded-full hover:bg-slate-100 transition-colors"
+                    onClick={() => window.location.href = "/"}
+                    className="absolute top-6 right-6 z-50 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md border border-white/10 transition-colors shadow-lg"
                 >
-                    <X className="w-5 h-5 text-slate-400"/>
+                    <X className="w-5 h-5 text-white opacity-90" />
                 </button>
             )}
 
-            <div className="relative z-10 pt-16 px-5 max-w-md mx-auto">
+            <div className={`px-6 relative z-10 flex flex-col pb-12 ${hasStartedTrial ? 'pt-8' : 'pt-12'}`}>
                 
-                {/* HEADER */}
-                <div className="text-center mb-8">
-                    <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-5 border-4 border-white shadow-md">
-                        <Crown className="w-10 h-10 text-indigo-600"/>
-                    </div>
-                    <h1 className="text-3xl font-extrabold text-slate-800 mb-2 tracking-tight">BILANO <span className="text-indigo-600">PRO</span></h1>
-                    <p className="text-sm text-slate-500 font-medium px-4">
-                        {isFirstTime ? "Buka potensi penuh pengelolaan keuanganmu. Coba gratis sekarang." : isExpired ? "Masa coba gratis telah habis. Lanjutkan dengan Pro." : "Satu langkah untuk menguasai harta Anda sepenuhnya."}
-                    </p>
+                <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest text-amber-400 mb-4 backdrop-blur-md self-start">
+                    <Crown className="w-3.5 h-3.5" /> Akses Eksklusif
                 </div>
+                
+                <h1 className="text-3xl font-extrabold leading-tight mb-3">
+                    Buka Potensi Penuh <br/>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-500">BILANO PRO</span>
+                </h1>
+                <p className="text-sm text-slate-400 font-medium leading-relaxed mb-8 pr-4">
+                    Catat lebih cepat, analisa lebih tajam, dan capai target keuanganmu tanpa batas.
+                </p>
 
-                {/* FITUR PREMIUM LIST */}
-                <div className="space-y-4 mb-8 bg-white border border-slate-200 p-6 rounded-[32px] shadow-sm">
-                    <FeatureItem icon={Globe} title="Real-Time Valas" desc="Harga aset otomatis berfluktuasi ikuti pasar global."/>
-                    <FeatureItem icon={ScanLine} title="Smart Scan Receipt" desc="Foto struk belanja, biarkan AI membaca nominalnya."/>
-                    <FeatureItem icon={Bot} title="BILANO Intelligence" desc="Konsultan AI pribadi baca isi dompet Anda 24/7."/>
-                    <FeatureItem icon={FileText} title="Export PDF Premium" desc="Cetak laporan kekayaan tanpa watermark."/>
-                    <FeatureItem icon={ShieldCheck} title="Kunci Privasi Ganda" desc="Amankan aplikasi dengan PIN rahasia."/>
-                </div>
-
-                {/* PILIHAN PAKET (HANYA JIKA BUKAN FIRST TIME ATAU EXPIRED) */}
-                {(!isFirstTime || isExpired) && (
-                    <div className="space-y-3 mb-6">
-                        <div 
-                            onClick={() => setSelectedPlan('yearly')}
-                            className={`p-4 rounded-[24px] border-2 cursor-pointer transition-all flex items-center justify-between ${selectedPlan === 'yearly' ? 'border-indigo-600 bg-indigo-50' : 'border-slate-100 bg-white hover:bg-slate-50'}`}
-                        >
-                            <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="font-extrabold text-slate-800">Tahunan</h4>
-                                    <span className="bg-emerald-100 text-emerald-700 text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Hemat 40%</span>
-                                </div>
-                                <p className="text-sm text-slate-500">Rp 199.000 / tahun</p>
+                <div className="space-y-4 mb-8">
+                    {[
+                        { title: "Tanya AI Assistant 24/7", desc: "Konsultasi keuangan cerdas tanpa batas kuota harian." },
+                        { title: "Tracking Investasi Terpadu", desc: "Pantau portofolio saham, crypto, reksadana, hingga emas." },
+                        { title: "Cetak PDF Premium", desc: "Export mutasi dan kekayaan bersih ala Bank Statement." },
+                        { title: "Multi-Currency (Valas) Live", desc: "Pantau aset mata uang asing dengan kurs real-time." },
+                        { title: "Scan Struk Otomatis", desc: "Tidak perlu ketik manual, cukup foto struk belanja." }
+                    ].map((feature, idx) => (
+                        <div key={idx} className="flex gap-4 items-start animate-in slide-in-from-bottom-4" style={{ animationDelay: `${idx * 100}ms` }}>
+                            <div className="bg-white/10 p-1.5 rounded-full text-amber-400 mt-0.5">
+                                <CheckCircle2 className="w-4 h-4"/>
                             </div>
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'yearly' ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300'}`}>
-                                {selectedPlan === 'yearly' && <CheckCircle2 className="w-4 h-4 text-white"/>}
+                            <div>
+                                <h3 className="font-extrabold text-sm text-white">{feature.title}</h3>
+                                <p className="text-[11px] text-slate-400 mt-0.5">{feature.desc}</p>
                             </div>
                         </div>
+                    ))}
+                </div>
 
-                        <div 
-                            onClick={() => setSelectedPlan('monthly')}
-                            className={`p-4 rounded-[24px] border-2 cursor-pointer transition-all flex items-center justify-between ${selectedPlan === 'monthly' ? 'border-indigo-600 bg-indigo-50' : 'border-slate-100 bg-white hover:bg-slate-50'}`}
-                        >
-                            <div>
-                                <h4 className="font-extrabold text-slate-800 mb-1">Bulanan</h4>
-                                <p className="text-sm text-slate-500">Rp 29.000 / bulan</p>
-                            </div>
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'monthly' ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300'}`}>
-                                {selectedPlan === 'monthly' && <CheckCircle2 className="w-4 h-4 text-white"/>}
-                            </div>
-                        </div>
+                <div className="bg-gradient-to-br from-indigo-600 to-violet-800 p-5 rounded-[24px] border border-indigo-400/30 shadow-2xl relative animate-in zoom-in-95 delay-300 mb-6">
+                    <div className="absolute -top-3 right-4 bg-amber-400 text-amber-950 text-[9px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
+                        Penawaran Spesial
                     </div>
-                )}
-            </div>
+                    <p className="text-indigo-200 text-xs font-bold mb-1">Paket Tahunan BILANO PRO</p>
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-bold text-indigo-300 line-through decoration-rose-500 decoration-2">Rp 249.000</span>
+                        <span className="text-[9px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-extrabold animate-pulse tracking-wider">HEMAT 60%</span>
+                    </div>
+                    <div className="flex items-end gap-1 mb-2">
+                        <span className="text-4xl font-extrabold drop-shadow-md text-white">Rp 99.000</span>
+                        <span className="text-xs text-indigo-200 font-medium mb-1.5">/ tahun</span>
+                    </div>
+                    <p className="text-[10px] text-indigo-300 flex items-center gap-1 font-medium">✨ Setara hanya Rp 8.250 / bulan. Aman didukung Mayar.id</p>
+                </div>
 
-            {/* STICKY BOTTOM ACTION BAR */}
-            <div className="fixed bottom-0 left-0 right-0 p-5 bg-white border-t border-slate-100 z-50 animate-in slide-in-from-bottom-10 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-                <div className="max-w-md mx-auto">
-                    {/* LOGIKA TOMBOL UTAMA */}
-                    {isFirstTime && !isExpired ? (
-                        <Button 
-                            onClick={handleStartTrial} 
-                            className="w-full h-14 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-extrabold shadow-lg shadow-indigo-200 transition-transform active:scale-95 flex items-center justify-center gap-2"
-                        >
-                            <Sparkles className="w-5 h-5"/> MULAI COBA GRATIS 3 HARI
-                        </Button>
-                    ) : (
-                        <Button 
-                            onClick={handleSubscribe} 
-                            disabled={isProcessing}
-                            className={`w-full h-14 rounded-full text-lg font-extrabold transition-transform active:scale-95 flex items-center justify-center gap-2 ${isExpired ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-200' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200'}`}
-                        >
-                            {isProcessing ? <Loader2 className="w-5 h-5 animate-spin"/> : <Crown className="w-5 h-5"/>}
-                            {isProcessing ? "MEMPROSES..." : isExpired ? "BUKA KUNCI AKSES" : "LANGGANAN SEKARANG"}
-                        </Button>
+                <div className="w-full relative z-10 animate-in slide-in-from-bottom-8 delay-500">
+                    <Button 
+                        onClick={handleBerlangganan} 
+                        disabled={isLoading}
+                        className={`w-full h-16 text-lg font-extrabold rounded-full active:scale-95 transition-transform flex items-center justify-center gap-2 ${isExpired ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-[0_0_30px_rgba(225,29,72,0.3)]' : 'bg-amber-400 hover:bg-amber-500 text-amber-950 shadow-[0_0_30px_rgba(251,191,36,0.3)]'}`}
+                    >
+                        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5"/>}
+                        {isLoading ? "Menyiapkan..." : (isExpired ? "BUKA KUNCI AKSES" : "BERLANGGANAN SEKARANG")}
+                    </Button>
+                    
+                    {/* TOMBOL "COBA DULU" HANYA MUNCUL JIKA BELUM PERNAH TRIAL */}
+                    {!hasStartedTrial && (
+                        <button onClick={handleMulaiCoba} className="w-full mt-4 h-12 text-slate-400 hover:text-white text-xs font-bold rounded-full transition-colors flex items-center justify-center gap-1">
+                            Nanti Saja, Saya Mau Coba Gratis Dulu <ArrowRight className="w-4 h-4"/>
+                        </button>
                     )}
                 </div>
             </div>
         </div>
-    );
-}
-
-function FeatureItem({ icon: Icon, title, desc }: any) {
-    return (
-        <div className="flex gap-4 items-start">
-            <div className="bg-slate-50 p-2.5 rounded-full flex-shrink-0 mt-0.5">
-                <Icon className="w-5 h-5 text-indigo-500"/>
-            </div>
-            <div>
-                <h4 className="font-extrabold text-slate-800 text-sm mb-0.5">{title}</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">{desc}</p>
-            </div>
-        </div>
-    )
+    </MobileLayout>
+  );
 }
