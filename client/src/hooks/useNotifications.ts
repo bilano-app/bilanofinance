@@ -1,57 +1,45 @@
-import { useEffect } from "react";
-
-// Variasi pesan notifikasi dengan bahasa kasual/asik
-const NOTIF_MESSAGES = [
-    "Halo Bos! Duit aman? Jangan lupa catat pengeluaran hari ini ya! 💸",
-    "Waktunya ngecek dompet! Ada jajan yang belum dicatat? 🤔",
-    "BILANO kangen nih. Yuk update catatan keuanganmu biar target aman! 🚀",
-    "Hari ini udah nabung atau malah boncos? Yuk catat dulu! 📊",
-    "Ada struk nganggur? Jangan lupa masukin ke BILANO ya! 🧾",
-    "Cek target keuanganmu yuk! Sedikit lagi kecapai tuh! 🎯",
-    "Satu langkah kecil mencatat, satu lompatan besar buat masa depanmu! ✨",
-    "Lagi ngopi santai? Masukin pengeluarannya ke BILANO yuk biar AI bisa nganalisa! ☕"
-];
+import { useEffect } from 'react';
 
 export function useNotifications() {
-    useEffect(() => {
-        // 1. Minta Izin ke HP Pengguna untuk mengirim Notifikasi
-        if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-            Notification.requestPermission();
+  useEffect(() => {
+    // 1. Cek apakah perangkat mendukung notifikasi
+    if (!("Notification" in window)) return;
+
+    const checkAndNotify = () => {
+      // 2. Hanya jalankan jika izin sudah diberikan (Granted)
+      if (Notification.permission === "granted") {
+        const lastNotif = localStorage.getItem("bilano_last_notif");
+        const now = Date.now();
+        
+        // --- PENGATURAN DURASI ---
+        // 5 Menit = 5 * 60 detik * 1000 milidetik = 300.000 ms
+        // (Jika mau dikembalikan ke 5 jam nanti, ganti jadi: 5 * 60 * 60 * 1000)
+        const INTERVAL = 5 * 60 * 1000; 
+
+        // 3. Cek apakah sudah lewat 5 menit dari notif terakhir
+        if (!lastNotif || now - parseInt(lastNotif) > INTERVAL) {
+          
+          // 4. Tembakkan Notifikasi!
+          new Notification("Waktunya Cek Dompet! 💰", {
+            body: "Sudah 5 menit berlalu. Ada pengeluaran atau pemasukan yang belum dicatat?",
+            icon: "/BILANO-ICON.png",
+            badge: "/BILANO-ICON.png" // Icon kecil untuk Android
+          });
+
+          // 5. Catat waktu notifikasi terakhir agar tidak spam
+          localStorage.setItem("bilano_last_notif", now.toString());
         }
+      }
+    };
 
-        const checkAndSendNotification = () => {
-            if ("Notification" in window && Notification.permission === "granted") {
-                const lastNotif = localStorage.getItem("bilano_last_notif");
-                const now = Date.now();
-                
-                // Waktu Jeda: 5 Jam (5 jam * 60 menit * 60 detik * 1000 milidetik)
-                const FIVE_HOURS = 5 * 60 * 60 * 1000; 
+    // Jalankan pengecekan pertama kali saat aplikasi dibuka
+    checkAndNotify();
 
-                // Jika belum pernah dikirim, ATAU sudah lewat 5 jam dari notif terakhir
-                if (!lastNotif || now - parseInt(lastNotif) >= FIVE_HOURS) {
-                    // Pilih pesan acak dari daftar di atas
-                    const randomMsg = NOTIF_MESSAGES[Math.floor(Math.random() * NOTIF_MESSAGES.length)];
+    // Pasang radar yang mengecek setiap 1 menit (60.000 ms)
+    // untuk memastikan notif tetap muncul jika HP dibiarkan menyala
+    const intervalId = setInterval(checkAndNotify, 60000);
 
-                    // Tembak Notifikasi ke HP!
-                    new Notification("BILANO Finance", {
-                        body: randomMsg,
-                        icon: "/BILANO-ICON.png",
-                        badge: "/BILANO-ICON.png",
-                        vibrate: [200, 100, 200] // HP akan bergetar
-                    });
-
-                    // Catat waktu notifikasi ini dikirim ke database HP
-                    localStorage.setItem("bilano_last_notif", now.toString());
-                }
-            }
-        };
-
-        // 2. Langsung cek saat aplikasi pertama kali dibuka
-        checkAndSendNotification();
-
-        // 3. Pasang Alarm Latar Belakang (Mengecek setiap 1 menit)
-        const interval = setInterval(checkAndSendNotification, 60000);
-
-        return () => clearInterval(interval);
-    }, []);
+    // Bersihkan radar jika komponen ditutup
+    return () => clearInterval(intervalId);
+  }, []);
 }
