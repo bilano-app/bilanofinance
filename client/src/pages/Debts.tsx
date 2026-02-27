@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { 
     Users, ArrowUpRight, ArrowDownLeft, Calendar, 
-    CheckCircle2, Trash2, Plus, HandCoins, AlertCircle, X
+    CheckCircle2, Trash2, Plus, HandCoins, AlertCircle, X, Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -79,6 +79,18 @@ export default function Debts() {
   const totalAmount = filteredItems.filter(i => !i.isPaid).reduce((acc, curr) => acc + curr.amount, 0);
 
   const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
+
+  if (loading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
+              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin"/>
+                  <span>Memuat Data...</span>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <MobileLayout title="Hutang & Piutang" showBack>

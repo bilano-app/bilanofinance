@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Lock, ShieldCheck, RefreshCw, AlertCircle, ArrowLeft } from "lucide-react";
+import { Mail, Lock, ShieldCheck, RefreshCw, AlertCircle, ArrowLeft, X } from "lucide-react";
 import { auth, googleProvider } from "@/lib/firebase";
 import { 
     signInWithRedirect, 
     getRedirectResult,
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
+    sendPasswordResetEmail, // <-- Fitur Sakti Firebase untuk Reset Password
     User
 } from "firebase/auth";
 
@@ -26,6 +27,10 @@ export default function Auth() {
   const [errorMessage, setErrorMessage] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0); 
   
+  // State untuk Fitur Lupa Password
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -100,11 +105,22 @@ export default function Auth() {
             await requestOtp();
         }
     } catch (error: any) {
-        let msg = "Terjadi kesalahan.";
-        if (error.code === 'auth/user-not-found') msg = "Akun tidak ditemukan.";
-        if (error.code === 'auth/wrong-password') msg = "Password salah.";
-        if (error.code === 'auth/email-already-in-use') msg = "Email sudah terdaftar. Silakan Login.";
-        toast({ title: "Gagal", description: msg, variant: "destructive" });
+        // === LOGIKA PINTAR: DETEKSI ERROR LOGIN ===
+        let msg = "Terjadi kesalahan sistem.";
+        
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+            msg = "Akun belum terdaftar atau kombinasi salah. Silakan Daftar (Sign Up) terlebih dahulu.";
+            setIsLogin(false); // Otomatis pindah ke Tab Daftar
+        } else if (error.code === 'auth/wrong-password') {
+            msg = "Password yang Anda masukkan salah. Coba lagi atau gunakan fitur Lupa Password.";
+        } else if (error.code === 'auth/email-already-in-use') {
+            msg = "Email ini sudah terdaftar. Silakan Login.";
+            setIsLogin(true); // Otomatis pindah ke Tab Login
+        } else if (error.code === 'auth/too-many-requests') {
+            msg = "Terlalu banyak percobaan gagal. Coba lagi nanti.";
+        }
+
+        toast({ title: "Akses Ditolak", description: msg, variant: "destructive" });
         setLoading(false);
     } 
   };
@@ -121,8 +137,7 @@ export default function Auth() {
           if (res.ok) {
               setStep('otp'); 
               setResendCooldown(60); 
-              // TAMPILKAN BOCORAN OTP DI LAYAR AGAR BISA DITES
-              toast({ title: "Cek Kode OTP", description: data.dev_otp ? `Kode Anda: ${data.dev_otp}` : "Kode Terkirim!" });
+              toast({ title: "Cek Kode OTP", description: data.dev_otp ? `Kode Anda: ${data.dev_otp}` : "Kode Terkirim ke Email!" });
           } else {
               throw new Error(data.error || "Gagal kirim kode");
           }
@@ -162,12 +177,27 @@ export default function Auth() {
       }
   };
 
-  const handleGoogleLogin = async () => {
+  // === FUNGSI MENGIRIM EMAIL RESET PASSWORD ===
+  const handleForgotPassword = async () => {
+      if (!forgotEmail) {
+          return toast({ title: "Email Kosong", description: "Silakan ketik email Anda terlebih dahulu.", variant: "destructive" });
+      }
+      
+      setLoading(true);
       try {
-          setLoading(true);
-          await signInWithRedirect(auth, googleProvider);
+          await sendPasswordResetEmail(auth, forgotEmail);
+          toast({ 
+              title: "Link Terkirim!", 
+              description: "Silakan cek kotak masuk/spam Email Anda untuk membuat password baru." 
+          });
+          setShowForgotModal(false);
+          setForgotEmail("");
       } catch (error: any) {
-          toast({ title: "Gagal Google", description: error.message, variant: "destructive" });
+          let msg = "Gagal mengirim link reset.";
+          if (error.code === 'auth/user-not-found') msg = "Email ini belum terdaftar di aplikasi kami.";
+          if (error.code === 'auth/invalid-email') msg = "Format email tidak valid.";
+          toast({ title: "Gagal", description: msg, variant: "destructive" });
+      } finally {
           setLoading(false);
       }
   };
@@ -215,7 +245,7 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative">
       <div className="mb-8 text-center animate-in fade-in slide-in-from-top-4 duration-700">
           <img src="/bilano_logo_horiz.png" alt="BILANO" className="h-16 w-auto mx-auto mb-2 object-contain" />
       </div>
@@ -227,7 +257,6 @@ export default function Auth() {
           </div>
 
           <div className="space-y-4">
-
               <form onSubmit={handleAuth} className="space-y-4">
                   {!isLogin && (
                     <div className="grid grid-cols-2 gap-3 animate-in slide-in-from-top-2">
@@ -242,13 +271,57 @@ export default function Auth() {
                   <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-500 ml-1">Password</label>
                       <div className="relative"><Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/><Input type="password" placeholder="••••••••" className="pl-10 h-12" value={password} onChange={(e) => setPassword(e.target.value)}/></div>
+                      
+                      {/* TOMBOL LUPA PASSWORD (HANYA MUNCUL SAAT MODE LOGIN) */}
+                      {isLogin && (
+                          <div className="flex justify-end pt-1">
+                              <button type="button" onClick={() => setShowForgotModal(true)} className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
+                                  Lupa Password?
+                              </button>
+                          </div>
+                      )}
                   </div>
-                  <Button disabled={loading} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold text-md shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
+                  
+                  <Button disabled={loading} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold text-md shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 mt-2">
                       {loading ? <RefreshCw className="animate-spin w-5 h-5"/> : (isLogin ? "MASUK SEKARANG" : "DAFTAR SEKARANG")}
                   </Button>
               </form>
           </div>
       </Card>
+
+      {/* POP-UP LUPA PASSWORD */}
+      {showForgotModal && (
+          <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95">
+                  <button onClick={() => setShowForgotModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                      <X className="w-5 h-5"/>
+                  </button>
+                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
+                      <Lock className="w-6 h-6"/>
+                  </div>
+                  <h3 className="text-lg font-extrabold text-slate-800 mb-1">Reset Password</h3>
+                  <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+                      Masukkan email yang terdaftar. Kami akan mengirimkan link rahasia agar Anda bisa mengatur ulang password.
+                  </p>
+                  
+                  <div className="space-y-4">
+                      <div className="relative">
+                          <Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
+                          <Input 
+                              type="email" 
+                              placeholder="Masukkan email Anda..." 
+                              className="pl-10 h-12 border-slate-200" 
+                              value={forgotEmail} 
+                              onChange={(e) => setForgotEmail(e.target.value)}
+                          />
+                      </div>
+                      <Button onClick={handleForgotPassword} disabled={loading || !forgotEmail} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold shadow-md">
+                          {loading ? <RefreshCw className="w-5 h-5 animate-spin"/> : "KIRIM LINK RESET"}
+                      </Button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 }

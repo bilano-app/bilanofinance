@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, PlusCircle, X } from "lucide-react"; 
+import { ArrowLeft, PlusCircle, X, Loader2 } from "lucide-react"; 
 import { TrendingUp, Building2, LineChart, AlertCircle, Briefcase, Gem, Landmark, ScrollText, Coins } from "lucide-react";
 import { Button, Card, CardContent, CardHeader, Input, CurrencyInput } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
@@ -13,8 +13,8 @@ export default function Investment() {
   const [isTxOpen, setIsTxOpen] = useState(false);
   const [txType, setTxType] = useState<'BUY' | 'SELL'>('BUY');
 
-  const { data: user } = useUser();
-  const { data: portfolio = [] } = useInvestments();
+  const { data: user, isLoading: isUserLoading } = useUser();
+  const { data: portfolio = [], isLoading: isInvLoading } = useInvestments();
   const buyMutation = useBuyInvestment();
   const sellMutation = useSellInvestment();
 
@@ -171,6 +171,18 @@ export default function Investment() {
       </div>
     )
   };
+
+  if (isUserLoading || isInvLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
+              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin"/>
+                  <span>Memuat Data...</span>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <MobileLayout title="Investasi & Portfolio" showBack={true}>

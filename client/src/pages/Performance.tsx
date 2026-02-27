@@ -3,14 +3,14 @@ import { MobileLayout } from "@/components/Layout";
 import { Card } from "@/components/UIComponents";
 import { useUser, useTransactions, useTarget, useInvestments } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
-import { Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Trophy, RefreshCcw } from "lucide-react";
+import { Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Performance() {
-  const { data: user } = useUser();
-  const { data: transactions } = useTransactions();
-  const { data: target } = useTarget();
-  const { data: investments } = useInvestments(); 
+  const { data: user, isLoading: isUserLoading } = useUser();
+  const { data: transactions, isLoading: isTxLoading } = useTransactions();
+  const { data: target, isLoading: isTargetLoading } = useTarget();
+  const { data: investments, isLoading: isInvLoading } = useInvestments(); 
 
   const now = new Date();
   const currentMonthIdx = now.getMonth();
@@ -88,7 +88,6 @@ export default function Performance() {
 
   const monthlyIncome = thisMonthTx.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0); 
   
-  // FIX: Coret kategori investasi agar tidak dihitung pemborosan
   const monthlyExpense = thisMonthTx
       .filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest'))
       .reduce((acc, t) => acc + t.amount, 0); 
@@ -98,7 +97,6 @@ export default function Performance() {
   const isSafe = monthlyNet >= savingRequired; 
   const isOverBudget = expenseLimit > 0 && monthlyExpense > expenseLimit;
 
-  // Sembunyikan investasi dari rincian drop-down pengeluaran
   const detailList = thisMonthTx
       .filter(t => {
           if (!expandedDetail) return false;
@@ -111,6 +109,19 @@ export default function Performance() {
       if (isNaN(val)) return "Rp 0";
       return formatCurrency(val).split(",")[0];
   };
+
+  // === LOADING SCREEN KUSTOM BILANO ===
+  if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
+              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin"/>
+                  <span>Memuat Data...</span>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <MobileLayout title="Analisa Performa" showBack>

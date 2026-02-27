@@ -6,7 +6,7 @@ import { Loader2, Wallet } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 
 export default function Income() {
-  const { data: user } = useUser();
+  const { data: user, isLoading: isUserLoading } = useUser();
   const addTransaction = useAddTransaction();
   
   const [amountStr, setAmountStr] = useState("");
@@ -54,6 +54,18 @@ export default function Income() {
       setIsSubmitting(false);
     }
   };
+
+  if (isUserLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
+              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin"/>
+                  <span>Memuat Data...</span>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <MobileLayout title="Catat Pemasukan" showBack>

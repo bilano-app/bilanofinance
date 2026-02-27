@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input, Card } from "@/components/UIComponents";
-// HANYA MENGGUNAKAN IKON YANG PASTI ADA DI SEMUA VERSI (ANTI-CRASH)
 import { 
     Mic, ImagePlus, Check, X, 
-    Globe, AlertTriangle, RefreshCw
+    Globe, AlertTriangle, RefreshCw, Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Tesseract from 'tesseract.js';
@@ -36,7 +35,6 @@ export default function SmartScan() {
     const [rate, setRate] = useState("16000");
     const [debtName, setDebtName] = useState("");
 
-    // STATE MODAL DARURAT (Persis seperti Expense.tsx)
     const [showEmergencyModal, setShowEmergencyModal] = useState(false);
     const [emergencyDetails, setEmergencyDetails] = useState({ deficit: 0, nextMonthLimit: 0 });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,7 +42,6 @@ export default function SmartScan() {
     const recognitionRef = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // PRELOAD DATA
     useEffect(() => {
         const loadData = async () => {
             try {
@@ -179,14 +176,12 @@ export default function SmartScan() {
         }
     };
 
-    // --- LOGIKA SIMPAN & MODAL DARURAT ---
     const handleSave = async (isEmergencyOverride = false) => {
         if (!amount) { toast({title: "Nominal kosong", variant:"destructive"}); return; }
         
         const sanitizedAmount = amount.toString().replace(/\./g, "").replace(/,/g, ".");
         const finalAmount = parseFloat(sanitizedAmount); 
 
-        // 1. MUNCULKAN MODAL DARURAT INTERNAL JIKA MELEBIHI BATAS
         if (!isEmergencyOverride && isDataLoaded && detectedType === 'expense' && !isForex && targetData?.monthlyBudget > 0) {
             const remainingBudget = targetData.monthlyBudget - currentExpense;
             
@@ -195,7 +190,7 @@ export default function SmartScan() {
                 const nextMonthPred = targetData.monthlyBudget - deficit;
                 setEmergencyDetails({ deficit, nextMonthLimit: nextMonthPred });
                 setShowEmergencyModal(true); 
-                return; // Berhenti dan tunggu user konfirmasi di modal
+                return; 
             }
         }
 
@@ -224,7 +219,6 @@ export default function SmartScan() {
                 toast({ title: "Tersimpan!", description: "Data masuk." });
             }
 
-            // Jika diklik "Pakai Dana Darurat" di Modal
             if (isEmergencyOverride) {
                 try {
                     await fetch("/api/target/penalty", {
@@ -237,8 +231,6 @@ export default function SmartScan() {
             }
 
             setShowEmergencyModal(false);
-            
-            // FIX ANTI LEMOT: Force Refresh Halaman agar UI Home langsung update!
             window.location.href = "/";
             
         } catch (e) { 
@@ -250,11 +242,24 @@ export default function SmartScan() {
 
     const remainingBudget = targetData ? targetData.monthlyBudget - currentExpense : 0;
 
+    // === LOADING SCREEN KUSTOM BILANO ===
+    if (!isDataLoaded) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+                <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
+                <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
+                    <Loader2 className="w-4 h-4 animate-spin"/>
+                    <span>Memuat Data...</span>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <MobileLayout title="Scan & Suara Pintar" showBack>
             <div className="pt-4 pb-20 space-y-6 relative">
                 
-                {/* MODAL DARURAT INTERNAL (Sama Persis seperti di Expense.tsx) */}
+                {/* MODAL DARURAT INTERNAL */}
                 {showEmergencyModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
                         <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative animate-in zoom-in-95">

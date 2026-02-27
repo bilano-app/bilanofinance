@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Card } from "@/components/UIComponents";
 import { useTransactions } from "@/hooks/use-finance";
 import { formatCurrency } from "@/lib/utils";
-import { ArrowUpCircle, ArrowDownCircle, Filter, CalendarDays } from "lucide-react";
+import { ArrowUpCircle, ArrowDownCircle, Filter, CalendarDays, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function TransactionDetail() {
@@ -12,7 +12,7 @@ export default function TransactionDetail() {
   const initialType = searchParams.get("type") || "all";
   const [filterType, setFilterType] = useState(initialType);
   
-  const { data: transactions = [] } = useTransactions();
+  const { data: transactions = [], isLoading } = useTransactions();
 
   const filteredByType = transactions.filter(t => 
     filterType === 'all' ? true : t.type === filterType
@@ -31,8 +31,20 @@ export default function TransactionDetail() {
 
   const sortedMonthKeys = Object.keys(groupedTransactions); 
 
-  // FIX: HAPUS / 100 DISINI
   const totalInList = filteredByType.reduce((acc, t) => acc + t.amount, 0);
+
+  // === LOADING SCREEN KUSTOM BILANO ===
+  if (isLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
+              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin"/>
+                  <span>Memuat Data...</span>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <MobileLayout title="Riwayat Transaksi" showBack>
@@ -91,7 +103,6 @@ export default function TransactionDetail() {
                                 </p>
                              </div>
                           </div>
-                          {/* FIX: HAPUS / 100 DISINI */}
                           <p className={`font-bold ${isIncome ? 'text-emerald-600' : 'text-rose-600'}`}>
                              {isIncome ? '+' : '-'}{formatCurrency(t.amount)}
                           </p>

@@ -11,7 +11,7 @@ import {
   ArrowUpCircle, ArrowDownCircle, 
   TrendingUp, Sparkles, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
-  MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X
+  MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -39,10 +39,7 @@ export default function Home() {
   const [pinError, setPinError] = useState(false);
 
   useEffect(() => {
-      // Cek Mode Privasi
       setIsPrivacyMode(localStorage.getItem("bilano_privacy") === "true");
-      
-      // Cek Kunci PIN
       const savedPin = localStorage.getItem("bilano_app_pin");
       const isUnlockedSession = sessionStorage.getItem("bilano_session_unlocked") === "true";
       
@@ -73,7 +70,6 @@ export default function Home() {
       setIsPrivacyMode(newVal);
       localStorage.setItem("bilano_privacy", newVal.toString());
   };
-  // === AKHIR FITUR KEAMANAN ===
 
   const userEmail = localStorage.getItem("bilano_email") || "Pengguna";
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
@@ -155,7 +151,6 @@ export default function Home() {
       return t.type === 'expense' && (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
   }).reduce((acc, t) => acc + t.amount, 0) || 0;
   
-  // RENDER LAYAR KUNCI (PIN) JIKA AKTIF
   if (isLocked) {
       return (
         <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center text-white">
@@ -181,7 +176,18 @@ export default function Home() {
       );
   }
 
-  if (isUserLoading || isTargetLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 animate-pulse">Memuat Data...</div>;
+  // === LOADING SCREEN KUSTOM BILANO ===
+  if (isUserLoading || isTargetLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
+              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin"/>
+                  <span>Memuat Data...</span>
+              </div>
+          </div>
+      );
+  }
 
   const isTargetEmpty = !target || (typeof target === 'object' && Object.keys(target).length === 0);
   if (isTargetEmpty) return null;
@@ -254,7 +260,6 @@ export default function Home() {
                                 <User className="w-4 h-4 text-slate-400"/> Edit Profil
                             </button>
                         </Link>
-                        {/* TAUTAN MENU KEAMANAN DIHUBUNGKAN KE /security */}
                         <Link href="/security">
                             <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3">
                                 <ShieldCheck className="w-4 h-4 text-slate-400"/> Keamanan
@@ -292,14 +297,12 @@ export default function Home() {
            <div className="relative z-10 flex flex-col pt-2 pb-4">
               <div className="flex justify-between items-center mb-1">
                   <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">Total Cash</p>
-                  {/* TOMBOL MATA UNTUK TOGGLE SENSOR SALDO */}
                   <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-blue-200">
                       {isPrivacyMode ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                   </button>
               </div>
               
               <h2 className="text-4xl font-extrabold tracking-tight text-white mb-6 drop-shadow-sm flex items-center h-10">
-                 {/* SENSOR BINTANG JIKA PRIVACY MODE AKTIF */}
                  {isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0]}
               </h2>
               <div className="flex gap-3">

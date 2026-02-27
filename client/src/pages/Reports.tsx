@@ -42,6 +42,11 @@ export default function Reports() {
 
   // --- GENERATOR PDF SUPER PREMIUM ---
   const generatePDF = async () => {
+    if (localStorage.getItem("bilano_trial_expired") === "true") {
+        window.dispatchEvent(new Event('trigger-paywall-lock')); 
+        return;
+    }
+    
     if (!data) return;
     setIsGenerating(true);
 
@@ -217,7 +222,7 @@ export default function Reports() {
             const invRows = investTransactions.map((t: any) => [
                 new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
                 t.type === 'invest_buy' ? 'Beli Aset' : 'Jual Aset',
-                t.description, // Berisi "10 lot BBCA @ Rp 9000 (P/L: +Rp 50.000)"
+                t.description, 
                 formatRp(t.amount)
             ]);
 
@@ -226,7 +231,7 @@ export default function Reports() {
                 head: [['Tanggal', 'Tindakan', 'Detail Aset (Volume & Harga/Unit)', 'Total Nilai']],
                 body: invRows,
                 theme: 'grid',
-                headStyles: { fillColor: [16, 185, 129] }, // Emerald untuk Investasi
+                headStyles: { fillColor: [16, 185, 129] }, 
                 columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } },
             });
             currentY = (doc as any).lastAutoTable.finalY + 15;
@@ -251,7 +256,7 @@ export default function Reports() {
                 head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']],
                 body: debtRows,
                 theme: 'grid',
-                headStyles: { fillColor: [236, 72, 153] }, // Pink/Rose untuk Hutang
+                headStyles: { fillColor: [236, 72, 153] }, 
                 columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } },
             });
             currentY = (doc as any).lastAutoTable.finalY + 15;
@@ -275,7 +280,7 @@ export default function Reports() {
           head: [['Tanggal', 'Arus', 'Kategori', 'Catatan', 'Nominal']],
           body: txRows,
           theme: 'grid',
-          headStyles: { fillColor: [249, 115, 22] }, // Orange untuk Cashflow
+          headStyles: { fillColor: [249, 115, 22] }, 
           columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } },
           didParseCell: function (data) {
               if (data.section === 'body' && data.column.index === 1) {
@@ -308,7 +313,17 @@ export default function Reports() {
     }
   };
 
-  if (loading) return <MobileLayout title="Memuat..."><div className="p-8 text-center text-slate-400">Loading...</div></MobileLayout>;
+  if (loading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
+              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin"/>
+                  <span>Memuat Data...</span>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <MobileLayout title="Pusat Laporan" showBack>

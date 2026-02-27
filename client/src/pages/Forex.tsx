@@ -4,7 +4,7 @@ import { Card, Button, Input } from "@/components/UIComponents";
 import { 
     RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, 
     Globe, ChevronDown, ArrowRightLeft, FileText, Wallet,
-    TrendingUp, X, Activity, StickyNote, Plus, Check
+    TrendingUp, X, Activity, StickyNote, Plus, Check, Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -40,6 +40,7 @@ export default function Forex() {
   const [rates, setRates] = useState<Record<string, number>>({});
   const [assets, setAssets] = useState<ForexAsset[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   // --- STATE TAB UTAMA ---
   const [activeTab, setActiveTab] = useState<'exchange' | 'mutation'>('mutation');
@@ -94,7 +95,10 @@ export default function Forex() {
           if (resRates.ok) setRates(await resRates.json());
           if (resAssets.ok) setAssets(await resAssets.json());
       } catch (e) { console.error("Gagal load data forex", e); } 
-      finally { setRefreshing(false); }
+      finally { 
+          setRefreshing(false); 
+          setIsLoading(false); 
+      }
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -213,6 +217,18 @@ export default function Forex() {
   }, 0);
 
   const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
+
+  if (isLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
+              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin"/>
+                  <span>Memuat Data...</span>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <MobileLayout title="Dompet Valas" showBack>
