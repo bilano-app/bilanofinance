@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
-import { Button, Input } from "@/components/UIComponents";
+import { Card, Button, Input } from "@/components/UIComponents";
 import { 
     Users, ArrowUpRight, ArrowDownLeft, Calendar, 
     CheckCircle2, Trash2, Plus, HandCoins, AlertCircle, X, Loader2
@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 interface DebtItem {
   id: number;
   type: 'hutang' | 'piutang';
-  name: string; // Trik Sandi: Budi|USD
+  name: string;
   amount: number;
   dueDate: string;
   description: string;
@@ -57,7 +57,6 @@ export default function Debts() {
   const handleAdd = async () => {
       if(!name || !amount) return;
       try {
-          // TRIK SANDI: Gabungkan nama dan mata uang dengan separator "|"
           const nameWithCurrency = `${name}|${currency}`;
           const res = await fetch("/api/debts", {
               method: "POST",
@@ -99,7 +98,6 @@ export default function Debts() {
 
   const filteredItems = items.filter(i => i.type === activeTab);
   
-  // Kalkulasi Total dengan Live Rate
   const totalAmountIDR = filteredItems.filter(i => !i.isPaid).reduce((acc, item) => {
       const parts = (item.name || "").split('|');
       const curr = parts[1] || 'IDR';
@@ -115,7 +113,6 @@ export default function Debts() {
     <MobileLayout title="Hutang & Piutang" showBack>
       <div className="space-y-6 pt-4 pb-24 px-1">
         
-        {/* HEADER CARD */}
         <div className={`p-6 rounded-[32px] text-white shadow-xl relative overflow-hidden transition-colors duration-500 ${activeTab === 'piutang' ? 'bg-gradient-to-br from-emerald-500 to-teal-700' : 'bg-gradient-to-br from-rose-500 to-pink-700'}`}>
             <div className="relative z-10">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-white/80 mb-1 flex items-center gap-2">
@@ -128,17 +125,16 @@ export default function Debts() {
             <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/10 rounded-tl-full pointer-events-none"></div>
         </div>
 
-        {/* TABS */}
+        {/* === FIX 3: UKURAN TOMBOL DIPERKECIL AGAR TIDAK KELUAR BATAS === */}
         <div className="flex bg-slate-100 p-1.5 rounded-full">
-            <button onClick={() => setActiveTab('piutang')} className={`flex-1 py-3.5 rounded-full text-sm font-extrabold transition-all flex items-center justify-center gap-2 ${activeTab === 'piutang' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                <ArrowUpRight className="w-4 h-4"/> PIUTANG (Uang Kita)
+            <button onClick={() => setActiveTab('piutang')} className={`flex-1 py-2.5 rounded-full text-[11px] font-extrabold transition-all flex items-center justify-center gap-1 ${activeTab === 'piutang' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                <ArrowUpRight className="w-3.5 h-3.5"/> PIUTANG (Uang Kita)
             </button>
-            <button onClick={() => setActiveTab('hutang')} className={`flex-1 py-3.5 rounded-full text-sm font-extrabold transition-all flex items-center justify-center gap-2 ${activeTab === 'hutang' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                <ArrowDownLeft className="w-4 h-4"/> HUTANG (Pinjaman)
+            <button onClick={() => setActiveTab('hutang')} className={`flex-1 py-2.5 rounded-full text-[11px] font-extrabold transition-all flex items-center justify-center gap-1 ${activeTab === 'hutang' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                <ArrowDownLeft className="w-3.5 h-3.5"/> HUTANG (Pinjaman)
             </button>
         </div>
 
-        {/* FAB / TOMBOL TAMBAH */}
         {!isFormOpen ? (
             <Button onClick={() => setIsFormOpen(true)} className={`w-full h-14 rounded-full font-extrabold shadow-lg transition-transform active:scale-95 ${activeTab === 'piutang' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 shadow-emerald-100' : 'bg-rose-100 text-rose-700 hover:bg-rose-200 shadow-rose-100'}`}>
                 <Plus className="w-5 h-5 mr-2"/> CATAT {activeTab.toUpperCase()} BARU
@@ -167,7 +163,6 @@ export default function Debts() {
             </div>
         )}
 
-        {/* LIST */}
         <div className="space-y-4">
             <h3 className="font-bold text-slate-800 text-sm ml-2 px-1">Daftar Belum Lunas</h3>
             {filteredItems.length === 0 ? (

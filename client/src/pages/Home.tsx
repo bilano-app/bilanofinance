@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   useUser, useTransactions, useTarget, 
-  useForexAssets, useInvestments 
+  useForexAssets 
 } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { MobileLayout } from "@/components/Layout";
@@ -12,7 +12,7 @@ import {
   TrendingUp, Sparkles, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
-  BellRing, Mic, Camera // <-- Ikon baru untuk layar izin akses
+  BellRing, Mic, Camera 
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -22,7 +22,6 @@ export default function Home() {
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: transactions } = useTransactions();
   const { data: forexAssets } = useForexAssets(); 
-  const { data: investments } = useInvestments();
   const { data: target, isLoading: isTargetLoading } = useTarget(); 
 
   const [, setLocation] = useLocation();
@@ -38,12 +37,11 @@ export default function Home() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
 
-  // === STATE UNTUK LAYAR PERMINTAAN IZIN ===
+  // STATE UNTUK LAYAR PERMINTAAN IZIN
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [isRequestingPerms, setIsRequestingPerms] = useState(false);
 
   const [forexRates, setForexRates] = useState<Record<string, number>>({});
-  const [debtsData, setDebtsData] = useState<any[]>([]);
 
   useEffect(() => {
       setIsPrivacyMode(localStorage.getItem("bilano_privacy") === "true");
@@ -52,11 +50,8 @@ export default function Home() {
       
       if (savedPin && !isUnlockedSession) setIsLocked(true);
 
-      // Cek apakah pengguna sudah pernah melihat layar permintaan izin
       const hasPrompted = localStorage.getItem("bilano_permissions_prompted");
-      if (!hasPrompted) {
-          setShowPermissionPrompt(true);
-      }
+      if (!hasPrompted) setShowPermissionPrompt(true);
   }, []);
 
   const handlePinUnlock = (num: string) => {
@@ -122,38 +117,26 @@ export default function Home() {
         try {
             const userEmail = localStorage.getItem("bilano_email") || "";
             const t = Date.now();
-            const fetchOpts = { headers: { "x-user-email": userEmail }, cache: "no-store" as RequestCache };
-            
-            const [resRates, resDebts] = await Promise.all([
-                fetch(`/api/forex/rates?t=${t}`, fetchOpts),
-                fetch(`/api/debts?t=${t}`, fetchOpts)
-            ]);
-            
+            const resRates = await fetch(`/api/forex/rates?t=${t}`, { headers: { "x-user-email": userEmail }, cache: "no-store" as RequestCache });
             if (resRates.ok) setForexRates(await resRates.json());
-            if (resDebts.ok) setDebtsData(await resDebts.json());
         } catch (e) { console.error("Gagal fetch data home", e); }
     };
     fetchHomeData();
   }, []);
 
-  // === FUNGSI PEMINTA IZIN AKSES HP ===
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
       try {
-          // 1. Minta Izin Notifikasi
           if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
               await Notification.requestPermission();
           }
-          // 2. Minta Izin Kamera & Mic
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-              await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {
-                  // Catch silent error jika user menolak atau perangkat tidak mendukung
-              });
+              await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {});
           }
       } catch (e) {
           console.error("Gagal meminta izin:", e);
       } finally {
-          localStorage.setItem("bilano_permissions_prompted", "true"); // Tandai agar tidak muncul lagi
+          localStorage.setItem("bilano_permissions_prompted", "true");
           setShowPermissionPrompt(false);
           setIsRequestingPerms(false);
           toast({ title: "Terima Kasih!", description: "Aplikasi sekarang siap digunakan secara maksimal." });
@@ -165,31 +148,10 @@ export default function Home() {
       setShowPermissionPrompt(false);
   };
 
-  // === KALKULASI NET WORTH ===
+  // === FIX 2: KALKULASI HOME KEMBALI HANYA UNTUK CASH + VALAS ===
   const cashRupiah = (user?.cashBalance || 0); 
   const forexValue = (forexAssets || []).reduce((acc, asset) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
-  
-  const investmentValue = (investments || []).reduce((acc, inv) => {
-      const [sym, curr] = (inv.symbol || "").split('|');
-      const rate = (curr && curr !== 'IDR') ? (forexRates[curr] || 1) : 1;
-      const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
-      const m = (isSaham && (!curr || curr === 'IDR')) ? 100 : 1;
-      return acc + (inv.quantity * inv.avgPrice * m * rate);
-  }, 0);
-
-  const piutangValue = debtsData.filter(d => d.type === 'piutang' && !d.isPaid).reduce((acc, d) => {
-      const [, curr] = (d.name || "").split('|');
-      const rate = (curr && curr !== 'IDR') ? (forexRates[curr] || 1) : 1;
-      return acc + (d.amount * rate);
-  }, 0);
-
-  const hutangValue = debtsData.filter(d => d.type === 'hutang' && !d.isPaid).reduce((acc, d) => {
-      const [, curr] = (d.name || "").split('|');
-      const rate = (curr && curr !== 'IDR') ? (forexRates[curr] || 1) : 1;
-      return acc + (d.amount * rate);
-  }, 0);
-
-  const totalBalance = cashRupiah + forexValue + investmentValue + piutangValue - hutangValue;
+  const totalBalance = cashRupiah + forexValue;
 
   useEffect(() => {
     if (target && target.targetAmount > 0 && totalBalance >= target.targetAmount) {
@@ -269,14 +231,12 @@ export default function Home() {
 
   return (
     <MobileLayout>
-      {/* === MODAL BUJUKAN IZIN AKSES (SOFT PROMPT) === */}
+      {/* === FIX 1: MODAL IZIN DENGAN LOGO PROFESIONAL === */}
       {showPermissionPrompt && (
           <div className="fixed inset-0 z-[99999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100">
-                  <div className="text-center mb-6">
-                      <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-100">
-                          <Sparkles className="w-10 h-10 text-indigo-600"/>
-                      </div>
+                  <div className="text-center mb-6 pt-2">
+                      <img src="/BILANO-ICON.png" alt="BILANO" className="w-20 h-20 object-contain mx-auto mb-5 drop-shadow-xl" />
                       <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">Satu Langkah Lagi!</h2>
                       <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">Biar BILANO makin pintar bantu kelola uangmu, kami butuh sedikit izin untuk fitur ini:</p>
                   </div>
@@ -428,10 +388,11 @@ export default function Home() {
             </div>
         )}
         
+        {/* KOTAK SALDO HOME */}
         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
               <div className="flex justify-between items-center mb-1">
-                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">Kekayaan Bersih (Net Worth)</p>
+                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">Saldo Tunai & Valas</p>
                   <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-blue-200">
                       {isPrivacyMode ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                   </button>
@@ -442,11 +403,11 @@ export default function Home() {
               </h2>
               <div className="flex flex-wrap gap-2">
                   <div className="flex items-center gap-1.5 text-[10px] text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                      <span>Tunai:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+                      <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                   </div>
-                  {(forexValue > 0 || investmentValue > 0) && (
+                  {forexValue > 0 && (
                       <div className="flex items-center gap-1.5 text-[10px] text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                          <span>Aset:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(forexValue + investmentValue).split(",")[0]}</span>
+                          <span>Valas:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(forexValue).split(",")[0]}</span>
                       </div>
                   )}
               </div>
@@ -526,12 +487,11 @@ export default function Home() {
             </Link>
         </div>
 
-        <div className="mt-10 mb-8 flex flex-col items-center justify-center opacity-60">
-            <div className="w-12 h-1 bg-slate-200 rounded-full mb-4"></div>
-            <p className="text-xs font-extrabold text-slate-400 tracking-widest uppercase">BILANO Finance</p>
-            <p className="text-[10px] font-medium text-slate-400 mt-1">Smart Wealth Management</p>
-            <p className="text-[9px] text-slate-400 mt-4 font-medium">
-                © {new Date().getFullYear()} • Dirancang oleh Adrien Fandra
+        {/* === FIX 3: FOOTER LEBIH CLEAN DAN DEKAT === */}
+        <div className="mt-8 mb-6 flex flex-col items-center justify-center opacity-60">
+            <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Smart Wealth Management</p>
+            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                © {new Date().getFullYear()} • Bilano Official
             </p>
         </div>
 
