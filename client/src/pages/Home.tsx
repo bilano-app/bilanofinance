@@ -124,15 +124,24 @@ export default function Home() {
     fetchHomeData();
   }, []);
 
+  // === FUNGSI PEMINTA IZIN AKSES HP ===
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
       try {
+          // 1. Minta Izin Web API Standar
           if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
               await Notification.requestPermission();
           }
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
               await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {});
           }
+
+          // 2. PEMICU KHUSUS UNTUK ONESIGNAL VIA MEDIAN (JS BRIDGE)
+          // Ini yang akan mendaftarkan HP pengguna ke server OneSignal secara otomatis
+          if (typeof window !== "undefined" && (window as any).median && (window as any).median.onesignal) {
+              (window as any).median.onesignal.register();
+          }
+
       } catch (e) {
           console.error("Gagal meminta izin:", e);
       } finally {
@@ -386,7 +395,6 @@ export default function Home() {
             </div>
         )}
         
-        {/* === FIX: TEKS "SALDO KAS" === */}
         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
               <div className="flex justify-between items-center mb-1">
