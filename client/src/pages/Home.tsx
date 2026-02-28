@@ -124,23 +124,26 @@ export default function Home() {
     fetchHomeData();
   }, []);
 
-  // === FUNGSI PEMINTA IZIN AKSES HP ===
+  // === FUNGSI PEMINTA IZIN AKSES HP (REVISI ONESIGNAL FORCE TRIGGER) ===
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
       try {
-          // 1. Minta Izin Web API Standar
-          if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-              await Notification.requestPermission();
-          }
+          // 1. Minta Izin Kamera & Mic via Web API Standar
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
               await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {});
           }
 
-          // 2. PEMICU KHUSUS UNTUK ONESIGNAL VIA MEDIAN (JS BRIDGE)
-          // Ini yang akan mendaftarkan HP pengguna ke server OneSignal secara otomatis
-          if (typeof window !== "undefined" && (window as any).median && (window as any).median.onesignal) {
-              (window as any).median.onesignal.register();
-          }
+          // 2. TEMBAKAN PAKSA KE MEDIAN ONESIGNAL 
+          // (Kita hapus izin Notification.requestPermission bawaan Web agar tidak bentrok)
+          // Menggunakan URL Scheme khusus yang tidak bisa diblokir oleh JS Delay:
+          window.location.href = 'median://onesignal/register';
+
+          // (Opsional) Panggil via object JS Bridge sebagai cadangan (dijeda 500ms agar aman)
+          setTimeout(() => {
+              if (typeof window !== "undefined" && (window as any).median && (window as any).median.onesignal) {
+                  (window as any).median.onesignal.register();
+              }
+          }, 500);
 
       } catch (e) {
           console.error("Gagal meminta izin:", e);
@@ -148,7 +151,7 @@ export default function Home() {
           localStorage.setItem("bilano_permissions_prompted", "true");
           setShowPermissionPrompt(false);
           setIsRequestingPerms(false);
-          toast({ title: "Terima Kasih!", description: "Aplikasi sekarang siap digunakan secara maksimal." });
+          toast({ title: "Terima Kasih!", description: "Menyiapkan sistem notifikasi BILANO..." });
       }
   };
 
