@@ -508,7 +508,7 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           
           // 1. PASTE KUNCI YANG SUKSES DI LAPTOP KE SINI
-          const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldss7pmc7xxgeaqfbaudjojvzzau4vv7u66yupou6dx3fw672zum3bsu65ge3splq7wspwcpmszsa3xq";
+          const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldtb7mlaav2vezo4c73mpaee5rhtp2tyztuacwgddxk5qhd6etzx2rvfsf4lfpgosktb7mf75b2bo3ja";
           const cleanKey = REST_KEY.replace(/[^a-zA-Z0-9_]/g, '');
 
           // 2. BUKTI CCTV: Kita paksa Vercel ngaku dia pakai kunci apa!
