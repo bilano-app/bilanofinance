@@ -500,34 +500,34 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
 // ============================================================================
   // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
   // ============================================================================
+// ============================================================================
+  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
+  // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           
-          // MASUKKAN KUNCI BARU YANG SUDAH SUKSES DI TERMINAL TADI
+          // 1. PASTE KUNCI YANG SUKSES DI LAPTOP KE SINI
           const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldss7pmc7xxgeaqfbaudjojvzzau4vv7u66yupou6dx3fw672zum3bsu65ge3splq7wspwcpmszsa3xq";
-
-          // KITA PASANG LAGI LASER PEMBERSIH SPASI GAIB-NYA DI SINI
           const cleanKey = REST_KEY.replace(/[^a-zA-Z0-9_]/g, '');
 
-          const messages = [
-              { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya di BILANO!" },
-              { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat hari ini? Yuk masukin sekarang!" },
-              { title: "Awas Boncos! 🛑", body: "Cek sisa limit pengeluaran bulan ini biar target keuanganmu tetap aman." },
-              { title: "Hari ini jajan apa aja? 🍔☕", body: "Uang keluar wajib dilacak. Jangan biarkan uangmu pergi tanpa jejak! 🕵️‍♂️" },
-              { title: "BILANO kangen nih 🚀", body: "Satu langkah lebih dekat ke kebebasan finansial. Yuk update catatanmu!" },
-              { title: "Udah rekap keuangan belum? 📊", body: "Sebelum istirahat, biasakan rekap pengeluaran hari ini yuk Bos!" },
-              { title: "Cek Performa Investasimu! 📈", body: "Kira-kira aset saham/kripto kamu hari ini naik atau turun? Cek sekarang di BILANO." },
-              { title: "Dompet tebal atau menipis? 🤑", body: "Biar AI BILANO yang analisa keuanganmu hari ini. Catat pengeluaranmu sekarang!" },
-              { title: "Jangan lupa nabung! 🐖", body: "Sedikit demi sedikit lama-lama jadi bukit. Sudahkah kamu menyisihkan uang hari ini?" }
-          ];
+          // 2. BUKTI CCTV: Kita paksa Vercel ngaku dia pakai kunci apa!
+          const cctvVercel = {
+              panjang_kunci: cleanKey.length,
+              awalan_kunci: cleanKey.substring(0, 15) + "..."
+          };
 
+          const messages = [
+              { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya!" },
+              { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat hari ini?" }
+          ];
           const randomMsg = messages[Math.floor(Math.random() * messages.length)];
 
           const response = await fetch("https://onesignal.com/api/v1/notifications", {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",
+                  // Pakai kata Basic sesuai yang sukses di test-api.js lokal
                   "Authorization": `Basic ${cleanKey}`
               },
               body: JSON.stringify({
@@ -539,11 +539,13 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
           });
 
           const data = await response.json();
+          
+          // 3. TAMPILKAN HASIL CCTV DI LAYAR PUTIH
           res.status(200).json({ 
               success: true, 
-              message: "✅ TEMBAKAN VERCEL SUKSES DENGAN PESAN ACAK!", 
+              cctv_bukti: cctvVercel, // <-- Ini yang akan membongkar kebohongannya
               terkirim: randomMsg.title,
-              data 
+              data_onesignal: data 
           });
       } catch (error) {
           console.error("Gagal menembak OneSignal:", error);
