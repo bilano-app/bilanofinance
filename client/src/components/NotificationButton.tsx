@@ -37,7 +37,7 @@ export default function NotificationButton() {
             await navigator.serviceWorker.ready;
 
             // 3. Buat Tiket Langganan (PASTE PUBLIC KEY ANDA DI SINI)
-            const publicVapidKey = 'PASTE_PUBLIC_KEY_DARI_TERMINAL_TADI_DISINI';
+            const publicVapidKey = 'BPrOUqqkMk4GUjKpAc6M4rxub3VNoUoVVoi56BdDkQYoC5Yo04f8r9sll_4JGTTrOYSaEZhQ8kElCs-0D3DCmOI';
             
             const subscription = await register.pushManager.subscribe({
                 userVisibleOnly: true,
