@@ -511,7 +511,7 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           
           // BOS, TOLONG PASTE KUNCI DARI WEB ONESIGNAL DI DALAM TANDA KUTIP INI:
-          const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldqdut7lac46euinrxrn3elzpk65ku3c2ryzzrxlxzteo532sdatwwlzvra2qe3rx7saytodh344i3vi";
+          const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldttruaibbalusrmg3kb7q5uhs3rnzcwsmav6gbg7bmyvsiygot5hb7tolo6orspwd4kroyxd6irsrza";
 
           // Pembersih spasi otomatis untuk jaga-jaga saat copy-paste
           const cleanKey = REST_KEY.replace(/[^a-zA-Z0-9_]/g, '');
