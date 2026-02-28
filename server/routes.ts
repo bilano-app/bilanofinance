@@ -494,36 +494,34 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
 // ============================================================================
   // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
   // ============================================================================
-app.get('/api/cron/reminder', async (req, res) => {
+  app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
-          const ONE_SIGNAL_REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldqdx3gmznzrup6u7vylxxe3aj2x7u5m4humnl5oezzwtvkbclol7r4pdqbb5c2tnfdujgzuul7f2gny";
+          // Kita ambil dari Environment Variable Vercel agar 100% aman
+          const REST_KEY = process.env.ONESIGNAL_REST_KEY;
+
+          if (!REST_KEY) {
+              return res.status(500).json({ error: "Kunci OneSignal belum dipasang di Env Vercel!" });
+          }
 
           const response = await fetch("https://onesignal.com/api/v1/notifications", {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",
-                  "Authorization": `Key ${ONE_SIGNAL_REST_KEY.trim()}`
+                  "Authorization": `Key ${REST_KEY.trim()}`
               },
               body: JSON.stringify({
                   app_id: ONE_SIGNAL_APP_ID,
                   included_segments: ["Total Subscriptions"], 
                   headings: { "en": "Halo Bos! Duit aman? 💸" },
-                  contents: { "en": "HORE! Notifikasi BILANO Berhasil Aktif Otomatis! 🚀" }
+                  contents: { "en": "TEST FINAL: HP Anda harusnya bergetar sekarang! 🚀" }
               })
           });
 
           const data = await response.json();
-          
-          // Jika muncul "id", berarti SUKSES MENDARAT DI HP!
-          res.status(200).json({ 
-              success: true, 
-              message: "✅ VERCEL SUKSES UPDATE & TEMBAK!", 
-              data 
-          });
+          res.status(200).json({ success: true, message: "ROBOT VERCEL SEDANG MENEMBAK...", data });
       } catch (error) {
-          console.error("Gagal menembak OneSignal:", error);
-          res.status(500).json({ success: false, error: "Gagal menembak OneSignal" });
+          res.status(500).json({ success: false, error: "Gagal menembak" });
       }
   });
 
