@@ -17,7 +17,7 @@ import {
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
-import NotificationButton from './NotificationButton'; // Sesuaikan lokasi filenya
+import NotificationButton from '../components/NotificationButton'; // Sesuaikan lokasi filenya
 
 function HalamanDashboard() {
   return (
