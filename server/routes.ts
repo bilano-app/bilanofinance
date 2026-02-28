@@ -8,6 +8,21 @@ import Groq from "groq-sdk";
 import OpenAI from "openai";
 import nodemailer from "nodemailer";
 
+import webpush from "web-push";
+
+// GANTI DENGAN KUNCI DARI TERMINAL TADI!
+const PUBLIC_VAPID_KEY = "BPrOUqqkMk4GUjKpAc6M4rxub3VNoUoVVoi56BdDkQYoC5Yo04f8r9sll_4JGTTrOYSaEZhQ8kElCs-0D3DCmOI";
+const PRIVATE_VAPID_KEY = "OMuQp1s7Ff4kEVmqUDRvmnsOWKKqd5PDGn2J9Qzfdp0";
+
+webpush.setVapidDetails(
+    "mailto:admin@bilano.app",
+    PUBLIC_VAPID_KEY,
+    PRIVATE_VAPID_KEY
+);
+
+// Database sementara untuk menyimpan izin notifikasi user
+const pushSubscriptions: any[] = [];
+
 // ============================================================================
 // 1. KONFIGURASI AI (SUDAH DIAMANKAN)
 // ============================================================================

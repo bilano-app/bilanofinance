@@ -17,6 +17,17 @@ import {
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
+import NotificationButton from './NotificationButton'; // Sesuaikan lokasi filenya
+
+function HalamanDashboard() {
+  return (
+    <div>
+       <h1>Selamat Datang di BILANO</h1>
+       {/* Letakkan tombolnya di tempat yang Anda suka */}
+       <NotificationButton /> 
+    </div>
+  );
+}
 
 export default function Home() {
   const { data: user, isLoading: isUserLoading } = useUser();
@@ -500,6 +511,40 @@ export default function Home() {
       </div>
     </MobileLayout>
   );
+}
+
+// Fungsi wajib untuk mengubah kunci jadi format yang bisa dibaca browser
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+  return outputArray;
+}
+
+// Panggil fungsi ini saat user klik tombol "Aktifkan Notifikasi"
+async function aktifkanNotifikasi() {
+    if ('serviceWorker' in navigator) {
+        // 1. Daftarkan Service Worker
+        const register = await navigator.serviceWorker.register('/sw.js');
+        
+        // 2. Minta Izin ke Browser
+        const publicVapidKey = 'PASTE_PUBLIC_KEY_DARI_TERMINAL_TADI_DISINI';
+        const subscription = await register.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+        });
+
+        // 3. Kirim izin ke Server Vercel kita
+        await fetch('/api/notifications/subscribe', {
+            method: 'POST',
+            body: JSON.stringify(subscription),
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        alert("Sip! Notifikasi Otomatis BILANO Sudah Aktif! 🚀");
+    }
 }
 
 function MenuIconBox({ href, icon: Icon, bg, label }: any) {
