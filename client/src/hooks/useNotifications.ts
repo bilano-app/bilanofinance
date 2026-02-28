@@ -13,44 +13,45 @@ const NOTIF_MESSAGES = [
 
 export function useNotifications() {
     useEffect(() => {
-        // 1. Minta Izin ke HP Pengguna untuk mengirim Notifikasi
-        if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-            Notification.requestPermission();
-        }
-
         const checkAndSendNotification = () => {
+            // Pastikan izin sudah dikasih oleh user
             if ("Notification" in window && Notification.permission === "granted") {
                 const lastNotif = localStorage.getItem("bilano_last_notif");
                 const now = Date.now();
                 
-                // Waktu Jeda: 5 Menit (5 menit * 60 detik * 1000 milidetik)
+                // Waktu Jeda: 5 Menit (5 * 60 * 1000)
                 const FIVE_MINUTES = 5 * 60 * 1000; 
 
-                // Jika belum pernah dikirim, ATAU sudah lewat 5 menit dari notif terakhir
+                // Jika belum pernah dikirim, ATAU sudah lewat 5 menit
                 if (!lastNotif || now - parseInt(lastNotif) >= FIVE_MINUTES) {
-                    // Pilih pesan acak dari daftar di atas
                     const randomMsg = NOTIF_MESSAGES[Math.floor(Math.random() * NOTIF_MESSAGES.length)];
 
-                    // Tembak Notifikasi ke HP!
-                    new Notification("BILANO Finance", {
-                        body: randomMsg,
-                        icon: "/BILANO-ICON.png",
-                        badge: "/BILANO-ICON.png",
-                        vibrate: [200, 100, 200] // HP akan bergetar
-                    });
-
-                    // Catat waktu notifikasi ini dikirim ke database HP
-                    localStorage.setItem("bilano_last_notif", now.toString());
+                    try {
+                        // Tembak Notifikasi ke Layar!
+                        new Notification("BILANO Finance", {
+                            body: randomMsg,
+                            icon: "/BILANO-ICON.png",
+                            badge: "/BILANO-ICON.png"
+                        });
+                        
+                        // Catat waktu di memori HP
+                        localStorage.setItem("bilano_last_notif", now.toString());
+                    } catch (e) {
+                        console.error("Gagal menembak notifikasi:", e);
+                    }
                 }
             }
         };
 
-        // 2. Langsung cek saat aplikasi pertama kali dibuka
-        checkAndSendNotification();
+        // Tunggu 3 detik setelah buka app baru dicek (agar tidak lag)
+        const initialTimer = setTimeout(checkAndSendNotification, 3000);
 
-        // 3. Pasang Alarm Latar Belakang (Mengecek setiap 1 menit)
-        const interval = setInterval(checkAndSendNotification, 60000);
+        // Radar mengecek setiap 30 detik
+        const interval = setInterval(checkAndSendNotification, 30000);
 
-        return () => clearInterval(interval);
+        return () => {
+            clearTimeout(initialTimer);
+            clearInterval(interval);
+        };
     }, []);
 }

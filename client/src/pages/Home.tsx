@@ -124,26 +124,20 @@ export default function Home() {
     fetchHomeData();
   }, []);
 
-  // === FUNGSI PEMINTA IZIN AKSES HP (REVISI ONESIGNAL FORCE TRIGGER) ===
+  // === FIX PENTING: MENGEMBALIKAN IZIN WEB API AGAR KODINGAN 5 MENIT JALAN ===
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
       try {
-          // 1. Minta Izin Kamera & Mic via Web API Standar
+          // 1. Izin Notifikasi Web (Wajib untuk useNotifications.ts)
+          if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+              await Notification.requestPermission();
+          }
+          // 2. Izin Kamera & Mic
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
               await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {});
           }
-
-          // 2. TEMBAKAN PAKSA KE MEDIAN ONESIGNAL 
-          // (Kita hapus izin Notification.requestPermission bawaan Web agar tidak bentrok)
-          // Menggunakan URL Scheme khusus yang tidak bisa diblokir oleh JS Delay:
+          // 3. Izin Native OneSignal (Berjalan di latar belakang)
           window.location.href = 'median://onesignal/register';
-
-          // (Opsional) Panggil via object JS Bridge sebagai cadangan (dijeda 500ms agar aman)
-          setTimeout(() => {
-              if (typeof window !== "undefined" && (window as any).median && (window as any).median.onesignal) {
-                  (window as any).median.onesignal.register();
-              }
-          }, 500);
 
       } catch (e) {
           console.error("Gagal meminta izin:", e);
@@ -151,7 +145,7 @@ export default function Home() {
           localStorage.setItem("bilano_permissions_prompted", "true");
           setShowPermissionPrompt(false);
           setIsRequestingPerms(false);
-          toast({ title: "Terima Kasih!", description: "Menyiapkan sistem notifikasi BILANO..." });
+          toast({ title: "Terima Kasih!", description: "Sistem pengingat otomatis telah diaktifkan." });
       }
   };
 
