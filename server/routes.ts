@@ -501,13 +501,9 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           
-          // PASTIKAN KUNCI YANG SUKSES TADI DIMASUKKAN KE SINI YA BOS!
-          const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldss7pmc7xxgeaqfbaudjojvzzau4vv7u66yupou6dx3fw672zum3bsu65ge3splq7wspwcpmszsa3xq";
-          
-          // Sinar Laser pembersih spasi gaib (Biar tidak ada drama "Access denied" lagi)
-          const cleanKey = REST_KEY.replace(/[^a-zA-Z0-9_]/g, '');
+          // MASUKKAN KUNCI YANG SUKSES DI LAPTOP TADI
+          const REST_KEY = "PASTE_KUNCI_BARU_YANG_SUKSES_TADI_DI_SINI";
 
-          // KOLEKSI VARIASI PESAN NOTIFIKASI BILANO
           const messages = [
               { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya di BILANO!" },
               { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat hari ini? Yuk masukin sekarang!" },
@@ -515,18 +511,19 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
               { title: "Hari ini jajan apa aja? 🍔☕", body: "Uang keluar wajib dilacak. Jangan biarkan uangmu pergi tanpa jejak! 🕵️‍♂️" },
               { title: "BILANO kangen nih 🚀", body: "Satu langkah lebih dekat ke kebebasan finansial. Yuk update catatanmu!" },
               { title: "Udah rekap keuangan belum? 📊", body: "Sebelum istirahat, biasakan rekap pengeluaran hari ini yuk Bos!" },
+              { title: "Cek Performa Investasimu! 📈", body: "Kira-kira aset saham/kripto kamu hari ini naik atau turun? Cek sekarang di BILANO." },
               { title: "Dompet tebal atau menipis? 🤑", body: "Biar AI BILANO yang analisa keuanganmu hari ini. Catat pengeluaranmu sekarang!" },
               { title: "Jangan lupa nabung! 🐖", body: "Sedikit demi sedikit lama-lama jadi bukit. Sudahkah kamu menyisihkan uang hari ini?" }
           ];
 
-          // Sistem Gacha: Pilih satu pesan secara acak setiap kali cron berjalan
           const randomMsg = messages[Math.floor(Math.random() * messages.length)];
 
           const response = await fetch("https://onesignal.com/api/v1/notifications", {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",
-                  "Authorization": `Key ${cleanKey}`
+                  // INI DIA KESALAHAN SAYA! KITA KEMBALI PAKAI "Basic" SEPERTI DI LOKAL!
+                  "Authorization": `Basic ${REST_KEY}`
               },
               body: JSON.stringify({
                   app_id: ONE_SIGNAL_APP_ID,
