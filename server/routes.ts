@@ -503,32 +503,37 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
 // ============================================================================
   // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
   // ============================================================================
+// ============================================================================
+  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
+  // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           
-          // Kunci 100% akurat dari hasil ketikan screenshot Anda
+          // Kunci 100% asli Anda dari screenshot, tidak saya utak-atik lagi
           const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldryge6syz5fedgfg3hr3tv5ia7nx6cqm37u5gq6z4o7whxy6mwobscwm137ptcwzvijlu7bbz3j6cni";
 
-          const response = await fetch("https://onesignal.com/api/v1/notifications", {
+          // INI SOLUSINYA: Langsung tembak ke URL API terbaru agar Vercel tidak membuang kuncinya!
+          const response = await fetch("https://api.onesignal.com/notifications", {
               method: "POST",
               headers: {
+                  "accept": "application/json",
                   "Content-Type": "application/json",
-                  // KITA KEMBALI PAKAI "Basic" KARENA INI YANG SUKSES DI LAPTOP!
-                  "Authorization": `Basic ${REST_KEY}`
+                  // Format API v2 terbaru mewajibkan penggunaan "Key"
+                  "Authorization": `Key ${REST_KEY}`
               },
               body: JSON.stringify({
                   app_id: ONE_SIGNAL_APP_ID,
                   included_segments: ["Total Subscriptions"], 
-                  headings: { "en": "Waktunya Tidur Bos! 😴" },
-                  contents: { "en": "Akhirnya tembus juga! Besok baru kita pasang fitur gacha-nya. Istirahat sekarang!" }
+                  headings: { "en": "Sukses Total Bos! 🚀" },
+                  contents: { "en": "Misteri Vercel terpecahkan. Selamat istirahat!" }
               })
           });
 
           const data = await response.json();
-          res.status(200).json({ success: true, message: "✅ TEMBAKAN BASIC SUKSES!", data });
+          res.status(200).json({ success: true, message: "✅ TEMBAKAN ENDPOINT BARU SUKSES!", data });
       } catch (error) {
-          res.status(500).json({ success: false, error: "Gagal" });
+          res.status(500).json({ success: false, error: "Gagal menembak" });
       }
   });
 
