@@ -497,12 +497,18 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
 // ============================================================================
   // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
   // ============================================================================
+// ============================================================================
+  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
+  // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           
-          // MASUKKAN KUNCI YANG SUKSES DI LAPTOP TADI
-          const REST_KEY = "PASTE_KUNCI_BARU_YANG_SUKSES_TADI_DI_SINI";
+          // MASUKKAN KUNCI BARU YANG SUDAH SUKSES DI TERMINAL TADI
+          const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldss7pmc7xxgeaqfbaudjojvzzau4vv7u66yupou6dx3fw672zum3bsu65ge3splq7wspwcpmszsa3xq";
+
+          // KITA PASANG LAGI LASER PEMBERSIH SPASI GAIB-NYA DI SINI
+          const cleanKey = REST_KEY.replace(/[^a-zA-Z0-9_]/g, '');
 
           const messages = [
               { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya di BILANO!" },
@@ -522,8 +528,7 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
               method: "POST",
               headers: {
                   "Content-Type": "application/json",
-                  // INI DIA KESALAHAN SAYA! KITA KEMBALI PAKAI "Basic" SEPERTI DI LOKAL!
-                  "Authorization": `Basic ${REST_KEY}`
+                  "Authorization": `Basic ${cleanKey}`
               },
               body: JSON.stringify({
                   app_id: ONE_SIGNAL_APP_ID,
