@@ -491,37 +491,36 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
 // ============================================================================
   // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
   // ============================================================================
+// ============================================================================
+  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
+  // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
+          
+          // MASUKKAN KUNCI BARU ANDA DI SINI
           const ONE_SIGNAL_REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldqdx3gmznzrup6u7vylxxe3aj2x7u5m4humnl5oezzwtvkbclol7r4pdqbb5c2tnfdujgzuul7f2gny";
 
-          const messages = [
-              { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya!" },
-              { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat ke BILANO?" },
-              { title: "BILANO kangen nih 🚀", body: "Yuk update catatan keuanganmu biar target aman!" },
-              { title: "Lagi ngopi santai? ☕", body: "Masukin pengeluarannya ke BILANO yuk biar AI bisa nganalisa!" }
-          ];
-
-          const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-
-          const response = await fetch("https://onesignal.com/api/v1/notifications", {
+          // Kita gunakan Endpoint API versi terbaru dari OneSignal
+          const response = await fetch("https://api.onesignal.com/notifications", {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",
-                  // PERBAIKAN: Menggunakan "Key" (bukan Basic) untuk API Key v2
-                  "Authorization": `Key ${ONE_SIGNAL_REST_KEY}` 
+                  // INI PERBEDAAN KRUSIALNYA: Pakai kata "Key" dan ".trim()"
+                  "Authorization": `Key ${ONE_SIGNAL_REST_KEY.trim()}`
               },
               body: JSON.stringify({
                   app_id: ONE_SIGNAL_APP_ID,
-                  included_segments: ["Subscribed Users"], // Pastikan menembak semua user aktif
-                  headings: { "en": randomMsg.title },
-                  contents: { "en": randomMsg.body }
+                  included_segments: ["Total Subscriptions"], 
+                  headings: { "en": "Halo Bos! Duit aman? 💸" },
+                  contents: { "en": "Tembakan dari Vercel berhasil tembus!" }
               })
           });
 
           const data = await response.json();
-          res.status(200).json({ success: true, message: "Berhasil nembak dengan pesan acak!", data });
+          
+          // PESAN SUKSESNYA SAYA UBAH BIAR KITA TAHU VERCEL SUDAH TER-UPDATE
+          res.status(200).json({ success: true, message: "✅ VERCEL SUKSES UPDATE KODINGAN BARU!", data });
       } catch (error) {
           console.error("Gagal menembak OneSignal:", error);
           res.status(500).json({ success: false, error: "Gagal menembak OneSignal" });
