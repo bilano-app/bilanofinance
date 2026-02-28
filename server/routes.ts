@@ -458,6 +458,74 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
       }
   });
 
+// ... (kodingan webhook mayar yang sudah ada sebelumnya)
+  app.post("/api/payment/webhook", async (req, res) => {
+      try {
+          const data = req.body;
+          // Jika Mayar bilang Lunas
+          if (data.status === 'SUCCESS' || data.status === 'PAID') {
+              const userId = parseInt(data.reference_id.split('-')[2]);
+              
+              // Hitung Argo 365 Hari dari detik ini
+              const validUntil = new Date();
+              validUntil.setDate(validUntil.getDate() + 365);
+              
+              // Nyalakan status PRO dan stempel tanggalnya di Database
+              await storage.updateUserProStatus(userId, true, validUntil);
+              
+              console.log(`✅ PEMBAYARAN SUKSES! User ID: ${userId} menjadi PRO hingga ${validUntil.toLocaleDateString()}`);
+          }
+          res.json({ success: true });
+      } catch (error) {
+          console.error("Webhook Error:", error);
+          res.status(500).json({ error: "Webhook Failed" });
+      }
+  });
+
+  // ============================================================================
+  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
+  // ============================================================================
+// ============================================================================
+  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
+  // ============================================================================
+  app.get('/api/cron/reminder', async (req, res) => {
+      try {
+          const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
+          const ONE_SIGNAL_REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldraqgdis7bte245qzymtzmsgxdaakclawdzphmm4bgbpr3xh76sugxhbsglpfaspn4mpas5sa3mg3ni";
+
+          // Kumpulan Pesan Acak (Sama seperti yang di useNotifications.ts)
+          const messages = [
+              { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya!" },
+              { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat ke BILANO?" },
+              { title: "BILANO kangen nih 🚀", body: "Yuk update catatan keuanganmu biar target aman!" },
+              { title: "Lagi ngopi santai? ☕", body: "Masukin pengeluarannya ke BILANO yuk biar AI bisa nganalisa!" }
+          ];
+
+          // Pilih satu pesan secara acak
+          const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+
+          const response = await fetch("https://onesignal.com/api/v1/notifications", {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Basic ${ONE_SIGNAL_REST_KEY}`
+              },
+              body: JSON.stringify({
+                  app_id: ONE_SIGNAL_APP_ID,
+                  included_segments: ["Total Subscriptions"], 
+                  headings: { "en": randomMsg.title },
+                  contents: { "en": randomMsg.body }
+              })
+          });
+
+          const data = await response.json();
+          res.status(200).json({ success: true, message: "Berhasil nembak dengan pesan acak!", data });
+      } catch (error) {
+          console.error("Gagal menembak OneSignal:", error);
+          res.status(500).json({ success: false, error: "Gagal menembak OneSignal" });
+      }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
