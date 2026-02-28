@@ -510,28 +510,38 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           
-          // Kunci 100% asli Anda dari screenshot, tidak saya utak-atik lagi
-          const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldryge6syz5fedgfg3hr3tv5ia7nx6cqm37u5gq6z4o7whxy6mwobscwm137ptcwzvijlu7bbz3j6cni";
+          // BOS, TOLONG PASTE KUNCI DARI WEB ONESIGNAL DI DALAM TANDA KUTIP INI:
+          const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldryge6syz5fedgfg3hr3tv5ia7nvdfbb764wp7tcoasbfisq4jerw2esxhhdt5ahxfsv6cehlms3yhy";
 
-          // INI SOLUSINYA: Langsung tembak ke URL API terbaru agar Vercel tidak membuang kuncinya!
-          const response = await fetch("https://api.onesignal.com/notifications", {
+          // Pembersih spasi otomatis untuk jaga-jaga saat copy-paste
+          const cleanKey = REST_KEY.replace(/[^a-zA-Z0-9_]/g, '');
+
+          const response = await fetch("https://onesignal.com/api/v1/notifications", {
               method: "POST",
               headers: {
-                  "accept": "application/json",
                   "Content-Type": "application/json",
-                  // Format API v2 terbaru mewajibkan penggunaan "Key"
-                  "Authorization": `Key ${REST_KEY}`
+                  // Format Basic ini yang 100% terbukti sukses di terminal laptop Bos tadi
+                  "Authorization": `Basic ${cleanKey}`
               },
               body: JSON.stringify({
                   app_id: ONE_SIGNAL_APP_ID,
                   included_segments: ["Total Subscriptions"], 
-                  headings: { "en": "Sukses Total Bos! 🚀" },
-                  contents: { "en": "Misteri Vercel terpecahkan. Selamat istirahat!" }
+                  headings: { "en": "Misi Selesai Bos! 😴" },
+                  contents: { "en": "Akhirnya bisa tidur nyenyak. Maafkan saya yang banyak salah malam ini!" }
               })
           });
 
           const data = await response.json();
-          res.status(200).json({ success: true, message: "✅ TEMBAKAN ENDPOINT BARU SUKSES!", data });
+          
+          res.status(200).json({ 
+              success: true, 
+              message: "✅ STATUS TEMBAKAN VERCEL:", 
+              debug_kunci: {
+                  panjang_sebenarnya: cleanKey.length,
+                  lima_huruf_terakhir: cleanKey.slice(-5)
+              },
+              data_onesignal: data 
+          });
       } catch (error) {
           res.status(500).json({ success: false, error: "Gagal menembak" });
       }
