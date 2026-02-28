@@ -488,12 +488,14 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
 // ============================================================================
   // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
   // ============================================================================
+// ============================================================================
+  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
+  // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           const ONE_SIGNAL_REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldraqgdis7bte245qzymtzmsgxdaakclawdzphmm4bgbpr3xh76sugxhbsglpfaspn4mpas5sa3mg3ni";
 
-          // Kumpulan Pesan Acak (Sama seperti yang di useNotifications.ts)
           const messages = [
               { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya!" },
               { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat ke BILANO?" },
@@ -501,18 +503,18 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
               { title: "Lagi ngopi santai? ☕", body: "Masukin pengeluarannya ke BILANO yuk biar AI bisa nganalisa!" }
           ];
 
-          // Pilih satu pesan secara acak
           const randomMsg = messages[Math.floor(Math.random() * messages.length)];
 
           const response = await fetch("https://onesignal.com/api/v1/notifications", {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",
-                  "Authorization": `Basic ${ONE_SIGNAL_REST_KEY}`
+                  // PERBAIKAN: Menggunakan "Key" (bukan Basic) untuk API Key v2
+                  "Authorization": `Key ${ONE_SIGNAL_REST_KEY}` 
               },
               body: JSON.stringify({
                   app_id: ONE_SIGNAL_APP_ID,
-                  included_segments: ["Total Subscriptions"], 
+                  included_segments: ["Subscribed Users"], // Pastikan menembak semua user aktif
                   headings: { "en": randomMsg.title },
                   contents: { "en": randomMsg.body }
               })
