@@ -494,34 +494,58 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
 // ============================================================================
   // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
   // ============================================================================
+// ============================================================================
+  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
+  // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
-          // Kita ambil dari Environment Variable Vercel agar 100% aman
-          const REST_KEY = process.env.ONESIGNAL_REST_KEY;
+          
+          // PASTIKAN KUNCI YANG SUKSES TADI DIMASUKKAN KE SINI YA BOS!
+          const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldss7pmc7xxgeaqfbaudjojvzzau4vv7u66yupou6dx3fw672zum3bsu65ge3splq7wspwcpmszsa3xq";
+          
+          // Sinar Laser pembersih spasi gaib (Biar tidak ada drama "Access denied" lagi)
+          const cleanKey = REST_KEY.replace(/[^a-zA-Z0-9_]/g, '');
 
-          if (!REST_KEY) {
-              return res.status(500).json({ error: "Kunci OneSignal belum dipasang di Env Vercel!" });
-          }
+          // KOLEKSI VARIASI PESAN NOTIFIKASI BILANO
+          const messages = [
+              { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya di BILANO!" },
+              { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat hari ini? Yuk masukin sekarang!" },
+              { title: "Awas Boncos! 🛑", body: "Cek sisa limit pengeluaran bulan ini biar target keuanganmu tetap aman." },
+              { title: "Hari ini jajan apa aja? 🍔☕", body: "Uang keluar wajib dilacak. Jangan biarkan uangmu pergi tanpa jejak! 🕵️‍♂️" },
+              { title: "BILANO kangen nih 🚀", body: "Satu langkah lebih dekat ke kebebasan finansial. Yuk update catatanmu!" },
+              { title: "Udah rekap keuangan belum? 📊", body: "Sebelum istirahat, biasakan rekap pengeluaran hari ini yuk Bos!" },
+              { title: "Dompet tebal atau menipis? 🤑", body: "Biar AI BILANO yang analisa keuanganmu hari ini. Catat pengeluaranmu sekarang!" },
+              { title: "Jangan lupa nabung! 🐖", body: "Sedikit demi sedikit lama-lama jadi bukit. Sudahkah kamu menyisihkan uang hari ini?" }
+          ];
+
+          // Sistem Gacha: Pilih satu pesan secara acak setiap kali cron berjalan
+          const randomMsg = messages[Math.floor(Math.random() * messages.length)];
 
           const response = await fetch("https://onesignal.com/api/v1/notifications", {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",
-                  "Authorization": `Key ${REST_KEY.trim()}`
+                  "Authorization": `Key ${cleanKey}`
               },
               body: JSON.stringify({
                   app_id: ONE_SIGNAL_APP_ID,
                   included_segments: ["Total Subscriptions"], 
-                  headings: { "en": "Halo Bos! Duit aman? 💸" },
-                  contents: { "en": "TEST FINAL: HP Anda harusnya bergetar sekarang! 🚀" }
+                  headings: { "en": randomMsg.title },
+                  contents: { "en": randomMsg.body }
               })
           });
 
           const data = await response.json();
-          res.status(200).json({ success: true, message: "ROBOT VERCEL SEDANG MENEMBAK...", data });
+          res.status(200).json({ 
+              success: true, 
+              message: "✅ TEMBAKAN VERCEL SUKSES DENGAN PESAN ACAK!", 
+              terkirim: randomMsg.title,
+              data 
+          });
       } catch (error) {
-          res.status(500).json({ success: false, error: "Gagal menembak" });
+          console.error("Gagal menembak OneSignal:", error);
+          res.status(500).json({ success: false, error: "Gagal menembak OneSignal" });
       }
   });
 
