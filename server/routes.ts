@@ -494,7 +494,7 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
-          const ONE_SIGNAL_REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldraqgdis7bte245qzymtzmsgxdaakclawdzphmm4bgbpr3xh76sugxhbsglpfaspn4mpas5sa3mg3ni";
+          const ONE_SIGNAL_REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldqdx3gmznzrup6u7vylxxe3aj2x7u5m4humnl5oezzwtvkbclol7r4pdqbb5c2tnfdujgzuul7f2gny";
 
           const messages = [
               { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya!" },
