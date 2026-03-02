@@ -496,12 +496,12 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
 // ============================================================================
   // === JALUR NOTIFIKASI ONESIGNAL (VERSI FINAL SUKSES + GACHA PESAN) ===
   // ============================================================================
-  app.get('/api/cron/reminder', async (req, res) => {
+app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           const rawKey = process.env.ONESIGNAL_REST_KEY;
 
-          // 1. Keamanan Kunci (Sama persis seperti yang sukses tadi)
+          // 1. Keamanan Kunci
           if (!rawKey) {
               return res.status(200).json({ success: false, laporan: "Brankas kosong" });
           }
@@ -521,10 +521,9 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
               { title: "Jangan lupa nabung! 🐖", body: "Sedikit demi sedikit lama-lama jadi bukit. Sudahkah kamu menyisihkan uang hari ini?" }
           ];
 
-          // Mengambil satu pesan secara acak
           const randomMsg = messages[Math.floor(Math.random() * messages.length)];
 
-          // 3. Tembakan Jitu ke OneSignal
+          // 3. Tembakan Jitu ke OneSignal (+ SETTING GAMBAR BESAR)
           const response = await fetch("https://api.onesignal.com/notifications", {
               method: "POST",
               headers: {
@@ -536,7 +535,15 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
                   app_id: ONE_SIGNAL_APP_ID,
                   included_segments: ["Total Subscriptions"], 
                   headings: { "en": randomMsg.title },
-                  contents: { "en": randomMsg.body }
+                  contents: { "en": randomMsg.body },
+                  
+                  // --- TAMBAHAN BARU UNTUK MEMPERCANTIK NOTIFIKASI HP ---
+                  // 1. Memunculkan logo BILANO berukuran besar di kanan notifikasi
+                  large_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png",
+                  // 2. Memunculkan logo di web browser laptop
+                  chrome_web_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png",
+                  // 3. Memberi warna aksen biru indigo pada notifikasi sistem Android
+                  android_accent_color: "FF4F46E5" 
               })
           });
 
