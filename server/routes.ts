@@ -539,9 +539,9 @@ app.get('/api/cron/reminder', async (req, res) => {
                   
                   // --- TAMBAHAN BARU UNTUK MEMPERCANTIK NOTIFIKASI HP ---
                   // 1. Memunculkan logo BILANO berukuran besar di kanan notifikasi
-                  large_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png",
+                  large_icon: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.png",
                   // 2. Memunculkan logo di web browser laptop
-                  chrome_web_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png",
+                  chrome_web_icon: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.png",
                   // 3. Memberi warna aksen biru indigo pada notifikasi sistem Android
                   android_accent_color: "FF4F46E5" 
               })
