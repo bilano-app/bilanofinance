@@ -490,44 +490,58 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
 // ============================================================================
   // === JALUR NOTIFIKASI ONESIGNAL (VERSI FINAL UNTUK APK) ===
   // ============================================================================
+// ============================================================================
+  // === JALUR NOTIFIKASI ONESIGNAL (VERSI DETEKTIF FINAL) ===
+  // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
-          
-          // BOS, PASTE KUNCI ONESIGNAL ASLI YANG ADA DI WEB (113 KARAKTER) DI SINI:
-          const REST_KEY = "const REST_KEY = process.env.ONESIGNAL_REST_KEY";
+          const rawKey = process.env.ONESIGNAL_REST_KEY;
 
-          const messages = [
-              { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya di BILANO!" },
-              { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat hari ini? Yuk masukin sekarang!" },
-              { title: "Awas Boncos! 🛑", body: "Cek sisa limit pengeluaran bulan ini biar target keuanganmu tetap aman." },
-              { title: "Hari ini jajan apa aja? 🍔☕", body: "Uang keluar wajib dilacak. Jangan biarkan uangmu pergi tanpa jejak! 🕵️‍♂️" },
-              { title: "Udah rekap keuangan belum? 📊", body: "Sebelum istirahat, biasakan rekap pengeluaran hari ini yuk Bos!" }
-          ];
+          // 1. Cek apakah Vercel berhasil membaca brankas
+          if (!rawKey) {
+              return res.status(200).json({ 
+                  success: false, 
+                  laporan_detektif: "❌ GAGAL: Brankas Vercel kosong. Variabel ONESIGNAL_REST_KEY tidak terbaca oleh server." 
+              });
+          }
 
-          const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+          // 2. Bersihkan kunci dari spasi, enter, atau karakter aneh yang ikut ter-copy
+          const cleanKey = rawKey.replace(/\s+/g, '').trim();
 
-          // MENGGUNAKAN URL API TERBARU AGAR HEADER KUNCI TIDAK DIBUANG VERCEL
+          // 3. Pastikan kunci benar-benar Rich Key yang panjang
+          if (!cleanKey.startsWith('os_v2_app_')) {
+              return res.status(200).json({ 
+                  success: false, 
+                  laporan_detektif: `❌ GAGAL: Kunci di Vercel SALAH. Kunci OneSignal asli HARUS berawalan 'os_v2_app_'. Yang ada di brankas Vercel Anda saat ini malah berawalan: '${cleanKey.substring(0, 15)}...'` 
+              });
+          }
+
+          // 4. Tembak ke OneSignal dengan header terbaru "Key" (bukan Basic)
           const response = await fetch("https://api.onesignal.com/notifications", {
               method: "POST",
               headers: {
                   "accept": "application/json",
                   "Content-Type": "application/json",
-                  "Authorization": `Key ${REST_KEY}` // Wajib pakai "Key" untuk URL baru ini
+                  "Authorization": `Key ${cleanKey}`
               },
               body: JSON.stringify({
                   app_id: ONE_SIGNAL_APP_ID,
                   included_segments: ["Total Subscriptions"], 
-                  headings: { "en": randomMsg.title },
-                  contents: { "en": randomMsg.body }
+                  headings: { "en": "Halo Bos! Duit aman? 💸" },
+                  contents: { "en": "Pesan ini sukses menembus pertahanan OneSignal! 🚀" }
               })
           });
 
           const data = await response.json();
-          res.status(200).json({ success: true, terkirim: randomMsg.title, data });
-      } catch (error) {
-          console.error("Gagal menembak OneSignal:", error);
-          res.status(500).json({ success: false, error: "Gagal menembak OneSignal" });
+          
+          res.status(200).json({ 
+              success: true, 
+              laporan_detektif: `✅ Vercel membawa kunci valid sepanjang ${cleanKey.length} karakter.`,
+              data_onesignal: data 
+          });
+      } catch (error: any) {
+          res.status(500).json({ success: false, error: "System Crash: " + error.message });
       }
   });
 
