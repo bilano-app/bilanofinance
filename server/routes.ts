@@ -495,7 +495,7 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           
           // BOS, PASTE KUNCI ONESIGNAL ASLI YANG ADA DI WEB (113 KARAKTER) DI SINI:
-          const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldsjaom2gmjnualfveaeajho3ykfyxxphetxqm3e5qa23b2qujp6xitpnwlg6pbq3dhwwqyiwvvtq7vy";
+          const REST_KEY = "const REST_KEY = process.env.ONESIGNAL_REST_KEY";
 
           const messages = [
               { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya di BILANO!" },
