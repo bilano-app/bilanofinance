@@ -537,11 +537,17 @@ app.get('/api/cron/reminder', async (req, res) => {
                   headings: { "en": randomMsg.title },
                   contents: { "en": randomMsg.body },
                   
-                  // UBAH SEMUA EKSTENSI MENJADI .jpg DAN NAIKKAN CACHE KE v=2
-                  large_icon: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=2",
-                  big_picture: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=2",
+                  // KITA HAPUS LARGE_ICON AGAR TIDAK BENTROK DENGAN SETTING MEDIAN
+                  // KITA HANYA SISAKAN BIG PICTURE (UNTUK GAMBAR SAAT DI-TARIK)
+                  big_picture: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=3",
+                  
+                  // WARNA AKSEN TETAP BOLEH ADA
                   android_accent_color: "FF4F46E5",
-                  chrome_web_icon: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=2"
+
+                  // PENTING: Kita perintahkan OneSignal untuk mencari ikon 
+                  // yang sudah Anda tanam di dalam APK Median tadi.
+                  android_led_color: "FF4F46E5",
+                  priority: 10
               })
           });
 
