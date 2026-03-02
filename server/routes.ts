@@ -493,31 +493,38 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
 // ============================================================================
   // === JALUR NOTIFIKASI ONESIGNAL (VERSI DETEKTIF FINAL) ===
   // ============================================================================
+// ============================================================================
+  // === JALUR NOTIFIKASI ONESIGNAL (VERSI FINAL SUKSES + GACHA PESAN) ===
+  // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           const rawKey = process.env.ONESIGNAL_REST_KEY;
 
-          // 1. Cek apakah Vercel berhasil membaca brankas
+          // 1. Keamanan Kunci (Sama persis seperti yang sukses tadi)
           if (!rawKey) {
-              return res.status(200).json({ 
-                  success: false, 
-                  laporan_detektif: "❌ GAGAL: Brankas Vercel kosong. Variabel ONESIGNAL_REST_KEY tidak terbaca oleh server." 
-              });
+              return res.status(200).json({ success: false, laporan: "Brankas kosong" });
           }
-
-          // 2. Bersihkan kunci dari spasi, enter, atau karakter aneh yang ikut ter-copy
           const cleanKey = rawKey.replace(/\s+/g, '').trim();
-
-          // 3. Pastikan kunci benar-benar Rich Key yang panjang
           if (!cleanKey.startsWith('os_v2_app_')) {
-              return res.status(200).json({ 
-                  success: false, 
-                  laporan_detektif: `❌ GAGAL: Kunci di Vercel SALAH. Kunci OneSignal asli HARUS berawalan 'os_v2_app_'. Yang ada di brankas Vercel Anda saat ini malah berawalan: '${cleanKey.substring(0, 15)}...'` 
-              });
+              return res.status(200).json({ success: false, laporan: "Kunci salah format" });
           }
 
-          // 4. Tembak ke OneSignal dengan header terbaru "Key" (bukan Basic)
+          // 2. Kumpulan Variasi Pesan Motivasi & Pengingat
+          const messages = [
+              { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya di BILANO!" },
+              { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat hari ini? Yuk masukin sekarang!" },
+              { title: "Awas Boncos! 🛑", body: "Cek sisa limit pengeluaran bulan ini biar target keuanganmu tetap aman." },
+              { title: "Hari ini jajan apa aja? 🍔☕", body: "Uang keluar wajib dilacak. Jangan biarkan uangmu pergi tanpa jejak! 🕵️‍♂️" },
+              { title: "BILANO kangen nih 🚀", body: "Satu langkah lebih dekat ke kebebasan finansial. Yuk update catatanmu!" },
+              { title: "Udah rekap keuangan belum? 📊", body: "Sebelum istirahat, biasakan rekap pengeluaran hari ini yuk Bos!" },
+              { title: "Jangan lupa nabung! 🐖", body: "Sedikit demi sedikit lama-lama jadi bukit. Sudahkah kamu menyisihkan uang hari ini?" }
+          ];
+
+          // Mengambil satu pesan secara acak
+          const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+
+          // 3. Tembakan Jitu ke OneSignal
           const response = await fetch("https://api.onesignal.com/notifications", {
               method: "POST",
               headers: {
@@ -528,8 +535,8 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
               body: JSON.stringify({
                   app_id: ONE_SIGNAL_APP_ID,
                   included_segments: ["Total Subscriptions"], 
-                  headings: { "en": "Halo Bos! Duit aman? 💸" },
-                  contents: { "en": "Pesan ini sukses menembus pertahanan OneSignal! 🚀" }
+                  headings: { "en": randomMsg.title },
+                  contents: { "en": randomMsg.body }
               })
           });
 
@@ -537,7 +544,7 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
           
           res.status(200).json({ 
               success: true, 
-              laporan_detektif: `✅ Vercel membawa kunci valid sepanjang ${cleanKey.length} karakter.`,
+              pesan_terkirim: randomMsg.title,
               data_onesignal: data 
           });
       } catch (error: any) {
