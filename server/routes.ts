@@ -8,7 +8,6 @@ import Groq from "groq-sdk";
 import OpenAI from "openai";
 import nodemailer from "nodemailer";
 
-import webpush from "web-push";
 
 // GANTI DENGAN KUNCI DARI TERMINAL TADI!
 const PUBLIC_VAPID_KEY = "BPrOUqqkMk4GUjKpAc6M4rxub3VNoUoVVoi56BdDkQYoC5Yo04f8r9sll_4JGTTrOYSaEZhQ8kElCs-0D3DCmOI";
@@ -497,68 +496,47 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
       }
   });
 
-  // ============================================================================
-  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
-  // ============================================================================
 // ============================================================================
-  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
-  // ============================================================================
-// ============================================================================
-  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
-  // ============================================================================
-// ============================================================================
-  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
-  // ============================================================================
-// ============================================================================
-  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
-  // ============================================================================
-// ============================================================================
-  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
-  // ============================================================================
-// ============================================================================
-  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
-  // ============================================================================
-// ============================================================================
-  // === JALUR RAHASIA NOTIFIKASI ONESIGNAL (GRATIS) ===
+  // === JALUR NOTIFIKASI ONESIGNAL (VERSI FINAL UNTUK APK) ===
   // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           
-          // BOS, TOLONG PASTE KUNCI DARI WEB ONESIGNAL DI DALAM TANDA KUTIP INI:
-          const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldttruaibbalusrmg3kb7q5uhs3rnzcwsmav6gbg7bmyvsiygot5hb7tolo6orspwd4kroyxd6irsrza";
+          // BOS, PASTE KUNCI ONESIGNAL ASLI YANG ADA DI WEB (113 KARAKTER) DI SINI:
+          const REST_KEY = "os_v2_app_wrntevvssbfjrnp2v6qfagtldsjaom2gmjnualfveaeajho3ykfyxxphetxqm3e5qa23b2qujp6xitpnwlg6pbq3dhwwqyiwvvtq7vy";
 
-          // Pembersih spasi otomatis untuk jaga-jaga saat copy-paste
-          const cleanKey = REST_KEY.replace(/[^a-zA-Z0-9_]/g, '');
+          const messages = [
+              { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya di BILANO!" },
+              { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat hari ini? Yuk masukin sekarang!" },
+              { title: "Awas Boncos! 🛑", body: "Cek sisa limit pengeluaran bulan ini biar target keuanganmu tetap aman." },
+              { title: "Hari ini jajan apa aja? 🍔☕", body: "Uang keluar wajib dilacak. Jangan biarkan uangmu pergi tanpa jejak! 🕵️‍♂️" },
+              { title: "Udah rekap keuangan belum? 📊", body: "Sebelum istirahat, biasakan rekap pengeluaran hari ini yuk Bos!" }
+          ];
 
-          const response = await fetch("https://onesignal.com/api/v1/notifications", {
+          const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+
+          // MENGGUNAKAN URL API TERBARU AGAR HEADER KUNCI TIDAK DIBUANG VERCEL
+          const response = await fetch("https://api.onesignal.com/notifications", {
               method: "POST",
               headers: {
+                  "accept": "application/json",
                   "Content-Type": "application/json",
-                  // Format Basic ini yang 100% terbukti sukses di terminal laptop Bos tadi
-                  "Authorization": `Basic ${cleanKey}`
+                  "Authorization": `Key ${REST_KEY}` // Wajib pakai "Key" untuk URL baru ini
               },
               body: JSON.stringify({
                   app_id: ONE_SIGNAL_APP_ID,
                   included_segments: ["Total Subscriptions"], 
-                  headings: { "en": "Misi Selesai Bos! 😴" },
-                  contents: { "en": "Akhirnya bisa tidur nyenyak. Maafkan saya yang banyak salah malam ini!" }
+                  headings: { "en": randomMsg.title },
+                  contents: { "en": randomMsg.body }
               })
           });
 
           const data = await response.json();
-          
-          res.status(200).json({ 
-              success: true, 
-              message: "✅ STATUS TEMBAKAN VERCEL:", 
-              debug_kunci: {
-                  panjang_sebenarnya: cleanKey.length,
-                  lima_huruf_terakhir: cleanKey.slice(-5)
-              },
-              data_onesignal: data 
-          });
+          res.status(200).json({ success: true, terkirim: randomMsg.title, data });
       } catch (error) {
-          res.status(500).json({ success: false, error: "Gagal menembak" });
+          console.error("Gagal menembak OneSignal:", error);
+          res.status(500).json({ success: false, error: "Gagal menembak OneSignal" });
       }
   });
 

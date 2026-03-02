@@ -17,7 +17,6 @@ import {
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
-import NotificationButton from '../components/NotificationButton'; 
 
 export default function Home() {
   const { data: user, isLoading: isUserLoading } = useUser();
@@ -448,9 +447,6 @@ export default function Home() {
 
         <div className="px-1 mt-2">
             {/* INI DIA POSISI TOMBOL NOTIFIKASINYA BOS! */}
-            <div className="mb-6 flex justify-center">
-                <NotificationButton /> 
-            </div>
 
             <h3 className="font-bold text-slate-800 text-sm mb-4">Fitur Pilihan</h3>
             <div className="grid grid-cols-3 gap-y-6 gap-x-3">
