@@ -42,17 +42,25 @@ export default function SmartScan() {
     const recognitionRef = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // ==========================================
+    // PAYWALL & HEADERS
+    // ==========================================
+    const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
+    const getAuthHeaders = () => ({ "x-user-email": localStorage.getItem("bilano_email") || "" });
+
     useEffect(() => {
         const loadData = async () => {
             try {
-                fetch("/api/forex/rates").then(r => r.json()).then(d => {
+                // FIX: Tambahkan Headers agar tidak Timeout (Loading abadi)
+                fetch("/api/forex/rates", { headers: getAuthHeaders() }).then(r => r.json()).then(d => {
                     setLiveRates(d);
                     if(d['USD']) setRate(Math.floor(d['USD']).toString());
                 }).catch(() => {});
 
+                // FIX: Tambahkan Headers
                 const [resTarget, resTx] = await Promise.all([
-                    fetch("/api/target"), 
-                    fetch("/api/transactions")
+                    fetch("/api/target", { headers: getAuthHeaders() }), 
+                    fetch("/api/transactions", { headers: getAuthHeaders() })
                 ]);
                 
                 if (resTarget.ok && resTx.ok) {
@@ -149,6 +157,12 @@ export default function SmartScan() {
     };
 
     const startListening = () => {
+        // FIX: Paywall Check untuk Mic
+        if (isTrialExpired) {
+            if (confirm("Masa Coba Habis! Fitur Smart Scan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+            return;
+        }
+
         try {
             const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
             if (!SpeechRecognition) { toast({ title: "Gunakan Chrome", variant: "destructive" }); return; }
@@ -163,6 +177,12 @@ export default function SmartScan() {
     const stopListening = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        // FIX: Paywall Check untuk Upload Gambar
+        if (isTrialExpired) {
+            if (confirm("Masa Coba Habis! Fitur Smart Scan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+            return;
+        }
+
         const file = e.target.files?.[0];
         if (file) {
             setImagePreview(URL.createObjectURL(file));
@@ -177,6 +197,12 @@ export default function SmartScan() {
     };
 
     const handleSave = async (isEmergencyOverride = false) => {
+        // FIX: Paywall Check untuk Save
+        if (isTrialExpired) {
+            if (confirm("Masa Coba Habis! Fitur Smart Scan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+            return;
+        }
+
         if (!amount) { toast({title: "Nominal kosong", variant:"destructive"}); return; }
         
         const sanitizedAmount = amount.toString().replace(/\./g, "").replace(/,/g, ".");
@@ -196,24 +222,30 @@ export default function SmartScan() {
 
         setIsSubmitting(true);
 
+        // FIX: Menggabungkan header content-type dan x-user-email
+        const postHeaders = { 
+            "Content-Type": "application/json",
+            ...getAuthHeaders() 
+        };
+
         try {
             if (isForex) {
                 await fetch("/api/forex/transaction", {
-                    method: "POST", headers: { "Content-Type": "application/json" },
+                    method: "POST", headers: postHeaders,
                     body: JSON.stringify({ type: detectedType, currency, amount: finalAmount, description: desc })
                 });
                 toast({ title: "Valas Diupdate!", description: `${currency} ${finalAmount}` });
             } 
             else if (detectedType === 'debt' || detectedType === 'receivable') {
                 await fetch("/api/debts", {
-                    method: "POST", headers: { "Content-Type": "application/json" },
+                    method: "POST", headers: postHeaders,
                     body: JSON.stringify({ type: detectedType === 'debt' ? 'hutang' : 'piutang', name: debtName || "Seseorang", amount: finalAmount, description: desc, isPaid: false })
                 });
                 toast({ title: "Tercatat!", description: "Saldo disesuaikan." });
             } 
             else {
                 await fetch("/api/transactions", {
-                    method: "POST", headers: { "Content-Type": "application/json" },
+                    method: "POST", headers: postHeaders,
                     body: JSON.stringify({ type: detectedType, amount: finalAmount, category: category || "Lainnya", description: desc, date: new Date() })
                 });
                 toast({ title: "Tersimpan!", description: "Data masuk." });
@@ -223,7 +255,7 @@ export default function SmartScan() {
                 try {
                     await fetch("/api/target/penalty", {
                         method: "PATCH",
-                        headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
+                        headers: postHeaders,
                         body: JSON.stringify({ amount: emergencyDetails.deficit })
                     });
                     toast({ title: "Dana Darurat Dipakai", description: "Budget bulan depan telah dikurangi." });

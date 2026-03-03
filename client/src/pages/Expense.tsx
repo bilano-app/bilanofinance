@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useUser, useTarget, useAddTransaction, useTransactions } from "@/hooks/use-finance"; 
 import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents"; 
-import { Wallet, AlertTriangle, ShieldCheck, X, AlertOctagon, Loader2 } from "lucide-react"; 
+import { Wallet, AlertTriangle, ShieldCheck, X, AlertOctagon, Loader2, HandCoins } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 
@@ -22,6 +22,10 @@ export default function Expense() {
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [emergencyDetails, setEmergencyDetails] = useState({ deficit: 0, nextMonthLimit: 0 });
 
+  // State untuk mode pembayaran Hutang
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'hutang'>('cash');
+  const [debtName, setDebtName] = useState("");
+
   const formatNumber = (value: string) => value.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => setAmountStr(formatNumber(e.target.value));
   const parseNumber = (value: string) => Number(value.replace(/,/g, "")) || 0;
@@ -30,6 +34,7 @@ export default function Expense() {
   const now = new Date();
   const currentMonthIdx = now.getMonth(); 
   const currentYear = now.getFullYear();
+  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
 
   let remainingBudget = 0;     
   let budgetLabel = "Batas Bulan Ini";
@@ -63,20 +68,31 @@ export default function Expense() {
   }
 
   const handleSubmit = async (isEmergencyOverride = false) => {
+      // FIX: Paywall Premium Check
+      if (isTrialExpired) {
+          if (confirm("Masa Coba Habis! Menyimpan transaksi eksklusif untuk Premium. Buka kunci?")) window.location.href = "/paywall";
+          return;
+      }
+
       const nominal = parseNumber(amountStr);
       if (!nominal || nominal <= 0) {
           toast({ title: "Error", description: "Isi nominal pengeluaran!", variant: "destructive" });
           return;
       }
+
+      if (paymentMode === 'hutang' && !debtName) { 
+          toast({ title: "Error", description: "Isi nama pihak yang dihutangi!", variant: "destructive" }); 
+          return; 
+      }
       
       const spendingAmount = nominal; 
 
-      if (user && spendingAmount > user.cashBalance) {
+      if (paymentMode === 'cash' && user && spendingAmount > user.cashBalance) {
           alert(`⛔ TRANSAKSI DITOLAK!\n\nUang tunai Anda kurang.\nSaldo: ${formatRp(user.cashBalance)}\nMau keluar: ${formatRp(spendingAmount)}`);
           return;
       }
 
-      if (target && target.monthlyBudget > 0 && !isEmergencyOverride) {
+      if (target && target.monthlyBudget > 0 && !isEmergencyOverride && paymentMode === 'cash') {
           if (spendingAmount > remainingBudget) {
              const deficit = spendingAmount - remainingBudget;
              const nextMonthPred = target.monthlyBudget - deficit;
@@ -89,30 +105,46 @@ export default function Expense() {
       setIsSubmitting(true);
       
       try {
-          await addTransactionMutation.mutateAsync({
-              type: 'expense',
-              amount: spendingAmount, 
-              category: category,
-              description: desc || "Pengeluaran Rutin",
-              date: new Date()
-          });
+          if (paymentMode === 'cash') {
+              await addTransactionMutation.mutateAsync({
+                  type: 'expense',
+                  amount: spendingAmount, 
+                  category: category,
+                  description: desc || "Pengeluaran Rutin",
+                  date: new Date().toISOString()
+              });
 
-          if (isEmergencyOverride) {
-              try {
-                  await fetch("/api/target/penalty", {
-                      method: "PATCH",
-                      headers: { 
-                          "Content-Type": "application/json",
-                          "x-user-email": localStorage.getItem("bilano_email") || "" 
-                      },
-                      body: JSON.stringify({ amount: emergencyDetails.deficit })
-                  });
-                  toast({ title: "Dana Darurat Dipakai", description: "Budget bulan depan telah dikurangi." });
-              } catch (err) {
-                  console.error("Gagal update penalti, tapi transaksi tersimpan.", err);
+              if (isEmergencyOverride) {
+                  try {
+                      await fetch("/api/target/penalty", {
+                          method: "PATCH",
+                          headers: { 
+                              "Content-Type": "application/json",
+                              "x-user-email": localStorage.getItem("bilano_email") || "" 
+                          },
+                          body: JSON.stringify({ amount: emergencyDetails.deficit })
+                      });
+                      toast({ title: "Dana Darurat Dipakai", description: "Budget bulan depan telah dikurangi." });
+                  } catch (err) {
+                      console.error("Gagal update penalti, tapi transaksi tersimpan.", err);
+                  }
+              } else {
+                  toast({ title: "Tercatat!", description: "Pengeluaran berhasil disimpan." });
               }
           } else {
-              toast({ title: "Tercatat!", description: "Pengeluaran berhasil disimpan." });
+              // Hutang Pengeluaran
+              await fetch("/api/debts", {
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
+                  body: JSON.stringify({ type: 'hutang', name: `${debtName}|IDR`, amount: spendingAmount, description: `[Hutang Pengeluaran: ${category}] ${desc}` })
+              });
+              await addTransactionMutation.mutateAsync({ 
+                  type: 'expense', 
+                  amount: spendingAmount, 
+                  category: `Hutang: ${category}`, 
+                  description: `Belum Dibayar - ${debtName}`, 
+                  date: new Date().toISOString() 
+              });
+              toast({ title: "Tercatat!", description: "Hutang pengeluaran berhasil disimpan." });
           }
 
           setShowEmergencyModal(false);
@@ -226,6 +258,13 @@ export default function Expense() {
 
         {/* FORM INPUT */}
         <div className="bg-white p-6 rounded-[32px] space-y-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
+            
+            {/* TOGGLE TUNAI VS HUTANG */}
+            <div className="flex bg-slate-100 p-1.5 rounded-xl">
+                <button onClick={() => setPaymentMode('cash')} className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${paymentMode === 'cash' ? 'bg-rose-500 text-white shadow' : 'text-slate-500'}`}>TUNAI (Cash)</button>
+                <button onClick={() => setPaymentMode('hutang')} className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${paymentMode === 'hutang' ? 'bg-amber-500 text-white shadow' : 'text-slate-500'}`}><HandCoins className="w-4 h-4"/> HUTANG (Ngutang Dulu)</button>
+            </div>
+
             <div className="space-y-5">
                 <div>
                     <label className="text-[11px] uppercase tracking-widest font-bold text-slate-400 block mb-2 ml-1">Nominal Pengeluaran</label>
@@ -234,6 +273,13 @@ export default function Expense() {
                         <Input type="tel" value={amountStr} onChange={handleAmountChange} placeholder="0" className="pl-14 h-16 text-2xl font-extrabold text-slate-800 bg-slate-50 border-transparent focus:bg-white focus:border-rose-500 focus:ring-rose-500 rounded-[20px] transition-all"/>
                     </div>
                 </div>
+
+                {paymentMode === 'hutang' && (
+                    <div className="animate-in fade-in slide-in-from-top-2">
+                        <label className="text-[11px] uppercase tracking-widest font-bold text-amber-500 block mb-2 ml-1">Ngutang Ke Siapa?</label>
+                        <Input placeholder="Nama Toko / Teman" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-14 bg-amber-50 border-transparent focus:border-amber-400 rounded-[16px]"/>
+                    </div>
+                )}
 
                 <div>
                     <label className="text-[11px] uppercase tracking-widest font-bold text-slate-400 block mb-2 ml-1">Kategori</label>
@@ -247,8 +293,8 @@ export default function Expense() {
                 </div>
             </div>
 
-            <Button onClick={() => handleSubmit(false)} className="w-full h-16 bg-rose-500 hover:bg-rose-600 text-white text-lg font-extrabold shadow-lg shadow-rose-200 rounded-full active:scale-95 transition-transform">
-                {isSubmitting ? "MENYIMPAN..." : "SIMPAN PENGELUARAN"}
+            <Button onClick={() => handleSubmit(false)} disabled={isSubmitting} className={`w-full h-16 text-white text-lg font-extrabold shadow-lg rounded-full active:scale-95 transition-transform ${paymentMode === 'hutang' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`}>
+                {isSubmitting ? "MENYIMPAN..." : (paymentMode === 'hutang' ? "SIMPAN HUTANG" : "SIMPAN PENGELUARAN")}
             </Button>
         </div>
       </div>

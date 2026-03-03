@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAddTransaction, useUser } from "@/hooks/use-finance";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
-import { Loader2, Wallet } from "lucide-react";
+import { Loader2, Wallet, HandCoins } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 
 export default function Income() {
@@ -13,9 +13,14 @@ export default function Income() {
   const [category, setCategory] = useState("Gaji");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // State untuk mode pembayaran Piutang
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'piutang'>('cash');
+  const [debtName, setDebtName] = useState("");
 
   const formatRp = (val: number) => "Rp " + val.toLocaleString("id-ID");
   const currentCash = user?.cashBalance || 0;
+  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, "");
@@ -28,80 +33,96 @@ export default function Income() {
   };
 
   const handleSubmit = async () => {
+    // FIX: Paywall Premium Check
+    if (isTrialExpired) {
+        if (confirm("Masa Coba Habis! Menyimpan transaksi adalah fitur Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+        return;
+    }
+
     const cleanAmount = parseInt(amountStr.replace(/\./g, ""), 10);
 
     if (!cleanAmount || cleanAmount <= 0) {
         alert("Masukkan jumlah uang yang valid");
         return;
     }
+    
+    if (paymentMode === 'piutang' && !debtName) { 
+        alert("Masukkan nama pihak yang berhutang"); 
+        return; 
+    }
 
     setIsSubmitting(true);
     try {
-      await addTransaction.mutateAsync({
-        amount: cleanAmount, 
-        type: "income",
-        category,
-        description: description || "Pemasukan Rutin",
-        date: new Date().toISOString(),
-      });
+      if (paymentMode === 'cash') {
+          // Normal Cash Income
+          await addTransaction.mutateAsync({ 
+              amount: cleanAmount, 
+              type: "income", 
+              category, 
+              description: description || "Pemasukan Rutin", 
+              date: new Date().toISOString() 
+          });
+      } else {
+          // Buat Pemasukan Aset (Piutang) tanpa menambah Cash
+          await fetch("/api/debts", {
+              method: "POST", 
+              headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
+              body: JSON.stringify({ type: 'piutang', name: `${debtName}|IDR`, amount: cleanAmount, description: `[Piutang Pemasukan: ${category}] ${description}` })
+          });
+          // Catat juga sebagai riwayat transaksi agar masuk chart tapi tidak menambah cash (gunakan category khusus)
+          await addTransaction.mutateAsync({ 
+              amount: cleanAmount, 
+              type: "income", 
+              category: `Piutang: ${category}`, 
+              description: `Belum Dibayar - ${debtName}`, 
+              date: new Date().toISOString() 
+          });
+      }
       
       await queryClient.invalidateQueries();
       window.location.href = "/";
-      
-    } catch (error) {
-      alert("Gagal menyimpan data");
-    } finally {
-      setIsSubmitting(false);
+    } catch (error) { 
+        alert("Gagal menyimpan data"); 
+    } finally { 
+        setIsSubmitting(false); 
     }
   };
 
-  if (isUserLoading) {
-      return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
-              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
-                  <Loader2 className="w-4 h-4 animate-spin"/>
-                  <span>Memuat Data...</span>
-              </div>
-          </div>
-      );
-  }
+  if (isUserLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-emerald-500 w-8 h-8"/></div>;
 
   return (
     <MobileLayout title="Catat Pemasukan" showBack>
       <div className="space-y-6 pt-4 relative pb-20 px-2">
-        
-        {/* INFO SALDO UTAMA */}
         <div className="text-center space-y-2 animate-in slide-in-from-top-4 pb-4">
             <div className="inline-flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-full">
                 <Wallet className="w-3.5 h-3.5" /> Saldo Tunai (Cash)
             </div>
-            <div className="text-4xl font-extrabold text-slate-800 tracking-tight">
-                {formatRp(currentCash)}
-            </div>
-            <div className="mt-2 text-xs text-emerald-600 bg-emerald-50 border border-emerald-100 inline-block px-4 py-1.5 rounded-full font-bold">
-                + Tambah Pemasukan
-            </div>
+            <div className="text-4xl font-extrabold text-slate-800 tracking-tight">{formatRp(currentCash)}</div>
         </div>
 
-        {/* FORM INPUT */}
         <div className="bg-white p-6 rounded-[32px] space-y-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
+            
+            {/* TOGGLE TUNAI VS PIUTANG */}
+            <div className="flex bg-slate-100 p-1.5 rounded-xl">
+                <button onClick={() => setPaymentMode('cash')} className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${paymentMode === 'cash' ? 'bg-emerald-500 text-white shadow' : 'text-slate-500'}`}>TUNAI (Cash)</button>
+                <button onClick={() => setPaymentMode('piutang')} className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${paymentMode === 'piutang' ? 'bg-amber-500 text-white shadow' : 'text-slate-500'}`}><HandCoins className="w-4 h-4"/> PIUTANG (Belum Dibayar)</button>
+            </div>
+
             <div className="space-y-5">
-              
               <div>
                 <label className="text-[11px] uppercase tracking-widest font-bold text-slate-400 block mb-2 ml-1">Nominal Pemasukan</label>
                 <div className="relative">
                     <span className="absolute left-4 top-4 font-extrabold text-slate-400 text-lg">Rp</span>
-                    <Input
-                      type="tel" 
-                      inputMode="numeric"
-                      placeholder="0"
-                      value={amountStr}
-                      onChange={handleAmountChange}
-                      className="pl-14 h-16 text-2xl font-extrabold text-slate-800 bg-slate-50 border-transparent focus:bg-white focus:border-emerald-500 focus:ring-emerald-500 rounded-[20px] transition-all"
-                    />
+                    <Input type="tel" inputMode="numeric" placeholder="0" value={amountStr} onChange={handleAmountChange} className="pl-14 h-16 text-2xl font-extrabold text-slate-800 bg-slate-50 border-transparent focus:bg-white focus:border-emerald-500 rounded-[20px]"/>
                 </div>
               </div>
+
+              {paymentMode === 'piutang' && (
+                  <div className="animate-in fade-in slide-in-from-top-2">
+                      <label className="text-[11px] uppercase tracking-widest font-bold text-amber-500 block mb-2 ml-1">Ditagih Ke Siapa?</label>
+                      <Input placeholder="Nama Klien / Pihak" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-14 bg-amber-50 border-transparent focus:border-amber-400 rounded-[16px]"/>
+                  </div>
+              )}
 
               <div>
                 <label className="text-[11px] uppercase tracking-widest font-bold text-slate-400 block mb-2 ml-1">Kategori</label>
@@ -123,14 +144,13 @@ export default function Income() {
             </div>
 
             <Button 
-                onClick={() => handleSubmit()} 
-                className="w-full h-16 bg-emerald-500 hover:bg-emerald-600 text-white text-lg font-extrabold shadow-lg shadow-emerald-200 rounded-full active:scale-95 transition-transform"
+                onClick={handleSubmit} 
+                className={`w-full h-16 text-white text-lg font-extrabold shadow-lg rounded-full active:scale-95 transition-transform ${paymentMode === 'piutang' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200'}`} 
                 disabled={isSubmitting}
             >
-                {isSubmitting ? <Loader2 className="animate-spin w-6 h-6" /> : "SIMPAN PEMASUKAN"}
+                {isSubmitting ? <Loader2 className="animate-spin w-6 h-6" /> : (paymentMode === 'piutang' ? "SIMPAN PIUTANG" : "SIMPAN PEMASUKAN")}
             </Button>
         </div>
-
       </div>
     </MobileLayout>
   );

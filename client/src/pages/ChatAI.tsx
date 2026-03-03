@@ -23,6 +23,9 @@ export default function ChatAI() {
     const { data: investments } = useInvestments();
     const { data: target } = useTarget();
 
+    // FIX: Status Paywall
+    const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
+
     const [messages, setMessages] = useState<Message[]>(() => {
         const savedChat = localStorage.getItem("bilano_chat_history");
         if (savedChat) {
@@ -31,7 +34,7 @@ export default function ChatAI() {
             return [{ 
                 id: 1, 
                 sender: 'ai', 
-                text: "Halo Bos! 👋\nSaya BILANO. Riwayat chat ini akan tersimpan otomatis. Mau bahas apa hari ini?", 
+                text: "Halo Bos! 👋\nSaya BILANO Intelligence. Riwayat chat ini akan tersimpan otomatis. Mau bahas strategi keuangan atau butuh panduan aplikasi hari ini?", 
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             }];
         }
@@ -64,6 +67,14 @@ export default function ChatAI() {
     };
 
     const handleSend = async () => {
+        // FIX: Cegah Penggunaan AI jika Trial Habis
+        if (isTrialExpired) {
+            if (confirm("Masa Coba Habis! Fitur Chat AI eksklusif untuk member Premium. Buka kunci sekarang?")) {
+                window.location.href = "/paywall";
+            }
+            return;
+        }
+
         if (!inputText.trim()) return;
 
         const userMsg: Message = {
@@ -77,14 +88,28 @@ export default function ChatAI() {
         setInputText("");
         setIsTyping(true);
 
-        // === RANGKAIAN INTELIJEN AI (MENGIRIM KONTEKS DIAM-DIAM) ===
+        // === RANGKAIAN INTELIJEN AI (MENGIRIM KONTEKS & PANDUAN APLIKASI DIAM-DIAM) ===
         const totalCash = user?.cashBalance || 0;
         const txSummary = transactions?.slice(0, 10).map(t => `${t.date.split('T')[0]} - ${t.type} - ${t.category}: Rp${t.amount}`).join(" | ") || "Belum ada transaksi";
         const forexSummary = forexAssets?.map(f => `${f.amount} ${f.currency}`).join(", ") || "Tidak ada valas";
         const investSummary = investments?.map(i => `${i.quantity} ${i.symbol}`).join(", ") || "Tidak ada investasi";
-        const targetSummary = target ? `Target: Rp${target.targetAmount}, Limit Keluar: Rp${target.monthlyBudget}` : "Tidak ada target";
+        const targetSummary = target ? `Target: Rp${target.targetAmount}, Limit Keluar: Rp${target.monthlyBudget} (${target.budgetType})` : "Tidak ada target";
 
-        const systemContext = `[INFO SISTEM: Kamu adalah BILANO AI, konsultan keuangan pribadi. Jawab dengan ramah, santai, analitis, dan kritis. Berikut adalah data keuangan user saat ini: Saldo IDR: ${totalCash}, Kepemilikan Valas: ${forexSummary}, Portofolio Investasi: ${investSummary}, Strategi Keuangan: ${targetSummary}, 10 Transaksi Terakhir: ${txSummary}].\n\nPertanyaan User: ${userMsg.text}`;
+        // FIX: PENGETAHUAN SUPER LENGKAP TENTANG APLIKASI BILANO
+        const bilanoKnowledgeBase = `
+        [PANDUAN MUTLAK APLIKASI BILANO UNTUK AI]
+        Kamu harus tahu cara kerja aplikasi BILANO agar bisa memandu user:
+        1. Pemasukan & Pengeluaran: User bisa mencatat tunai atau mode 'Ngutang/Piutang'. Jika mode Ngutang/Piutang dipilih, saldo kas tunai tidak akan berubah, melainkan otomatis tercatat di menu Hutang/Piutang sebagai aset/kewajiban.
+        2. Hutang & Piutang KAS: Digunakan khusus untuk pinjam meminjam uang kas. Mendukung 'Pembayaran Cicilan' (Bayar sebagian) dan otomatis menghitung sisa tagihan. Mendukung Valas.
+        3. Investasi (Saham, Crypto, dll): Mendukung mata uang asing. Khusus saham lokal (IDR), harga input adalah per lembar, dan total otomatis dikali 100 (1 Lot). Saat dijual, aplikasi otomatis menghitung Profit/Loss (P/L).
+        4. Valas (Dompet Valas): Menyediakan Live Market Rates. User bisa mencatat Mutasi Valas atau melakukan Transaksi Tukar Valas (Rupiah Keluar/Masuk).
+        5. Smart Scan & Voice: Fitur AI OCR untuk membaca nominal dari foto struk belanja, dan fitur pendeteksi suara untuk mencatat transaksi cepat ("Beli bensin 20 ribu").
+        6. Target & Strategi (Performance): User bisa membatasi pengeluaran. Ada mode 'Statis' (sisa budget hangus) dan 'Rollover' (sisa budget diakumulasi ke bulan depan). Fitur Dana Darurat memotong budget bulan depan jika overbudget.
+        7. Pusat Laporan (PDF): Mendownload Neraca Kekayaan, Cashflow, dan 3 jenis Grafik Batang performa 12 bulan terakhir secara otomatis.
+        8. Keamanan & Paywall: Dilengkapi App PIN 6 angka dan Mode Privasi (sensor saldo). Fitur Premium bisa dibeli dengan berlangganan BILANO PRO (Mayar).
+        `;
+
+        const systemContext = `[INFO SISTEM: Kamu adalah BILANO AI, konsultan keuangan cerdas sekaligus asisten panduan aplikasi. Jawab dengan ramah, suportif, logis, analitis, dan kritis. \n\n${bilanoKnowledgeBase}\n\nDATA KEUANGAN USER SAAT INI: \n- Saldo Kas IDR: ${totalCash} \n- Kepemilikan Valas: ${forexSummary} \n- Portofolio Investasi: ${investSummary} \n- Strategi & Limit: ${targetSummary} \n- 10 Transaksi Terakhir: ${txSummary}].\n\nTugasmu: Jawab pertanyaan user dengan wawasan finansial, dan pandu mereka menggunakan fitur aplikasi BILANO jika relevan.\n\nPertanyaan User: ${userMsg.text}`;
 
         try {
             const res = await fetch("/api/chat/ask", {
@@ -93,7 +118,7 @@ export default function ChatAI() {
                     "Content-Type": "application/json",
                     "x-user-email": localStorage.getItem("bilano_email") || ""
                 },
-                body: JSON.stringify({ message: systemContext }) // Kirim prompt rahasia!
+                body: JSON.stringify({ message: systemContext }) 
             });
 
             if (!res.ok) throw new Error("Server Error");
@@ -103,7 +128,7 @@ export default function ChatAI() {
             const aiMsg: Message = {
                 id: Date.now() + 1,
                 sender: 'ai',
-                text: data.reply || "Maaf, saya mengantuk sebentar.",
+                text: data.reply || "Maaf, mesin AI saya sedang sibuk sebentar.",
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
             
@@ -113,7 +138,7 @@ export default function ChatAI() {
             setMessages(prev => [...prev, { 
                 id: Date.now(), 
                 sender: 'ai', 
-                text: "⚠️ Koneksi ke otak AI terputus. Pastikan internet Anda lancar dan API Key sudah disetel di Vercel.", 
+                text: "⚠️ Koneksi ke otak AI terputus. Pastikan internet Anda lancar dan API Key Groq/OpenAI sudah valid di pengaturan Vercel.", 
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             }]);
         } finally {
@@ -208,10 +233,15 @@ export default function ChatAI() {
                             value={inputText} 
                             onChange={e => setInputText(e.target.value)} 
                             onKeyDown={e => e.key === 'Enter' && handleSend()}
-                            placeholder="Tanya AI Assistant..." 
-                            className="flex-1 bg-slate-50 border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all h-12 rounded-full px-4"
+                            placeholder={isTrialExpired ? "🔒 Premium Dibutuhkan" : "Tanya AI Assistant..."}
+                            disabled={isTrialExpired || isTyping}
+                            className="flex-1 bg-slate-50 border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all h-12 rounded-full px-4 disabled:opacity-50"
                         />
-                        <Button onClick={handleSend} disabled={!inputText || isTyping} className="bg-indigo-600 hover:bg-indigo-700 w-12 h-12 px-0 rounded-full shadow-md transition-transform active:scale-95">
+                        <Button 
+                            onClick={handleSend} 
+                            disabled={!inputText && !isTrialExpired || isTyping} 
+                            className={`w-12 h-12 px-0 rounded-full shadow-md transition-transform active:scale-95 ${isTrialExpired ? 'bg-slate-300' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                        >
                             <Send className="w-5 h-5"/>
                         </Button>
                     </div>

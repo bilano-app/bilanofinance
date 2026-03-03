@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { 
     Users, ArrowUpRight, ArrowDownLeft, Calendar, 
-    CheckCircle2, Trash2, Plus, HandCoins, AlertCircle, X, Loader2
+    CheckCircle2, Trash2, Plus, HandCoins, AlertCircle, X, Loader2, ArrowRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -32,7 +32,15 @@ export default function Debts() {
   const [desc, setDesc] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
 
+  // PAYMENT STATES (UNTUK CICILAN)
+  const [payModalOpen, setPayModalOpen] = useState(false);
+  const [selectedDebt, setSelectedDebt] = useState<DebtItem | null>(null);
+  const [payAmount, setPayAmount] = useState("");
+
   const { toast } = useToast();
+  
+  // FIX: Paywall Check
+  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
 
   const fetchData = async () => {
       try {
@@ -54,7 +62,16 @@ export default function Debts() {
 
   useEffect(() => { fetchData(); }, []);
 
+  const checkPaywall = () => {
+      if (isTrialExpired) {
+          if (confirm("Masa Coba Habis! Fitur Hutang & Piutang eksklusif untuk member Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+          return true;
+      }
+      return false;
+  };
+
   const handleAdd = async () => {
+      if (checkPaywall()) return;
       if(!name || !amount) return;
       try {
           const nameWithCurrency = `${name}|${currency}`;
@@ -71,21 +88,31 @@ export default function Debts() {
       } catch (e) { toast({ title: "Error", variant: "destructive" }); }
   };
 
-  const handleMarkPaid = async (id: number, type: string, displayName: string) => {
-      if(!confirm(`Tandai Lunas untuk ${displayName}? Saldo akan otomatis disesuaikan.`)) return;
+  const handlePay = async () => {
+      if (checkPaywall() || !selectedDebt) return;
+      
+      const nominal = parseFloat(payAmount) || selectedDebt.amount;
+      
+      if (nominal > selectedDebt.amount) { 
+          toast({title: "Nominal Berlebih", description: "Maksimal pembayaran adalah sisa tagihan saat ini.", variant: "destructive"}); 
+          return; 
+      }
+      
       try {
-          const res = await fetch(`/api/debts/${id}/pay`, { 
+          const res = await fetch(`/api/debts/${selectedDebt.id}/pay`, { 
               method: "POST", 
-              headers: { "x-user-email": localStorage.getItem("bilano_email") || "" } 
+              headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
+              body: JSON.stringify({ amount: nominal }) 
           });
-          if(res.ok) {
-              toast({ title: "Lunas!", description: "Saldo kas telah diupdate." });
-              fetchData();
+          if(res.ok) { 
+              toast({ title: "Pembayaran Sukses!", description: "Saldo kas telah diupdate." }); 
+              setPayModalOpen(false); setPayAmount(""); fetchData(); 
           }
       } catch (e) {}
   };
 
   const handleDelete = async (id: number) => {
+      if (checkPaywall()) return;
       if(!confirm("Hapus catatan ini secara permanen?")) return;
       try {
           await fetch(`/api/debts/${id}`, { 
@@ -111,8 +138,36 @@ export default function Debts() {
 
   return (
     <MobileLayout title="Hutang & Piutang" showBack>
-      <div className="space-y-6 pt-4 pb-24 px-1">
+      <div className="space-y-6 pt-4 pb-24 px-2">
+
+        {/* MODAL PEMBAYARAN CICILAN */}
+        {payModalOpen && selectedDebt && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
+                <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl relative">
+                    <button onClick={() => {setPayModalOpen(false); setPayAmount("");}} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>
+                    <h3 className="text-lg font-extrabold text-slate-800 mb-2">Pelunasan / Cicilan</h3>
+                    <p className="text-xs text-slate-500 mb-4">Sisa Tagihan: <span className="font-bold text-rose-600">{formatRp(selectedDebt.amount)}</span></p>
+                    <Input type="number" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(e.target.value)} className="h-14 font-bold text-lg mb-4"/>
+                    <Button onClick={handlePay} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold">KONFIRMASI PEMBAYARAN</Button>
+                </div>
+            </div>
+        )}
+
+        {/* DISCLAIMER UNTUK PENGGUNA */}
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0"/>
+            <div>
+                <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                    <strong className="font-extrabold">PENTING:</strong> Halaman ini khusus untuk aktivitas <strong>Pinjam Meminjam Uang KAS</strong> (Kas Anda bertambah/berkurang). Jika ini adalah piutang/hutang dari hasil <strong>Pemasukan/Pengeluaran</strong>, silakan catat di:
+                </p>
+                <div className="flex gap-2 mt-3">
+                    <button onClick={() => window.location.href='/income'} className="flex-1 text-[10px] font-bold bg-white border border-amber-200 text-amber-700 py-1.5 rounded-lg flex justify-center items-center gap-1 hover:bg-amber-100">Catat Pemasukan <ArrowRight className="w-3 h-3"/></button>
+                    <button onClick={() => window.location.href='/expense'} className="flex-1 text-[10px] font-bold bg-white border border-amber-200 text-amber-700 py-1.5 rounded-lg flex justify-center items-center gap-1 hover:bg-amber-100">Catat Pengeluaran <ArrowRight className="w-3 h-3"/></button>
+                </div>
+            </div>
+        </div>
         
+        {/* HEADER CARD */}
         <div className={`p-6 rounded-[32px] text-white shadow-xl relative overflow-hidden transition-colors duration-500 ${activeTab === 'piutang' ? 'bg-gradient-to-br from-emerald-500 to-teal-700' : 'bg-gradient-to-br from-rose-500 to-pink-700'}`}>
             <div className="relative z-10">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-white/80 mb-1 flex items-center gap-2">
@@ -125,7 +180,7 @@ export default function Debts() {
             <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/10 rounded-tl-full pointer-events-none"></div>
         </div>
 
-        {/* === FIX 3: UKURAN TOMBOL DIPERKECIL AGAR TIDAK KELUAR BATAS === */}
+        {/* TAB BUTTONS */}
         <div className="flex bg-slate-100 p-1.5 rounded-full">
             <button onClick={() => setActiveTab('piutang')} className={`flex-1 py-2.5 rounded-full text-[11px] font-extrabold transition-all flex items-center justify-center gap-1 ${activeTab === 'piutang' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                 <ArrowUpRight className="w-3.5 h-3.5"/> PIUTANG (Uang Kita)
@@ -135,6 +190,7 @@ export default function Debts() {
             </button>
         </div>
 
+        {/* ADD FORM */}
         {!isFormOpen ? (
             <Button onClick={() => setIsFormOpen(true)} className={`w-full h-14 rounded-full font-extrabold shadow-lg transition-transform active:scale-95 ${activeTab === 'piutang' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 shadow-emerald-100' : 'bg-rose-100 text-rose-700 hover:bg-rose-200 shadow-rose-100'}`}>
                 <Plus className="w-5 h-5 mr-2"/> CATAT {activeTab.toUpperCase()} BARU
@@ -163,6 +219,7 @@ export default function Debts() {
             </div>
         )}
 
+        {/* LIST ITEM */}
         <div className="space-y-4">
             <h3 className="font-bold text-slate-800 text-sm ml-2 px-1">Daftar Belum Lunas</h3>
             {filteredItems.length === 0 ? (
@@ -211,7 +268,7 @@ export default function Debts() {
                             
                             <div className="flex flex-col gap-2">
                                 {!item.isPaid ? (
-                                    <button onClick={() => handleMarkPaid(item.id, item.type, displayName)} className={`p-3 rounded-[16px] text-white shadow-md active:scale-95 transition-transform flex flex-col items-center justify-center ${activeTab === 'hutang' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
+                                    <button onClick={() => { setSelectedDebt(item); setPayModalOpen(true); }} className={`p-3 rounded-[16px] text-white shadow-md active:scale-95 transition-transform flex flex-col items-center justify-center ${activeTab === 'hutang' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
                                         <CheckCircle2 className="w-5 h-5 mb-0.5"/>
                                         <span className="text-[9px] font-extrabold uppercase tracking-wider">{activeTab === 'hutang' ? 'Bayar' : 'Tagih'}</span>
                                     </button>

@@ -62,6 +62,9 @@ export default function Forex() {
 
   const { toast } = useToast();
 
+  // FIX: Paywall Check Status
+  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
+
   const filteredCurrencies = CURRENCY_LIST.filter(c => 
       c.code.toLowerCase().includes(searchQuery.toLowerCase()) || 
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -105,6 +108,12 @@ export default function Forex() {
   useEffect(() => { fetchData(); }, []);
 
   const handleCurrencyClick = async (currencyCode: string) => {
+      // FIX: Sensor/Lock Grafik jika Trial Habis
+      if (isTrialExpired) {
+          if (confirm("Masa Coba Habis! Akses Premium diperlukan untuk melihat Grafik Valas. Buka kunci sekarang?")) window.location.href = "/paywall";
+          return;
+      }
+
       setChartCurr(currencyCode);
       setLoadingChart(true);
       setChartData([]); 
@@ -136,6 +145,12 @@ export default function Forex() {
   };
 
   const handleExchange = async () => {
+      // FIX: Lock Fitur Tukar Valas
+      if (isTrialExpired) {
+          if (confirm("Masa Coba Habis! Transaksi Valas eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+          return;
+      }
+
       const qty = parseFloat(amountExchange);
       const rate = parseFloat(rateExchange);
       if (!qty || !rate) { toast({ title: "Error", description: "Isi jumlah dan kurs.", variant: "destructive" }); return; }
@@ -144,7 +159,7 @@ export default function Forex() {
           const forexType = exchangeMode === 'buy' ? 'income' : 'expense';
           
           const resForex = await fetch("/api/forex/transaction", {
-              method: "POST", headers: { "Content-Type": "application/json" },
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
               body: JSON.stringify({ 
                   currency: selectedCurr.code, 
                   amount: qty, 
@@ -159,7 +174,7 @@ export default function Forex() {
           const txDesc = exchangeMode === 'buy' ? `Beli ${selectedCurr.code} ${qty}` : `Jual ${selectedCurr.code} ${qty}`;
 
           await fetch("/api/transactions", {
-              method: "POST", headers: { "Content-Type": "application/json" },
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
               body: JSON.stringify({ 
                   type: txType, 
                   amount: totalRp, 
@@ -176,6 +191,12 @@ export default function Forex() {
   };
 
   const handleMutation = async () => {
+      // FIX: Lock Fitur Mutasi Valas
+      if (isTrialExpired) {
+          if (confirm("Masa Coba Habis! Mutasi Valas eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+          return;
+      }
+
       const qty = parseFloat(amountMutation);
       if (!qty) { toast({ title: "Error", description: "Isi nominal.", variant: "destructive" }); return; }
       
@@ -183,7 +204,7 @@ export default function Forex() {
 
       try {
           const res = await fetch("/api/forex/transaction", {
-              method: "POST", headers: { "Content-Type": "application/json" },
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
               body: JSON.stringify({ 
                   currency: selectedCurr.code, 
                   amount: qty, 
@@ -232,7 +253,10 @@ export default function Forex() {
                     <p className="text-xs text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
                         <Globe className="w-3 h-3"/> Total Aset Asing (Estimasi)
                     </p>
-                    <h2 className="text-3xl font-bold text-emerald-400">{formatRp(totalValasInRupiah)}</h2>
+                    {/* SENSOR NILAI ASET JIKA PREMIUM HABIS */}
+                    <h2 className="text-3xl font-bold text-emerald-400">
+                        {isTrialExpired ? "🔒 Premium" : formatRp(totalValasInRupiah)}
+                    </h2>
                 </div>
                 <button onClick={fetchData} className={`p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all ${refreshing ? "animate-spin" : ""}`}>
                     <RefreshCw className="w-5 h-5 text-white"/>
@@ -250,15 +274,16 @@ export default function Forex() {
                 {POPULAR_RATES.map(curr => (
                     <button key={curr} onClick={() => handleCurrencyClick(curr)} className="bg-white border border-slate-200 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-all active:scale-95">
                         <div className="text-xs font-bold text-slate-400 mb-1">{curr}</div>
-                        <div className="text-xs font-bold text-slate-700">
-                             {rates[curr] ? `Rp ${Math.round(rates[curr]).toLocaleString("id-ID")}` : "..."}
+                        {/* FIX SENSOR PAYWALL: Tanda Titik-Titik atau Premium jika Trial Habis */}
+                        <div className={`text-xs font-bold ${isTrialExpired ? 'text-rose-500' : 'text-slate-700'}`}>
+                             {isTrialExpired ? "🔒 Premium" : (rates[curr] ? `Rp ${Math.round(rates[curr]).toLocaleString("id-ID")}` : "...")}
                         </div>
                     </button>
                 ))}
             </div>
         </div>
 
-        {chartCurr && (
+        {chartCurr && !isTrialExpired && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
                 <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl animate-in zoom-in-95 relative">
                     <div className="flex justify-between items-center mb-4">
@@ -361,7 +386,8 @@ export default function Forex() {
                         
                         <div className="grid grid-cols-2 gap-4">
                             <div><label className="text-xs font-bold text-slate-500 mb-1 block">Jml ({selectedCurr.code})</label><Input type="number" placeholder="100" className="h-12 text-lg font-bold" value={amountExchange} onChange={(e) => setAmountExchange(e.target.value)}/></div>
-                            <div><label className="text-xs font-bold text-slate-500 mb-1 block">Kurs Deal (Rp)</label><Input type="number" placeholder={rates[selectedCurr.code] ? Math.round(rates[selectedCurr.code]).toString() : "0"} className="h-12 text-lg font-bold" value={rateExchange} onChange={(e) => setRateExchange(e.target.value)}/></div>
+                            {/* FIX SENSOR PAYWALL: Sensor Placeholder Nilai Tukar */}
+                            <div><label className="text-xs font-bold text-slate-500 mb-1 block">Kurs Deal (Rp)</label><Input type="number" placeholder={isTrialExpired ? "🔒" : (rates[selectedCurr.code] ? Math.round(rates[selectedCurr.code]).toString() : "0")} className="h-12 text-lg font-bold" value={rateExchange} onChange={(e) => setRateExchange(e.target.value)}/></div>
                         </div>
                         
                         <div className={`p-3 rounded-xl border text-center ${exchangeMode === 'buy' ? 'bg-purple-50 border-purple-100' : 'bg-orange-50 border-orange-100'}`}>
@@ -395,8 +421,14 @@ export default function Forex() {
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <div className="font-bold text-emerald-600 text-sm">{formatRp(idrVal)}</div>
-                                    <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1"><Activity className="w-3 h-3"/> {formatRp(liveRate)}</div>
+                                    {/* FIX SENSOR PAYWALL: Sembunyikan Estimasi & Live Rate */}
+                                    <div className={`font-bold ${isTrialExpired ? 'text-rose-500' : 'text-emerald-600'} text-sm`}>
+                                        {isTrialExpired ? "🔒 Premium" : formatRp(idrVal)}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1">
+                                        <Activity className="w-3 h-3"/> 
+                                        {isTrialExpired ? "***" : formatRp(liveRate)}
+                                    </div>
                                 </div>
                             </div>
                         )

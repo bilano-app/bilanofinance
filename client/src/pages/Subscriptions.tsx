@@ -30,9 +30,16 @@ export default function Subscriptions() {
 
   const { toast } = useToast();
 
+  // ==========================================
+  // PAYWALL & HEADERS FIX
+  // ==========================================
+  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
+  const getAuthHeaders = () => ({ "x-user-email": localStorage.getItem("bilano_email") || "" });
+
   const fetchSubs = async () => {
       try {
-          const res = await fetch("/api/subscriptions");
+          // FIX: Tambahkan Headers agar tidak Timeout (Loading abadi)
+          const res = await fetch("/api/subscriptions", { headers: getAuthHeaders() });
           if (res.ok) setSubs(await res.json());
       } catch (e) { console.error(e); } finally { setLoading(false); }
   };
@@ -40,10 +47,18 @@ export default function Subscriptions() {
   useEffect(() => { fetchSubs(); }, []);
 
   const handleAdd = async () => {
+      // FIX: Paywall Check
+      if (isTrialExpired) {
+          if (confirm("Masa Coba Habis! Fitur Atur Langganan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+          return;
+      }
+
       if (!name || !price || !nextDate) return;
       try {
           const res = await fetch("/api/subscriptions", {
-              method: "POST", headers: { "Content-Type": "application/json" },
+              method: "POST", 
+              // FIX: Tambahkan Headers
+              headers: { "Content-Type": "application/json", ...getAuthHeaders() },
               body: JSON.stringify({ name, cost: parseFloat(price), cycle, nextBilling: nextDate, isActive: true })
           });
           if (res.ok) {
@@ -55,9 +70,17 @@ export default function Subscriptions() {
   };
 
   const toggleStatus = async (id: number, currentStatus: boolean) => {
+      // FIX: Paywall Check
+      if (isTrialExpired) {
+          if (confirm("Masa Coba Habis! Fitur Atur Langganan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+          return;
+      }
+
       try {
           await fetch(`/api/subscriptions/${id}/status`, {
-              method: "PATCH", headers: { "Content-Type": "application/json" },
+              method: "PATCH", 
+              // FIX: Tambahkan Headers
+              headers: { "Content-Type": "application/json", ...getAuthHeaders() },
               body: JSON.stringify({ isActive: !currentStatus })
           });
           fetchSubs();
@@ -65,9 +88,19 @@ export default function Subscriptions() {
   };
 
   const deleteSub = async (id: number) => {
+      // FIX: Paywall Check
+      if (isTrialExpired) {
+          if (confirm("Masa Coba Habis! Fitur Atur Langganan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+          return;
+      }
+
       if(!confirm("Hapus permanen?")) return;
       try {
-          await fetch(`/api/subscriptions/${id}`, { method: "DELETE" });
+          // FIX: Tambahkan Headers
+          await fetch(`/api/subscriptions/${id}`, { 
+              method: "DELETE",
+              headers: getAuthHeaders()
+          });
           fetchSubs();
       } catch (e) {}
   };

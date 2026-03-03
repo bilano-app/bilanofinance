@@ -8,9 +8,6 @@ import Groq from "groq-sdk";
 import OpenAI from "openai";
 import nodemailer from "nodemailer";
 
-
-
-
 // Database sementara untuk menyimpan izin notifikasi use
 
 // ============================================================================
@@ -194,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(tx); 
   });
 
-app.get("/api/forex", async (req, res) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
+  app.get("/api/forex", async (req, res) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
   app.get("/api/forex/rates", async (req, res) => { 
       try {
           const response = await fetch("https://open.er-api.com/v6/latest/USD");
@@ -246,6 +243,7 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
   });
 
   app.get("/api/debts", async (req, res) => { const user = await getUser(req); res.json(await storage.getDebts(user!.id)); });
+  
   app.post("/api/debts", async (req, res) => { 
       const user = await getUser(req); 
       const { type, amount, name, description } = req.body;
@@ -262,27 +260,49 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
       res.json(d); 
   });
 
+  // =========================================================================
+  // FIX 3: UPDATE JALUR PEMBAYARAN CICILAN / PARSIAL
+  // =========================================================================
   app.post("/api/debts/:id/pay", async (req, res) => {
       const user = await getUser(req);
       const id = parseInt(req.params.id);
+      const { amount } = req.body; 
+      
       const debts = await storage.getDebts(user!.id);
       const debt = debts.find(d => d.id === id);
       
       if (debt && !debt.isPaid) {
+          // Jika frontend mengirim amount, gunakan itu (Cicilan). Jika tidak, Lunas.
+          const payAmount = (amount !== undefined && amount > 0) ? Math.min(amount, debt.amount) : debt.amount;
           let newBalance = user!.cashBalance;
-          // MENGGUNAKAN debt_pay & debt_receive
+          
           if (debt.type === 'hutang') { 
-              newBalance -= debt.amount; 
-              await storage.createTransaction(user!.id, { type: 'debt_pay', amount: debt.amount, category: 'Bayar Hutang', description: `Lunas ke ${debt.name}`, date: new Date() }); 
+              newBalance -= payAmount; 
+              await storage.createTransaction(user!.id, { type: 'debt_pay', amount: payAmount, category: 'Bayar Hutang', description: `Cicilan/Lunas ke ${debt.name.split('|')[0]}`, date: new Date() }); 
           } else { 
-              newBalance += debt.amount; 
-              await storage.createTransaction(user!.id, { type: 'debt_receive', amount: debt.amount, category: 'Piutang Dibayar', description: `Lunas dari ${debt.name}`, date: new Date() }); 
+              newBalance += payAmount; 
+              await storage.createTransaction(user!.id, { type: 'debt_receive', amount: payAmount, category: 'Piutang Dibayar', description: `Cicilan/Lunas dari ${debt.name.split('|')[0]}`, date: new Date() }); 
           }
           await storage.updateUserBalance(user!.id, newBalance);
+          
+          // Hitung sisa. Jika masih ada, buat record hutang/piutang baru dengan sisa amount
+          const remaining = debt.amount - payAmount;
+          if (remaining > 0) {
+              await storage.createDebt(user!.id, {
+                  type: debt.type, 
+                  name: debt.name, 
+                  amount: remaining, 
+                  description: `[Sisa Tagihan] ${debt.description || ''}`, 
+                  dueDate: (debt as any).dueDate || ""
+              });
+          }
+          
+          // Tandai record yang lama sebagai lunas
           await storage.markDebtPaid(id); 
       }
       res.json({ success: true });
   });
+
   app.delete("/api/debts/:id", async (req, res) => { await storage.deleteDebt(parseInt(req.params.id)); res.json({success:true}); });
 
   app.get("/api/target", async (req, res) => { const user = await getUser(req); res.json(await storage.getTarget(user!.id) || {}); });
@@ -342,7 +362,7 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
   
   app.get("/api/investments", async (req, res) => { const user = await getUser(req); res.json(await storage.getInvestments(user!.id)); });
   
-// FIX: Pembelian investasi pakai 'invest_buy'
+  // FIX: Pembelian investasi pakai 'invest_buy'
   app.post("/api/investments/buy", async (req, res) => { 
       const user = await getUser(req); 
       const { symbol, quantity, price, type } = req.body; 
@@ -463,7 +483,7 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
       }
   });
 
-// ... (kodingan webhook mayar yang sudah ada sebelumnya)
+  // ... (kodingan webhook mayar yang sudah ada sebelumnya)
   app.post("/api/payment/webhook", async (req, res) => {
       try {
           const data = req.body;
@@ -487,16 +507,16 @@ app.get("/api/forex", async (req, res) => { const user = await getUser(req); res
       }
   });
 
-// ============================================================================
+  // ============================================================================
   // === JALUR NOTIFIKASI ONESIGNAL (VERSI FINAL UNTUK APK) ===
   // ============================================================================
-// ============================================================================
+  // ============================================================================
   // === JALUR NOTIFIKASI ONESIGNAL (VERSI DETEKTIF FINAL) ===
   // ============================================================================
-// ============================================================================
+  // ============================================================================
   // === JALUR NOTIFIKASI ONESIGNAL (VERSI FINAL SUKSES + GACHA PESAN) ===
   // ============================================================================
-app.get('/api/cron/reminder', async (req, res) => {
+  app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           const rawKey = process.env.ONESIGNAL_REST_KEY;
