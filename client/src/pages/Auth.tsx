@@ -14,8 +14,11 @@ import {
 } from "firebase/auth";
 
 export default function Auth() {
+  // PEMBERSIH GEMBOK GLOBAL: Hancurkan kunci saat di halaman Auth!
+  localStorage.removeItem("bilano_trial_expired");
+
   const [isLogin, setIsLogin] = useState(true); 
-  const [step, setStep] = useState<'form' | 'otp'>('form'); 
+  const [step, setStep] = useState<'form' | 'otp'>('form');
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

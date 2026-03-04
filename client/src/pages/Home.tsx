@@ -183,6 +183,10 @@ export default function Home() {
         localStorage.removeItem("bilano_auth");
         localStorage.removeItem("bilano_email");
         sessionStorage.removeItem("bilano_session_unlocked");
+        
+        // Hapus status gembok akun sebelumnya
+        localStorage.removeItem("bilano_trial_expired"); 
+        
         toast({ title: "Berhasil Keluar", description: "Sampai jumpa lagi!" });
         setLocation("/auth"); 
     } catch (error) { console.error(error); }
