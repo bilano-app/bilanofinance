@@ -415,71 +415,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/user", async (req, res) => { const user = await getUser(req); res.json(user); });
   app.patch("/api/user/profile", async (req, res) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
 
-  app.post("/api/payment/create", async (req, res) => {
+  app.post("/api/payment/midtrans/create", async (req, res) => {
       try {
-          const { name, email, userId } = req.body;
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "User tidak valid." });
+
           const amount = 99000; 
-          const orderId = `BILANO-PRO-${userId || 'GUEST'}-${Date.now()}`;
-          const apiKey = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjZGEzMjVkZS02MDg5LTRhMDYtYTE1ZS0xYTdkOTRmZDQzMTEiLCJhY2NvdW50SWQiOiJiMmE2ZTZhMi0zNzkxLTQyOGYtYTY1YS1kYzFiMDk3MjJjMzIiLCJjcmVhdGVkQXQiOiIxNzcxNjg5MTU1MzM3Iiwicm9sZSI6ImRldmVsb3BlciIsInN1YiI6ImFkcmllbmZhbmRyYTE0QGdtYWlsLmNvbSIsIm5hbWUiOiJFLUJvb2sgIiwibGluayI6ImFkcmllbmZhbmRyYSIsImlzU2VsZkRvbWFpbiI6bnVsbCwiaWF0IjoxNzcxNjg5MTU1fQ.OJz6Ck5TAcGOMfDGRI0xhn8JWOjJtz68I0uKrt6RTspX9_G2b5-ac7-KGQOkDcIAF6ou0yWFnzHk805CFPuIQEq7oLhnMHi93x_8CJ5J2D0LmMtTaEJ0i9PAKT6TxvWKOEaPs2QtYRXHx2BWPvUjNRrCbcyB7MaIoiTW4F-HbQTKMI3b36ii-EUm5rhXPg7RJItGbSa4d2tuX_QIa8EEGUd416nssDRiQJQDAoaEov738-yPbzRkDFu4O-CfWc46t4kDIXoLsMHvBbFZO1oQ-dnVm7VkDKq7eiZz7fe9dPIaQx9he91RpHYsC5qd5T-kzSvro0aBeZdaOvyWHdhO0Q";
+          const orderId = `BILANO-PRO-${user.id}-${Date.now()}`;
           
-          if (!apiKey) {
-              return res.status(500).json({ error: "API Key Mayar belum terbaca oleh Server. Coba restart server." });
-          }
+          // GANTI DENGAN SERVER KEY MIDTRANS ANDA DI VERCEL
+          const serverKey = process.env.MIDTRANS_SERVER_KEY || ""; 
+          const authString = Buffer.from(serverKey + ":").toString('base64');
 
           const payload = {
-              name: name || "Member BILANO",
-              email: email || "member@bilano.app",
-              amount: amount,
-              description: "Langganan BILANO PRO (1 Tahun)",
-              reference_id: orderId, 
-              redirect_url: "http://localhost:5173",
-              mobile_number: "081234567890", 
+              transaction_details: {
+                  order_id: orderId,
+                  gross_amount: amount
+              },
+              customer_details: {
+                  first_name: user.firstName || "Member",
+                  last_name: user.lastName || "BILANO",
+                  email: user.email
+              },
+              item_details: [{
+                  id: "BILANO-PRO-1Y",
+                  price: amount,
+                  quantity: 1,
+                  name: "Langganan BILANO PRO (1 Tahun)"
+              }]
           };
 
-          const mayarRes = await fetch("https://api.mayar.id/hl/v1/payment/link", {
+          // Tembak ke API Midtrans (Ganti URL ke 'app.midtrans.com' jika sudah Production)
+          const midtransRes = await fetch("https://app.midtrans.com/snap/v1/transactions", {
               method: "POST",
               headers: { 
-                  "Authorization": `Bearer ${apiKey.trim()}`, 
-                  "Content-Type": "application/json" 
+                  "Content-Type": "application/json",
+                  "Accept": "application/json",
+                  "Authorization": `Basic ${authString}`
               },
               body: JSON.stringify(payload)
           });
 
-          const data = await mayarRes.json();
+          const data = await midtransRes.json();
           
-          if (mayarRes.ok && data.data && data.data.link) {
-              res.json({ payment_link: data.data.link });
+          if (midtransRes.ok && data.token) {
+              res.json({ token: data.token });
           } else {
-              console.error("Tolak dari Mayar:", data);
-              res.status(500).json({ error: `Pesan Mayar: ${data.message || data.error || 'Ditolak'}` });
+              console.error("Midtrans Error:", data);
+              res.status(500).json({ error: "Gagal membuat kode pembayaran." });
           }
 
       } catch (error: any) {
-          console.error("Mayar Create Error API:", error);
-          res.status(500).json({ error: "Gagal menghubungi server Mayar. Cek koneksi internet server." });
+          console.error("Sistem Midtrans Gagal:", error);
+          res.status(500).json({ error: "Koneksi ke Midtrans terputus." });
       }
   });
 
-  app.post("/api/payment/webhook", async (req, res) => {
+  app.post("/api/payment/midtrans/webhook", async (req, res) => {
       try {
           const data = req.body;
-          // Jika Mayar bilang Lunas
-          if (data.status === 'SUCCESS' || data.status === 'PAID') {
-              const userId = parseInt(data.reference_id.split('-')[2]);
+          // Cek jika statusnya LUNAS (capture untuk kartu kredit, settlement untuk QRIS/GoPay/VA)
+          if (data.transaction_status === 'capture' || data.transaction_status === 'settlement') {
+              const orderId = data.order_id; // Format: BILANO-PRO-{userId}-{timestamp}
+              const parts = orderId.split('-');
               
-              // Hitung Argo 365 Hari dari detik ini
-              const validUntil = new Date();
-              validUntil.setDate(validUntil.getDate() + 365);
-              
-              // Nyalakan status PRO dan stempel tanggalnya di Database
-              await storage.updateUserProStatus(userId, true, validUntil);
-              
-              console.log(`✅ PEMBAYARAN SUKSES! User ID: ${userId} menjadi PRO hingga ${validUntil.toLocaleDateString()}`);
+              if (parts.length >= 3) {
+                  const userId = parseInt(parts[2]);
+                  
+                  // Aktifkan PRO 365 Hari
+                  const validUntil = new Date();
+                  validUntil.setDate(validUntil.getDate() + 365);
+                  
+                  await storage.updateUserProStatus(userId, true, validUntil);
+                  console.log(`✅ PEMBAYARAN MIDTRANS LUNAS! User ID: ${userId} menjadi PRO.`);
+              }
           }
-          res.json({ success: true });
+          res.status(200).json({ success: true });
       } catch (error) {
-          console.error("Webhook Error:", error);
-          res.status(500).json({ error: "Webhook Failed" });
+          console.error("Midtrans Webhook Error:", error);
+          res.status(500).json({ error: "Webhook Gagal" });
       }
   });
 

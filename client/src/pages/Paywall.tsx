@@ -29,10 +29,47 @@ export default function Paywall() {
       window.location.href = "/";
   };
 
-  const handleBerlangganan = () => {
+  const handleBerlangganan = async () => {
       setIsLoading(true);
-      const mayarLink = "https://adrienfandra.myr.id/pl/langganan-bilano-pro-1-tahun"; 
-      setTimeout(() => { window.location.href = mayarLink; }, 800);
+      try {
+          // 1. Minta Token Snap ke Server BILANO
+          const res = await fetch("/api/payment/midtrans/create", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-user-email": userEmail },
+              body: JSON.stringify({ email: userEmail })
+          });
+
+          const data = await res.json();
+
+          if (res.ok && data.token) {
+              // 2. Panggil Pop-up Midtrans
+              // @ts-ignore
+              window.snap.pay(data.token, {
+                  onSuccess: function(result: any) {
+                      toast({ title: "Pembayaran Berhasil! 🎉", description: "Akun Anda sekarang telah menjadi PRO." });
+                      window.location.href = "/"; // Paksa ke Home untuk reset gembok
+                  },
+                  onPending: function(result: any) {
+                      toast({ title: "Menunggu Pembayaran", description: "Silakan selesaikan pembayaran Anda." });
+                      setIsLoading(false);
+                  },
+                  onError: function(result: any) {
+                      toast({ title: "Pembayaran Gagal", description: "Terjadi kesalahan, silakan coba lagi.", variant: "destructive" });
+                      setIsLoading(false);
+                  },
+                  onClose: function() {
+                      toast({ title: "Dibatalkan", description: "Anda menutup jendela pembayaran." });
+                      setIsLoading(false);
+                  }
+              });
+          } else {
+              toast({ title: "Gagal memuat pembayaran", description: data.error || "Coba lagi nanti.", variant: "destructive" });
+              setIsLoading(false);
+          }
+      } catch (error) {
+          toast({ title: "Koneksi Terputus", description: "Gagal menyambung ke server.", variant: "destructive" });
+          setIsLoading(false);
+      }
   };
 
   return (
