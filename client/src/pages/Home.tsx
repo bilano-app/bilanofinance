@@ -77,33 +77,40 @@ export default function Home() {
       localStorage.setItem("bilano_privacy", newVal.toString());
   };
 
-  const userEmail = localStorage.getItem("bilano_email") || "Pengguna";
+  // FIX: Kita pecah rawEmail dan userEmail agar data paywall akurat per akun
+  const rawEmail = localStorage.getItem("bilano_email") || "";
+  const userEmail = rawEmail || "Pengguna";
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
+  // === PENGHITUNG WAKTU TRIAL (VERSI PER-EMAIL) ===
   useEffect(() => {
       if (isUserPro) return;
-      const trialKey = `bilano_trial_start_${userEmail}`;
-      let trialStart = localStorage.getItem(trialKey);
       
-      if (!trialStart) {
-          trialStart = Date.now().toString();
-          localStorage.setItem(trialKey, trialStart);
-      }
+      if (rawEmail) {
+          const trialKey = `bilano_trial_start_${rawEmail}`;
+          const expiredKey = `bilano_trial_expired_${rawEmail}`; // <-- FIX KUNCI SPESIFIK
+          let trialStart = localStorage.getItem(trialKey);
+          
+          if (!trialStart) {
+              trialStart = Date.now().toString();
+              localStorage.setItem(trialKey, trialStart);
+          }
 
-      const startTime = parseInt(trialStart);
-      const currentTime = Date.now();
-      const daysPassed = (currentTime - startTime) / (1000 * 60 * 60 * 24);
-      const TRIAL_DURATION_DAYS = 3; 
+          const startTime = parseInt(trialStart);
+          const currentTime = Date.now();
+          const daysPassed = (currentTime - startTime) / (1000 * 60 * 60 * 24);
+          const TRIAL_DURATION_DAYS = 3; 
 
-      if (daysPassed >= TRIAL_DURATION_DAYS) {
-          setTrialDaysLeft(0);
-          localStorage.setItem("bilano_trial_expired", "true");
-      } else {
-          setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
-          localStorage.setItem("bilano_trial_expired", "false");
+          if (daysPassed >= TRIAL_DURATION_DAYS) {
+              setTrialDaysLeft(0);
+              localStorage.setItem(expiredKey, "true"); // <-- FIX
+          } else {
+              setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
+              localStorage.setItem(expiredKey, "false"); // <-- FIX
+          }
       }
-  }, [isUserPro, userEmail]);
+  }, [isUserPro, rawEmail]);
 
   useEffect(() => {
       if (!isUserLoading && !isTargetLoading) {
@@ -446,8 +453,6 @@ export default function Home() {
         </div>
 
         <div className="px-1 mt-2">
-            {/* INI DIA POSISI TOMBOL NOTIFIKASINYA BOS! */}
-
             <h3 className="font-bold text-slate-800 text-sm mb-4">Fitur Pilihan</h3>
             <div className="grid grid-cols-3 gap-y-6 gap-x-3">
                 <MenuIconBox href="/forex" icon={DollarSign} bg="bg-blue-500" label="Valas" />

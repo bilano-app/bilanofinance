@@ -11,17 +11,16 @@ export default function Paywall() {
   // Kunci spesifik per email agar tidak bocor ke akun testing lain
   const userEmail = localStorage.getItem("bilano_email") || "";
   const trialKey = `bilano_trial_start_${userEmail}`;
+  const expiredKey = `bilano_trial_expired_${userEmail}`;
 
   useEffect(() => {
-      // 1. Cek apakah pengguna sudah pernah memencet tombol coba gratis
       if (localStorage.getItem(trialKey)) {
           setHasStartedTrial(true);
       }
-      // 2. Cek apakah masa trial sudah habis dari storage Home
-      if (localStorage.getItem("bilano_trial_expired") === "true") {
+      if (localStorage.getItem(expiredKey) === "true") {
           setIsExpired(true);
       }
-  }, [trialKey]);
+  }, [trialKey, expiredKey]);
 
   const handleMulaiCoba = () => {
       if (!localStorage.getItem(trialKey)) {

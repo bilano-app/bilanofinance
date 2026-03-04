@@ -24,8 +24,8 @@ export default function ChatAI() {
     const { data: target } = useTarget();
 
     // FIX: Status Paywall
-    const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
-
+    const currentUserEmail = localStorage.getItem("bilano_email") || "";
+    const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
     const [messages, setMessages] = useState<Message[]>(() => {
         const savedChat = localStorage.getItem("bilano_chat_history");
         if (savedChat) {

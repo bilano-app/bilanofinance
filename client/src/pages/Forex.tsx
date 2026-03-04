@@ -63,7 +63,8 @@ export default function Forex() {
   const { toast } = useToast();
 
   // FIX: Paywall Check Status
-  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
+  const currentUserEmail = localStorage.getItem("bilano_email") || "";
+  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   const filteredCurrencies = CURRENCY_LIST.filter(c => 
       c.code.toLowerCase().includes(searchQuery.toLowerCase()) || 

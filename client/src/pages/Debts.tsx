@@ -40,7 +40,8 @@ export default function Debts() {
   const { toast } = useToast();
   
   // FIX: Paywall Check
-  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
+  const currentUserEmail = localStorage.getItem("bilano_email") || "";
+  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   const fetchData = async () => {
       try {

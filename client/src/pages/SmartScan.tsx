@@ -45,7 +45,8 @@ export default function SmartScan() {
     // ==========================================
     // PAYWALL & HEADERS
     // ==========================================
-    const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
+    const currentUserEmail = localStorage.getItem("bilano_email") || "";
+    const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
     const getAuthHeaders = () => ({ "x-user-email": localStorage.getItem("bilano_email") || "" });
 
     useEffect(() => {

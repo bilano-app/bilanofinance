@@ -20,7 +20,8 @@ export default function Income() {
 
   const formatRp = (val: number) => "Rp " + val.toLocaleString("id-ID");
   const currentCash = user?.cashBalance || 0;
-  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
+  const currentUserEmail = localStorage.getItem("bilano_email") || "";
+  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, "");

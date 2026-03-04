@@ -16,7 +16,8 @@ export default function Reports() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   // FIX: Status Paywall
-  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
+  const currentUserEmail = localStorage.getItem("bilano_email") || "";
+  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   const formatRp = (val: number) => {
       const num = Number(val) || 0;

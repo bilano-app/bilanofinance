@@ -34,7 +34,8 @@ export default function Expense() {
   const now = new Date();
   const currentMonthIdx = now.getMonth(); 
   const currentYear = now.getFullYear();
-  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
+  const currentUserEmail = localStorage.getItem("bilano_email") || "";
+  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   let remainingBudget = 0;     
   let budgetLabel = "Batas Bulan Ini";
