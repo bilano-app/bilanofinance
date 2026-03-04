@@ -27,7 +27,7 @@ export default function ChatAI() {
     const currentUserEmail = localStorage.getItem("bilano_email") || "";
     const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
     const [messages, setMessages] = useState<Message[]>(() => {
-        const savedChat = localStorage.getItem("bilano_chat_history");
+        const savedChat = localStorage.getItem(`bilano_chat_history_${currentUserEmail}`);
         if (savedChat) {
             return JSON.parse(savedChat);
         } else {
@@ -45,9 +45,9 @@ export default function ChatAI() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        localStorage.setItem("bilano_chat_history", JSON.stringify(messages));
+        localStorage.setItem(`bilano_chat_history_${currentUserEmail}`, JSON.stringify(messages));
         scrollToBottom();
-    }, [messages]);
+    }, [messages, currentUserEmail]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -62,7 +62,7 @@ export default function ChatAI() {
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             }];
             setMessages(defaultMsg);
-            localStorage.setItem("bilano_chat_history", JSON.stringify(defaultMsg));
+            localStorage.setItem(`bilano_chat_history_${currentUserEmail}`, JSON.stringify(defaultMsg));
         }
     };
 
