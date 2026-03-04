@@ -46,7 +46,7 @@ export default function Reports() {
     fetchData();
   }, []);
 
-  // --- FUNGSI MENGGAMBAR GRAFIK (DITAMBAHKAN TANPA MERUSAK KODE ASLI) ---
+  // --- FUNGSI MENGGAMBAR GRAFIK (SUDAH DIPERBAIKI UNTUK FIX 12 BULAN) ---
   const drawBarChart = (doc: jsPDF, title: string, chartData: any[], startY: number, barColor: number[]) => {
       const chartHeight = 40;
       const chartWidth = 170;
@@ -57,6 +57,12 @@ export default function Reports() {
 
       let maxVal = Math.max(...chartData.map(d => d.value), 0);
       let minVal = Math.min(...chartData.map(d => d.value), 0);
+      
+      // Fix agar grafik tidak tembus atap jika nilai max dan min sama (atau semua 0)
+      if (maxVal === minVal) {
+          maxVal = maxVal === 0 ? 100 : maxVal * 1.5;
+          minVal = minVal > 0 ? 0 : minVal;
+      }
       let range = maxVal - minVal;
       if (range === 0) range = 1;
 
@@ -66,10 +72,9 @@ export default function Reports() {
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2);
       doc.line(startX, zeroY, startX + chartWidth, zeroY); 
 
-      if (chartData.length === 0) return startY + chartHeight + 15;
-
+      // FIX: Memaksa lebar bar dibagi 12 slot, berapapun isinya (agar tidak jadi raksasa)
       const barGap = 3;
-      const barWidth = (chartWidth / Math.max(chartData.length, 1)) - barGap;
+      const barWidth = (chartWidth / 12) - barGap;
 
       chartData.forEach((item, i) => {
           const x = startX + (i * (barWidth + barGap)) + barGap / 2;
@@ -85,7 +90,7 @@ export default function Reports() {
           
           doc.rect(x, barY, barWidth, valH, 'F');
 
-          // Label text di bawah grafik
+          // Label text di bawah grafik (Bulan)
           doc.setFontSize(6); doc.setFont("helvetica", "normal"); doc.setTextColor(100, 100, 100);
           doc.text(item.label, x + (barWidth / 2), startY + chartHeight + 4, { align: 'center' });
       });
@@ -350,7 +355,7 @@ export default function Reports() {
         });
 
         // =====================================================================================
-        // === TAMBAHAN: GRAFIK PERFORMA 12 BULAN (DITAMBAHKAN DI HALAMAN BARU PALING BAWAH) ===
+        // === FIX BARU: GRAFIK PERFORMA 12 BULAN DENGAN PADDING MASA DEPAN KOSONG (NOL) ===
         // =====================================================================================
         doc.addPage();
         let graphY = 20;
@@ -358,10 +363,10 @@ export default function Reports() {
         doc.setTextColor(50, 50, 50);
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.text("Analisis Grafik Performa Keuangan", 14, graphY);
+        doc.text("Analisis Grafik Performa Keuangan (12 Bulan)", 14, graphY);
         graphY += 15;
 
-        // Cari tanggal transaksi pertama untuk membatasi jumlah bulan
+        // 1. Cari Tanggal Mulai (Transaksi Pertama)
         let firstTxDate = new Date();
         if (data.transactions && data.transactions.length > 0) {
             const minTime = Math.min(...data.transactions.map((t:any) => new Date(t.date).getTime()));
@@ -369,21 +374,29 @@ export default function Reports() {
         }
         
         const nowGraph = new Date();
-        // Hitung selisih bulan dari transaksi pertama hingga hari ini (Maksimal 12)
-        let monthsCount = (nowGraph.getFullYear() - firstTxDate.getFullYear()) * 12 + nowGraph.getMonth() - firstTxDate.getMonth() + 1;
-        if (monthsCount < 1) monthsCount = 1;
-        if (monthsCount > 12) monthsCount = 12;
+        const totalMonthsUsed = (nowGraph.getFullYear() - firstTxDate.getFullYear()) * 12 + nowGraph.getMonth() - firstTxDate.getMonth() + 1;
 
-        const tempData = [];
+        // 2. Tentukan Rentang 12 Bulan (Start Month)
+        let chartStartMonth: Date;
+        if (totalMonthsUsed > 12) {
+            // Jika sudah pakai aplikasi > 1 tahun, ambil 12 bulan ke belakang dari SEKARANG
+            chartStartMonth = new Date(nowGraph.getFullYear(), nowGraph.getMonth() - 11, 1);
+        } else {
+            // Jika baru pakai (misal 1 bulan), Mulai dari bulan PERTAMA, sisa ke kanan dibiarkan kosong
+            chartStartMonth = new Date(firstTxDate.getFullYear(), firstTxDate.getMonth(), 1);
+        }
+
+        const paddedData = [];
         let runningCash = user.cashBalance;
         let runningAsset = totalAsset; 
         
-        // Looping mundur, menghitung bulan dari yang terbaru ke terlama
-        for (let i = 0; i < monthsCount; i++) {
-            const targetMonthDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth() - i, 1);
-            const mIdx = targetMonthDate.getMonth();
-            const yIdx = targetMonthDate.getFullYear();
-            const label = targetMonthDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
+        // 3. Reverse Calculation: Mundur dari Bulan Ini sampai ChartStartMonth untuk mendapat history asli
+        let iterDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1);
+        
+        while (iterDate >= chartStartMonth) {
+            const mIdx = iterDate.getMonth();
+            const yIdx = iterDate.getFullYear();
+            const label = iterDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
 
             let inMonth = 0; let outMonth = 0;
             data.transactions.forEach((t:any) => {
@@ -394,28 +407,36 @@ export default function Reports() {
                 }
             });
             
-            const netFlow = inMonth - outMonth; // Net Flow khusus bulan ini
+            const netFlow = inMonth - outMonth;
             
-            // Simpan data di urutan depan agar nanti grafiknya dibaca dari kiri (terlama) ke kanan (terbaru)
-            tempData.unshift({ label, netFlow, cash: runningCash, asset: runningAsset });
+            paddedData.unshift({ label, netFlow, cash: runningCash, asset: runningAsset });
             
-            // Kurangi dengan netFlow bulan ini agar mendapatkan saldo akhir bulan sebelumnya
             runningCash -= netFlow;
             runningAsset -= netFlow; 
+            
+            iterDate.setMonth(iterDate.getMonth() - 1);
         }
 
-        const chartAsset = tempData.map(d => ({ label: d.label, value: d.asset }));
-        const chartCash = tempData.map(d => ({ label: d.label, value: d.cash }));
-        const chartNetFlow = tempData.map(d => ({ label: d.label, value: d.netFlow }));
+        // 4. PADDING: Jika total item kurang dari 12, isi masa depan dengan NOL
+        let futureDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1);
+        while (paddedData.length < 12) {
+            futureDate.setMonth(futureDate.getMonth() + 1);
+            const label = futureDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
+            // Bar akan kosong/0 tapi label bulannya (ex: Apr 26) tetap dirender di bawah grafik
+            paddedData.push({ label, netFlow: 0, cash: 0, asset: 0 }); 
+        }
 
-        // Gambar 3 Grafik secara berurutan ke bawah
+        const chartAsset = paddedData.map(d => ({ label: d.label, value: d.asset }));
+        const chartCash = paddedData.map(d => ({ label: d.label, value: d.cash }));
+        const chartNetFlow = paddedData.map(d => ({ label: d.label, value: d.netFlow }));
+
+        // 5. Eksekusi Gambar Grafik
         graphY = drawBarChart(doc, "1. Grafik Jumlah Aset (Akumulasi)", chartAsset, graphY, [79, 70, 229]);
         graphY += 10;
         graphY = drawBarChart(doc, "2. Grafik Jumlah Kas Tunai (Akumulasi)", chartCash, graphY, [14, 165, 233]);
         graphY += 10;
         drawBarChart(doc, "3. Grafik Net Arus Kas (Masuk - Keluar per Bulan)", chartNetFlow, graphY, [16, 185, 129]);
         // =====================================================================================
-
 
         const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
