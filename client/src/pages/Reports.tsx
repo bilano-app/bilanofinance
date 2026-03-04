@@ -15,10 +15,6 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // FIX: Status Paywall
-  const currentUserEmail = localStorage.getItem("bilano_email") || "";
-  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
-
   const formatRp = (val: number) => {
       const num = Number(val) || 0;
       return "Rp " + Math.round(num).toLocaleString("id-ID");
@@ -50,48 +46,56 @@ export default function Reports() {
     fetchData();
   }, []);
 
-  // FUNGSI BARU: Menggambar Grafik Batang di dalam PDF
-  const drawBarChart = (doc: jsPDF, title: string, chartData: any[], startX: number, startY: number, width: number, height: number) => {
-      doc.setFontSize(10); doc.setTextColor(50,50,50); doc.setFont("helvetica", "bold");
-      doc.text(title, startX, startY - 5);
+  // --- FUNGSI MENGGAMBAR GRAFIK (DITAMBAHKAN TANPA MERUSAK KODE ASLI) ---
+  const drawBarChart = (doc: jsPDF, title: string, chartData: any[], startY: number, barColor: number[]) => {
+      const chartHeight = 40;
+      const chartWidth = 170;
+      const startX = 20;
       
+      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold");
+      doc.text(title, startX, startY - 3);
+
       let maxVal = Math.max(...chartData.map(d => d.value), 0);
       let minVal = Math.min(...chartData.map(d => d.value), 0);
-      let range = maxVal - minVal; 
-      if (range === 0) range = 1; // Mencegah pembagian dengan nol
-      
-      const chartH = height - 15;
-      const zeroY = startY + chartH - ((0 - minVal) / range) * chartH;
-      
-      // Garis Horizontal Nol (0)
+      let range = maxVal - minVal;
+      if (range === 0) range = 1;
+
+      // Hitung posisi garis 0 (Zero Line) jika ada nilai minus (seperti net flow)
+      const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
+
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2);
-      doc.line(startX, zeroY, startX + width, zeroY); 
-      
-      const barW = (width / chartData.length) * 0.6;
-      const gap = (width / chartData.length) * 0.4;
-      
-      chartData.forEach((d, i) => {
-          const barX = startX + (i * (barW + gap)) + gap/2;
-          const valH = (Math.abs(d.value) / range) * chartH;
-          const barY = d.value >= 0 ? zeroY - valH : zeroY;
+      doc.line(startX, zeroY, startX + chartWidth, zeroY); 
+
+      if (chartData.length === 0) return startY + chartHeight + 15;
+
+      const barGap = 3;
+      const barWidth = (chartWidth / Math.max(chartData.length, 1)) - barGap;
+
+      chartData.forEach((item, i) => {
+          const x = startX + (i * (barWidth + barGap)) + barGap / 2;
+          const valH = (Math.abs(item.value) / range) * chartHeight;
+          const barY = item.value >= 0 ? zeroY - valH : zeroY;
+
+          // Pewarnaan Spesifik (Hijau Untung, Merah Minus, Warna Lain Netral)
+          if (title.includes("Arus Kas")) {
+              doc.setFillColor(item.value >= 0 ? 16 : 244, item.value >= 0 ? 185 : 63, item.value >= 0 ? 129 : 94);
+          } else {
+              doc.setFillColor(barColor[0], barColor[1], barColor[2]);
+          }
           
-          // Pewarnaan Spesifik sesuai jenis grafik
-          if (title.includes("Net Flow")) doc.setFillColor(d.value >= 0 ? 16 : 244, d.value >= 0 ? 185 : 63, d.value >= 0 ? 129 : 94); // Hijau (Untung) / Merah (Rugi)
-          else if (title.includes("Aset")) doc.setFillColor(79, 70, 229); // Indigo
-          else doc.setFillColor(14, 165, 233); // Biru (Kas)
-          
-          doc.rect(barX, barY, barW, valH, 'F');
-          
-          // Label Bulan di Bawah Batang
-          doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal");
-          doc.text(d.label, barX + barW/2, startY + chartH + 5, { align: "center" });
+          doc.rect(x, barY, barWidth, valH, 'F');
+
+          // Label text di bawah grafik
+          doc.setFontSize(6); doc.setFont("helvetica", "normal"); doc.setTextColor(100, 100, 100);
+          doc.text(item.label, x + (barWidth / 2), startY + chartHeight + 4, { align: 'center' });
       });
+
+      return startY + chartHeight + 15;
   };
 
   const generatePDF = async () => {
-    // FIX: Cegah Download jika Trial Habis
-    if (isTrialExpired) {
-        if(confirm("Masa Coba Habis! Download PDF Laporan eksklusif untuk member Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+    if (localStorage.getItem("bilano_trial_expired") === "true") {
+        window.dispatchEvent(new Event('trigger-paywall-lock')); 
         return;
     }
 
@@ -230,56 +234,6 @@ export default function Reports() {
             currentY += 32; 
         }
 
-        // ========================================================
-        // TAMBAHAN BARU: LOGIKA GRAFIK 12 BULAN (REVERSE CALCULATION)
-        // ========================================================
-        const now = new Date();
-        let runningCash = user.cashBalance;
-        let runningAsset = totalAsset; 
-        
-        const tempData = [];
-        
-        // Kita hitung mundur 12 bulan
-        for (let i = 0; i < 12; i++) {
-            const targetMonthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const mIdx = targetMonthDate.getMonth();
-            const yIdx = targetMonthDate.getFullYear();
-            const label = targetMonthDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
-
-            let inMonth = 0; let outMonth = 0;
-            data.transactions.forEach((t:any) => {
-                const d = new Date(t.date);
-                if(d.getMonth() === mIdx && d.getFullYear() === yIdx) {
-                    if (t.type.includes('income') || t.type.includes('receive') || t.type === 'debt_borrow') inMonth += t.amount;
-                    else if (t.type.includes('expense') || t.type.includes('pay') || t.type.includes('buy') || t.type === 'debt_lend') outMonth += t.amount;
-                }
-            });
-            
-            const netFlow = inMonth - outMonth;
-            
-            // Masukkan data dari depan agar urutannya dari terlama -> terbaru
-            tempData.unshift({ label, netFlow, cash: runningCash, asset: runningAsset });
-            
-            // Kurangi dengan netFlow untuk mencari saldo di awal bulan tersebut
-            runningCash -= netFlow;
-            runningAsset -= netFlow; 
-        }
-
-        const chartNetFlow = tempData.map(d => ({ label: d.label, value: d.netFlow }));
-        const chartCash = tempData.map(d => ({ label: d.label, value: d.cash }));
-        const chartAsset = tempData.map(d => ({ label: d.label, value: d.asset }));
-
-        // BUAT HALAMAN BARU KHUSUS UNTUK GRAFIK
-        doc.addPage();
-        drawBarChart(doc, "1. Akumulasi Total Aset (12 Bulan Terakhir)", chartAsset, 14, 20, 182, 60);
-        drawBarChart(doc, "2. Akumulasi Total Kas Tunai (12 Bulan Terakhir)", chartCash, 14, 100, 182, 60);
-        drawBarChart(doc, "3. Net Cash Flow (Pemasukan - Pengeluaran per Bulan)", chartNetFlow, 14, 180, 182, 60);
-        
-        // KEMBALI KE HALAMAN BARU UNTUK MELANJUTKAN TABEL BAWAAN
-        doc.addPage();
-        currentY = 20;
-        // ========================================================
-
         checkPageBreak(50);
         autoTable(doc, {
           startY: currentY,
@@ -394,6 +348,74 @@ export default function Reports() {
               }
           }
         });
+
+        // =====================================================================================
+        // === TAMBAHAN: GRAFIK PERFORMA 12 BULAN (DITAMBAHKAN DI HALAMAN BARU PALING BAWAH) ===
+        // =====================================================================================
+        doc.addPage();
+        let graphY = 20;
+
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Analisis Grafik Performa Keuangan", 14, graphY);
+        graphY += 15;
+
+        // Cari tanggal transaksi pertama untuk membatasi jumlah bulan
+        let firstTxDate = new Date();
+        if (data.transactions && data.transactions.length > 0) {
+            const minTime = Math.min(...data.transactions.map((t:any) => new Date(t.date).getTime()));
+            firstTxDate = new Date(minTime);
+        }
+        
+        const nowGraph = new Date();
+        // Hitung selisih bulan dari transaksi pertama hingga hari ini (Maksimal 12)
+        let monthsCount = (nowGraph.getFullYear() - firstTxDate.getFullYear()) * 12 + nowGraph.getMonth() - firstTxDate.getMonth() + 1;
+        if (monthsCount < 1) monthsCount = 1;
+        if (monthsCount > 12) monthsCount = 12;
+
+        const tempData = [];
+        let runningCash = user.cashBalance;
+        let runningAsset = totalAsset; 
+        
+        // Looping mundur, menghitung bulan dari yang terbaru ke terlama
+        for (let i = 0; i < monthsCount; i++) {
+            const targetMonthDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth() - i, 1);
+            const mIdx = targetMonthDate.getMonth();
+            const yIdx = targetMonthDate.getFullYear();
+            const label = targetMonthDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
+
+            let inMonth = 0; let outMonth = 0;
+            data.transactions.forEach((t:any) => {
+                const d = new Date(t.date);
+                if(d.getMonth() === mIdx && d.getFullYear() === yIdx) {
+                    if (t.type.includes('income') || t.type.includes('receive') || t.type === 'debt_borrow') inMonth += t.amount;
+                    else if (t.type.includes('expense') || t.type.includes('pay') || t.type.includes('buy') || t.type === 'debt_lend') outMonth += t.amount;
+                }
+            });
+            
+            const netFlow = inMonth - outMonth; // Net Flow khusus bulan ini
+            
+            // Simpan data di urutan depan agar nanti grafiknya dibaca dari kiri (terlama) ke kanan (terbaru)
+            tempData.unshift({ label, netFlow, cash: runningCash, asset: runningAsset });
+            
+            // Kurangi dengan netFlow bulan ini agar mendapatkan saldo akhir bulan sebelumnya
+            runningCash -= netFlow;
+            runningAsset -= netFlow; 
+        }
+
+        const chartAsset = tempData.map(d => ({ label: d.label, value: d.asset }));
+        const chartCash = tempData.map(d => ({ label: d.label, value: d.cash }));
+        const chartNetFlow = tempData.map(d => ({ label: d.label, value: d.netFlow }));
+
+        // Gambar 3 Grafik secara berurutan ke bawah
+        graphY = drawBarChart(doc, "1. Grafik Jumlah Aset (Akumulasi)", chartAsset, graphY, [79, 70, 229]);
+        graphY += 10;
+        graphY = drawBarChart(doc, "2. Grafik Jumlah Kas Tunai (Akumulasi)", chartCash, graphY, [14, 165, 233]);
+        graphY += 10;
+        drawBarChart(doc, "3. Grafik Net Arus Kas (Masuk - Keluar per Bulan)", chartNetFlow, graphY, [16, 185, 129]);
+        // =====================================================================================
+
 
         const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
