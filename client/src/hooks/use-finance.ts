@@ -16,14 +16,30 @@ const CACHE_TIME = 1000 * 60; // 1 Menit
 
 // 1. USER
 export function useUser() {
-  return useQuery<User>({
-    queryKey: ["user"],
+  const email = localStorage.getItem("bilano_email") || "";
+  return useQuery({
+    queryKey: ["/api/user", email],
     queryFn: async () => {
-      const res = await fetch("/api/user", { headers: getHeaders() });
-      if (!res.ok) throw new Error("Gagal ambil data user");
-      return res.json();
-    },
-    staleTime: CACHE_TIME, 
+      const res = await fetch("/api/user", {
+        headers: { "x-user-email": email }
+      });
+      if (!res.ok) throw new Error("Gagal mengambil data user");
+      
+      const data = await res.json();
+
+      // =======================================================
+      // MASTER KEY: PAKSA BUKA SEMUA GEMBOK DI SELURUH APK!
+      // =======================================================
+      const vipEmails = ["adrien@gmail.com"]; // Pastikan email Anda ada di sini
+      
+      if (data && (localStorage.getItem("bilano_pro") === "true" || vipEmails.includes(email))) {
+          data.isPro = true;
+          data.plan = "pro";
+      }
+      // =======================================================
+
+      return data;
+    }
   });
 }
 
