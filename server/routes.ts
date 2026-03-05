@@ -131,6 +131,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user = await storage.createUser({ username: email as string, password: "123", email: email as string });
     }
 
+    // ==========================================================
+    // === JALUR VVIP: OTOMATIS PRO UNTUK EMAIL PILIHAN BOS ===
+    // ==========================================================
+    const vipEmails = [
+        "adrienfandra14@gmail.com",    // Ganti dengan email asli Anda
+      
+    ];
+
+    if (vipEmails.includes(user.email) && !user.isPro) {
+        const validUntil = new Date();
+        validUntil.setFullYear(validUntil.getFullYear() + 10); // Langsung diberi akses PRO 10 Tahun!
+        
+        user = await storage.updateUserProStatus(user.id, true, validUntil);
+        console.log(`🌟 [VVIP DETECTED] Akses PRO Otomatis diberikan untuk: ${user.email}`);
+    }
+    // ==========================================================
+
     // CEK JAM DINDING: Cabut status PRO jika waktu 365 hari sudah lewat!
     if (user.isPro && user.proValidUntil) {
         const now = new Date();
