@@ -415,7 +415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/user", async (req, res) => { const user = await getUser(req); res.json(user); });
   app.patch("/api/user/profile", async (req, res) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
 
-  app.post("/api/payment/midtrans/create", async (req, res) => {
+  app.post("/api/payment/midtrans/charge", async (req, res) => {
       try {
           const user = await getUser(req);
           if (!user) return res.status(401).json({ error: "User tidak valid." });
@@ -423,30 +423,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const amount = 99000; 
           const orderId = `BILANO-PRO-${user.id}-${Date.now()}`;
           
-          // GANTI DENGAN SERVER KEY MIDTRANS ANDA DI VERCEL
+          // Kunci Server Sandbox Midtrans yang ada di Vercel
           const serverKey = process.env.MIDTRANS_SERVER_KEY || ""; 
           const authString = Buffer.from(serverKey + ":").toString('base64');
 
+          // Payload khusus untuk menembak gambar Barcode QRIS langsung
           const payload = {
+              payment_type: "qris",
               transaction_details: {
                   order_id: orderId,
                   gross_amount: amount
               },
               customer_details: {
                   first_name: user.firstName || "Member",
-                  last_name: user.lastName || "BILANO",
-                  email: user.email
-              },
-              item_details: [{
-                  id: "BILANO-PRO-1Y",
-                  price: amount,
-                  quantity: 1,
-                  name: "Langganan BILANO PRO (1 Tahun)"
-              }]
+                  email: user.email || "member@bilano.app"
+              }
           };
 
-          // Tembak ke API Midtrans (Ganti URL ke 'app.midtrans.com' jika sudah Production)
-          const midtransRes = await fetch("https://app.midtrans.com/snap/v1/transactions", {
+          // Tembak ke API Core Midtrans (Perhatikan URL-nya menggunakan /v2/charge)
+          const midtransRes = await fetch("https://api.sandbox.midtrans.com/v2/charge", {
               method: "POST",
               headers: { 
                   "Content-Type": "application/json",
@@ -458,11 +453,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const data = await midtransRes.json();
           
-          if (midtransRes.ok && data.token) {
-              res.json({ token: data.token });
+          if (midtransRes.ok && data.status_code === "201") {
+              // Cari URL Gambar QR Code dari balasan Midtrans
+              const qrAction = data.actions?.find((a: any) => a.name === "generate-qr-code");
+              if (qrAction) {
+                  res.json({ success: true, qrUrl: qrAction.url, orderId: data.order_id });
+              } else {
+                  res.status(500).json({ error: "Sistem Midtrans gagal mengeluarkan QR Code." });
+              }
           } else {
-              console.error("Midtrans Error:", data);
-              res.status(500).json({ error: "Gagal membuat kode pembayaran." });
+              console.error("Midtrans Core Error:", data);
+              res.status(400).json({ error: data.status_message || "Gagal memproses pembayaran." });
           }
 
       } catch (error: any) {
