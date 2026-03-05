@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { WifiOff, RefreshCw, Lock } from "lucide-react";
 import { useNotifications } from "./hooks/useNotifications"; 
+import { useUser } from "./hooks/use-finance"; // <--- KITA PANGGIL JEMBATAN SERVER RESMI
 
 import NotFound from "@/pages/not-found";
 import Security from "./pages/Security";
@@ -25,37 +26,35 @@ import Paywall from "@/pages/Paywall";
 import Debts from "@/pages/Debts"; 
 import SmartScan from "@/pages/SmartScan"; 
 
-// =======================================================
-// 🚀 GOD MODE: RETAS FUNGSI BACA MEMORI BROWSER
-// =======================================================
-// Sistem ini berjalan SEBELUM aplikasi dimuat. Memaksa browser
-// selalu menjawab "PRO" tanpa mempedulikan isi database asli.
-const originalGetItem = Storage.prototype.getItem;
-Storage.prototype.getItem = function(key: string) {
-    // Ambil email yang sedang login
-    const email = originalGetItem.call(this, "bilano_email") || "";
-    const vipEmails = [
-        "adrien@gmail.com", 
-        "bilanotech@gmail.com" // Tambahkan email VVIP lain di sini
-    ];
-    
-    if (vipEmails.includes(email)) {
-        // 1. Jika aplikasi tanya status PRO, paksa jawab "true"
-        if (key === "bilano_pro") return "true";
-        // 2. Jika aplikasi tanya masa trial habis, paksa jawab "false"
-        if (key && key.includes("trial_expired")) return "false";
-    }
-    
-    return originalGetItem.call(this, key);
-};
-// =======================================================
-
 const originalFetch = window.fetch;
 
 function Router() {
   const [location, setLocation] = useLocation();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
+
+  // =======================================================
+  // 🚀 VIP UNLOCKER (JALUR RESMI REACT - ANTI CRASH & ANTI JADUL)
+  // =======================================================
+  // Sistem ini akan mengecek database dengan aman. Jika dia VIP 
+  // atau sudah PRO, gembok lokal akan dihancurkan secara natural.
+  const { data: user } = useUser();
+  const currentUserEmail = localStorage.getItem("bilano_email") || "";
+
+  useEffect(() => {
+      const vipEmails = [
+          "adrien@gmail.com", 
+          "bilanotech@gmail.com" 
+      ];
+      
+      // Buka gembok JIKA emailnya ada di daftar VIP ATAU di database dia memang PRO
+      if (vipEmails.includes(currentUserEmail) || user?.isPro) {
+          localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
+          localStorage.setItem("bilano_trial_expired", "false");
+          localStorage.setItem("bilano_pro", "true");
+      }
+  }, [user, currentUserEmail]);
+  // =======================================================
 
   useNotifications();
 
@@ -82,7 +81,6 @@ function Router() {
       const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
       const isAuthRoute = url.includes('/api/auth');
 
-      // Berkat GOD MODE di atas, 'bilano_trial_expired' akan selalu terbaca 'false' untuk VVIP!
       if (isWriteAction && !isAuthRoute && localStorage.getItem('bilano_trial_expired') === 'true') {
           setShowPaywallAlert(true); 
           return Promise.reject(new Error("TRIAL_EXPIRED_LOCKED")); 
