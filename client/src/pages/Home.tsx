@@ -17,10 +17,9 @@ import {
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
 
 export default function Home() {
-// =========================================================
+    // =========================================================
     // RADAR VVIP: Sinkronisasi Gembok dari Database ke Layar
     // =========================================================
     useEffect(() => {
@@ -32,11 +31,15 @@ export default function Home() {
                 });
                 const userData = await res.json();
                 
-                // Jika di database statusnya PRO, paksa hancurkan gembok di layar!
+                // Jika di database PRO, pastikan memori lokal juga PRO
                 if (userData.isPro) {
-                    localStorage.setItem("bilano_pro", "true");
+                    const statusLokal = localStorage.getItem("bilano_pro");
+                    if (!statusLokal) {
+                        // Tulis status PRO lalu paksa refresh agar semua gembok di menu lain ikut hancur!
+                        localStorage.setItem("bilano_pro", "true");
+                        window.location.reload(); 
+                    }
                 } else {
-                    // Jika masa PRO habis, pasang gembok lagi
                     localStorage.removeItem("bilano_pro"); 
                 }
             } catch (error) {
@@ -47,6 +50,7 @@ export default function Home() {
         sinkronisasiPro();
     }, []);
     // =========================================================
+
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: transactions } = useTransactions();
   const { data: forexAssets } = useForexAssets(); 
@@ -82,7 +86,6 @@ export default function Home() {
       if (!hasPrompted) setShowPermissionPrompt(true);
   }, []);
 
-
   const handlePinUnlock = (num: string) => {
       setPinError(false);
       const newVal = pinInput + num;
@@ -106,7 +109,6 @@ export default function Home() {
       localStorage.setItem("bilano_privacy", newVal.toString());
   };
 
-  // FIX: Kita pecah rawEmail dan userEmail agar data paywall akurat per akun
   const rawEmail = localStorage.getItem("bilano_email") || "";
   const userEmail = rawEmail || "Pengguna";
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
@@ -118,7 +120,7 @@ export default function Home() {
       
       if (rawEmail) {
           const trialKey = `bilano_trial_start_${rawEmail}`;
-          const expiredKey = `bilano_trial_expired_${rawEmail}`; // <-- FIX KUNCI SPESIFIK
+          const expiredKey = `bilano_trial_expired_${rawEmail}`;
           let trialStart = localStorage.getItem(trialKey);
           
           if (!trialStart) {
@@ -133,10 +135,10 @@ export default function Home() {
 
           if (daysPassed >= TRIAL_DURATION_DAYS) {
               setTrialDaysLeft(0);
-              localStorage.setItem(expiredKey, "true"); // <-- FIX
+              localStorage.setItem(expiredKey, "true"); 
           } else {
               setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
-              localStorage.setItem(expiredKey, "false"); // <-- FIX
+              localStorage.setItem(expiredKey, "false"); 
           }
       }
   }, [isUserPro, rawEmail]);
@@ -160,21 +162,16 @@ export default function Home() {
     fetchHomeData();
   }, []);
 
-  // === FIX PENTING: MENGEMBALIKAN IZIN WEB API AGAR KODINGAN 5 MENIT JALAN ===
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
       try {
-          // 1. Izin Notifikasi Web (Wajib untuk useNotifications.ts)
           if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
               await Notification.requestPermission();
           }
-          // 2. Izin Kamera & Mic
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
               await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {});
           }
-          // 3. Izin Native OneSignal (Berjalan di latar belakang)
           window.location.href = 'median://onesignal/register';
-
       } catch (e) {
           console.error("Gagal meminta izin:", e);
       } finally {
@@ -212,8 +209,6 @@ export default function Home() {
         localStorage.removeItem("bilano_auth");
         localStorage.removeItem("bilano_email");
         sessionStorage.removeItem("bilano_session_unlocked");
-        
-        // Hapus status gembok akun sebelumnya
         localStorage.removeItem("bilano_trial_expired"); 
         
         toast({ title: "Berhasil Keluar", description: "Sampai jumpa lagi!" });
