@@ -17,8 +17,36 @@ import {
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 export default function Home() {
+// =========================================================
+    // RADAR VVIP: Sinkronisasi Gembok dari Database ke Layar
+    // =========================================================
+    useEffect(() => {
+        const sinkronisasiPro = async () => {
+            const email = localStorage.getItem("bilano_email") || "guest";
+            try {
+                const res = await fetch("/api/user", {
+                    headers: { "x-user-email": email }
+                });
+                const userData = await res.json();
+                
+                // Jika di database statusnya PRO, paksa hancurkan gembok di layar!
+                if (userData.isPro) {
+                    localStorage.setItem("bilano_pro", "true");
+                } else {
+                    // Jika masa PRO habis, pasang gembok lagi
+                    localStorage.removeItem("bilano_pro"); 
+                }
+            } catch (error) {
+                console.log("Gagal sinkronisasi data PRO");
+            }
+        };
+
+        sinkronisasiPro();
+    }, []);
+    // =========================================================
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: transactions } = useTransactions();
   const { data: forexAssets } = useForexAssets(); 
@@ -53,6 +81,7 @@ export default function Home() {
       const hasPrompted = localStorage.getItem("bilano_permissions_prompted");
       if (!hasPrompted) setShowPermissionPrompt(true);
   }, []);
+
 
   const handlePinUnlock = (num: string) => {
       setPinError(false);
