@@ -43,15 +43,22 @@ function Router() {
 
   useEffect(() => {
       const vipEmails = [
-          "adrien@gmail.com", 
+          "adrienfandra14@gmail.com", 
           "bilanotech@gmail.com" 
       ];
       
-      // Buka gembok JIKA emailnya ada di daftar VIP ATAU di database dia memang PRO
+      // Jangan lakukan apa-apa jika belum login
+      if (!currentUserEmail) return;
+
+      // 1. JIKA VIP ATAU PRO: Buka semua gembok!
       if (vipEmails.includes(currentUserEmail) || user?.isPro) {
           localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           localStorage.setItem("bilano_trial_expired", "false");
           localStorage.setItem("bilano_pro", "true");
+      } 
+      // 2. JIKA AKUN BIASA: Cabut stempel VIP peninggalan akun sebelumnya!
+      else {
+          localStorage.removeItem("bilano_pro");
       }
   }, [user, currentUserEmail]);
   // =======================================================
