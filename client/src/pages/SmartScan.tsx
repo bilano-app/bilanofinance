@@ -42,23 +42,62 @@ export default function SmartScan() {
     const recognitionRef = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // ==========================================
-    // PAYWALL & HEADERS
-    // ==========================================
     const currentUserEmail = localStorage.getItem("bilano_email") || "";
     const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
     const getAuthHeaders = () => ({ "x-user-email": localStorage.getItem("bilano_email") || "" });
 
+    // =======================================================================
+    // 🚀 FITUR GACOR: BACA KIRIMAN GAMBAR DARI MENU SHARE OS (ANDROID/iOS)
+    // =======================================================================
+    useEffect(() => {
+        const checkSharedImage = async () => {
+            try {
+                // Membuka brankas cache yang disimpan oleh sw.js
+                const cache = await caches.open('bilano-shared-image');
+                const response = await cache.match('/shared-image');
+                
+                if (response) {
+                    const blob = await response.blob();
+                    const file = new File([blob], "shared-receipt.jpg", { type: blob.type });
+                    
+                    // Langsung hapus dari brankas agar tidak discan terus-terusan setiap buka halaman
+                    await cache.delete('/shared-image');
+
+                    // Tampilkan UI Scanning
+                    setImagePreview(URL.createObjectURL(file));
+                    setIsScanning(true);
+                    setScanProgress(10);
+                    
+                    // Eksekusi Pemindaian Tesseract
+                    const result = await Tesseract.recognize(file, 'eng', { 
+                        logger: m => { if (m.status === 'recognizing text') setScanProgress(Math.floor(m.progress * 100)); }
+                    });
+                    
+                    setScanProgress(100);
+                    setTimeout(() => { 
+                        processTextLogic(result.data.text); 
+                        setIsScanning(false); 
+                        toast({ title: "Berhasil", description: "Struk dari menu Share berhasil dibaca!" }); 
+                    }, 500);
+                }
+            } catch (e) {
+                console.error("Gagal membaca gambar dari share target", e);
+                setIsScanning(false);
+            }
+        };
+        
+        checkSharedImage();
+    }, []);
+    // =======================================================================
+
     useEffect(() => {
         const loadData = async () => {
             try {
-                // FIX: Tambahkan Headers agar tidak Timeout (Loading abadi)
                 fetch("/api/forex/rates", { headers: getAuthHeaders() }).then(r => r.json()).then(d => {
                     setLiveRates(d);
                     if(d['USD']) setRate(Math.floor(d['USD']).toString());
                 }).catch(() => {});
 
-                // FIX: Tambahkan Headers
                 const [resTarget, resTx] = await Promise.all([
                     fetch("/api/target", { headers: getAuthHeaders() }), 
                     fetch("/api/transactions", { headers: getAuthHeaders() })
@@ -101,7 +140,7 @@ export default function SmartScan() {
         }
 
         let newType: any = 'expense';
-        if (lower.includes("terima") || lower.includes("dapat") || lower.includes("dikasih") || lower.includes("masuk") || lower.includes("gaji") || lower.includes("transfer dari")) {
+        if (lower.includes("terima") || lower.includes("dapat") || lower.includes("dikasih") || lower.includes("masuk") || lower.includes("gaji") || lower.includes("transfer dari") || lower.includes("berhasil top up")) {
             newType = 'income';
         } else if (lower.includes("utang") || lower.includes("pinjam")) {
             newType = lower.includes("saya") || lower.includes("aku") ? 'debt' : 'receivable';
@@ -143,22 +182,23 @@ export default function SmartScan() {
         if (candidates.length > 0) newAmount = Math.max(...candidates);
 
         let newCategory = "Lainnya";
-        if (lower.includes("makan") || lower.includes("kopi")) newCategory = "Makan/Minum";
-        else if (lower.includes("gojek") || lower.includes("grab") || lower.includes("bensin")) newCategory = "Transport";
+        if (lower.includes("makan") || lower.includes("kopi") || lower.includes("resto") || lower.includes("food")) newCategory = "Makan/Minum";
+        else if (lower.includes("gojek") || lower.includes("grab") || lower.includes("bensin") || lower.includes("transport")) newCategory = "Transport";
+        else if (lower.includes("pln") || lower.includes("listrik") || lower.includes("token")) newCategory = "Tagihan Bulanan";
+        else if (lower.includes("belanja") || lower.includes("minimarket") || lower.includes("indomaret") || lower.includes("alfamart")) newCategory = "Belanja";
 
         setDetectedType(newType);
         setIsForex(newIsForex);
         setCurrency(newCurrency);
         setAmount(newAmount > 0 ? newAmount.toString() : ""); 
         setCategory(newCategory);
-        setDesc(isScanning ? "Hasil Scan" : text);
+        setDesc(isScanning ? "Hasil Scan Struk/Transfer" : text);
         if (newIsForex && liveRates[newCurrency]) setRate(Math.floor(liveRates[newCurrency]).toString());
 
         setShowResultForm(true);
     };
 
     const startListening = () => {
-        // FIX: Paywall Check untuk Mic
         if (isTrialExpired) {
             if (confirm("Masa Coba Habis! Fitur Smart Scan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
             return;
@@ -178,7 +218,6 @@ export default function SmartScan() {
     const stopListening = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        // FIX: Paywall Check untuk Upload Gambar
         if (isTrialExpired) {
             if (confirm("Masa Coba Habis! Fitur Smart Scan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
             return;
@@ -198,7 +237,6 @@ export default function SmartScan() {
     };
 
     const handleSave = async (isEmergencyOverride = false) => {
-        // FIX: Paywall Check untuk Save
         if (isTrialExpired) {
             if (confirm("Masa Coba Habis! Fitur Smart Scan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
             return;
@@ -223,7 +261,6 @@ export default function SmartScan() {
 
         setIsSubmitting(true);
 
-        // FIX: Menggabungkan header content-type dan x-user-email
         const postHeaders = { 
             "Content-Type": "application/json",
             ...getAuthHeaders() 
@@ -275,7 +312,6 @@ export default function SmartScan() {
 
     const remainingBudget = targetData ? targetData.monthlyBudget - currentExpense : 0;
 
-    // === LOADING SCREEN KUSTOM BILANO ===
     if (!isDataLoaded) {
         return (
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
@@ -371,7 +407,12 @@ export default function SmartScan() {
                             </div>
                             <button onClick={() => fileInputRef.current?.click()} className="w-full py-6 bg-white border-2 border-dashed border-indigo-200 rounded-3xl flex flex-col items-center justify-center gap-3 hover:bg-indigo-50/30 active:scale-[0.98] transition-all group">
                                 <div className="bg-indigo-50 text-indigo-600 p-4 rounded-full group-hover:scale-110 transition-transform shadow-sm"><ImagePlus className="w-6 h-6"/></div>
-                                <div><span className="font-bold text-slate-700 block text-sm mb-0.5">Scan Bukti / Struk</span><span className="text-[10px] text-slate-400">Otomatis baca nominal & valas</span></div>
+                                <div>
+                                    <span className="font-bold text-slate-700 block text-sm mb-0.5">Scan Bukti / Struk</span>
+                                    <span className="text-[10px] text-slate-400">Otomatis baca nominal & valas</span>
+                                    {/* INFO TAMBAHAN SHARE TARGET */}
+                                    <span className="text-[9px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full mt-2 inline-block border border-emerald-100">🔥 Bisa juga lewat menu "Share" HP Anda!</span>
+                                </div>
                             </button>
                         </div>
 
