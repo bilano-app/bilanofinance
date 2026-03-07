@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { 
     CreditCard, Calendar, RefreshCcw, Power, Plus, Trash2, 
-    CheckCircle2, AlertCircle, X, Loader2
+    CheckCircle2, AlertCircle, X, Loader2, Zap
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -27,19 +27,16 @@ export default function Subscriptions() {
   const [price, setPrice] = useState("");
   const [cycle, setCycle] = useState("monthly");
   const [nextDate, setNextDate] = useState("");
+  const [billType, setBillType] = useState("statis"); // FITUR BARU: statis atau dinamis
 
   const { toast } = useToast();
 
-  // ==========================================
-  // PAYWALL & HEADERS FIX
-  // ==========================================
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
   const getAuthHeaders = () => ({ "x-user-email": localStorage.getItem("bilano_email") || "" });
 
   const fetchSubs = async () => {
       try {
-          // FIX: Tambahkan Headers agar tidak Timeout (Loading abadi)
           const res = await fetch("/api/subscriptions", { headers: getAuthHeaders() });
           if (res.ok) setSubs(await res.json());
       } catch (e) { console.error(e); } finally { setLoading(false); }
@@ -48,39 +45,45 @@ export default function Subscriptions() {
   useEffect(() => { fetchSubs(); }, []);
 
   const handleAdd = async () => {
-      // FIX: Paywall Check
       if (isTrialExpired) {
           if (confirm("Masa Coba Habis! Fitur Atur Langganan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
           return;
       }
 
-      if (!name || !price || !nextDate) return;
+      if (!name || !nextDate) return;
+      
       try {
+          // FIX BUG FATAL: Kita kirimkan semua variasi nama kolom (cost/price, nextBilling/nextPaymentDate)
+          // agar database pasti mau menerima apa pun format schema-nya!
           const res = await fetch("/api/subscriptions", {
               method: "POST", 
-              // FIX: Tambahkan Headers
               headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-              body: JSON.stringify({ name, cost: parseFloat(price), cycle, nextBilling: nextDate, isActive: true })
+              body: JSON.stringify({ 
+                  name, 
+                  price: parseFloat(price) || 0, 
+                  cost: parseFloat(price) || 0, 
+                  cycle, 
+                  nextBilling: nextDate,
+                  nextPaymentDate: nextDate, 
+                  category: billType, // Menyimpan status Dinamis/Statis
+                  isActive: true 
+              })
           });
           if (res.ok) {
-              toast({ title: "Tersimpan", description: "Langganan berhasil ditambahkan." });
-              setIsFormOpen(false); setName(""); setPrice(""); setNextDate("");
+              toast({ title: "Berhasil Disimpan!", description: "Layanan telah aktif." });
+              setIsFormOpen(false); setName(""); setPrice(""); setNextDate(""); setBillType("statis");
               fetchSubs();
+          } else {
+              toast({ title: "Gagal menyimpan", variant: "destructive" });
           }
-      } catch (e) {}
+      } catch (e) { toast({ title: "Error sistem", variant: "destructive" }); }
   };
 
   const toggleStatus = async (id: number, currentStatus: boolean) => {
-      // FIX: Paywall Check
-      if (isTrialExpired) {
-          if (confirm("Masa Coba Habis! Fitur Atur Langganan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
-          return;
-      }
-
+      if (isTrialExpired) return;
       try {
           await fetch(`/api/subscriptions/${id}/status`, {
               method: "PATCH", 
-              // FIX: Tambahkan Headers
               headers: { "Content-Type": "application/json", ...getAuthHeaders() },
               body: JSON.stringify({ isActive: !currentStatus })
           });
@@ -89,19 +92,18 @@ export default function Subscriptions() {
   };
 
   const deleteSub = async (id: number) => {
-      // FIX: Paywall Check
       if (isTrialExpired) {
-          if (confirm("Masa Coba Habis! Fitur Atur Langganan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+          if (confirm("Masa Coba Habis! Buka kunci sekarang?")) window.location.href = "/paywall";
           return;
       }
 
-      if(!confirm("Hapus permanen?")) return;
+      if(!confirm("Hapus layanan ini secara permanen dari daftar?")) return;
       try {
-          // FIX: Tambahkan Headers
           await fetch(`/api/subscriptions/${id}`, { 
               method: "DELETE",
               headers: getAuthHeaders()
           });
+          toast({ title: "Terhapus", description: "Layanan berhasil dihapus." });
           fetchSubs();
       } catch (e) {}
   };
@@ -109,7 +111,9 @@ export default function Subscriptions() {
   const activeSubs = subs.filter(s => s.isActive);
   const inactiveSubs = subs.filter(s => !s.isActive);
 
+  // Hanya hitung total untuk yang statis
   const totalMonthly = activeSubs.reduce((acc, curr) => {
+      if (curr.category === 'dinamis') return acc;
       return acc + (curr.cycle === 'yearly' ? curr.price / 12 : curr.price);
   }, 0);
 
@@ -118,11 +122,8 @@ export default function Subscriptions() {
   if (loading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
-              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
-                  <Loader2 className="w-4 h-4 animate-spin"/>
-                  <span>Memuat Data...</span>
-              </div>
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-4"/>
+              <p className="text-sm font-bold text-slate-500">Memuat Data...</p>
           </div>
       );
   }
@@ -135,10 +136,10 @@ export default function Subscriptions() {
         <div className="bg-slate-900 text-white p-7 rounded-[32px] shadow-xl relative overflow-hidden">
             <div className="relative z-10">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1 flex items-center gap-2">
-                    <RefreshCcw className="w-4 h-4 text-emerald-400"/> Beban Bulanan
+                    <RefreshCcw className="w-4 h-4 text-emerald-400"/> Estimasi Beban Tetap
                 </p>
                 <h2 className="text-4xl font-extrabold tracking-tight">{formatRp(totalMonthly)}</h2>
-                <p className="text-xs text-slate-400 mt-2">Dari {activeSubs.length} layanan aktif.</p>
+                <p className="text-[10px] text-slate-400 mt-2">*Tidak termasuk tagihan dinamis (Listrik, Air, dll)</p>
             </div>
             <div className="absolute right-0 bottom-0 w-32 h-32 bg-emerald-500/10 rounded-tl-full pointer-events-none blur-xl"></div>
         </div>
@@ -146,23 +147,38 @@ export default function Subscriptions() {
         {/* FAB */}
         {!isFormOpen ? (
             <Button onClick={() => setIsFormOpen(true)} className="w-full h-14 rounded-full font-extrabold text-slate-800 bg-white border border-slate-200 shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:bg-slate-50 transition-transform active:scale-95">
-                <Plus className="w-5 h-5 mr-2 text-indigo-600"/> TAMBAH LANGGANAN
+                <Plus className="w-5 h-5 mr-2 text-indigo-600"/> TAMBAH LANGGANAN / TAGIHAN
             </Button>
         ) : (
             <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 animate-in zoom-in-95">
                 <div className="flex justify-between items-center mb-5">
-                    <h3 className="font-extrabold text-slate-800">Langganan Baru</h3>
+                    <h3 className="font-extrabold text-slate-800">Tagihan Baru</h3>
                     <button onClick={() => setIsFormOpen(false)} className="p-1.5 bg-slate-50 text-slate-400 rounded-full hover:bg-rose-50 hover:text-rose-500"><X className="w-5 h-5"/></button>
                 </div>
                 <div className="space-y-4">
-                    <Input placeholder="Nama Layanan (Cth: Netflix)" value={name} onChange={e => setName(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent font-bold"/>
-                    <div className="flex gap-2">
-                        <Input type="number" placeholder="Harga (Rp)" value={price} onChange={e => setPrice(e.target.value)} className="flex-1 h-14 rounded-[20px] bg-slate-50 border-transparent font-bold"/>
-                        <select value={cycle} onChange={e => setCycle(e.target.value)} className="w-1/3 bg-slate-50 border-transparent rounded-[20px] px-3 font-bold text-slate-700 text-sm outline-none">
-                            <option value="monthly">/ Bln</option>
-                            <option value="yearly">/ Thn</option>
-                        </select>
+                    
+                    {/* PILIHAN STATIS VS DINAMIS */}
+                    <div className="flex bg-slate-100 p-1 rounded-xl">
+                        <button onClick={() => setBillType('statis')} className={`flex-1 py-2 rounded-lg text-[11px] font-bold ${billType === 'statis' ? 'bg-white text-indigo-600 shadow' : 'text-slate-500'}`}>Nominal Tetap</button>
+                        <button onClick={() => setBillType('dinamis')} className={`flex-1 py-2 rounded-lg text-[11px] font-bold ${billType === 'dinamis' ? 'bg-orange-500 text-white shadow' : 'text-slate-500'}`}>Berubah-ubah</button>
                     </div>
+
+                    <Input placeholder="Nama (Cth: Netflix, PLN)" value={name} onChange={e => setName(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent font-bold"/>
+                    
+                    {billType === 'statis' ? (
+                        <div className="flex gap-2 animate-in fade-in">
+                            <Input type="number" placeholder="Harga (Rp)" value={price} onChange={e => setPrice(e.target.value)} className="flex-1 h-14 rounded-[20px] bg-slate-50 border-transparent font-bold"/>
+                            <select value={cycle} onChange={e => setCycle(e.target.value)} className="w-1/3 bg-slate-50 border-transparent rounded-[20px] px-3 font-bold text-slate-700 text-sm outline-none">
+                                <option value="monthly">/ Bln</option>
+                                <option value="yearly">/ Thn</option>
+                            </select>
+                        </div>
+                    ) : (
+                        <div className="bg-orange-50 p-3 rounded-xl border border-orange-100 animate-in fade-in">
+                            <p className="text-[11px] text-orange-800 font-medium leading-relaxed">Sistem akan mengingatkan Anda untuk memasukkan nominal tagihan secara manual setiap kali tanggal jatuh tempo tiba.</p>
+                        </div>
+                    )}
+
                     <div>
                         <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 block mb-1 ml-1">Tanggal Tagihan Berikutnya</label>
                         <Input type="date" value={nextDate} onChange={e => setNextDate(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-slate-700"/>
@@ -174,24 +190,34 @@ export default function Subscriptions() {
 
         {/* LIST AKTIF */}
         <div className="space-y-3">
-            <h3 className="font-extrabold text-slate-800 text-sm px-1 mb-1">Layanan Aktif</h3>
+            <h3 className="font-extrabold text-slate-800 text-sm px-1 mb-1">Tagihan Aktif</h3>
             {activeSubs.length === 0 && <div className="text-center py-8 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200 shadow-sm text-sm font-medium">Belum ada layanan aktif.</div>}
             
             {activeSubs.map(sub => (
                 <div key={sub.id} className="bg-white p-5 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 flex justify-between items-center transition-all hover:shadow-md">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-extrabold text-lg border border-indigo-100">{sub.name[0].toUpperCase()}</div>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center font-extrabold text-lg border ${sub.category === 'dinamis' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>
+                            {sub.category === 'dinamis' ? <Zap className="w-5 h-5"/> : sub.name[0].toUpperCase()}
+                        </div>
                         <div>
                             <h4 className="font-extrabold text-slate-800 text-base">{sub.name}</h4>
-                            <p className="text-[11px] font-bold text-slate-400 mt-0.5 flex items-center gap-1"><Calendar className="w-3 h-3"/> {new Date(sub.nextPaymentDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</p>
+                            <p className="text-[11px] font-bold text-slate-400 mt-0.5 flex items-center gap-1"><Calendar className="w-3 h-3"/> Tempo: {new Date(sub.nextPaymentDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <div className="text-right">
-                            <p className="font-extrabold text-slate-800 text-sm">{formatRp(sub.price)}</p>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">/{sub.cycle === 'monthly' ? 'Bulan' : 'Tahun'}</p>
+                    <div className="flex items-center gap-2">
+                        <div className="text-right mr-1">
+                            {sub.category === 'dinamis' ? (
+                                <p className="font-extrabold text-orange-500 text-[11px] uppercase tracking-wider">Berubah-ubah</p>
+                            ) : (
+                                <>
+                                    <p className="font-extrabold text-slate-800 text-sm">{formatRp(sub.price)}</p>
+                                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">/{sub.cycle === 'monthly' ? 'Bulan' : 'Tahun'}</p>
+                                </>
+                            )}
                         </div>
-                        <button onClick={() => toggleStatus(sub.id, true)} className="p-2.5 bg-rose-50 text-rose-600 rounded-[14px] hover:bg-rose-100 transition-colors" title="Non-aktifkan"><Power className="w-4 h-4"/></button>
+                        {/* TOMBOL DELETE UNTUK LAYANAN AKTIF */}
+                        <button onClick={() => deleteSub(sub.id)} className="p-2.5 bg-rose-50 text-rose-600 rounded-[14px] hover:bg-rose-100 transition-colors" title="Hapus Permanen"><Trash2 className="w-4 h-4"/></button>
+                        <button onClick={() => toggleStatus(sub.id, true)} className="p-2.5 bg-slate-100 text-slate-500 rounded-[14px] hover:bg-slate-200 transition-colors" title="Non-aktifkan Sementara"><Power className="w-4 h-4"/></button>
                     </div>
                 </div>
             ))}

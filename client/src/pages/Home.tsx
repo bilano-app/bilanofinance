@@ -2,59 +2,28 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   useUser, useTransactions, useTarget, 
-  useForexAssets 
+  useForexAssets, useSubscriptions 
 } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { MobileLayout } from "@/components/Layout";
-import { Button } from "@/components/UIComponents";
+import { Button, Input } from "@/components/UIComponents";
 import { 
   ArrowUpCircle, ArrowDownCircle, 
   TrendingUp, Sparkles, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
-  BellRing, Mic, Camera 
+  BellRing, Mic, Camera, AlertTriangle 
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
-    // =========================================================
-    // RADAR VVIP: Sinkronisasi Gembok dari Database ke Layar
-    // =========================================================
-    useEffect(() => {
-        const sinkronisasiPro = async () => {
-            const email = localStorage.getItem("bilano_email") || "guest";
-            try {
-                const res = await fetch("/api/user", {
-                    headers: { "x-user-email": email }
-                });
-                const userData = await res.json();
-                
-                // Jika di database PRO, pastikan memori lokal juga PRO
-                if (userData.isPro) {
-                    const statusLokal = localStorage.getItem("bilano_pro");
-                    if (!statusLokal) {
-                        // Tulis status PRO lalu paksa refresh agar semua gembok di menu lain ikut hancur!
-                        localStorage.setItem("bilano_pro", "true");
-                        window.location.reload(); 
-                    }
-                } else {
-                    localStorage.removeItem("bilano_pro"); 
-                }
-            } catch (error) {
-                console.log("Gagal sinkronisasi data PRO");
-            }
-        };
-
-        sinkronisasiPro();
-    }, []);
-    // =========================================================
-
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: transactions } = useTransactions();
   const { data: forexAssets } = useForexAssets(); 
   const { data: target, isLoading: isTargetLoading } = useTarget(); 
+  const { data: subscriptions, refetch: refetchSubs } = useSubscriptions();
 
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -69,9 +38,15 @@ export default function Home() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
 
-  // STATE UNTUK LAYAR PERMINTAAN IZIN
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [isRequestingPerms, setIsRequestingPerms] = useState(false);
+
+  // === STATE POSTER SAMBUTAN PRO ===
+  const [showProWelcome, setShowProWelcome] = useState(false);
+
+  // === STATE TAGIHAN DINAMIS ===
+  const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
+  const [dynamicAmount, setDynamicAmount] = useState("");
 
   const [forexRates, setForexRates] = useState<Record<string, number>>({});
 
@@ -114,13 +89,100 @@ export default function Home() {
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
-  // === PENGHITUNG WAKTU TRIAL (VERSI PER-EMAIL) ===
+  // === LOGIKA MUNCULKAN POSTER PRO (Hanya 1 Kali) ===
+  useEffect(() => {
+      if (isUserPro && rawEmail) {
+          const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;
+          if (!localStorage.getItem(welcomeKey)) {
+              setTimeout(() => setShowProWelcome(true), 500);
+          }
+      }
+  }, [isUserPro, rawEmail]);
+
+  const handleTutupWelcomePro = () => {
+      const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;
+      localStorage.setItem(welcomeKey, "true"); 
+      setShowProWelcome(false);
+  };
+
+  // === SISTEM PENDETEKSI TAGIHAN DINAMIS ===
+  useEffect(() => {
+      if (!subscriptions) return;
+      const todayStr = new Date().toISOString().split('T')[0];
+      
+      const due = subscriptions.find(sub => {
+          if (!sub.isActive || sub.category !== 'dinamis') return false;
+          
+          const nextDate = new Date(sub.nextPaymentDate);
+          const today = new Date();
+          today.setHours(0,0,0,0);
+          nextDate.setHours(0,0,0,0);
+          
+          if (nextDate > today) return false; 
+          
+          if (localStorage.getItem(`skip_sub_${sub.id}_${todayStr}`)) return false; 
+          
+          return true;
+      });
+
+      setDueDynamicSub(due || null);
+  }, [subscriptions]);
+
+  const handlePayDynamic = async () => {
+      if (!dueDynamicSub || !dynamicAmount) return;
+      try {
+          await fetch("/api/transactions", {
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
+              body: JSON.stringify({ 
+                  type: 'expense', 
+                  amount: parseFloat(dynamicAmount), 
+                  category: "Tagihan Bulanan", 
+                  description: `Bayar Tagihan: ${dueDynamicSub.name}`,
+                  date: new Date()
+              })
+          });
+
+          const nextDate = new Date(dueDynamicSub.nextPaymentDate);
+          if (dueDynamicSub.cycle === 'yearly') {
+              nextDate.setFullYear(nextDate.getFullYear() + 1);
+          } else {
+              nextDate.setMonth(nextDate.getMonth() + 1);
+          }
+
+          await fetch(`/api/subscriptions/${dueDynamicSub.id}`, { method: "DELETE", headers: { "x-user-email": rawEmail } });
+          await fetch("/api/subscriptions", {
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
+              body: JSON.stringify({ 
+                  name: dueDynamicSub.name, 
+                  price: dueDynamicSub.price, 
+                  cost: dueDynamicSub.price, 
+                  cycle: dueDynamicSub.cycle, 
+                  nextPaymentDate: nextDate.toISOString(), 
+                  nextBilling: nextDate.toISOString(), 
+                  category: dueDynamicSub.category, 
+                  isActive: true 
+              })
+          });
+
+          toast({ title: "Tagihan Lunas!", description: "Pengeluaran berhasil dicatat." });
+          setDueDynamicSub(null); setDynamicAmount(""); refetchSubs();
+      } catch (e) {
+          toast({ title: "Gagal memproses", variant: "destructive" });
+      }
+  };
+
+  const handleSkipDynamic = () => {
+      const todayStr = new Date().toISOString().split('T')[0];
+      localStorage.setItem(`skip_sub_${dueDynamicSub.id}_${todayStr}`, "true");
+      setDueDynamicSub(null);
+  };
+
   useEffect(() => {
       if (isUserPro) return;
       
       if (rawEmail) {
           const trialKey = `bilano_trial_start_${rawEmail}`;
-          const expiredKey = `bilano_trial_expired_${rawEmail}`;
+          const expiredKey = `bilano_trial_expired_${rawEmail}`; 
           let trialStart = localStorage.getItem(trialKey);
           
           if (!trialStart) {
@@ -172,6 +234,7 @@ export default function Home() {
               await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {});
           }
           window.location.href = 'median://onesignal/register';
+
       } catch (e) {
           console.error("Gagal meminta izin:", e);
       } finally {
@@ -271,8 +334,75 @@ export default function Home() {
 
   return (
     <MobileLayout>
+
+      {/* ========================================================== */}
+      {/* POP-UP TAGIHAN DINAMIS (MUNCUL JIKA JATUH TEMPO)           */}
+      {/* ========================================================== */}
+      {dueDynamicSub && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
+            <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 border-orange-500">
+                <div className="w-16 h-16 mx-auto bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-4">
+                    <AlertTriangle className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-extrabold text-slate-800 mb-2">Tagihan Jatuh Tempo!</h3>
+                <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+                    Waktunya bayar tagihan <strong>{dueDynamicSub.name}</strong>. Berapa nominal yang Anda bayarkan bulan ini?
+                </p>
+                <Input 
+                    type="number" 
+                    placeholder="Masukkan nominal (Rp)..." 
+                    value={dynamicAmount} 
+                    onChange={e => setDynamicAmount(e.target.value)} 
+                    className="h-14 font-bold text-lg mb-4 text-center bg-slate-50 border-transparent rounded-[20px]"
+                />
+                <div className="space-y-3">
+                    <Button onClick={handlePayDynamic} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-lg shadow-emerald-200 active:scale-95 transition-transform">
+                        BAYAR & CATAT SEKARANG
+                    </Button>
+                    <Button variant="ghost" onClick={handleSkipDynamic} className="w-full h-12 rounded-full font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">
+                        Nanti Saja (Lewati Hari Ini)
+                    </Button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* ========================================================== */}
+      {/* POSTER SAMBUTAN BILANO PRO (HANYA MUNCUL 1x)               */}
+      {/* ========================================================== */}
+      {showProWelcome && (
+        <div className="fixed inset-0 z-[99998] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-500">
+            <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 rounded-[32px] p-1 w-full max-w-sm shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-10 relative overflow-hidden border border-indigo-500/30">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div className="relative z-10 p-6 text-center">
+                    <div className="w-20 h-20 mx-auto bg-gradient-to-tr from-amber-400 to-yellow-300 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(251,191,36,0.4)] animate-bounce">
+                        <Crown className="w-10 h-10 text-amber-950" />
+                    </div>
+                    
+                    <h2 className="text-2xl font-black text-white mb-2 tracking-tight">
+                        Selamat Datang di <br/>
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-500">BILANO PRO!</span> 🎉
+                    </h2>
+                    
+                    <p className="text-indigo-200 text-sm mb-8 leading-relaxed font-medium px-2">
+                        Luar biasa! Seluruh fitur eksklusif, analisa tanpa batas, laporan premium, dan asisten AI kini sepenuhnya terbuka untuk Anda.
+                    </p>
+
+                    <Button 
+                        onClick={handleTutupWelcomePro}
+                        className="w-full h-14 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 font-black text-[15px] rounded-full shadow-xl shadow-amber-500/20 active:scale-95 transition-transform"
+                    >
+                        AYO MULAI SEKARANG! 🚀
+                    </Button>
+                </div>
+            </div>
+        </div>
+      )}
+
       {showPermissionPrompt && (
-          <div className="fixed inset-0 z-[99999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+          <div className="fixed inset-0 z-[99997] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100">
                   <div className="text-center mb-6 pt-2">
                       <img src="/BILANO-ICON.png" alt="BILANO" className="w-20 h-20 object-contain mx-auto mb-5 drop-shadow-xl" />
