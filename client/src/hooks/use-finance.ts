@@ -15,6 +15,7 @@ const getHeaders = () => {
 const CACHE_TIME = 1000 * 60; // 1 Menit
 
 // 1. USER
+// 1. USER
 export function useUser() {
   const email = localStorage.getItem("bilano_email") || "";
   return useQuery({
@@ -28,13 +29,21 @@ export function useUser() {
       const data = await res.json();
 
       // =======================================================
-      // MASTER KEY: PAKSA BUKA SEMUA GEMBOK DI SELURUH APK!
+      // VIP KETAT: HANYA EMAIL INI YANG JADI PRO OTOMATIS
       // =======================================================
-      const vipEmails = ["adrien@gmail.com"]; // Pastikan email Anda ada di sini
+      const vipEmails = [
+          "adrienfandra14@gmail.com",
+          "bilanotech@gmail.com"
+      ]; 
       
-      if (data && (localStorage.getItem("bilano_pro") === "true" || vipEmails.includes(email))) {
+      // Jika dia VIP (atau jika dari database asli dia sudah bayar Midtrans)
+      if (data && (data.isPro || vipEmails.includes(email))) {
           data.isPro = true;
           data.plan = "pro";
+      } else if (data) {
+          // Pastikan akun biasa tidak mewarisi status PRO
+          data.isPro = false;
+          data.plan = "free";
       }
       // =======================================================
 

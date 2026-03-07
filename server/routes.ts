@@ -141,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const vipEmails = [
         "adrienfandra14@gmail.com",
         "bilanotech@gmail.com", // Saya tambahkan email dari screenshot Midtrans Anda
-        user.email // SEMENTARA: Paksa SIAPAPUN yang sedang login menjadi PRO mutlak!
+    // SEMENTARA: Paksa SIAPAPUN yang sedang login menjadi PRO mutlak!
     ];
 
     if (vipEmails.includes(user.email)) {
