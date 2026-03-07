@@ -15,7 +15,6 @@ const getHeaders = () => {
 const CACHE_TIME = 1000 * 60; // 1 Menit
 
 // 1. USER
-// 1. USER
 export function useUser() {
   const email = localStorage.getItem("bilano_email") || "";
   return useQuery({
@@ -29,21 +28,26 @@ export function useUser() {
       const data = await res.json();
 
       // =======================================================
-      // VIP KETAT: HANYA EMAIL INI YANG JADI PRO OTOMATIS
+      // VIP KETAT & ANTI BOCOR: HANYA EMAIL INI YANG JADI PRO
       // =======================================================
       const vipEmails = [
           "adrienfandra14@gmail.com",
-          "bilanotech@gmail.com"
+          "bilanotech@gmail.com" // Tambahkan email VVIP lain di sini
       ]; 
       
-      // Jika dia VIP (atau jika dari database asli dia sudah bayar Midtrans)
-      if (data && (data.isPro || vipEmails.includes(email))) {
-          data.isPro = true;
-          data.plan = "pro";
-      } else if (data) {
-          // Pastikan akun biasa tidak mewarisi status PRO
-          data.isPro = false;
-          data.plan = "free";
+      if (data) {
+          // Jika dia VIP (atau jika dari database dia memang bayar)
+          if (vipEmails.includes(email) || data.isPro) {
+              data.isPro = true;
+              data.plan = "pro";
+              localStorage.setItem("bilano_pro", "true"); // Stempel PRO
+          } 
+          // Jika BUKAN VIP (Akun Biasa)
+          else {
+              data.isPro = false;
+              data.plan = "free";
+              localStorage.removeItem("bilano_pro"); // CABUT STEMPEL PRO DARI BROWSER!
+          }
       }
       // =======================================================
 
