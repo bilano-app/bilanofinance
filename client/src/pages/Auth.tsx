@@ -250,7 +250,7 @@ export default function Auth() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative">
       <div className="mb-8 text-center animate-in fade-in slide-in-from-top-4 duration-700">
-          <img src="/bilano_logo_horiz.png" alt="BILANO" className="h-16 w-auto mx-auto mb-2 object-contain" />
+          <img src="/Bilano_horiz_rbg.png" alt="BILANO" className="h-16 w-auto mx-auto mb-2 object-contain" />
       </div>
 
       <Card className="w-full max-w-sm p-6 shadow-xl border-none bg-white animate-in zoom-in-95">
