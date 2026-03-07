@@ -55,80 +55,28 @@ export default function Reports() {
     fetchData();
   }, []);
 
-  // --- FUNGSI MENGGAMBAR GRAFIK BATANG (BAR CHART) ---
-  const drawBarChart = (doc: jsPDF, title: string, chartData: any[], startY: number, barColor: number[]) => {
-      const chartHeight = 35;
-      const chartWidth = 170;
-      const startX = 20;
-      
-      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold");
-      doc.text(title, startX, startY - 3);
-
-      let maxVal = Math.max(...chartData.map(d => d.value), 0);
-      let minVal = Math.min(...chartData.map(d => d.value), 0);
-      if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
-      let range = maxVal - minVal;
-      if (range === 0) range = 1;
-
-      const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
-
-      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2);
-      doc.line(startX, zeroY, startX + chartWidth, zeroY); 
-
-      const barGap = 3;
-      const barWidth = (chartWidth / 12) - barGap;
-
-      chartData.forEach((item, i) => {
-          const x = startX + (i * (barWidth + barGap)) + barGap / 2;
-          const valH = (Math.abs(item.value) / range) * chartHeight;
-          const barY = item.value >= 0 ? zeroY - valH : zeroY;
-
-          if (title.includes("Arus Kas")) {
-              doc.setFillColor(item.value >= 0 ? 16 : 244, item.value >= 0 ? 185 : 63, item.value >= 0 ? 129 : 94);
-          } else {
-              doc.setFillColor(barColor[0], barColor[1], barColor[2]);
-          }
-          doc.rect(x, barY, barWidth, valH, 'F');
-
-          // LABEL ANGKA DI ATAS BATANG
-          doc.setFontSize(5); doc.setTextColor(80, 80, 80); doc.setFont("helvetica", "bold");
-          const textY = item.value >= 0 ? barY - 2 : barY + valH + 3;
-          doc.text(formatRpPendek(item.value), x + (barWidth / 2), textY, { align: 'center' });
-
-          // LABEL BULAN
-          doc.setFontSize(6); doc.setFont("helvetica", "normal"); doc.setTextColor(100, 100, 100);
-          doc.text(item.label, x + (barWidth / 2), startY + chartHeight + 6, { align: 'center' });
-      });
-
-      return startY + chartHeight + 15;
-  };
-
-  // --- FUNGSI MENGGAMBAR GRAFIK GARIS (LINE CHART) ---
+  // --- GRAFIK 1: GRAFIK GARIS (LINE CHART) ---
   const drawLineChart = (doc: jsPDF, title: string, chartData: any[], startY: number, lineColor: number[]) => {
-      const chartHeight = 35;
-      const chartWidth = 170;
-      const startX = 20;
+      const chartHeight = 35; const chartWidth = 170; const startX = 20;
 
       doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold");
       doc.text(title, startX, startY - 3);
 
       let maxVal = Math.max(...chartData.map(d => d.value), 0);
       let minVal = Math.min(...chartData.map(d => d.value), 0);
+      
+      // FIX JARAK ATAS: Tambahkan ruang 30% di atas nilai maksimal agar angka tidak menabrak judul
+      if (maxVal > 0) maxVal = maxVal * 1.3; 
       if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
-      let range = maxVal - minVal;
-      if (range === 0) range = 1;
+      
+      let range = maxVal - minVal; if (range === 0) range = 1;
 
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
+      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY);
 
-      // Garis dasar (Zero Line)
-      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2);
-      doc.line(startX, zeroY, startX + chartWidth, zeroY);
-
-      const pointGap = chartWidth / 11; // 12 titik = 11 spasi
-
+      const pointGap = chartWidth / 11; 
       doc.setDrawColor(lineColor[0], lineColor[1], lineColor[2]);
-      doc.setFillColor(lineColor[0], lineColor[1], lineColor[2]);
-      doc.setLineWidth(0.8);
+      doc.setFillColor(lineColor[0], lineColor[1], lineColor[2]); doc.setLineWidth(0.8);
 
       let prevX = -1, prevY = -1;
 
@@ -137,23 +85,118 @@ export default function Reports() {
           const valH = ((item.value - minVal) / range) * chartHeight;
           const y = startY + chartHeight - valH;
 
-          // Tarik garis dari titik sebelumnya ke titik sekarang
-          if (prevX !== -1) { doc.line(prevX, prevY, x, y); }
-
-          // Gambar titik (Node)
+          if (prevX !== -1) doc.line(prevX, prevY, x, y); 
           doc.circle(x, y, 1.2, 'FD');
 
-          // LABEL ANGKA DI ATAS TITIK
           doc.setFontSize(5); doc.setTextColor(lineColor[0], lineColor[1], lineColor[2]); doc.setFont("helvetica", "bold");
           doc.text(formatRpPendek(item.value), x, y - 2.5, { align: 'center' });
 
-          // LABEL BULAN
           doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal");
           doc.text(item.label, x, startY + chartHeight + 6, { align: 'center' });
-
           prevX = x; prevY = y;
       });
+      return startY + chartHeight + 15;
+  };
 
+  // --- GRAFIK 2: GRAFIK AREA (AREA CHART BERWARNA) ---
+  const drawAreaChart = (doc: jsPDF, title: string, chartData: any[], startY: number, color: number[]) => {
+      const chartHeight = 35; const chartWidth = 170; const startX = 20;
+
+      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold");
+      doc.text(title, startX, startY - 3);
+
+      let maxVal = Math.max(...chartData.map(d => d.value), 0);
+      let minVal = Math.min(...chartData.map(d => d.value), 0);
+      
+      // FIX JARAK ATAS
+      if (maxVal > 0) maxVal = maxVal * 1.3; 
+      if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
+      
+      let range = maxVal - minVal; if (range === 0) range = 1;
+
+      const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
+      const pointGap = chartWidth / 11; 
+
+      // Gambar blok Area dasar
+      const polyPoints: number[][] = [];
+      polyPoints.push([startX, zeroY]); 
+      
+      chartData.forEach((item, i) => {
+          const x = startX + (i * pointGap);
+          const valH = ((item.value - minVal) / range) * chartHeight;
+          const y = startY + chartHeight - valH;
+          polyPoints.push([x, y]);
+      });
+      polyPoints.push([startX + chartWidth, zeroY]); 
+
+      doc.setFillColor(color[0], color[1], color[2]);
+      // Transparansi/opacity untuk efek Area
+      doc.setGState(new (doc as any).GState({opacity: 0.2}));
+      doc.lines(polyPoints.slice(1).map(p => [p[0] - polyPoints[0][0], p[1] - polyPoints[0][1]]), polyPoints[0][0], polyPoints[0][1], [1, 1], 'F');
+      doc.setGState(new (doc as any).GState({opacity: 1.0})); 
+
+      // Garis dasar & Garis atas
+      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY);
+      doc.setDrawColor(color[0], color[1], color[2]); doc.setLineWidth(0.8);
+      
+      let prevX = -1, prevY = -1;
+      chartData.forEach((item, i) => {
+          const x = startX + (i * pointGap);
+          const valH = ((item.value - minVal) / range) * chartHeight;
+          const y = startY + chartHeight - valH;
+
+          if (prevX !== -1) doc.line(prevX, prevY, x, y); 
+          
+          doc.setFillColor(color[0], color[1], color[2]);
+          doc.circle(x, y, 0.8, 'FD');
+
+          doc.setFontSize(5); doc.setTextColor(color[0], color[1], color[2]); doc.setFont("helvetica", "bold");
+          doc.text(formatRpPendek(item.value), x, y - 2.5, { align: 'center' });
+
+          doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal");
+          doc.text(item.label, x, startY + chartHeight + 6, { align: 'center' });
+          prevX = x; prevY = y;
+      });
+      return startY + chartHeight + 15;
+  };
+
+  // --- GRAFIK 3: GRAFIK BATANG (BAR CHART) ---
+  const drawBarChart = (doc: jsPDF, title: string, chartData: any[], startY: number, barColor: number[]) => {
+      const chartHeight = 35; const chartWidth = 170; const startX = 20;
+      
+      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold");
+      doc.text(title, startX, startY - 3);
+
+      let maxVal = Math.max(...chartData.map(d => d.value), 0);
+      let minVal = Math.min(...chartData.map(d => d.value), 0);
+      
+      // FIX JARAK ATAS
+      if (maxVal > 0) maxVal = maxVal * 1.3; 
+      if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
+      
+      let range = maxVal - minVal; if (range === 0) range = 1;
+
+      const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
+      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY); 
+
+      const barGap = 3; const barWidth = (chartWidth / 12) - barGap;
+
+      chartData.forEach((item, i) => {
+          const x = startX + (i * (barWidth + barGap)) + barGap / 2;
+          const valH = (Math.abs(item.value) / range) * chartHeight;
+          const barY = item.value >= 0 ? zeroY - valH : zeroY;
+
+          if (title.includes("Arus Kas")) doc.setFillColor(item.value >= 0 ? 16 : 244, item.value >= 0 ? 185 : 63, item.value >= 0 ? 129 : 94);
+          else doc.setFillColor(barColor[0], barColor[1], barColor[2]);
+          doc.rect(x, barY, barWidth, valH, 'F');
+
+          doc.setFontSize(5); doc.setTextColor(80, 80, 80); doc.setFont("helvetica", "bold");
+          const textY = item.value >= 0 ? barY - 2 : barY + valH + 3;
+          doc.text(formatRpPendek(item.value), x + (barWidth / 2), textY, { align: 'center' });
+
+          doc.setFontSize(6); doc.setFont("helvetica", "normal"); doc.setTextColor(100, 100, 100);
+          doc.text(item.label, x + (barWidth / 2), startY + chartHeight + 6, { align: 'center' });
+      });
       return startY + chartHeight + 15;
   };
 
@@ -231,11 +274,15 @@ export default function Reports() {
         const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
         const netWorth = totalAsset - totalDebt;
 
-        const pureTransactions = data.transactions.filter((t:any) => t.type === 'income' || t.type === 'expense');
+        const pureTransactions = data.transactions.filter((t:any) => 
+            (t.type === 'income' || t.type === 'expense') && 
+            t.category !== 'Penyesuaian Sistem' && 
+            t.category !== 'Penghapusan Piutang'
+        );
         const investTransactions = data.transactions.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
 
-        // MENGHITUNG TOTAL WRITE-OFF (Penghapusan Piutang / Kerugian)
-        const writeOffTransactions = data.transactions.filter((t:any) => t.category === 'Penghapusan Piutang' || t.category === 'Write Off');
+        // TOTAL KERUGIAN (WRITE-OFF)
+        const writeOffTransactions = data.transactions.filter((t:any) => t.category === 'Penghapusan Piutang');
         const totalWriteOff = writeOffTransactions.reduce((sum: number, t:any) => sum + t.amount, 0);
 
         const thirtyDaysAgo = new Date();
@@ -243,7 +290,7 @@ export default function Reports() {
         const recentPureTx = pureTransactions.filter((t:any) => new Date(t.date) >= thirtyDaysAgo);
         
         const totalIncome = recentPureTx.filter((t:any) => t.type === 'income').reduce((acc:number, t:any) => acc + t.amount, 0);
-        const totalExpense = recentPureTx.filter((t:any) => t.type === 'expense' && t.category !== 'Penghapusan Piutang').reduce((acc:number, t:any) => acc + t.amount, 0);
+        const totalExpense = recentPureTx.filter((t:any) => t.type === 'expense').reduce((acc:number, t:any) => acc + t.amount, 0);
 
         let currentY = 108;
         const checkPageBreak = (neededSpace: number) => {
@@ -369,7 +416,6 @@ export default function Reports() {
                 const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || 1);
                 const valIDR = d.amount * rate;
                 
-                // Indikator jika Piutang di-WriteOff (Dihapuskan)
                 let status = d.isPaid ? 'LUNAS' : 'Belum Lunas';
                 if (d.type === 'piutang' && d.isPaid && d.description?.includes('Penghapusan')) {
                     status = 'DIHAPUS (Rugi)';
@@ -435,13 +481,12 @@ export default function Reports() {
         doc.text("Analisis Grafik Performa Keuangan (12 Bulan)", 14, graphY);
         graphY += 15;
 
-        // TAMPILKAN TOTAL KERUGIAN PIUTANG JIKA ADA (SEBELUM GRAFIK)
         if (totalWriteOff > 0) {
-            doc.setFillColor(254, 226, 226); // Red 50 bg
-            doc.setDrawColor(248, 113, 113); // Red 400 border
+            doc.setFillColor(254, 226, 226); 
+            doc.setDrawColor(248, 113, 113); 
             doc.rect(14, graphY, 182, 22, 'FD');
 
-            doc.setTextColor(225, 29, 72); // Rose 600
+            doc.setTextColor(225, 29, 72); 
             doc.setFontSize(11); doc.setFont("helvetica", "bold");
             doc.text("Pencatatan Kerugian (Penghapusan Piutang Tak Tertagih)", 18, graphY + 7);
             
@@ -510,12 +555,14 @@ export default function Reports() {
         const chartCash = paddedData.map(d => ({ label: d.label, value: d.cash }));
         const chartNetFlow = paddedData.map(d => ({ label: d.label, value: d.netFlow }));
 
-        // EKSEKUSI 3 GRAFIK DENGAN BENTUK BERBEDA
-        graphY = drawLineChart(doc, "1. Grafik Jumlah Aset (Akumulasi)", chartAsset, graphY, [79, 70, 229]);
-        graphY += 15;
-        graphY = drawLineChart(doc, "2. Grafik Jumlah Kas Tunai (Akumulasi)", chartCash, graphY, [14, 165, 233]);
-        graphY += 15;
-        drawBarChart(doc, "3. Grafik Net Arus Kas (Masuk vs Keluar per Bulan)", chartNetFlow, graphY, [16, 185, 129]);
+        // EKSEKUSI 3 BENTUK GRAFIK BERBEDA (Garis, Area, Batang)
+        graphY = drawLineChart(doc, "1. Grafik Jumlah Aset Keseluruhan (Garis)", chartAsset, graphY, [79, 70, 229]);
+        graphY += 10;
+        // Gunakan Grafik Area untuk Kas Tunai (Bentuk ke-2)
+        graphY = drawAreaChart(doc, "2. Grafik Jumlah Kas Tunai (Area Blok)", chartCash, graphY, [14, 165, 233]);
+        graphY += 10;
+        // Gunakan Grafik Batang untuk Arus Kas (Bentuk ke-3)
+        drawBarChart(doc, "3. Grafik Net Arus Kas Bulanan (Batang)", chartNetFlow, graphY, [16, 185, 129]);
 
         const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {

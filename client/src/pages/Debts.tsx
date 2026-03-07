@@ -329,10 +329,25 @@ export default function Debts() {
                             
                             <div className="flex flex-col gap-2">
                                 {!item.isPaid ? (
-                                    <button onClick={() => { setSelectedDebt(item); setPayModalOpen(true); }} className={`p-3 rounded-[16px] text-white shadow-md active:scale-95 transition-transform flex flex-col items-center justify-center ${activeTab === 'hutang' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
-                                        <CheckCircle2 className="w-5 h-5 mb-0.5"/>
-                                        <span className="text-[9px] font-extrabold uppercase tracking-wider">{activeTab === 'hutang' ? 'Bayar' : 'Tagih'}</span>
-                                    </button>
+                                    <>
+                                        <button onClick={() => { setSelectedDebt(item); setPayModalOpen(true); }} className={`p-3 rounded-[16px] text-white shadow-md active:scale-95 transition-transform flex flex-col items-center justify-center ${activeTab === 'hutang' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
+                                            <CheckCircle2 className="w-5 h-5 mb-0.5"/>
+                                            <span className="text-[9px] font-extrabold uppercase tracking-wider">{activeTab === 'hutang' ? 'Bayar' : 'Tagih'}</span>
+                                        </button>
+                                        
+                                        {/* TOMBOL WRITE OFF DIPINDAH KE SINI */}
+                                        {activeTab === 'piutang' && (
+                                            <button onClick={() => {
+                                                // Kita atur item yang dipilih secara manual karena fungsinya butuh `selectedDebt`
+                                                setSelectedDebt(item); 
+                                                // Gunakan setTimeout agar state `selectedDebt` tersimpan sebelum memanggil handleWriteOff
+                                                setTimeout(() => handleWriteOff(), 100); 
+                                            }} className="p-2 rounded-[16px] bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-600 shadow-sm active:scale-95 transition-transform flex flex-col items-center justify-center border border-rose-100" title="Ikhlaskan (Write-Off)">
+                                                <HeartCrack className="w-4 h-4 mb-0.5"/>
+                                                <span className="text-[8px] font-extrabold uppercase tracking-wider">Ikhlas</span>
+                                            </button>
+                                        )}
+                                    </>
                                 ) : (
                                     <button onClick={() => handleDelete(item.id)} className="p-3 bg-slate-50 text-slate-400 rounded-[16px] hover:bg-rose-50 hover:text-rose-500 transition-colors">
                                         <Trash2 className="w-5 h-5"/>
