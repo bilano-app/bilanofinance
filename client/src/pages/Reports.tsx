@@ -20,7 +20,6 @@ export default function Reports() {
       return "Rp " + Math.round(num).toLocaleString("id-ID");
   };
 
-  // Helper untuk menyingkat angka di atas grafik (Misal: 1.500.000 -> 1.5M, 500.000 -> 500k)
   const formatRpPendek = (val: number) => {
       const num = Math.abs(Number(val) || 0);
       const sign = val < 0 ? "-" : "";
@@ -65,7 +64,6 @@ export default function Reports() {
       let maxVal = Math.max(...chartData.map(d => d.value), 0);
       let minVal = Math.min(...chartData.map(d => d.value), 0);
       
-      // FIX JARAK ATAS
       if (maxVal > 0) maxVal = maxVal * 1.3; 
       if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
       
@@ -98,8 +96,8 @@ export default function Reports() {
       return startY + chartHeight + 15;
   };
 
-  // --- GRAFIK 2: GRAFIK AREA (AREA CHART BERWARNA) - FIX BUG KEBOCORAN ---
-  const drawAreaChart = (doc: jsPDF, title: string, chartData: any[], startY: number, color: number[]) => {
+  // --- GRAFIK 2: LOLLIPOP CHART (TITIK & TANGKAI VERTIKAL) ---
+  const drawLollipopChart = (doc: jsPDF, title: string, chartData: any[], startY: number, color: number[]) => {
       const chartHeight = 35; const chartWidth = 170; const startX = 20;
 
       doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold");
@@ -116,48 +114,32 @@ export default function Reports() {
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
       const pointGap = chartWidth / 11; 
 
-      // MENGGAMBAR AREA BLOK DENGAN GEOMETRI PRESISI (Anti Bocor)
-      doc.setFillColor(color[0], color[1], color[2]);
-      doc.setGState(new (doc as any).GState({opacity: 0.2})); // Transparan 20%
+      // Garis dasar (X-Axis)
+      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); 
+      doc.line(startX, zeroY, startX + chartWidth, zeroY);
 
-      let prevXArea = startX;
-      let prevYArea = startY + chartHeight - ((chartData[0].value - minVal) / range) * chartHeight;
-
-      for (let i = 1; i < chartData.length; i++) {
-          const x = startX + (i * pointGap);
-          const valH = ((chartData[i].value - minVal) / range) * chartHeight;
-          const y = startY + chartHeight - valH;
-
-          // Menggambar blok trapesium di bawah setiap garis menggunakan 2 segitiga
-          doc.triangle(prevXArea, zeroY, prevXArea, prevYArea, x, y, 'F');
-          doc.triangle(prevXArea, zeroY, x, y, x, zeroY, 'F');
-
-          prevXArea = x;
-          prevYArea = y;
-      }
-      doc.setGState(new (doc as any).GState({opacity: 1.0})); // Kembalikan ke normal
-
-      // Garis dasar & Garis Utama Area
-      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY);
-      doc.setDrawColor(color[0], color[1], color[2]); doc.setLineWidth(0.8);
-      
-      let prevX = -1, prevY = -1;
       chartData.forEach((item, i) => {
           const x = startX + (i * pointGap);
           const valH = ((item.value - minVal) / range) * chartHeight;
           const y = startY + chartHeight - valH;
 
-          if (prevX !== -1) doc.line(prevX, prevY, x, y); 
+          // 1. Gambar Tangkai Vertikal (Stick)
+          doc.setDrawColor(color[0], color[1], color[2]); 
+          doc.setLineWidth(1.2); 
+          doc.line(x, zeroY, x, y); 
           
+          // 2. Gambar Titik Besar (Lollipop Candy)
           doc.setFillColor(color[0], color[1], color[2]);
-          doc.circle(x, y, 0.8, 'FD');
+          doc.circle(x, y, 1.8, 'FD'); // Radius lebih besar dari line chart biasa
 
+          // Teks Angka
           doc.setFontSize(5); doc.setTextColor(color[0], color[1], color[2]); doc.setFont("helvetica", "bold");
-          doc.text(formatRpPendek(item.value), x, y - 2.5, { align: 'center' });
+          const textY = item.value >= 0 ? y - 3 : y + 4;
+          doc.text(formatRpPendek(item.value), x, textY, { align: 'center' });
 
+          // Teks Label Bulan
           doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal");
           doc.text(item.label, x, startY + chartHeight + 6, { align: 'center' });
-          prevX = x; prevY = y;
       });
       return startY + chartHeight + 15;
   };
@@ -556,12 +538,13 @@ export default function Reports() {
         const chartCash = paddedData.map(d => ({ label: d.label, value: d.cash }));
         const chartNetFlow = paddedData.map(d => ({ label: d.label, value: d.netFlow }));
 
-        // EKSEKUSI 3 BENTUK GRAFIK BERBEDA (Garis, Area, Batang)
-        graphY = drawLineChart(doc, "1. Grafik Jumlah Aset Keseluruhan (Garis)", chartAsset, graphY, [79, 70, 229]);
+        // EKSEKUSI 3 BENTUK GRAFIK BERBEDA
+        graphY = drawLineChart(doc, "1. Grafik Jumlah Aset Keseluruhan (Line Chart)", chartAsset, graphY, [79, 70, 229]);
         graphY += 10;
-        graphY = drawAreaChart(doc, "2. Grafik Jumlah Kas Tunai (Area Blok)", chartCash, graphY, [14, 165, 233]);
+        // Panggil grafik Lollipop yang sangat berbeda visualnya
+        graphY = drawLollipopChart(doc, "2. Grafik Jumlah Kas Tunai (Lollipop Chart)", chartCash, graphY, [14, 165, 233]);
         graphY += 10;
-        drawBarChart(doc, "3. Grafik Net Arus Kas Bulanan (Batang)", chartNetFlow, graphY, [16, 185, 129]);
+        drawBarChart(doc, "3. Grafik Net Arus Kas Bulanan (Bar Chart)", chartNetFlow, graphY, [16, 185, 129]);
 
         const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
