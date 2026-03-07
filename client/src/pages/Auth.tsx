@@ -2,19 +2,18 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Lock, ShieldCheck, RefreshCw, AlertCircle, ArrowLeft, X } from "lucide-react";
+import { Mail, Lock, ShieldCheck, RefreshCw, AlertCircle, ArrowLeft, X, CheckCircle2 } from "lucide-react";
 import { auth, googleProvider } from "@/lib/firebase";
 import { 
     signInWithRedirect, 
     getRedirectResult,
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
-    sendPasswordResetEmail, // <-- Fitur Sakti Firebase untuk Reset Password
+    sendPasswordResetEmail,
     User
 } from "firebase/auth";
 
 export default function Auth() {
-  // PEMBERSIH GEMBOK GLOBAL: Hancurkan kunci saat di halaman Auth!
   localStorage.removeItem("bilano_trial_expired");
 
   const [isLogin, setIsLogin] = useState(true); 
@@ -33,6 +32,7 @@ export default function Auth() {
   // State untuk Fitur Lupa Password
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
+  const [isForgotSuccess, setIsForgotSuccess] = useState(false); // <-- STATE BARU UNTUK UI SUKSES
 
   const [loading, setLoading] = useState(false);
   const [, setLocation] = useLocation();
@@ -108,17 +108,16 @@ export default function Auth() {
             await requestOtp();
         }
     } catch (error: any) {
-        // === LOGIKA PINTAR: DETEKSI ERROR LOGIN ===
         let msg = "Terjadi kesalahan sistem.";
         
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             msg = "Akun belum terdaftar atau kombinasi salah. Silakan Daftar (Sign Up) terlebih dahulu.";
-            setIsLogin(false); // Otomatis pindah ke Tab Daftar
+            setIsLogin(false); 
         } else if (error.code === 'auth/wrong-password') {
             msg = "Password yang Anda masukkan salah. Coba lagi atau gunakan fitur Lupa Password.";
         } else if (error.code === 'auth/email-already-in-use') {
             msg = "Email ini sudah terdaftar. Silakan Login.";
-            setIsLogin(true); // Otomatis pindah ke Tab Login
+            setIsLogin(true); 
         } else if (error.code === 'auth/too-many-requests') {
             msg = "Terlalu banyak percobaan gagal. Coba lagi nanti.";
         }
@@ -189,12 +188,7 @@ export default function Auth() {
       setLoading(true);
       try {
           await sendPasswordResetEmail(auth, forgotEmail);
-          toast({ 
-              title: "Link Terkirim!", 
-              description: "Silakan cek kotak masuk/spam Email Anda untuk membuat password baru." 
-          });
-          setShowForgotModal(false);
-          setForgotEmail("");
+          setIsForgotSuccess(true); // <-- Ubah UI menjadi layar sukses
       } catch (error: any) {
           let msg = "Gagal mengirim link reset.";
           if (error.code === 'auth/user-not-found') msg = "Email ini belum terdaftar di aplikasi kami.";
@@ -275,10 +269,17 @@ export default function Auth() {
                       <label className="text-xs font-bold text-slate-500 ml-1">Password</label>
                       <div className="relative"><Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/><Input type="password" placeholder="••••••••" className="pl-10 h-12" value={password} onChange={(e) => setPassword(e.target.value)}/></div>
                       
-                      {/* TOMBOL LUPA PASSWORD (HANYA MUNCUL SAAT MODE LOGIN) */}
                       {isLogin && (
                           <div className="flex justify-end pt-1">
-                              <button type="button" onClick={() => setShowForgotModal(true)} className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
+                              <button 
+                                type="button" 
+                                onClick={() => { 
+                                    setShowForgotModal(true); 
+                                    setIsForgotSuccess(false); // Pastikan state di-reset saat modal dibuka
+                                    setForgotEmail(""); 
+                                }} 
+                                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                              >
                                   Lupa Password?
                               </button>
                           </div>
@@ -299,29 +300,49 @@ export default function Auth() {
                   <button onClick={() => setShowForgotModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
                       <X className="w-5 h-5"/>
                   </button>
-                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
-                      <Lock className="w-6 h-6"/>
-                  </div>
-                  <h3 className="text-lg font-extrabold text-slate-800 mb-1">Reset Password</h3>
-                  <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-                      Masukkan email yang terdaftar. Kami akan mengirimkan link rahasia agar Anda bisa mengatur ulang password.
-                  </p>
-                  
-                  <div className="space-y-4">
-                      <div className="relative">
-                          <Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
-                          <Input 
-                              type="email" 
-                              placeholder="Masukkan email Anda..." 
-                              className="pl-10 h-12 border-slate-200" 
-                              value={forgotEmail} 
-                              onChange={(e) => setForgotEmail(e.target.value)}
-                          />
+
+                  {/* LOGIKA PERUBAHAN UI BERDASARKAN STATUS SUKSES */}
+                  {!isForgotSuccess ? (
+                      <>
+                          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
+                              <Lock className="w-6 h-6"/>
+                          </div>
+                          <h3 className="text-lg font-extrabold text-slate-800 mb-1">Reset Password</h3>
+                          <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+                              Masukkan email yang terdaftar. Kami akan mengirimkan link rahasia agar Anda bisa mengatur ulang password.
+                          </p>
+                          
+                          <div className="space-y-4">
+                              <div className="relative">
+                                  <Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
+                                  <Input 
+                                      type="email" 
+                                      placeholder="Masukkan email Anda..." 
+                                      className="pl-10 h-12 border-slate-200" 
+                                      value={forgotEmail} 
+                                      onChange={(e) => setForgotEmail(e.target.value)}
+                                  />
+                              </div>
+                              <Button onClick={handleForgotPassword} disabled={loading || !forgotEmail} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold shadow-md">
+                                  {loading ? <RefreshCw className="w-5 h-5 animate-spin"/> : "KIRIM LINK RESET"}
+                              </Button>
+                          </div>
+                      </>
+                  ) : (
+                      // UI LAYAR SUKSES MENGIRIM EMAIL
+                      <div className="text-center py-4 animate-in fade-in zoom-in-95">
+                          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <CheckCircle2 className="w-8 h-8"/>
+                          </div>
+                          <h3 className="text-lg font-extrabold text-slate-800 mb-2">Tautan Terkirim!</h3>
+                          <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+                              Silakan cek kotak masuk atau folder <strong className="text-rose-600">Spam / Junk</strong> di email <strong>{forgotEmail}</strong>.
+                          </p>
+                          <Button onClick={() => setShowForgotModal(false)} className="w-full h-12 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold shadow-none">
+                              TUTUP
+                          </Button>
                       </div>
-                      <Button onClick={handleForgotPassword} disabled={loading || !forgotEmail} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold shadow-md">
-                          {loading ? <RefreshCw className="w-5 h-5 animate-spin"/> : "KIRIM LINK RESET"}
-                      </Button>
-                  </div>
+                  )}
               </div>
           </div>
       )}
