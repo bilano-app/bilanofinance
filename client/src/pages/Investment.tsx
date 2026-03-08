@@ -3,7 +3,7 @@ import { ArrowLeft, PlusCircle, X, Loader2, Info } from "lucide-react";
 import { TrendingUp, Building2, LineChart, Briefcase, Gem, Landmark, ScrollText, Coins } from "lucide-react";
 import { Button, Input, CurrencyInput } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
-import { useUser, useInvestments, useBuyInvestment, useSellInvestment } from "@/hooks/use-finance";
+import { useUser, useInvestments } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
 
 type AssetType = 'saham' | 'crypto' | 'reksadana' | 'obligasi' | 'p2p' | 'emas' | 'properti' | 'koleksi';
@@ -14,11 +14,12 @@ export default function Investment() {
   const [activeCategory, setActiveCategory] = useState<AssetType | null>(null);
   const [isTxOpen, setIsTxOpen] = useState(false);
   const [txType, setTxType] = useState<'BUY' | 'SELL'>('BUY');
+  
+  // STATE BARU: Indikator Loading khusus untuk tombol transaksi
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: portfolio = [], isLoading: isInvLoading } = useInvestments();
-  const buyMutation = useBuyInvestment();
-  const sellMutation = useSellInvestment();
 
   const [forexRates, setForexRates] = useState<Record<string, number>>({});
   const [availableCurrencies, setAvailableCurrencies] = useState<string[]>([]);
@@ -61,9 +62,7 @@ export default function Investment() {
   const getFilteredPortfolio = () => {
       if (!activeCategory) return portfolio;
       return portfolio.filter(p => {
-          // FIX: Gunakan toLowerCase() agar kebal terhadap perbedaan huruf besar/kecil di database
           if (p.type) return p.type.toLowerCase() === activeCategory.toLowerCase();
-          
           const [sym] = (p.symbol||"").split('|');
           const isLegacyStock = sym.length === 4 && !sym.includes(" ");
           if (activeCategory === 'saham') return isLegacyStock;
@@ -82,41 +81,58 @@ export default function Investment() {
       const isStock = p.type?.toLowerCase() === 'saham' || (!p.type && sym.length === 4);
       const multiplier = (isStock && actualCurr === 'IDR') ? 100 : 1; 
       
-      return p.quantity * (p.avgPrice || p.price || 0) * multiplier * rate;
+      return p.quantity * (p.avgPrice || 0) * multiplier * rate;
   };
 
   const totalPortfolioValue = portfolio.reduce((acc, p) => acc + calculateLiveValue(p), 0);
   const categoryValue = filteredItems.reduce((acc, p) => acc + calculateLiveValue(p), 0);
 
+  // =================================================================================
+  // 🚀 FIX: PENGIRIMAN DATA MENGGUNAKAN FETCH LANGSUNG + KTP (x-user-email)
+  // =================================================================================
   const handleTransaction = async () => {
-    if (!inputPrice) return;
+    if (!inputPrice || !inputQty) return;
+    
     const price = parseFloat(inputPrice);
-    const qty = parseFloat(inputQty || "1");
+    const qty = parseFloat(inputQty);
+
+    setIsSubmitting(true); // Nyalakan animasi loading
 
     try {
         const symbolPayload = txType === 'SELL' ? selectedSellSymbol : `${inputName.toUpperCase()}|${inputCurrency}`;
-        
-        // FIX BUG FATAL: Payload Sapu Jagat (Sertakan semua variasi nama kolom agar database tidak crash)
-        const typeStr = activeCategory ? activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1) : 'Lainnya';
         
         const payload = {
            symbol: symbolPayload,
            quantity: qty, 
            price: price, 
-           avgPrice: price, // <-- INI YANG BIKIN SERVER CRASH SEBELUMNYA!
-           cost: price,
-           type: typeStr,
-           category: typeStr
+           type: activeCategory || 'saham' 
         };
 
-        if (txType === 'BUY') await buyMutation.mutateAsync(payload);
-        else await sellMutation.mutateAsync(payload);
+        const endpoint = txType === 'BUY' ? "/api/investments/buy" : "/api/investments/sell";
+
+        const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "x-user-email": localStorage.getItem("bilano_email") || "" // WAJIB ADA!
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "Gagal memproses transaksi.");
+        }
         
+        toast({ title: "Berhasil!", description: `Transaksi ${txType === 'BUY' ? 'Beli' : 'Jual'} aset berhasil dicatat.` });
         setIsTxOpen(false);
         resetForm();
-        toast({ title: "Berhasil!", description: `Transaksi ${txType === 'BUY' ? 'pembelian' : 'penjualan'} aset berhasil dicatat.` });
+        window.location.reload(); // Refresh halaman agar saldo terupdate instan
+
     } catch (error: any) {
-        toast({ title: "Transaksi Gagal", description: error.message, variant: "destructive" });
+        toast({ title: "Transaksi Ditolak", description: error.message, variant: "destructive" });
+    } finally {
+        setIsSubmitting(false); // Matikan animasi loading
     }
   };
 
@@ -144,6 +160,8 @@ export default function Investment() {
             if (qtyNum > ownedQty) isSellOverLimit = true;
         }
     }
+
+    const isFormValid = txType === 'BUY' ? (inputName && inputQty && inputPrice) : (selectedSellSymbol && inputQty && inputPrice);
 
     return (
       <div className="space-y-5 py-2">
@@ -188,7 +206,7 @@ export default function Investment() {
 
         <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">Jumlah ({config.unit})</label>
+                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">Jumlah</label>
                 <Input 
                     type="number" value={inputQty} onChange={e => setInputQty(e.target.value)} placeholder="0" 
                     className={`h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg focus:bg-white transition-all ${isSellOverLimit ? "border-rose-500 focus:border-rose-500 bg-rose-50" : "focus:border-indigo-500"}`}
@@ -207,18 +225,19 @@ export default function Investment() {
         )}
 
         <div className={`p-4 rounded-[24px] flex justify-between items-center mt-2 transition-colors ${txType==='BUY'?'bg-rose-50':'bg-emerald-50'}`}>
-           <span className={`text-xs font-bold ${txType==='BUY'?'text-rose-500':'text-emerald-600'}`}>Estimasi Rp {txType==='BUY' ? 'Keluar' : 'Masuk'}</span>
+           <span className={`text-xs font-bold ${txType==='BUY'?'text-rose-500':'text-emerald-600'}`}>Estimasi Rp Keluar</span>
            <span className={`font-extrabold text-xl ${txType==='BUY'?'text-rose-600':'text-emerald-700'}`}>
               {formatRp(estimasiIDR)}
            </span>
         </div>
 
         <Button 
-            className={`w-full h-14 font-extrabold text-lg shadow-lg rounded-full mt-4 transition-transform active:scale-95 ${txType==='BUY'?'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200':'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`} 
+            className={`w-full h-14 font-extrabold text-lg shadow-lg rounded-full mt-4 transition-transform active:scale-95 flex items-center justify-center gap-2 ${txType==='BUY'?'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200':'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`} 
             onClick={handleTransaction} 
-            disabled={!inputName || !inputQty || !inputPrice || isSellOverLimit || buyMutation.isPending || sellMutation.isPending}
+            disabled={!isFormValid || isSellOverLimit || isSubmitting}
         >
-           {buyMutation.isPending || sellMutation.isPending ? <Loader2 className="w-6 h-6 animate-spin"/> : (isSellOverLimit ? "STOK TIDAK CUKUP" : `KONFIRMASI ${txType}`)}
+           {isSubmitting && <Loader2 className="w-6 h-6 animate-spin"/>}
+           {isSellOverLimit ? "STOK TIDAK CUKUP" : (isSubmitting ? "MEMPROSES..." : `KONFIRMASI ${txType}`)}
         </Button>
       </div>
     )
@@ -331,7 +350,7 @@ export default function Investment() {
                                   {isForeign && <span className="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">{actualCurr}</span>}
                               </div>
                               <p className="text-xs text-slate-500 font-medium">
-                                 {p.quantity} Unit <span className="mx-1 text-slate-300">•</span> Avg: {isForeign ? actualCurr : 'Rp'} {(p.avgPrice || p.price || 0).toLocaleString('id-ID')}
+                                 {p.quantity} Unit <span className="mx-1 text-slate-300">•</span> Avg: {isForeign ? actualCurr : 'Rp'} {(p.avgPrice || 0).toLocaleString('id-ID')}
                               </p>
                            </div>
                         </div>
