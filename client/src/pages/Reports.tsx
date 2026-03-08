@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
-import { Download, FileText, Globe, Wallet, FileBarChart, Loader2, Target, Briefcase, HandCoins, AlertTriangle } from "lucide-react";
+import { Download, FileText, Globe, Wallet, FileBarChart, Loader2, Target, Briefcase, HandCoins } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -14,7 +14,6 @@ export default function Reports() {
   
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isCleaning, setIsCleaning] = useState(false);
 
   const formatRp = (val: number) => {
       const num = Number(val) || 0;
@@ -54,50 +53,6 @@ export default function Reports() {
     };
     fetchData();
   }, []);
-
-  // =========================================================================
-  // 🚀 TOMBOL PEMBASMI BUG OTOMATIS (MEMBURU TRANSAKSI 'SOME' & 'REFUND')
-  // =========================================================================
-  const handleEmergencyClean = async () => {
-      setIsCleaning(true);
-      try {
-          const userEmail = localStorage.getItem("bilano_email") || "";
-          const res = await fetch('/api/transactions', { headers: { 'x-user-email': userEmail } });
-          const txs = await res.json();
-
-          // Hanya mencari transaksi error "SOME" dan refund "Penyesuaian Sistem"
-          const dirtyTxs = txs.filter((t:any) => 
-              t.category === 'Penyesuaian Sistem' || 
-              (t.type === 'invest_buy' && t.description && t.description.includes('SOME'))
-          );
-
-          if (dirtyTxs.length === 0) {
-              toast({ title: "Sudah Bersih!", description: "Tidak ada data error yang ditemukan di database." });
-              setIsCleaning(false);
-              return;
-          }
-
-          let successCount = 0;
-          for (let tx of dirtyTxs) {
-              const delRes = await fetch(`/api/transactions/${tx.id}`, {
-                  method: 'DELETE',
-                  headers: { 'x-user-email': userEmail }
-              });
-              if(delRes.ok) successCount++;
-          }
-
-          if (successCount > 0) {
-              toast({ title: "Berhasil Dibasmi!", description: `${successCount} data kotor telah dihapus. Saldo tetap aman!` });
-              setTimeout(() => window.location.reload(), 2000);
-          } else {
-              toast({ title: "Gagal Menghapus", description: "Vercel belum selesai proses Deploy file server. Tunggu 1 menit lalu coba lagi.", variant: "destructive" });
-          }
-      } catch(e) {
-          toast({ title: "Error Koneksi", variant: "destructive" });
-      } finally {
-          setIsCleaning(false);
-      }
-  };
 
   // --- GRAFIK 1: GRAFIK GARIS (LINE CHART) ---
   const drawLineChart = (doc: jsPDF, title: string, chartData: any[], startY: number, lineColor: number[]) => {
@@ -483,24 +438,6 @@ export default function Reports() {
     <MobileLayout title="Pusat Laporan" showBack>
       <div className="space-y-6 pt-4 pb-20 px-2">
         
-        {/* TOMBOL PEMBERSIH BUG DARURAT */}
-        <div className="bg-rose-50 border border-rose-200 p-5 rounded-[24px] shadow-sm animate-in fade-in">
-            <div className="flex items-center gap-2 text-rose-700 font-extrabold mb-2">
-                <AlertTriangle className="w-5 h-5"/> Pembersih Data Gaib
-            </div>
-            <p className="text-xs text-rose-600 leading-relaxed mb-4 font-medium">
-                Klik tombol di bawah ini untuk menghapus investasi gaib <strong>SOME</strong> dan Pemasukan <strong>Penyesuaian Sistem</strong> dari database secara permanen tanpa mengganggu saldo asli Anda.
-            </p>
-            <Button 
-                onClick={handleEmergencyClean} 
-                disabled={isCleaning} 
-                className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold h-12 rounded-xl shadow-lg shadow-rose-200"
-            >
-                {isCleaning ? <Loader2 className="w-5 h-5 animate-spin mr-2"/> : null}
-                {isCleaning ? "MEMBASMI DATA..." : "BASMI TRANSAKSI GAIB"}
-            </Button>
-        </div>
-
         <div className="bg-gradient-to-br from-violet-600 to-indigo-600 p-8 rounded-[32px] text-white shadow-xl shadow-indigo-200 text-center relative overflow-hidden">
             <div className="relative z-10">
                 <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 backdrop-blur-sm border border-white/20">
