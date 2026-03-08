@@ -203,6 +203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/transactions", async (req, res) => { const user = await getUser(req); res.json(await storage.getTransactions(user!.id)); });
+  
   app.post("/api/transactions", async (req, res) => { 
       const user = await getUser(req); 
       const parsed = insertTransactionSchema.safeParse(req.body); 
@@ -213,6 +214,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateUserBalance(user!.id, newBalance); 
       res.json(tx); 
   });
+
+  // =========================================================================
+  // 🚀 FIX MUTLAK: JALUR PEMUSNAHAN TRANSAKSI KE AKAR DATABASE
+  // =========================================================================
+  app.delete("/api/transactions/:id", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          const txId = parseInt(req.params.id);
+
+          const txs = await storage.getTransactions(user!.id);
+          const txToDelete = txs.find(t => t.id === txId);
+
+          if (!txToDelete) return res.status(404).json({ error: "Data transaksi tidak ditemukan" });
+
+          // Hitung ulang saldo sebelum menghapus (Reverse Engineer)
+          let newBalance = user!.cashBalance;
+          const isIncome = txToDelete.type.includes('income') || txToDelete.type.includes('receive') || txToDelete.type === 'debt_borrow' || txToDelete.type === 'invest_sell' || txToDelete.type === 'forex_sell';
+
+          if (isIncome) {
+              newBalance -= txToDelete.amount; // Tarik kembali uang masuk
+          } else {
+              newBalance += txToDelete.amount; // Kembalikan uang yang keluar
+          }
+
+          // Simpan saldo baru dan hapus transaksi dari database
+          await storage.updateUserBalance(user!.id, newBalance);
+          
+          if (typeof storage.deleteTransaction === 'function') {
+              await storage.deleteTransaction(txId);
+          } else {
+              console.warn("storage.deleteTransaction tidak ditemukan. Harap pastikan ada di storage.ts");
+          }
+
+          res.json({ success: true, message: "Transaksi berhasil dimusnahkan" });
+      } catch (error) {
+          res.status(500).json({ error: "Terjadi kesalahan pada server saat menghapus" });
+      }
+  });
+  // =========================================================================
 
   app.get("/api/forex", async (req, res) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
   app.get("/api/forex/rates", async (req, res) => { 
