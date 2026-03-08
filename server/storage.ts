@@ -21,6 +21,8 @@ export interface IStorage {
 
   getTransactions(userId: number): Promise<Transaction[]>;
   createTransaction(userId: number, transaction: InsertTransaction): Promise<Transaction>;
+  // 🚀 FIX: Tambahkan interface untuk menghapus transaksi
+  deleteTransaction(id: number): Promise<void>;
 
   getInvestments(userId: number): Promise<Investment[]>;
   createInvestment(userId: number, investment: InsertInvestment): Promise<Investment>;
@@ -31,7 +33,7 @@ export interface IStorage {
   getTarget(userId: number): Promise<Target | undefined>;
   setTarget(userId: number, target: InsertTarget): Promise<Target>;
   deleteTarget(userId: number): Promise<void>;
-  updateTargetPenalty(userId: number, penaltyAmount: number): Promise<Target>;
+  updateTargetPenalty(userId: number, penaltyAmount: Promise<Target> | number): Promise<Target>;
 
   getCategories(userId: number): Promise<Category[]>;
   createCategory(category: InsertCategory): Promise<Category>;
@@ -119,6 +121,11 @@ export class DatabaseStorage implements IStorage {
     return transaction;
   }
 
+  // 🚀 FIX: Fungsi Mutlak untuk menghapus data kotor ke akar Database!
+  async deleteTransaction(id: number): Promise<void> {
+      await db.delete(transactions).where(eq(transactions.id, id));
+  }
+
   async getInvestments(userId: number): Promise<Investment[]> {
       return await db.select().from(investments).where(eq(investments.userId, userId));
   }
@@ -169,7 +176,7 @@ export class DatabaseStorage implements IStorage {
       await db.delete(targets).where(eq(targets.userId, userId));
   }
   
-  async updateTargetPenalty(userId: number, penaltyAmount: number): Promise<Target> {
+  async updateTargetPenalty(userId: number, penaltyAmount: any): Promise<Target> {
       const target = await this.getTarget(userId);
       if (!target) throw new Error("Target not found");
       return target; 
@@ -279,5 +286,4 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// EKSPOR DATABASE STORAGE, BUKAN MEMSTORAGE LAGI
 export const storage = new DatabaseStorage();
