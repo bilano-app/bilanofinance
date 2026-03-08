@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -32,8 +32,10 @@ export const investments = pgTable("investments", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   symbol: text("symbol").notNull(),
-  quantity: integer("quantity").notNull(),
-  avgPrice: integer("avg_price").notNull(),
+  // 🚀 FIX: Ubah Integer ke Real agar bisa menampung desimal (0.01)
+  quantity: real("quantity").notNull(),
+  // 🚀 FIX: Ubah ke Real agar harga pecahan Crypto bisa masuk
+  avgPrice: real("avg_price").notNull(),
   type: text("type").default('saham'),
 });
 
@@ -85,8 +87,9 @@ export const categories = pgTable("categories", {
 export const forexAssets = pgTable("forex_assets", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  currency: text("currency").notNull(), // USD, SGD, EUR
-  amount: integer("amount").notNull(), // Jumlah mata uang asingnya
+  currency: text("currency").notNull(), 
+  // 🚀 FIX: Ubah ke Real agar saldo mata uang asing bisa berbentuk desimal
+  amount: real("amount").notNull(), 
 });
 
 // --- ZOD SCHEMAS ---
