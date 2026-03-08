@@ -114,7 +114,6 @@ export default function Reports() {
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
       const pointGap = chartWidth / 11; 
 
-      // Garis dasar (X-Axis)
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); 
       doc.line(startX, zeroY, startX + chartWidth, zeroY);
 
@@ -123,21 +122,17 @@ export default function Reports() {
           const valH = ((item.value - minVal) / range) * chartHeight;
           const y = startY + chartHeight - valH;
 
-          // 1. Gambar Tangkai Vertikal (Stick)
           doc.setDrawColor(color[0], color[1], color[2]); 
           doc.setLineWidth(1.2); 
           doc.line(x, zeroY, x, y); 
           
-          // 2. Gambar Titik Besar (Lollipop Candy)
           doc.setFillColor(color[0], color[1], color[2]);
-          doc.circle(x, y, 1.8, 'FD'); // Radius lebih besar dari line chart biasa
+          doc.circle(x, y, 1.8, 'FD'); 
 
-          // Teks Angka
           doc.setFontSize(5); doc.setTextColor(color[0], color[1], color[2]); doc.setFont("helvetica", "bold");
           const textY = item.value >= 0 ? y - 3 : y + 4;
           doc.text(formatRpPendek(item.value), x, textY, { align: 'center' });
 
-          // Teks Label Bulan
           doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal");
           doc.text(item.label, x, startY + chartHeight + 6, { align: 'center' });
       });
@@ -257,6 +252,9 @@ export default function Reports() {
         const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
         const netWorth = totalAsset - totalDebt;
 
+        // =========================================================================
+        // KACAMATA KUDA BAGIAN 1: Sembunyikan Penyesuaian Sistem dari Tabel Murni
+        // =========================================================================
         const pureTransactions = data.transactions.filter((t:any) => 
             (t.type === 'income' || t.type === 'expense') && 
             t.category !== 'Penyesuaian Sistem' && 
@@ -264,7 +262,6 @@ export default function Reports() {
         );
         const investTransactions = data.transactions.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
 
-        // TOTAL KERUGIAN (WRITE-OFF)
         const writeOffTransactions = data.transactions.filter((t:any) => t.category === 'Penghapusan Piutang');
         const totalWriteOff = writeOffTransactions.reduce((sum: number, t:any) => sum + t.amount, 0);
 
@@ -508,21 +505,39 @@ export default function Reports() {
             const yIdx = iterDate.getFullYear();
             const label = iterDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
 
+            // =========================================================================
+            // KACAMATA KUDA BAGIAN 2: Pisahkan Hitungan Matematika & Visual Grafik
+            // =========================================================================
             let inMonth = 0; let outMonth = 0;
+            let pureIn = 0; let pureOut = 0; // Ini yang dipakai untuk visual Grafik
+            
             data.transactions.forEach((t:any) => {
                 const d = new Date(t.date);
                 if(d.getMonth() === mIdx && d.getFullYear() === yIdx) {
+                    
+                    // 1. RAW CASHFLOW (Tanpa Filter, khusus untuk menghitung saldo mundur ke masa lalu agar presisi)
                     if (t.type.includes('income') || t.type.includes('receive') || t.type === 'debt_borrow') inMonth += t.amount;
                     else if (t.type.includes('expense') || t.type.includes('pay') || t.type.includes('buy') || t.type === 'debt_lend') outMonth += t.amount;
+                    
+                    // 2. PURE CASHFLOW (KACAMATA KUDA - Filter Error & Refund untuk mempercantik Grafik Bar)
+                    if ((t.type === 'income' || t.type === 'expense') && 
+                        t.category !== 'Penyesuaian Sistem' && 
+                        t.category !== 'Penghapusan Piutang') {
+                        if (t.type === 'income') pureIn += t.amount;
+                        if (t.type === 'expense') pureOut += t.amount;
+                    }
                 }
             });
             
-            const netFlow = inMonth - outMonth;
+            const rawNetFlow = inMonth - outMonth;
+            const pureNetFlow = pureIn - pureOut; // <--- HANYA UANG MURNI
             
-            paddedData.unshift({ label, netFlow, cash: runningCash, asset: runningAsset });
+            // Grafik Bar hanya akan menampilkan pureNetFlow (bebas dari error dan refund)
+            paddedData.unshift({ label, netFlow: pureNetFlow, cash: runningCash, asset: runningAsset });
             
-            runningCash -= netFlow;
-            runningAsset -= netFlow; 
+            // Tapi hitungan matematika kas tetap menggunakan rawNetFlow
+            runningCash -= rawNetFlow;
+            runningAsset -= rawNetFlow; 
             
             iterDate.setMonth(iterDate.getMonth() - 1);
         }
@@ -538,10 +553,8 @@ export default function Reports() {
         const chartCash = paddedData.map(d => ({ label: d.label, value: d.cash }));
         const chartNetFlow = paddedData.map(d => ({ label: d.label, value: d.netFlow }));
 
-        // EKSEKUSI 3 BENTUK GRAFIK BERBEDA
         graphY = drawLineChart(doc, "1. Grafik Jumlah Aset Keseluruhan (Line Chart)", chartAsset, graphY, [79, 70, 229]);
         graphY += 10;
-        // Panggil grafik Lollipop yang sangat berbeda visualnya
         graphY = drawLollipopChart(doc, "2. Grafik Jumlah Kas Tunai (Lollipop Chart)", chartCash, graphY, [14, 165, 233]);
         graphY += 10;
         drawBarChart(doc, "3. Grafik Net Arus Kas Bulanan (Bar Chart)", chartNetFlow, graphY, [16, 185, 129]);
