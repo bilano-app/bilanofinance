@@ -61,7 +61,9 @@ export default function Investment() {
   const getFilteredPortfolio = () => {
       if (!activeCategory) return portfolio;
       return portfolio.filter(p => {
-          if (p.type) return p.type === activeCategory;
+          // FIX: Gunakan toLowerCase() agar kebal terhadap perbedaan huruf besar/kecil di database
+          if (p.type) return p.type.toLowerCase() === activeCategory.toLowerCase();
+          
           const [sym] = (p.symbol||"").split('|');
           const isLegacyStock = sym.length === 4 && !sym.includes(" ");
           if (activeCategory === 'saham') return isLegacyStock;
@@ -77,11 +79,10 @@ export default function Investment() {
       const actualCurr = curr || 'IDR';
       const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || 1);
       
-      const isStock = p.type === 'saham' || (!p.type && sym.length === 4);
-      // Jika saham IDR, asumsi 1 lot = 100 lembar. Jika saham US (USD), asumsi 1 lembar (multiplier = 1)
+      const isStock = p.type?.toLowerCase() === 'saham' || (!p.type && sym.length === 4);
       const multiplier = (isStock && actualCurr === 'IDR') ? 100 : 1; 
       
-      return p.quantity * p.avgPrice * multiplier * rate;
+      return p.quantity * (p.avgPrice || p.price || 0) * multiplier * rate;
   };
 
   const totalPortfolioValue = portfolio.reduce((acc, p) => acc + calculateLiveValue(p), 0);
@@ -95,11 +96,17 @@ export default function Investment() {
     try {
         const symbolPayload = txType === 'SELL' ? selectedSellSymbol : `${inputName.toUpperCase()}|${inputCurrency}`;
         
+        // FIX BUG FATAL: Payload Sapu Jagat (Sertakan semua variasi nama kolom agar database tidak crash)
+        const typeStr = activeCategory ? activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1) : 'Lainnya';
+        
         const payload = {
            symbol: symbolPayload,
            quantity: qty, 
            price: price, 
-           type: activeCategory || 'other' 
+           avgPrice: price, // <-- INI YANG BIKIN SERVER CRASH SEBELUMNYA!
+           cost: price,
+           type: typeStr,
+           category: typeStr
         };
 
         if (txType === 'BUY') await buyMutation.mutateAsync(payload);
@@ -107,6 +114,7 @@ export default function Investment() {
         
         setIsTxOpen(false);
         resetForm();
+        toast({ title: "Berhasil!", description: `Transaksi ${txType === 'BUY' ? 'pembelian' : 'penjualan'} aset berhasil dicatat.` });
     } catch (error: any) {
         toast({ title: "Transaksi Gagal", description: error.message, variant: "destructive" });
     }
@@ -121,7 +129,6 @@ export default function Investment() {
     const qtyNum = parseFloat(inputQty || "0");
     const priceNum = parseFloat(inputPrice || "0");
     
-    // Prediksi estimasi nilai transaksi dalam IDR
     const rate = inputCurrency === 'IDR' ? 1 : (forexRates[inputCurrency] || 1);
     const isSaham = activeCategory === 'saham';
     const multiplier = (isSaham && inputCurrency === 'IDR') ? 100 : 1; 
@@ -181,7 +188,7 @@ export default function Investment() {
 
         <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">Jumlah</label>
+                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">Jumlah ({config.unit})</label>
                 <Input 
                     type="number" value={inputQty} onChange={e => setInputQty(e.target.value)} placeholder="0" 
                     className={`h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg focus:bg-white transition-all ${isSellOverLimit ? "border-rose-500 focus:border-rose-500 bg-rose-50" : "focus:border-indigo-500"}`}
@@ -200,14 +207,18 @@ export default function Investment() {
         )}
 
         <div className={`p-4 rounded-[24px] flex justify-between items-center mt-2 transition-colors ${txType==='BUY'?'bg-rose-50':'bg-emerald-50'}`}>
-           <span className={`text-xs font-bold ${txType==='BUY'?'text-rose-500':'text-emerald-600'}`}>Estimasi Rp Keluar</span>
+           <span className={`text-xs font-bold ${txType==='BUY'?'text-rose-500':'text-emerald-600'}`}>Estimasi Rp {txType==='BUY' ? 'Keluar' : 'Masuk'}</span>
            <span className={`font-extrabold text-xl ${txType==='BUY'?'text-rose-600':'text-emerald-700'}`}>
               {formatRp(estimasiIDR)}
            </span>
         </div>
 
-        <Button className={`w-full h-14 font-extrabold text-lg shadow-lg rounded-full mt-4 transition-transform active:scale-95 ${txType==='BUY'?'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200':'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`} onClick={handleTransaction} disabled={!inputName || !inputQty || !inputPrice || isSellOverLimit}>
-           {isSellOverLimit ? "STOK TIDAK CUKUP" : `KONFIRMASI ${txType}`}
+        <Button 
+            className={`w-full h-14 font-extrabold text-lg shadow-lg rounded-full mt-4 transition-transform active:scale-95 ${txType==='BUY'?'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200':'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`} 
+            onClick={handleTransaction} 
+            disabled={!inputName || !inputQty || !inputPrice || isSellOverLimit || buyMutation.isPending || sellMutation.isPending}
+        >
+           {buyMutation.isPending || sellMutation.isPending ? <Loader2 className="w-6 h-6 animate-spin"/> : (isSellOverLimit ? "STOK TIDAK CUKUP" : `KONFIRMASI ${txType}`)}
         </Button>
       </div>
     )
@@ -320,7 +331,7 @@ export default function Investment() {
                                   {isForeign && <span className="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">{actualCurr}</span>}
                               </div>
                               <p className="text-xs text-slate-500 font-medium">
-                                 {p.quantity} Unit <span className="mx-1 text-slate-300">•</span> Avg: {isForeign ? actualCurr : 'Rp'} {p.avgPrice.toLocaleString('id-ID')}
+                                 {p.quantity} Unit <span className="mx-1 text-slate-300">•</span> Avg: {isForeign ? actualCurr : 'Rp'} {(p.avgPrice || p.price || 0).toLocaleString('id-ID')}
                               </p>
                            </div>
                         </div>

@@ -21,7 +21,6 @@ interface TargetData {
 
 interface ExpenseItem { id: number; name: string; amount: number; }
 interface ForexItem { id: number; currency: string; amount: string; }
-// FIX: Tambahan interface currency untuk initial setup
 interface DebtRecvItem { id: number; name: string; amount: string; currency: string; }
 interface InvItem { id: number; type: string; symbol: string; quantity: string; price: string; currency: string; }
 
@@ -82,6 +81,8 @@ export default function Target() {
     const [breakdownItems, setBreakdownItems] = useState<ExpenseItem[]>([]);
     const [newItemName, setNewItemName] = useState("");
     const [newItemAmount, setNewItemAmount] = useState("");
+
+    const [isSubmitting, setIsSubmitting] = useState(false); // State Loading Submit
 
     const { toast } = useToast();
     const now = new Date();
@@ -158,7 +159,6 @@ export default function Target() {
     };
     const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
 
-    // KALKULASI TOTAL KEKAYAAN AWAL DENGAN LIVE RATES
     const cashPreview = parseNumber(rawCurrentCash);
     const totalForexInIDR = forexItems.reduce((acc, item) => acc + (parseNumber(item.amount) * (forexRates[item.currency] || 0)), 0) + (parseNumber(tempForexAmount) * (forexRates[tempForexCurrency] || 0));
     
@@ -205,19 +205,29 @@ export default function Target() {
         const budgetVal = parseNumber(rawBudgetAmount);
         if (withBudget && !budgetVal) { toast({title: "Error", description: "Nominal batas harus diisi!", variant: "destructive"}); return; }
 
+        setIsSubmitting(true);
+
         try {
-            // MENGGUNAKAN TRIK SANDI "|CURRENCY" SAAT MENYIMPAN KE DATABASE
+            // FIX BUG FATAL: Ganti undefined menjadi Array Kosong [] agar server Zod tidak crash
             const payload = {
                 targetAmount: parseNumber(rawTargetAmount),
                 durationMonths: Number(inputDuration) || 12,
                 monthlyBudget: withBudget ? budgetVal : 0,
                 budgetType: withBudget ? budgetType : 'static',
                 
-                addCurrentCash: !isEditMode ? parseNumber(rawCurrentCash) : undefined,
-                initialForexList: !isEditMode && hasForex ? forexItems.map(f => ({ currency: f.currency, amount: parseNumber(f.amount) })) : undefined,
-                initialReceivables: !isEditMode && hasRecv ? recvItems.map(r => ({ name: `${r.name}|${r.currency}`, amount: parseNumber(r.amount) })) : undefined,
-                initialDebts: !isEditMode && hasDebt ? debtItems.map(d => ({ name: `${d.name}|${d.currency}`, amount: parseNumber(d.amount) })) : undefined,
-                initialInvestments: !isEditMode && hasInv ? invItems.map(i => ({ type: i.type, symbol: `${i.symbol}|${i.currency}`, quantity: parseNumber(i.quantity), price: parseNumber(i.price) })) : undefined,
+                addCurrentCash: !isEditMode ? parseNumber(rawCurrentCash) : 0,
+                initialForexList: !isEditMode && hasForex ? forexItems.map(f => ({ currency: f.currency, amount: parseNumber(f.amount) })) : [],
+                initialReceivables: !isEditMode && hasRecv ? recvItems.map(r => ({ name: `${r.name}|${r.currency}`, amount: parseNumber(r.amount) })) : [],
+                initialDebts: !isEditMode && hasDebt ? debtItems.map(d => ({ name: `${d.name}|${d.currency}`, amount: parseNumber(d.amount) })) : [],
+                
+                // FIX BUG INVESTASI: Tambahkan avgPrice agar sinkron dengan file investasi
+                initialInvestments: !isEditMode && hasInv ? invItems.map(i => ({ 
+                    type: i.type, 
+                    symbol: `${i.symbol}|${i.currency}`, 
+                    quantity: parseNumber(i.quantity), 
+                    price: parseNumber(i.price),
+                    avgPrice: parseNumber(i.price) 
+                })) : [],
                 
                 startMonth: target?.startMonth || now.getMonth() + 1,
                 startYear: target?.startYear || now.getFullYear()
@@ -230,9 +240,16 @@ export default function Target() {
 
             if (res.ok) {
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
-                if (!isEditMode) window.location.href = "/paywall"; else window.location.href = "/"; 
-            } else { toast({ title: "Gagal", description: "Terjadi kesalahan sistem.", variant: "destructive" }); }
-        } catch (e) { toast({ title: "Error Koneksi", variant: "destructive" }); }
+                // FIX ARAH REDIRECT: Pastikan semuanya kembali ke beranda (Home)
+                window.location.href = "/"; 
+            } else { 
+                toast({ title: "Gagal", description: "Terjadi kesalahan pada server saat memproses data.", variant: "destructive" }); 
+            }
+        } catch (e) { 
+            toast({ title: "Error Koneksi", variant: "destructive" }); 
+        } finally {
+            setIsSubmitting(false);
+        }
     };
     
     if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-indigo-500"/></div>;
@@ -247,7 +264,6 @@ export default function Target() {
     return (
         <MobileLayout title={isEditMode ? "Edit Strategi & Target" : "Atur Strategi Baru"} showBack>
             <div className="space-y-6 pt-4 px-2 pb-20">
-                {/* ... (Modal Breakdown sama seperti sebelumnya) ... */}
                 {isBreakdownOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in p-4">
                         <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 border border-slate-100">
@@ -308,7 +324,6 @@ export default function Target() {
                                 <p className="text-xs text-slate-500 mt-1">Catat semua harta & kewajibanmu saat ini.</p>
                             </div>
                             
-                            {/* Saldo Rupiah */}
                             <div className="space-y-2">
                                 <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">Saldo Rupiah (IDR)</label>
                                 <div className="relative">
@@ -317,7 +332,6 @@ export default function Target() {
                                 </div>
                             </div>
                             
-                            {/* 1. Accordion Valas Kas */}
                             <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
                                 <div onClick={() => setHasForex(!hasForex)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
@@ -348,7 +362,6 @@ export default function Target() {
                                 )}
                             </div>
 
-                            {/* 2. Accordion Piutang + Valas */}
                             <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
                                 <div onClick={() => setHasRecv(!hasRecv)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
@@ -386,7 +399,6 @@ export default function Target() {
                                 )}
                             </div>
 
-                            {/* 3. Accordion Investasi + Valas */}
                             <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
                                 <div onClick={() => setHasInv(!hasInv)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
@@ -428,7 +440,6 @@ export default function Target() {
                                 )}
                             </div>
 
-                            {/* 4. Accordion Hutang + Valas */}
                             <div className="border border-rose-100 rounded-[24px] bg-rose-50/30 overflow-hidden transition-all">
                                 <div onClick={() => setHasDebt(!hasDebt)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-rose-50 transition">
                                     <label className="text-sm font-bold text-rose-700 flex items-center gap-3 pointer-events-none">
@@ -466,7 +477,6 @@ export default function Target() {
                                 )}
                             </div>
 
-                            {/* TOTAL NET WORTH */}
                             <div className="bg-slate-900 text-white p-5 rounded-[24px] shadow-lg flex flex-col items-center justify-center mt-2">
                                 <span className="text-[11px] uppercase tracking-widest font-bold text-slate-400 mb-1">Estimasi Kekayaan Bersih</span>
                                 <span className={`font-extrabold text-3xl ${totalStart >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{formatRp(totalStart)}</span>
@@ -480,7 +490,6 @@ export default function Target() {
                     </div>
                 )}
 
-                {/* SISA STEPS KALKULATOR TARGET SAMA SEPERTI SEBELUMNYA */}
                 {step === 'target-input' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-2">
                         <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6 text-center">
@@ -557,7 +566,13 @@ export default function Target() {
                             </div>
                         </div>
                         <div className="pt-2 space-y-3">
-                            <Button onClick={() => handleSubmitFinal(true)} className="w-full bg-slate-900 hover:bg-slate-800 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-slate-900/20">{isEditMode ? "SIMPAN PERUBAHAN" : "SIMPAN STRATEGI"}</Button>
+                            <Button 
+                                onClick={() => handleSubmitFinal(true)} 
+                                disabled={isSubmitting}
+                                className="w-full bg-slate-900 hover:bg-slate-800 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-slate-900/20"
+                            >
+                                {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : (isEditMode ? "SIMPAN PERUBAHAN" : "SIMPAN STRATEGI")}
+                            </Button>
                             <Button variant="ghost" onClick={() => setStep('budget-ask')} className="w-full text-slate-400 font-bold">KEMBALI</Button>
                         </div>
                     </div>
