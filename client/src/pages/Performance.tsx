@@ -115,28 +115,55 @@ export default function Performance() {
       expenseLimit = target.monthlyBudget;
   }
 
+  // =========================================================================
+  // 🚀 FIX: LOGIKA CERDAS PENGHITUNG UNTUNG/RUGI INVESTASI (P/L)
+  // =========================================================================
   const thisMonthTx = transactions?.filter(t => {
       const d = new Date(t.date);
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
-  const monthlyIncome = thisMonthTx.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0); 
-  
-  const monthlyExpense = thisMonthTx
-      .filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest'))
-      .reduce((acc, t) => acc + t.amount, 0); 
+  // 1. Kumpulkan Income & Expense Murni (Gaji, Makan, dll)
+  const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income');
+  const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest'));
+
+  // 2. Ekstrak Catatan Untung/Rugi dari Transaksi Penjualan Investasi
+  const virtualPLTxs: any[] = [];
+  thisMonthTx.filter(t => t.type === 'invest_sell').forEach(t => {
+      if (t.description && t.description.includes('P/L:')) {
+          const plString = t.description.split('P/L:')[1];
+          if (plString) {
+              // Bersihkan semua karakter kecuali angka dan minus untuk membaca kerugian
+              const cleanString = plString.replace(/[^0-9-]/g, '');
+              const plValue = parseInt(cleanString, 10);
+              
+              if (!isNaN(plValue) && plValue !== 0) {
+                  virtualPLTxs.push({
+                      ...t, // Copy tanggal dan ID asli
+                      type: plValue > 0 ? 'income' : 'expense',
+                      amount: Math.abs(plValue),
+                      category: plValue > 0 ? 'Profit Investasi' : 'Rugi Investasi',
+                      description: `Realisasi: ${t.description.split('@')[0].trim()}`
+                  });
+              }
+          }
+      }
+  });
+
+  // 3. Gabungkan Data Asli dengan Data Virtual P/L Investasi
+  const allIncomeTxs = [...baseIncomeTxs, ...virtualPLTxs.filter(v => v.type === 'income')];
+  const allExpenseTxs = [...baseExpenseTxs, ...virtualPLTxs.filter(v => v.type === 'expense')];
+
+  const monthlyIncome = allIncomeTxs.reduce((acc, t) => acc + t.amount, 0); 
+  const monthlyExpense = allExpenseTxs.reduce((acc, t) => acc + t.amount, 0); 
       
   const monthlyNet = monthlyIncome - monthlyExpense;
   
   const isSafe = monthlyNet >= savingRequired; 
   const isOverBudget = expenseLimit > 0 && monthlyExpense > expenseLimit;
 
-  const detailList = thisMonthTx
-      .filter(t => {
-          if (!expandedDetail) return false;
-          if (expandedDetail === 'expense') return t.type === 'expense' && !t.category?.toLowerCase().includes('invest');
-          return t.type === expandedDetail;
-      })
+  // Daftar detail yang ditampilkan saat diklik
+  const detailList = (expandedDetail === 'income' ? allIncomeTxs : (expandedDetail === 'expense' ? allExpenseTxs : []))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const formatRp = (val: number) => {
