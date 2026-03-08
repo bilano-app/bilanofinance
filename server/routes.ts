@@ -140,22 +140,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // ==========================================================
     const vipEmails = [
         "adrienfandra14@gmail.com",
-        "bilanotech@gmail.com", // Saya tambahkan email dari screenshot Midtrans Anda
-    // SEMENTARA: Paksa SIAPAPUN yang sedang login menjadi PRO mutlak!
+        "bilanotech@gmail.com", 
     ];
 
     if (vipEmails.includes(user.email)) {
         user.isPro = true;
         user.plan = "pro"; 
-        user.proValidUntil = new Date("2099-12-31").toISOString(); // Aktif sampai tahun 2099
-        
-        // LANGSUNG KEMBALIKAN DATA DI SINI. 
-        // Abaikan database dan abaikan sistem "Cek Jam Dinding" di bawahnya!
+        user.proValidUntil = new Date("2099-12-31").toISOString(); 
         return user; 
     }
     // ==========================================================
 
-    // 3. CEK JAM DINDING (Hanya akan berlaku untuk user biasa, VVIP tidak akan kena sistem ini)
+    // 3. CEK JAM DINDING
     if (user.isPro && user.proValidUntil) {
         const now = new Date();
         const validUntil = new Date(user.proValidUntil);
@@ -323,9 +319,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(d); 
   });
 
-  // =========================================================================
-  // FIX 3: UPDATE JALUR PEMBAYARAN CICILAN / PARSIAL
-  // =========================================================================
   app.post("/api/debts/:id/pay", async (req, res) => {
       const user = await getUser(req);
       const id = parseInt(req.params.id);
@@ -335,7 +328,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const debt = debts.find(d => d.id === id);
       
       if (debt && !debt.isPaid) {
-          // Jika frontend mengirim amount, gunakan itu (Cicilan). Jika tidak, Lunas.
           const payAmount = (amount !== undefined && amount > 0) ? Math.min(amount, debt.amount) : debt.amount;
           let newBalance = user!.cashBalance;
           
@@ -348,7 +340,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           await storage.updateUserBalance(user!.id, newBalance);
           
-          // Hitung sisa. Jika masih ada, buat record hutang/piutang baru dengan sisa amount
           const remaining = debt.amount - payAmount;
           if (remaining > 0) {
               await storage.createDebt(user!.id, {
@@ -360,7 +351,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
           }
           
-          // Tandai record yang lama sebagai lunas
           await storage.markDebtPaid(id); 
       }
       res.json({ success: true });
@@ -406,7 +396,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
       }
 
-      // FIX INVESTASI AWAL: Memaksa huruf kecil pada kategori agar terbaca sistem Performa
       if (initialInvestments && Array.isArray(initialInvestments)) {
           for (const item of initialInvestments) {
               if (item.quantity > 0 && item.symbol && item.price > 0) {
@@ -425,50 +414,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/investments", async (req, res) => { const user = await getUser(req); res.json(await storage.getInvestments(user!.id)); });
   
-  // FIX: Pembelian investasi pakai 'invest_buy'
+  // =========================================================================
+  // 🚀 FIX: HANYA DUA BLOK INI YANG SAYA UBAH (DITAMBAH TRY CATCH)
+  // =========================================================================
   app.post("/api/investments/buy", async (req, res) => { 
-      const user = await getUser(req); 
-      const { symbol, quantity, price, type } = req.body; 
-      const typeLower = (type || 'saham').toLowerCase();
-      const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
-      const total = quantity*price*m; 
-      
-      if(user!.cashBalance < total) return res.status(400).json({message:"Saldo kurang"}); 
-      await storage.updateUserBalance(user!.id, user!.cashBalance - total); 
-      
-      // MENGGUNAKAN invest_buy AGAR TIDAK MASUK PENGELUARAN
-      await storage.createTransaction(user!.id, {type:'invest_buy', amount:total, category:'Beli Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}`, date:new Date()}); 
-      await storage.createInvestment(user!.id, {symbol: symbol.toUpperCase(), quantity, avgPrice:price, type: typeLower}); 
-      res.json({success:true}); 
+      try {
+          const user = await getUser(req); 
+          const { symbol, quantity, price, type } = req.body; 
+          const typeLower = (type || 'saham').toLowerCase();
+          const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
+          const total = quantity*price*m; 
+          
+          if(user!.cashBalance < total) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk pembelian ini."}); 
+          await storage.updateUserBalance(user!.id, user!.cashBalance - total); 
+          
+          await storage.createTransaction(user!.id, {type:'invest_buy', amount:total, category:'Beli Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}`, date:new Date()}); 
+          await storage.createInvestment(user!.id, {symbol: symbol.toUpperCase(), quantity, avgPrice:price, type: typeLower}); 
+          res.json({success:true}); 
+      } catch (error: any) {
+          console.error("CRASH BELI ASET:", error);
+          res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menyimpan aset." });
+      }
   });
   
-  // FIX: Penjualan investasi pakai 'invest_sell' + Kalkulasi Untung/Rugi
   app.post("/api/investments/sell", async (req, res) => { 
-      const user = await getUser(req); 
-      const { symbol, quantity, price, type } = req.body; 
-      const typeLower = (type || 'saham').toLowerCase(); 
-      const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
-      const totalSellPrice = quantity*price*m; 
-      
-      const existing = await storage.getInvestmentBySymbol(user!.id, symbol); 
-      let profitLossText = "";
+      try {
+          const user = await getUser(req); 
+          const { symbol, quantity, price, type } = req.body; 
+          const typeLower = (type || 'saham').toLowerCase(); 
+          const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
+          const totalSellPrice = quantity*price*m; 
+          
+          const existing = await storage.getInvestmentBySymbol(user!.id, symbol); 
+          let profitLossText = "";
 
-      // Kalkulasi P/L (Profit/Loss)
-      if(existing) { 
-          const totalBuyPrice = quantity * existing.avgPrice * m;
-          const pl = totalSellPrice - totalBuyPrice;
-          profitLossText = ` (P/L: ${pl >= 0 ? '+' : ''}Rp ${pl.toLocaleString('id-ID')})`;
+          if(existing) { 
+              const totalBuyPrice = quantity * existing.avgPrice * m;
+              const pl = totalSellPrice - totalBuyPrice;
+              profitLossText = ` (P/L: ${pl >= 0 ? '+' : ''}Rp ${pl.toLocaleString('id-ID')})`;
 
-          if(existing.quantity<=quantity) await storage.deleteInvestment(existing.id); 
-          else await storage.updateInvestment(existing.id, existing.quantity-quantity, existing.avgPrice); 
-      } 
+              if(existing.quantity<=quantity) await storage.deleteInvestment(existing.id); 
+              else await storage.updateInvestment(existing.id, existing.quantity-quantity, existing.avgPrice); 
+          } 
 
-      await storage.updateUserBalance(user!.id, user!.cashBalance + totalSellPrice); 
-      
-      // MENGGUNAKAN invest_sell AGAR TIDAK MASUK PEMASUKAN
-      await storage.createTransaction(user!.id, {type:'invest_sell', amount:totalSellPrice, category:'Jual Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`, date:new Date()}); 
-      res.json({success:true}); 
+          await storage.updateUserBalance(user!.id, user!.cashBalance + totalSellPrice); 
+          
+          await storage.createTransaction(user!.id, {type:'invest_sell', amount:totalSellPrice, category:'Jual Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`, date:new Date()}); 
+          res.json({success:true}); 
+      } catch (error: any) {
+          console.error("CRASH JUAL ASET:", error);
+          res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menjual aset." });
+      }
   });
+  // =========================================================================
 
   app.get("/api/reports/data", async (req, res) => { const user = await getUser(req); const [tx, inv, debt, fx, sub] = await Promise.all([ storage.getTransactions(user!.id), storage.getInvestments(user!.id), storage.getDebts(user!.id), storage.getForexAssets(user!.id), storage.getSubscriptions(user!.id) ]); res.json({ user, transactions: tx, investments: inv, debts: debt, forexAssets: fx, subscriptions: sub }); });
   app.get("/api/categories", async (req, res) => { const user = await getUser(req); res.json(await storage.getCategories(user!.id)); });
