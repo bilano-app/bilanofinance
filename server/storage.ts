@@ -72,7 +72,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // 🚀 IMPLEMENTASI FUNGSI BARU UNTUK CRON JOB
+  // 🚀 IMPLEMENTASI FUNGSI BARU
   async getAllUsers(): Promise<User[]> {
       return await db.select().from(users);
   }
