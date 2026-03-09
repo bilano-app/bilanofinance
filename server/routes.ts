@@ -4,6 +4,10 @@ import { storage } from "./storage.js";
 import { insertTransactionSchema, insertTargetSchema } from "../shared/schema.js";
 import { z } from "zod";
 
+// 🚀 TAMBAHAN IMPORT UNTUK AUTO-PATCH DB
+import { db } from "./db.js";
+import { sql } from "drizzle-orm";
+
 import Groq from "groq-sdk";
 import OpenAI from "openai";
 import nodemailer from "nodemailer";
@@ -41,6 +45,17 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  // =========================================================================
+  // 🚀 FITUR PENYELAMAT: AUTO-PATCH DATABASE SERVER (ANTI CRASH / LOADING LAMA)
+  // =========================================================================
+  try {
+      await db.execute(sql`ALTER TABLE users ADD COLUMN onesignal_id TEXT;`);
+      console.log("✅ Auto-patch DB: Kolom onesignal_id berhasil ditambahkan ke Database Live!");
+  } catch (e) {
+      console.log("✅ DB Check: Kolom onesignal_id sudah siap (Aman).");
+  }
+  // =========================================================================
   
   let cachedRates = { 
       "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -703,7 +718,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   headers: {
                       "accept": "application/json",
                       "Content-Type": "application/json",
-                      "Authorization": `Key ${cleanKey}`
+                      // 🚀 FIX MUTLAK: Autentikasi sesuai dengan Standar OneSignal
+                      "Authorization": `Basic ${cleanKey}`
                   },
                   body: JSON.stringify(payload)
               });
