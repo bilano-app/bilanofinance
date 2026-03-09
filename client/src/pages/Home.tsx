@@ -112,7 +112,6 @@ export default function Home() {
       };
 
       const timer = setTimeout(() => {
-          // Hanya memanggil jika bridge Native OS tersedia (sangat aman)
           if (typeof window !== 'undefined' && (window as any).median) {
               (window as any).median.onesignal.info({'callback': 'median_onesignal_info'});
           }
@@ -120,7 +119,6 @@ export default function Home() {
 
       return () => clearTimeout(timer);
   }, [rawEmail]);
-  // =========================================================================
 
   useEffect(() => {
       if (isUserPro && rawEmail) {
@@ -150,7 +148,6 @@ export default function Home() {
           nextDate.setHours(0,0,0,0);
           
           if (nextDate > today) return false; 
-          
           if (localStorage.getItem(`skip_sub_${sub.id}_${todayStr}`)) return false; 
           
           return true;
@@ -236,12 +233,18 @@ export default function Home() {
       }
   }, [isUserPro, rawEmail]);
 
+  // =========================================================================
+  // 🚀 FIX: LOGIKA REDIRECT AMAN (Mencegah terlempar saat server error)
+  // =========================================================================
   useEffect(() => {
       if (!isUserLoading && !isTargetLoading) {
-          const isTargetEmpty = !target || (typeof target === 'object' && Object.keys(target).length === 0);
-          if (isTargetEmpty) setLocation("/target");
+          // Hanya redirect jika target benar-benar kosong, BUKAN undefined karena server crash
+          if (target !== undefined && target !== null && typeof target === 'object' && Object.keys(target).length === 0) {
+              setLocation("/target");
+          }
       }
   }, [target, isUserLoading, isTargetLoading, setLocation]);
+  // =========================================================================
 
   useEffect(() => {
     const fetchHomeData = async () => {
@@ -263,7 +266,6 @@ export default function Home() {
               await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {});
           }
           
-          // Menggunakan cara native yang aman tanpa iframe
           if (typeof window !== 'undefined' && (window as any).median) {
               (window as any).median.onesignal.register();
           }
@@ -350,6 +352,7 @@ export default function Home() {
       );
   }
 
+  // Tampilkan loading HANYA JIKA sedang menarik data
   if (isUserLoading || isTargetLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
@@ -362,15 +365,9 @@ export default function Home() {
       );
   }
 
-  const isTargetEmpty = !target || (typeof target === 'object' && Object.keys(target).length === 0);
-  if (isTargetEmpty) return null;
-
   return (
     <MobileLayout>
 
-      {/* ========================================================== */}
-      {/* POP-UP TAGIHAN DINAMIS (MUNCUL JIKA JATUH TEMPO)           */}
-      {/* ========================================================== */}
       {dueDynamicSub && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
             <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 border-orange-500">
@@ -400,9 +397,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* ========================================================== */}
-      {/* POSTER SAMBUTAN BILANO PRO (HANYA MUNCUL 1x)               */}
-      {/* ========================================================== */}
       {showProWelcome && (
         <div className="fixed inset-0 z-[99998] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-500">
             <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 rounded-[32px] p-1 w-full max-w-sm shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-10 relative overflow-hidden border border-indigo-500/30">
