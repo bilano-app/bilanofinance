@@ -18,10 +18,13 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUserBalance(id: number, newBalance: number): Promise<User>;
   updateUserProfile(id: number, firstName: string, lastName: string, profilePicture?: string): Promise<User>;
+  
+  // 🚀 FITUR BARU: Mengambil semua user dan menyimpan ID OneSignal
+  getAllUsers(): Promise<User[]>;
+  updateUserOneSignalId(userId: number, onesignalId: string): Promise<User>;
 
   getTransactions(userId: number): Promise<Transaction[]>;
   createTransaction(userId: number, transaction: InsertTransaction): Promise<Transaction>;
-  // 🚀 FIX: Tambahkan interface untuk menghapus transaksi
   deleteTransaction(id: number): Promise<void>;
 
   getInvestments(userId: number): Promise<Investment[]>;
@@ -33,7 +36,7 @@ export interface IStorage {
   getTarget(userId: number): Promise<Target | undefined>;
   setTarget(userId: number, target: InsertTarget): Promise<Target>;
   deleteTarget(userId: number): Promise<void>;
-  updateTargetPenalty(userId: number, penaltyAmount: Promise<Target> | number): Promise<Target>;
+  updateTargetPenalty(userId: number, penaltyAmount: number): Promise<Target>;
 
   getCategories(userId: number): Promise<Category[]>;
   createCategory(category: InsertCategory): Promise<Category>;
@@ -57,9 +60,6 @@ export interface IStorage {
   updateUserProStatus(userId: number, isPro: boolean, validUntil: Date | null): Promise<User>;
 }
 
-// ============================================================================
-// DATABASE STORAGE ASLI (PERMANEN, ANTI-AMNESIA VERCEL)
-// ============================================================================
 export class DatabaseStorage implements IStorage {
   
   async getUser(id: number): Promise<User | undefined> {
@@ -70,6 +70,19 @@ export class DatabaseStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user;
+  }
+
+  // 🚀 IMPLEMENTASI FUNGSI BARU UNTUK CRON JOB
+  async getAllUsers(): Promise<User[]> {
+      return await db.select().from(users);
+  }
+
+  async updateUserOneSignalId(userId: number, onesignalId: string): Promise<User> {
+      const [updatedUser] = await db.update(users)
+          .set({ onesignalId })
+          .where(eq(users.id, userId))
+          .returning();
+      return updatedUser;
   }
   
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -121,7 +134,6 @@ export class DatabaseStorage implements IStorage {
     return transaction;
   }
 
-  // 🚀 FIX: Fungsi Mutlak untuk menghapus data kotor ke akar Database!
   async deleteTransaction(id: number): Promise<void> {
       await db.delete(transactions).where(eq(transactions.id, id));
   }
@@ -158,9 +170,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async setTarget(userId: number, t: InsertTarget): Promise<Target> {
-      // Hapus yang lama jika ada (Sistem Replace)
       await db.delete(targets).where(eq(targets.userId, userId));
-      
       const [target] = await db.insert(targets).values({
           ...t, 
           userId, 
@@ -176,7 +186,7 @@ export class DatabaseStorage implements IStorage {
       await db.delete(targets).where(eq(targets.userId, userId));
   }
   
-  async updateTargetPenalty(userId: number, penaltyAmount: any): Promise<Target> {
+  async updateTargetPenalty(userId: number, penaltyAmount: number): Promise<Target> {
       const target = await this.getTarget(userId);
       if (!target) throw new Error("Target not found");
       return target; 

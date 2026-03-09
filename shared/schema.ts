@@ -14,6 +14,8 @@ export const users = pgTable("users", {
   cashBalance: integer("cash_balance").default(0).notNull(),
   isPro: boolean("is_pro").default(false),
   proValidUntil: timestamp("pro_valid_until"), 
+  // 🚀 FITUR BARU: Laci untuk menyimpan ID HP Pengguna (Push Notification)
+  onesignalId: text("onesignal_id"), 
 });
 
 // --- 2. TRANSACTIONS ---

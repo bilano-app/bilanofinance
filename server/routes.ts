@@ -164,6 +164,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return user;
   };
 
+  // =========================================================================
+  // 🚀 FITUR BARU: JALUR UNTUK HP MENYETORKAN PLAYER ID ONESIGNAL MEREKA
+  // =========================================================================
+  app.post("/api/user/onesignal", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          const { onesignalId } = req.body;
+          if (user && onesignalId) {
+              await storage.updateUserOneSignalId(user.id, onesignalId);
+          }
+          res.json({ success: true });
+      } catch (e) {
+          res.status(500).json({ error: "Gagal menyimpan ID OneSignal" });
+      }
+  });
+
   app.post("/api/chat/ask", async (req, res) => {
       const user = await getUser(req);
       if (!user) return res.status(401).json({ reply: "Sesi berakhir. Login dulu ya." });
@@ -211,9 +227,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(tx); 
   });
 
-  // =========================================================================
-  // 🚀 FIX MUTLAK: JALUR PEMUSNAHAN TRANSAKSI KE AKAR DATABASE
-  // =========================================================================
   app.delete("/api/transactions/:id", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -248,7 +261,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.status(500).json({ error: "Terjadi kesalahan pada server saat menghapus" });
       }
   });
-  // =========================================================================
 
   app.get("/api/forex", async (req, res) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
   app.get("/api/forex/rates", async (req, res) => { 
@@ -310,7 +322,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let newBalance = user!.cashBalance;
       let txType = '', txCat = '';
       
-      // MENGGUNAKAN debt_borrow & debt_lend
       if(type === 'hutang') { newBalance += amount; txType = 'debt_borrow'; txCat = 'Dapat Pinjaman'; } 
       else { newBalance -= amount; txType = 'debt_lend'; txCat = 'Beri Pinjaman'; }
       
@@ -414,9 +425,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/investments", async (req, res) => { const user = await getUser(req); res.json(await storage.getInvestments(user!.id)); });
   
-  // =========================================================================
-  // 🚀 FIX: HANYA DUA BLOK INI YANG SAYA UBAH (DITAMBAH TRY CATCH)
-  // =========================================================================
   app.post("/api/investments/buy", async (req, res) => { 
       try {
           const user = await getUser(req); 
@@ -466,7 +474,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menjual aset." });
       }
   });
-  // =========================================================================
 
   app.get("/api/reports/data", async (req, res) => { const user = await getUser(req); const [tx, inv, debt, fx, sub] = await Promise.all([ storage.getTransactions(user!.id), storage.getInvestments(user!.id), storage.getDebts(user!.id), storage.getForexAssets(user!.id), storage.getSubscriptions(user!.id) ]); res.json({ user, transactions: tx, investments: inv, debts: debt, forexAssets: fx, subscriptions: sub }); });
   app.get("/api/categories", async (req, res) => { const user = await getUser(req); res.json(await storage.getCategories(user!.id)); });
@@ -484,11 +491,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const amount = 99000; 
           const orderId = `BILANO-PRO-${user.id}-${Date.now()}`;
           
-          // Kunci Server Sandbox Midtrans yang ada di Vercel
           const serverKey = process.env.MIDTRANS_SERVER_KEY || ""; 
           const authString = Buffer.from(serverKey + ":").toString('base64');
 
-          // Payload khusus untuk menembak gambar Barcode QRIS langsung
           const payload = {
               payment_type: "qris",
               transaction_details: {
@@ -501,7 +506,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           };
 
-          // Tembak ke API Core Midtrans (Perhatikan URL-nya menggunakan /v2/charge)
           const midtransRes = await fetch("https://api.sandbox.midtrans.com/v2/charge", {
               method: "POST",
               headers: { 
@@ -515,7 +519,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const data = await midtransRes.json();
           
           if (midtransRes.ok && data.status_code === "201") {
-              // Cari URL Gambar QR Code dari balasan Midtrans
               const qrAction = data.actions?.find((a: any) => a.name === "generate-qr-code");
               if (qrAction) {
                   res.json({ success: true, qrUrl: qrAction.url, orderId: data.order_id });
@@ -536,15 +539,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payment/midtrans/webhook", async (req, res) => {
       try {
           const data = req.body;
-          // Cek jika statusnya LUNAS (capture untuk kartu kredit, settlement untuk QRIS/GoPay/VA)
           if (data.transaction_status === 'capture' || data.transaction_status === 'settlement') {
-              const orderId = data.order_id; // Format: BILANO-PRO-{userId}-{timestamp}
+              const orderId = data.order_id; 
               const parts = orderId.split('-');
               
               if (parts.length >= 3) {
                   const userId = parseInt(parts[2]);
                   
-                  // Aktifkan PRO 365 Hari
                   const validUntil = new Date();
                   validUntil.setDate(validUntil.getDate() + 365);
                   
@@ -559,19 +560,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // ... (kodingan webhook mayar yang sudah ada sebelumnya)
   app.post("/api/payment/webhook", async (req, res) => {
       try {
           const data = req.body;
-          // Jika Mayar bilang Lunas
           if (data.status === 'SUCCESS' || data.status === 'PAID') {
               const userId = parseInt(data.reference_id.split('-')[2]);
               
-              // Hitung Argo 365 Hari dari detik ini
               const validUntil = new Date();
               validUntil.setDate(validUntil.getDate() + 365);
               
-              // Nyalakan status PRO dan stempel tanggalnya di Database
               await storage.updateUserProStatus(userId, true, validUntil);
               
               console.log(`✅ PEMBAYARAN SUKSES! User ID: ${userId} menjadi PRO hingga ${validUntil.toLocaleDateString()}`);
@@ -584,20 +581,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
-  // === JALUR NOTIFIKASI ONESIGNAL (VERSI FINAL UNTUK APK) ===
-  // ============================================================================
-  // ============================================================================
-  // === JALUR NOTIFIKASI ONESIGNAL (VERSI DETEKTIF FINAL) ===
-  // ============================================================================
-  // ============================================================================
-  // === JALUR NOTIFIKASI ONESIGNAL (VERSI FINAL SUKSES + GACHA PESAN) ===
+  // 🚀 FITUR BARU: MESIN CRON PENGINGAT 1-ON-1 SUPER CERDAS (PDF, HUTANG, LANGGANAN)
   // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           const rawKey = process.env.ONESIGNAL_REST_KEY;
 
-          // 1. Keamanan Kunci
           if (!rawKey) {
               return res.status(200).json({ success: false, laporan: "Brankas kosong" });
           }
@@ -606,54 +596,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return res.status(200).json({ success: false, laporan: "Kunci salah format" });
           }
 
-          // 2. Kumpulan Variasi Pesan Motivasi & Pengingat
-          const messages = [
-              { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya di BILANO!" },
-              { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat hari ini? Yuk masukin sekarang!" },
-              { title: "Awas Boncos! 🛑", body: "Cek sisa limit pengeluaran bulan ini biar target keuanganmu tetap aman." },
-              { title: "Hari ini jajan apa aja? 🍔☕", body: "Uang keluar wajib dilacak. Jangan biarkan uangmu pergi tanpa jejak! 🕵️‍♂️" },
-              { title: "BILANO kangen nih 🚀", body: "Satu langkah lebih dekat ke kebebasan finansial. Yuk update catatanmu!" },
-              { title: "Udah rekap keuangan belum? 📊", body: "Sebelum istirahat, biasakan rekap pengeluaran hari ini yuk Bos!" },
-              { title: "Jangan lupa nabung! 🐖", body: "Sedikit demi sedikit lama-lama jadi bukit. Sudahkah kamu menyisihkan uang hari ini?" }
-          ];
+          const allUsers = await storage.getAllUsers();
+          const today = new Date();
+          today.setHours(0,0,0,0);
+          
+          // Cek apakah hari ini akhir bulan atau awal bulan untuk laporan PDF
+          const isEndOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() === today.getDate();
+          const isFirstOfMonth = today.getDate() === 1;
+          const isPDFDay = isEndOfMonth || isFirstOfMonth;
 
-          const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+          const notificationsToSend: any[] = [];
 
-          // 3. Tembakan Jitu ke OneSignal (+ SETTING GAMBAR BESAR)
-          const response = await fetch("https://api.onesignal.com/notifications", {
-              method: "POST",
-              headers: {
-                  "accept": "application/json",
-                  "Content-Type": "application/json",
-                  "Authorization": `Key ${cleanKey}`
-              },
-              body: JSON.stringify({
+          // --- 1. GLOBAL BROADCAST: LAPORAN PDF ATAU GACHA ---
+          if (isPDFDay) {
+              notificationsToSend.push({
+                  app_id: ONE_SIGNAL_APP_ID,
+                  included_segments: ["Total Subscriptions"], 
+                  headings: { "en": "Laporan Keuangan Siap! 📊" },
+                  contents: { "en": "Waktunya evaluasi bulan ini. Yuk download PDF Neraca & Cashflow kamu sekarang." },
+                  big_picture: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=3",
+                  android_accent_color: "FF4F46E5",
+                  android_led_color: "FF4F46E5",
+                  priority: 10
+              });
+          } else {
+              const messages = [
+                  { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya di BILANO!" },
+                  { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat hari ini? Yuk masukin sekarang!" },
+                  { title: "Awas Boncos! 🛑", body: "Cek sisa limit pengeluaran bulan ini biar target keuanganmu tetap aman." },
+                  { title: "Hari ini jajan apa aja? 🍔☕", body: "Uang keluar wajib dilacak. Jangan biarkan uangmu pergi tanpa jejak! 🕵️‍♂️" },
+                  { title: "BILANO kangen nih 🚀", body: "Satu langkah lebih dekat ke kebebasan finansial. Yuk update catatanmu!" },
+                  { title: "Udah rekap keuangan belum? 📊", body: "Sebelum istirahat, biasakan rekap pengeluaran hari ini yuk Bos!" },
+                  { title: "Jangan lupa nabung! 🐖", body: "Sedikit demi sedikit lama-lama jadi bukit. Sudahkah kamu menyisihkan uang hari ini?" }
+              ];
+              const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+              notificationsToSend.push({
                   app_id: ONE_SIGNAL_APP_ID,
                   included_segments: ["Total Subscriptions"], 
                   headings: { "en": randomMsg.title },
                   contents: { "en": randomMsg.body },
-                  
-                  // KITA HAPUS LARGE_ICON AGAR TIDAK BENTROK DENGAN SETTING MEDIAN
-                  // KITA HANYA SISAKAN BIG PICTURE (UNTUK GAMBAR SAAT DI-TARIK)
                   big_picture: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=3",
-                  
-                  // WARNA AKSEN TETAP BOLEH ADA
                   android_accent_color: "FF4F46E5",
-
-                  // PENTING: Kita perintahkan OneSignal untuk mencari ikon 
-                  // yang sudah Anda tanam di dalam APK Median tadi.
                   android_led_color: "FF4F46E5",
                   priority: 10
-              })
-          });
+              });
+          }
 
-          const data = await response.json();
-          
-          res.status(200).json({ 
-              success: true, 
-              pesan_terkirim: randomMsg.title,
-              data_onesignal: data 
-          });
+          // --- 2. PERSONALIZED 1-ON-1 PUSH NOTIFICATION (HUTANG & LANGGANAN) ---
+          for (const user of allUsers) {
+              if (!user.onesignalId) continue; 
+
+              const debts = await storage.getDebts(user.id);
+              const subs = await storage.getSubscriptions(user.id);
+
+              // Cek Hutang/Piutang
+              for (const debt of debts) {
+                  if (!debt.isPaid && debt.dueDate) {
+                      const due = new Date(debt.dueDate); due.setHours(0,0,0,0);
+                      const diffTime = due.getTime() - today.getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                      if (diffDays >= 0 && diffDays <= 3) {
+                          const title = debt.type === 'hutang' ? "Awas Jatuh Tempo Hutang! 🚨" : "Waktunya Nagih Piutang! 💰";
+                          const body = `Tenggat waktu [${debt.name.split('|')[0]}] tinggal ${diffDays === 0 ? 'HARI INI' : diffDays + ' hari lagi'}. Nominal: Rp ${debt.amount.toLocaleString('id-ID')}`;
+                          
+                          notificationsToSend.push({
+                              app_id: ONE_SIGNAL_APP_ID,
+                              include_player_ids: [user.onesignalId], // HANYA HP USER INI YANG BERBUNYI
+                              headings: { "en": title },
+                              contents: { "en": body },
+                              android_accent_color: "FFE11D48",
+                              android_led_color: "FFE11D48",
+                              priority: 10
+                          });
+                      }
+                  }
+              }
+
+              // Cek Langganan (Subscriptions)
+              for (const sub of subs) {
+                  if (sub.isActive && sub.nextBilling) {
+                      const due = new Date(sub.nextBilling); due.setHours(0,0,0,0);
+                      const diffTime = due.getTime() - today.getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                      if (diffDays >= 0 && diffDays <= 3) {
+                          notificationsToSend.push({
+                              app_id: ONE_SIGNAL_APP_ID,
+                              include_player_ids: [user.onesignalId], 
+                              headings: { "en": "Tagihan Langganan 💳" },
+                              contents: { "en": `Langganan [${sub.name}] akan ditagih ${diffDays === 0 ? 'HARI INI' : 'dalam ' + diffDays + ' hari'}. Siapkan dana Rp ${sub.cost.toLocaleString('id-ID')}` },
+                              android_accent_color: "FFE11D48",
+                              android_led_color: "FFE11D48",
+                              priority: 10
+                          });
+                      }
+                  }
+              }
+          }
+
+          // Eksekusi Semua Tembakan Push Notification Sekaligus
+          const results = [];
+          for (const payload of notificationsToSend) {
+              const res = await fetch("https://api.onesignal.com/notifications", {
+                  method: "POST",
+                  headers: {
+                      "accept": "application/json",
+                      "Content-Type": "application/json",
+                      "Authorization": `Key ${cleanKey}`
+                  },
+                  body: JSON.stringify(payload)
+              });
+              results.push(await res.json());
+          }
+
+          res.status(200).json({ success: true, total_dikirim: notificationsToSend.length, details: results });
       } catch (error: any) {
           res.status(500).json({ success: false, error: "System Crash: " + error.message });
       }
