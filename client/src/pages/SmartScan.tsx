@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input, Card } from "@/components/UIComponents";
 import { 
     Mic, ImagePlus, Check, X, 
-    Globe, AlertTriangle, RefreshCw, Loader2
+    Globe, AlertTriangle, RefreshCw, Loader2, HandCoins, Wallet
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Tesseract from 'tesseract.js';
@@ -27,6 +27,10 @@ export default function SmartScan() {
     // Form Hasil
     const [showResultForm, setShowResultForm] = useState(false);
     const [detectedType, setDetectedType] = useState<'income' | 'expense' | 'debt' | 'receivable'>('expense');
+    
+    // 🚀 NEW STATE: Mode Pembayaran
+    const [paymentMode, setPaymentMode] = useState<'cash' | 'pending'>('cash');
+    
     const [isForex, setIsForex] = useState(false);
     const [amount, setAmount] = useState("");
     const [category, setCategory] = useState("");
@@ -46,13 +50,9 @@ export default function SmartScan() {
     const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
     const getAuthHeaders = () => ({ "x-user-email": localStorage.getItem("bilano_email") || "" });
 
-    // =======================================================================
-    // 🚀 FITUR GACOR: BACA KIRIMAN GAMBAR DARI MENU SHARE OS (ANDROID/iOS)
-    // =======================================================================
     useEffect(() => {
         const checkSharedImage = async () => {
             try {
-                // Membuka brankas cache yang disimpan oleh sw.js
                 const cache = await caches.open('bilano-shared-image');
                 const response = await cache.match('/shared-image');
                 
@@ -60,15 +60,12 @@ export default function SmartScan() {
                     const blob = await response.blob();
                     const file = new File([blob], "shared-receipt.jpg", { type: blob.type });
                     
-                    // Langsung hapus dari brankas agar tidak discan terus-terusan setiap buka halaman
                     await cache.delete('/shared-image');
 
-                    // Tampilkan UI Scanning
                     setImagePreview(URL.createObjectURL(file));
                     setIsScanning(true);
                     setScanProgress(10);
                     
-                    // Eksekusi Pemindaian Tesseract
                     const result = await Tesseract.recognize(file, 'eng', { 
                         logger: m => { if (m.status === 'recognizing text') setScanProgress(Math.floor(m.progress * 100)); }
                     });
@@ -88,7 +85,6 @@ export default function SmartScan() {
         
         checkSharedImage();
     }, []);
-    // =======================================================================
 
     useEffect(() => {
         const loadData = async () => {
@@ -146,6 +142,13 @@ export default function SmartScan() {
             newType = lower.includes("saya") || lower.includes("aku") ? 'debt' : 'receivable';
         }
 
+        // 🚀 FIX: RADAR PENDETEKSI PEMBAYARAN TERTUNDA (PIUTANG/HUTANG)
+        let isPending = false;
+        if (lower.includes("nanti") || lower.includes("belum bayar") || lower.includes("belum dibayar") || lower.includes("ngutang") || lower.includes("piutang") || lower.includes("bon")) {
+            isPending = true;
+        }
+        setPaymentMode(isPending ? 'pending' : 'cash');
+
         let newIsForex = false;
         let newCurrency = "USD";
         const currencyMap: Record<string, string> = {
@@ -192,7 +195,7 @@ export default function SmartScan() {
         setCurrency(newCurrency);
         setAmount(newAmount > 0 ? newAmount.toString() : ""); 
         setCategory(newCategory);
-        setDesc(isScanning ? "Hasil Scan Struk/Transfer" : text);
+        setDesc(isScanning ? "Hasil Scan Struk/Transfer" : transcript || text);
         if (newIsForex && liveRates[newCurrency]) setRate(Math.floor(liveRates[newCurrency]).toString());
 
         setShowResultForm(true);
@@ -211,7 +214,11 @@ export default function SmartScan() {
             recognitionRef.current.lang = 'id-ID'; 
             recognitionRef.current.onstart = () => setIsListening(true);
             recognitionRef.current.onend = () => setIsListening(false);
-            recognitionRef.current.onresult = (e: any) => processTextLogic(e.results[0][0].transcript);
+            recognitionRef.current.onresult = (e: any) => {
+                const text = e.results[0][0].transcript;
+                setTranscript(text);
+                processTextLogic(text);
+            };
             recognitionRef.current.start();
         } catch (e) { toast({ title: "Mic Error", variant: "destructive" }); }
     };
@@ -247,9 +254,9 @@ export default function SmartScan() {
         const sanitizedAmount = amount.toString().replace(/\./g, "").replace(/,/g, ".");
         const finalAmount = parseFloat(sanitizedAmount); 
 
+        // Aturan Dana Darurat (Berlaku untuk Cash maupun Hutang)
         if (!isEmergencyOverride && isDataLoaded && detectedType === 'expense' && !isForex && targetData?.monthlyBudget > 0) {
             const remainingBudget = targetData.monthlyBudget - currentExpense;
-            
             if (finalAmount > remainingBudget) {
                 const deficit = finalAmount - (remainingBudget > 0 ? remainingBudget : 0);
                 const nextMonthPred = targetData.monthlyBudget - deficit;
@@ -257,6 +264,12 @@ export default function SmartScan() {
                 setShowEmergencyModal(true); 
                 return; 
             }
+        }
+
+        // Validasi Nama jika menggunakan Mode Piutang/Hutang
+        if ((paymentMode === 'pending' || detectedType === 'debt' || detectedType === 'receivable') && !debtName.trim()) {
+            toast({ title: "Nama Pihak Wajib Diisi", description: "Siapa yang berhutang / dihutangi?", variant: "destructive" });
+            return;
         }
 
         setIsSubmitting(true);
@@ -267,21 +280,52 @@ export default function SmartScan() {
         };
 
         try {
-            if (isForex) {
+            if (isForex && paymentMode === 'cash' && (detectedType === 'income' || detectedType === 'expense')) {
+                // NORMAL FOREX CASH
                 await fetch("/api/forex/transaction", {
                     method: "POST", headers: postHeaders,
                     body: JSON.stringify({ type: detectedType, currency, amount: finalAmount, description: desc })
                 });
                 toast({ title: "Valas Diupdate!", description: `${currency} ${finalAmount}` });
             } 
-            else if (detectedType === 'debt' || detectedType === 'receivable') {
+            else if (paymentMode === 'pending' && (detectedType === 'income' || detectedType === 'expense')) {
+                // 🚀 FIX: DUAL POST FOR ASSET CREATION WITHOUT AFFECTING CASH
+                const debtType = detectedType === 'income' ? 'piutang' : 'hutang';
+                
                 await fetch("/api/debts", {
                     method: "POST", headers: postHeaders,
-                    body: JSON.stringify({ type: detectedType === 'debt' ? 'hutang' : 'piutang', name: debtName || "Seseorang", amount: finalAmount, description: desc, isPaid: false })
+                    body: JSON.stringify({ 
+                        type: debtType, 
+                        name: `${debtName}|${isForex ? currency : 'IDR'}`, 
+                        amount: finalAmount, 
+                        description: `[${debtType === 'piutang' ? 'Piutang Pemasukan' : 'Hutang Pengeluaran'}: ${category || 'Lainnya'}] ${desc}`,
+                        isPaid: false
+                    })
+                });
+
+                // Catat di transaksi agar masuk grafik, tapi netral secara hitungan kas
+                await fetch("/api/transactions", {
+                    method: "POST", headers: postHeaders,
+                    body: JSON.stringify({ 
+                        type: detectedType, 
+                        amount: finalAmount, 
+                        category: `${debtType === 'piutang' ? 'Piutang' : 'Hutang'}: ${category || 'Lainnya'}`, 
+                        description: `Belum Dibayar - ${debtName}`, 
+                        date: new Date() 
+                    })
+                });
+                toast({ title: "Tersimpan!", description: `Dicatat sebagai ${debtType.toUpperCase()}.` });
+            }
+            else if (detectedType === 'debt' || detectedType === 'receivable') {
+                // PURE DEBT/RECEIVABLE
+                await fetch("/api/debts", {
+                    method: "POST", headers: postHeaders,
+                    body: JSON.stringify({ type: detectedType === 'debt' ? 'hutang' : 'piutang', name: `${debtName}|${isForex ? currency : 'IDR'}`, amount: finalAmount, description: desc, isPaid: false })
                 });
                 toast({ title: "Tercatat!", description: "Saldo disesuaikan." });
             } 
             else {
+                // NORMAL IDR CASH
                 await fetch("/api/transactions", {
                     method: "POST", headers: postHeaders,
                     body: JSON.stringify({ type: detectedType, amount: finalAmount, category: category || "Lainnya", description: desc, date: new Date() })
@@ -387,7 +431,7 @@ export default function SmartScan() {
                     <div className="space-y-8 animate-in fade-in">
                         <div className="flex flex-col items-center justify-center bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 mx-4 text-center">
                             <h3 className="text-lg font-bold text-slate-800 mb-1">Perintah Suara</h3>
-                            <p className="text-xs text-slate-400 mb-6">"Dapat 300 Dolar" / "Beli bensin 20 ribu"</p>
+                            <p className="text-xs text-slate-400 mb-6">"Dapat penjualan 300 ribu tapi dibayar nanti"</p>
                             <div className="relative flex items-center justify-center">
                                 {isListening && <span className="absolute inset-0 rounded-full bg-rose-400 opacity-20 animate-ping scale-150"></span>}
                                 <button onClick={isListening ? stopListening : startListening} className={`w-20 h-20 rounded-full flex items-center justify-center shadow-xl transition-all active:scale-95 ${isListening ? 'bg-rose-500 text-white scale-110' : 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white hover:shadow-indigo-200'}`}>
@@ -410,8 +454,6 @@ export default function SmartScan() {
                                 <div>
                                     <span className="font-bold text-slate-700 block text-sm mb-0.5">Scan Bukti / Struk</span>
                                     <span className="text-[10px] text-slate-400">Otomatis baca nominal & valas</span>
-                                    {/* INFO TAMBAHAN SHARE TARGET */}
-                                    <span className="text-[9px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full mt-2 inline-block border border-emerald-100">🔥 Bisa juga lewat menu "Share" HP Anda!</span>
                                 </div>
                             </button>
                         </div>
@@ -433,7 +475,7 @@ export default function SmartScan() {
                                 <h3 className="font-bold text-lg text-slate-800">Konfirmasi</h3>
                                 <div className="flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-hide">
                                     {['income','expense','debt','receivable'].map(t => (
-                                        <button key={t} onClick={() => setDetectedType(t as any)} className={`px-3 py-1 text-[10px] rounded-full border font-bold transition-colors ${detectedType === t ? 'bg-indigo-600 text-white border-indigo-600' : 'text-slate-500 border-slate-200'}`}>{t.toUpperCase()}</button>
+                                        <button key={t} onClick={() => { setDetectedType(t as any); setPaymentMode('cash'); }} className={`px-3 py-1 text-[10px] rounded-full border font-bold transition-colors ${detectedType === t ? 'bg-indigo-600 text-white border-indigo-600' : 'text-slate-500 border-slate-200'}`}>{t.toUpperCase()}</button>
                                     ))}
                                 </div>
                             </div>
@@ -441,6 +483,19 @@ export default function SmartScan() {
                         </div>
 
                         <div className="space-y-4">
+                            
+                            {/* 🚀 NEW: TOGGLE CASH VS PENDING (ONLY FOR INCOME/EXPENSE) */}
+                            {(detectedType === 'income' || detectedType === 'expense') && (
+                                <div className="flex bg-slate-100 p-1.5 rounded-xl animate-in fade-in">
+                                    <button onClick={() => setPaymentMode('cash')} className={`flex-1 py-2.5 flex justify-center items-center gap-1.5 rounded-lg text-[10px] font-bold transition-all ${paymentMode === 'cash' ? (detectedType === 'income' ? 'bg-emerald-500' : 'bg-rose-500') + ' text-white shadow' : 'text-slate-500 hover:bg-slate-200'}`}>
+                                        <Wallet className="w-3.5 h-3.5"/> TUNAI (Cash)
+                                    </button>
+                                    <button onClick={() => setPaymentMode('pending')} className={`flex-1 py-2.5 flex justify-center items-center gap-1.5 rounded-lg text-[10px] font-bold transition-all ${paymentMode === 'pending' ? 'bg-amber-500 text-white shadow' : 'text-slate-500 hover:bg-slate-200'}`}>
+                                        <HandCoins className="w-3.5 h-3.5"/> {detectedType === 'income' ? 'PIUTANG (Belum Cair)' : 'HUTANG (Belum Bayar)'}
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
                                 <div className={`p-2 rounded-full ${isForex ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-400'}`}><Globe className="w-4 h-4"/></div>
                                 <div className="flex-1"><label className="text-xs font-bold text-slate-700 block">Valas / Mata Uang Asing</label></div>
@@ -461,10 +516,17 @@ export default function SmartScan() {
 
                             <div><label className="text-xs font-bold text-slate-500 block mb-1">Nominal {isForex ? currency : '(IDR)'}</label><Input value={amount} onChange={e => setAmount(e.target.value)} type="text" className="text-2xl font-bold text-slate-800 bg-slate-50 border-slate-200 h-12" placeholder="0"/></div>
 
-                            {(detectedType === 'debt' || detectedType === 'receivable') ? (
-                                <div><label className="text-xs font-bold text-slate-500 block mb-1">Nama Pihak</label><Input value={debtName} onChange={e => setDebtName(e.target.value)} placeholder="Contoh: Budi"/></div>
-                            ) : (
-                                <div><label className="text-xs font-bold text-slate-500 block mb-1">Kategori</label><Input value={category} onChange={e => setCategory(e.target.value)}/></div>
+                            {(detectedType === 'debt' || detectedType === 'receivable' || paymentMode === 'pending') && (
+                                <div className="animate-in fade-in slide-in-from-top-2">
+                                    <label className="text-xs font-bold text-amber-600 block mb-1">
+                                        {paymentMode === 'pending' ? (detectedType === 'income' ? 'Ditagih Ke Siapa?' : 'Berhutang Kepada Siapa?') : 'Nama Pihak'}
+                                    </label>
+                                    <Input value={debtName} onChange={e => setDebtName(e.target.value)} placeholder="Contoh: Klien A / Toko B" className="border-amber-200 focus:border-amber-400 bg-amber-50 h-12"/>
+                                </div>
+                            )}
+                            
+                            {(detectedType === 'income' || detectedType === 'expense') && (
+                                <div><label className="text-xs font-bold text-slate-500 block mb-1">Kategori / Topik</label><Input value={category} onChange={e => setCategory(e.target.value)} className="h-12"/></div>
                             )}
                             
                             <div><label className="text-xs font-bold text-slate-500 block mb-1">Catatan</label><textarea value={desc} onChange={e => setDesc(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-sm h-20 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"></textarea></div>
@@ -472,11 +534,11 @@ export default function SmartScan() {
 
                         <Button 
                             onClick={() => handleSave(false)} 
-                            disabled={!isDataLoaded}
+                            disabled={!isDataLoaded || isSubmitting}
                             className="w-full mt-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200 font-bold h-12 rounded-xl text-sm disabled:opacity-50"
                         >
-                            {isDataLoaded ? <Check className="w-4 h-4 mr-2"/> : <RefreshCw className="w-4 h-4 mr-2 animate-spin"/>}
-                            {isDataLoaded ? "SIMPAN DATA" : "Memuat Budget..."}
+                            {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : (isDataLoaded ? <Check className="w-4 h-4 mr-2"/> : <RefreshCw className="w-4 h-4 mr-2 animate-spin"/>)}
+                            {isSubmitting ? "MEMPROSES..." : (isDataLoaded ? "SIMPAN DATA" : "Memuat Budget...")}
                         </Button>
                     </Card>
                 )}
