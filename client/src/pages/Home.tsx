@@ -41,10 +41,8 @@ export default function Home() {
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [isRequestingPerms, setIsRequestingPerms] = useState(false);
 
-  // === STATE POSTER SAMBUTAN PRO ===
   const [showProWelcome, setShowProWelcome] = useState(false);
 
-  // === STATE TAGIHAN DINAMIS ===
   const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
 
@@ -90,7 +88,7 @@ export default function Home() {
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
   // =========================================================================
-  // 🚀 FIX: RADAR PELACAK HP MENGGUNAKAN TRIK "JENDELA SILUMAN" (IFRAME)
+  // 🚀 FIX MUTLAK: MENGGUNAKAN NATIVE JAVASCRIPT BRIDGE (ANTI FREEZE)
   // =========================================================================
   useEffect(() => {
       if (!rawEmail) return;
@@ -114,23 +112,16 @@ export default function Home() {
       };
 
       const timer = setTimeout(() => {
-          // Buat iframe siluman agar tidak merusak navigasi web atau bikin blank
-          const iframe = document.createElement('iframe');
-          iframe.style.display = 'none';
-          iframe.src = 'median://onesignal/info?callback=median_onesignal_info';
-          document.body.appendChild(iframe);
-          
-          // Hapus iframe setelah 2 detik agar bersih
-          setTimeout(() => {
-              if (document.body.contains(iframe)) document.body.removeChild(iframe);
-          }, 2000);
+          // Hanya memanggil jika bridge Native OS tersedia (sangat aman)
+          if (typeof window !== 'undefined' && (window as any).median) {
+              (window as any).median.onesignal.info({'callback': 'median_onesignal_info'});
+          }
       }, 3000);
 
       return () => clearTimeout(timer);
   }, [rawEmail]);
   // =========================================================================
 
-  // === LOGIKA MUNCULKAN POSTER PRO (Hanya 1 Kali) ===
   useEffect(() => {
       if (isUserPro && rawEmail) {
           const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;
@@ -146,7 +137,6 @@ export default function Home() {
       setShowProWelcome(false);
   };
 
-  // === SISTEM PENDETEKSI TAGIHAN DINAMIS ===
   useEffect(() => {
       if (!subscriptions) return;
       const todayStr = new Date().toISOString().split('T')[0];
@@ -256,14 +246,12 @@ export default function Home() {
   useEffect(() => {
     const fetchHomeData = async () => {
         try {
-            const userEmail = localStorage.getItem("bilano_email") || "";
-            const t = Date.now();
-            const resRates = await fetch(`/api/forex/rates?t=${t}`, { headers: { "x-user-email": userEmail }, cache: "no-store" as RequestCache });
+            const resRates = await fetch(`/api/forex/rates?t=${Date.now()}`, { headers: { "x-user-email": rawEmail }, cache: "no-store" as RequestCache });
             if (resRates.ok) setForexRates(await resRates.json());
-        } catch (e) { console.error("Gagal fetch data home", e); }
+        } catch (e) {}
     };
     fetchHomeData();
-  }, []);
+  }, [rawEmail]);
 
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
@@ -274,8 +262,11 @@ export default function Home() {
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
               await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {});
           }
-          // Pancing agar Median mendaftarkan HP ini ke OneSignal
-          window.location.href = 'median://onesignal/register';
+          
+          // Menggunakan cara native yang aman tanpa iframe
+          if (typeof window !== 'undefined' && (window as any).median) {
+              (window as any).median.onesignal.register();
+          }
 
       } catch (e) {
           console.error("Gagal meminta izin:", e);
@@ -402,7 +393,7 @@ export default function Home() {
                         BAYAR & CATAT SEKARANG
                     </Button>
                     <Button variant="ghost" onClick={handleSkipDynamic} className="w-full h-12 rounded-full font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">
-                        Nanti Saja (Lewati Hari Hari Ini)
+                        Nanti Saja (Lewati Hari Ini)
                     </Button>
                 </div>
             </div>

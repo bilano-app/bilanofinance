@@ -34,9 +34,7 @@ export const investments = pgTable("investments", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   symbol: text("symbol").notNull(),
-  // 🚀 FIX: Ubah Integer ke Real agar bisa menampung desimal (0.01)
   quantity: real("quantity").notNull(),
-  // 🚀 FIX: Ubah ke Real agar harga pecahan Crypto bisa masuk
   avgPrice: real("avg_price").notNull(),
   type: text("type").default('saham'),
 });
@@ -85,12 +83,11 @@ export const categories = pgTable("categories", {
   color: text("color"),
 });
 
-// --- 8. FOREX ASSETS (TABEL VALAS) ---
+// --- 8. FOREX ASSETS ---
 export const forexAssets = pgTable("forex_assets", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   currency: text("currency").notNull(), 
-  // 🚀 FIX: Ubah ke Real agar saldo mata uang asing bisa berbentuk desimal
   amount: real("amount").notNull(), 
 });
 
@@ -108,9 +105,16 @@ export const insertForexAssetSchema = createInsertSchema(forexAssets).omit({ id:
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
+export type InsertTransaction = typeof transactions.$inferInsert;
 export type Investment = typeof investments.$inferSelect;
+export type InsertInvestment = typeof investments.$inferInsert;
 export type Target = typeof targets.$inferSelect;
+export type InsertTarget = typeof targets.$inferInsert;
 export type Debt = typeof debts.$inferSelect;
+export type InsertDebt = typeof debts.$inferInsert;
 export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;
 export type Category = typeof categories.$inferSelect;
+export type InsertCategory = typeof categories.$inferInsert;
 export type ForexAsset = typeof forexAssets.$inferSelect;
+export type InsertForexAsset = typeof forexAssets.$inferInsert;
