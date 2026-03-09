@@ -23,9 +23,21 @@ export default function ChatAI() {
     const { data: investments } = useInvestments();
     const { data: target } = useTarget();
 
-    // FIX: Status Paywall
     const currentUserEmail = localStorage.getItem("bilano_email") || "";
+    
+    // === SISTEM GEMBOK GANDA (DOUBLE LOCK FREEMIUM) ===
+    const isPro = user?.isPro || false;
     const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
+    
+    const MAX_FREE_CHATS = 3;
+    const [chatCount, setChatCount] = useState<number>(() => {
+        const count = localStorage.getItem(`bilano_chat_usage_${currentUserEmail}`);
+        return count ? parseInt(count, 10) : 0;
+    });
+
+    const isOutOfQuota = !isPro && chatCount >= MAX_FREE_CHATS;
+    const isLocked = !isPro && (isTrialExpired || isOutOfQuota);
+
     const [messages, setMessages] = useState<Message[]>(() => {
         const savedChat = localStorage.getItem(`bilano_chat_history_${currentUserEmail}`);
         if (savedChat) {
@@ -34,7 +46,7 @@ export default function ChatAI() {
             return [{ 
                 id: 1, 
                 sender: 'ai', 
-                text: "Halo Bos! 👋\nSaya BILANO Intelligence. Riwayat chat ini akan tersimpan otomatis. Mau bahas strategi keuangan atau butuh panduan aplikasi hari ini?", 
+                text: "Halo Bos! 👋\nSaya BILANO Intelligence. Mau bahas strategi keuangan atau butuh panduan aplikasi hari ini?", 
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             }];
         }
@@ -67,9 +79,9 @@ export default function ChatAI() {
     };
 
     const handleSend = async () => {
-        // FIX: Cegah Penggunaan AI jika Trial Habis
-        if (isTrialExpired) {
-            if (confirm("Masa Coba Habis! Fitur Chat AI eksklusif untuk member Premium. Buka kunci sekarang?")) {
+        // 🚀 TAHAN JIKA TERGEMBOK
+        if (isLocked) {
+            if (confirm("Akses AI Terkunci! (Batas 3x percobaan atau Masa Coba Habis). Buka kunci Premium sekarang untuk chat tanpa batas?")) {
                 window.location.href = "/paywall";
             }
             return;
@@ -88,14 +100,20 @@ export default function ChatAI() {
         setInputText("");
         setIsTyping(true);
 
-        // === RANGKAIAN INTELIJEN AI (MENGIRIM KONTEKS & PANDUAN APLIKASI DIAM-DIAM) ===
+        // 🚀 POTONG KUOTA USER GRATISAN SEBELUM PROSES API
+        if (!isPro) {
+            const newCount = chatCount + 1;
+            setChatCount(newCount);
+            localStorage.setItem(`bilano_chat_usage_${currentUserEmail}`, newCount.toString());
+        }
+
+        // === RANGKAIAN INTELIJEN AI ===
         const totalCash = user?.cashBalance || 0;
         const txSummary = transactions?.slice(0, 10).map(t => `${t.date.split('T')[0]} - ${t.type} - ${t.category}: Rp${t.amount}`).join(" | ") || "Belum ada transaksi";
         const forexSummary = forexAssets?.map(f => `${f.amount} ${f.currency}`).join(", ") || "Tidak ada valas";
         const investSummary = investments?.map(i => `${i.quantity} ${i.symbol}`).join(", ") || "Tidak ada investasi";
         const targetSummary = target ? `Target: Rp${target.targetAmount}, Limit Keluar: Rp${target.monthlyBudget} (${target.budgetType})` : "Tidak ada target";
 
-        // FIX: PENGETAHUAN SUPER LENGKAP TENTANG APLIKASI BILANO
         const bilanoKnowledgeBase = `
         [PANDUAN MUTLAK APLIKASI BILANO UNTUK AI]
         Kamu harus tahu cara kerja aplikasi BILANO agar bisa memandu user:
@@ -116,7 +134,7 @@ export default function ChatAI() {
                 method: "POST",
                 headers: { 
                     "Content-Type": "application/json",
-                    "x-user-email": localStorage.getItem("bilano_email") || ""
+                    "x-user-email": currentUserEmail
                 },
                 body: JSON.stringify({ message: systemContext }) 
             });
@@ -141,6 +159,13 @@ export default function ChatAI() {
                 text: "⚠️ Koneksi ke otak AI terputus. Pastikan internet Anda lancar dan API Key Groq/OpenAI sudah valid di pengaturan Vercel.", 
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             }]);
+            
+            // Jika AI Gagal jawab, kembalikan kuota chatnya
+            if (!isPro) {
+                const revertCount = chatCount;
+                setChatCount(revertCount);
+                localStorage.setItem(`bilano_chat_usage_${currentUserEmail}`, revertCount.toString());
+            }
         } finally {
             setIsTyping(false);
         }
@@ -158,6 +183,15 @@ export default function ChatAI() {
         );
     }
 
+    // Penentuan teks pada kotak input
+    let placeholderText = "Tanya AI Assistant...";
+    if (isLocked) {
+        if (isTrialExpired) placeholderText = "🔒 Masa Coba Habis";
+        else if (isOutOfQuota) placeholderText = "🔒 Kuota Habis (Batas 3x)";
+    } else if (!isPro) {
+        placeholderText = `Ketik pesan... (Sisa Kuota: ${MAX_FREE_CHATS - chatCount}x)`;
+    }
+
     return (
         <MobileLayout title="BILANO Intelligence" showBack>
             <div className="absolute top-4 right-4 z-50">
@@ -171,6 +205,15 @@ export default function ChatAI() {
             </div>
 
             <div className="flex flex-col h-[calc(100dvh-75px)] -mx-4 -mb-4 bg-slate-50 relative">
+                
+                {/* 🚀 BANNER PERINGATAN KUOTA UNTUK PENGGUNA GRATIS */}
+                {!isPro && !isLocked && (
+                    <div className="bg-amber-100 text-amber-800 text-[10px] font-bold text-center py-1.5 px-4 shadow-sm z-10 flex items-center justify-center gap-2">
+                        <Sparkles className="w-3 h-3"/>
+                        Kamu memiliki {MAX_FREE_CHATS - chatCount} kali kesempatan bertanya secara gratis.
+                    </div>
+                )}
+                
                 <div className="flex-1 overflow-y-auto space-y-4 p-4 pb-6">
                     {messages.map((msg) => (
                         <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
@@ -227,20 +270,20 @@ export default function ChatAI() {
                     <div ref={messagesEndRef} />
                 </div>
 
-                <div className="p-3 bg-white border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] z-10 pb-4 md:pb-3">
+                <div className={`p-3 bg-white border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] z-10 pb-4 md:pb-3 ${isLocked ? 'bg-slate-50' : ''}`}>
                     <div className="flex gap-2">
                         <Input 
                             value={inputText} 
                             onChange={e => setInputText(e.target.value)} 
                             onKeyDown={e => e.key === 'Enter' && handleSend()}
-                            placeholder={isTrialExpired ? "🔒 Premium Dibutuhkan" : "Tanya AI Assistant..."}
-                            disabled={isTrialExpired || isTyping}
-                            className="flex-1 bg-slate-50 border-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all h-12 rounded-full px-4 disabled:opacity-50"
+                            placeholder={placeholderText}
+                            disabled={isLocked || isTyping}
+                            className={`flex-1 transition-all h-12 rounded-full px-4 ${isLocked ? 'bg-slate-200 border-slate-300 text-slate-500 font-bold opacity-70 cursor-not-allowed' : 'bg-slate-50 border-slate-200 focus:ring-2 focus:ring-indigo-500'}`}
                         />
                         <Button 
                             onClick={handleSend} 
-                            disabled={!inputText && !isTrialExpired || isTyping} 
-                            className={`w-12 h-12 px-0 rounded-full shadow-md transition-transform active:scale-95 ${isTrialExpired ? 'bg-slate-300' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                            disabled={!inputText || isLocked || isTyping} 
+                            className={`w-12 h-12 px-0 rounded-full shadow-md transition-transform active:scale-95 ${isLocked ? 'bg-slate-400' : 'bg-indigo-600 hover:bg-indigo-700'}`}
                         >
                             <Send className="w-5 h-5"/>
                         </Button>
