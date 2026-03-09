@@ -89,6 +89,42 @@ export default function Home() {
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
+  // =========================================================================
+  // 🚀 FASE 2: RADAR PELACAK HP UNTUK NOTIFIKASI PERSONAL (1-on-1)
+  // =========================================================================
+  useEffect(() => {
+      if (!rawEmail) return;
+
+      // 1. Daftarkan fungsi global yang akan dipanggil oleh sistem Median APK
+      (window as any).median_onesignal_info = async function(info: any) {
+          const playerId = info?.oneSignalUserId || info?.userId; 
+          if (playerId) {
+              try {
+                  // 2. Setorkan ID HP tersebut ke dalam Laci Database Server
+                  await fetch("/api/user/onesignal", {
+                      method: "POST",
+                      headers: {
+                          "Content-Type": "application/json",
+                          "x-user-email": rawEmail
+                      },
+                      body: JSON.stringify({ onesignalId: playerId })
+                  });
+                  console.log("✅ Radar Aktif: ID HP berhasil disetor ke server!");
+              } catch (e) {
+                  console.error("Gagal menyetor ID HP", e);
+              }
+          }
+      };
+
+      // 3. Pancing Median APK untuk mengirimkan info ID HP-nya (Beri jeda 3 detik agar APK siap)
+      const timer = setTimeout(() => {
+          window.location.href = 'median://onesignal/info';
+      }, 3000);
+
+      return () => clearTimeout(timer);
+  }, [rawEmail]);
+  // =========================================================================
+
   // === LOGIKA MUNCULKAN POSTER PRO (Hanya 1 Kali) ===
   useEffect(() => {
       if (isUserPro && rawEmail) {
@@ -233,6 +269,7 @@ export default function Home() {
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
               await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {});
           }
+          // Pancing agar Median mendaftarkan HP ini ke OneSignal
           window.location.href = 'median://onesignal/register';
 
       } catch (e) {
