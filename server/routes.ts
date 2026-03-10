@@ -606,10 +606,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!rawKey) {
               return res.status(200).json({ success: false, laporan: "Brankas kosong" });
           }
+          
+          // 🚀 FIX: Dihapus Validasi startsWith('os_v2_app_') yang Memblokir Notifikasi!
           const cleanKey = rawKey.replace(/\s+/g, '').trim();
-          if (!cleanKey.startsWith('os_v2_app_')) {
-              return res.status(200).json({ success: false, laporan: "Kunci salah format" });
-          }
 
           const allUsers = await storage.getAllUsers();
           const today = new Date();
@@ -621,12 +620,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const isPDFDay = isEndOfMonth || isFirstOfMonth;
 
           const notificationsToSend: any[] = [];
+          
+          // 🚀 FIX: Memperluas target jangkauan agar 100% sampai ke pengguna
+          const targetSegments = ["Subscribed Users", "Total Subscriptions", "Active Users"];
 
           // --- 1. GLOBAL BROADCAST: LAPORAN PDF ATAU GACHA ---
           if (isPDFDay) {
               notificationsToSend.push({
                   app_id: ONE_SIGNAL_APP_ID,
-                  included_segments: ["Total Subscriptions"], 
+                  included_segments: targetSegments, 
                   headings: { "en": "Laporan Keuangan Siap! 📊" },
                   contents: { "en": "Waktunya evaluasi bulan ini. Yuk download PDF Neraca & Cashflow kamu sekarang." },
                   big_picture: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=3",
@@ -647,7 +649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const randomMsg = messages[Math.floor(Math.random() * messages.length)];
               notificationsToSend.push({
                   app_id: ONE_SIGNAL_APP_ID,
-                  included_segments: ["Total Subscriptions"], 
+                  included_segments: targetSegments, 
                   headings: { "en": randomMsg.title },
                   contents: { "en": randomMsg.body },
                   big_picture: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=3",
@@ -718,7 +720,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   headers: {
                       "accept": "application/json",
                       "Content-Type": "application/json",
-                      // 🚀 FIX MUTLAK: Autentikasi sesuai dengan Standar OneSignal
+                      // 🚀 FIX: Autentikasi sesuai dengan Standar OneSignal
                       "Authorization": `Basic ${cleanKey}`
                   },
                   body: JSON.stringify(payload)
