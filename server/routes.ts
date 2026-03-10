@@ -4,7 +4,6 @@ import { storage } from "./storage.js";
 import { insertTransactionSchema, insertTargetSchema } from "../shared/schema.js";
 import { z } from "zod";
 
-// 🚀 TAMBAHAN IMPORT UNTUK AUTO-PATCH DB
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
 
@@ -12,12 +11,6 @@ import Groq from "groq-sdk";
 import OpenAI from "openai";
 import nodemailer from "nodemailer";
 
-// Database sementara untuk menyimpan izin notifikasi use
-
-// ============================================================================
-// 1. KONFIGURASI AI (SUDAH DIAMANKAN)
-// ============================================================================
-// Kita mengambil kunci dari Vercel agar tidak diblokir otomatis oleh Groq
 const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY || "KUNCI_SUDAH_DIAMANKAN_DI_VERCEL" });
 const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "ISI_KEY_OPENAI_DISINI_NANTI" });
 
@@ -32,30 +25,32 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
     } catch (error: any) {
         if (error.status === 429 || error.status >= 500 || error.status === 401) {
             try {
-                if (!openaiClient.apiKey || openaiClient.apiKey === "ISI_KEY_OPENAI_DISINI_NANTI") return "⚠️ Kunci Rahasia AI diblokir/tidak valid. Mohon periksa pengaturan Vercel Anda.";
+                if (!openaiClient.apiKey || openaiClient.apiKey === "ISI_KEY_OPENAI_DISINI_NANTI") {
+                    // 🚀 FIX: Pesan Error Profesional (Menyembunyikan rahasia dapur OpenAI/Vercel)
+                    return "⚠️ Maaf, Asisten AI sedang mengalami kendala koneksi ke pusat. Mohon coba lagi dalam beberapa saat.";
+                }
                 const completionBackup = await openaiClient.chat.completions.create({
                     messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }],
                     model: "gpt-3.5-turbo",
                 });
                 return completionBackup.choices[0]?.message?.content;
-            } catch (e) { return "Semua AI Busy."; }
+            } catch (e) { 
+                return "⚠️ Sistem AI sedang sangat sibuk menangani banyak permintaan. Silakan coba lagi nanti."; 
+            }
         }
-        return "⚠️ Kunci Rahasia AI diblokir karena bocor. Anda harus membuat API Key Groq baru dan menaruhnya di Vercel.";
+        // 🚀 FIX: Pesan Error Profesional (Menyembunyikan rahasia Groq)
+        return "⚠️ Sistem asisten virtual sedang dalam pemeliharaan rutin. Mohon maaf atas ketidaknyamanannya.";
     }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
-  // =========================================================================
-  // 🚀 FITUR PENYELAMAT: AUTO-PATCH DATABASE SERVER (ANTI CRASH / LOADING LAMA)
-  // =========================================================================
   try {
       await db.execute(sql`ALTER TABLE users ADD COLUMN onesignal_id TEXT;`);
       console.log("✅ Auto-patch DB: Kolom onesignal_id berhasil ditambahkan ke Database Live!");
   } catch (e) {
       console.log("✅ DB Check: Kolom onesignal_id sudah siap (Aman).");
   }
-  // =========================================================================
   
   let cachedRates = { 
       "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -135,7 +130,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const getUser = async (req: any) => {
     const email = req.headers["x-user-email"];
     
-    // 1. Tangani Guest
     if (!email || email === "guest") {
         let user = await storage.getUser(1);
         if (!user) {
@@ -144,15 +138,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return user;
     }
 
-    // 2. Tangani User Login Biasa
     let user = await storage.getUserByUsername(email as string);
     if (!user) {
         user = await storage.createUser({ username: email as string, password: "123", email: email as string });
     }
 
-    // ==========================================================
-    // 🚀 OVERRIDE VVIP ABSOLUT (ANTI GAGAL & PASTI TERBUKA) 
-    // ==========================================================
     const vipEmails = [
         "adrienfandra14@gmail.com",
         "bilanotech@gmail.com", 
@@ -164,9 +154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user.proValidUntil = new Date("2099-12-31").toISOString(); 
         return user; 
     }
-    // ==========================================================
 
-    // 3. CEK JAM DINDING
     if (user.isPro && user.proValidUntil) {
         const now = new Date();
         const validUntil = new Date(user.proValidUntil);
@@ -179,9 +167,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return user;
   };
 
-  // =========================================================================
-  // 🚀 FITUR BARU: JALUR UNTUK HP MENYETORKAN PLAYER ID ONESIGNAL MEREKA
-  // =========================================================================
   app.post("/api/user/onesignal", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -246,31 +231,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
           const user = await getUser(req);
           const txId = parseInt(req.params.id);
-
           const txs = await storage.getTransactions(user!.id);
           const txToDelete = txs.find(t => t.id === txId);
 
           if (!txToDelete) return res.status(404).json({ error: "Data transaksi tidak ditemukan" });
 
-          // Hitung ulang saldo sebelum menghapus (Reverse Engineer)
           let newBalance = user!.cashBalance;
           const isIncome = txToDelete.type.includes('income') || txToDelete.type.includes('receive') || txToDelete.type === 'debt_borrow' || txToDelete.type === 'invest_sell' || txToDelete.type === 'forex_sell';
 
           if (isIncome) {
-              newBalance -= txToDelete.amount; // Tarik kembali uang masuk
+              newBalance -= txToDelete.amount; 
           } else {
-              newBalance += txToDelete.amount; // Kembalikan uang yang keluar
+              newBalance += txToDelete.amount; 
           }
 
-          // Simpan saldo baru dan hapus transaksi dari database
           await storage.updateUserBalance(user!.id, newBalance);
-          
           if (typeof storage.deleteTransaction === 'function') {
               await storage.deleteTransaction(txId);
-          } else {
-              console.warn("storage.deleteTransaction tidak ditemukan. Harap pastikan ada di storage.ts");
           }
-
           res.json({ success: true, message: "Transaksi berhasil dimusnahkan" });
       } catch (error) {
           res.status(500).json({ error: "Terjadi kesalahan pada server saat menghapus" });
@@ -305,7 +283,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const t = type.toLowerCase();
       const isIncome = t === 'income' || t === 'pemasukan' || t === 'tambah' || t === 'buy' || t === 'in' || t === 'dapat';
       
-      // Hitung rate real-time ke Rupiah saat transaksi terjadi
       const rate = cachedRates[currency as keyof typeof cachedRates] || 15000;
       const amountIDR = Math.round(amount * rate);
       let newCashBalance = user!.cashBalance;
@@ -376,7 +353,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   dueDate: (debt as any).dueDate || ""
               });
           }
-          
           await storage.markDebtPaid(id); 
       }
       res.json({ success: true });
@@ -596,7 +572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
-  // 🚀 FITUR BARU: MESIN CRON PENGINGAT 1-ON-1 SUPER CERDAS (PDF, HUTANG, LANGGANAN)
+  // 🚀 FIX MUTLAK PENGINGAT NOTIFIKASI
   // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
@@ -607,24 +583,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return res.status(200).json({ success: false, laporan: "Brankas kosong" });
           }
           
-          // 🚀 FIX: Dihapus Validasi startsWith('os_v2_app_') yang Memblokir Notifikasi!
           const cleanKey = rawKey.replace(/\s+/g, '').trim();
+          
+          // 🚀 FIX: Membersihkan kata Basic/Key jika Bos tidak sengaja menempelkannya di Vercel
+          const finalAuthKey = cleanKey.replace(/^(Basic|Key)\s+/i, '');
 
           const allUsers = await storage.getAllUsers();
           const today = new Date();
           today.setHours(0,0,0,0);
           
-          // Cek apakah hari ini akhir bulan atau awal bulan untuk laporan PDF
           const isEndOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() === today.getDate();
           const isFirstOfMonth = today.getDate() === 1;
           const isPDFDay = isEndOfMonth || isFirstOfMonth;
 
           const notificationsToSend: any[] = [];
           
-          // 🚀 FIX: Memperluas target jangkauan agar 100% sampai ke pengguna
-          const targetSegments = ["Subscribed Users", "Total Subscriptions", "Active Users"];
+          // 🚀 FIX: Memastikan segmen target 100% dipahami oleh sistem OneSignal
+          const targetSegments = ["Subscribed Users"];
 
-          // --- 1. GLOBAL BROADCAST: LAPORAN PDF ATAU GACHA ---
           if (isPDFDay) {
               notificationsToSend.push({
                   app_id: ONE_SIGNAL_APP_ID,
@@ -666,7 +642,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const debts = await storage.getDebts(user.id);
               const subs = await storage.getSubscriptions(user.id);
 
-              // Cek Hutang/Piutang
               for (const debt of debts) {
                   if (!debt.isPaid && debt.dueDate) {
                       const due = new Date(debt.dueDate); due.setHours(0,0,0,0);
@@ -679,7 +654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                           
                           notificationsToSend.push({
                               app_id: ONE_SIGNAL_APP_ID,
-                              include_player_ids: [user.onesignalId], // HANYA HP USER INI YANG BERBUNYI
+                              include_player_ids: [user.onesignalId],
                               headings: { "en": title },
                               contents: { "en": body },
                               android_accent_color: "FFE11D48",
@@ -690,7 +665,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
               }
 
-              // Cek Langganan (Subscriptions)
               for (const sub of subs) {
                   if (sub.isActive && sub.nextBilling) {
                       const due = new Date(sub.nextBilling); due.setHours(0,0,0,0);
@@ -715,13 +689,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Eksekusi Semua Tembakan Push Notification Sekaligus
           const results = [];
           for (const payload of notificationsToSend) {
-              const res = await fetch("https://api.onesignal.com/notifications", {
+              // 🚀 FIX: Menggunakan API endpoint OneSignal yang paling stabil
+              const res = await fetch("https://onesignal.com/api/v1/notifications", {
                   method: "POST",
                   headers: {
                       "accept": "application/json",
                       "Content-Type": "application/json",
-                      // 🚀 FIX: Autentikasi sesuai dengan Standar OneSignal
-                      "Authorization": `Basic ${cleanKey}`
+                      // 🚀 FIX: Format Autentikasi Standar Industri
+                      "Authorization": `Basic ${finalAuthKey}`
                   },
                   body: JSON.stringify(payload)
               });
