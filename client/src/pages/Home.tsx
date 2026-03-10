@@ -19,11 +19,12 @@ import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
+  // 🚀 PERBAIKAN: Menarik SEMUA status loading, tidak hanya User & Target
   const { data: user, isLoading: isUserLoading } = useUser();
-  const { data: transactions } = useTransactions();
-  const { data: forexAssets } = useForexAssets(); 
+  const { data: transactions, isLoading: isTxLoading } = useTransactions();
+  const { data: forexAssets, isLoading: isFxLoading } = useForexAssets(); 
   const { data: target, isLoading: isTargetLoading } = useTarget(); 
-  const { data: subscriptions, refetch: refetchSubs } = useSubscriptions();
+  const { data: subscriptions, refetch: refetchSubs, isLoading: isSubLoading } = useSubscriptions();
 
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -47,6 +48,8 @@ export default function Home() {
   const [dynamicAmount, setDynamicAmount] = useState("");
 
   const [forexRates, setForexRates] = useState<Record<string, number>>({});
+  // 🚀 PERBAIKAN: State khusus untuk menahan loading sampai Kurs Live Vercel turun
+  const [isRatesReady, setIsRatesReady] = useState(false);
 
   useEffect(() => {
       setIsPrivacyMode(localStorage.getItem("bilano_privacy") === "true");
@@ -251,7 +254,12 @@ export default function Home() {
         try {
             const resRates = await fetch(`/api/forex/rates?t=${Date.now()}`, { headers: { "x-user-email": rawEmail }, cache: "no-store" as RequestCache });
             if (resRates.ok) setForexRates(await resRates.json());
-        } catch (e) {}
+        } catch (e) {
+            console.error(e);
+        } finally {
+            // 🚀 PERBAIKAN: Lepas gembok loading Rates
+            setIsRatesReady(true);
+        }
     };
     fetchHomeData();
   }, [rawEmail]);
@@ -352,14 +360,22 @@ export default function Home() {
       );
   }
 
-  // Tampilkan loading HANYA JIKA sedang menarik data
-  if (isUserLoading || isTargetLoading) {
+  // 🚀 PERBAIKAN: Menahan rendering UI HINGGA SEMUA status Loading bernilai FALSE
+  if (
+      isUserLoading || 
+      isTargetLoading || 
+      isTxLoading || 
+      isFxLoading || 
+      isSubLoading || 
+      !isRatesReady || 
+      !user
+  ) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
               <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
               <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
                   <Loader2 className="w-4 h-4 animate-spin"/>
-                  <span>Memuat Data...</span>
+                  <span>Menyiapkan Saldo...</span>
               </div>
           </div>
       );
