@@ -7,6 +7,17 @@ import { WifiOff, RefreshCw, Lock } from "lucide-react";
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser } from "./hooks/use-finance"; // <--- KITA PANGGIL JEMBATAN SERVER RESMI
 
+// =========================================================================
+// 🚀 FIX MUTLAK: MATIKAN REFETCH OTOMATIS SAAT APLIKASI DIBUKA KEMBALI
+// Ini mencegah UI hancur akibat menarik data kosong saat Vercel sedang tidur
+// =========================================================================
+queryClient.setDefaultOptions({
+  queries: {
+    refetchOnWindowFocus: false, 
+    refetchOnMount: false,
+  },
+});
+
 import NotFound from "@/pages/not-found";
 import Security from "./pages/Security";
 import Home from "@/pages/Home";

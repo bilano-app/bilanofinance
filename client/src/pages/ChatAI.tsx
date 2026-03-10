@@ -156,7 +156,8 @@ export default function ChatAI() {
             setMessages(prev => [...prev, { 
                 id: Date.now(), 
                 sender: 'ai', 
-                text: "⚠️ Koneksi ke otak AI terputus. Pastikan internet Anda lancar dan API Key Groq/OpenAI sudah valid di pengaturan Vercel.", 
+                // 🚀 FIX MUTLAK: Hilangkan jejak OpenAI/Groq dari mata pengguna
+                text: "⚠️ Maaf Bos, Asisten AI sedang sangat sibuk atau mengalami gangguan koneksi. Mohon coba lagi dalam beberapa saat ya! 🙏", 
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             }]);
             
