@@ -17,14 +17,15 @@ import {
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
+// 🚀 FIX: Import React Query Cache
+import { useQuery } from "@tanstack/react-query";
 
 export default function Home() {
-  // 🚀 PERBAIKAN: Menarik SEMUA status loading, tidak hanya User & Target
   const { data: user, isLoading: isUserLoading } = useUser();
-  const { data: transactions, isLoading: isTxLoading } = useTransactions();
-  const { data: forexAssets, isLoading: isFxLoading } = useForexAssets(); 
+  const { data: transactions } = useTransactions();
+  const { data: forexAssets } = useForexAssets(); 
   const { data: target, isLoading: isTargetLoading } = useTarget(); 
-  const { data: subscriptions, refetch: refetchSubs, isLoading: isSubLoading } = useSubscriptions();
+  const { data: subscriptions, refetch: refetchSubs } = useSubscriptions();
 
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -47,9 +48,21 @@ export default function Home() {
   const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
 
-  const [forexRates, setForexRates] = useState<Record<string, number>>({});
-  // 🚀 PERBAIKAN: State khusus untuk menahan loading sampai Kurs Live Vercel turun
-  const [isRatesReady, setIsRatesReady] = useState(false);
+  const rawEmail = localStorage.getItem("bilano_email") || "";
+  
+  // =========================================================================
+  // 🚀 FIX MUTLAK: Mengganti useState manual dengan useQuery agar data kurs
+  // masuk ke dalam CACHE 1 JAM dan mencegah angka Valas tiba-tiba jadi 0!
+  // =========================================================================
+  const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
+      queryKey: ['forexRates', rawEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": rawEmail } });
+          return res.json();
+      },
+      enabled: !!rawEmail
+  });
+  // =========================================================================
 
   useEffect(() => {
       setIsPrivacyMode(localStorage.getItem("bilano_privacy") === "true");
@@ -85,14 +98,10 @@ export default function Home() {
       localStorage.setItem("bilano_privacy", newVal.toString());
   };
 
-  const rawEmail = localStorage.getItem("bilano_email") || "";
   const userEmail = rawEmail || "Pengguna";
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
-  // =========================================================================
-  // 🚀 FIX MUTLAK: MENGGUNAKAN NATIVE JAVASCRIPT BRIDGE (ANTI FREEZE)
-  // =========================================================================
   useEffect(() => {
       if (!rawEmail) return;
 
@@ -236,33 +245,13 @@ export default function Home() {
       }
   }, [isUserPro, rawEmail]);
 
-  // =========================================================================
-  // 🚀 FIX: LOGIKA REDIRECT AMAN (Mencegah terlempar saat server error)
-  // =========================================================================
   useEffect(() => {
       if (!isUserLoading && !isTargetLoading) {
-          // Hanya redirect jika target benar-benar kosong, BUKAN undefined karena server crash
           if (target !== undefined && target !== null && typeof target === 'object' && Object.keys(target).length === 0) {
               setLocation("/target");
           }
       }
   }, [target, isUserLoading, isTargetLoading, setLocation]);
-  // =========================================================================
-
-  useEffect(() => {
-    const fetchHomeData = async () => {
-        try {
-            const resRates = await fetch(`/api/forex/rates?t=${Date.now()}`, { headers: { "x-user-email": rawEmail }, cache: "no-store" as RequestCache });
-            if (resRates.ok) setForexRates(await resRates.json());
-        } catch (e) {
-            console.error(e);
-        } finally {
-            // 🚀 PERBAIKAN: Lepas gembok loading Rates
-            setIsRatesReady(true);
-        }
-    };
-    fetchHomeData();
-  }, [rawEmail]);
 
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
@@ -360,22 +349,14 @@ export default function Home() {
       );
   }
 
-  // 🚀 PERBAIKAN: Menahan rendering UI HINGGA SEMUA status Loading bernilai FALSE
-  if (
-      isUserLoading || 
-      isTargetLoading || 
-      isTxLoading || 
-      isFxLoading || 
-      isSubLoading || 
-      !isRatesReady || 
-      !user
-  ) {
+  // 🚀 Tambahan penjaga status loading query baru
+  if (isUserLoading || isTargetLoading || isRatesLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
               <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
               <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
                   <Loader2 className="w-4 h-4 animate-spin"/>
-                  <span>Menyiapkan Saldo...</span>
+                  <span>Memuat Data...</span>
               </div>
           </div>
       );
@@ -406,7 +387,7 @@ export default function Home() {
                         BAYAR & CATAT SEKARANG
                     </Button>
                     <Button variant="ghost" onClick={handleSkipDynamic} className="w-full h-12 rounded-full font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">
-                        Nanti Saja (Lewati Hari Ini)
+                        Nanti Saja (Lewati Hari Hari Ini)
                     </Button>
                 </div>
             </div>

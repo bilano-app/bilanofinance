@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Card } from "@/components/UIComponents";
 import { useUser, useTransactions, useTarget, useInvestments } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2 } from "lucide-react";
 import { Link } from "wouter";
+// 🚀 FIX: Import mesin cache React Query
+import { useQuery } from "@tanstack/react-query";
 
 export default function Performance() {
   const { data: user, isLoading: isUserLoading } = useUser();
@@ -16,48 +18,43 @@ export default function Performance() {
   const currentMonthIdx = now.getMonth();
   const currentYear = now.getFullYear();
 
-  const [forexValue, setForexValue] = useState(0);
-  const [debtsData, setDebtsData] = useState<any[]>([]);
-  const [forexRates, setForexRates] = useState<Record<string, number>>({});
   const [expandedDetail, setExpandedDetail] = useState<'income' | 'expense' | null>(null);
 
-  // 🚀 PERBAIKAN: State khusus untuk menahan loading data ekstra
-  const [isExtraDataLoaded, setIsExtraDataLoaded] = useState(false);
+  const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
-  // === AMBIL DATA PENDUKUNG (VALAS & HUTANG) ===
-  useEffect(() => {
-      const fetchData = async () => {
-          try {
-              const userEmail = localStorage.getItem("bilano_email") || "";
-              const t = Date.now();
-              const [resRates, resAssets, resDebts] = await Promise.all([
-                  fetch(`/api/forex/rates?t=${t}`, { headers: { "x-user-email": userEmail } }),
-                  fetch(`/api/forex?t=${t}`, { headers: { "x-user-email": userEmail } }),
-                  fetch(`/api/debts?t=${t}`, { headers: { "x-user-email": userEmail } })
-              ]);
-              
-              let fetchedRates: Record<string, number> = {};
-              if (resRates.ok) {
-                  fetchedRates = await resRates.json();
-                  setForexRates(fetchedRates);
-              }
-              if (resAssets.ok) {
-                  const assets = await resAssets.json();
-                  const total = assets.reduce((acc: number, asset: any) => acc + (asset.amount * (fetchedRates[asset.currency] || 0)), 0);
-                  setForexValue(total);
-              }
-              if (resDebts.ok) {
-                  setDebtsData(await resDebts.json());
-              }
-          } catch (e) { 
-              console.error("Gagal hitung valas & hutang", e); 
-          } finally {
-              // 🚀 PERBAIKAN: Lepas gembok loading data ekstra
-              setIsExtraDataLoaded(true);
-          }
-      };
-      fetchData();
-  }, []);
+  // =========================================================================
+  // 🚀 FIX MUTLAK: Menggunakan useQuery agar data 100% nempel di memori HP
+  // dan tidak akan pernah reset jadi 0 (delay) saat bolak-balik halaman!
+  // =========================================================================
+  const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
+      queryKey: ['forexRates', userEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": userEmail } });
+          return res.json();
+      },
+      enabled: !!userEmail
+  });
+
+  const { data: forexAssetsData = [], isLoading: isForexLoading } = useQuery({
+      queryKey: ['forexAssets', userEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/forex`, { headers: { "x-user-email": userEmail } });
+          return res.json();
+      },
+      enabled: !!userEmail
+  });
+
+  const { data: debtsData = [], isLoading: isDebtsLoading } = useQuery({
+      queryKey: ['debts', userEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/debts`, { headers: { "x-user-email": userEmail } });
+          return res.json();
+      },
+      enabled: !!userEmail
+  });
+
+  const forexValue = forexAssetsData.reduce((acc: number, asset: any) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
+  // =========================================================================
 
   // === KALKULASI TOTAL NET WORTH LIVE ===
   const cashReal = (user?.cashBalance || 0); 
@@ -76,7 +73,7 @@ export default function Performance() {
   let piutangReal = 0;
   let hutangReal = 0;
   
-  debtsData.forEach(d => {
+  debtsData.forEach((d: any) => {
       if (d.isPaid) return;
       const [, curr] = (d.name || "").split('|');
       const actualCurr = curr || 'IDR';
@@ -131,23 +128,20 @@ export default function Performance() {
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
-  // 1. Kumpulkan Income & Expense Murni (Gaji, Makan, dll)
   const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income');
   const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest'));
 
-  // 2. Ekstrak Catatan Untung/Rugi dari Transaksi Penjualan Investasi
   const virtualPLTxs: any[] = [];
   thisMonthTx.filter(t => t.type === 'invest_sell').forEach(t => {
       if (t.description && t.description.includes('P/L:')) {
           const plString = t.description.split('P/L:')[1];
           if (plString) {
-              // Bersihkan semua karakter kecuali angka dan minus untuk membaca kerugian
               const cleanString = plString.replace(/[^0-9-]/g, '');
               const plValue = parseInt(cleanString, 10);
               
               if (!isNaN(plValue) && plValue !== 0) {
                   virtualPLTxs.push({
-                      ...t, // Copy tanggal dan ID asli
+                      ...t, 
                       type: plValue > 0 ? 'income' : 'expense',
                       amount: Math.abs(plValue),
                       category: plValue > 0 ? 'Profit Investasi' : 'Rugi Investasi',
@@ -158,7 +152,6 @@ export default function Performance() {
       }
   });
 
-  // 3. Gabungkan Data Asli dengan Data Virtual P/L Investasi
   const allIncomeTxs = [...baseIncomeTxs, ...virtualPLTxs.filter(v => v.type === 'income')];
   const allExpenseTxs = [...baseExpenseTxs, ...virtualPLTxs.filter(v => v.type === 'expense')];
 
@@ -170,7 +163,6 @@ export default function Performance() {
   const isSafe = monthlyNet >= savingRequired; 
   const isOverBudget = expenseLimit > 0 && monthlyExpense > expenseLimit;
 
-  // Daftar detail yang ditampilkan saat diklik
   const detailList = (expandedDetail === 'income' ? allIncomeTxs : (expandedDetail === 'expense' ? allExpenseTxs : []))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -179,14 +171,14 @@ export default function Performance() {
       return formatCurrency(val).split(",")[0];
   };
 
-  // 🚀 PERBAIKAN: Menahan UI jika isExtraDataLoaded masih false
-  if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading || !isExtraDataLoaded) {
+  // 🚀 Tambahan penjaga status loading query baru
+  if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading || isRatesLoading || isForexLoading || isDebtsLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
               <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
               <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
                   <Loader2 className="w-4 h-4 animate-spin"/>
-                  <span>Menganalisa Performa...</span>
+                  <span>Memuat Data...</span>
               </div>
           </div>
       );
