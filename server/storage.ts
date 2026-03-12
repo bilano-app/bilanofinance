@@ -19,7 +19,6 @@ export interface IStorage {
   updateUserBalance(id: number, newBalance: number): Promise<User>;
   updateUserProfile(id: number, firstName: string, lastName: string, profilePicture?: string): Promise<User>;
   
-  // 🚀 FITUR BARU: Mengambil semua user dan menyimpan ID OneSignal
   getAllUsers(): Promise<User[]>;
   updateUserOneSignalId(userId: number, onesignalId: string): Promise<User>;
 
@@ -36,10 +35,12 @@ export interface IStorage {
   getTarget(userId: number): Promise<Target | undefined>;
   setTarget(userId: number, target: InsertTarget): Promise<Target>;
   deleteTarget(userId: number): Promise<void>;
-  updateTargetPenalty(userId: number, penaltyAmount: number): Promise<Target>;
+  updateTargetPenalty(userId: number, penaltyAmount: Promise<Target> | number): Promise<Target>;
 
   getCategories(userId: number): Promise<Category[]>;
   createCategory(category: InsertCategory): Promise<Category>;
+  // 🚀 FIX: Deklarasi fungsi hapus kategori
+  deleteCategory(id: number): Promise<void>;
 
   getForexAssets(userId: number): Promise<ForexAsset[]>;
   createForexAsset(userId: number, asset: any): Promise<ForexAsset>;
@@ -72,7 +73,6 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // 🚀 IMPLEMENTASI FUNGSI BARU
   async getAllUsers(): Promise<User[]> {
       return await db.select().from(users);
   }
@@ -186,7 +186,7 @@ export class DatabaseStorage implements IStorage {
       await db.delete(targets).where(eq(targets.userId, userId));
   }
   
-  async updateTargetPenalty(userId: number, penaltyAmount: number): Promise<Target> {
+  async updateTargetPenalty(userId: number, penaltyAmount: any): Promise<Target> {
       const target = await this.getTarget(userId);
       if (!target) throw new Error("Target not found");
       return target; 
@@ -201,6 +201,11 @@ export class DatabaseStorage implements IStorage {
           ...cat, userId: cat.userId || 1, icon: cat.icon || null, color: cat.color || null
       }).returning();
       return category;
+  }
+
+  // 🚀 FIX: Implementasi fungsi hapus kategori yang hilang
+  async deleteCategory(id: number): Promise<void> {
+      await db.delete(categories).where(eq(categories.id, id));
   }
 
   async getForexAssets(userId: number): Promise<ForexAsset[]> {
@@ -277,7 +282,7 @@ export class DatabaseStorage implements IStorage {
           
           while (nextPayment <= today && loopGuard < 12) {
               const amount = sub.cost;
-              await this.createTransaction(userId, { type: 'expense', amount, category: 'Langganan', description: `Bayar Otomatis: ${sub.name}` });
+              await this.createTransaction(userId, { type: 'expense', amount, category: 'Langganan', description: `Bayar Otomatis: ${sub.name}` } as any);
               const user = await this.getUser(userId); 
               if (user) await this.updateUserBalance(userId, user.cashBalance - amount);
               logs.push(`Membayar ${sub.name}`);

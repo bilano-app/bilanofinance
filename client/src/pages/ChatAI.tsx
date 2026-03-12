@@ -79,7 +79,6 @@ export default function ChatAI() {
     };
 
     const handleSend = async () => {
-        // 🚀 TAHAN JIKA TERGEMBOK
         if (isLocked) {
             if (confirm("Akses AI Terkunci! (Batas 3x percobaan atau Masa Coba Habis). Buka kunci Premium sekarang untuk chat tanpa batas?")) {
                 window.location.href = "/paywall";
@@ -100,16 +99,17 @@ export default function ChatAI() {
         setInputText("");
         setIsTyping(true);
 
-        // 🚀 POTONG KUOTA USER GRATISAN SEBELUM PROSES API
         if (!isPro) {
             const newCount = chatCount + 1;
             setChatCount(newCount);
             localStorage.setItem(`bilano_chat_usage_${currentUserEmail}`, newCount.toString());
         }
 
-        // === RANGKAIAN INTELIJEN AI ===
         const totalCash = user?.cashBalance || 0;
-        const txSummary = transactions?.slice(0, 10).map(t => `${t.date.split('T')[0]} - ${t.type} - ${t.category}: Rp${t.amount}`).join(" | ") || "Belum ada transaksi";
+        
+        // 🚀 FIX: Mengubah objek Date ke ISOString sebelum di-split agar TS tidak error!
+        const txSummary = transactions?.slice(0, 10).map(t => `${new Date(t.date).toISOString().split('T')[0]} - ${t.type} - ${t.category}: Rp${t.amount}`).join(" | ") || "Belum ada transaksi";
+        
         const forexSummary = forexAssets?.map(f => `${f.amount} ${f.currency}`).join(", ") || "Tidak ada valas";
         const investSummary = investments?.map(i => `${i.quantity} ${i.symbol}`).join(", ") || "Tidak ada investasi";
         const targetSummary = target ? `Target: Rp${target.targetAmount}, Limit Keluar: Rp${target.monthlyBudget} (${target.budgetType})` : "Tidak ada target";
@@ -156,12 +156,10 @@ export default function ChatAI() {
             setMessages(prev => [...prev, { 
                 id: Date.now(), 
                 sender: 'ai', 
-                // 🚀 FIX MUTLAK: Hilangkan jejak OpenAI/Groq dari mata pengguna
                 text: "⚠️ Maaf Bos, Asisten AI sedang sangat sibuk atau mengalami gangguan koneksi. Mohon coba lagi dalam beberapa saat ya! 🙏", 
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             }]);
             
-            // Jika AI Gagal jawab, kembalikan kuota chatnya
             if (!isPro) {
                 const revertCount = chatCount;
                 setChatCount(revertCount);
@@ -184,7 +182,6 @@ export default function ChatAI() {
         );
     }
 
-    // Penentuan teks pada kotak input
     let placeholderText = "Tanya AI Assistant...";
     if (isLocked) {
         if (isTrialExpired) placeholderText = "🔒 Masa Coba Habis";
@@ -207,7 +204,6 @@ export default function ChatAI() {
 
             <div className="flex flex-col h-[calc(100dvh-75px)] -mx-4 -mb-4 bg-slate-50 relative">
                 
-                {/* 🚀 BANNER PERINGATAN KUOTA UNTUK PENGGUNA GRATIS */}
                 {!isPro && !isLocked && (
                     <div className="bg-amber-100 text-amber-800 text-[10px] font-bold text-center py-1.5 px-4 shadow-sm z-10 flex items-center justify-center gap-2">
                         <Sparkles className="w-3 h-3"/>
