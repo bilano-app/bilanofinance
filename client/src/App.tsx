@@ -8,13 +8,14 @@ import { useNotifications } from "./hooks/useNotifications";
 import { useUser } from "./hooks/use-finance"; // <--- KITA PANGGIL JEMBATAN SERVER RESMI
 
 // =========================================================================
-// 🚀 FIX MUTLAK: MATIKAN REFETCH OTOMATIS SAAT APLIKASI DIBUKA KEMBALI
-// Ini mencegah UI hancur akibat menarik data kosong saat Vercel sedang tidur
+// 🚀 FIX MUTLAK: MATIKAN SEMUA REFETCH OTOMATIS SAAT APLIKASI DIBUKA KEMBALI
 // =========================================================================
 queryClient.setDefaultOptions({
   queries: {
     refetchOnWindowFocus: false, 
     refetchOnMount: false,
+    refetchOnReconnect: false, // Jangan narik data ulang saat sinyal ganti
+    staleTime: 1000 * 60 * 60, // KUNCI DATA 1 JAM! Mencegah UI angka berkedip/delay
   },
 });
 
@@ -47,8 +48,6 @@ function Router() {
   // =======================================================
   // 🚀 VIP UNLOCKER (JALUR RESMI REACT - ANTI CRASH & ANTI JADUL)
   // =======================================================
-  // Sistem ini akan mengecek database dengan aman. Jika dia VIP 
-  // atau sudah PRO, gembok lokal akan dihancurkan secara natural.
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
 
@@ -58,16 +57,13 @@ function Router() {
           "bilanotech@gmail.com" 
       ];
       
-      // Jangan lakukan apa-apa jika belum login
       if (!currentUserEmail) return;
 
-      // 1. JIKA VIP ATAU PRO: Buka semua gembok!
       if (vipEmails.includes(currentUserEmail) || user?.isPro) {
           localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           localStorage.setItem("bilano_trial_expired", "false");
           localStorage.setItem("bilano_pro", "true");
       } 
-      // 2. JIKA AKUN BIASA: Cabut stempel VIP peninggalan akun sebelumnya!
       else {
           localStorage.removeItem("bilano_pro");
       }

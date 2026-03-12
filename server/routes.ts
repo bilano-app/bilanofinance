@@ -26,7 +26,6 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
         if (error.status === 429 || error.status >= 500 || error.status === 401) {
             try {
                 if (!openaiClient.apiKey || openaiClient.apiKey === "ISI_KEY_OPENAI_DISINI_NANTI") {
-                    // 🚀 FIX: Pesan Error Profesional (Menyembunyikan rahasia dapur OpenAI/Vercel)
                     return "⚠️ Maaf, Asisten AI sedang mengalami kendala koneksi ke pusat. Mohon coba lagi dalam beberapa saat.";
                 }
                 const completionBackup = await openaiClient.chat.completions.create({
@@ -38,7 +37,6 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
                 return "⚠️ Sistem AI sedang sangat sibuk menangani banyak permintaan. Silakan coba lagi nanti."; 
             }
         }
-        // 🚀 FIX: Pesan Error Profesional (Menyembunyikan rahasia Groq)
         return "⚠️ Sistem asisten virtual sedang dalam pemeliharaan rutin. Mohon maaf atas ketidaknyamanannya.";
     }
 }
@@ -584,8 +582,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           const cleanKey = rawKey.replace(/\s+/g, '').trim();
-          
-          // 🚀 FIX: Membersihkan kata Basic/Key jika Bos tidak sengaja menempelkannya di Vercel
           const finalAuthKey = cleanKey.replace(/^(Basic|Key)\s+/i, '');
 
           const allUsers = await storage.getAllUsers();
@@ -598,8 +594,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const notificationsToSend: any[] = [];
           
-          // 🚀 FIX: Memastikan segmen target 100% dipahami oleh sistem OneSignal
-          const targetSegments = ["Subscribed Users"];
+          // 🚀 FIX MUTLAK: Mengembalikan segmen ke target ASLI milik Anda yang terbukti ampuh
+          const targetSegments = ["Total Subscriptions"];
 
           if (isPDFDay) {
               notificationsToSend.push({
@@ -654,7 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                           
                           notificationsToSend.push({
                               app_id: ONE_SIGNAL_APP_ID,
-                              include_player_ids: [user.onesignalId],
+                              include_player_ids: [user.onesignalId], 
                               headings: { "en": title },
                               contents: { "en": body },
                               android_accent_color: "FFE11D48",
@@ -686,16 +682,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           }
 
-          // Eksekusi Semua Tembakan Push Notification Sekaligus
           const results = [];
           for (const payload of notificationsToSend) {
-              // 🚀 FIX: Menggunakan API endpoint OneSignal yang paling stabil
               const res = await fetch("https://onesignal.com/api/v1/notifications", {
                   method: "POST",
                   headers: {
                       "accept": "application/json",
                       "Content-Type": "application/json",
-                      // 🚀 FIX: Format Autentikasi Standar Industri
                       "Authorization": `Basic ${finalAuthKey}`
                   },
                   body: JSON.stringify(payload)
