@@ -79,8 +79,9 @@ export default function ChatAI() {
     };
 
     const handleSend = async () => {
+        // 🚀 FIX: Pesan Gembok Rahasia (Baru muncul saat user benar-benar kehabisan kuota)
         if (isLocked) {
-            if (confirm("Akses AI Terkunci! (Batas 3x percobaan atau Masa Coba Habis). Buka kunci Premium sekarang untuk chat tanpa batas?")) {
+            if (confirm("Ups, kuota percobaan chat AI Anda sudah habis! 🔒\n\nBuka kunci BILANO Premium sekarang untuk tanya jawab sepuasnya tanpa batas?")) {
                 window.location.href = "/paywall";
             }
             return;
@@ -107,7 +108,6 @@ export default function ChatAI() {
 
         const totalCash = user?.cashBalance || 0;
         
-        // 🚀 FIX: Mengubah objek Date ke ISOString sebelum di-split agar TS tidak error!
         const txSummary = transactions?.slice(0, 10).map(t => `${new Date(t.date).toISOString().split('T')[0]} - ${t.type} - ${t.category}: Rp${t.amount}`).join(" | ") || "Belum ada transaksi";
         
         const forexSummary = forexAssets?.map(f => `${f.amount} ${f.currency}`).join(", ") || "Tidak ada valas";
@@ -182,12 +182,13 @@ export default function ChatAI() {
         );
     }
 
+    // 🚀 FIX: Hilangkan tulisan sisa kuota yang merusak trik kejutan
     let placeholderText = "Tanya AI Assistant...";
     if (isLocked) {
         if (isTrialExpired) placeholderText = "🔒 Masa Coba Habis";
-        else if (isOutOfQuota) placeholderText = "🔒 Kuota Habis (Batas 3x)";
+        else if (isOutOfQuota) placeholderText = "🔒 Kuota Chat Habis";
     } else if (!isPro) {
-        placeholderText = `Ketik pesan... (Sisa Kuota: ${MAX_FREE_CHATS - chatCount}x)`;
+        placeholderText = `Ketik pesan...`; 
     }
 
     return (
@@ -204,12 +205,7 @@ export default function ChatAI() {
 
             <div className="flex flex-col h-[calc(100dvh-75px)] -mx-4 -mb-4 bg-slate-50 relative">
                 
-                {!isPro && !isLocked && (
-                    <div className="bg-amber-100 text-amber-800 text-[10px] font-bold text-center py-1.5 px-4 shadow-sm z-10 flex items-center justify-center gap-2">
-                        <Sparkles className="w-3 h-3"/>
-                        Kamu memiliki {MAX_FREE_CHATS - chatCount} kali kesempatan bertanya secara gratis.
-                    </div>
-                )}
+                {/* 🚀 FIX: Banner Kuning Peringatan Sisa Kuota Dihapus agar menjadi Kejutan Trik Premium */}
                 
                 <div className="flex-1 overflow-y-auto space-y-4 p-4 pb-6">
                     {messages.map((msg) => (
