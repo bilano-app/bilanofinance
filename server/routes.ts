@@ -50,7 +50,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("✅ DB Check: Kolom onesignal_id sudah siap (Aman).");
   }
   
-  // 🚀 FIX: Menambahkan THB untuk membungkam error TS
+  // 🚀 FIX: Penambahan patch untuk umur akun permanen
+  try {
+      await db.execute(sql`ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT NOW();`);
+      console.log("✅ Auto-patch DB: Kolom created_at berhasil ditambahkan ke Database Live!");
+  } catch (e) {}
+
   let cachedRates: Record<string, number> = { 
       "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
       "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450
@@ -147,10 +152,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "bilanotech@gmail.com", 
     ];
 
-    // 🚀 FIX: Mencegah error 'string | null' is not assignable
     if (vipEmails.includes(user.email || "")) {
         user.isPro = true;
-        // 🚀 FIX: Dihapus user.plan = "pro" karena tidak ada di schema
         user.proValidUntil = new Date("2099-12-31").toISOString() as any; 
         return user; 
     }
@@ -221,7 +224,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parsed = insertTransactionSchema.safeParse(req.body); 
       if (!parsed.success) return res.status(400).json(parsed.error); 
       
-      // 🚀 FIX: Gunakan "as any" untuk membungkam kemarahan VS Code tentang userId
       const tx = await storage.createTransaction(user!.id, { ...parsed.data, userId: user!.id } as any); 
       let newBalance = user!.cashBalance; 
       if (parsed.data.type === 'income') newBalance += parsed.data.amount; else newBalance -= parsed.data.amount; 
@@ -293,13 +295,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (newCashBalance < amountIDR) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk beli Valas."});
           currentAmount += amount;
           newCashBalance -= amountIDR;
-          // 🚀 FIX: Penambahan "as any"
           await storage.createTransaction(user!.id, { userId: user!.id, type:'forex_buy', amount:amountIDR, category:'Tukar Valas', description:`Beli ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, date:new Date()} as any);
       } else {
           currentAmount -= amount;
           if (currentAmount < 0) currentAmount = 0;
           newCashBalance += amountIDR;
-          // 🚀 FIX: Penambahan "as any"
           await storage.createTransaction(user!.id, { userId: user!.id, type:'forex_sell', amount:amountIDR, category:'Cairkan Valas', description:`Jual ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, date:new Date()} as any);
       }
 
@@ -322,7 +322,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       else { newBalance -= amount; txType = 'debt_lend'; txCat = 'Beri Pinjaman'; }
       
       await storage.updateUserBalance(user!.id, newBalance);
-      // 🚀 FIX: Penambahan "as any"
       await storage.createTransaction(user!.id, { userId: user!.id, type: txType, amount, category: txCat, description: `[${type.toUpperCase()}] ${name} - ${description||''}`, date: new Date() } as any);
       res.json(d); 
   });
@@ -341,18 +340,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (debt.type === 'hutang') { 
               newBalance -= payAmount; 
-              // 🚀 FIX: Penambahan "as any"
               await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmount, category: 'Bayar Hutang', description: `Cicilan/Lunas ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
           } else { 
               newBalance += payAmount; 
-              // 🚀 FIX: Penambahan "as any"
               await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmount, category: 'Piutang Dibayar', description: `Cicilan/Lunas dari ${debt.name.split('|')[0]}`, date: new Date() } as any); 
           }
           await storage.updateUserBalance(user!.id, newBalance);
           
           const remaining = debt.amount - payAmount;
           if (remaining > 0) {
-              // 🚀 FIX: Hapus "description" karena kolom ini tidak ada di schema tabel Debts
               await storage.createDebt(user!.id, {
                   userId: user!.id,
                   type: debt.type, 
@@ -394,7 +390,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (initialDebts && Array.isArray(initialDebts)) {
           for (const item of initialDebts) {
               if (item.amount > 0 && item.name) {
-                  // 🚀 FIX: Hapus description
                   await storage.createDebt(user!.id, { userId: user!.id, type: 'hutang', name: item.name, amount: item.amount } as any);
               }
           }
@@ -403,7 +398,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (initialReceivables && Array.isArray(initialReceivables)) {
           for (const item of initialReceivables) {
               if (item.amount > 0 && item.name) {
-                  // 🚀 FIX: Hapus description
                   await storage.createDebt(user!.id, { userId: user!.id, type: 'piutang', name: item.name, amount: item.amount } as any);
               }
           }
@@ -439,7 +433,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if(user!.cashBalance < total) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk pembelian ini."}); 
           await storage.updateUserBalance(user!.id, user!.cashBalance - total); 
           
-          // 🚀 FIX: Penambahan "as any"
           await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_buy', amount:total, category:'Beli Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}`, date:new Date()} as any); 
           await storage.createInvestment(user!.id, {userId: user!.id, symbol: symbol.toUpperCase(), quantity, avgPrice:price, type: typeLower} as any); 
           res.json({success:true}); 
@@ -471,7 +464,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           await storage.updateUserBalance(user!.id, user!.cashBalance + totalSellPrice); 
           
-          // 🚀 FIX: Penambahan "as any"
           await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_sell', amount:totalSellPrice, category:'Jual Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`, date:new Date()} as any); 
           res.json({success:true}); 
       } catch (error: any) {
@@ -483,7 +475,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/reports/data", async (req, res) => { const user = await getUser(req); const [tx, inv, debt, fx, sub] = await Promise.all([ storage.getTransactions(user!.id), storage.getInvestments(user!.id), storage.getDebts(user!.id), storage.getForexAssets(user!.id), storage.getSubscriptions(user!.id) ]); res.json({ user, transactions: tx, investments: inv, debts: debt, forexAssets: fx, subscriptions: sub }); });
   app.get("/api/categories", async (req, res) => { const user = await getUser(req); res.json(await storage.getCategories(user!.id)); });
   
-  // 🚀 FIX: Penambahan "as any"
   app.post("/api/categories", async (req, res) => { const user = await getUser(req); await storage.createCategory({ ...req.body, userId: user!.id } as any); res.json({success:true}); });
   
   app.delete("/api/categories/:id", async (req, res) => { await storage.deleteCategory(parseInt(req.params.id)); res.json({success:true}); });
@@ -590,7 +581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
-  // 🚀 FIX MUTLAK PENGINGAT NOTIFIKASI
+  // 🚀 PENGINGAT NOTIFIKASI ONESIGNAL
   // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
@@ -614,7 +605,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const notificationsToSend: any[] = [];
           
-          // 🚀 FIX: Mengembalikan target absolut agar 1000% dikirim ke HP Bos!
           const targetSegments = ["Total Subscriptions"];
 
           if (isPDFDay) {
@@ -702,7 +692,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           }
 
-          // Eksekusi Semua Tembakan Push Notification Sekaligus
           const results = [];
           for (const payload of notificationsToSend) {
               const res = await fetch("https://onesignal.com/api/v1/notifications", {

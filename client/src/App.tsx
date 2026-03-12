@@ -5,17 +5,14 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { WifiOff, RefreshCw, Lock } from "lucide-react";
 import { useNotifications } from "./hooks/useNotifications"; 
-import { useUser } from "./hooks/use-finance"; // <--- KITA PANGGIL JEMBATAN SERVER RESMI
+import { useUser } from "./hooks/use-finance"; 
 
-// =========================================================================
-// 🚀 FIX MUTLAK: MATIKAN SEMUA REFETCH OTOMATIS SAAT APLIKASI DIBUKA KEMBALI
-// =========================================================================
 queryClient.setDefaultOptions({
   queries: {
     refetchOnWindowFocus: false, 
     refetchOnMount: false,
-    refetchOnReconnect: false, // Jangan narik data ulang saat sinyal ganti
-    staleTime: 1000 * 60 * 60, // KUNCI DATA 1 JAM! Mencegah UI angka berkedip/delay
+    refetchOnReconnect: false, 
+    staleTime: 1000 * 60 * 60, 
   },
 });
 
@@ -45,9 +42,6 @@ function Router() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
 
-  // =======================================================
-  // 🚀 VIP UNLOCKER (JALUR RESMI REACT - ANTI CRASH & ANTI JADUL)
-  // =======================================================
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
 
@@ -64,11 +58,22 @@ function Router() {
           localStorage.setItem("bilano_trial_expired", "false");
           localStorage.setItem("bilano_pro", "true");
       } 
-      else {
+      else if (user) {
           localStorage.removeItem("bilano_pro");
+          
+          // 🚀 FIX MUTLAK: Hitung sisa waktu langsung dari "created_at" Database Server
+          const startTime = new Date(user.createdAt || Date.now()).getTime();
+          const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
+          
+          if (daysPassed >= 3) {
+              localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "true");
+              localStorage.setItem("bilano_trial_expired", "true");
+          } else {
+              localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
+              localStorage.setItem("bilano_trial_expired", "false");
+          }
       }
   }, [user, currentUserEmail]);
-  // =======================================================
 
   useNotifications();
 

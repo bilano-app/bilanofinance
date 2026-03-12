@@ -217,33 +217,23 @@ export default function Home() {
       setDueDynamicSub(null);
   };
 
+  // =====================================================================
+  // 🚀 FIX MUTLAK: Penarikan sisa hari trial dari Database Server (Akurat 100%)
+  // =====================================================================
   useEffect(() => {
-      if (isUserPro) return;
+      if (isUserPro || !user) return;
       
-      if (rawEmail) {
-          const trialKey = `bilano_trial_start_${rawEmail}`;
-          const expiredKey = `bilano_trial_expired_${rawEmail}`; 
-          let trialStart = localStorage.getItem(trialKey);
-          
-          if (!trialStart) {
-              trialStart = Date.now().toString();
-              localStorage.setItem(trialKey, trialStart);
-          }
+      const startTime = new Date(user.createdAt || Date.now()).getTime();
+      const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
+      const TRIAL_DURATION_DAYS = 3; 
 
-          const startTime = parseInt(trialStart);
-          const currentTime = Date.now();
-          const daysPassed = (currentTime - startTime) / (1000 * 60 * 60 * 24);
-          const TRIAL_DURATION_DAYS = 3; 
-
-          if (daysPassed >= TRIAL_DURATION_DAYS) {
-              setTrialDaysLeft(0);
-              localStorage.setItem(expiredKey, "true"); 
-          } else {
-              setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
-              localStorage.setItem(expiredKey, "false"); 
-          }
+      if (daysPassed >= TRIAL_DURATION_DAYS) {
+          setTrialDaysLeft(0);
+      } else {
+          setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
       }
-  }, [isUserPro, rawEmail]);
+  }, [isUserPro, user]);
+  // =====================================================================
 
   useEffect(() => {
       if (!isUserLoading && !isTargetLoading) {
@@ -349,7 +339,6 @@ export default function Home() {
       );
   }
 
-  // 🚀 Tambahan penjaga status loading query baru
   if (isUserLoading || isTargetLoading || isRatesLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">

@@ -14,8 +14,9 @@ export const users = pgTable("users", {
   cashBalance: integer("cash_balance").default(0).notNull(),
   isPro: boolean("is_pro").default(false),
   proValidUntil: timestamp("pro_valid_until"), 
-  // 🚀 FITUR BARU: Laci untuk menyimpan ID HP Pengguna (Push Notification)
   onesignalId: text("onesignal_id"), 
+  // 🚀 FIX: Tambahkan pencatat waktu permanen di Server!
+  createdAt: timestamp("created_at").defaultNow(), 
 });
 
 // --- 2. TRANSACTIONS ---
@@ -83,7 +84,7 @@ export const categories = pgTable("categories", {
   color: text("color"),
 });
 
-// --- 8. FOREX ASSETS ---
+// --- 8. FOREX ASSETS (TABEL VALAS) ---
 export const forexAssets = pgTable("forex_assets", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
@@ -92,7 +93,7 @@ export const forexAssets = pgTable("forex_assets", {
 });
 
 // --- ZOD SCHEMAS ---
-export const insertUserSchema = createInsertSchema(users).omit({ id: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertTransactionSchema = createInsertSchema(transactions, { date: z.coerce.date() }).omit({ id: true, userId: true });
 export const insertInvestmentSchema = createInsertSchema(investments).omit({ id: true, userId: true });
 export const insertTargetSchema = createInsertSchema(targets).omit({ id: true, userId: true });
@@ -105,16 +106,9 @@ export const insertForexAssetSchema = createInsertSchema(forexAssets).omit({ id:
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
-export type InsertTransaction = typeof transactions.$inferInsert;
 export type Investment = typeof investments.$inferSelect;
-export type InsertInvestment = typeof investments.$inferInsert;
 export type Target = typeof targets.$inferSelect;
-export type InsertTarget = typeof targets.$inferInsert;
 export type Debt = typeof debts.$inferSelect;
-export type InsertDebt = typeof debts.$inferInsert;
 export type Subscription = typeof subscriptions.$inferSelect;
-export type InsertSubscription = typeof subscriptions.$inferInsert;
 export type Category = typeof categories.$inferSelect;
-export type InsertCategory = typeof categories.$inferInsert;
 export type ForexAsset = typeof forexAssets.$inferSelect;
-export type InsertForexAsset = typeof forexAssets.$inferInsert;
