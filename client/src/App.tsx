@@ -7,12 +7,19 @@ import { WifiOff, RefreshCw, Lock } from "lucide-react";
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser } from "./hooks/use-finance"; 
 
+// =========================================================================
+// 🚀 FIX MUTLAK: MATIKAN PEMBERSIH MEMORI (GARBAGE COLLECTOR)
+// Mencegah data Saldo & Profil terhapus saat HP ditinggal lama di background
+// =========================================================================
 queryClient.setDefaultOptions({
   queries: {
     refetchOnWindowFocus: false, 
     refetchOnMount: false,
     refetchOnReconnect: false, 
-    staleTime: 1000 * 60 * 60, 
+    staleTime: 1000 * 60 * 60 * 24, // Kunci data 24 Jam
+    gcTime: 1000 * 60 * 60 * 24, // Matikan Pembersih Memori (React Query v5)
+    // @ts-expect-error fallback
+    cacheTime: 1000 * 60 * 60 * 24, // Matikan Pembersih Memori (React Query v4)
   },
 });
 
@@ -61,7 +68,6 @@ function Router() {
       else if (user) {
           localStorage.removeItem("bilano_pro");
           
-          // 🚀 FIX MUTLAK: Hitung sisa waktu langsung dari "created_at" Database Server
           const startTime = new Date(user.createdAt || Date.now()).getTime();
           const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
           
