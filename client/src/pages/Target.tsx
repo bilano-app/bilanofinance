@@ -82,7 +82,7 @@ export default function Target() {
     const [newItemName, setNewItemName] = useState("");
     const [newItemAmount, setNewItemAmount] = useState("");
 
-    const [isSubmitting, setIsSubmitting] = useState(false); // State Loading Submit
+    const [isSubmitting, setIsSubmitting] = useState(false); 
 
     const { toast } = useToast();
     const now = new Date();
@@ -208,7 +208,6 @@ export default function Target() {
         setIsSubmitting(true);
 
         try {
-            // FIX BUG FATAL: Ganti undefined menjadi Array Kosong [] agar server Zod tidak crash
             const payload = {
                 targetAmount: parseNumber(rawTargetAmount),
                 durationMonths: Number(inputDuration) || 12,
@@ -220,7 +219,6 @@ export default function Target() {
                 initialReceivables: !isEditMode && hasRecv ? recvItems.map(r => ({ name: `${r.name}|${r.currency}`, amount: parseNumber(r.amount) })) : [],
                 initialDebts: !isEditMode && hasDebt ? debtItems.map(d => ({ name: `${d.name}|${d.currency}`, amount: parseNumber(d.amount) })) : [],
                 
-                // FIX BUG INVESTASI: Tambahkan avgPrice agar sinkron dengan file investasi
                 initialInvestments: !isEditMode && hasInv ? invItems.map(i => ({ 
                     type: i.type, 
                     symbol: `${i.symbol}|${i.currency}`, 
@@ -240,7 +238,6 @@ export default function Target() {
 
             if (res.ok) {
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
-                // FIX ARAH REDIRECT: Pastikan semuanya kembali ke beranda (Home)
                 window.location.href = "/"; 
             } else { 
                 toast({ title: "Gagal", description: "Terjadi kesalahan pada server saat memproses data.", variant: "destructive" }); 
@@ -301,10 +298,18 @@ export default function Target() {
                         </div>
                         
                         <div className="space-y-3 pt-2">
-                            <button onClick={() => startSetup('target')} className="w-full text-left p-5 border border-slate-100 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/50 transition-all bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group">
-                                <div className="bg-indigo-100 p-3 rounded-full group-hover:scale-110 transition-transform"><TargetIcon className="w-6 h-6 text-indigo-600"/></div>
-                                <div><h3 className="font-extrabold text-slate-800 text-lg">Kejar Target / Menabung</h3><p className="text-xs text-slate-500 mt-0.5">Saya punya impian spesifik yang ingin dicapai.</p></div>
+                            {/* 🚀 PERUBAHAN UI: Menambahkan badge Rekomendasi & mempercantik kotak agar mencolok */}
+                            <button onClick={() => startSetup('target')} className="w-full text-left p-5 border-2 border-indigo-100 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/50 bg-indigo-50/30 transition-all shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-start sm:items-center gap-4 group">
+                                <div className="bg-indigo-100 p-3 rounded-full group-hover:scale-110 transition-transform mt-1 sm:mt-0 flex-shrink-0"><TargetIcon className="w-6 h-6 text-indigo-600"/></div>
+                                <div>
+                                    <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                                        <h3 className="font-extrabold text-slate-800 text-lg">Kejar Target / Menabung</h3>
+                                        <span className="bg-indigo-600 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">⭐ Direkomendasikan</span>
+                                    </div>
+                                    <p className="text-xs text-slate-500">Saya punya impian spesifik yang ingin dicapai.</p>
+                                </div>
                             </button>
+
                             <button onClick={() => startSetup('saving')} className="w-full text-left p-5 border border-slate-100 rounded-[24px] hover:border-emerald-400 hover:bg-emerald-50/50 transition-all bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group">
                                 <div className="bg-emerald-100 p-3 rounded-full group-hover:scale-110 transition-transform"><PiggyBank className="w-6 h-6 text-emerald-600"/></div>
                                 <div><h3 className="font-extrabold text-slate-800 text-lg">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500 mt-0.5">Saya ingin melihat keluar masuk uang harian saja.</p></div>
