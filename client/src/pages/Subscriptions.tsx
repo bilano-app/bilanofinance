@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { 
@@ -6,6 +6,8 @@ import {
     CheckCircle2, AlertCircle, X, Loader2, Zap
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+// 🚀 FIX: Import React Query Cache
+import { useQuery } from "@tanstack/react-query";
 
 interface Subscription {
   id: number;
@@ -18,8 +20,6 @@ interface Subscription {
 }
 
 export default function Subscriptions() {
-  const [subs, setSubs] = useState<Subscription[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   // Form States
@@ -27,22 +27,26 @@ export default function Subscriptions() {
   const [price, setPrice] = useState("");
   const [cycle, setCycle] = useState("monthly");
   const [nextDate, setNextDate] = useState("");
-  const [billType, setBillType] = useState("statis"); // FITUR BARU: statis atau dinamis
+  const [billType, setBillType] = useState("statis"); 
 
   const { toast } = useToast();
 
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
-  const getAuthHeaders = () => ({ "x-user-email": localStorage.getItem("bilano_email") || "" });
+  const getAuthHeaders = () => ({ "x-user-email": currentUserEmail });
 
-  const fetchSubs = async () => {
-      try {
+  // =========================================================================
+  // 🚀 FIX MUTLAK: Gunakan useQuery Cache untuk Langganan
+  // =========================================================================
+  const { data: subs = [], isLoading: loading, refetch: fetchSubs } = useQuery({
+      queryKey: ['subscriptions', currentUserEmail],
+      queryFn: async () => {
           const res = await fetch("/api/subscriptions", { headers: getAuthHeaders() });
-          if (res.ok) setSubs(await res.json());
-      } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
-
-  useEffect(() => { fetchSubs(); }, []);
+          return res.json();
+      },
+      enabled: !!currentUserEmail
+  });
+  // =========================================================================
 
   const handleAdd = async () => {
       if (isTrialExpired) {
@@ -53,8 +57,6 @@ export default function Subscriptions() {
       if (!name || !nextDate) return;
       
       try {
-          // FIX BUG FATAL: Kita kirimkan semua variasi nama kolom (cost/price, nextBilling/nextPaymentDate)
-          // agar database pasti mau menerima apa pun format schema-nya!
           const res = await fetch("/api/subscriptions", {
               method: "POST", 
               headers: { "Content-Type": "application/json", ...getAuthHeaders() },
@@ -65,7 +67,7 @@ export default function Subscriptions() {
                   cycle, 
                   nextBilling: nextDate,
                   nextPaymentDate: nextDate, 
-                  category: billType, // Menyimpan status Dinamis/Statis
+                  category: billType, 
                   isActive: true 
               })
           });
@@ -108,11 +110,10 @@ export default function Subscriptions() {
       } catch (e) {}
   };
 
-  const activeSubs = subs.filter(s => s.isActive);
-  const inactiveSubs = subs.filter(s => !s.isActive);
+  const activeSubs = subs.filter((s: Subscription) => s.isActive);
+  const inactiveSubs = subs.filter((s: Subscription) => !s.isActive);
 
-  // Hanya hitung total untuk yang statis
-  const totalMonthly = activeSubs.reduce((acc, curr) => {
+  const totalMonthly = activeSubs.reduce((acc: number, curr: Subscription) => {
       if (curr.category === 'dinamis') return acc;
       return acc + (curr.cycle === 'yearly' ? curr.price / 12 : curr.price);
   }, 0);
@@ -132,7 +133,6 @@ export default function Subscriptions() {
     <MobileLayout title="Atur Langganan" showBack>
       <div className="space-y-6 pt-4 pb-24 px-1">
         
-        {/* HEADER CARD */}
         <div className="bg-slate-900 text-white p-7 rounded-[32px] shadow-xl relative overflow-hidden">
             <div className="relative z-10">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1 flex items-center gap-2">
@@ -144,7 +144,6 @@ export default function Subscriptions() {
             <div className="absolute right-0 bottom-0 w-32 h-32 bg-emerald-500/10 rounded-tl-full pointer-events-none blur-xl"></div>
         </div>
 
-        {/* FAB */}
         {!isFormOpen ? (
             <Button onClick={() => setIsFormOpen(true)} className="w-full h-14 rounded-full font-extrabold text-slate-800 bg-white border border-slate-200 shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:bg-slate-50 transition-transform active:scale-95">
                 <Plus className="w-5 h-5 mr-2 text-indigo-600"/> TAMBAH LANGGANAN / TAGIHAN
@@ -157,7 +156,6 @@ export default function Subscriptions() {
                 </div>
                 <div className="space-y-4">
                     
-                    {/* PILIHAN STATIS VS DINAMIS */}
                     <div className="flex bg-slate-100 p-1 rounded-xl">
                         <button onClick={() => setBillType('statis')} className={`flex-1 py-2 rounded-lg text-[11px] font-bold ${billType === 'statis' ? 'bg-white text-indigo-600 shadow' : 'text-slate-500'}`}>Nominal Tetap</button>
                         <button onClick={() => setBillType('dinamis')} className={`flex-1 py-2 rounded-lg text-[11px] font-bold ${billType === 'dinamis' ? 'bg-orange-500 text-white shadow' : 'text-slate-500'}`}>Berubah-ubah</button>
@@ -188,12 +186,11 @@ export default function Subscriptions() {
             </div>
         )}
 
-        {/* LIST AKTIF */}
         <div className="space-y-3">
             <h3 className="font-extrabold text-slate-800 text-sm px-1 mb-1">Tagihan Aktif</h3>
             {activeSubs.length === 0 && <div className="text-center py-8 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200 shadow-sm text-sm font-medium">Belum ada layanan aktif.</div>}
             
-            {activeSubs.map(sub => (
+            {activeSubs.map((sub: Subscription) => (
                 <div key={sub.id} className="bg-white p-5 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 flex justify-between items-center transition-all hover:shadow-md">
                     <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center font-extrabold text-lg border ${sub.category === 'dinamis' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>
@@ -215,7 +212,6 @@ export default function Subscriptions() {
                                 </>
                             )}
                         </div>
-                        {/* TOMBOL DELETE UNTUK LAYANAN AKTIF */}
                         <button onClick={() => deleteSub(sub.id)} className="p-2.5 bg-rose-50 text-rose-600 rounded-[14px] hover:bg-rose-100 transition-colors" title="Hapus Permanen"><Trash2 className="w-4 h-4"/></button>
                         <button onClick={() => toggleStatus(sub.id, true)} className="p-2.5 bg-slate-100 text-slate-500 rounded-[14px] hover:bg-slate-200 transition-colors" title="Non-aktifkan Sementara"><Power className="w-4 h-4"/></button>
                     </div>
@@ -223,12 +219,11 @@ export default function Subscriptions() {
             ))}
         </div>
 
-        {/* LIST NON-AKTIF */}
         {inactiveSubs.length > 0 && (
             <div className="space-y-3 pt-4 border-t border-slate-100">
                 <h3 className="font-extrabold text-slate-400 text-sm px-1 mb-1">Riwayat / Berhenti</h3>
                 <div className="space-y-3 opacity-70 hover:opacity-100 transition-opacity">
-                    {inactiveSubs.map(sub => (
+                    {inactiveSubs.map((sub: Subscription) => (
                         <div key={sub.id} className="bg-slate-50 p-4 rounded-[24px] border border-slate-100 flex justify-between items-center">
                             <div className="flex items-center gap-3">
                                 <div className="bg-slate-200 text-slate-500 w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold">{sub.name[0].toUpperCase()}</div>

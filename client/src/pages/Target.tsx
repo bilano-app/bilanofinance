@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
+import { useQuery } from "@tanstack/react-query";
 
 interface TargetData {
     id: number;
@@ -35,9 +36,8 @@ const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID"
 
 export default function Target() {
     const [, setLocation] = useLocation(); 
-    const { data: userData } = useUser();
+    const { data: userData, isLoading: isUserLoading } = useUser();
     const [target, setTarget] = useState<TargetData | null>(null);
-    const [loading, setLoading] = useState(true);
     
     const [step, setStep] = useState<'intro' | 'assets-setup' | 'target-input' | 'budget-ask' | 'budget-setup'>('intro');
     const [isTargetMode, setIsTargetMode] = useState(false); 
@@ -69,9 +69,6 @@ export default function Target() {
     const [tempDebtAmount, setTempDebtAmount] = useState("");
     const [tempDebtCurrency, setTempDebtCurrency] = useState("IDR");
     
-    const [forexRates, setForexRates] = useState<Record<string, number>>({});
-    const [availableCurrencies, setAvailableCurrencies] = useState<string[]>([]);
-
     const [rawTargetAmount, setRawTargetAmount] = useState("");
     const [inputDuration, setInputDuration] = useState(""); 
     const [rawBudgetAmount, setRawBudgetAmount] = useState("");
@@ -88,35 +85,39 @@ export default function Target() {
     const now = new Date();
 
     const handleNumberChange = (setter: (val: string) => void, value: string) => setter(formatNumber(value));
-    const userEmail = localStorage.getItem("bilano_email") || "";
-    const isEditMode = target && target.targetAmount !== undefined;
+    const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+
+    const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
+        queryKey: ['forexRates', userEmail],
+        queryFn: async () => {
+            const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": userEmail }});
+            return res.json();
+        },
+        enabled: !!userEmail
+    });
+    
+    const availableCurrencies = Object.keys(forexRates);
+
+    const { data: fetchedTarget, isLoading: isTargetLoading } = useQuery({
+        queryKey: ['target', userEmail],
+        queryFn: async () => {
+            const res = await fetch(`/api/target`, { headers: { "x-user-email": userEmail }});
+            return res.json();
+        },
+        enabled: !!userEmail
+    });
 
     useEffect(() => {
-        const loadInitial = async () => {
-            try {
-                const resRates = await fetch(`/api/forex/rates?t=${Date.now()}`, { headers: { "x-user-email": userEmail }});
-                if (resRates.ok) {
-                    const rates = await resRates.json();
-                    setForexRates(rates);
-                    setAvailableCurrencies(Object.keys(rates)); 
-                }
+        if (fetchedTarget && fetchedTarget.targetAmount !== undefined) {
+            setTarget(fetchedTarget);
+            setRawTargetAmount(fetchedTarget.targetAmount.toString());
+            setInputDuration(fetchedTarget.durationMonths.toString());
+            setRawBudgetAmount(fetchedTarget.monthlyBudget.toString());
+            setBudgetType(fetchedTarget.budgetType);
+        }
+    }, [fetchedTarget]);
 
-                const resTarget = await fetch(`/api/target?t=${Date.now()}`, { headers: { "x-user-email": userEmail }});
-                if (resTarget.ok) {
-                    const data = await resTarget.json();
-                    if (data && data.targetAmount !== undefined) {
-                        setTarget(data);
-                        setRawTargetAmount(data.targetAmount.toString());
-                        setInputDuration(data.durationMonths.toString());
-                        setRawBudgetAmount(data.monthlyBudget.toString());
-                        setBudgetType(data.budgetType);
-                    }
-                }
-            } catch (error) { console.error(error); } 
-            finally { setLoading(false); }
-        };
-        loadInitial();
-    }, [userEmail]);
+    const isEditMode = target && target.targetAmount !== undefined;
 
     const addForexItem = () => {
         if (!tempForexAmount || parseNumber(tempForexAmount) <= 0) return;
@@ -249,7 +250,9 @@ export default function Target() {
         }
     };
     
-    if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-indigo-500"/></div>;
+    if (isUserLoading || isTargetLoading || isRatesLoading) {
+        return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-indigo-500"/></div>;
+    }
 
     const CurrencySelector = ({ value, onChange }: { value: string, onChange: (val: string) => void }) => (
         <select value={value} onChange={e => onChange(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
@@ -297,22 +300,22 @@ export default function Target() {
                             <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
                         </div>
                         
-                        <div className="space-y-3 pt-2">
-                            {/* 🚀 PERUBAHAN UI: Menambahkan badge Rekomendasi & mempercantik kotak agar mencolok */}
-                            <button onClick={() => startSetup('target')} className="w-full text-left p-5 border-2 border-indigo-100 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/50 bg-indigo-50/30 transition-all shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-start sm:items-center gap-4 group">
+                        <div className="space-y-4 pt-4">
+                            {/* 🚀 PERUBAHAN UI: Badge "Direkomendasikan" melayang di Kanan Atas dan Berwarna Kuning Promo */}
+                            <button onClick={() => startSetup('target')} className="relative w-full text-left p-5 border-2 border-indigo-200 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/50 bg-indigo-50/30 transition-all shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-start sm:items-center gap-4 group">
+                                <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md border border-yellow-300 flex items-center gap-1">
+                                    ⭐ Direkomendasikan
+                                </div>
                                 <div className="bg-indigo-100 p-3 rounded-full group-hover:scale-110 transition-transform mt-1 sm:mt-0 flex-shrink-0"><TargetIcon className="w-6 h-6 text-indigo-600"/></div>
                                 <div>
-                                    <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                                        <h3 className="font-extrabold text-slate-800 text-lg">Kejar Target / Menabung</h3>
-                                        <span className="bg-indigo-600 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">⭐ Direkomendasikan</span>
-                                    </div>
+                                    <h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Kejar Target / Menabung</h3>
                                     <p className="text-xs text-slate-500">Saya punya impian spesifik yang ingin dicapai.</p>
                                 </div>
                             </button>
 
-                            <button onClick={() => startSetup('saving')} className="w-full text-left p-5 border border-slate-100 rounded-[24px] hover:border-emerald-400 hover:bg-emerald-50/50 transition-all bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group">
-                                <div className="bg-emerald-100 p-3 rounded-full group-hover:scale-110 transition-transform"><PiggyBank className="w-6 h-6 text-emerald-600"/></div>
-                                <div><h3 className="font-extrabold text-slate-800 text-lg">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500 mt-0.5">Saya ingin melihat keluar masuk uang harian saja.</p></div>
+                            <button onClick={() => startSetup('saving')} className="w-full text-left p-5 border border-slate-100 rounded-[24px] hover:border-emerald-400 hover:bg-emerald-50/50 transition-all bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group mt-2">
+                                <div className="bg-emerald-100 p-3 rounded-full group-hover:scale-110 transition-transform flex-shrink-0"><PiggyBank className="w-6 h-6 text-emerald-600"/></div>
+                                <div><h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500">Saya ingin melihat keluar masuk uang harian saja.</p></div>
                             </button>
                         </div>
                     </div>

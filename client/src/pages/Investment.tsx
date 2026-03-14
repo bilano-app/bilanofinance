@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ArrowLeft, PlusCircle, X, Loader2, Info } from "lucide-react"; 
 import { TrendingUp, Building2, LineChart, Briefcase, Gem, Landmark, ScrollText, Coins } from "lucide-react";
 import { Button, Input, CurrencyInput } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
 import { useUser, useInvestments } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
+// 🚀 FIX: Import React Query Cache
+import { useQuery } from "@tanstack/react-query";
 
 type AssetType = 'saham' | 'crypto' | 'reksadana' | 'obligasi' | 'p2p' | 'emas' | 'properti' | 'koleksi';
 
@@ -14,15 +16,27 @@ export default function Investment() {
   const [activeCategory, setActiveCategory] = useState<AssetType | null>(null);
   const [isTxOpen, setIsTxOpen] = useState(false);
   const [txType, setTxType] = useState<'BUY' | 'SELL'>('BUY');
-  
-  // STATE BARU: Indikator Loading khusus untuk tombol transaksi
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: portfolio = [], isLoading: isInvLoading } = useInvestments();
 
-  const [forexRates, setForexRates] = useState<Record<string, number>>({});
-  const [availableCurrencies, setAvailableCurrencies] = useState<string[]>([]);
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+
+  // =========================================================================
+  // 🚀 FIX MUTLAK: Gunakan useQuery Cache untuk Valas di Investment
+  // =========================================================================
+  const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
+      queryKey: ['forexRates', currentUserEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": currentUserEmail } });
+          return res.json();
+      },
+      enabled: !!currentUserEmail
+  });
+
+  const availableCurrencies = Object.keys(forexRates);
+  // =========================================================================
 
   const fcf = user?.cashBalance || 0; 
 
@@ -33,20 +47,6 @@ export default function Investment() {
   const [selectedSellSymbol, setSelectedSellSymbol] = useState("");
 
   const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
-
-  useEffect(() => {
-      const fetchRates = async () => {
-          try {
-              const res = await fetch(`/api/forex/rates?t=${Date.now()}`, { headers: { "x-user-email": localStorage.getItem("bilano_email") || "" } });
-              if (res.ok) {
-                  const rates = await resRates.json();
-                  setForexRates(rates);
-                  setAvailableCurrencies(Object.keys(rates));
-              }
-          } catch (e) {}
-      };
-      fetchRates();
-  }, []);
 
   const assetConfig: Record<AssetType, { label: string, unit: string, icon: any, color: string, bg: string }> = {
       saham: { label: 'Saham', unit: 'Lot/Lembar', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-100' },
@@ -87,16 +87,13 @@ export default function Investment() {
   const totalPortfolioValue = portfolio.reduce((acc, p) => acc + calculateLiveValue(p), 0);
   const categoryValue = filteredItems.reduce((acc, p) => acc + calculateLiveValue(p), 0);
 
-  // =================================================================================
-  // 🚀 FIX: PENGIRIMAN DATA MENGGUNAKAN FETCH LANGSUNG + KTP (x-user-email)
-  // =================================================================================
   const handleTransaction = async () => {
     if (!inputPrice || !inputQty) return;
     
     const price = parseFloat(inputPrice);
     const qty = parseFloat(inputQty);
 
-    setIsSubmitting(true); // Nyalakan animasi loading
+    setIsSubmitting(true); 
 
     try {
         const symbolPayload = txType === 'SELL' ? selectedSellSymbol : `${inputName.toUpperCase()}|${inputCurrency}`;
@@ -114,7 +111,7 @@ export default function Investment() {
             method: "POST",
             headers: { 
                 "Content-Type": "application/json",
-                "x-user-email": localStorage.getItem("bilano_email") || "" // WAJIB ADA!
+                "x-user-email": currentUserEmail 
             },
             body: JSON.stringify(payload)
         });
@@ -127,12 +124,12 @@ export default function Investment() {
         toast({ title: "Berhasil!", description: `Transaksi ${txType === 'BUY' ? 'Beli' : 'Jual'} aset berhasil dicatat.` });
         setIsTxOpen(false);
         resetForm();
-        window.location.reload(); // Refresh halaman agar saldo terupdate instan
+        window.location.reload(); 
 
     } catch (error: any) {
         toast({ title: "Transaksi Ditolak", description: error.message, variant: "destructive" });
     } finally {
-        setIsSubmitting(false); // Matikan animasi loading
+        setIsSubmitting(false); 
     }
   };
 
@@ -243,7 +240,14 @@ export default function Investment() {
     )
   };
 
-  if (isUserLoading || isInvLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-indigo-500"/></div>;
+  // 🚀 FIX: Palang Pintu Loading Data
+  if (isUserLoading || isInvLoading || isRatesLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-500"/>
+          </div>
+      );
+  }
 
   return (
     <MobileLayout title="Investasi & Portfolio" showBack={true}>

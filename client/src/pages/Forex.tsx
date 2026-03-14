@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { 
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from "recharts";
+// 🚀 FIX: Import React Query Cache
+import { useQuery } from "@tanstack/react-query";
 
 const CURRENCY_LIST = [
     { code: "USD", name: "US Dollar", country: "United States" },
@@ -36,11 +38,6 @@ interface ForexAsset {
 }
 
 export default function Forex() {
-  const [rates, setRates] = useState<Record<string, number>>({});
-  const [assets, setAssets] = useState<ForexAsset[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  
   const [activeTab, setActiveTab] = useState<'exchange' | 'mutation'>('mutation');
 
   const [exchangeMode, setExchangeMode] = useState<'buy' | 'sell'>('buy');
@@ -62,9 +59,39 @@ export default function Forex() {
 
   const { toast } = useToast();
 
-  // FIX: Paywall Check Status
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
+
+  // =========================================================================
+  // 🚀 FIX MUTLAK: Mengganti useState manual dengan useQuery CACHE
+  // Mencegah loading delay dan data hilang saat pindah halaman
+  // =========================================================================
+  const { data: rates = {}, isLoading: isRatesLoading, refetch: refetchRates } = useQuery({
+      queryKey: ['forexRates', currentUserEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": currentUserEmail } });
+          return res.json();
+      },
+      enabled: !!currentUserEmail
+  });
+
+  const { data: assets = [], isLoading: isAssetsLoading, refetch: refetchAssets, isFetching: isRefreshing } = useQuery({
+      queryKey: ['forexAssets', currentUserEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/forex`, { headers: { "x-user-email": currentUserEmail } });
+          return res.json();
+      },
+      enabled: !!currentUserEmail
+  });
+
+  const isLoading = isRatesLoading || isAssetsLoading;
+  const refreshing = isRefreshing;
+
+  const fetchData = () => {
+      refetchRates();
+      refetchAssets();
+  };
+  // =========================================================================
 
   const filteredCurrencies = CURRENCY_LIST.filter(c => 
       c.code.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -82,34 +109,7 @@ export default function Forex() {
       return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // === FIX CACHE BOCOR LINTAS AKUN ===
-  const fetchData = async () => {
-      setRefreshing(true);
-      try {
-          const userEmail = localStorage.getItem("bilano_email") || "";
-          const fetchOpts = { 
-              headers: { "x-user-email": userEmail },
-              cache: "no-store" as RequestCache
-          };
-          const timestamp = Date.now();
-
-          const [resRates, resAssets] = await Promise.all([
-              fetch(`/api/forex/rates?t=${timestamp}`, fetchOpts),
-              fetch(`/api/forex?t=${timestamp}`, fetchOpts)
-          ]);
-          if (resRates.ok) setRates(await resRates.json());
-          if (resAssets.ok) setAssets(await resAssets.json());
-      } catch (e) { console.error("Gagal load data forex", e); } 
-      finally { 
-          setRefreshing(false); 
-          setIsLoading(false); 
-      }
-  };
-
-  useEffect(() => { fetchData(); }, []);
-
   const handleCurrencyClick = async (currencyCode: string) => {
-      // FIX: Sensor/Lock Grafik jika Trial Habis
       if (isTrialExpired) {
           if (confirm("Masa Coba Habis! Akses Premium diperlukan untuk melihat Grafik Valas. Buka kunci sekarang?")) window.location.href = "/paywall";
           return;
@@ -146,7 +146,6 @@ export default function Forex() {
   };
 
   const handleExchange = async () => {
-      // FIX: Lock Fitur Tukar Valas
       if (isTrialExpired) {
           if (confirm("Masa Coba Habis! Transaksi Valas eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
           return;
@@ -160,7 +159,7 @@ export default function Forex() {
           const forexType = exchangeMode === 'buy' ? 'income' : 'expense';
           
           const resForex = await fetch("/api/forex/transaction", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ 
                   currency: selectedCurr.code, 
                   amount: qty, 
@@ -175,7 +174,7 @@ export default function Forex() {
           const txDesc = exchangeMode === 'buy' ? `Beli ${selectedCurr.code} ${qty}` : `Jual ${selectedCurr.code} ${qty}`;
 
           await fetch("/api/transactions", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ 
                   type: txType, 
                   amount: totalRp, 
@@ -192,7 +191,6 @@ export default function Forex() {
   };
 
   const handleMutation = async () => {
-      // FIX: Lock Fitur Mutasi Valas
       if (isTrialExpired) {
           if (confirm("Masa Coba Habis! Mutasi Valas eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
           return;
@@ -205,7 +203,7 @@ export default function Forex() {
 
       try {
           const res = await fetch("/api/forex/transaction", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ 
                   currency: selectedCurr.code, 
                   amount: qty, 
@@ -225,7 +223,7 @@ export default function Forex() {
       } catch (e) { toast({ title: "Error", variant: "destructive" }); }
   };
 
-  const totalValasInRupiah = assets.reduce((acc, asset) => {
+  const totalValasInRupiah = assets.reduce((acc: number, asset: ForexAsset) => {
       const rate = rates[asset.currency] || 0;
       return acc + (asset.amount * rate);
   }, 0);
@@ -254,7 +252,6 @@ export default function Forex() {
                     <p className="text-xs text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
                         <Globe className="w-3 h-3"/> Total Aset Asing (Estimasi)
                     </p>
-                    {/* SENSOR NILAI ASET JIKA PREMIUM HABIS */}
                     <h2 className="text-3xl font-bold text-emerald-400">
                         {isTrialExpired ? "🔒 Premium" : formatRp(totalValasInRupiah)}
                     </h2>
@@ -275,7 +272,6 @@ export default function Forex() {
                 {POPULAR_RATES.map(curr => (
                     <button key={curr} onClick={() => handleCurrencyClick(curr)} className="bg-white border border-slate-200 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-all active:scale-95">
                         <div className="text-xs font-bold text-slate-400 mb-1">{curr}</div>
-                        {/* FIX SENSOR PAYWALL: Tanda Titik-Titik atau Premium jika Trial Habis */}
                         <div className={`text-xs font-bold ${isTrialExpired ? 'text-rose-500' : 'text-slate-700'}`}>
                              {isTrialExpired ? "🔒 Premium" : (rates[curr] ? `Rp ${Math.round(rates[curr]).toLocaleString("id-ID")}` : "...")}
                         </div>
@@ -387,7 +383,6 @@ export default function Forex() {
                         
                         <div className="grid grid-cols-2 gap-4">
                             <div><label className="text-xs font-bold text-slate-500 mb-1 block">Jml ({selectedCurr.code})</label><Input type="number" placeholder="100" className="h-12 text-lg font-bold" value={amountExchange} onChange={(e) => setAmountExchange(e.target.value)}/></div>
-                            {/* FIX SENSOR PAYWALL: Sensor Placeholder Nilai Tukar */}
                             <div><label className="text-xs font-bold text-slate-500 mb-1 block">Kurs Deal (Rp)</label><Input type="number" placeholder={isTrialExpired ? "🔒" : (rates[selectedCurr.code] ? Math.round(rates[selectedCurr.code]).toString() : "0")} className="h-12 text-lg font-bold" value={rateExchange} onChange={(e) => setRateExchange(e.target.value)}/></div>
                         </div>
                         
@@ -408,7 +403,7 @@ export default function Forex() {
                 {assets.length === 0 ? (
                     <div className="text-center py-8 text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200"><Wallet className="w-8 h-8 mx-auto mb-2 opacity-30"/><p className="text-sm">Belum ada aset asing.</p></div>
                 ) : (
-                    assets.map(asset => {
+                    assets.map((asset: ForexAsset) => {
                         const currInfo = CURRENCY_LIST.find(c => c.code === asset.currency) || { country: "", name: asset.currency };
                         const liveRate = rates[asset.currency] || 0;
                         const idrVal = asset.amount * liveRate;
@@ -422,7 +417,6 @@ export default function Forex() {
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    {/* FIX SENSOR PAYWALL: Sembunyikan Estimasi & Live Rate */}
                                     <div className={`font-bold ${isTrialExpired ? 'text-rose-500' : 'text-emerald-600'} text-sm`}>
                                         {isTrialExpired ? "🔒 Premium" : formatRp(idrVal)}
                                     </div>
