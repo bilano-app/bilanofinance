@@ -304,7 +304,7 @@ export default function Target() {
                             {/* 🚀 PERUBAHAN UI: Badge "Direkomendasikan" melayang di Kanan Atas dan Berwarna Kuning Promo */}
                             <button onClick={() => startSetup('target')} className="relative w-full text-left p-5 border-2 border-indigo-200 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/50 bg-indigo-50/30 transition-all shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-start sm:items-center gap-4 group">
                                 <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md border border-yellow-300 flex items-center gap-1">
-                                    ⭐ Direkomendasikan
+                                    Direkomendasikan
                                 </div>
                                 <div className="bg-indigo-100 p-3 rounded-full group-hover:scale-110 transition-transform mt-1 sm:mt-0 flex-shrink-0"><TargetIcon className="w-6 h-6 text-indigo-600"/></div>
                                 <div>
