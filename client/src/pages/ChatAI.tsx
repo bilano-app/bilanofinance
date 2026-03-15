@@ -16,7 +16,6 @@ interface Message {
 }
 
 export default function ChatAI() {
-    // === TARIK SEMUA PENGETAHUAN UNTUK AI ===
     const { data: user, isLoading: isUserLoading } = useUser();
     const { data: transactions } = useTransactions();
     const { data: forexAssets } = useForexAssets();
@@ -25,7 +24,6 @@ export default function ChatAI() {
 
     const currentUserEmail = localStorage.getItem("bilano_email") || "";
     
-    // === SISTEM GEMBOK GANDA (DOUBLE LOCK FREEMIUM) ===
     const isPro = user?.isPro || false;
     const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
     
@@ -46,7 +44,7 @@ export default function ChatAI() {
             return [{ 
                 id: 1, 
                 sender: 'ai', 
-                text: "Halo Bos! 👋\nSaya BILANO Intelligence. Mau bahas strategi keuangan atau butuh panduan aplikasi hari ini?", 
+                text: "Halo Bos! 👋\nSaya BILANO Intelligence. Mau bahas strategi keuangan, analisa portofolio, atau butuh panduan aplikasi hari ini?", 
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             }];
         }
@@ -79,7 +77,6 @@ export default function ChatAI() {
     };
 
     const handleSend = async () => {
-        // 🚀 FIX: Pesan Gembok Rahasia (Baru muncul saat user benar-benar kehabisan kuota)
         if (isLocked) {
             if (confirm("Ups, kuota percobaan chat AI Anda sudah habis! 🔒\n\nBuka kunci BILANO Premium sekarang untuk tanya jawab sepuasnya tanpa batas?")) {
                 window.location.href = "/paywall";
@@ -114,20 +111,31 @@ export default function ChatAI() {
         const investSummary = investments?.map(i => `${i.quantity} ${i.symbol}`).join(", ") || "Tidak ada investasi";
         const targetSummary = target ? `Target: Rp${target.targetAmount}, Limit Keluar: Rp${target.monthlyBudget} (${target.budgetType})` : "Tidak ada target";
 
+        // 🚀 FIX: DOKTRIN SUPER KETAT UNTUK AI (DILARANG JADI BUKU MANUAL)
         const bilanoKnowledgeBase = `
-        [PANDUAN MUTLAK APLIKASI BILANO UNTUK AI]
-        Kamu harus tahu cara kerja aplikasi BILANO agar bisa memandu user:
-        1. Pemasukan & Pengeluaran: User bisa mencatat tunai atau mode 'Ngutang/Piutang'. Jika mode Ngutang/Piutang dipilih, saldo kas tunai tidak akan berubah, melainkan otomatis tercatat di menu Hutang/Piutang sebagai aset/kewajiban.
-        2. Hutang & Piutang KAS: Digunakan khusus untuk pinjam meminjam uang kas. Mendukung 'Pembayaran Cicilan' (Bayar sebagian) dan otomatis menghitung sisa tagihan. Mendukung Valas.
-        3. Investasi (Saham, Crypto, dll): Mendukung mata uang asing. Khusus saham lokal (IDR), harga input adalah per lembar, dan total otomatis dikali 100 (1 Lot). Saat dijual, aplikasi otomatis menghitung Profit/Loss (P/L).
-        4. Valas (Dompet Valas): Menyediakan Live Market Rates. User bisa mencatat Mutasi Valas atau melakukan Transaksi Tukar Valas (Rupiah Keluar/Masuk).
-        5. Smart Scan & Voice: Fitur AI OCR untuk membaca nominal dari foto struk belanja, dan fitur pendeteksi suara untuk mencatat transaksi cepat ("Beli bensin 20 ribu").
-        6. Target & Strategi (Performance): User bisa membatasi pengeluaran. Ada mode 'Statis' (sisa budget hangus) dan 'Rollover' (sisa budget diakumulasi ke bulan depan). Fitur Dana Darurat memotong budget bulan depan jika overbudget.
-        7. Pusat Laporan (PDF): Mendownload Neraca Kekayaan, Cashflow, dan 3 jenis Grafik Batang performa 12 bulan terakhir secara otomatis.
-        8. Keamanan & Paywall: Dilengkapi App PIN 6 angka dan Mode Privasi (sensor saldo). Fitur Premium bisa dibeli dengan berlangganan BILANO PRO (Mayar).
+        [PANDUAN APLIKASI BILANO]
+        1. Hutang & Piutang: Aplikasi ini mendukung transaksi Hutang dan Piutang menggunakan Valuta Asing (Valas). Nilai valas akan dikonversi ke IDR secara otomatis saat dibayar/dicicil.
+        2. Investasi (Saham/Crypto): Harga saham lokal per lembar, otomatis dikali 100 (1 Lot).
+        3. Langganan: Mendukung tagihan statis dan dinamis.
         `;
 
-        const systemContext = `[INFO SISTEM: Kamu adalah BILANO AI, konsultan keuangan cerdas sekaligus asisten panduan aplikasi. Jawab dengan ramah, suportif, logis, analitis, dan kritis. \n\n${bilanoKnowledgeBase}\n\nDATA KEUANGAN USER SAAT INI: \n- Saldo Kas IDR: ${totalCash} \n- Kepemilikan Valas: ${forexSummary} \n- Portofolio Investasi: ${investSummary} \n- Strategi & Limit: ${targetSummary} \n- 10 Transaksi Terakhir: ${txSummary}].\n\nTugasmu: Jawab pertanyaan user dengan wawasan finansial, dan pandu mereka menggunakan fitur aplikasi BILANO jika relevan.\n\nPertanyaan User: ${userMsg.text}`;
+        const systemContext = `[ATURAN MUTLAK SISTEM AI]
+        Kamu adalah BILANO Intelligence, konsultan keuangan elit.
+        
+        PERATURAN SIKAP:
+        1. FOKUS 100% pada analisis keuangan, strategi finansial, evaluasi kelayakan belanja, dan kesehatan dompet user.
+        2. DILARANG KERAS MENGGURU MENGENAI CARA PAKAI APLIKASI, LETAK TOMBOL, ATAU MENU NAVIGASI KECUALI user secara spesifik bertanya menggunakan kata seperti "bagaimana cara...", "di mana menu...", atau terlihat kebingungan soal aplikasi. Jika mereka curhat finansial, JANGAN jelaskan fitur aplikasi!
+
+        ${bilanoKnowledgeBase}
+
+        DATA RINGKAS: 
+        - Kas IDR: Rp ${totalCash.toLocaleString('id-ID')}
+        - Valas: ${forexSummary}
+        - Investasi: ${investSummary}
+        - Target: ${targetSummary}
+        - History Tx: ${txSummary}
+
+        Pertanyaan User: ${userMsg.text}`;
 
         try {
             const res = await fetch("/api/chat/ask", {
@@ -182,7 +190,6 @@ export default function ChatAI() {
         );
     }
 
-    // 🚀 FIX: Hilangkan tulisan sisa kuota yang merusak trik kejutan
     let placeholderText = "Tanya AI Assistant...";
     if (isLocked) {
         if (isTrialExpired) placeholderText = "🔒 Masa Coba Habis";
@@ -204,8 +211,6 @@ export default function ChatAI() {
             </div>
 
             <div className="flex flex-col h-[calc(100dvh-75px)] -mx-4 -mb-4 bg-slate-50 relative">
-                
-                {/* 🚀 FIX: Banner Kuning Peringatan Sisa Kuota Dihapus agar menjadi Kejutan Trik Premium */}
                 
                 <div className="flex-1 overflow-y-auto space-y-4 p-4 pb-6">
                     {messages.map((msg) => (

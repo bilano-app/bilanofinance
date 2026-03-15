@@ -175,31 +175,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // =========================================================================
+  // 🚀 FIX: OTAK UTAMA AI (INJEKSI DATA PENUH)
+  // Menarik seluruh data hutang valas, piutang, dan langganan untuk AI
+  // =========================================================================
   app.post("/api/chat/ask", async (req, res) => {
       const user = await getUser(req);
       if (!user) return res.status(401).json({ reply: "Sesi berakhir. Login dulu ya." });
       
-      const [transactions, target, investments] = await Promise.all([
+      const [transactions, target, investments, debts, forexAssets, subscriptions] = await Promise.all([
           storage.getTransactions(user.id), 
           storage.getTarget(user.id), 
-          storage.getInvestments(user.id)
+          storage.getInvestments(user.id),
+          storage.getDebts(user.id),
+          storage.getForexAssets(user.id),
+          storage.getSubscriptions(user.id)
       ]);
 
       const saldoTunai = user.cashBalance || 0;
       const totalInvestasi = investments.reduce((acc, inv) => acc + (inv.quantity * inv.avgPrice * (inv.type === 'saham' || (inv.symbol.length === 4 && inv.type !== 'crypto') ? 100 : 1)), 0);
       const sisaBudget = target && target.monthlyBudget > 0 ? `Rp ${target.monthlyBudget.toLocaleString('id-ID')}` : "Tidak dibatasi";
 
+      const activeDebts = debts.filter(d => !d.isPaid);
+      const listHutang = activeDebts.filter(d => d.type === 'hutang').map(d => `${d.amount} ${(d.name.split('|')[1] || 'IDR')}`).join(', ') || '0';
+      const listPiutang = activeDebts.filter(d => d.type === 'piutang').map(d => `${d.amount} ${(d.name.split('|')[1] || 'IDR')}`).join(', ') || '0';
+      const listValas = forexAssets.map(f => `${f.amount} ${f.currency}`).join(', ') || '0';
+      const listSubs = subscriptions.filter(s => s.isActive).map(s => `${s.name} (${s.cost})`).join(', ') || 'Tidak ada';
+
       const systemPrompt = `
-      Kamu adalah BILANO Intelligence, asisten keuangan pribadi yang asik, cerdas, dan memotivasi.
-      INFO MUTLAK TENTANG PEMBUATMU (Adrien Fandra):
+      Kamu adalah BILANO Intelligence, asisten konsultan keuangan tingkat elit.
+      INFO MUTLAK PEMBUATMU (Adrien Fandra):
       1. Adrien Fandra adalah seorang Konten Kreator.
-      2. Adrien Fandra adalah orang yang merancang dan membuat aplikasi keuangan BILANO ini.
-      [PERINGATAN KERAS: JANGAN PERNAH MENYEBUTKAN KATA 'UNJ', 'Universitas', ATAU 'Science Club'].
-      DATA KEUANGAN PENGGUNA SAAT INI (Gunakan untuk menjawab jika ditanya):
-      - Saldo Tunai: Rp ${saldoTunai.toLocaleString('id-ID')}
+      2. Adrien Fandra merancang aplikasi BILANO.
+      [PERINGATAN: JANGAN SEBUT KATA 'UNJ', 'Universitas', ATAU 'Science Club'].
+
+      PERATURAN SIKAP:
+      - FOKUS 100% PADA ANALISIS KEUANGAN. Berikan insight, teguran tajam jika boros, dan strategi investasi/pelunasan hutang.
+      - DILARANG KERAS MENJELASKAN CARA PAKAI ATAU LETAK FITUR APLIKASI (Misal: "Buka menu X..."), KECUALI pengguna eksplisit bertanya tutorial aplikasi.
+
+      DATA KEUANGAN PENGGUNA SAAT INI (MUTLAK):
+      - Saldo Kas IDR: Rp ${saldoTunai.toLocaleString('id-ID')}
       - Aset Investasi: Rp ${totalInvestasi.toLocaleString('id-ID')}
-      - Limit Pengeluaran Bulan Ini: ${sisaBudget}
-      Gunakan Markdown untuk mempercantik teks.
+      - Sisa Limit Pengeluaran Bulan Ini: ${sisaBudget}
+      - Hutang Pribadi (Kewajiban Valas & IDR): ${listHutang}
+      - Piutang Pribadi (Uang di orang lain): ${listPiutang}
+      - Dompet Valuta Asing: ${listValas}
+      - Tagihan Langganan: ${listSubs}
+      
+      Pahami bahwa pengguna mungkin mencicil hutang/piutang valas mereka. Beri tanggapan sesuai konteks data di atas menggunakan Markdown.
       `;
 
       const reply = await askSmartAI(systemPrompt, req.body.message);
@@ -298,9 +321,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, newBalance: currentAmount });
   });
 
-  // =========================================================================
-  // 🚀 FIX MUTLAK BUG 2 & 4: LOGIKA KURS VALAS HUTANG & PIUTANG NON-TUNAI
-  // =========================================================================
   app.get("/api/debts", async (req, res) => { const user = await getUser(req); res.json(await storage.getDebts(user!.id)); });
   
   app.post("/api/debts", async (req, res) => { 
@@ -371,9 +391,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/debts/:id", async (req, res) => { await storage.deleteDebt(parseInt(req.params.id)); res.json({success:true}); });
 
-  // =========================================================================
-  // 🚀 FIX MUTLAK BUG 1: EDIT TARGET KAS MENJADI 0
-  // =========================================================================
   app.get("/api/target", async (req, res) => { const user = await getUser(req); res.json(await storage.getTarget(user!.id) || {}); });
   app.patch("/api/target/penalty", async (req, res) => { const user = await getUser(req); try { await storage.updateTargetPenalty(user!.id, req.body.amount); res.json({success:true}); } catch(e) { res.status(500).send("Error"); } });
   
@@ -385,7 +402,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const target = await storage.setTarget(user!.id, targetData as any); 
       
-      // HANYA UPDATE KAS JIKA ANGKA DIKIRIMKAN LEBIH DARI 0
       if (addCurrentCash !== undefined && addCurrentCash > 0) {
           await storage.updateUserBalance(user!.id, addCurrentCash); 
       }
@@ -454,9 +470,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // =========================================================================
-  // 🚀 FIX MUTLAK BUG 3: SAHAM GAIB SAAT DIJUAL
-  // =========================================================================
   app.post("/api/investments/sell", async (req, res) => { 
       try {
           const user = await getUser(req); 
