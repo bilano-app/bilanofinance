@@ -133,10 +133,16 @@ export default function Expense() {
                   toast({ title: "Tercatat!", description: "Pengeluaran berhasil disimpan." });
               }
           } else {
-              // Hutang Pengeluaran
+              // 🚀 FIX BUG: MENGIRIM isFromTransaction AGAR KAS TIDAK BOCOR!
               await fetch("/api/debts", {
                   method: "POST", headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
-                  body: JSON.stringify({ type: 'hutang', name: `${debtName}|IDR`, amount: spendingAmount, description: `[Hutang Pengeluaran: ${category}] ${desc}` })
+                  body: JSON.stringify({ 
+                      type: 'hutang', 
+                      name: `${debtName}|IDR`, 
+                      amount: spendingAmount, 
+                      description: `[Hutang Pengeluaran: ${category}] ${desc}`,
+                      isFromTransaction: true 
+                  })
               });
               await addTransactionMutation.mutateAsync({ 
                   type: 'expense', 

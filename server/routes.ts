@@ -299,22 +299,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // =========================================================================
-  // 🚀 FIX MUTLAK: LOGIKA PEMBAYARAN HUTANG (AUTO-HEALER AKTIF)
+  // 🚀 FIX MUTLAK BUG 2 & 4: LOGIKA KURS VALAS HUTANG & PIUTANG NON-TUNAI
   // =========================================================================
   app.get("/api/debts", async (req, res) => { const user = await getUser(req); res.json(await storage.getDebts(user!.id)); });
   
   app.post("/api/debts", async (req, res) => { 
       const user = await getUser(req); 
-      const { type, amount, name, description } = req.body;
+      const { type, amount, name, description, isFromTransaction } = req.body;
       const d = await storage.createDebt(user!.id, req.body as any); 
-      let newBalance = user!.cashBalance;
-      let txType = '', txCat = '';
       
-      if(type === 'hutang') { newBalance += amount; txType = 'debt_borrow'; txCat = 'Dapat Pinjaman'; } 
-      else { newBalance -= amount; txType = 'debt_lend'; txCat = 'Beri Pinjaman'; }
-      
-      await storage.updateUserBalance(user!.id, newBalance);
-      await storage.createTransaction(user!.id, { userId: user!.id, type: txType, amount, category: txCat, description: `[${type.toUpperCase()}] ${name} - ${description||''}`, date: new Date() } as any);
+      if (!isFromTransaction) {
+          let newBalance = user!.cashBalance;
+          
+          const parts = (name || "").split('|');
+          const curr = parts[1] || 'IDR';
+          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
+          const amountIDR = amount * rate;
+          
+          let txType = '', txCat = '';
+          if(type === 'hutang') { newBalance += amountIDR; txType = 'debt_borrow'; txCat = 'Dapat Pinjaman'; } 
+          else { newBalance -= amountIDR; txType = 'debt_lend'; txCat = 'Beri Pinjaman'; }
+          
+          await storage.updateUserBalance(user!.id, newBalance);
+          await storage.createTransaction(user!.id, { userId: user!.id, type: txType, amount: amountIDR, category: txCat, description: `[${type.toUpperCase()}] ${name} - ${description||''}`, date: new Date() } as any);
+      }
       res.json(d); 
   });
 
@@ -330,15 +338,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const payAmount = (amount !== undefined && amount > 0) ? Math.min(amount, debt.amount) : debt.amount;
           let newBalance = user!.cashBalance;
           
-          if (debt.type === 'hutang') { 
-              newBalance -= payAmount; 
-              await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmount, category: 'Bayar Hutang', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
+          const curr = (debt.name || "").split('|')[1] || 'IDR';
+          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
+          const payAmountIDR = payAmount * rate;
+          
+          if (debt.type === 'piutang') { 
+              newBalance += payAmountIDR; 
+              await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]}`, date: new Date() } as any); 
           } else { 
-              newBalance += payAmount; 
-              await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmount, category: 'Piutang Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]}`, date: new Date() } as any); 
+              newBalance -= payAmountIDR; 
+              await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
           }
           
-          // 🚀 LOGIKA BARU: Uang langsung masuk/keluar ke database kas dengan mutlak!
           await storage.updateUserBalance(user!.id, newBalance);
           
           const remaining = debt.amount - payAmount;
@@ -348,7 +359,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   type: debt.type, 
                   name: debt.name, 
                   amount: remaining, 
-                  dueDate: (debt as any).dueDate || null
+                  dueDate: (debt as any).dueDate || null,
+                  description: (debt.description || '') + ` (Sisa dari ${debt.amount})`
               } as any);
           }
           
@@ -358,8 +370,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/debts/:id", async (req, res) => { await storage.deleteDebt(parseInt(req.params.id)); res.json({success:true}); });
-  // =========================================================================
 
+  // =========================================================================
+  // 🚀 FIX MUTLAK BUG 1: EDIT TARGET KAS MENJADI 0
+  // =========================================================================
   app.get("/api/target", async (req, res) => { const user = await getUser(req); res.json(await storage.getTarget(user!.id) || {}); });
   app.patch("/api/target/penalty", async (req, res) => { const user = await getUser(req); try { await storage.updateTargetPenalty(user!.id, req.body.amount); res.json({success:true}); } catch(e) { res.status(500).send("Error"); } });
   
@@ -370,7 +384,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } = req.body; 
       
       const target = await storage.setTarget(user!.id, targetData as any); 
-      if (addCurrentCash !== undefined) await storage.updateUserBalance(user!.id, addCurrentCash); 
+      
+      // HANYA UPDATE KAS JIKA ANGKA DIKIRIMKAN LEBIH DARI 0
+      if (addCurrentCash !== undefined && addCurrentCash > 0) {
+          await storage.updateUserBalance(user!.id, addCurrentCash); 
+      }
       
       if (initialForexList && Array.isArray(initialForexList)) {
           for (const item of initialForexList) {
@@ -435,7 +453,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menyimpan aset." });
       }
   });
-  
+
+  // =========================================================================
+  // 🚀 FIX MUTLAK BUG 3: SAHAM GAIB SAAT DIJUAL
+  // =========================================================================
   app.post("/api/investments/sell", async (req, res) => { 
       try {
           const user = await getUser(req); 
@@ -444,17 +465,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
           const totalSellPrice = quantity*price*m; 
           
-          const existing = await storage.getInvestmentBySymbol(user!.id, symbol); 
-          let profitLossText = "";
+          const allInvestments = await storage.getInvestments(user!.id);
+          const existings = allInvestments.filter(i => i.symbol === symbol); 
+          
+          let remainingToSell = quantity;
+          let totalBuyPrice = 0;
 
-          if(existing) { 
-              const totalBuyPrice = quantity * existing.avgPrice * m;
-              const pl = totalSellPrice - totalBuyPrice;
-              profitLossText = ` (P/L: ${pl >= 0 ? '+' : ''}Rp ${pl.toLocaleString('id-ID')})`;
+          for (const existing of existings) {
+              if (remainingToSell <= 0) break;
 
-              if(existing.quantity<=quantity) await storage.deleteInvestment(existing.id); 
-              else await storage.updateInvestment(existing.id, existing.quantity-quantity, existing.avgPrice); 
+              if (existing.quantity <= remainingToSell) {
+                  totalBuyPrice += existing.quantity * existing.avgPrice * m;
+                  remainingToSell -= existing.quantity;
+                  await storage.deleteInvestment(existing.id); 
+              } else {
+                  totalBuyPrice += remainingToSell * existing.avgPrice * m;
+                  await storage.updateInvestment(existing.id, existing.quantity - remainingToSell, existing.avgPrice); 
+                  remainingToSell = 0;
+              }
           } 
+
+          const pl = totalSellPrice - totalBuyPrice;
+          const profitLossText = ` (P/L: ${pl >= 0 ? '+' : ''}Rp ${pl.toLocaleString('id-ID')})`;
 
           await storage.updateUserBalance(user!.id, user!.cashBalance + totalSellPrice); 
           

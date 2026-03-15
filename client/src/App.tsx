@@ -8,18 +8,14 @@ import { useNotifications } from "./hooks/useNotifications";
 import { useUser } from "./hooks/use-finance"; 
 
 // =========================================================================
-// 🚀 FIX MUTLAK: MATIKAN PEMBERSIH MEMORI (GARBAGE COLLECTOR)
-// Mencegah data Saldo & Profil terhapus saat HP ditinggal lama di background
+// 🚀 FIX MUTLAK: MATIKAN SEMUA REFETCH OTOMATIS SAAT APLIKASI DIBUKA KEMBALI
 // =========================================================================
 queryClient.setDefaultOptions({
   queries: {
     refetchOnWindowFocus: false, 
     refetchOnMount: false,
-    refetchOnReconnect: false, 
-    staleTime: 1000 * 60 * 60 * 24, // Kunci data 24 Jam
-    gcTime: 1000 * 60 * 60 * 24, // Matikan Pembersih Memori (React Query v5)
-    // @ts-expect-error fallback
-    cacheTime: 1000 * 60 * 60 * 24, // Matikan Pembersih Memori (React Query v4)
+    refetchOnReconnect: false, // Jangan narik data ulang saat sinyal ganti
+    staleTime: 1000 * 60 * 60, // KUNCI DATA 1 JAM! Mencegah UI angka berkedip/delay
   },
 });
 
@@ -42,13 +38,71 @@ import Paywall from "@/pages/Paywall";
 import Debts from "@/pages/Debts"; 
 import SmartScan from "@/pages/SmartScan"; 
 
+// =========================================================================
+// 🚀 FIX MUTLAK: PINDAHKAN INTERCEPTOR API KE AREA GLOBAL (LUAR KOMPONEN)
+// Agar KTP (Email) langsung terbaca SEBELUM React Query nge-fetch data pertama kali!
+// Ini akan memusnahkan Bug "Saldo 0 Semua Saat Refresh" secara permanen.
+// =========================================================================
 const originalFetch = window.fetch;
+window.fetch = async (input, init = {}) => {
+  const url = typeof input === 'string' ? input : (input as Request).url;
+  const method = init.method ? init.method.toUpperCase() : 'GET';
+  const email = localStorage.getItem("bilano_email");
+
+  if (email && url.startsWith('/api')) {
+    init.headers = { ...init.headers, 'x-user-email': email };
+  }
+
+  const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
+  const isAuthRoute = url.includes('/api/auth');
+
+  if (isWriteAction && !isAuthRoute && localStorage.getItem('bilano_trial_expired') === 'true') {
+      window.dispatchEvent(new Event('trigger-paywall-lock'));
+      return Promise.reject(new Error("TRIAL_EXPIRED_LOCKED")); 
+  }
+
+  return originalFetch(input, init);
+};
 
 function Router() {
   const [location, setLocation] = useLocation();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
 
+  // =======================================================
+  // 🚀 SENSOR AUTO-REFRESH 15 MENIT (APP LIFECYCLE TRACKER)
+  // =======================================================
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        localStorage.setItem('bilano_last_active_time', Date.now().toString());
+      } 
+      else if (document.visibilityState === 'visible') {
+        const lastActiveStr = localStorage.getItem('bilano_last_active_time');
+        if (lastActiveStr) {
+          const lastActive = parseInt(lastActiveStr, 10);
+          const now = Date.now();
+          const FIFTEEN_MINUTES_IN_MS = 15 * 60 * 1000; 
+
+          if (now - lastActive >= FIFTEEN_MINUTES_IN_MS) {
+            localStorage.setItem('bilano_last_active_time', now.toString()); 
+            window.location.href = "/"; 
+          }
+        }
+      }
+    };
+
+    localStorage.setItem('bilano_last_active_time', Date.now().toString());
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // =======================================================
+  // 🚀 VIP UNLOCKER (JALUR RESMI REACT - ANTI CRASH & ANTI JADUL)
+  // =======================================================
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
 
@@ -65,21 +119,11 @@ function Router() {
           localStorage.setItem("bilano_trial_expired", "false");
           localStorage.setItem("bilano_pro", "true");
       } 
-      else if (user) {
+      else {
           localStorage.removeItem("bilano_pro");
-          
-          const startTime = new Date(user.createdAt || Date.now()).getTime();
-          const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
-          
-          if (daysPassed >= 3) {
-              localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "true");
-              localStorage.setItem("bilano_trial_expired", "true");
-          } else {
-              localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
-              localStorage.setItem("bilano_trial_expired", "false");
-          }
       }
   }, [user, currentUserEmail]);
+  // =======================================================
 
   useNotifications();
 
@@ -94,26 +138,6 @@ function Router() {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
 
-    window.fetch = async (input, init = {}) => {
-      const url = typeof input === 'string' ? input : (input as Request).url;
-      const method = init.method ? init.method.toUpperCase() : 'GET';
-      const email = localStorage.getItem("bilano_email");
-
-      if (email && url.startsWith('/api')) {
-        init.headers = { ...init.headers, 'x-user-email': email };
-      }
-
-      const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
-      const isAuthRoute = url.includes('/api/auth');
-
-      if (isWriteAction && !isAuthRoute && localStorage.getItem('bilano_trial_expired') === 'true') {
-          setShowPaywallAlert(true); 
-          return Promise.reject(new Error("TRIAL_EXPIRED_LOCKED")); 
-      }
-
-      return originalFetch(input, init);
-    };
-
     const handleCustomLock = () => setShowPaywallAlert(true);
     window.addEventListener('trigger-paywall-lock', handleCustomLock);
 
@@ -121,7 +145,6 @@ function Router() {
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('trigger-paywall-lock', handleCustomLock);
-      window.fetch = originalFetch; 
     };
   }, [location, setLocation]);
 

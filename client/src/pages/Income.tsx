@@ -64,11 +64,17 @@ export default function Income() {
               date: new Date().toISOString() 
           });
       } else {
-          // Buat Pemasukan Aset (Piutang) tanpa menambah Cash
+          // 🚀 FIX BUG: MENGIRIM isFromTransaction AGAR KAS TIDAK BOCOR!
           await fetch("/api/debts", {
               method: "POST", 
               headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
-              body: JSON.stringify({ type: 'piutang', name: `${debtName}|IDR`, amount: cleanAmount, description: `[Piutang Pemasukan: ${category}] ${description}` })
+              body: JSON.stringify({ 
+                  type: 'piutang', 
+                  name: `${debtName}|IDR`, 
+                  amount: cleanAmount, 
+                  description: `[Piutang Pemasukan: ${category}] ${description}`,
+                  isFromTransaction: true
+              })
           });
           // Catat juga sebagai riwayat transaksi agar masuk chart tapi tidak menambah cash (gunakan category khusus)
           await addTransaction.mutateAsync({ 
