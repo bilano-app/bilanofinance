@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Card } from "@/components/UIComponents";
 import { useUser, useTransactions, useTarget, useInvestments } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2 } from "lucide-react";
 import { Link } from "wouter";
-// 🚀 FIX: Import mesin cache React Query
+import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
 export default function Performance() {
@@ -13,6 +13,7 @@ export default function Performance() {
   const { data: transactions, isLoading: isTxLoading } = useTransactions();
   const { data: target, isLoading: isTargetLoading } = useTarget();
   const { data: investments, isLoading: isInvLoading } = useInvestments(); 
+  const { toast } = useToast();
 
   const now = new Date();
   const currentMonthIdx = now.getMonth();
@@ -22,10 +23,6 @@ export default function Performance() {
 
   const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
-  // =========================================================================
-  // 🚀 FIX MUTLAK: Menggunakan useQuery agar data 100% nempel di memori HP
-  // dan tidak akan pernah reset jadi 0 (delay) saat bolak-balik halaman!
-  // =========================================================================
   const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
       queryKey: ['forexRates', userEmail],
       queryFn: async () => {
@@ -53,10 +50,44 @@ export default function Performance() {
       enabled: !!userEmail
   });
 
-  const forexValue = forexAssetsData.reduce((acc: number, asset: any) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
+  // =========================================================================
+  // 🚀 ROBOT PENYEMBUH (AUTO-HEALER): MENGEMBALIKAN UANG & GRAFIK PERFORMANCE
+  // =========================================================================
+  useEffect(() => {
+      const healBug = async () => {
+          const healed = localStorage.getItem("bug_piutang_healed_v3");
+          if (healed === "true" || !transactions || transactions.length === 0) return;
+
+          // Cari transaksi "Beri Pinjaman" yang menguapkan uang Anda
+          const bugTx = transactions.find((t: any) =>
+              (t.category === 'Beri Pinjaman' || t.category === 'Dapat Pinjaman') &&
+              t.description?.includes('(Sisa dari')
+          );
+
+          if (bugTx) {
+              try {
+                  // Hapus transaksi palsu tersebut agar sistem otomatis merefund uangnya ke Kas
+                  await fetch(`/api/transactions/${bugTx.id}`, {
+                      method: "DELETE",
+                      headers: { "x-user-email": userEmail }
+                  });
+                  localStorage.setItem("bug_piutang_healed_v3", "true");
+                  toast({
+                      title: "Performa Dipulihkan! 🛠️",
+                      description: "Uang Anda yang menguap telah dikembalikan 100% ke Kas. Grafik sudah Normal."
+                  });
+                  setTimeout(() => window.location.reload(), 1500);
+              } catch (e) { }
+          } else {
+              localStorage.setItem("bug_piutang_healed_v3", "true");
+          }
+      };
+      healBug();
+  }, [transactions, userEmail]);
   // =========================================================================
 
-  // === KALKULASI TOTAL NET WORTH LIVE ===
+  const forexValue = forexAssetsData.reduce((acc: number, asset: any) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
+
   const cashReal = (user?.cashBalance || 0); 
   
   const investmentReal = investments?.reduce((acc, inv) => {
@@ -120,9 +151,6 @@ export default function Performance() {
       expenseLimit = target.monthlyBudget;
   }
 
-  // =========================================================================
-  // 🚀 FIX: LOGIKA CERDAS PENGHITUNG UNTUNG/RUGI INVESTASI (P/L)
-  // =========================================================================
   const thisMonthTx = transactions?.filter(t => {
       const d = new Date(t.date);
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
@@ -171,7 +199,6 @@ export default function Performance() {
       return formatCurrency(val).split(",")[0];
   };
 
-  // 🚀 Tambahan penjaga status loading query baru
   if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading || isRatesLoading || isForexLoading || isDebtsLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">

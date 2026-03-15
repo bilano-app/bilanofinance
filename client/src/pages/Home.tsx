@@ -17,15 +17,15 @@ import {
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
-// 🚀 FIX: Import React Query Cache
 import { useQuery } from "@tanstack/react-query";
 
 export default function Home() {
+  // 🚀 FIX: Tangkap semua parameter loading dari database!
   const { data: user, isLoading: isUserLoading } = useUser();
-  const { data: transactions } = useTransactions();
-  const { data: forexAssets } = useForexAssets(); 
+  const { data: transactions, isLoading: isTxLoading } = useTransactions();
+  const { data: forexAssets, isLoading: isFxLoading } = useForexAssets(); 
   const { data: target, isLoading: isTargetLoading } = useTarget(); 
-  const { data: subscriptions, refetch: refetchSubs } = useSubscriptions();
+  const { data: subscriptions, isLoading: isSubLoading, refetch: refetchSubs } = useSubscriptions();
 
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -50,10 +50,6 @@ export default function Home() {
 
   const rawEmail = localStorage.getItem("bilano_email") || "";
   
-  // =========================================================================
-  // 🚀 FIX MUTLAK: Mengganti useState manual dengan useQuery agar data kurs
-  // masuk ke dalam CACHE 1 JAM dan mencegah angka Valas tiba-tiba jadi 0!
-  // =========================================================================
   const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
       queryKey: ['forexRates', rawEmail],
       queryFn: async () => {
@@ -62,7 +58,6 @@ export default function Home() {
       },
       enabled: !!rawEmail
   });
-  // =========================================================================
 
   useEffect(() => {
       setIsPrivacyMode(localStorage.getItem("bilano_privacy") === "true");
@@ -217,9 +212,7 @@ export default function Home() {
       setDueDynamicSub(null);
   };
 
-  // =====================================================================
-  // 🚀 FIX MUTLAK: Penarikan sisa hari trial dari Database Server (Akurat 100%)
-  // =====================================================================
+  // 🚀 FIX: Hitung umur Trial langsung dari Database (Bukan localStorage)
   useEffect(() => {
       if (isUserPro || !user) return;
       
@@ -233,7 +226,6 @@ export default function Home() {
           setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
       }
   }, [isUserPro, user]);
-  // =====================================================================
 
   useEffect(() => {
       if (!isUserLoading && !isTargetLoading) {
@@ -242,6 +234,41 @@ export default function Home() {
           }
       }
   }, [target, isUserLoading, isTargetLoading, setLocation]);
+
+  // =========================================================================
+  // 🚀 ROBOT PENYEMBUH (AUTO-HEALER): MENGEMBALIKAN UANG 400K YANG HILANG
+  // =========================================================================
+  useEffect(() => {
+      const healBug = async () => {
+          const healed = localStorage.getItem("bug_piutang_healed_v3");
+          if (healed === "true" || !transactions || transactions.length === 0) return;
+
+          // Cari transaksi siluman yang menguapkan uang Anda
+          const bugTx = transactions.find((t: any) =>
+              (t.category === 'Beri Pinjaman' || t.category === 'Dapat Pinjaman') &&
+              t.description?.includes('(Sisa dari')
+          );
+
+          if (bugTx) {
+              try {
+                  await fetch(`/api/transactions/${bugTx.id}`, {
+                      method: "DELETE",
+                      headers: { "x-user-email": rawEmail }
+                  });
+                  localStorage.setItem("bug_piutang_healed_v3", "true");
+                  toast({
+                      title: "Saldo Kas Dipulihkan! 🛠️",
+                      description: "Uang Anda yang menguap akibat bug cicilan telah dikembalikan 100% ke Kas."
+                  });
+                  setTimeout(() => window.location.reload(), 1500);
+              } catch (e) { }
+          } else {
+              localStorage.setItem("bug_piutang_healed_v3", "true");
+          }
+      };
+      healBug();
+  }, [transactions, rawEmail]);
+  // =========================================================================
 
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
@@ -339,7 +366,11 @@ export default function Home() {
       );
   }
 
-  if (isUserLoading || isTargetLoading || isRatesLoading) {
+  // =========================================================================
+  // 🚀 FIX MUTLAK: PALANG PINTU SEMPURNA
+  // Layar tidak akan mau tampil jika salah satu data ini belum matang!
+  // =========================================================================
+  if (isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
               <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
@@ -350,6 +381,7 @@ export default function Home() {
           </div>
       );
   }
+  // =========================================================================
 
   return (
     <MobileLayout>

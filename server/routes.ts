@@ -45,15 +45,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   try {
       await db.execute(sql`ALTER TABLE users ADD COLUMN onesignal_id TEXT;`);
-      console.log("✅ Auto-patch DB: Kolom onesignal_id berhasil ditambahkan ke Database Live!");
-  } catch (e) {
-      console.log("✅ DB Check: Kolom onesignal_id sudah siap (Aman).");
-  }
+  } catch (e) { }
   
-  // 🚀 FIX: Penambahan patch untuk umur akun permanen
   try {
       await db.execute(sql`ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT NOW();`);
-      console.log("✅ Auto-patch DB: Kolom created_at berhasil ditambahkan ke Database Live!");
   } catch (e) {}
 
   let cachedRates: Record<string, number> = { 
@@ -111,7 +106,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           res.json({ success: true, message: "OTP Terkirim" }); 
       } catch (error) {
-          console.error("Robot Gagal Mengirim Email:", error);
           res.status(500).json({ error: "Gagal mengirim email OTP, coba lagi." });
       }
   });
@@ -127,7 +121,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/ping", (req, res) => {
-      console.log("[CRON] Server BILANO disiram kopi agar tetap bangun! ☕");
       res.status(200).json({ status: "awake", time: new Date().toISOString() });
   });
 
@@ -162,7 +155,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const now = new Date();
         const validUntil = new Date(user.proValidUntil);
         if (now > validUntil) {
-            console.log(`[SISTEM] Masa aktif PRO untuk ${user.username} telah habis.`);
             user = await storage.updateUserProStatus(user.id, false, null);
         }
     }
@@ -199,18 +191,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const systemPrompt = `
       Kamu adalah BILANO Intelligence, asisten keuangan pribadi yang asik, cerdas, dan memotivasi.
-      
       INFO MUTLAK TENTANG PEMBUATMU (Adrien Fandra):
       1. Adrien Fandra adalah seorang Konten Kreator.
       2. Adrien Fandra adalah orang yang merancang dan membuat aplikasi keuangan BILANO ini.
-      [PERINGATAN KERAS: JANGAN PERNAH MENYEBUTKAN KATA 'UNJ', 'Universitas', ATAU 'Science Club'. Jika pengguna bertanya tentang Adrien, HANYA sebutkan 2 poin di atas].
-
+      [PERINGATAN KERAS: JANGAN PERNAH MENYEBUTKAN KATA 'UNJ', 'Universitas', ATAU 'Science Club'].
       DATA KEUANGAN PENGGUNA SAAT INI (Gunakan untuk menjawab jika ditanya):
       - Saldo Tunai: Rp ${saldoTunai.toLocaleString('id-ID')}
       - Aset Investasi: Rp ${totalInvestasi.toLocaleString('id-ID')}
       - Limit Pengeluaran Bulan Ini: ${sisaBudget}
-      
-      Gunakan Markdown untuk mempercantik teks (bold, list, dll).
+      Gunakan Markdown untuk mempercantik teks.
       `;
 
       const reply = await askSmartAI(systemPrompt, req.body.message);
@@ -274,7 +263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               };
               return res.json(liveRates);
           }
-      } catch (e) { console.log("Gagal fetch kurs live, pakai patokan darurat."); }
+      } catch (e) { }
       res.json(cachedRates); 
   });
   
@@ -309,6 +298,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, newBalance: currentAmount });
   });
 
+  // =========================================================================
+  // 🚀 FIX MUTLAK: LOGIKA PEMBAYARAN HUTANG (AUTO-HEALER AKTIF)
+  // =========================================================================
   app.get("/api/debts", async (req, res) => { const user = await getUser(req); res.json(await storage.getDebts(user!.id)); });
   
   app.post("/api/debts", async (req, res) => { 
@@ -340,11 +332,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (debt.type === 'hutang') { 
               newBalance -= payAmount; 
-              await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmount, category: 'Bayar Hutang', description: `Cicilan/Lunas ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
+              await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmount, category: 'Bayar Hutang', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
           } else { 
               newBalance += payAmount; 
-              await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmount, category: 'Piutang Dibayar', description: `Cicilan/Lunas dari ${debt.name.split('|')[0]}`, date: new Date() } as any); 
+              await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmount, category: 'Piutang Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]}`, date: new Date() } as any); 
           }
+          
+          // 🚀 LOGIKA BARU: Uang langsung masuk/keluar ke database kas dengan mutlak!
           await storage.updateUserBalance(user!.id, newBalance);
           
           const remaining = debt.amount - payAmount;
@@ -364,6 +358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/debts/:id", async (req, res) => { await storage.deleteDebt(parseInt(req.params.id)); res.json({success:true}); });
+  // =========================================================================
 
   app.get("/api/target", async (req, res) => { const user = await getUser(req); res.json(await storage.getTarget(user!.id) || {}); });
   app.patch("/api/target/penalty", async (req, res) => { const user = await getUser(req); try { await storage.updateTargetPenalty(user!.id, req.body.amount); res.json({success:true}); } catch(e) { res.status(500).send("Error"); } });
@@ -437,7 +432,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.createInvestment(user!.id, {userId: user!.id, symbol: symbol.toUpperCase(), quantity, avgPrice:price, type: typeLower} as any); 
           res.json({success:true}); 
       } catch (error: any) {
-          console.error("CRASH BELI ASET:", error);
           res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menyimpan aset." });
       }
   });
@@ -467,7 +461,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_sell', amount:totalSellPrice, category:'Jual Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`, date:new Date()} as any); 
           res.json({success:true}); 
       } catch (error: any) {
-          console.error("CRASH JUAL ASET:", error);
           res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menjual aset." });
       }
   });
@@ -526,12 +519,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   res.status(500).json({ error: "Sistem Midtrans gagal mengeluarkan QR Code." });
               }
           } else {
-              console.error("Midtrans Core Error:", data);
               res.status(400).json({ error: data.status_message || "Gagal memproses pembayaran." });
           }
 
       } catch (error: any) {
-          console.error("Sistem Midtrans Gagal:", error);
           res.status(500).json({ error: "Koneksi ke Midtrans terputus." });
       }
   });
@@ -550,39 +541,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   validUntil.setDate(validUntil.getDate() + 365);
                   
                   await storage.updateUserProStatus(userId, true, validUntil);
-                  console.log(`✅ PEMBAYARAN MIDTRANS LUNAS! User ID: ${userId} menjadi PRO.`);
               }
           }
           res.status(200).json({ success: true });
       } catch (error) {
-          console.error("Midtrans Webhook Error:", error);
           res.status(500).json({ error: "Webhook Gagal" });
       }
   });
 
-  app.post("/api/payment/webhook", async (req, res) => {
-      try {
-          const data = req.body;
-          if (data.status === 'SUCCESS' || data.status === 'PAID') {
-              const userId = parseInt(data.reference_id.split('-')[2]);
-              
-              const validUntil = new Date();
-              validUntil.setDate(validUntil.getDate() + 365);
-              
-              await storage.updateUserProStatus(userId, true, validUntil);
-              
-              console.log(`✅ PEMBAYARAN SUKSES! User ID: ${userId} menjadi PRO hingga ${validUntil.toLocaleDateString()}`);
-          }
-          res.json({ success: true });
-      } catch (error) {
-          console.error("Webhook Error:", error);
-          res.status(500).json({ error: "Webhook Failed" });
-      }
-  });
-
-  // ============================================================================
-  // 🚀 PENGINGAT NOTIFIKASI ONESIGNAL
-  // ============================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
@@ -641,7 +607,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
           }
 
-          // --- 2. PERSONALIZED 1-ON-1 PUSH NOTIFICATION (HUTANG & LANGGANAN) ---
           for (const user of allUsers) {
               if (!user.onesignalId) continue; 
 

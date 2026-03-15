@@ -6,7 +6,6 @@ import {
     CheckCircle2, Trash2, Plus, HandCoins, AlertCircle, X, Loader2, ArrowRight, HeartCrack
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-// 🚀 FIX: Import React Query Cache
 import { useQuery } from "@tanstack/react-query";
 
 interface DebtItem {
@@ -34,14 +33,12 @@ export default function Debts() {
   const [payModalOpen, setPayModalOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<DebtItem | null>(null);
   const [payAmount, setPayAmount] = useState("");
+  const [isPaying, setIsPaying] = useState(false);
 
   const { toast } = useToast();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
-  // =========================================================================
-  // 🚀 FIX MUTLAK: Gunakan useQuery Cache
-  // =========================================================================
   const { data: items = [], isLoading: isDebtsLoading, refetch: refetchDebts } = useQuery({
       queryKey: ['debts', currentUserEmail],
       queryFn: async () => {
@@ -67,7 +64,6 @@ export default function Debts() {
       refetchDebts();
       refetchRates();
   };
-  // =========================================================================
 
   const checkPaywall = () => {
       if (isTrialExpired) {
@@ -105,42 +101,34 @@ export default function Debts() {
           return; 
       }
       
+      setIsPaying(true);
+
       try {
-          if (nominal < selectedDebt.amount) {
-              const rate = (selectedDebt.name.split('|')[1] || 'IDR') === 'IDR' ? 1 : (forexRates[selectedDebt.name.split('|')[1]] || 1);
-              const idrNominal = nominal * rate;
-              const txType = selectedDebt.type === 'piutang' ? 'income' : 'expense';
-              
-              await fetch("/api/transactions", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ type: txType, amount: idrNominal, category: selectedDebt.type === 'piutang' ? "Penerimaan Piutang" : "Pembayaran Hutang", description: `Cicilan: ${selectedDebt.name.split('|')[0]}`, date: new Date() })
-              });
-              
-              await fetch(`/api/debts/${selectedDebt.id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
-              
-              const sisa = selectedDebt.amount - nominal;
-              await fetch("/api/debts", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ type: selectedDebt.type, name: selectedDebt.name, amount: sisa, dueDate: selectedDebt.dueDate, description: selectedDebt.description + ` (Sisa dari ${selectedDebt.amount})` })
-              });
-              
-              toast({ title: "Cicilan Berhasil!", description: `Sisa tagihan otomatis diperbarui.` }); 
+          const res = await fetch(`/api/debts/${selectedDebt.id}/pay`, { 
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ amount: nominal }) 
+          });
+
+          if (res.ok) {
+              if (nominal < selectedDebt.amount) {
+                  toast({ title: "Cicilan Berhasil!", description: `Sisa tagihan otomatis diperbarui dan Kas bertambah.` }); 
+              } else {
+                  toast({ title: "Lunas!", description: "Tagihan telah diselesaikan dan Kas bertambah." }); 
+              }
+              setPayModalOpen(false); setPayAmount(""); 
+              window.location.reload(); 
           } else {
-              await fetch(`/api/debts/${selectedDebt.id}/pay`, { 
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ amount: nominal }) 
-              });
-              toast({ title: "Lunas!", description: "Tagihan telah diselesaikan sepenuhnya." }); 
+              toast({ title: "Gagal memproses", variant: "destructive" });
           }
-          
-          setPayModalOpen(false); setPayAmount(""); fetchData(); 
-      } catch (e) { toast({ title: "Gagal memproses pembayaran.", variant: "destructive" }); }
+      } catch (e) { toast({ title: "Error Jaringan", variant: "destructive" }); }
+      finally { setIsPaying(false); }
   };
 
   const handleWriteOff = async () => {
       if (checkPaywall() || !selectedDebt) return;
       if (!confirm("Ikhlaskan piutang ini? Catatan akan dihapus dan nilai piutang dimasukkan sebagai 'Kerugian' di Laporan Anda.")) return;
       
+      setIsPaying(true);
       try {
           const rate = (selectedDebt.name.split('|')[1] || 'IDR') === 'IDR' ? 1 : (forexRates[selectedDebt.name.split('|')[1]] || 1);
           const idrNominal = selectedDebt.amount * rate;
@@ -158,8 +146,10 @@ export default function Debts() {
           });
           
           toast({ title: "Diikhlaskan", description: "Tercatat sebagai kerugian di Laporan." });
-          setPayModalOpen(false); fetchData();
+          setPayModalOpen(false); 
+          window.location.reload();
       } catch (e) { toast({ title: "Gagal memproses", variant: "destructive" }); }
+      finally { setIsPaying(false); }
   };
 
   const handleDelete = async (id: number) => {
@@ -197,10 +187,12 @@ export default function Debts() {
                     
                     <Input type="number" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(e.target.value)} className="h-14 font-bold text-lg mb-4"/>
                     
-                    <Button onClick={handlePay} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold mb-3 shadow-lg">KONFIRMASI PEMBAYARAN</Button>
+                    <Button onClick={handlePay} disabled={isPaying} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold mb-3 shadow-lg">
+                        {isPaying ? <Loader2 className="w-5 h-5 animate-spin"/> : "KONFIRMASI PEMBAYARAN"}
+                    </Button>
 
                     {activeTab === 'piutang' && (
-                        <Button variant="outline" onClick={handleWriteOff} className="w-full h-12 rounded-full border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-bold flex items-center justify-center gap-2 transition-colors">
+                        <Button variant="outline" onClick={handleWriteOff} disabled={isPaying} className="w-full h-12 rounded-full border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-bold flex items-center justify-center gap-2 transition-colors">
                             <HeartCrack className="w-4 h-4"/> IKHLASKAN (WRITE-OFF RUGI)
                         </Button>
                     )}
@@ -285,12 +277,14 @@ export default function Debts() {
                     const isForeign = curr !== 'IDR';
                     const totalIDR = item.amount * rate;
 
+                    const isCicilan = item.description?.includes('(Sisa dari');
+
                     return (
                         <div key={item.id} className={`bg-white p-5 rounded-[24px] border shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex justify-between items-center transition-all ${item.isPaid ? 'opacity-60 border-slate-100' : (activeTab === 'piutang' ? 'border-emerald-50' : 'border-rose-50')}`}>
                             <div className="flex-1 mr-4">
                                 <div className="flex items-center gap-2 mb-1">
                                     <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${item.isPaid ? 'bg-slate-100 text-slate-500' : (activeTab === 'piutang' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700')}`}>
-                                        {item.isPaid ? 'LUNAS' : 'BELUM LUNAS'}
+                                        {item.isPaid ? 'LUNAS' : (isCicilan ? 'DICICIL' : 'BELUM LUNAS')}
                                     </span>
                                     <span className="font-extrabold text-slate-800 text-base">{displayName}</span>
                                 </div>
@@ -311,7 +305,7 @@ export default function Debts() {
                                 </div>
 
                                 <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1 mt-2">
-                                    <Calendar className="w-3 h-3"/> Tempo: {item.dueDate || "-"} 
+                                    <Calendar className="w-3 h-3"/> Tempo: {item.dueDate ? new Date(item.dueDate).toLocaleDateString('id-ID') : "-"} 
                                     {item.description && <span className="ml-1 text-slate-400 truncate max-w-[120px]">• {item.description}</span>}
                                 </div>
                             </div>

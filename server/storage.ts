@@ -39,7 +39,6 @@ export interface IStorage {
 
   getCategories(userId: number): Promise<Category[]>;
   createCategory(category: InsertCategory): Promise<Category>;
-  // 🚀 FIX: Deklarasi fungsi hapus kategori
   deleteCategory(id: number): Promise<void>;
 
   getForexAssets(userId: number): Promise<ForexAsset[]>;
@@ -203,7 +202,6 @@ export class DatabaseStorage implements IStorage {
       return category;
   }
 
-  // 🚀 FIX: Implementasi fungsi hapus kategori yang hilang
   async deleteCategory(id: number): Promise<void> {
       await db.delete(categories).where(eq(categories.id, id));
   }
