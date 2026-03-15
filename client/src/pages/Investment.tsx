@@ -5,7 +5,6 @@ import { Button, Input, CurrencyInput } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
 import { useUser, useInvestments } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
-// 🚀 FIX: Import React Query Cache
 import { useQuery } from "@tanstack/react-query";
 
 type AssetType = 'saham' | 'crypto' | 'reksadana' | 'obligasi' | 'p2p' | 'emas' | 'properti' | 'koleksi';
@@ -19,13 +18,10 @@ export default function Investment() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: user, isLoading: isUserLoading } = useUser();
-  const { data: portfolio = [], isLoading: isInvLoading } = useInvestments();
+  const { data: portfolioRaw = [], isLoading: isInvLoading } = useInvestments();
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
-  // =========================================================================
-  // 🚀 FIX MUTLAK: Gunakan useQuery Cache untuk Valas di Investment
-  // =========================================================================
   const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
       queryKey: ['forexRates', currentUserEmail],
       queryFn: async () => {
@@ -36,8 +32,6 @@ export default function Investment() {
   });
 
   const availableCurrencies = Object.keys(forexRates);
-  // =========================================================================
-
   const fcf = user?.cashBalance || 0; 
 
   const [inputName, setInputName] = useState("");
@@ -59,9 +53,20 @@ export default function Investment() {
       koleksi: { label: 'Koleksi', unit: 'Item', icon: Briefcase, color: 'text-rose-600', bg: 'bg-rose-100' },
   };
 
+  // 🚀 FIX BUG 3 (UI): GABUNGKAN BARIS ASET YANG SAMA DI PORTFOLIO
+  const aggregatedPortfolio = Object.values(portfolioRaw.reduce((acc, p: any) => {
+      if (!acc[p.symbol]) { acc[p.symbol] = { ...p, quantity: 0, totalVal: 0 }; }
+      acc[p.symbol].quantity += p.quantity;
+      acc[p.symbol].totalVal += (p.quantity * p.avgPrice);
+      return acc;
+  }, {} as Record<string, any>)).map((g: any) => ({
+      ...g,
+      avgPrice: g.quantity > 0 ? (g.totalVal / g.quantity) : 0
+  }));
+
   const getFilteredPortfolio = () => {
-      if (!activeCategory) return portfolio;
-      return portfolio.filter(p => {
+      if (!activeCategory) return aggregatedPortfolio;
+      return aggregatedPortfolio.filter(p => {
           if (p.type) return p.type.toLowerCase() === activeCategory.toLowerCase();
           const [sym] = (p.symbol||"").split('|');
           const isLegacyStock = sym.length === 4 && !sym.includes(" ");
@@ -77,14 +82,12 @@ export default function Investment() {
       const [sym, curr] = (p.symbol||"").split('|');
       const actualCurr = curr || 'IDR';
       const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || 1);
-      
       const isStock = p.type?.toLowerCase() === 'saham' || (!p.type && sym.length === 4);
       const multiplier = (isStock && actualCurr === 'IDR') ? 100 : 1; 
-      
       return p.quantity * (p.avgPrice || 0) * multiplier * rate;
   };
 
-  const totalPortfolioValue = portfolio.reduce((acc, p) => acc + calculateLiveValue(p), 0);
+  const totalPortfolioValue = aggregatedPortfolio.reduce((acc, p) => acc + calculateLiveValue(p), 0);
   const categoryValue = filteredItems.reduce((acc, p) => acc + calculateLiveValue(p), 0);
 
   const handleTransaction = async () => {
@@ -151,7 +154,7 @@ export default function Investment() {
     let ownedQty = 0;
 
     if (txType === 'SELL' && selectedSellSymbol) {
-        const asset = portfolio.find(p => p.symbol === selectedSellSymbol);
+        const asset = aggregatedPortfolio.find(p => p.symbol === selectedSellSymbol);
         if (asset) {
             ownedQty = asset.quantity;
             if (qtyNum > ownedQty) isSellOverLimit = true;
@@ -185,7 +188,7 @@ export default function Investment() {
            ) : (
               <select className="w-full h-14 px-4 border-transparent rounded-[20px] bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 uppercase font-bold text-slate-700 outline-none transition-all" onChange={e => {
                   setSelectedSellSymbol(e.target.value);
-                  const p = portfolio.find(x => x.symbol === e.target.value);
+                  const p = aggregatedPortfolio.find(x => x.symbol === e.target.value);
                   if (p) {
                       const [, c] = p.symbol.split('|');
                       setInputCurrency(c || 'IDR');
@@ -240,7 +243,6 @@ export default function Investment() {
     )
   };
 
-  // 🚀 FIX: Palang Pintu Loading Data
   if (isUserLoading || isInvLoading || isRatesLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -258,7 +260,6 @@ export default function Investment() {
           </Button>
        )}
 
-       {/* --- 1. HALAMAN UTAMA --- */}
        {viewState === 'main' ? (
           <div className="space-y-6 mt-2 animate-in fade-in duration-500 px-1">
              <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 text-white p-6 rounded-[32px] shadow-xl shadow-indigo-200 relative overflow-hidden group">
@@ -297,7 +298,6 @@ export default function Investment() {
              </div>
           </div>
 
-       /* --- 2. HALAMAN DETAIL PER JENIS --- */
        ) : (
           <div className="animate-in slide-in-from-right duration-300 px-1">
              <div className={`mb-6 rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden ${activeCategory ? assetConfig[activeCategory].bg.replace('100', '500') : 'bg-slate-800'}`}>

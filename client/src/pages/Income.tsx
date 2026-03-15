@@ -64,7 +64,7 @@ export default function Income() {
               date: new Date().toISOString() 
           });
       } else {
-          // 🚀 FIX BUG: MENGIRIM isFromTransaction AGAR KAS TIDAK BOCOR!
+          // 🚀 FIX BUG 4: Kirim isFromTransaction: true agar API debts tidak menambah Kas Tunai
           await fetch("/api/debts", {
               method: "POST", 
               headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },

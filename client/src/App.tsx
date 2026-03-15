@@ -8,40 +8,21 @@ import { useNotifications } from "./hooks/useNotifications";
 import { useUser } from "./hooks/use-finance"; 
 
 // =========================================================================
-// 🚀 FIX MUTLAK: MATIKAN SEMUA REFETCH OTOMATIS SAAT APLIKASI DIBUKA KEMBALI
+// 🚀 FIX MUTLAK: KUNCI MEMORI 1 JAM AGAR ANGKA TIDAK BERKEDIP SAAT PINDAH HALAMAN
 // =========================================================================
 queryClient.setDefaultOptions({
   queries: {
     refetchOnWindowFocus: false, 
     refetchOnMount: false,
-    refetchOnReconnect: false, // Jangan narik data ulang saat sinyal ganti
-    staleTime: 1000 * 60 * 60, // KUNCI DATA 1 JAM! Mencegah UI angka berkedip/delay
+    refetchOnReconnect: false, 
+    staleTime: 1000 * 60 * 60, 
   },
 });
 
-import NotFound from "@/pages/not-found";
-import Security from "./pages/Security";
-import Home from "@/pages/Home";
-import Target from "@/pages/Target";
-import Income from "@/pages/Income";
-import Expense from "@/pages/Expense";
-import Reports from "@/pages/Reports";
-import Investment from "@/pages/Investment";
-import Forex from "@/pages/Forex";
-import Subscriptions from "@/pages/Subscriptions";
-import Categories from "@/pages/Categories";
-import Auth from "@/pages/Auth";
-import ChatAI from "@/pages/ChatAI";
-import Profile from "@/pages/Profile";
-import Performance from "@/pages/Performance";
-import Paywall from "@/pages/Paywall";
-import Debts from "@/pages/Debts"; 
-import SmartScan from "@/pages/SmartScan"; 
-
 // =========================================================================
-// 🚀 FIX MUTLAK: PINDAHKAN INTERCEPTOR API KE AREA GLOBAL (LUAR KOMPONEN)
-// Agar KTP (Email) langsung terbaca SEBELUM React Query nge-fetch data pertama kali!
-// Ini akan memusnahkan Bug "Saldo 0 Semua Saat Refresh" secara permanen.
+// 🚀 PENGAMAN GANDA (FETCH & AXIOS): DILETAKKAN DI LUAR KOMPONEN!
+// Menjamin "KTP Email" tertempel SEBELUM komponen apapun sempat memuat data.
+// Ini memusnahkan Bug "Saldo 0" / "Akun Guest" secara permanen!
 // =========================================================================
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
@@ -64,13 +45,55 @@ window.fetch = async (input, init = {}) => {
   return originalFetch(input, init);
 };
 
+// Tangkap request jika aplikasi menggunakan Axios di bawah kap
+const originalXhrOpen = XMLHttpRequest.prototype.open;
+const originalXhrSend = XMLHttpRequest.prototype.send;
+
+// @ts-ignore
+XMLHttpRequest.prototype.open = function(method: string, url: string, ...args: any[]) {
+    (this as any)._url = url;
+    return originalXhrOpen.apply(this, [method, url, ...args] as any);
+};
+
+// @ts-ignore
+XMLHttpRequest.prototype.send = function(...args: any[]) {
+    if ((this as any)._url && typeof (this as any)._url === 'string' && (this as any)._url.startsWith('/api')) {
+        const email = localStorage.getItem("bilano_email");
+        if (email) {
+            this.setRequestHeader('x-user-email', email);
+        }
+    }
+    return originalXhrSend.apply(this, args as any);
+};
+// =========================================================================
+
+import NotFound from "@/pages/not-found";
+import Security from "./pages/Security";
+import Home from "@/pages/Home";
+import Target from "@/pages/Target";
+import Income from "@/pages/Income";
+import Expense from "@/pages/Expense";
+import Reports from "@/pages/Reports";
+import Investment from "@/pages/Investment";
+import Forex from "@/pages/Forex";
+import Subscriptions from "@/pages/Subscriptions";
+import Categories from "@/pages/Categories";
+import Auth from "@/pages/Auth";
+import ChatAI from "@/pages/ChatAI";
+import Profile from "@/pages/Profile";
+import Performance from "@/pages/Performance";
+import Paywall from "@/pages/Paywall";
+import Debts from "@/pages/Debts"; 
+import SmartScan from "@/pages/SmartScan"; 
+
 function Router() {
   const [location, setLocation] = useLocation();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
+  const [isSessionRefreshing, setIsSessionRefreshing] = useState(false); 
 
   // =======================================================
-  // 🚀 SENSOR AUTO-REFRESH 15 MENIT (APP LIFECYCLE TRACKER)
+  // 🚀 SENSOR AUTO-REFRESH 15 MENIT DENGAN LAYAR LOADING INSTAN
   // =======================================================
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -86,7 +109,20 @@ function Router() {
 
           if (now - lastActive >= FIFTEEN_MINUTES_IN_MS) {
             localStorage.setItem('bilano_last_active_time', now.toString()); 
-            window.location.href = "/"; 
+            
+            // 1. Tampilkan layar loading SEKETIKA (Menutupi UI yang kaku)
+            setIsSessionRefreshing(true);
+            
+            // 2. Kosongkan cache lama yang mungkin rusak
+            queryClient.clear();
+            
+            // 3. Arahkan ke Home
+            setLocation("/");
+
+            // 4. Paksa hard-reload setelah jeda animasi (agar fresh 100%)
+            setTimeout(() => {
+               window.location.reload();
+            }, 600);
           }
         }
       }
@@ -98,10 +134,10 @@ function Router() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [setLocation]);
 
   // =======================================================
-  // 🚀 VIP UNLOCKER (JALUR RESMI REACT - ANTI CRASH & ANTI JADUL)
+  // 🚀 VIP UNLOCKER (JALUR RESMI DATABASE)
   // =======================================================
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
@@ -123,7 +159,6 @@ function Router() {
           localStorage.removeItem("bilano_pro");
       }
   }, [user, currentUserEmail]);
-  // =======================================================
 
   useNotifications();
 
@@ -147,6 +182,17 @@ function Router() {
       window.removeEventListener('trigger-paywall-lock', handleCustomLock);
     };
   }, [location, setLocation]);
+
+  // 🚀 LAYAR LOADING PENUH SAAT AUTO-REFRESH 15 MENIT
+  if (isSessionRefreshing) {
+    return (
+      <div className="fixed inset-0 z-[999999] bg-slate-900 flex flex-col items-center justify-center text-white animate-in fade-in duration-200">
+         <RefreshCw className="w-12 h-12 text-indigo-500 animate-spin mb-6" />
+         <h2 className="text-2xl font-extrabold mb-2 tracking-tight">Menyegarkan Sesi...</h2>
+         <p className="text-sm text-slate-400 font-medium">Sinkronisasi data terbaru Anda.</p>
+      </div>
+    );
+  }
 
   if (isOffline) {
     return (
