@@ -65,9 +65,10 @@ export default function Debts() {
       refetchRates();
   };
 
+  // 🚀 FIX MUTLAK: Gunakan Modal 2 Tombol Global yang Elegan
   const checkPaywall = () => {
       if (isTrialExpired) {
-          if (confirm("Masa Coba Habis! Fitur Hutang & Piutang eksklusif untuk member Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+          window.dispatchEvent(new Event('trigger-paywall-lock'));
           return true;
       }
       return false;

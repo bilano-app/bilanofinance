@@ -22,7 +22,6 @@ export default function Expense() {
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [emergencyDetails, setEmergencyDetails] = useState({ deficit: 0, nextMonthLimit: 0 });
 
-  // State untuk mode pembayaran Hutang
   const [paymentMode, setPaymentMode] = useState<'cash' | 'hutang'>('cash');
   const [debtName, setDebtName] = useState("");
 
@@ -34,8 +33,6 @@ export default function Expense() {
   const now = new Date();
   const currentMonthIdx = now.getMonth(); 
   const currentYear = now.getFullYear();
-  const currentUserEmail = localStorage.getItem("bilano_email") || "";
-  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   let remainingBudget = 0;     
   let budgetLabel = "Batas Bulan Ini";
@@ -69,12 +66,7 @@ export default function Expense() {
   }
 
   const handleSubmit = async (isEmergencyOverride = false) => {
-      // FIX: Paywall Premium Check
-      if (isTrialExpired) {
-          if (confirm("Masa Coba Habis! Menyimpan transaksi eksklusif untuk Premium. Buka kunci?")) window.location.href = "/paywall";
-          return;
-      }
-
+      // 🚀 FIX: Gembok Paywall Dilepas! Pengguna gratis bisa catat pengeluaran dengan bebas.
       const nominal = parseNumber(amountStr);
       if (!nominal || nominal <= 0) {
           toast({ title: "Error", description: "Isi nominal pengeluaran!", variant: "destructive" });
@@ -133,7 +125,6 @@ export default function Expense() {
                   toast({ title: "Tercatat!", description: "Pengeluaran berhasil disimpan." });
               }
           } else {
-              // 🚀 FIX BUG: MENGIRIM isFromTransaction AGAR KAS TIDAK BOCOR!
               await fetch("/api/debts", {
                   method: "POST", headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
                   body: JSON.stringify({ 
@@ -183,7 +174,6 @@ export default function Expense() {
     <MobileLayout title="Catat Pengeluaran" showBack>
       <div className="space-y-6 pt-4 relative pb-20 px-2">
         
-        {/* MODAL EMERGENCY OVERLAY */}
         {showEmergencyModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
                 <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl relative animate-in zoom-in-95">
@@ -236,7 +226,6 @@ export default function Expense() {
             </div>
         )}
 
-        {/* INFO SALDO UTAMA */}
         <div className="text-center space-y-2 animate-in slide-in-from-top-4 pb-4">
             <div className="inline-flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-full">
                 <Wallet className="w-3.5 h-3.5" /> Saldo Tunai (Cash)
@@ -245,7 +234,6 @@ export default function Expense() {
                 {formatRp(currentCash)}
             </div>
 
-            {/* INFO SISA BUDGET */}
             {target && target.monthlyBudget > 0 ? (
                 <div className={`mt-4 border p-3.5 rounded-[20px] shadow-sm max-w-[85%] mx-auto transition-colors ${remainingBudget < 0 ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-100'}`}>
                     <div className="flex justify-between items-center text-xs mb-1.5">
@@ -263,10 +251,8 @@ export default function Expense() {
             )}
         </div>
 
-        {/* FORM INPUT */}
         <div className="bg-white p-6 rounded-[32px] space-y-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
             
-            {/* TOGGLE TUNAI VS HUTANG */}
             <div className="flex bg-slate-100 p-1.5 rounded-xl">
                 <button onClick={() => setPaymentMode('cash')} className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${paymentMode === 'cash' ? 'bg-rose-500 text-white shadow' : 'text-slate-500'}`}>TUNAI (Cash)</button>
                 <button onClick={() => setPaymentMode('hutang')} className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${paymentMode === 'hutang' ? 'bg-amber-500 text-white shadow' : 'text-slate-500'}`}><HandCoins className="w-4 h-4"/> HUTANG (Ngutang Dulu)</button>

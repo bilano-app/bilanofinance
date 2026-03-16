@@ -35,9 +35,16 @@ window.fetch = async (input, init = {}) => {
   init.headers = newHeaders;
 
   const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
-  const isAuthRoute = url.includes('/api/auth');
+  
+  // 🚀 PENGECUALIAN AKSES (WHITELIST)
+  // Biarkan pengguna expired tetap bisa login, sinkronisasi notif, dan pakai Pemasukan/Pengeluaran!
+  const isAllowedRoute = url.includes('/api/auth') || 
+                         url.includes('/api/user/onesignal') || 
+                         url.includes('/api/transactions') || 
+                         url.includes('/api/debts') ||
+                         url.includes('/api/target/penalty');
 
-  if (isWriteAction && !isAuthRoute && localStorage.getItem('bilano_trial_expired') === 'true') {
+  if (isWriteAction && !isAllowedRoute && localStorage.getItem('bilano_trial_expired') === 'true') {
       window.dispatchEvent(new Event('trigger-paywall-lock'));
       return Promise.reject(new Error("TRIAL_EXPIRED_LOCKED")); 
   }
@@ -129,9 +136,6 @@ function Router() {
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
 
-  // =======================================================
-  // 🚀 FIX MUTLAK: PENUTUP KEBOCORAN AKUN PREMIUM & PENGUNCI OTOMATIS
-  // =======================================================
   useEffect(() => {
       const vipEmails = [
           "adrienfandra14@gmail.com", 
@@ -140,27 +144,22 @@ function Router() {
       
       if (!currentUserEmail) return;
 
-      // JIKA USER ADALAH PRO ATAU VIP
       if (vipEmails.includes(currentUserEmail) || user?.isPro) {
           localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           localStorage.setItem("bilano_trial_expired", "false");
           localStorage.setItem("bilano_pro", "true");
       } 
-      // JIKA USER BUKAN PRO (PENGGUNA GRATIS / TRIAL)
       else if (user && !user.isPro) {
-          localStorage.removeItem("bilano_pro"); // Cabut stempel Pro
+          localStorage.removeItem("bilano_pro"); 
           
-          // MENGHITUNG MASA COBA (3 HARI) LANGSUNG DARI JANTUNG APLIKASI
           const startTime = new Date(user.createdAt || Date.now()).getTime();
           const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
           const TRIAL_DURATION_DAYS = 3;
 
           if (daysPassed >= TRIAL_DURATION_DAYS) {
-              // WAKTU HABIS! JEPRET SAKLAR KUNCI!
               localStorage.setItem("bilano_trial_expired", "true");
               localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "true");
           } else {
-              // WAKTU MASIH ADA
               localStorage.setItem("bilano_trial_expired", "false");
               localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           }
@@ -248,6 +247,7 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
 
+      {/* 🚀 MODAL PAYWALL BARU: 2 Tombol Elegan (Tidak Langsung Melempar User) */}
       {showPaywallAlert && (
         <div className="fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
             <div className="bg-white rounded-[24px] p-6 max-w-sm w-full shadow-2xl text-center border-t-8 border-rose-500 animate-in zoom-in-95">
@@ -256,18 +256,22 @@ function Router() {
                 </div>
                 <h3 className="text-xl font-extrabold text-slate-800 mb-2">Akses Terkunci</h3>
                 <p className="text-sm text-slate-600 mb-6 leading-relaxed font-medium">
-                    Anda tidak bisa melanjutkan karena masa percobaan gratis telah habis. Silakan{' '}
+                    Masa percobaan gratis Anda telah habis. Fitur ini eksklusif untuk pengguna Premium BILANO.
+                </p>
+                <div className="flex flex-col gap-3">
                     <button 
                         onClick={() => { setShowPaywallAlert(false); setLocation('/paywall'); }} 
-                        className="text-indigo-600 font-extrabold underline underline-offset-2 hover:text-indigo-800 cursor-pointer"
+                        className="w-full py-3.5 rounded-full bg-indigo-600 text-white font-extrabold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95"
                     >
-                        berlangganan
-                    </button> 
-                    {' '}untuk membuka semua fitur kembali.
-                </p>
-                <button onClick={() => setShowPaywallAlert(false)} className="w-full py-3.5 rounded-full bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors">
-                    Tutup
-                </button>
+                        BERLANGGANAN SEKARANG
+                    </button>
+                    <button 
+                        onClick={() => setShowPaywallAlert(false)} 
+                        className="w-full py-3.5 rounded-full bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
+                    >
+                        TUTUP
+                    </button>
+                </div>
             </div>
         </div>
       )}

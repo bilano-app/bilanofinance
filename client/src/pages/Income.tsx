@@ -14,14 +14,11 @@ export default function Income() {
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // State untuk mode pembayaran Piutang
   const [paymentMode, setPaymentMode] = useState<'cash' | 'piutang'>('cash');
   const [debtName, setDebtName] = useState("");
 
   const formatRp = (val: number) => "Rp " + val.toLocaleString("id-ID");
   const currentCash = user?.cashBalance || 0;
-  const currentUserEmail = localStorage.getItem("bilano_email") || "";
-  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, "");
@@ -34,12 +31,7 @@ export default function Income() {
   };
 
   const handleSubmit = async () => {
-    // FIX: Paywall Premium Check
-    if (isTrialExpired) {
-        if (confirm("Masa Coba Habis! Menyimpan transaksi adalah fitur Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
-        return;
-    }
-
+    // 🚀 FIX: Gembok Paywall Dilepas! Pengguna gratis bisa catat pemasukan dengan bebas.
     const cleanAmount = parseInt(amountStr.replace(/\./g, ""), 10);
 
     if (!cleanAmount || cleanAmount <= 0) {
@@ -55,7 +47,6 @@ export default function Income() {
     setIsSubmitting(true);
     try {
       if (paymentMode === 'cash') {
-          // Normal Cash Income
           await addTransaction.mutateAsync({ 
               amount: cleanAmount, 
               type: "income", 
@@ -64,7 +55,6 @@ export default function Income() {
               date: new Date().toISOString() 
           });
       } else {
-          // 🚀 FIX BUG 4: Kirim isFromTransaction: true agar API debts tidak menambah Kas Tunai
           await fetch("/api/debts", {
               method: "POST", 
               headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
@@ -76,7 +66,6 @@ export default function Income() {
                   isFromTransaction: true
               })
           });
-          // Catat juga sebagai riwayat transaksi agar masuk chart tapi tidak menambah cash (gunakan category khusus)
           await addTransaction.mutateAsync({ 
               amount: cleanAmount, 
               type: "income", 
@@ -109,7 +98,6 @@ export default function Income() {
 
         <div className="bg-white p-6 rounded-[32px] space-y-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
             
-            {/* TOGGLE TUNAI VS PIUTANG */}
             <div className="flex bg-slate-100 p-1.5 rounded-xl">
                 <button onClick={() => setPaymentMode('cash')} className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${paymentMode === 'cash' ? 'bg-emerald-500 text-white shadow' : 'text-slate-500'}`}>TUNAI (Cash)</button>
                 <button onClick={() => setPaymentMode('piutang')} className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${paymentMode === 'piutang' ? 'bg-amber-500 text-white shadow' : 'text-slate-500'}`}><HandCoins className="w-4 h-4"/> PIUTANG (Belum Dibayar)</button>
