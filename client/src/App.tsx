@@ -20,8 +20,7 @@ queryClient.setDefaultOptions({
 });
 
 // =========================================================================
-// 🚀 FIX MUTLAK: PENGAMAN GANDA API (MENCEGAH CONTENT-TYPE HANCUR)
-// Menjamin KTP Email tertempel aman tanpa menghancurkan data header lain!
+// 🚀 PENGAMAN GANDA API (MENCEGAH CONTENT-TYPE HANCUR & LOCK PREMIUM)
 // =========================================================================
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
@@ -131,7 +130,7 @@ function Router() {
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
 
   // =======================================================
-  // 🚀 FIX MUTLAK: PENUTUP KEBOCORAN AKUN PREMIUM
+  // 🚀 FIX MUTLAK: PENUTUP KEBOCORAN AKUN PREMIUM & PENGUNCI OTOMATIS
   // =======================================================
   useEffect(() => {
       const vipEmails = [
@@ -141,14 +140,30 @@ function Router() {
       
       if (!currentUserEmail) return;
 
+      // JIKA USER ADALAH PRO ATAU VIP
       if (vipEmails.includes(currentUserEmail) || user?.isPro) {
           localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           localStorage.setItem("bilano_trial_expired", "false");
           localStorage.setItem("bilano_pro", "true");
       } 
+      // JIKA USER BUKAN PRO (PENGGUNA GRATIS / TRIAL)
       else if (user && !user.isPro) {
-          // JIKA USER SUDAH TERLOAD DAN DIA BUKAN PRO, CABUT STEMPELNYA PAKSA!
-          localStorage.removeItem("bilano_pro");
+          localStorage.removeItem("bilano_pro"); // Cabut stempel Pro
+          
+          // MENGHITUNG MASA COBA (3 HARI) LANGSUNG DARI JANTUNG APLIKASI
+          const startTime = new Date(user.createdAt || Date.now()).getTime();
+          const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
+          const TRIAL_DURATION_DAYS = 3;
+
+          if (daysPassed >= TRIAL_DURATION_DAYS) {
+              // WAKTU HABIS! JEPRET SAKLAR KUNCI!
+              localStorage.setItem("bilano_trial_expired", "true");
+              localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "true");
+          } else {
+              // WAKTU MASIH ADA
+              localStorage.setItem("bilano_trial_expired", "false");
+              localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
+          }
       }
   }, [user, currentUserEmail]);
 
