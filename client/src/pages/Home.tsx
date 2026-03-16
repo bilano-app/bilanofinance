@@ -49,6 +49,16 @@ export default function Home() {
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   
+  // =========================================================================
+  // 🚀 ANTI-GUEST FAILSAFE (RADAR PENDETEKSI KTP TERTINGGAL)
+  // =========================================================================
+  useEffect(() => {
+      if (rawEmail && user && user.username === 'guest') {
+          console.warn("⚠️ KTP Tertinggal! Sesi membaca akun Guest. Melakukan reload kilat...");
+          window.location.reload();
+      }
+  }, [user, rawEmail]);
+
   const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
       queryKey: ['forexRates', rawEmail],
       queryFn: async () => {
@@ -262,9 +272,20 @@ export default function Home() {
       setShowPermissionPrompt(false);
   };
 
+  // =========================================================================
+  // 🚀 PERHITUNGAN SALDO KAS UTAMA
+  // =========================================================================
   const cashRupiah = (user?.cashBalance || 0); 
   const forexValue = (forexAssets || []).reduce((acc, asset) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
   const totalBalance = cashRupiah + forexValue;
+
+  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE
+  const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
+  const getBalanceTextSize = (text: string) => {
+      if (text.length >= 20) return "text-2xl"; // >= Triliunan (Rp 1.000.000.000.000)
+      if (text.length >= 15) return "text-3xl"; // >= Puluhan/Ratusan Miliar (Rp 10.000.000.000)
+      return "text-4xl"; // Normal (Jutaan s.d Miliaran Kecil)
+  };
 
   useEffect(() => {
     if (target && target.targetAmount > 0 && totalBalance >= target.targetAmount) {
@@ -285,8 +306,6 @@ export default function Home() {
         localStorage.removeItem("bilano_email");
         sessionStorage.removeItem("bilano_session_unlocked");
         localStorage.removeItem("bilano_trial_expired"); 
-        
-        // 🚀 FIX: HAPUS SEMUA JEJAK PREMIUM AGAR TIDAK BOCOR KE AKUN LAIN
         localStorage.removeItem("bilano_pro"); 
         
         toast({ title: "Berhasil Keluar", description: "Sampai jumpa lagi!" });
@@ -349,8 +368,6 @@ export default function Home() {
 
   // =========================================================================
   // 🚀 PALANG PINTU 2: PENOLAK "SALDO 0 RUPIAH" (ANTI-COLD BOOT TIMEOUT)
-  // Jika mesin gagal memuat data karena server lambat bangun, kita tolak
-  // masuk ke Dashboard agar user tidak kaget melihat Rp 0.
   // =========================================================================
   if (!user || !transactions) {
       return (
@@ -597,9 +614,11 @@ export default function Home() {
                   </button>
               </div>
               
-              <h2 className="text-4xl font-extrabold tracking-tight text-white mb-6 drop-shadow-sm flex items-center h-10">
-                 {isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0]}
+              {/* 🚀 FIX: AUTO-SHRINK TEXT JIKA SALDO SANGAT BESAR AGAR TIDAK OFFSIDE */}
+              <h2 className={`${getBalanceTextSize(displayBalance)} font-extrabold tracking-tight text-white mb-6 drop-shadow-sm flex items-center h-10 whitespace-nowrap transition-all duration-300`}>
+                 {displayBalance}
               </h2>
+
               <div className="flex gap-3">
                   <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
                       <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
