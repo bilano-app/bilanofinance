@@ -20,10 +20,8 @@ queryClient.setDefaultOptions({
 });
 
 // =========================================================================
-// 🚀 PENGAMAN GANDA (FETCH & AXIOS): DILETAKKAN DI LUAR KOMPONEN GLOBAL!
-// Menjamin "KTP Email" tertempel SEBELUM komponen apapun sempat memuat data.
-// Menggunakan .includes('/api') agar URL lengkap juga tertangkap.
-// Ini memusnahkan Bug "Saldo 0 Semua" saat Cold Boot secara permanen!
+// 🚀 FIX MUTLAK: PENGAMAN GANDA API (MENCEGAH CONTENT-TYPE HANCUR)
+// Menjamin KTP Email tertempel aman tanpa menghancurkan data header lain!
 // =========================================================================
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
@@ -31,10 +29,11 @@ window.fetch = async (input, init = {}) => {
   const method = init.method ? init.method.toUpperCase() : 'GET';
   const email = localStorage.getItem("bilano_email");
 
-  // FIX: Gunakan includes, bukan startsWith
+  const newHeaders = new Headers(init.headers);
   if (email && url.includes('/api')) {
-    init.headers = { ...init.headers, 'x-user-email': email };
+    newHeaders.set('x-user-email', email);
   }
+  init.headers = newHeaders;
 
   const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
   const isAuthRoute = url.includes('/api/auth');
@@ -47,7 +46,6 @@ window.fetch = async (input, init = {}) => {
   return originalFetch(input, init);
 };
 
-// Tangkap request jika aplikasi menggunakan Axios di bawah kap
 const originalXhrOpen = XMLHttpRequest.prototype.open;
 const originalXhrSend = XMLHttpRequest.prototype.send;
 
@@ -94,9 +92,6 @@ function Router() {
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
   const [isSessionRefreshing, setIsSessionRefreshing] = useState(false); 
 
-  // =======================================================
-  // 🚀 SENSOR AUTO-REFRESH 15 MENIT DENGAN LAYAR LOADING INSTAN
-  // =======================================================
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
@@ -135,6 +130,9 @@ function Router() {
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
 
+  // =======================================================
+  // 🚀 FIX MUTLAK: PENUTUP KEBOCORAN AKUN PREMIUM
+  // =======================================================
   useEffect(() => {
       const vipEmails = [
           "adrienfandra14@gmail.com", 
@@ -148,7 +146,8 @@ function Router() {
           localStorage.setItem("bilano_trial_expired", "false");
           localStorage.setItem("bilano_pro", "true");
       } 
-      else {
+      else if (user && !user.isPro) {
+          // JIKA USER SUDAH TERLOAD DAN DIA BUKAN PRO, CABUT STEMPELNYA PAKSA!
           localStorage.removeItem("bilano_pro");
       }
   }, [user, currentUserEmail]);

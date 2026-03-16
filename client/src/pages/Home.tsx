@@ -49,19 +49,6 @@ export default function Home() {
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   
-  // =========================================================================
-  // 🚀 FIX MUTLAK: ANTI-GUEST FAILSAFE (RADAR PENDETEKSI KTP TERTINGGAL)
-  // Jika server terlanjur mengirim data 0 Rupiah (Guest) karena Bug Cold Boot, 
-  // aplikasi akan mereload kilat SEBELUM pengguna melihat layar!
-  // =========================================================================
-  useEffect(() => {
-      if (rawEmail && user && user.username === 'guest') {
-          console.warn("⚠️ KTP Tertinggal! Sesi membaca akun Guest. Melakukan reload kilat...");
-          window.location.reload();
-      }
-  }, [user, rawEmail]);
-  // =========================================================================
-
   const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
       queryKey: ['forexRates', rawEmail],
       queryFn: async () => {
@@ -299,6 +286,9 @@ export default function Home() {
         sessionStorage.removeItem("bilano_session_unlocked");
         localStorage.removeItem("bilano_trial_expired"); 
         
+        // 🚀 FIX: HAPUS SEMUA JEJAK PREMIUM AGAR TIDAK BOCOR KE AKUN LAIN
+        localStorage.removeItem("bilano_pro"); 
+        
         toast({ title: "Berhasil Keluar", description: "Sampai jumpa lagi!" });
         setLocation("/auth"); 
     } catch (error) { console.error(error); }
@@ -342,7 +332,9 @@ export default function Home() {
       );
   }
 
-  // 🚀 FIX: Jika user "Guest", jangan tampilkan UI sama sekali, tunggu Sensor reload berjalan!
+  // =========================================================================
+  // 🚀 PALANG PINTU 1: Menunggu Server Menarik Data
+  // =========================================================================
   if (isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading || (user && user.username === 'guest')) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
@@ -351,6 +343,28 @@ export default function Home() {
                   <Loader2 className="w-4 h-4 animate-spin"/>
                   <span>Memuat Data...</span>
               </div>
+          </div>
+      );
+  }
+
+  // =========================================================================
+  // 🚀 PALANG PINTU 2: PENOLAK "SALDO 0 RUPIAH" (ANTI-COLD BOOT TIMEOUT)
+  // Jika mesin gagal memuat data karena server lambat bangun, kita tolak
+  // masuk ke Dashboard agar user tidak kaget melihat Rp 0.
+  // =========================================================================
+  if (!user || !transactions) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4 text-center animate-in fade-in">
+              <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                  <AlertTriangle className="w-10 h-10 text-amber-500" />
+              </div>
+              <h2 className="text-xl font-extrabold text-slate-800 mb-2">Membangunkan Server...</h2>
+              <p className="text-sm text-slate-500 mb-8 max-w-[280px] leading-relaxed font-medium">
+                  Sistem mendeteksi server utama sedang dipulihkan dari mode istirahat. Harap tunggu sebentar, data Anda sangat aman di brankas kami.
+              </p>
+              <Button onClick={() => window.location.reload()} className="h-14 px-8 rounded-full font-extrabold bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 flex items-center gap-2">
+                  <RefreshCcw className="w-5 h-5"/> MUAT ULANG SEKARANG
+              </Button>
           </div>
       );
   }
