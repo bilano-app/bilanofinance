@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Card } from "@/components/UIComponents";
 import { useUser, useTransactions, useTarget, useInvestments } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2 } from "lucide-react";
 import { Link } from "wouter";
-import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
 export default function Performance() {
@@ -13,7 +12,6 @@ export default function Performance() {
   const { data: transactions, isLoading: isTxLoading } = useTransactions();
   const { data: target, isLoading: isTargetLoading } = useTarget();
   const { data: investments, isLoading: isInvLoading } = useInvestments(); 
-  const { toast } = useToast();
 
   const now = new Date();
   const currentMonthIdx = now.getMonth();
@@ -49,42 +47,6 @@ export default function Performance() {
       },
       enabled: !!userEmail
   });
-
-  // =========================================================================
-  // 🚀 ROBOT PENYEMBUH (AUTO-HEALER): MENGEMBALIKAN UANG & GRAFIK PERFORMANCE
-  // =========================================================================
-  useEffect(() => {
-      const healBug = async () => {
-          const healed = localStorage.getItem("bug_piutang_healed_v3");
-          if (healed === "true" || !transactions || transactions.length === 0) return;
-
-          // Cari transaksi "Beri Pinjaman" yang menguapkan uang Anda
-          const bugTx = transactions.find((t: any) =>
-              (t.category === 'Beri Pinjaman' || t.category === 'Dapat Pinjaman') &&
-              t.description?.includes('(Sisa dari')
-          );
-
-          if (bugTx) {
-              try {
-                  // Hapus transaksi palsu tersebut agar sistem otomatis merefund uangnya ke Kas
-                  await fetch(`/api/transactions/${bugTx.id}`, {
-                      method: "DELETE",
-                      headers: { "x-user-email": userEmail }
-                  });
-                  localStorage.setItem("bug_piutang_healed_v3", "true");
-                  toast({
-                      title: "Performa Dipulihkan! 🛠️",
-                      description: "Uang Anda yang menguap telah dikembalikan 100% ke Kas. Grafik sudah Normal."
-                  });
-                  setTimeout(() => window.location.reload(), 1500);
-              } catch (e) { }
-          } else {
-              localStorage.setItem("bug_piutang_healed_v3", "true");
-          }
-      };
-      healBug();
-  }, [transactions, userEmail]);
-  // =========================================================================
 
   const forexValue = forexAssetsData.reduce((acc: number, asset: any) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
 

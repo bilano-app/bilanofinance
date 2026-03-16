@@ -8,7 +8,7 @@ import { useNotifications } from "./hooks/useNotifications";
 import { useUser } from "./hooks/use-finance"; 
 
 // =========================================================================
-// 🚀 FIX MUTLAK: KUNCI MEMORI 1 JAM AGAR ANGKA TIDAK BERKEDIP SAAT PINDAH HALAMAN
+// 🚀 FIX MUTLAK: KUNCI MEMORI 1 JAM AGAR ANGKA TIDAK BERKEDIP
 // =========================================================================
 queryClient.setDefaultOptions({
   queries: {
@@ -20,9 +20,10 @@ queryClient.setDefaultOptions({
 });
 
 // =========================================================================
-// 🚀 PENGAMAN GANDA (FETCH & AXIOS): DILETAKKAN DI LUAR KOMPONEN!
+// 🚀 PENGAMAN GANDA (FETCH & AXIOS): DILETAKKAN DI LUAR KOMPONEN GLOBAL!
 // Menjamin "KTP Email" tertempel SEBELUM komponen apapun sempat memuat data.
-// Ini memusnahkan Bug "Saldo 0" / "Akun Guest" secara permanen!
+// Menggunakan .includes('/api') agar URL lengkap juga tertangkap.
+// Ini memusnahkan Bug "Saldo 0 Semua" saat Cold Boot secara permanen!
 // =========================================================================
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
@@ -30,7 +31,8 @@ window.fetch = async (input, init = {}) => {
   const method = init.method ? init.method.toUpperCase() : 'GET';
   const email = localStorage.getItem("bilano_email");
 
-  if (email && url.startsWith('/api')) {
+  // FIX: Gunakan includes, bukan startsWith
+  if (email && url.includes('/api')) {
     init.headers = { ...init.headers, 'x-user-email': email };
   }
 
@@ -57,7 +59,7 @@ XMLHttpRequest.prototype.open = function(method: string, url: string, ...args: a
 
 // @ts-ignore
 XMLHttpRequest.prototype.send = function(...args: any[]) {
-    if ((this as any)._url && typeof (this as any)._url === 'string' && (this as any)._url.startsWith('/api')) {
+    if ((this as any)._url && typeof (this as any)._url === 'string' && (this as any)._url.includes('/api')) {
         const email = localStorage.getItem("bilano_email");
         if (email) {
             this.setRequestHeader('x-user-email', email);
@@ -110,16 +112,10 @@ function Router() {
           if (now - lastActive >= FIFTEEN_MINUTES_IN_MS) {
             localStorage.setItem('bilano_last_active_time', now.toString()); 
             
-            // 1. Tampilkan layar loading SEKETIKA (Menutupi UI yang kaku)
             setIsSessionRefreshing(true);
-            
-            // 2. Kosongkan cache lama yang mungkin rusak
             queryClient.clear();
-            
-            // 3. Arahkan ke Home
             setLocation("/");
 
-            // 4. Paksa hard-reload setelah jeda animasi (agar fresh 100%)
             setTimeout(() => {
                window.location.reload();
             }, 600);
@@ -136,9 +132,6 @@ function Router() {
     };
   }, [setLocation]);
 
-  // =======================================================
-  // 🚀 VIP UNLOCKER (JALUR RESMI DATABASE)
-  // =======================================================
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
 
@@ -183,7 +176,6 @@ function Router() {
     };
   }, [location, setLocation]);
 
-  // 🚀 LAYAR LOADING PENUH SAAT AUTO-REFRESH 15 MENIT
   if (isSessionRefreshing) {
     return (
       <div className="fixed inset-0 z-[999999] bg-slate-900 flex flex-col items-center justify-center text-white animate-in fade-in duration-200">

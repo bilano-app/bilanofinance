@@ -20,7 +20,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
 export default function Home() {
-  // 🚀 FIX: Tangkap semua parameter loading dari database!
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: transactions, isLoading: isTxLoading } = useTransactions();
   const { data: forexAssets, isLoading: isFxLoading } = useForexAssets(); 
@@ -48,8 +47,21 @@ export default function Home() {
   const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
 
-  const rawEmail = localStorage.getItem("bilano_email") || "";
+  const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   
+  // =========================================================================
+  // 🚀 FIX MUTLAK: ANTI-GUEST FAILSAFE (RADAR PENDETEKSI KTP TERTINGGAL)
+  // Jika server terlanjur mengirim data 0 Rupiah (Guest) karena Bug Cold Boot, 
+  // aplikasi akan mereload kilat SEBELUM pengguna melihat layar!
+  // =========================================================================
+  useEffect(() => {
+      if (rawEmail && user && user.username === 'guest') {
+          console.warn("⚠️ KTP Tertinggal! Sesi membaca akun Guest. Melakukan reload kilat...");
+          window.location.reload();
+      }
+  }, [user, rawEmail]);
+  // =========================================================================
+
   const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
       queryKey: ['forexRates', rawEmail],
       queryFn: async () => {
@@ -212,7 +224,6 @@ export default function Home() {
       setDueDynamicSub(null);
   };
 
-  // 🚀 FIX: Hitung umur Trial langsung dari Database (Bukan localStorage)
   useEffect(() => {
       if (isUserPro || !user) return;
       
@@ -234,41 +245,6 @@ export default function Home() {
           }
       }
   }, [target, isUserLoading, isTargetLoading, setLocation]);
-
-  // =========================================================================
-  // 🚀 ROBOT PENYEMBUH (AUTO-HEALER): MENGEMBALIKAN UANG 400K YANG HILANG
-  // =========================================================================
-  useEffect(() => {
-      const healBug = async () => {
-          const healed = localStorage.getItem("bug_piutang_healed_v3");
-          if (healed === "true" || !transactions || transactions.length === 0) return;
-
-          // Cari transaksi siluman yang menguapkan uang Anda
-          const bugTx = transactions.find((t: any) =>
-              (t.category === 'Beri Pinjaman' || t.category === 'Dapat Pinjaman') &&
-              t.description?.includes('(Sisa dari')
-          );
-
-          if (bugTx) {
-              try {
-                  await fetch(`/api/transactions/${bugTx.id}`, {
-                      method: "DELETE",
-                      headers: { "x-user-email": rawEmail }
-                  });
-                  localStorage.setItem("bug_piutang_healed_v3", "true");
-                  toast({
-                      title: "Saldo Kas Dipulihkan! 🛠️",
-                      description: "Uang Anda yang menguap akibat bug cicilan telah dikembalikan 100% ke Kas."
-                  });
-                  setTimeout(() => window.location.reload(), 1500);
-              } catch (e) { }
-          } else {
-              localStorage.setItem("bug_piutang_healed_v3", "true");
-          }
-      };
-      healBug();
-  }, [transactions, rawEmail]);
-  // =========================================================================
 
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
@@ -366,11 +342,8 @@ export default function Home() {
       );
   }
 
-  // =========================================================================
-  // 🚀 FIX MUTLAK: PALANG PINTU SEMPURNA
-  // Layar tidak akan mau tampil jika salah satu data ini belum matang!
-  // =========================================================================
-  if (isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading) {
+  // 🚀 FIX: Jika user "Guest", jangan tampilkan UI sama sekali, tunggu Sensor reload berjalan!
+  if (isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading || (user && user.username === 'guest')) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
               <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
@@ -381,7 +354,6 @@ export default function Home() {
           </div>
       );
   }
-  // =========================================================================
 
   return (
     <MobileLayout>
