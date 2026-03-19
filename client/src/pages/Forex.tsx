@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { 
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from "recharts";
-// 🚀 FIX: Import React Query Cache
 import { useQuery } from "@tanstack/react-query";
 
 const CURRENCY_LIST = [
@@ -62,10 +61,6 @@ export default function Forex() {
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
-  // =========================================================================
-  // 🚀 FIX MUTLAK: Mengganti useState manual dengan useQuery CACHE
-  // Mencegah loading delay dan data hilang saat pindah halaman
-  // =========================================================================
   const { data: rates = {}, isLoading: isRatesLoading, refetch: refetchRates } = useQuery({
       queryKey: ['forexRates', currentUserEmail],
       queryFn: async () => {
@@ -91,7 +86,6 @@ export default function Forex() {
       refetchRates();
       refetchAssets();
   };
-  // =========================================================================
 
   const filteredCurrencies = CURRENCY_LIST.filter(c => 
       c.code.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -230,6 +224,14 @@ export default function Forex() {
 
   const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
 
+  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE (VALAS)
+  const displayTotalValas = isTrialExpired ? "🔒 Premium" : formatRp(totalValasInRupiah);
+  const getBalanceTextSize = (text: string) => {
+      if (text.length >= 20) return "text-xl"; 
+      if (text.length >= 15) return "text-2xl"; 
+      return "text-3xl"; 
+  };
+
   if (isLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
@@ -252,8 +254,10 @@ export default function Forex() {
                     <p className="text-xs text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
                         <Globe className="w-3 h-3"/> Total Aset Asing (Estimasi)
                     </p>
-                    <h2 className="text-3xl font-bold text-emerald-400">
-                        {isTrialExpired ? "🔒 Premium" : formatRp(totalValasInRupiah)}
+                    
+                    {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
+                    <h2 className={`${getBalanceTextSize(displayTotalValas)} font-bold text-emerald-400 whitespace-nowrap transition-all duration-300`}>
+                        {displayTotalValas}
                     </h2>
                 </div>
                 <button onClick={fetchData} className={`p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all ${refreshing ? "animate-spin" : ""}`}>
@@ -266,7 +270,7 @@ export default function Forex() {
         <div>
             <div className="flex justify-between items-end mb-2 px-1">
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Live Market Rates</h3>
-                <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-1 rounded">Klik untuk Grafik 📈</span>
+                <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-1 rounded">Klik untuk Grafik 📊</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
                 {POPULAR_RATES.map(curr => (

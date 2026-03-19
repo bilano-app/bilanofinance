@@ -65,7 +65,6 @@ export default function Debts() {
       refetchRates();
   };
 
-  // 🚀 FIX MUTLAK: Gunakan Modal 2 Tombol Global yang Elegan
   const checkPaywall = () => {
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));
@@ -173,6 +172,14 @@ export default function Debts() {
 
   const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
 
+  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE
+  const displayTotalDebt = formatRp(totalAmountIDR);
+  const getBalanceTextSize = (text: string) => {
+      if (text.length >= 20) return "text-2xl"; 
+      if (text.length >= 15) return "text-3xl"; 
+      return "text-4xl"; 
+  };
+
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-indigo-500"/></div>;
 
   return (
@@ -220,7 +227,10 @@ export default function Debts() {
                     {activeTab === 'piutang' ? <HandCoins className="w-4 h-4"/> : <AlertCircle className="w-4 h-4"/>}
                     Total {activeTab === 'piutang' ? 'Uang di Orang (Piutang)' : 'Kewajiban (Hutang)'}
                 </p>
-                <h2 className="text-4xl font-extrabold tracking-tight">{formatRp(totalAmountIDR)}</h2>
+                {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
+                <h2 className={`${getBalanceTextSize(displayTotalDebt)} font-extrabold tracking-tight whitespace-nowrap transition-all duration-300`}>
+                    {displayTotalDebt}
+                </h2>
                 <p className="text-[10px] mt-2 opacity-80">*Mengikuti kurs live harian</p>
             </div>
             <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/10 rounded-tl-full pointer-events-none"></div>

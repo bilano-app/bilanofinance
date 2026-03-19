@@ -19,6 +19,8 @@ export default function Income() {
 
   const formatRp = (val: number) => "Rp " + val.toLocaleString("id-ID");
   const currentCash = user?.cashBalance || 0;
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, "");
@@ -31,7 +33,6 @@ export default function Income() {
   };
 
   const handleSubmit = async () => {
-    // 🚀 FIX: Gembok Paywall Dilepas! Pengguna gratis bisa catat pemasukan dengan bebas.
     const cleanAmount = parseInt(amountStr.replace(/\./g, ""), 10);
 
     if (!cleanAmount || cleanAmount <= 0) {
@@ -57,7 +58,7 @@ export default function Income() {
       } else {
           await fetch("/api/debts", {
               method: "POST", 
-              headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ 
                   type: 'piutang', 
                   name: `${debtName}|IDR`, 
@@ -84,6 +85,14 @@ export default function Income() {
     }
   };
 
+  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE
+  const displayBalance = formatRp(currentCash);
+  const getBalanceTextSize = (text: string) => {
+      if (text.length >= 20) return "text-2xl"; 
+      if (text.length >= 15) return "text-3xl"; 
+      return "text-4xl"; 
+  };
+
   if (isUserLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-emerald-500 w-8 h-8"/></div>;
 
   return (
@@ -93,7 +102,10 @@ export default function Income() {
             <div className="inline-flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-full">
                 <Wallet className="w-3.5 h-3.5" /> Saldo Tunai (Cash)
             </div>
-            <div className="text-4xl font-extrabold text-slate-800 tracking-tight">{formatRp(currentCash)}</div>
+            {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
+            <div className={`${getBalanceTextSize(displayBalance)} font-extrabold text-slate-800 tracking-tight whitespace-nowrap transition-all duration-300`}>
+                {displayBalance}
+            </div>
         </div>
 
         <div className="bg-white p-6 rounded-[32px] space-y-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">

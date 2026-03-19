@@ -161,6 +161,14 @@ export default function Performance() {
       return formatCurrency(val).split(",")[0];
   };
 
+  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE
+  const displayWealth = formatRp(currentWealth);
+  const getBalanceTextSize = (text: string) => {
+      if (text.length >= 20) return "text-2xl"; 
+      if (text.length >= 15) return "text-3xl"; 
+      return "text-4xl"; 
+  };
+
   if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading || isRatesLoading || isForexLoading || isDebtsLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
@@ -216,7 +224,10 @@ export default function Performance() {
                     )}
                 </div>
 
-                <h2 className="text-4xl font-extrabold font-display text-white truncate block w-full">{formatRp(currentWealth)}</h2>
+                {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
+                <h2 className={`${getBalanceTextSize(displayWealth)} font-extrabold font-display text-white block w-full whitespace-nowrap transition-all duration-300`}>
+                    {displayWealth}
+                </h2>
                 
                 <div className="flex flex-wrap gap-2 mt-4 text-[10px] font-bold">
                     <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Tunai: {formatRp(cashReal)}</span>

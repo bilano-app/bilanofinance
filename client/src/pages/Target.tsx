@@ -177,6 +177,14 @@ export default function Target() {
 
     const totalStart = cashPreview + totalForexInIDR + totalRecvInIDR + totalInvInIDR - totalDebtInIDR;
 
+    // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE (TARGET/ASET AWAL)
+    const displayTotalStart = formatRp(totalStart);
+    const getBalanceTextSize = (text: string) => {
+        if (text.length >= 20) return "text-xl"; 
+        if (text.length >= 15) return "text-2xl"; 
+        return "text-3xl"; 
+    };
+
     const startSetup = (mode: 'target' | 'saving') => {
         setIsTargetMode(mode === 'target');
         if (!isEditMode) {
@@ -301,7 +309,6 @@ export default function Target() {
                         </div>
                         
                         <div className="space-y-4 pt-4">
-                            {/* 🚀 PERUBAHAN UI: Badge "Direkomendasikan" melayang di Kanan Atas dan Berwarna Kuning Promo */}
                             <button onClick={() => startSetup('target')} className="relative w-full text-left p-5 border-2 border-indigo-200 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/50 bg-indigo-50/30 transition-all shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-start sm:items-center gap-4 group">
                                 <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md border border-yellow-300 flex items-center gap-1">
                                     Direkomendasikan
@@ -487,7 +494,11 @@ export default function Target() {
 
                             <div className="bg-slate-900 text-white p-5 rounded-[24px] shadow-lg flex flex-col items-center justify-center mt-2">
                                 <span className="text-[11px] uppercase tracking-widest font-bold text-slate-400 mb-1">Estimasi Kekayaan Bersih</span>
-                                <span className={`font-extrabold text-3xl ${totalStart >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{formatRp(totalStart)}</span>
+                                
+                                {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
+                                <span className={`font-extrabold ${getBalanceTextSize(displayTotalStart)} ${totalStart >= 0 ? 'text-emerald-400' : 'text-rose-400'} whitespace-nowrap transition-all duration-300`}>
+                                    {displayTotalStart}
+                                </span>
                             </div>
 
                         </div>

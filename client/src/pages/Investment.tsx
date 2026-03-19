@@ -53,7 +53,6 @@ export default function Investment() {
       koleksi: { label: 'Koleksi', unit: 'Item', icon: Briefcase, color: 'text-rose-600', bg: 'bg-rose-100' },
   };
 
-  // 🚀 FIX BUG 3 (UI): GABUNGKAN BARIS ASET YANG SAMA DI PORTFOLIO
   const aggregatedPortfolio = Object.values(portfolioRaw.reduce((acc, p: any) => {
       if (!acc[p.symbol]) { acc[p.symbol] = { ...p, quantity: 0, totalVal: 0 }; }
       acc[p.symbol].quantity += p.quantity;
@@ -89,6 +88,15 @@ export default function Investment() {
 
   const totalPortfolioValue = aggregatedPortfolio.reduce((acc, p) => acc + calculateLiveValue(p), 0);
   const categoryValue = filteredItems.reduce((acc, p) => acc + calculateLiveValue(p), 0);
+
+  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE (INVESTASI)
+  const displayTotalPortfolio = formatRp(totalPortfolioValue);
+  const displayCategoryValue = formatRp(categoryValue);
+  const getBalanceTextSize = (text: string, defaultSize: string) => {
+      if (text.length >= 20) return "text-2xl"; 
+      if (text.length >= 15) return "text-3xl"; 
+      return defaultSize; 
+  };
 
   const handleTransaction = async () => {
     if (!inputPrice || !inputQty) return;
@@ -265,7 +273,12 @@ export default function Investment() {
              <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 text-white p-6 rounded-[32px] shadow-xl shadow-indigo-200 relative overflow-hidden group">
                 <div className="relative z-10">
                     <p className="text-[11px] font-bold text-indigo-200 mb-1 uppercase tracking-widest">Total Semua Aset</p>
-                    <h2 className="text-4xl font-extrabold tracking-tight mb-4">{formatRp(totalPortfolioValue)}</h2>
+                    
+                    {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
+                    <h2 className={`${getBalanceTextSize(displayTotalPortfolio, "text-4xl")} font-extrabold tracking-tight mb-4 whitespace-nowrap transition-all duration-300`}>
+                        {displayTotalPortfolio}
+                    </h2>
+                    
                     <p className="text-[10px] opacity-80 mt-[-10px] mb-4">*Fluktuasi mengikuti kurs mata uang</p>
                     <div className="inline-flex items-center gap-2 text-xs font-bold bg-white/10 px-4 py-2 rounded-full backdrop-blur-md">
                        <span>Dana Tunai:</span>
@@ -309,7 +322,12 @@ export default function Investment() {
                            })()}
                            <span className="text-[11px] uppercase font-bold tracking-widest">Portfolio {activeCategory}</span>
                        </div>
-                       <h2 className="text-3xl font-extrabold tracking-tight">{formatRp(categoryValue)}</h2>
+                       
+                       {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI JUGA */}
+                       <h2 className={`${getBalanceTextSize(displayCategoryValue, "text-3xl")} font-extrabold tracking-tight whitespace-nowrap transition-all duration-300`}>
+                           {displayCategoryValue}
+                       </h2>
+                       
                    </div>
                    <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/10 rounded-tl-full pointer-events-none"></div>
              </div>

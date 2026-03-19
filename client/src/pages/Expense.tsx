@@ -33,6 +33,8 @@ export default function Expense() {
   const now = new Date();
   const currentMonthIdx = now.getMonth(); 
   const currentYear = now.getFullYear();
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   let remainingBudget = 0;     
   let budgetLabel = "Batas Bulan Ini";
@@ -66,7 +68,6 @@ export default function Expense() {
   }
 
   const handleSubmit = async (isEmergencyOverride = false) => {
-      // 🚀 FIX: Gembok Paywall Dilepas! Pengguna gratis bisa catat pengeluaran dengan bebas.
       const nominal = parseNumber(amountStr);
       if (!nominal || nominal <= 0) {
           toast({ title: "Error", description: "Isi nominal pengeluaran!", variant: "destructive" });
@@ -113,7 +114,7 @@ export default function Expense() {
                           method: "PATCH",
                           headers: { 
                               "Content-Type": "application/json",
-                              "x-user-email": localStorage.getItem("bilano_email") || "" 
+                              "x-user-email": currentUserEmail 
                           },
                           body: JSON.stringify({ amount: emergencyDetails.deficit })
                       });
@@ -126,7 +127,7 @@ export default function Expense() {
               }
           } else {
               await fetch("/api/debts", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "" },
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
                   body: JSON.stringify({ 
                       type: 'hutang', 
                       name: `${debtName}|IDR`, 
@@ -157,6 +158,14 @@ export default function Expense() {
   };
 
   const currentCash = user?.cashBalance || 0;
+
+  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE
+  const displayBalance = formatRp(currentCash);
+  const getBalanceTextSize = (text: string) => {
+      if (text.length >= 20) return "text-2xl"; 
+      if (text.length >= 15) return "text-3xl"; 
+      return "text-4xl"; 
+  };
 
   if (isUserLoading || isTargetLoading || isTxLoading) {
       return (
@@ -230,8 +239,9 @@ export default function Expense() {
             <div className="inline-flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-full">
                 <Wallet className="w-3.5 h-3.5" /> Saldo Tunai (Cash)
             </div>
-            <div className="text-4xl font-extrabold text-slate-800 tracking-tight">
-                {formatRp(currentCash)}
+            {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
+            <div className={`${getBalanceTextSize(displayBalance)} font-extrabold text-slate-800 tracking-tight whitespace-nowrap transition-all duration-300`}>
+                {displayBalance}
             </div>
 
             {target && target.monthlyBudget > 0 ? (
