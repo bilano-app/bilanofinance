@@ -722,6 +722,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // =========================================================================
+  // 🚀 ROUTE ADMIN SULTAN (HANYA BISA DIAKSES EMAIL BOS ADRIEN)
+  // =========================================================================
+  const isAdminValid = (email: string) => ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(email);
+
+  app.get("/api/admin/users", async (req, res) => {
+      const email = req.headers["x-user-email"] as string;
+      if (!isAdminValid(email)) return res.status(403).json({ error: "Penyusup Ditolak" });
+      
+      const allUsers = await storage.getAllUsers();
+      // Filter password agar aman saat dikirim ke frontend
+      const safeUsers = allUsers.map(u => ({
+          id: u.id, 
+          username: u.username, 
+          email: u.email,
+          isPro: u.isPro, 
+          proValidUntil: u.proValidUntil, 
+          createdAt: u.createdAt
+      })).sort((a,b) => b.id - a.id); // Urutkan dari yang terbaru
+      
+      res.json(safeUsers);
+  });
+
+  app.patch("/api/admin/users/:id/pro", async (req, res) => {
+      const email = req.headers["x-user-email"] as string;
+      if (!isAdminValid(email)) return res.status(403).json({ error: "Penyusup Ditolak" });
+
+      const targetId = parseInt(req.params.id);
+      const { isPro } = req.body;
+
+      let validUntil = null;
+      if (isPro) {
+          validUntil = new Date();
+          validUntil.setFullYear(validUntil.getFullYear() + 1); // Langsung kasih 1 Tahun
+      }
+
+      await storage.updateUserProStatus(targetId, isPro, validUntil);
+      res.json({ success: true });
+  });
+  // =========================================================================
+
   const httpServer = createServer(app);
   return httpServer;
 }
