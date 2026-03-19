@@ -725,24 +725,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =========================================================================
   // 🚀 ROUTE ADMIN SULTAN (HANYA BISA DIAKSES EMAIL BOS ADRIEN)
   // =========================================================================
-  const isAdminValid = (email: string) => ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(email);
+const isAdminValid = (email: string) => {
+      if (!email) return false;
+      return ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(email.toLowerCase());
+  };
 
   app.get("/api/admin/users", async (req, res) => {
-      const email = req.headers["x-user-email"] as string;
-      if (!isAdminValid(email)) return res.status(403).json({ error: "Penyusup Ditolak" });
-      
-      const allUsers = await storage.getAllUsers();
-      // Filter password agar aman saat dikirim ke frontend
-      const safeUsers = allUsers.map(u => ({
-          id: u.id, 
-          username: u.username, 
-          email: u.email,
-          isPro: u.isPro, 
-          proValidUntil: u.proValidUntil, 
-          createdAt: u.createdAt
-      })).sort((a,b) => b.id - a.id); // Urutkan dari yang terbaru
-      
-      res.json(safeUsers);
+      try {
+          const email = req.headers["x-user-email"] as string;
+          if (!isAdminValid(email)) return res.status(403).json({ error: "Penyusup Ditolak" });
+          
+          const allUsers = await storage.getAllUsers();
+          const safeUsers = allUsers.map(u => ({
+              id: u.id, 
+              username: u.username, 
+              email: u.email,
+              isPro: u.isPro, 
+              proValidUntil: u.proValidUntil, 
+              createdAt: u.createdAt
+          })).sort((a,b) => b.id - a.id); 
+          
+          res.json(safeUsers);
+      } catch (error) {
+          console.error("Gagal menarik data user:", error);
+          res.status(500).json({ error: "Fungsi getAllUsers belum ditambahkan di storage.ts" });
+      }
   });
 
   app.patch("/api/admin/users/:id/pro", async (req, res) => {
