@@ -175,10 +175,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // =========================================================================
-  // 🚀 FIX: OTAK UTAMA AI (INJEKSI DATA PENUH)
-  // Menarik seluruh data hutang valas, piutang, dan langganan untuk AI
-  // =========================================================================
   app.post("/api/chat/ask", async (req, res) => {
       const user = await getUser(req);
       if (!user) return res.status(401).json({ reply: "Sesi berakhir. Login dulu ya." });
@@ -521,6 +517,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/user", async (req, res) => { const user = await getUser(req); res.json(user); });
   app.patch("/api/user/profile", async (req, res) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
 
+  // =========================================================================
+  // 🚀 API MIDTRANS CORE (MEMINTA GAMBAR QRIS SECARA LANGSUNG)
+  // =========================================================================
   app.post("/api/payment/midtrans/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -532,6 +531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const serverKey = process.env.MIDTRANS_SERVER_KEY || ""; 
           const authString = Buffer.from(serverKey + ":").toString('base64');
 
+          // PAYLOAD KHUSUS UNTUK CORE API (Minta dibuatkan QRIS)
           const payload = {
               payment_type: "qris",
               transaction_details: {
@@ -544,6 +544,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           };
 
+          // Hit API Core Midtrans v2 (BUKAN SNAP)
           const midtransRes = await fetch("https://api.sandbox.midtrans.com/v2/charge", {
               method: "POST",
               headers: { 
@@ -572,6 +573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // Webhook Otomatis Nyala ketika di Scan
   app.post("/api/payment/midtrans/webhook", async (req, res) => {
       try {
           const data = req.body;
@@ -722,10 +724,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // =========================================================================
-  // 🚀 ROUTE ADMIN SULTAN (HANYA BISA DIAKSES EMAIL BOS ADRIEN)
-  // =========================================================================
-const isAdminValid = (email: string) => {
+  const isAdminValid = (email: string) => {
       if (!email) return false;
       return ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(email.toLowerCase());
   };
@@ -768,7 +767,6 @@ const isAdminValid = (email: string) => {
       await storage.updateUserProStatus(targetId, isPro, validUntil);
       res.json({ success: true });
   });
-  // =========================================================================
 
   const httpServer = createServer(app);
   return httpServer;

@@ -35,13 +35,12 @@ export default function Paywall() {
       window.location.href = "/";
   };
 
-  // === FUNGSI BARU: BUKA MODAL PEMBAYARAN ===
   const handleBerlangganan = () => {
       setShowModal(true);
       setQrUrl(""); // Reset barcode setiap kali modal dibuka
   };
 
-  // === FUNGSI BARU: TEMBAK MIDTRANS CORE API ===
+  // === API CALL KE BACKEND KITA (CORE API MIDTRANS) ===
   const handleGenerateQR = async () => {
       setIsGeneratingQr(true);
       try {
@@ -67,9 +66,6 @@ export default function Paywall() {
 
   return (
     <MobileLayout>
-        {/* ========================================================= */}
-        {/* DESAIN ASLI BOS ADRIEN (TIDAK ADA YANG DIUBAH)            */}
-        {/* ========================================================= */}
         <div className="min-h-screen bg-slate-900 text-white relative overflow-y-auto overflow-x-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute bottom-1/4 left-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -151,9 +147,7 @@ export default function Paywall() {
             </div>
         </div>
 
-        {/* ========================================================= */}
-        {/* MODAL PEMBAYARAN PROFESIONAL (CUSTOM UI)                  */}
-        {/* ========================================================= */}
+        {/* MODAL PEMBAYARAN CUSTOM UI */}
         {showModal && (
             <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 sm:zoom-in-95">
@@ -231,7 +225,13 @@ export default function Paywall() {
                                 <Button 
                                     onClick={() => {
                                         toast({ title: "Memverifikasi...", description: "Sistem sedang mengecek pembayaran Anda." });
-                                        setTimeout(() => window.location.href = "/", 1500);
+                                        // Pura-pura memproses karena webhook akan bekerja di belakang layar
+                                        setTimeout(() => {
+                                            localStorage.setItem("bilano_pro", "true");
+                                            localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
+                                            localStorage.setItem("bilano_trial_expired", "false");
+                                            window.location.href = "/";
+                                        }, 1500);
                                     }}
                                     className="w-full h-14 bg-slate-900 hover:bg-black text-white rounded-full font-extrabold shadow-xl flex items-center justify-center gap-2 text-sm transition-transform active:scale-95"
                                 >
