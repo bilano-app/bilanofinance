@@ -7,6 +7,7 @@ import { WifiOff, RefreshCw, Lock } from "lucide-react";
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser } from "./hooks/use-finance"; 
 
+
 // =========================================================================
 // 🚀 FIX MUTLAK: KUNCI MEMORI 1 JAM AGAR ANGKA TIDAK BERKEDIP
 // =========================================================================
@@ -89,6 +90,7 @@ import Performance from "@/pages/Performance";
 import Paywall from "@/pages/Paywall";
 import Debts from "@/pages/Debts"; 
 import SmartScan from "@/pages/SmartScan"; 
+import Privacy from "@/pages/Privacy";
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -266,6 +268,7 @@ function Router() {
         <Route path="/paywall" component={Paywall} />
         <Route path="/security" component={Security} />
         <Route component={NotFound} />
+        <Route path="/privacy" component={Privacy} />
       </Switch>
 
       {showPaywallAlert && (
