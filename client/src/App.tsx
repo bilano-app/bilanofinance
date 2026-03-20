@@ -7,7 +7,6 @@ import { WifiOff, RefreshCw, Lock } from "lucide-react";
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser } from "./hooks/use-finance"; 
 
-
 // =========================================================================
 // 🚀 FIX MUTLAK: KUNCI MEMORI 1 JAM AGAR ANGKA TIDAK BERKEDIP
 // =========================================================================
@@ -99,6 +98,28 @@ function Router() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
   const [isSessionRefreshing, setIsSessionRefreshing] = useState(false); 
+
+  // =========================================================================
+  // 🚀 INTERCEPTOR NOTIFIKASI (RESTART KE HOME SAAT NOTIF DIPENCET)
+  // =========================================================================
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('from_notif') === 'true') {
+        console.log("Notifikasi dipencet! Me-reset aplikasi ke Home...");
+        
+        // 1. Bersihkan URL agar tidak looping terus-menerus
+        window.history.replaceState(null, '', '/');
+        
+        // 2. Arahkan ke halaman utama
+        setLocation('/');
+        
+        // 3. Paksa reload untuk menyapu bersih semua sisa layar/state lama
+        setTimeout(() => {
+            window.location.reload();
+        }, 100);
+    }
+  }, [setLocation]);
+  // =========================================================================
 
   useEffect(() => {
     const handleVisibilityChange = () => {
