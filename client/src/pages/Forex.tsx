@@ -104,8 +104,9 @@ export default function Forex() {
   }, []);
 
   const handleCurrencyClick = async (currencyCode: string) => {
+      // 🚀 FIX: Menggunakan dispatchEvent untuk Modal 2 Tombol
       if (isTrialExpired) {
-          if (confirm("Masa Coba Habis! Akses Premium diperlukan untuk melihat Grafik Valas. Buka kunci sekarang?")) window.location.href = "/paywall";
+          window.dispatchEvent(new Event('trigger-paywall-lock'));
           return;
       }
 
@@ -141,7 +142,7 @@ export default function Forex() {
 
   const handleExchange = async () => {
       if (isTrialExpired) {
-          if (confirm("Masa Coba Habis! Transaksi Valas eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+          window.dispatchEvent(new Event('trigger-paywall-lock'));
           return;
       }
 
@@ -186,7 +187,7 @@ export default function Forex() {
 
   const handleMutation = async () => {
       if (isTrialExpired) {
-          if (confirm("Masa Coba Habis! Mutasi Valas eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+          window.dispatchEvent(new Event('trigger-paywall-lock'));
           return;
       }
 
@@ -224,7 +225,6 @@ export default function Forex() {
 
   const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
 
-  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE (VALAS)
   const displayTotalValas = isTrialExpired ? "🔒 Premium" : formatRp(totalValasInRupiah);
   const getBalanceTextSize = (text: string) => {
       if (text.length >= 20) return "text-xl"; 
@@ -254,8 +254,6 @@ export default function Forex() {
                     <p className="text-xs text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
                         <Globe className="w-3 h-3"/> Total Aset Asing (Estimasi)
                     </p>
-                    
-                    {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
                     <h2 className={`${getBalanceTextSize(displayTotalValas)} font-bold text-emerald-400 whitespace-nowrap transition-all duration-300`}>
                         {displayTotalValas}
                     </h2>

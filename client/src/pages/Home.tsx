@@ -49,9 +49,6 @@ export default function Home() {
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   
-  // =========================================================================
-  // 🚀 ANTI-GUEST FAILSAFE (RADAR PENDETEKSI KTP TERTINGGAL)
-  // =========================================================================
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
           console.warn("⚠️ KTP Tertinggal! Sesi membaca akun Guest. Melakukan reload kilat...");
@@ -121,9 +118,7 @@ export default function Home() {
                       },
                       body: JSON.stringify({ onesignalId: playerId })
                   });
-              } catch (e) {
-                  console.error("Gagal menyetor ID HP", e);
-              }
+              } catch (e) {}
           }
       };
 
@@ -258,7 +253,6 @@ export default function Home() {
           }
 
       } catch (e) {
-          console.error("Gagal meminta izin:", e);
       } finally {
           localStorage.setItem("bilano_permissions_prompted", "true");
           setShowPermissionPrompt(false);
@@ -272,19 +266,15 @@ export default function Home() {
       setShowPermissionPrompt(false);
   };
 
-  // =========================================================================
-  // 🚀 PERHITUNGAN SALDO KAS UTAMA
-  // =========================================================================
   const cashRupiah = (user?.cashBalance || 0); 
   const forexValue = (forexAssets || []).reduce((acc, asset) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
   const totalBalance = cashRupiah + forexValue;
 
-  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE
   const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
   const getBalanceTextSize = (text: string) => {
-      if (text.length >= 20) return "text-2xl"; // >= Triliunan (Rp 1.000.000.000.000)
-      if (text.length >= 15) return "text-3xl"; // >= Puluhan/Ratusan Miliar (Rp 10.000.000.000)
-      return "text-4xl"; // Normal (Jutaan s.d Miliaran Kecil)
+      if (text.length >= 20) return "text-2xl"; 
+      if (text.length >= 15) return "text-3xl"; 
+      return "text-4xl"; 
   };
 
   useEffect(() => {
@@ -352,36 +342,18 @@ export default function Home() {
   }
 
   // =========================================================================
-  // 🚀 PALANG PINTU 1: Menunggu Server Menarik Data
+  // 🚀 FIX MUTLAK: LOADING SCREEN ELEGAN (Menggantikan Layar Rusak)
+  // Menahan layar sampai semua data benar-benar matang tanpa menakut-nakuti user!
   // =========================================================================
-  if (isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading || (user && user.username === 'guest')) {
+  if (isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading || !user || !transactions || (user && user.username === 'guest')) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
               <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
               <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
                   <Loader2 className="w-4 h-4 animate-spin"/>
-                  <span>Memuat Data...</span>
+                  <span>Menyiapkan Dasbor...</span>
               </div>
-          </div>
-      );
-  }
-
-  // =========================================================================
-  // 🚀 PALANG PINTU 2: PENOLAK "SALDO 0 RUPIAH" (ANTI-COLD BOOT TIMEOUT)
-  // =========================================================================
-  if (!user || !transactions) {
-      return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4 text-center animate-in fade-in">
-              <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mb-6 shadow-sm">
-                  <AlertTriangle className="w-10 h-10 text-amber-500" />
-              </div>
-              <h2 className="text-xl font-extrabold text-slate-800 mb-2">Membangunkan Server...</h2>
-              <p className="text-sm text-slate-500 mb-8 max-w-[280px] leading-relaxed font-medium">
-                  Sistem mendeteksi server utama sedang dipulihkan dari mode istirahat. Harap tunggu sebentar, data Anda sangat aman di brankas kami.
-              </p>
-              <Button onClick={() => window.location.reload()} className="h-14 px-8 rounded-full font-extrabold bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 flex items-center gap-2">
-                  <RefreshCcw className="w-5 h-5"/> MUAT ULANG SEKARANG
-              </Button>
+              <p className="text-[10px] font-medium text-slate-400 mt-4 max-w-[200px] text-center animate-pulse">Menyinkronkan data dengan aman...</p>
           </div>
       );
   }
@@ -614,7 +586,6 @@ export default function Home() {
                   </button>
               </div>
               
-              {/* 🚀 FIX: AUTO-SHRINK TEXT JIKA SALDO SANGAT BESAR AGAR TIDAK OFFSIDE */}
               <h2 className={`${getBalanceTextSize(displayBalance)} font-extrabold tracking-tight text-white mb-6 drop-shadow-sm flex items-center h-10 whitespace-nowrap transition-all duration-300`}>
                  {displayBalance}
               </h2>

@@ -5,9 +5,11 @@ import { Download, FileText, Globe, Wallet, FileBarChart, Loader2, Target, Brief
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useUser } from "@/hooks/use-finance"; 
 
 export default function Reports() {
   const { toast } = useToast();
+  const { data: userProfile } = useUser(); 
   const [data, setData] = useState<any>(null);
   const [forexRates, setForexRates] = useState<any>({});
   const [targetData, setTargetData] = useState<any>(null); 
@@ -179,7 +181,11 @@ export default function Reports() {
   };
 
   const generatePDF = async () => {
-    if (localStorage.getItem("bilano_trial_expired") === "true") {
+    // 🚀 FIX: Perlindungan Ganda (Pro & Trial) dengan Elegan Modal
+    const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+    const isTrialExpired = userEmail ? localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true" : false;
+
+    if (!userProfile?.isPro && isTrialExpired) {
         window.dispatchEvent(new Event('trigger-paywall-lock')); 
         return;
     }
@@ -378,13 +384,12 @@ export default function Reports() {
                 theme: 'grid',
                 headStyles: { fillColor: [16, 185, 129] }, 
                 columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } },
-                // 🚀 FIX 1: RADAR PEWARNA UNTUNG/RUGI INVESTASI
                 didParseCell: function(data) {
                     if (data.section === 'body' && data.column.index === 2 && typeof data.cell.raw === 'string') {
                         if (data.cell.raw.includes('(P/L: +')) {
-                            data.cell.styles.textColor = [16, 185, 129]; // Hijau (Untung)
+                            data.cell.styles.textColor = [16, 185, 129]; 
                         } else if (data.cell.raw.includes('(P/L: -')) {
-                            data.cell.styles.textColor = [244, 63, 94]; // Merah (Rugi)
+                            data.cell.styles.textColor = [244, 63, 94]; 
                         }
                     }
                 }
@@ -408,7 +413,6 @@ export default function Reports() {
                     status = 'DIHAPUS (Rugi)';
                 }
 
-                // 🚀 FIX 2: Ganti logo aneh '≈' dengan '~' yang aman untuk PDF
                 return [
                     d.type === 'hutang' ? 'HUTANG' : 'PIUTANG',
                     displayName,

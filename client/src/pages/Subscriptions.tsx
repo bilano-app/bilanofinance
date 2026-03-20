@@ -6,7 +6,6 @@ import {
     CheckCircle2, AlertCircle, X, Loader2, Zap
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-// 🚀 FIX: Import React Query Cache
 import { useQuery } from "@tanstack/react-query";
 
 interface Subscription {
@@ -22,7 +21,6 @@ interface Subscription {
 export default function Subscriptions() {
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  // Form States
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [cycle, setCycle] = useState("monthly");
@@ -35,9 +33,6 @@ export default function Subscriptions() {
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
   const getAuthHeaders = () => ({ "x-user-email": currentUserEmail });
 
-  // =========================================================================
-  // 🚀 FIX MUTLAK: Gunakan useQuery Cache untuk Langganan
-  // =========================================================================
   const { data: subs = [], isLoading: loading, refetch: fetchSubs } = useQuery({
       queryKey: ['subscriptions', currentUserEmail],
       queryFn: async () => {
@@ -46,11 +41,10 @@ export default function Subscriptions() {
       },
       enabled: !!currentUserEmail
   });
-  // =========================================================================
 
   const handleAdd = async () => {
       if (isTrialExpired) {
-          if (confirm("Masa Coba Habis! Fitur Atur Langganan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
+          window.dispatchEvent(new Event('trigger-paywall-lock'));
           return;
       }
 
@@ -82,7 +76,10 @@ export default function Subscriptions() {
   };
 
   const toggleStatus = async (id: number, currentStatus: boolean) => {
-      if (isTrialExpired) return;
+      if (isTrialExpired) {
+          window.dispatchEvent(new Event('trigger-paywall-lock'));
+          return;
+      }
       try {
           await fetch(`/api/subscriptions/${id}/status`, {
               method: "PATCH", 
@@ -95,7 +92,7 @@ export default function Subscriptions() {
 
   const deleteSub = async (id: number) => {
       if (isTrialExpired) {
-          if (confirm("Masa Coba Habis! Buka kunci sekarang?")) window.location.href = "/paywall";
+          window.dispatchEvent(new Event('trigger-paywall-lock'));
           return;
       }
 

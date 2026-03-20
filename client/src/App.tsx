@@ -20,7 +20,7 @@ queryClient.setDefaultOptions({
 });
 
 // =========================================================================
-// 🚀 PENGAMAN GANDA API (MENCEGAH CONTENT-TYPE HANCUR & LOCK PREMIUM)
+// 🚀 PENGAMAN GANDA API (TANPA POP-UP ACAK)
 // =========================================================================
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
@@ -36,8 +36,6 @@ window.fetch = async (input, init = {}) => {
 
   const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
   
-  // 🚀 PENGECUALIAN AKSES (WHITELIST)
-  // Biarkan pengguna expired tetap bisa login, sinkronisasi notif, dan pakai Pemasukan/Pengeluaran!
   const isAllowedRoute = url.includes('/api/auth') || 
                          url.includes('/api/user/onesignal') || 
                          url.includes('/api/transactions') || 
@@ -45,7 +43,7 @@ window.fetch = async (input, init = {}) => {
                          url.includes('/api/target/penalty');
 
   if (isWriteAction && !isAllowedRoute && localStorage.getItem('bilano_trial_expired') === 'true') {
-      window.dispatchEvent(new Event('trigger-paywall-lock'));
+      // 🚀 FIX: HANYA REJECT PROMISE, JANGAN TEMBAK MODAL SECARA OTOMATIS DARI SINI
       return Promise.reject(new Error("TRIAL_EXPIRED_LOCKED")); 
   }
 
@@ -91,7 +89,6 @@ import Performance from "@/pages/Performance";
 import Paywall from "@/pages/Paywall";
 import Debts from "@/pages/Debts"; 
 import SmartScan from "@/pages/SmartScan"; 
-import AdminPremium from "./pages/AdminPremium";
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -202,6 +199,7 @@ function Router() {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
 
+    // 🚀 INI ADALAH LISTENER UNTUK MEMUNCULKAN MODAL SAAT DIPANGGIL OLEH TOMBOL
     const handleCustomLock = () => setShowPaywallAlert(true);
     window.addEventListener('trigger-paywall-lock', handleCustomLock);
 
@@ -267,11 +265,9 @@ function Router() {
         <Route path="/scan" component={SmartScan} />
         <Route path="/paywall" component={Paywall} />
         <Route path="/security" component={Security} />
-        <Route path="/admin-premium" component={AdminPremium} />
         <Route component={NotFound} />
       </Switch>
 
-      {/* 🚀 MODAL PAYWALL BARU: 2 Tombol Elegan (Tidak Langsung Melempar User) */}
       {showPaywallAlert && (
         <div className="fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
             <div className="bg-white rounded-[24px] p-6 max-w-sm w-full shadow-2xl text-center border-t-8 border-rose-500 animate-in zoom-in-95">

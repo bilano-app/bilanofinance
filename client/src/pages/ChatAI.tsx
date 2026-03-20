@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
-import { Send, Bot, User, Sparkles, Loader2, Trash2 } from "lucide-react";
+import { Send, Bot, User, Loader2, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { 
     useUser, useTransactions, useForexAssets, 
@@ -22,14 +22,14 @@ export default function ChatAI() {
     const { data: investments } = useInvestments();
     const { data: target } = useTarget();
 
-    const currentUserEmail = localStorage.getItem("bilano_email") || "";
+    const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     
     const isPro = user?.isPro || false;
     const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
     
     const MAX_FREE_CHATS = 3;
     const [chatCount, setChatCount] = useState<number>(() => {
-        const count = localStorage.getItem(`bilano_chat_usage_${currentUserEmail}`);
+        const count = typeof window !== 'undefined' ? localStorage.getItem(`bilano_chat_usage_${currentUserEmail}`) : null;
         return count ? parseInt(count, 10) : 0;
     });
 
@@ -37,7 +37,7 @@ export default function ChatAI() {
     const isLocked = !isPro && (isTrialExpired || isOutOfQuota);
 
     const [messages, setMessages] = useState<Message[]>(() => {
-        const savedChat = localStorage.getItem(`bilano_chat_history_${currentUserEmail}`);
+        const savedChat = typeof window !== 'undefined' ? localStorage.getItem(`bilano_chat_history_${currentUserEmail}`) : null;
         if (savedChat) {
             return JSON.parse(savedChat);
         } else {
@@ -55,7 +55,9 @@ export default function ChatAI() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        localStorage.setItem(`bilano_chat_history_${currentUserEmail}`, JSON.stringify(messages));
+        if (currentUserEmail) {
+            localStorage.setItem(`bilano_chat_history_${currentUserEmail}`, JSON.stringify(messages));
+        }
         scrollToBottom();
     }, [messages, currentUserEmail]);
 
@@ -72,15 +74,14 @@ export default function ChatAI() {
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             }];
             setMessages(defaultMsg);
-            localStorage.setItem(`bilano_chat_history_${currentUserEmail}`, JSON.stringify(defaultMsg));
+            if (currentUserEmail) localStorage.setItem(`bilano_chat_history_${currentUserEmail}`, JSON.stringify(defaultMsg));
         }
     };
 
     const handleSend = async () => {
+        // 🚀 FIX: PELATUK PAYWALL ELEGAN
         if (isLocked) {
-            if (confirm("Ups, kuota percobaan chat AI Anda sudah habis! 🔒\n\nBuka kunci BILANO Premium sekarang untuk tanya jawab sepuasnya tanpa batas?")) {
-                window.location.href = "/paywall";
-            }
+            window.dispatchEvent(new Event('trigger-paywall-lock'));
             return;
         }
 
@@ -100,18 +101,15 @@ export default function ChatAI() {
         if (!isPro) {
             const newCount = chatCount + 1;
             setChatCount(newCount);
-            localStorage.setItem(`bilano_chat_usage_${currentUserEmail}`, newCount.toString());
+            if (currentUserEmail) localStorage.setItem(`bilano_chat_usage_${currentUserEmail}`, newCount.toString());
         }
 
         const totalCash = user?.cashBalance || 0;
-        
         const txSummary = transactions?.slice(0, 10).map(t => `${new Date(t.date).toISOString().split('T')[0]} - ${t.type} - ${t.category}: Rp${t.amount}`).join(" | ") || "Belum ada transaksi";
-        
         const forexSummary = forexAssets?.map(f => `${f.amount} ${f.currency}`).join(", ") || "Tidak ada valas";
         const investSummary = investments?.map(i => `${i.quantity} ${i.symbol}`).join(", ") || "Tidak ada investasi";
         const targetSummary = target ? `Target: Rp${target.targetAmount}, Limit Keluar: Rp${target.monthlyBudget} (${target.budgetType})` : "Tidak ada target";
 
-        // 🚀 FIX: DOKTRIN SUPER KETAT UNTUK AI (DILARANG JADI BUKU MANUAL)
         const bilanoKnowledgeBase = `
         [PANDUAN APLIKASI BILANO]
         1. Hutang & Piutang: Aplikasi ini mendukung transaksi Hutang dan Piutang menggunakan Valuta Asing (Valas). Nilai valas akan dikonversi ke IDR secara otomatis saat dibayar/dicicil.
@@ -171,7 +169,7 @@ export default function ChatAI() {
             if (!isPro) {
                 const revertCount = chatCount;
                 setChatCount(revertCount);
-                localStorage.setItem(`bilano_chat_usage_${currentUserEmail}`, revertCount.toString());
+                if (currentUserEmail) localStorage.setItem(`bilano_chat_usage_${currentUserEmail}`, revertCount.toString());
             }
         } finally {
             setIsTyping(false);

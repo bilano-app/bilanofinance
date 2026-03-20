@@ -6,10 +6,12 @@ import {
     Globe, AlertTriangle, RefreshCw, Loader2, HandCoins, Wallet
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/hooks/use-finance"; // Ditambahkan untuk cek isPro
 import Tesseract from 'tesseract.js';
 
 export default function SmartScan() {
     const { toast } = useToast();
+    const { data: user } = useUser(); // Ambil data user
     
     // --- STATE ---
     const [isListening, setIsListening] = useState(false);
@@ -28,7 +30,6 @@ export default function SmartScan() {
     const [showResultForm, setShowResultForm] = useState(false);
     const [detectedType, setDetectedType] = useState<'income' | 'expense' | 'debt' | 'receivable'>('expense');
     
-    // 🚀 NEW STATE: Mode Pembayaran
     const [paymentMode, setPaymentMode] = useState<'cash' | 'pending'>('cash');
     
     const [isForex, setIsForex] = useState(false);
@@ -46,9 +47,11 @@ export default function SmartScan() {
     const recognitionRef = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const currentUserEmail = localStorage.getItem("bilano_email") || "";
+    const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
-    const getAuthHeaders = () => ({ "x-user-email": localStorage.getItem("bilano_email") || "" });
+    const isLocked = !user?.isPro && isTrialExpired; // 🚀 FIX: Logika kunci aman
+    
+    const getAuthHeaders = () => ({ "x-user-email": currentUserEmail });
 
     useEffect(() => {
         const checkSharedImage = async () => {
@@ -57,6 +60,12 @@ export default function SmartScan() {
                 const response = await cache.match('/shared-image');
                 
                 if (response) {
+                    // Cek Gembok saat nerima dari share HP
+                    if (isLocked) {
+                        window.dispatchEvent(new Event('trigger-paywall-lock'));
+                        return;
+                    }
+
                     const blob = await response.blob();
                     const file = new File([blob], "shared-receipt.jpg", { type: blob.type });
                     
@@ -84,7 +93,7 @@ export default function SmartScan() {
         };
         
         checkSharedImage();
-    }, []);
+    }, [isLocked]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -142,7 +151,6 @@ export default function SmartScan() {
             newType = lower.includes("saya") || lower.includes("aku") ? 'debt' : 'receivable';
         }
 
-        // 🚀 FIX: RADAR PENDETEKSI PEMBAYARAN TERTUNDA (PIUTANG/HUTANG)
         let isPending = false;
         if (lower.includes("nanti") || lower.includes("belum bayar") || lower.includes("belum dibayar") || lower.includes("ngutang") || lower.includes("piutang") || lower.includes("bon")) {
             isPending = true;
@@ -202,10 +210,7 @@ export default function SmartScan() {
     };
 
     const startListening = () => {
-        if (isTrialExpired) {
-            if (confirm("Masa Coba Habis! Fitur Smart Scan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
-            return;
-        }
+        if (isLocked) { window.dispatchEvent(new Event('trigger-paywall-lock')); return; }
 
         try {
             const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -225,10 +230,7 @@ export default function SmartScan() {
     const stopListening = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (isTrialExpired) {
-            if (confirm("Masa Coba Habis! Fitur Smart Scan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
-            return;
-        }
+        if (isLocked) { window.dispatchEvent(new Event('trigger-paywall-lock')); return; }
 
         const file = e.target.files?.[0];
         if (file) {
@@ -244,17 +246,13 @@ export default function SmartScan() {
     };
 
     const handleSave = async (isEmergencyOverride = false) => {
-        if (isTrialExpired) {
-            if (confirm("Masa Coba Habis! Fitur Smart Scan eksklusif untuk Premium. Buka kunci sekarang?")) window.location.href = "/paywall";
-            return;
-        }
+        if (isLocked) { window.dispatchEvent(new Event('trigger-paywall-lock')); return; }
 
         if (!amount) { toast({title: "Nominal kosong", variant:"destructive"}); return; }
         
         const sanitizedAmount = amount.toString().replace(/\./g, "").replace(/,/g, ".");
         const finalAmount = parseFloat(sanitizedAmount); 
 
-        // Aturan Dana Darurat (Berlaku untuk Cash maupun Hutang)
         if (!isEmergencyOverride && isDataLoaded && detectedType === 'expense' && !isForex && targetData?.monthlyBudget > 0) {
             const remainingBudget = targetData.monthlyBudget - currentExpense;
             if (finalAmount > remainingBudget) {
@@ -266,7 +264,6 @@ export default function SmartScan() {
             }
         }
 
-        // Validasi Nama jika menggunakan Mode Piutang/Hutang
         if ((paymentMode === 'pending' || detectedType === 'debt' || detectedType === 'receivable') && !debtName.trim()) {
             toast({ title: "Nama Pihak Wajib Diisi", description: "Siapa yang berhutang / dihutangi?", variant: "destructive" });
             return;
@@ -281,7 +278,6 @@ export default function SmartScan() {
 
         try {
             if (isForex && paymentMode === 'cash' && (detectedType === 'income' || detectedType === 'expense')) {
-                // NORMAL FOREX CASH
                 await fetch("/api/forex/transaction", {
                     method: "POST", headers: postHeaders,
                     body: JSON.stringify({ type: detectedType, currency, amount: finalAmount, description: desc })
@@ -289,7 +285,6 @@ export default function SmartScan() {
                 toast({ title: "Valas Diupdate!", description: `${currency} ${finalAmount}` });
             } 
             else if (paymentMode === 'pending' && (detectedType === 'income' || detectedType === 'expense')) {
-                // 🚀 FIX: DUAL POST FOR ASSET CREATION WITHOUT AFFECTING CASH
                 const debtType = detectedType === 'income' ? 'piutang' : 'hutang';
                 
                 await fetch("/api/debts", {
@@ -303,7 +298,6 @@ export default function SmartScan() {
                     })
                 });
 
-                // Catat di transaksi agar masuk grafik, tapi netral secara hitungan kas
                 await fetch("/api/transactions", {
                     method: "POST", headers: postHeaders,
                     body: JSON.stringify({ 
@@ -317,7 +311,6 @@ export default function SmartScan() {
                 toast({ title: "Tersimpan!", description: `Dicatat sebagai ${debtType.toUpperCase()}.` });
             }
             else if (detectedType === 'debt' || detectedType === 'receivable') {
-                // PURE DEBT/RECEIVABLE
                 await fetch("/api/debts", {
                     method: "POST", headers: postHeaders,
                     body: JSON.stringify({ type: detectedType === 'debt' ? 'hutang' : 'piutang', name: `${debtName}|${isForex ? currency : 'IDR'}`, amount: finalAmount, description: desc, isPaid: false })
@@ -325,7 +318,6 @@ export default function SmartScan() {
                 toast({ title: "Tercatat!", description: "Saldo disesuaikan." });
             } 
             else {
-                // NORMAL IDR CASH
                 await fetch("/api/transactions", {
                     method: "POST", headers: postHeaders,
                     body: JSON.stringify({ type: detectedType, amount: finalAmount, category: category || "Lainnya", description: desc, date: new Date() })
@@ -372,7 +364,6 @@ export default function SmartScan() {
         <MobileLayout title="Scan & Suara Pintar" showBack>
             <div className="pt-4 pb-20 space-y-6 relative">
                 
-                {/* MODAL DARURAT INTERNAL */}
                 {showEmergencyModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
                         <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative animate-in zoom-in-95">
@@ -484,7 +475,6 @@ export default function SmartScan() {
 
                         <div className="space-y-4">
                             
-                            {/* 🚀 NEW: TOGGLE CASH VS PENDING (ONLY FOR INCOME/EXPENSE) */}
                             {(detectedType === 'income' || detectedType === 'expense') && (
                                 <div className="flex bg-slate-100 p-1.5 rounded-xl animate-in fade-in">
                                     <button onClick={() => setPaymentMode('cash')} className={`flex-1 py-2.5 flex justify-center items-center gap-1.5 rounded-lg text-[10px] font-bold transition-all ${paymentMode === 'cash' ? (detectedType === 'income' ? 'bg-emerald-500' : 'bg-rose-500') + ' text-white shadow' : 'text-slate-500 hover:bg-slate-200'}`}>

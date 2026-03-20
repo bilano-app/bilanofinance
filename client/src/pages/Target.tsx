@@ -85,7 +85,10 @@ export default function Target() {
     const now = new Date();
 
     const handleNumberChange = (setter: (val: string) => void, value: string) => setter(formatNumber(value));
+    
+    // 🚀 PENGAMAN PAYWALL
     const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+    const isTrialExpired = userEmail ? localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true" : false;
 
     const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
         queryKey: ['forexRates', userEmail],
@@ -177,7 +180,6 @@ export default function Target() {
 
     const totalStart = cashPreview + totalForexInIDR + totalRecvInIDR + totalInvInIDR - totalDebtInIDR;
 
-    // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE (TARGET/ASET AWAL)
     const displayTotalStart = formatRp(totalStart);
     const getBalanceTextSize = (text: string) => {
         if (text.length >= 20) return "text-xl"; 
@@ -211,6 +213,12 @@ export default function Target() {
     const handleBudgetAnswer = (answer: boolean) => { if (answer) setStep('budget-setup'); else handleSubmitFinal(false); };
 
     const handleSubmitFinal = async (withBudget: boolean) => {
+        // 🚀 PELATUK PAYWALL ELEGAN
+        if (isTrialExpired) {
+            window.dispatchEvent(new Event('trigger-paywall-lock'));
+            return;
+        }
+
         const budgetVal = parseNumber(rawBudgetAmount);
         if (withBudget && !budgetVal) { toast({title: "Error", description: "Nominal batas harus diisi!", variant: "destructive"}); return; }
 
@@ -494,8 +502,6 @@ export default function Target() {
 
                             <div className="bg-slate-900 text-white p-5 rounded-[24px] shadow-lg flex flex-col items-center justify-center mt-2">
                                 <span className="text-[11px] uppercase tracking-widest font-bold text-slate-400 mb-1">Estimasi Kekayaan Bersih</span>
-                                
-                                {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
                                 <span className={`font-extrabold ${getBalanceTextSize(displayTotalStart)} ${totalStart >= 0 ? 'text-emerald-400' : 'text-rose-400'} whitespace-nowrap transition-all duration-300`}>
                                     {displayTotalStart}
                                 </span>

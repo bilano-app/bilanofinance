@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
-import { Button, Input, Card } from "@/components/UIComponents";
-import { Tag, Plus, Trash2, ArrowUpCircle, ArrowDownCircle, Loader2 } from "lucide-react";
+import { Button, Input } from "@/components/UIComponents";
+import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/hooks/use-finance"; // 🚀 FIX: Import ini
 
 interface CategoryItem {
     id: number;
@@ -12,10 +13,15 @@ interface CategoryItem {
 
 export default function Categories() {
     const { toast } = useToast();
+    const { data: user } = useUser(); // 🚀 FIX: Ambil status user
     const [categories, setCategories] = useState<CategoryItem[]>([]);
     const [newCat, setNewCat] = useState("");
     const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
     const [loading, setLoading] = useState(true);
+
+    const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+    const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
+    const isLocked = !user?.isPro && isTrialExpired;
 
     useEffect(() => { fetchCategories(); }, []);
 
@@ -28,6 +34,9 @@ export default function Categories() {
     };
 
     const handleAdd = async () => {
+        // 🚀 FIX: Gembok Elegan
+        if (isLocked) { window.dispatchEvent(new Event('trigger-paywall-lock')); return; }
+
         if (!newCat) return;
         try {
             const res = await fetch("/api/categories", {
@@ -42,6 +51,9 @@ export default function Categories() {
     };
 
     const handleDelete = async (id: number) => {
+        // 🚀 FIX: Gembok Elegan
+        if (isLocked) { window.dispatchEvent(new Event('trigger-paywall-lock')); return; }
+
         try {
             await fetch(`/api/categories/${id}`, { method: "DELETE" });
             fetchCategories();
