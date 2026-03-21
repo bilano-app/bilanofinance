@@ -531,7 +531,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const serverKey = process.env.MIDTRANS_SERVER_KEY || ""; 
           const authString = Buffer.from(serverKey + ":").toString('base64');
 
-          // Payload Snap Universal (Mendukung semua bank & e-wallet)
           const payload = {
               transaction_details: {
                   order_id: orderId,
@@ -543,8 +542,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           };
 
-          // Hit API Snap Midtrans
-          const midtransRes = await fetch("https://app.sandbox.midtrans.com/snap/v1/transactions", {
+          // 🚀 PERUBAHAN KRUSIAL: HAPUS KATA "sandbox." DARI URL!
+          const midtransRes = await fetch("https://app.midtrans.com/snap/v1/transactions", {
               method: "POST",
               headers: { 
                   "Content-Type": "application/json",
@@ -557,7 +556,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const data = await midtransRes.json();
           
           if (midtransRes.ok && data.redirect_url) {
-              // Kirim Link Redirect ke Frontend
               res.json({ success: true, redirectUrl: data.redirect_url, orderId });
           } else {
               res.status(400).json({ error: data.error_messages ? data.error_messages[0] : "Gagal memproses pembayaran." });
@@ -567,7 +565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.status(500).json({ error: "Koneksi ke Midtrans terputus." });
       }
   });
-
+  
   app.post("/api/payment/midtrans/webhook", async (req, res) => {
       try {
           const data = req.body;
