@@ -531,9 +531,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const serverKey = process.env.MIDTRANS_SERVER_KEY || ""; 
           const authString = Buffer.from(serverKey + ":").toString('base64');
 
-          // PAYLOAD KHUSUS UNTUK CORE API (Minta dibuatkan QRIS)
+          // Payload Snap Universal (Mendukung semua bank & e-wallet)
           const payload = {
-              payment_type: "qris",
               transaction_details: {
                   order_id: orderId,
                   gross_amount: amount
@@ -544,8 +543,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           };
 
-          // 🚀 HIT API CORE MIDTRANS V2 (BUKAN SNAP)
-          const midtransRes = await fetch("https://api.sandbox.midtrans.com/v2/charge", {
+          // Hit API Snap Midtrans
+          const midtransRes = await fetch("https://app.sandbox.midtrans.com/snap/v1/transactions", {
               method: "POST",
               headers: { 
                   "Content-Type": "application/json",
@@ -557,15 +556,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const data = await midtransRes.json();
           
-          if (midtransRes.ok && data.status_code === "201") {
-              const qrAction = data.actions?.find((a: any) => a.name === "generate-qr-code");
-              if (qrAction) {
-                  res.json({ success: true, qrUrl: qrAction.url, orderId: data.order_id });
-              } else {
-                  res.status(500).json({ error: "Sistem Midtrans gagal mengeluarkan QR Code." });
-              }
+          if (midtransRes.ok && data.redirect_url) {
+              // Kirim Link Redirect ke Frontend
+              res.json({ success: true, redirectUrl: data.redirect_url, orderId });
           } else {
-              res.status(400).json({ error: data.status_message || "Gagal memproses pembayaran." });
+              res.status(400).json({ error: data.error_messages ? data.error_messages[0] : "Gagal memproses pembayaran." });
           }
 
       } catch (error: any) {
