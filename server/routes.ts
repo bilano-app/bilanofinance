@@ -531,7 +531,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const serverKey = process.env.MIDTRANS_SERVER_KEY || ""; 
           const authString = Buffer.from(serverKey + ":").toString('base64');
 
+          // PAYLOAD KHUSUS UNTUK CORE API (Minta dibuatkan QRIS)
           const payload = {
+              payment_type: "qris",
               transaction_details: {
                   order_id: orderId,
                   gross_amount: amount
@@ -542,8 +544,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           };
 
-          // 🚀 JURUS REDIRECT SNAP MIDTRANS
-          const midtransRes = await fetch("https://app.sandbox.midtrans.com/snap/v1/transactions", {
+          // 🚀 HIT API CORE MIDTRANS V2 (BUKAN SNAP)
+          const midtransRes = await fetch("https://api.sandbox.midtrans.com/v2/charge", {
               method: "POST",
               headers: { 
                   "Content-Type": "application/json",
@@ -555,11 +557,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const data = await midtransRes.json();
           
-          if (midtransRes.ok && data.token) {
-              // KITA KEMBALIKAN REDIRECT_URL AGAR BISA DIPAKAI DI FRONTEND
-              res.json({ success: true, token: data.token, redirectUrl: data.redirect_url, orderId });
+          if (midtransRes.ok && data.status_code === "201") {
+              const qrAction = data.actions?.find((a: any) => a.name === "generate-qr-code");
+              if (qrAction) {
+                  res.json({ success: true, qrUrl: qrAction.url, orderId: data.order_id });
+              } else {
+                  res.status(500).json({ error: "Sistem Midtrans gagal mengeluarkan QR Code." });
+              }
           } else {
-              res.status(400).json({ error: data.error_messages ? data.error_messages[0] : "Gagal memproses pembayaran." });
+              res.status(400).json({ error: data.status_message || "Gagal memproses pembayaran." });
           }
 
       } catch (error: any) {

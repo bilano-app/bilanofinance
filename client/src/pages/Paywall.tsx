@@ -1,14 +1,18 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
-import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, ShieldCheck, CreditCard } from "lucide-react";
+import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, ShieldCheck, QrCode } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Paywall() {
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
   const [hasStartedTrial, setHasStartedTrial] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
 
+  // === STATE UNTUK MODAL PEMBAYARAN CUSTOM ===
   const [showModal, setShowModal] = useState(false);
+  const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+  const [qrUrl, setQrUrl] = useState("");
 
   const userEmail = localStorage.getItem("bilano_email") || "";
   const trialKey = `bilano_trial_start_${userEmail}`;
@@ -30,50 +34,34 @@ export default function Paywall() {
       window.location.href = "/";
   };
 
-  const handleBukaModal = () => {
+  const handleBerlangganan = () => {
       setShowModal(true);
+      setQrUrl(""); // Reset barcode setiap kali modal dibuka
   };
 
   // =======================================================================
-  // 🚀 JURUS REDIRECT MIDTRANS (DENGAN RADAR PENDETEKSI ERROR)
+  // 🚀 API CALL KE BACKEND KITA (CORE API MIDTRANS)
   // =======================================================================
-  const handleLanjutBayar = async () => {
-      setIsProcessing(true);
+  const handleGenerateQR = async () => {
+      setIsGeneratingQr(true);
       try {
           const res = await fetch("/api/payment/midtrans/charge", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-email": userEmail }
           });
 
-          const textData = await res.text();
-          let data;
-          
-          try {
-              data = JSON.parse(textData);
-          } catch (err) {
-              // Jika Vercel membalas pakai HTML Error (Bukan JSON)
-              alert("⚠️ TERJADI KESALAHAN SISTEM VERCEL.\n\nBrowser Anda masih membaca kode lama. Mohon REFRESH HALAMAN (Tekan F5 atau tarik layar ke bawah) lalu coba lagi!");
-              setIsProcessing(false);
-              return;
-          }
+          const data = await res.json();
 
-          if (res.ok && data.redirectUrl) {
-              // 1. Bypass lokal agar user langsung Pro saat kembali
-              localStorage.setItem("bilano_pro", "true");
-              localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
-              localStorage.setItem("bilano_trial_expired", "false");
-
-              // 2. Lempar layar ke Portal Kasir Resmi Midtrans
-              window.location.href = data.redirectUrl;
+          if (res.ok && data.qrUrl) {
+              setQrUrl(data.qrUrl); // Munculkan Barcode di Layar!
+              toast({ title: "QRIS Dibuat!", description: "Silakan scan kode untuk menyelesaikan pembayaran." });
           } else {
-              // Jika Midtrans menolak (Misal kunci salah atau server mati)
-              alert("⚠️ PENOLAKAN DARI MIDTRANS:\n\n" + (data.error || "Gagal memuat URL Kasir. Hubungi Admin."));
-              setIsProcessing(false);
+              alert("⚠️ GAGAL MEMBUAT QRIS:\n" + (data.error || "Terjadi kesalahan di server bank."));
           }
       } catch (error: any) {
-          // Jika internet terputus atau API diblokir
-          alert("⚠️ KONEKSI TERPUTUS:\n\n" + error.message);
-          setIsProcessing(false);
+          alert("⚠️ KONEKSI TERPUTUS:\n" + error.message);
+      } finally {
+          setIsGeneratingQr(false);
       }
   };
 
@@ -144,7 +132,7 @@ export default function Paywall() {
 
                 <div className="w-full relative z-10 animate-in slide-in-from-bottom-8 delay-500">
                     <Button 
-                        onClick={handleBukaModal} 
+                        onClick={handleBerlangganan} 
                         className={`w-full h-16 text-lg font-extrabold rounded-full active:scale-95 transition-transform flex items-center justify-center gap-2 ${isExpired ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-[0_0_30px_rgba(225,29,72,0.3)]' : 'bg-amber-400 hover:bg-amber-500 text-amber-950 shadow-[0_0_30px_rgba(251,191,36,0.3)]'}`}
                     >
                         <Sparkles className="w-5 h-5"/>
@@ -160,7 +148,9 @@ export default function Paywall() {
             </div>
         </div>
 
-        {/* MODAL PEMBAYARAN */}
+        {/* ========================================================= */}
+        {/* MODAL PEMBAYARAN PROFESIONAL (CUSTOM UI)                  */}
+        {/* ========================================================= */}
         {showModal && (
             <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 sm:zoom-in-95">
@@ -176,7 +166,7 @@ export default function Paywall() {
                     </div>
 
                     <div className="p-6 bg-slate-50/50">
-                        <div className="text-center mb-8">
+                        <div className="text-center mb-6">
                             <p className="text-sm text-slate-500 font-medium mb-1">Total Tagihan Final</p>
                             <h2 className="text-4xl font-black text-slate-800 tracking-tight">Rp99.000</h2>
                             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-full mt-3">
@@ -185,26 +175,67 @@ export default function Paywall() {
                             </div>
                         </div>
 
-                        <div className="space-y-3">
-                            <p className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-3 text-center">Terima Semua Pembayaran</p>
-                            
-                            <button
-                                onClick={handleLanjutBayar}
-                                disabled={isProcessing}
-                                className="w-full flex items-center justify-between p-4 border-2 border-indigo-200 hover:border-indigo-500 rounded-2xl transition-all active:scale-[0.98] group bg-white shadow-md shadow-indigo-100"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center shadow-inner group-hover:bg-indigo-700 transition-colors">
-                                        <CreditCard className="w-6 h-6 text-white" />
+                        {!qrUrl ? (
+                            /* TAHAP 1: PILIH METODE BAYAR */
+                            <div className="space-y-3">
+                                <p className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-3 text-center">Pilih Metode Pembayaran</p>
+                                
+                                <button
+                                    onClick={handleGenerateQR}
+                                    disabled={isGeneratingQr}
+                                    className="w-full flex items-center justify-between p-4 border-2 border-slate-200 hover:border-indigo-500 rounded-2xl transition-all active:scale-[0.98] group bg-white shadow-sm"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                                            <QrCode className="w-6 h-6 text-indigo-600" />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="font-extrabold text-slate-800 text-sm">QRIS Auto-Scan</p>
+                                            <p className="text-[11px] font-medium text-slate-500 mt-0.5">GoPay, OVO, DANA, M-Banking</p>
+                                        </div>
                                     </div>
-                                    <div className="text-left">
-                                        <p className="font-extrabold text-slate-800 text-sm">Pilih Metode Pembayaran</p>
-                                        <p className="text-[11px] font-medium text-slate-500 mt-0.5">QRIS, BCA, Mandiri, GoPay, Alfamart</p>
+                                    {isGeneratingQr ? <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" /> : <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-colors" />}
+                                </button>
+                                
+                                <div className="w-full flex items-center justify-between p-4 border border-slate-100 rounded-2xl opacity-50 bg-slate-50 cursor-not-allowed">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-slate-200 rounded-xl flex items-center justify-center">
+                                            <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="font-bold text-slate-600 text-sm">Transfer Bank (VA)</p>
+                                            <p className="text-[11px] font-medium text-slate-400 mt-0.5">Sedang Pemeliharaan Sistem</p>
+                                        </div>
                                     </div>
                                 </div>
-                                {isProcessing ? <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" /> : <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-colors" />}
-                            </button>
-                        </div>
+                            </div>
+                        ) : (
+                            /* TAHAP 2: TAMPILAN BARCODE QRIS LANGSUNG DI APP */
+                            <div className="animate-in fade-in zoom-in-95 duration-500">
+                                <div className="bg-white border-2 border-slate-100 p-4 rounded-[24px] mx-auto w-fit mb-5 shadow-lg">
+                                    <img src={qrUrl} alt="QRIS Barcode" className="w-48 h-48 object-contain mix-blend-multiply" />
+                                </div>
+                                <div className="bg-amber-50 border border-amber-200/60 p-3 rounded-xl mb-6">
+                                    <p className="text-[11px] text-amber-800 font-semibold text-center leading-relaxed">
+                                        Scan kode QR di atas menggunakan aplikasi E-Wallet atau M-Banking Anda sebelum menutup jendela ini.
+                                    </p>
+                                </div>
+                                <Button 
+                                    onClick={() => {
+                                        toast({ title: "Memverifikasi...", description: "Sistem sedang mengecek pembayaran Anda." });
+                                        setTimeout(() => {
+                                            localStorage.setItem("bilano_pro", "true");
+                                            localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
+                                            localStorage.setItem("bilano_trial_expired", "false");
+                                            window.location.href = "/";
+                                        }, 1500);
+                                    }}
+                                    className="w-full h-14 bg-slate-900 hover:bg-black text-white rounded-full font-extrabold shadow-xl flex items-center justify-center gap-2 text-sm transition-transform active:scale-95"
+                                >
+                                    SAYA SUDAH MEMBAYAR
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
