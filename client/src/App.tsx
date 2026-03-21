@@ -7,7 +7,6 @@ import { WifiOff, RefreshCw, Lock } from "lucide-react";
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser } from "./hooks/use-finance"; 
 
-
 // =========================================================================
 // 🚀 FIX MUTLAK: KUNCI MEMORI 1 JAM AGAR ANGKA TIDAK BERKEDIP
 // =========================================================================
@@ -37,14 +36,15 @@ window.fetch = async (input, init = {}) => {
 
   const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
   
+  // 🚀 FIX SULTAN: DAFTARKAN '/api/payment' KE JALUR VIP AGAR USER BISA BAYAR MESKI KUNCI TRIAL HABIS!
   const isAllowedRoute = url.includes('/api/auth') || 
                          url.includes('/api/user/onesignal') || 
                          url.includes('/api/transactions') || 
                          url.includes('/api/debts') ||
-                         url.includes('/api/target/penalty');
+                         url.includes('/api/target/penalty') ||
+                         url.includes('/api/payment'); // <--- INI PENYELAMATNYA!
 
   if (isWriteAction && !isAllowedRoute && localStorage.getItem('bilano_trial_expired') === 'true') {
-      // 🚀 FIX: HANYA REJECT PROMISE, JANGAN TEMBAK MODAL SECARA OTOMATIS DARI SINI
       return Promise.reject(new Error("TRIAL_EXPIRED_LOCKED")); 
   }
 
@@ -90,35 +90,12 @@ import Performance from "@/pages/Performance";
 import Paywall from "@/pages/Paywall";
 import Debts from "@/pages/Debts"; 
 import SmartScan from "@/pages/SmartScan"; 
-import Privacy from "@/pages/Privacy";
 
 function Router() {
   const [location, setLocation] = useLocation();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
   const [isSessionRefreshing, setIsSessionRefreshing] = useState(false); 
-
-  // =========================================================================
-  // 🚀 INTERCEPTOR NOTIFIKASI (RESTART KE HOME SAAT NOTIF DIPENCET)
-  // =========================================================================
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('from_notif') === 'true') {
-        console.log("Notifikasi dipencet! Me-reset aplikasi ke Home...");
-        
-        // 1. Bersihkan URL agar tidak looping terus-menerus
-        window.history.replaceState(null, '', '/');
-        
-        // 2. Arahkan ke halaman utama
-        setLocation('/');
-        
-        // 3. Paksa reload untuk menyapu bersih semua sisa layar/state lama
-        setTimeout(() => {
-            window.location.reload();
-        }, 100);
-    }
-  }, [setLocation]);
-  // =========================================================================
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -201,7 +178,6 @@ function Router() {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
 
-    // 🚀 INI ADALAH LISTENER UNTUK MEMUNCULKAN MODAL SAAT DIPANGGIL OLEH TOMBOL
     const handleCustomLock = () => setShowPaywallAlert(true);
     window.addEventListener('trigger-paywall-lock', handleCustomLock);
 
@@ -268,7 +244,6 @@ function Router() {
         <Route path="/paywall" component={Paywall} />
         <Route path="/security" component={Security} />
         <Route component={NotFound} />
-        <Route path="/privacy" component={Privacy} />
       </Switch>
 
       {showPaywallAlert && (
