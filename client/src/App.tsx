@@ -20,7 +20,7 @@ queryClient.setDefaultOptions({
 });
 
 // =========================================================================
-// 🚀 PENGAMAN GANDA API (TANPA POP-UP ACAK)
+// 🚀 PENGAMAN GANDA API (SATPAM APLIKASI)
 // =========================================================================
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
@@ -36,13 +36,13 @@ window.fetch = async (input, init = {}) => {
 
   const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
   
-  // 🚀 FIX SULTAN: DAFTARKAN '/api/payment' KE JALUR VIP AGAR USER BISA BAYAR MESKI KUNCI TRIAL HABIS!
+  // 🚀 KUNCI ANTI PARADOX: MASUKKAN JALUR PAYMENT KE DAFTAR VIP!
   const isAllowedRoute = url.includes('/api/auth') || 
                          url.includes('/api/user/onesignal') || 
                          url.includes('/api/transactions') || 
                          url.includes('/api/debts') ||
                          url.includes('/api/target/penalty') ||
-                         url.includes('/api/payment'); // <--- INI PENYELAMATNYA!
+                         url.includes('/api/payment'); // <--- INI DIA PENYELAMAT KITA!
 
   if (isWriteAction && !isAllowedRoute && localStorage.getItem('bilano_trial_expired') === 'true') {
       return Promise.reject(new Error("TRIAL_EXPIRED_LOCKED")); 
@@ -96,6 +96,15 @@ function Router() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
   const [isSessionRefreshing, setIsSessionRefreshing] = useState(false); 
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('from_notif') === 'true') {
+        window.history.replaceState(null, '', '/');
+        setLocation('/');
+        setTimeout(() => { window.location.reload(); }, 100);
+    }
+  }, [setLocation]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
