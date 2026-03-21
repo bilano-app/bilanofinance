@@ -181,7 +181,6 @@ export default function Reports() {
   };
 
   const generatePDF = async () => {
-    // 🚀 FIX: Perlindungan Ganda (Pro & Trial) dengan Elegan Modal
     const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     const isTrialExpired = userEmail ? localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true" : false;
 
@@ -258,22 +257,30 @@ export default function Reports() {
         const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
         const netWorth = totalAsset - totalDebt;
 
+        // 🚀 KODE BARU: FILTER KHUSUS BULAN INI SAJA!
+        const nowForReport = new Date();
+        const currentMonthNum = nowForReport.getMonth();
+        const currentYearNum = nowForReport.getFullYear();
+        const currentMonthName = nowForReport.toLocaleDateString('id-ID', { month: 'long' });
+
         const pureTransactions = data.transactions.filter((t:any) => 
             (t.type === 'income' || t.type === 'expense') && 
             t.category !== 'Penyesuaian Sistem' && 
             t.category !== 'Penghapusan Piutang'
         );
-        const investTransactions = data.transactions.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
 
+        // Hanya ambil transaksi di bulan & tahun ini
+        const currentMonthTx = pureTransactions.filter((t:any) => {
+            const d = new Date(t.date);
+            return d.getMonth() === currentMonthNum && d.getFullYear() === currentYearNum;
+        });
+
+        const totalIncome = currentMonthTx.filter((t:any) => t.type === 'income').reduce((acc:number, t:any) => acc + t.amount, 0);
+        const totalExpense = currentMonthTx.filter((t:any) => t.type === 'expense').reduce((acc:number, t:any) => acc + t.amount, 0);
+
+        const investTransactions = data.transactions.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
         const writeOffTransactions = data.transactions.filter((t:any) => t.category === 'Penghapusan Piutang');
         const totalWriteOff = writeOffTransactions.reduce((sum: number, t:any) => sum + t.amount, 0);
-
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const recentPureTx = pureTransactions.filter((t:any) => new Date(t.date) >= thirtyDaysAgo);
-        
-        const totalIncome = recentPureTx.filter((t:any) => t.type === 'income').reduce((acc:number, t:any) => acc + t.amount, 0);
-        const totalExpense = recentPureTx.filter((t:any) => t.type === 'expense').reduce((acc:number, t:any) => acc + t.amount, 0);
 
         let currentY = 108;
         const checkPageBreak = (neededSpace: number) => {
@@ -296,7 +303,7 @@ export default function Reports() {
         doc.setTextColor(50, 50, 50);
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
-        doc.text("Ringkasan Arus Kas Murni (30 Hari Terakhir)", 14, 88);
+        doc.text(`Ringkasan Arus Kas Murni (Bulan ${currentMonthName})`, 14, 88);
 
         doc.setFont("helvetica", "normal");
         doc.setTextColor(16, 185, 129); 
@@ -433,11 +440,12 @@ export default function Reports() {
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
+        // 🚀 FIX: DAFTAR TRANSAKSI HANYA UNTUK BULAN INI
         checkPageBreak(40);
         doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
-        doc.text("Riwayat Transaksi Arus Kas Murni (Pemasukan & Pengeluaran)", 14, currentY);
+        doc.text(`Riwayat Transaksi Arus Kas Murni (Bulan ${currentMonthName})`, 14, currentY);
 
-        const txRows = pureTransactions.slice(0, 30).map((t: any) => [
+        const txRows = currentMonthTx.map((t: any) => [
           new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
           t.type === 'income' ? 'Masuk' : 'Keluar',
           t.category,
@@ -445,21 +453,29 @@ export default function Reports() {
           formatRp(t.amount)
         ]);
 
-        autoTable(doc, {
-          startY: currentY + 5,
-          head: [['Tanggal', 'Arus', 'Kategori', 'Catatan', 'Nominal']],
-          body: txRows,
-          theme: 'grid',
-          headStyles: { fillColor: [249, 115, 22] }, 
-          columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } },
-          didParseCell: function (data) {
-              if (data.section === 'body' && data.column.index === 1) {
-                  if (data.cell.raw === 'Masuk') data.cell.styles.textColor = [16, 185, 129];
-                  if (data.cell.raw === 'Keluar') data.cell.styles.textColor = [244, 63, 94];
+        if (txRows.length === 0) {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(150, 150, 150);
+            doc.text("Tidak ada catatan pengeluaran/pemasukan di bulan ini.", 14, currentY + 10);
+            currentY += 20;
+        } else {
+            autoTable(doc, {
+              startY: currentY + 5,
+              head: [['Tanggal', 'Arus', 'Kategori', 'Catatan', 'Nominal']],
+              body: txRows,
+              theme: 'grid',
+              headStyles: { fillColor: [249, 115, 22] }, 
+              columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } },
+              didParseCell: function (data) {
+                  if (data.section === 'body' && data.column.index === 1) {
+                      if (data.cell.raw === 'Masuk') data.cell.styles.textColor = [16, 185, 129];
+                      if (data.cell.raw === 'Keluar') data.cell.styles.textColor = [244, 63, 94];
+                  }
               }
-          }
-        });
-        currentY = (doc as any).lastAutoTable.finalY + 15;
+            });
+            currentY = (doc as any).lastAutoTable.finalY + 15;
+        }
 
         doc.addPage();
         let graphY = 20;
@@ -570,7 +586,7 @@ export default function Reports() {
             doc.text(`Halaman ${i} dari ${pageCount}`, 196, 285, { align: 'right' });
         }
 
-        const fileName = `Laporan_Keuangan_BILANO_${Date.now()}.pdf`;
+        const fileName = `Laporan_Keuangan_BILANO_${currentMonthName}_${currentYearNum}.pdf`;
         doc.save(fileName);
         toast({ title: "Berhasil Mengunduh!", description: "Laporan PDF Premium siap dilihat." });
 
@@ -639,8 +655,8 @@ export default function Reports() {
                         <FileText className="w-5 h-5"/>
                     </div>
                     <div className="flex-1">
-                        <h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Cashflow)</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional sehari-hari.</p>
+                        <h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Bulan Berjalan)</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional sehari-hari pada bulan ini.</p>
                     </div>
                 </div>
 

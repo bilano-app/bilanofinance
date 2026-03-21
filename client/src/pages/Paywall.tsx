@@ -2,10 +2,8 @@ import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
 import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, ShieldCheck, CreditCard } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 export default function Paywall() {
-  const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasStartedTrial, setHasStartedTrial] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
@@ -37,7 +35,7 @@ export default function Paywall() {
   };
 
   // =======================================================================
-  // 🚀 JURUS REDIRECT MIDTRANS (ANTI DIBLOKIR WEBVIEW/MEDIAN.CO)
+  // 🚀 JURUS REDIRECT MIDTRANS (DENGAN RADAR PENDETEKSI ERROR)
   // =======================================================================
   const handleLanjutBayar = async () => {
       setIsProcessing(true);
@@ -47,10 +45,20 @@ export default function Paywall() {
               headers: { "Content-Type": "application/json", "x-user-email": userEmail }
           });
 
-          const data = await res.json();
+          const textData = await res.text();
+          let data;
+          
+          try {
+              data = JSON.parse(textData);
+          } catch (err) {
+              // Jika Vercel membalas pakai HTML Error (Bukan JSON)
+              alert("⚠️ TERJADI KESALAHAN SISTEM VERCEL.\n\nBrowser Anda masih membaca kode lama. Mohon REFRESH HALAMAN (Tekan F5 atau tarik layar ke bawah) lalu coba lagi!");
+              setIsProcessing(false);
+              return;
+          }
 
           if (res.ok && data.redirectUrl) {
-              // 1. Bypass lokal: Aktifkan Pro sementara di HP pengguna
+              // 1. Bypass lokal agar user langsung Pro saat kembali
               localStorage.setItem("bilano_pro", "true");
               localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
               localStorage.setItem("bilano_trial_expired", "false");
@@ -58,11 +66,13 @@ export default function Paywall() {
               // 2. Lempar layar ke Portal Kasir Resmi Midtrans
               window.location.href = data.redirectUrl;
           } else {
-              toast({ title: "Sistem Sibuk", description: "Gagal memuat kasir bank.", variant: "destructive" });
+              // Jika Midtrans menolak (Misal kunci salah atau server mati)
+              alert("⚠️ PENOLAKAN DARI MIDTRANS:\n\n" + (data.error || "Gagal memuat URL Kasir. Hubungi Admin."));
               setIsProcessing(false);
           }
-      } catch (error) {
-          toast({ title: "Error Koneksi", description: "Gagal memanggil server bank.", variant: "destructive" });
+      } catch (error: any) {
+          // Jika internet terputus atau API diblokir
+          alert("⚠️ KONEKSI TERPUTUS:\n\n" + error.message);
           setIsProcessing(false);
       }
   };
@@ -150,7 +160,7 @@ export default function Paywall() {
             </div>
         </div>
 
-        {/* MODAL HYBRID */}
+        {/* MODAL PEMBAYARAN */}
         {showModal && (
             <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 sm:zoom-in-95">
@@ -178,7 +188,6 @@ export default function Paywall() {
                         <div className="space-y-3">
                             <p className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-3 text-center">Terima Semua Pembayaran</p>
                             
-                            {/* TOMBOL SAKTI: REDIRECT KE MIDTRANS */}
                             <button
                                 onClick={handleLanjutBayar}
                                 disabled={isProcessing}
