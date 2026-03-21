@@ -518,9 +518,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/user/profile", async (req, res) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
 
   // =========================================================================
-  // 🚀 API MIDTRANS CORE (MEMINTA GAMBAR QRIS SECARA LANGSUNG)
-  // =========================================================================
-  // =========================================================================
   // 🚀 API MIDTRANS SNAP (MEMINTA TIKET POP-UP)
   // =========================================================================
   app.post("/api/payment/midtrans/charge", async (req, res) => {
@@ -534,7 +531,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const serverKey = process.env.MIDTRANS_SERVER_KEY || ""; 
           const authString = Buffer.from(serverKey + ":").toString('base64');
 
-          // Payload untuk Snap (Tidak perlu mendefinisikan qris secara spesifik)
           const payload = {
               transaction_details: {
                   order_id: orderId,
@@ -546,7 +542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           };
 
-          // 🚀 FIX: Tembak ke API SNAP Midtrans
+          // 🚀 JURUS REDIRECT SNAP MIDTRANS
           const midtransRes = await fetch("https://app.sandbox.midtrans.com/snap/v1/transactions", {
               method: "POST",
               headers: { 
@@ -560,7 +556,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const data = await midtransRes.json();
           
           if (midtransRes.ok && data.token) {
-              res.json({ success: true, token: data.token, orderId });
+              // KITA KEMBALIKAN REDIRECT_URL AGAR BISA DIPAKAI DI FRONTEND
+              res.json({ success: true, token: data.token, redirectUrl: data.redirect_url, orderId });
           } else {
               res.status(400).json({ error: data.error_messages ? data.error_messages[0] : "Gagal memproses pembayaran." });
           }
@@ -570,7 +567,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // Webhook Otomatis Nyala ketika di Scan
   app.post("/api/payment/midtrans/webhook", async (req, res) => {
       try {
           const data = req.body;

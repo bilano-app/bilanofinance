@@ -25,22 +25,6 @@ export default function Paywall() {
       }
   }, [trialKey, expiredKey]);
 
-  // 🚀 INJEKSI SCRIPT SNAP MIDTRANS
-  useEffect(() => {
-      const existingScript = document.getElementById("midtrans-script");
-      if (existingScript) existingScript.remove();
-
-      const script = document.createElement("script");
-      script.src = "https://app.sandbox.midtrans.com/snap/snap.js"; 
-      script.id = "midtrans-script";
-      script.setAttribute("data-client-key", import.meta.env.VITE_MIDTRANS_CLIENT_KEY || "");
-      document.body.appendChild(script);
-
-      return () => {
-          if (script.parentNode) script.parentNode.removeChild(script);
-      };
-  }, []);
-
   const handleMulaiCoba = () => {
       if (!localStorage.getItem(trialKey)) {
           localStorage.setItem(trialKey, Date.now().toString());
@@ -52,7 +36,9 @@ export default function Paywall() {
       setShowModal(true);
   };
 
-  // 🚀 FUNGSI EKSEKUSI SNAP MIDTRANS
+  // =======================================================================
+  // 🚀 JURUS REDIRECT MIDTRANS (ANTI DIBLOKIR WEBVIEW/MEDIAN.CO)
+  // =======================================================================
   const handleLanjutBayar = async () => {
       setIsProcessing(true);
       try {
@@ -63,31 +49,16 @@ export default function Paywall() {
 
           const data = await res.json();
 
-          if (res.ok && data.token) {
-              setShowModal(false); // Tutup modal kita, biarkan Midtrans ambil alih
-              
-              (window as any).snap.pay(data.token, {
-                  onSuccess: function(result: any) {
-                      toast({ title: "PEMBAYARAN SUKSES! 🎉", description: "Selamat datang di BILANO PRO!" });
-                      localStorage.setItem("bilano_pro", "true");
-                      localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
-                      localStorage.setItem("bilano_trial_expired", "false");
-                      setTimeout(() => window.location.href = "/", 1000);
-                  },
-                  onPending: function(result: any) {
-                      toast({ title: "Menunggu Pembayaran", description: "Selesaikan instruksi bank/e-wallet Anda." });
-                      setIsProcessing(false);
-                  },
-                  onError: function(result: any) {
-                      toast({ title: "Gagal", description: "Transaksi bermasalah.", variant: "destructive" });
-                      setIsProcessing(false);
-                  },
-                  onClose: function() {
-                      setIsProcessing(false);
-                  }
-              });
+          if (res.ok && data.redirectUrl) {
+              // 1. Bypass lokal: Aktifkan Pro sementara di HP pengguna
+              localStorage.setItem("bilano_pro", "true");
+              localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
+              localStorage.setItem("bilano_trial_expired", "false");
+
+              // 2. Lempar layar ke Portal Kasir Resmi Midtrans
+              window.location.href = data.redirectUrl;
           } else {
-              toast({ title: "Sistem Sibuk", description: "Gagal memuat kasir.", variant: "destructive" });
+              toast({ title: "Sistem Sibuk", description: "Gagal memuat kasir bank.", variant: "destructive" });
               setIsProcessing(false);
           }
       } catch (error) {
@@ -179,7 +150,7 @@ export default function Paywall() {
             </div>
         </div>
 
-        {/* MODAL HYBRID (CUSTOM UI KE MIDTRANS SNAP) */}
+        {/* MODAL HYBRID */}
         {showModal && (
             <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 sm:zoom-in-95">
@@ -207,7 +178,7 @@ export default function Paywall() {
                         <div className="space-y-3">
                             <p className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-3 text-center">Terima Semua Pembayaran</p>
                             
-                            {/* TOMBOL SAKTI: LANGSUNG BUKA SEMUA BANK VIA SNAP */}
+                            {/* TOMBOL SAKTI: REDIRECT KE MIDTRANS */}
                             <button
                                 onClick={handleLanjutBayar}
                                 disabled={isProcessing}
