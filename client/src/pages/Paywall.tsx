@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
-import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, ShieldCheck, CreditCard } from "lucide-react";
+import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, ShieldCheck, CreditCard, Gift, BookOpen, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Paywall() {
@@ -12,7 +12,8 @@ export default function Paywall() {
 
   const [showModal, setShowModal] = useState(false);
   
-  // 🚀 STATE BARU UNTUK MENANGKAP URL MIDTRANS KE DALAM APLIKASI
+  // 🚀 STATE BARU UNTUK MENAMPILKAN KOTAK KEBERUNTUNGAN
+  const [showLuckyModal, setShowLuckyModal] = useState(false);
   const [iframeUrl, setIframeUrl] = useState("");
 
   const userEmail = localStorage.getItem("bilano_email") || "";
@@ -39,12 +40,10 @@ export default function Paywall() {
       setShowModal(true);
   };
 
-  // =======================================================================
-  // 🚀 FUNGSI MEMANGGIL MIDTRANS KE DALAM IFRAME (TIDAK KELUAR APLIKASI)
-  // =======================================================================
   const handleLanjutBayar = async () => {
       setIsProcessing(true);
       try {
+          // 🚀 HARGA DI SINI MASIH HARDCODED 99RB SESUAI routes.ts
           const res = await fetch("/api/payment/midtrans/charge", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-email": userEmail }
@@ -58,9 +57,8 @@ export default function Paywall() {
               localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
               localStorage.setItem("bilano_trial_expired", "false");
 
-              // 🚀 BUKAN DILEMPAR, TAPI URL-NYA DIMASUKKAN KE DALAM STATE IFRAME KITA
               setIframeUrl(data.redirectUrl);
-              setShowModal(false); // Tutup modal pilihan metode bayar
+              setShowModal(false); 
           } else {
               alert("⚠️ GAGAL MEMUAT KASIR:\n" + (data.error || "Sistem Bank Sibuk."));
           }
@@ -71,22 +69,16 @@ export default function Paywall() {
       }
   };
 
-  // Fungsi saat pengguna menekan tombol silang (X) di atas Iframe
   const handleCloseIframe = () => {
       setIframeUrl("");
       toast({ title: "Mengecek Pembayaran...", description: "Status akun Anda sedang diperbarui." });
-      // Setelah ditutup, arahkan ke Home karena akun sudah di-bypass jadi PRO
       setTimeout(() => window.location.href = "/", 1000);
   };
 
   return (
     <MobileLayout>
-        {/* ========================================================= */}
-        {/* 🚀 KANDANG IFRAME MIDTRANS (LAYAR PENUH DI DALAM APP)     */}
-        {/* ========================================================= */}
         {iframeUrl && (
             <div className="fixed inset-0 z-[999999] bg-slate-50 flex flex-col animate-in slide-in-from-bottom duration-300">
-                {/* Header Custom Kita untuk Menutup Kasir */}
                 <div className="h-14 bg-slate-900 flex items-center justify-between px-4 text-white shadow-md z-10 shrink-0">
                     <div className="flex items-center gap-2">
                         <ShieldCheck className="w-5 h-5 text-emerald-400" />
@@ -99,8 +91,6 @@ export default function Paywall() {
                         <X className="w-5 h-5" />
                     </button>
                 </div>
-                
-                {/* Jendela Web Midtrans Tertanam di Sini */}
                 <div className="flex-1 w-full bg-slate-50 relative">
                     <div className="absolute inset-0 flex items-center justify-center -z-10">
                         <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
@@ -138,9 +128,26 @@ export default function Paywall() {
                     Buka Potensi Penuh <br/>
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-500">BILANO PRO</span>
                 </h1>
-                <p className="text-sm text-slate-400 font-medium leading-relaxed mb-8 pr-4">
+                <p className="text-sm text-slate-400 font-medium leading-relaxed mb-6 pr-4">
                     Catat lebih cepat, analisa lebih tajam, dan capai target keuanganmu tanpa batas.
                 </p>
+
+                {/* ========================================================= */}
+                {/* 🚀 TOMBOL PEMICU KOTAK KEBERUNTUNGAN (ANTI-RUGI)          */}
+                {/* ========================================================= */}
+                <button 
+                    onClick={() => setShowLuckyModal(true)}
+                    className="flex items-center gap-3 bg-gradient-to-r from-emerald-950 to-slate-800 p-4 rounded-2xl border border-emerald-500/30 mb-8 self-start active:scale-95 transition-transform shadow-lg"
+                >
+                    <div className="bg-emerald-500/20 p-2.5 rounded-full border border-emerald-500/50">
+                        <Gift className="w-5 h-5 text-emerald-300 animate-pulse" />
+                    </div>
+                    <div className="text-left">
+                        <p className="text-sm font-extrabold text-white">Kenapa Bergabung Hari Ini Adalah Keputusan Terbaik?</p>
+                        <p className="text-[11px] text-emerald-200 font-bold mt-0.5">💡 Lihat Garansi Harga Tetap & Bonus Eksklusif Anda di Sini.</p>
+                    </div>
+                </button>
+                {/* ========================================================= */}
 
                 <div className="space-y-4 mb-8">
                     {[
@@ -224,7 +231,6 @@ export default function Paywall() {
                         <div className="space-y-3">
                             <p className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-3 text-center">Terima Semua Pembayaran</p>
                             
-                            {/* TOMBOL YANG MEMANGGIL IFRAME KITA */}
                             <button
                                 onClick={handleLanjutBayar}
                                 disabled={isProcessing}
@@ -246,6 +252,55 @@ export default function Paywall() {
                 </div>
             </div>
         )}
+
+        {/* ========================================================= */}
+        {/* 🚀 KOTAK KEBERUNTUNGAN (MODAL PENJELASAN PRICE LOCK)       */}
+        {/* ========================================================= */}
+        {showLuckyModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-5 animate-in fade-in duration-300">
+                <div className="bg-slate-900 w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 border border-emerald-500/20 relative">
+                    
+                    <button onClick={() => setShowLuckyModal(false)} className="absolute top-5 right-5 z-20 p-2 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white rounded-full transition-colors">
+                        <X className="w-4 h-4" />
+                    </button>
+
+                    <div className="relative p-7 pb-5">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
+                        <Gift className="w-12 h-12 text-emerald-400 mb-5 relative z-10"/>
+                        <h2 className="text-2xl font-extrabold text-white mb-2 relative z-10 leading-snug">Visi Kami & Garansi <br/>Investasi Finansial Anda</h2>
+                        <p className="text-xs text-slate-400 font-medium relative z-10 leading-relaxed">Bergabung hari ini bukan sekadar berlangganan, tapi mengunci nilai terbaik untuk masa depan keuangan Anda.</p>
+                    </div>
+
+                    <div className="p-7 pt-2 space-y-6">
+                        {[
+                            { icon: Sparkles, color: 'emerald', title: "Inovasi & Update Fitur Tanpa Henti", desc: "Kami berkomitmen terus memperbarui BILANO PRO dengan analisa AI yang lebih cerdas, alat pelacak aset terbaru, dan integrasi bank yang lebih luas di masa mendatang." },
+                            { icon: BookOpen, color: 'blue', title: "Segera Hadir: E-Book Premium!", desc: "Dapatkan seri E-Book eksklusif 'Mastering Money' bergaya ALA Bank Statement. Panduan praktis cara menghasilkan uang tambahan, mengelola hutang, hingga strategi investasi untuk pemula." },
+                            { icon: AlertCircle, color: 'amber', title: "Kebijakan Garansi Harga (Price Lock)", desc: "Seiring bertambahnya fitur, harga BILANO PRO untuk pengguna baru akan terus NAIK di masa mendatang. NAMUN, sebagai pengguna hari ini, harga perpanjangan Anda tahun depan dan seterusnya TETAP SAMA (tidak akan naik). Nikmati semua update selamanya tanpa biaya tambahan." }
+                        ].map((item, idx) => (
+                            <div key={idx} className="flex gap-4 items-start">
+                                <div className={`p-2.5 rounded-full bg-${item.color}-500/10 border border-${item.color}-500/30 flex-shrink-0 mt-1`}>
+                                    <item.icon className={`w-5 h-5 text-${item.color}-300`} />
+                                </div>
+                                <div>
+                                    <h3 className="font-extrabold text-sm text-white">{item.title}</h3>
+                                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed font-medium">{item.desc}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="p-7 pt-0">
+                        <Button 
+                            onClick={() => { setShowLuckyModal(false); setShowModal(true); }} 
+                            className="w-full h-14 text-base font-extrabold rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-[0_0_30px_rgba(16,185,129,0.3)] active:scale-95 transition-transform"
+                        >
+                            Saya Paham, Ambil Penawaran Ini!
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        )}
+        {/* ========================================================= */}
     </MobileLayout>
   );
 }
