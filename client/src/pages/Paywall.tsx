@@ -247,7 +247,7 @@ export default function Paywall() {
                         <h3 className="text-xl font-black text-white mb-3 tracking-tight">Garansi Harga Tetap</h3>
                         
                         <p className="text-[13px] text-slate-300 leading-relaxed mb-8">
-                            Aplikasi BILANO akan terus merilis <b>fitur kecerdasan AI baru</b> dan <b>E-Book Premium</b> eksklusif seputar manajemen keuangan dan investasi.<br/><br/>
+                            Aplikasi BILANO akan terus mengadakan update,<b>merilis kumpulan E-Book Premium</b> (mengandung edukasi untuk menghasilkan uang dan mengelola uang), serta fitur tambahan lainnya.<br/><br/>
                             Seiring bertambahnya fitur, harga langganan akan terus <b>NAIK</b> untuk pengguna baru. <span className="text-amber-400 font-bold">NAMUN, khusus Anda yang bergabung hari ini</span>, harga perpanjangan Anda tahun depan dan seterusnya akan <b>DIKUNCI SELAMANYA</b> di angka Rp 99.000. Anda mendapatkan semua update masa depan tanpa membayar lebih.
                         </p>
                         
