@@ -2,13 +2,18 @@ import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
 import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, ShieldCheck, CreditCard } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Paywall() {
+  const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasStartedTrial, setHasStartedTrial] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
+  
+  // 🚀 STATE BARU UNTUK MENANGKAP URL MIDTRANS KE DALAM APLIKASI
+  const [iframeUrl, setIframeUrl] = useState("");
 
   const userEmail = localStorage.getItem("bilano_email") || "";
   const trialKey = `bilano_trial_start_${userEmail}`;
@@ -35,7 +40,7 @@ export default function Paywall() {
   };
 
   // =======================================================================
-  // 🚀 FUNGSI REDIRECT KE MIDTRANS (PALING LANCAR)
+  // 🚀 FUNGSI MEMANGGIL MIDTRANS KE DALAM IFRAME (TIDAK KELUAR APLIKASI)
   // =======================================================================
   const handleLanjutBayar = async () => {
       setIsProcessing(true);
@@ -48,30 +53,73 @@ export default function Paywall() {
           const data = await res.json();
 
           if (res.ok && data.redirectUrl) {
-              // Bypass lokal agar akun langsung jadi PRO tanpa nunggu webhook
+              // Bypass lokal
               localStorage.setItem("bilano_pro", "true");
               localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
               localStorage.setItem("bilano_trial_expired", "false");
 
-              // Lempar ke halaman Kasir Midtrans
-              window.location.href = data.redirectUrl;
+              // 🚀 BUKAN DILEMPAR, TAPI URL-NYA DIMASUKKAN KE DALAM STATE IFRAME KITA
+              setIframeUrl(data.redirectUrl);
+              setShowModal(false); // Tutup modal pilihan metode bayar
           } else {
               alert("⚠️ GAGAL MEMUAT KASIR:\n" + (data.error || "Sistem Bank Sibuk."));
-              setIsProcessing(false);
           }
       } catch (error: any) {
           alert("⚠️ KONEKSI TERPUTUS:\n" + error.message);
+      } finally {
           setIsProcessing(false);
       }
   };
 
+  // Fungsi saat pengguna menekan tombol silang (X) di atas Iframe
+  const handleCloseIframe = () => {
+      setIframeUrl("");
+      toast({ title: "Mengecek Pembayaran...", description: "Status akun Anda sedang diperbarui." });
+      // Setelah ditutup, arahkan ke Home karena akun sudah di-bypass jadi PRO
+      setTimeout(() => window.location.href = "/", 1000);
+  };
+
   return (
     <MobileLayout>
+        {/* ========================================================= */}
+        {/* 🚀 KANDANG IFRAME MIDTRANS (LAYAR PENUH DI DALAM APP)     */}
+        {/* ========================================================= */}
+        {iframeUrl && (
+            <div className="fixed inset-0 z-[999999] bg-slate-50 flex flex-col animate-in slide-in-from-bottom duration-300">
+                {/* Header Custom Kita untuk Menutup Kasir */}
+                <div className="h-14 bg-slate-900 flex items-center justify-between px-4 text-white shadow-md z-10 shrink-0">
+                    <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                        <span className="font-bold text-sm tracking-wide">Kasir Pembayaran Aman</span>
+                    </div>
+                    <button 
+                        onClick={handleCloseIframe}
+                        className="p-1.5 bg-white/10 hover:bg-rose-500 rounded-full transition-colors active:scale-95"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+                
+                {/* Jendela Web Midtrans Tertanam di Sini */}
+                <div className="flex-1 w-full bg-slate-50 relative">
+                    <div className="absolute inset-0 flex items-center justify-center -z-10">
+                        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                    </div>
+                    <iframe 
+                        src={iframeUrl} 
+                        className="w-full h-full border-none relative z-10 bg-transparent"
+                        allow="payment"
+                        title="Midtrans Checkout"
+                    />
+                </div>
+            </div>
+        )}
+
         <div className="min-h-screen bg-slate-900 text-white relative overflow-y-auto overflow-x-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute bottom-1/4 left-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-            {hasStartedTrial && (
+            {hasStartedTrial && !iframeUrl && (
                 <button 
                     onClick={() => window.location.href = "/"}
                     className="absolute top-6 right-6 z-50 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md border border-white/10 transition-colors shadow-lg"
@@ -176,7 +224,7 @@ export default function Paywall() {
                         <div className="space-y-3">
                             <p className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-3 text-center">Terima Semua Pembayaran</p>
                             
-                            {/* TOMBOL LANJUT KE KASIR MIDTRANS */}
+                            {/* TOMBOL YANG MEMANGGIL IFRAME KITA */}
                             <button
                                 onClick={handleLanjutBayar}
                                 disabled={isProcessing}
