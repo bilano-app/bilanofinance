@@ -3,12 +3,59 @@ import { MobileLayout } from "@/components/Layout";
 import { Card } from "@/components/UIComponents";
 import { useUser, useTransactions, useTarget, useInvestments } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
-import { Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2 } from "lucide-react";
-import { Link } from "wouter";
+import { Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2, Lock, Crown } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 
 export default function Performance() {
   const { data: user, isLoading: isUserLoading } = useUser();
+  const [, setLocation] = useLocation();
+
+  // =====================================================================
+  // 🔒 SATPAM GEMBOK HALAMAN PERFORMA (ANTI MALING FITUR)
+  // =====================================================================
+  const isPro = user?.isPro || localStorage.getItem("bilano_pro") === "true";
+  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
+
+  if (!isUserLoading && !isPro && isTrialExpired) {
+      return (
+          <MobileLayout>
+              <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in-95 duration-500">
+                  <div className="relative mb-6">
+                      <div className="absolute inset-0 bg-rose-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
+                      <div className="w-24 h-24 bg-gradient-to-br from-rose-100 to-rose-50 rounded-full flex items-center justify-center shadow-inner relative z-10 border border-rose-100">
+                          <Lock className="w-10 h-10 text-rose-500" />
+                      </div>
+                  </div>
+                  
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-[10px] font-extrabold uppercase tracking-widest mb-4">
+                      <Crown className="w-3.5 h-3.5" /> Fitur Premium
+                  </div>
+
+                  <h2 className="text-2xl font-black text-slate-800 mb-3 tracking-tight">Analisis Terkunci</h2>
+                  <p className="text-slate-500 text-sm mb-10 leading-relaxed font-medium max-w-[280px]">
+                      Laporan performa keuangan mendalam dan grafik kekayaan bersih hanya tersedia untuk pengguna <b>BILANO PRO</b>.
+                  </p>
+
+                  <button
+                      onClick={() => setLocation("/paywall")}
+                      className="w-full max-w-[280px] h-14 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 font-extrabold rounded-full shadow-[0_0_30px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2"
+                  >
+                      BUKA KUNCI SEKARANG
+                  </button>
+                  
+                  <button 
+                      onClick={() => setLocation("/")}
+                      className="mt-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                      Kembali ke Beranda
+                  </button>
+              </div>
+          </MobileLayout>
+      );
+  }
+  // =====================================================================
+
   const { data: transactions, isLoading: isTxLoading } = useTransactions();
   const { data: target, isLoading: isTargetLoading } = useTarget();
   const { data: investments, isLoading: isInvLoading } = useInvestments(); 
@@ -161,7 +208,6 @@ export default function Performance() {
       return formatCurrency(val).split(",")[0];
   };
 
-  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE
   const displayWealth = formatRp(currentWealth);
   const getBalanceTextSize = (text: string) => {
       if (text.length >= 20) return "text-2xl"; 
@@ -224,7 +270,6 @@ export default function Performance() {
                     )}
                 </div>
 
-                {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
                 <h2 className={`${getBalanceTextSize(displayWealth)} font-extrabold font-display text-white block w-full whitespace-nowrap transition-all duration-300`}>
                     {displayWealth}
                 </h2>
