@@ -37,25 +37,38 @@
       OneSignalDeferred.push(async function(OneSignal) {
         await OneSignal.init({
           appId: "b45b3256-b290-4a98-b5fa-afa0501a6b1c",
-          notifyButton: {
-            enable: false, /* Disembunyikan agar desain aplikasi tetap bersih */
-          },
+          notifyButton: { enable: false },
           promptOptions: {
             customlink: {
-              enabled: true, 
-              style: "button",
-              size: "medium",
-              color: {
-                button: '#4f46e5', /* Warna Indigo khas BILANO */
-                text: '#ffffff',
-              },
-              text: {
-                main: "BILANO ingin mengirim pengingat keuangan.",
-                button: "Izinkan Notifikasi"
-              }
+              enabled: true, style: "button", size: "medium",
+              color: { button: '#4f46e5', text: '#ffffff' },
+              text: { main: "BILANO ingin mengirim pengingat keuangan.", button: "Izinkan Notifikasi" }
             }
           }
         });
+
+        // 🚀 FUNGSI RAHASIA: KIRIM ID ANTENA KE DATABASE SERVER BILANO
+        const laporKeDatabase = async (idAntena) => {
+            const email = localStorage.getItem("bilano_email") || "guest";
+            if (idAntena) {
+                await fetch('/api/user/onesignal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-user-email': email },
+                    body: JSON.stringify({ onesignalId: idAntena })
+                });
+                console.log("✅ Antena berhasil terhubung ke Database BILANO!");
+            }
+        };
+
+        // 1. Lapor jika user BARU SAJA klik "Izinkan"
+        OneSignal.User.PushSubscription.addEventListener("change", (subscription) => {
+            if (subscription.current.id) laporKeDatabase(subscription.current.id);
+        });
+
+        // 2. Lapor ulang jika user SUDAH PERNAH mengizinkan sebelumnya
+        if (OneSignal.User.PushSubscription.id) {
+            laporKeDatabase(OneSignal.User.PushSubscription.id);
+        }
       });
     </script>
   </head>
