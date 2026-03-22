@@ -51,9 +51,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.execute(sql`ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT NOW();`);
   } catch (e) {}
 
-  // =========================================================================
-  // 🚀 OPTIMASI SULTAN V2: SMART CACHE (100% DATA ASLI, ANTI BONEKA)
-  // =========================================================================
   let cachedRates: Record<string, number> = {}; 
   let lastRatesFetchTime = 0;
 
@@ -64,14 +61,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const data = await response.json();
               const rates = data.rates;
               const idrBase = rates.IDR;
-              // Simpan Data Asli ke Memori
               cachedRates = {
                   "USD": idrBase, "EUR": idrBase / rates.EUR, "SGD": idrBase / rates.SGD,
                   "JPY": idrBase / rates.JPY, "AUD": idrBase / rates.AUD, "GBP": idrBase / rates.GBP,
                   "CNY": idrBase / rates.CNY, "MYR": idrBase / rates.MYR, "THB": idrBase / rates.THB,
                   "SAR": idrBase / rates.SAR, "KRW": idrBase / rates.KRW
               };
-              lastRatesFetchTime = Date.now(); // Catat jam berapa data ini diambil
+              lastRatesFetchTime = Date.now(); 
               return true;
           }
       } catch (e) { 
@@ -275,16 +271,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/forex", async (req, res) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
   
-  // 🚀 API RATE ASLI (JIKA SERVER BARU BANGUN ATAU UMUR DATA > 1 JAM, DIA TARIK ASLI DULU!)
   app.get("/api/forex/rates", async (req, res) => { 
       const now = Date.now();
       const ONE_HOUR = 1000 * 60 * 60;
       
       if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > ONE_HOUR) {
-          await fetchLiveRates(); // Wajib tarik yang ASLI dari internet
+          await fetchLiveRates(); 
       }
 
-      // Kalau amit-amit server luar negeri down total, baru kita kasih boneka
       if (Object.keys(cachedRates).length === 0) {
           cachedRates = {
               "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -304,7 +298,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const t = type.toLowerCase();
       const isIncome = t === 'income' || t === 'pemasukan' || t === 'tambah' || t === 'buy' || t === 'in' || t === 'dapat';
       
-      // PASTIKAN RATE NYA FRESH SAAT MAU TRANSAKSI
       const now = Date.now();
       if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) {
           await fetchLiveRates();
@@ -543,9 +536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const serverKey = process.env.MIDTRANS_SERVER_KEY || ""; 
           const authString = Buffer.from(serverKey + ":").toString('base64');
 
-          // PAYLOAD KHUSUS UNTUK CORE API (Minta dibuatkan QRIS)
           const payload = {
-              payment_type: "qris",
               transaction_details: {
                   order_id: orderId,
                   gross_amount: amount
@@ -556,8 +547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           };
 
-          // 🚀 MURNI TANPA SNAP (V2/CHARGE) - URL PRODUCTION
-          const midtransRes = await fetch("https://api.midtrans.com/v2/charge", {
+          const midtransRes = await fetch("https://app.midtrans.com/snap/v1/transactions", {
               method: "POST",
               headers: { 
                   "Content-Type": "application/json",
@@ -569,16 +559,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const data = await midtransRes.json();
           
-          if (midtransRes.ok && data.status_code === "201") {
-              const qrAction = data.actions?.find((a: any) => a.name === "generate-qr-code");
-              if (qrAction) {
-                  // MENGIRIMKAN qrUrl AGAR BISA DITANGKAP OLEH Paywall.tsx
-                  res.json({ success: true, qrUrl: qrAction.url, orderId: data.order_id });
-              } else {
-                  res.status(500).json({ error: "Sistem Midtrans gagal mengeluarkan QR Code." });
-              }
+          if (midtransRes.ok && data.redirect_url) {
+              res.json({ success: true, redirectUrl: data.redirect_url, orderId });
           } else {
-              res.status(400).json({ error: data.status_message || "Gagal memproses pembayaran." });
+              res.status(400).json({ error: data.error_messages ? data.error_messages[0] : "Gagal memproses pembayaran." });
           }
 
       } catch (error: any) {
@@ -608,7 +592,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 OPTIMASI MUTLAK: PEMBUNUH N+1 QUERY DI CRON JOB
+  // =========================================================================
+  // 🚀 CRON JOB SUPER AMAN (LULUS VERCEL BUILD + MESSAGE MELAYANG)
+  // =========================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
@@ -621,30 +607,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const cleanKey = rawKey.replace(/\s+/g, '').trim();
           const finalAuthKey = cleanKey.replace(/^(Basic|Key)\s+/i, '');
 
-          // 1. Eksekusi Pembayaran Langganan Otomatis (Hanya 1x Jalan)
-          if (typeof storage.processAllDueSubscriptions === 'function') {
-              await storage.processAllDueSubscriptions();
-          }
-
-          // 2. Tarik SEMUA Data Sekaligus (Grosir Data)
-          const allUsers = await storage.getAllUsers();
-          let allActiveDebts: any[] = [];
-          let allActiveSubs: any[] = [];
-          
-          if (typeof storage.getAllActiveDebts === 'function') {
-              allActiveDebts = await storage.getAllActiveDebts();
-              allActiveSubs = await storage.getAllActiveSubscriptions();
-          }
-
-          // 3. Kelompokkan Data di Memory (Kecepatan Instan)
-          const debtsMap = allActiveDebts.reduce((acc, d) => { 
-              acc[d.userId] = acc[d.userId] || []; acc[d.userId].push(d); return acc; 
-          }, {} as Record<number, any[]>);
-          
-          const subsMap = allActiveSubs.reduce((acc, s) => { 
-              acc[s.userId] = acc[s.userId] || []; acc[s.userId].push(s); return acc; 
-          }, {} as Record<number, any[]>);
-
           const today = new Date();
           today.setHours(0,0,0,0);
           
@@ -655,7 +617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const notificationsToSend: any[] = [];
           const targetSegments = ["Total Subscriptions"];
 
-          // Pesan Umum
+          // 1. NOTIFIKASI UMUM (SPAM/PDF)
           if (isPDFDay) {
               notificationsToSend.push({
                   app_id: ONE_SIGNAL_APP_ID,
@@ -665,7 +627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   big_picture: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=3",
                   android_accent_color: "FF4F46E5",
                   android_led_color: "FF4F46E5",
-                  priority: 10
+                  priority: 10 // 🚀 INI YANG BIKIN MUNCUL MELAYANG KAYAK WA
               });
           } else {
               const messages = [
@@ -686,19 +648,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   big_picture: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=3",
                   android_accent_color: "FF4F46E5",
                   android_led_color: "FF4F46E5",
-                  priority: 10
+                  priority: 10 // 🚀 INI YANG BIKIN MUNCUL MELAYANG KAYAK WA
               });
           }
 
-          // 4. Proses Notifikasi Spesifik User Tanpa Nembak Database
+          // 2. TARIK SEMUA USER DARI STORAGE YANG BENAR
+          const allUsers = await storage.getAllUsers();
+
           for (const user of allUsers) {
+              
+              // 🚀 POTONG OTOMATIS LANGGANAN MENGGUNAKAN NAMA FUNGSI YANG ASLI
+              if (typeof storage.processDueSubscriptions === 'function') {
+                  await storage.processDueSubscriptions(user.id);
+              }
+
               if (!user.onesignalId) continue; 
 
-              const userDebts = debtsMap[user.id] || [];
-              const userSubs = subsMap[user.id] || [];
+              // 🚀 TARIK HUTANG DAN LANGGANAN MENGGUNAKAN NAMA FUNGSI YANG ASLI
+              const userDebts = await storage.getDebts(user.id);
+              const userSubs = await storage.getSubscriptions(user.id);
 
               for (const debt of userDebts) {
-                  if (debt.dueDate) {
+                  if (!debt.isPaid && debt.dueDate) {
                       const due = new Date(debt.dueDate); due.setHours(0,0,0,0);
                       const diffTime = due.getTime() - today.getTime();
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -714,14 +685,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                               contents: { "en": body },
                               android_accent_color: "FFE11D48",
                               android_led_color: "FFE11D48",
-                              priority: 10
+                              priority: 10 // 🚀 INI YANG BIKIN MUNCUL MELAYANG KAYAK WA
                           });
                       }
                   }
               }
 
               for (const sub of userSubs) {
-                  if (sub.nextBilling) {
+                  if (sub.isActive && sub.nextBilling) {
                       const due = new Date(sub.nextBilling); due.setHours(0,0,0,0);
                       const diffTime = due.getTime() - today.getTime();
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -734,14 +705,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                               contents: { "en": `Langganan [${sub.name}] akan ditagih ${diffDays === 0 ? 'HARI INI' : 'dalam ' + diffDays + ' hari'}. Siapkan dana Rp ${sub.cost.toLocaleString('id-ID')}` },
                               android_accent_color: "FFE11D48",
                               android_led_color: "FFE11D48",
-                              priority: 10
+                              priority: 10 // 🚀 INI YANG BIKIN MUNCUL MELAYANG KAYAK WA
                           });
                       }
                   }
               }
           }
 
-          // Kirim Semua Notifikasi Sekaligus
+          // 3. TEMBAK SEMUA NOTIFIKASI
           const results = [];
           for (const payload of notificationsToSend) {
               const res = await fetch("https://onesignal.com/api/v1/notifications", {
