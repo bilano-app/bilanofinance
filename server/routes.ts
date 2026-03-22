@@ -536,7 +536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
 
           // 🚀 HIT API CORE MIDTRANS V2 (MURNI TANPA SNAP)
-          const midtransRes = await fetch("https://api.sandbox.midtrans.com/v2/charge", {
+          const midtransRes = await fetch("https://api.midtrans.com/v2/charge", {
               method: "POST",
               headers: { 
                   "Content-Type": "application/json",
