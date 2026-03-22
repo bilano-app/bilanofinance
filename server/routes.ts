@@ -508,6 +508,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/user", async (req, res) => { const user = await getUser(req); res.json(user); });
   app.patch("/api/user/profile", async (req, res) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
 
+  // =========================================================================
+  // 🚀 API MIDTRANS CORE API (TIDAK PAKAI SNAP, MURNI MINTA GAMBAR QRIS)
+  // =========================================================================
   app.post("/api/payment/midtrans/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -519,7 +522,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const serverKey = process.env.MIDTRANS_SERVER_KEY || ""; 
           const authString = Buffer.from(serverKey + ":").toString('base64');
 
+          // PAYLOAD KHUSUS UNTUK CORE API (Minta dibuatkan QRIS)
           const payload = {
+              payment_type: "qris",
               transaction_details: {
                   order_id: orderId,
                   gross_amount: amount
@@ -530,7 +535,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           };
 
-          const midtransRes = await fetch("https://app.sandbox.midtrans.com/snap/v1/transactions", {
+          // 🚀 HIT API CORE MIDTRANS V2 (MURNI TANPA SNAP)
+          const midtransRes = await fetch("https://api.sandbox.midtrans.com/v2/charge", {
               method: "POST",
               headers: { 
                   "Content-Type": "application/json",
@@ -542,10 +548,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const data = await midtransRes.json();
           
-          if (midtransRes.ok && data.redirect_url) {
-              res.json({ success: true, redirectUrl: data.redirect_url, orderId });
+          if (midtransRes.ok && data.status_code === "201") {
+              const qrAction = data.actions?.find((a: any) => a.name === "generate-qr-code");
+              if (qrAction) {
+                  // MENGIRIMKAN qrUrl AGAR BISA DITANGKAP OLEH Paywall.tsx
+                  res.json({ success: true, qrUrl: qrAction.url, orderId: data.order_id });
+              } else {
+                  res.status(500).json({ error: "Sistem Midtrans gagal mengeluarkan QR Code." });
+              }
           } else {
-              res.status(400).json({ error: data.error_messages ? data.error_messages[0] : "Gagal memproses pembayaran." });
+              res.status(400).json({ error: data.status_message || "Gagal memproses pembayaran." });
           }
 
       } catch (error: any) {
