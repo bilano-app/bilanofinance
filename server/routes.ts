@@ -593,6 +593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 🚀 CRON JOB: PENGIRIM NOTIFIKASI ONE-SIGNAL
+  // 🚀 CRON JOB: PENGIRIM NOTIFIKASI ONE-SIGNAL
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
@@ -605,50 +606,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const cleanKey = rawKey.replace(/\s+/g, '').trim();
           const finalAuthKey = cleanKey.replace(/^(Basic|Key)\s+/i, '');
 
-          if (typeof storage.processAllDueSubscriptions === 'function') {
-              await storage.processAllDueSubscriptions();
-          }
-
+          // 🚀 FIX MUTLAK TYPO: Tarik semua user dulu, baru proses langganannya satu-satu sesuai storage.ts
           const allUsers = await storage.getAllUsers();
-          let allActiveDebts: any[] = [];
-          let allActiveSubs: any[] = [];
           
-          if (typeof storage.getAllActiveDebts === 'function') {
-              allActiveDebts = await storage.getAllActiveDebts();
-              allActiveSubs = await storage.getAllActiveSubscriptions();
+          if (typeof storage.processDueSubscriptions === 'function') {
+              for (const u of allUsers) {
+                  await storage.processDueSubscriptions(u.id);
+              }
           }
-
-          const debtsMap = allActiveDebts.reduce((acc, d) => { 
-              acc[d.userId] = acc[d.userId] || []; acc[d.userId].push(d); return acc; 
-          }, {} as Record<number, any[]>);
-          
-          const subsMap = allActiveSubs.reduce((acc, s) => { 
-              acc[s.userId] = acc[s.userId] || []; acc[s.userId].push(s); return acc; 
-          }, {} as Record<number, any[]>);
 
           const today = new Date();
           today.setHours(0,0,0,0);
           
           // CEK APAKAH INI HARI TERAKHIR DI BULAN INI
           const isEndOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() === today.getDate();
+          const isFirstOfMonth = today.getDate() === 1;
+          const isPDFDay = isEndOfMonth || isFirstOfMonth;
 
           const notificationsToSend: any[] = [];
           const targetSegments = ["Total Subscriptions"];
 
-          // 1. NOTIFIKASI PDF (HANYA MUNCUL DI AKHIR BULAN)
-          if (isEndOfMonth) {
+          // 1. NOTIFIKASI PDF (HANYA MUNCUL DI AKHIR/AWAL BULAN)
+          if (isPDFDay) {
               notificationsToSend.push({
                   app_id: ONE_SIGNAL_APP_ID,
                   included_segments: targetSegments, 
                   headings: { "en": "Laporan Keuangan Siap! 📊" },
-                  contents: { "en": "Bulan ini segera berakhir. Yuk unduh segera PDF Neraca & Cashflow kamu untuk bulan ini!" },
+                  contents: { "en": "Waktunya evaluasi bulan ini. Yuk download PDF Neraca & Cashflow kamu sekarang." },
                   big_picture: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=3",
                   android_accent_color: "FF4F46E5",
                   android_led_color: "FF4F46E5",
                   priority: 10
               });
           } else {
-              // 🚀 PESAN RANDOM DIKEMBALIKAN SEPERTI SEMULA!
+              // 🚀 PESAN RANDOM DIKEMBALIKAN!
               const messages = [
                   { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya di BILANO!" },
                   { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat hari ini? Yuk masukin sekarang!" },
@@ -675,11 +666,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const user of allUsers) {
               if (!user.onesignalId) continue; 
 
-              const userDebts = debtsMap[user.id] || [];
-              const userSubs = subsMap[user.id] || [];
+              const debts = await storage.getDebts(user.id);
+              const subs = await storage.getSubscriptions(user.id);
 
-              for (const debt of userDebts) {
-                  if (debt.dueDate) {
+              for (const debt of debts) {
+                  if (!debt.isPaid && debt.dueDate) {
                       const due = new Date(debt.dueDate); due.setHours(0,0,0,0);
                       const diffTime = due.getTime() - today.getTime();
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -701,8 +692,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
               }
 
-              for (const sub of userSubs) {
-                  if (sub.nextBilling) {
+              for (const sub of subs) {
+                  if (sub.isActive && sub.nextBilling) {
                       const due = new Date(sub.nextBilling); due.setHours(0,0,0,0);
                       const diffTime = due.getTime() - today.getTime();
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
