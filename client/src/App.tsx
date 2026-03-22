@@ -3,10 +3,13 @@ import { useEffect, useState } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import { WifiOff, Lock } from "lucide-react";
+import { WifiOff, RefreshCw, Lock } from "lucide-react";
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser } from "./hooks/use-finance"; 
 
+// =========================================================================
+// 🚀 KUNCI MEMORI AGAR ANGKA TIDAK BERKEDIP
+// =========================================================================
 queryClient.setDefaultOptions({
   queries: {
     refetchOnWindowFocus: false, 
@@ -16,6 +19,9 @@ queryClient.setDefaultOptions({
   },
 });
 
+// =========================================================================
+// 🛡️ SATPAM API: BLOKIR SEMUA TRANSAKSI JIKA TRIAL HABIS
+// =========================================================================
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : (input as Request).url;
@@ -30,11 +36,10 @@ window.fetch = async (input, init = {}) => {
 
   const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
   
+  // 🛡️ FIX: Hanya rute ini yang boleh lolos saat akun terkunci. 
+  // Rute '/api/transactions' dan '/api/debts' DIHAPUS agar user tidak bisa nyolong nambah data!
   const isAllowedRoute = url.includes('/api/auth') || 
                          url.includes('/api/user/onesignal') || 
-                         url.includes('/api/transactions') || 
-                         url.includes('/api/debts') ||
-                         url.includes('/api/target/penalty') ||
                          url.includes('/api/payment');
 
   if (isWriteAction && !isAllowedRoute && localStorage.getItem('bilano_trial_expired') === 'true') {
@@ -63,6 +68,7 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
     }
     return originalXhrSend.apply(this, args as any);
 };
+// =========================================================================
 
 import NotFound from "@/pages/not-found";
 import Security from "./pages/Security";
@@ -87,21 +93,21 @@ function Router() {
   const [location, setLocation] = useLocation();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
+  const [isSessionRefreshing, setIsSessionRefreshing] = useState(false); 
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('from_notif') === 'true') {
         window.history.replaceState(null, '', '/');
         setLocation('/');
-        queryClient.invalidateQueries();
+        setTimeout(() => { window.location.reload(); }, 100);
     }
   }, [setLocation]);
 
-  // 🚀 OPTIMASI SULTAN: SILENT REFETCH (Tanpa Layar Loading Macet)
+  // SILENT REFETCH: Refresh data gaib saat app dibuka ulang
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-         // Menyegarkan data secara gaib di belakang layar
          queryClient.invalidateQueries();
       }
     };
@@ -114,6 +120,7 @@ function Router() {
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
 
+  // 🛡️ SISTEM SWEEPING KEAMANAN (ANTI HACKER / ANTI TOMBOL BACK)
   useEffect(() => {
       const vipEmails = [
           "adrienfandra14@gmail.com", 
@@ -122,15 +129,19 @@ function Router() {
       
       if (!currentUserEmail) return;
 
+      // 1. Validasi Sultan / VIP Asli
       if (vipEmails.includes(currentUserEmail) || user?.isPro) {
           localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           localStorage.setItem("bilano_trial_expired", "false");
           localStorage.setItem("bilano_pro", "true");
       } 
+      // 2. Jika Database bilang TIDAK PRO, basmi semua stiker PRO palsu di HP!
       else if (user && !user.isPro) {
-          localStorage.removeItem("bilano_pro"); 
+          localStorage.removeItem("bilano_pro"); // HANCURKAN BYPASS LOKAL
           
-          const startTime = new Date(user.createdAt || Date.now()).getTime();
+          // 🛡️ FIX: Jika user tidak punya tanggal daftar (user lama), lempar ke masa lalu (2024)! 
+          // Ini membunuh bug "Mesin Waktu" yang bikin trial abadi.
+          const startTime = new Date(user.createdAt || "2024-01-01").getTime();
           const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
           const TRIAL_DURATION_DAYS = 3;
 
@@ -142,7 +153,7 @@ function Router() {
               localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           }
       }
-  }, [user, currentUserEmail]);
+  }, [user, currentUserEmail, location]); // 🔥 KUNCI UTAMA: Dengan memasukkan 'location', setiap kali Bos pencet tombol "Back", Satpam akan langsung melakukan Sweeping!
 
   useNotifications();
 
@@ -166,6 +177,16 @@ function Router() {
       window.removeEventListener('trigger-paywall-lock', handleCustomLock);
     };
   }, [location, setLocation]);
+
+  if (isSessionRefreshing) {
+    return (
+      <div className="fixed inset-0 z-[999999] bg-slate-900 flex flex-col items-center justify-center text-white animate-in fade-in duration-200">
+         <RefreshCw className="w-12 h-12 text-indigo-500 animate-spin mb-6" />
+         <h2 className="text-2xl font-extrabold mb-2 tracking-tight">Menyegarkan Sesi...</h2>
+         <p className="text-sm text-slate-400 font-medium">Sinkronisasi data terbaru Anda.</p>
+      </div>
+    );
+  }
 
   if (isOffline) {
     return (
