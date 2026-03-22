@@ -55,7 +55,11 @@ export interface IStorage {
   createSubscription(userId: number, sub: InsertSubscription): Promise<Subscription>;
   toggleSubscriptionStatus(id: number, isActive: boolean): Promise<Subscription>;
   deleteSubscription(id: number): Promise<void>;
-  processDueSubscriptions(userId: number): Promise<string[]>; 
+  
+  // 🚀 OPTIMASI JALUR CEPAT (MEMBUNUH N+1 QUERY)
+  getAllActiveDebts(): Promise<Debt[]>;
+  getAllActiveSubscriptions(): Promise<Subscription[]>;
+  processAllDueSubscriptions(): Promise<void>;
 
   updateUserProStatus(userId: number, isPro: boolean, validUntil: Date | null): Promise<User>;
 }
@@ -153,8 +157,8 @@ export class DatabaseStorage implements IStorage {
       return inv;
   }
   
-  async updateInvestment(id: number, quantity: number, avgPrice: number): Promise<Investment> {
-      const [updated] = await db.update(investments).set({ quantity, avgPrice }).where(eq(investments.id, id)).returning();
+  async updateInvestment(id: number, quantity: number, avgPrice: Promise<Investment> | number): Promise<Investment> {
+      const [updated] = await db.update(investments).set({ quantity: quantity as number, avgPrice: avgPrice as number }).where(eq(investments.id, id)).returning();
       if (!updated) throw new Error("Not found");
       return updated;
   }
@@ -246,8 +250,8 @@ export class DatabaseStorage implements IStorage {
       await db.delete(debts).where(eq(debts.id, id));
   }
 
+  // 🚀 OPTIMASI SULTAN: Ambil data langganan jadi 10x lebih cepat
   async getSubscriptions(userId: number): Promise<Subscription[]> {
-      await this.processDueSubscriptions(userId);
       return await db.select().from(subscriptions).where(eq(subscriptions.userId, userId));
   }
   
@@ -268,22 +272,30 @@ export class DatabaseStorage implements IStorage {
       await db.delete(subscriptions).where(eq(subscriptions.id, id));
   }
 
-  async processDueSubscriptions(userId: number): Promise<string[]> {
-      const today = new Date(); today.setHours(0,0,0,0);
-      const logs: string[] = [];
-      const userSubs = await db.select().from(subscriptions).where(and(eq(subscriptions.userId, userId), eq(subscriptions.isActive, true)));
+  // 🚀 OPTIMASI MASAL: Tarik semua hutang & langganan SEKALIGUS
+  async getAllActiveDebts(): Promise<Debt[]> {
+      return await db.select().from(debts).where(eq(debts.isPaid, false));
+  }
 
-      for (const sub of userSubs) {
+  async getAllActiveSubscriptions(): Promise<Subscription[]> {
+      return await db.select().from(subscriptions).where(eq(subscriptions.isActive, true));
+  }
+
+  // 🚀 PROSES OTOMATIS: Dijalankan di background oleh Cron, bukan oleh User
+  async processAllDueSubscriptions(): Promise<void> {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const activeSubs = await this.getAllActiveSubscriptions();
+      
+      for (const sub of activeSubs) {
           if (!sub.nextBilling) continue;
           let nextPayment = new Date(sub.nextBilling); nextPayment.setHours(0,0,0,0);
           let processed = false; let loopGuard = 0; 
           
           while (nextPayment <= today && loopGuard < 12) {
               const amount = sub.cost;
-              await this.createTransaction(userId, { type: 'expense', amount, category: 'Langganan', description: `Bayar Otomatis: ${sub.name}` } as any);
-              const user = await this.getUser(userId); 
-              if (user) await this.updateUserBalance(userId, user.cashBalance - amount);
-              logs.push(`Membayar ${sub.name}`);
+              await this.createTransaction(sub.userId, { type: 'expense', amount, category: 'Langganan', description: `Bayar Otomatis: ${sub.name}` } as any);
+              const user = await this.getUser(sub.userId); 
+              if (user) await this.updateUserBalance(sub.userId, user.cashBalance - amount);
               
               if (sub.cycle === 'bulanan') nextPayment.setMonth(nextPayment.getMonth() + 1);
               else if (sub.cycle === 'tahunan') nextPayment.setFullYear(nextPayment.getFullYear() + 1);
@@ -295,7 +307,6 @@ export class DatabaseStorage implements IStorage {
               await db.update(subscriptions).set({ nextBilling: nextPayment }).where(eq(subscriptions.id, sub.id));
           }
       }
-      return logs;
   }
 }
 

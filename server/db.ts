@@ -10,5 +10,10 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// 🚀 OPTIMASI SULTAN: KONEKSI POOLING (Anti Database Down/Timeout)
+export const pool = new Pool({ 
+    connectionString: process.env.DATABASE_URL,
+    max: 10, // Batasi jumlah antrean koneksi per server
+    idleTimeoutMillis: 30000 // Matikan koneksi yang tidak terpakai
+});
 export const db = drizzle(pool, { schema });

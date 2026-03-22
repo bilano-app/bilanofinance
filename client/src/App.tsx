@@ -3,13 +3,10 @@ import { useEffect, useState } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import { WifiOff, RefreshCw, Lock } from "lucide-react";
+import { WifiOff, Lock } from "lucide-react";
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser } from "./hooks/use-finance"; 
 
-// =========================================================================
-// 🚀 FIX MUTLAK: KUNCI MEMORI 1 JAM AGAR ANGKA TIDAK BERKEDIP
-// =========================================================================
 queryClient.setDefaultOptions({
   queries: {
     refetchOnWindowFocus: false, 
@@ -19,9 +16,6 @@ queryClient.setDefaultOptions({
   },
 });
 
-// =========================================================================
-// 🚀 PENGAMAN GANDA API (SATPAM APLIKASI)
-// =========================================================================
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : (input as Request).url;
@@ -36,13 +30,12 @@ window.fetch = async (input, init = {}) => {
 
   const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
   
-  // 🚀 KUNCI ANTI PARADOX: MASUKKAN JALUR PAYMENT KE DAFTAR VIP!
   const isAllowedRoute = url.includes('/api/auth') || 
                          url.includes('/api/user/onesignal') || 
                          url.includes('/api/transactions') || 
                          url.includes('/api/debts') ||
                          url.includes('/api/target/penalty') ||
-                         url.includes('/api/payment'); // <--- INI DIA PENYELAMAT KITA!
+                         url.includes('/api/payment');
 
   if (isWriteAction && !isAllowedRoute && localStorage.getItem('bilano_trial_expired') === 'true') {
       return Promise.reject(new Error("TRIAL_EXPIRED_LOCKED")); 
@@ -70,7 +63,6 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
     }
     return originalXhrSend.apply(this, args as any);
 };
-// =========================================================================
 
 import NotFound from "@/pages/not-found";
 import Security from "./pages/Security";
@@ -95,51 +87,29 @@ function Router() {
   const [location, setLocation] = useLocation();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
-  const [isSessionRefreshing, setIsSessionRefreshing] = useState(false); 
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('from_notif') === 'true') {
         window.history.replaceState(null, '', '/');
         setLocation('/');
-        setTimeout(() => { window.location.reload(); }, 100);
+        queryClient.invalidateQueries();
     }
   }, [setLocation]);
 
+  // 🚀 OPTIMASI SULTAN: SILENT REFETCH (Tanpa Layar Loading Macet)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        localStorage.setItem('bilano_last_active_time', Date.now().toString());
-      } 
-      else if (document.visibilityState === 'visible') {
-        const lastActiveStr = localStorage.getItem('bilano_last_active_time');
-        if (lastActiveStr) {
-          const lastActive = parseInt(lastActiveStr, 10);
-          const now = Date.now();
-          const FIFTEEN_MINUTES_IN_MS = 15 * 60 * 1000; 
-
-          if (now - lastActive >= FIFTEEN_MINUTES_IN_MS) {
-            localStorage.setItem('bilano_last_active_time', now.toString()); 
-            
-            setIsSessionRefreshing(true);
-            queryClient.clear();
-            setLocation("/");
-
-            setTimeout(() => {
-               window.location.reload();
-            }, 600);
-          }
-        }
+      if (document.visibilityState === 'visible') {
+         // Menyegarkan data secara gaib di belakang layar
+         queryClient.invalidateQueries();
       }
     };
-
-    localStorage.setItem('bilano_last_active_time', Date.now().toString());
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [setLocation]);
+  }, []);
 
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
@@ -197,16 +167,6 @@ function Router() {
     };
   }, [location, setLocation]);
 
-  if (isSessionRefreshing) {
-    return (
-      <div className="fixed inset-0 z-[999999] bg-slate-900 flex flex-col items-center justify-center text-white animate-in fade-in duration-200">
-         <RefreshCw className="w-12 h-12 text-indigo-500 animate-spin mb-6" />
-         <h2 className="text-2xl font-extrabold mb-2 tracking-tight">Menyegarkan Sesi...</h2>
-         <p className="text-sm text-slate-400 font-medium">Sinkronisasi data terbaru Anda.</p>
-      </div>
-    );
-  }
-
   if (isOffline) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -223,9 +183,9 @@ function Router() {
           </p>
           <button 
               onClick={() => window.location.reload()} 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3.5 rounded-full text-sm font-extrabold shadow-lg shadow-indigo-200 active:scale-95 transition-all flex items-center gap-2"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3.5 rounded-full text-sm font-extrabold shadow-lg shadow-indigo-200 active:scale-95 transition-all flex items-center justify-center"
           >
-              <RefreshCw className="w-4 h-4" /> COBA LAGI
+              COBA LAGI
           </button>
         </div>
       </div>

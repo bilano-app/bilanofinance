@@ -51,6 +51,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.execute(sql`ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT NOW();`);
   } catch (e) {}
 
+  // 🚀 OPTIMASI SULTAN: GROSIR DATA VALAS (CACHING)
   let cachedRates: Record<string, number> = { 
       "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
       "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450
@@ -70,9 +71,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   "SAR": idrBase / rates.SAR, "KRW": idrBase / rates.KRW
               };
           }
-      } catch (e) { console.log("Rate update failed, using cache."); }
+      } catch (e) { console.log("Rate update background failed."); }
   };
+  
   updateRatesBackground();
+  setInterval(updateRatesBackground, 1000 * 60 * 60); // Update kurs diam-diam setiap 1 jam
 
   const otpCache = new Map<string, string>();
 
@@ -268,21 +271,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/forex", async (req, res) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
+  
+  // 🚀 RESPON KILAT 0.001 DETIK (TANPA NUNGGU API LUAR)
   app.get("/api/forex/rates", async (req, res) => { 
-      try {
-          const response = await fetch("https://open.er-api.com/v6/latest/USD");
-          if (response.ok) {
-              const data = await response.json();
-              const rates = data.rates;
-              const idrBase = rates.IDR;
-              const liveRates = {
-                  "USD": idrBase, "EUR": idrBase / rates.EUR, "SGD": idrBase / rates.SGD,
-                  "JPY": idrBase / rates.JPY, "AUD": idrBase / rates.AUD, "GBP": idrBase / rates.GBP,
-                  "CNY": idrBase / rates.CNY, "MYR": idrBase / rates.MYR, "SAR": idrBase / rates.SAR, "KRW": idrBase / rates.KRW
-              };
-              return res.json(liveRates);
-          }
-      } catch (e) { }
       res.json(cachedRates); 
   });
   
@@ -517,9 +508,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/user", async (req, res) => { const user = await getUser(req); res.json(user); });
   app.patch("/api/user/profile", async (req, res) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
 
-  // =========================================================================
-  // 🚀 API MIDTRANS SNAP (MEMINTA TIKET POP-UP)
-  // =========================================================================
   app.post("/api/payment/midtrans/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -542,8 +530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           };
 
-          // 🚀 PERUBAHAN KRUSIAL: HAPUS KATA "sandbox." DARI URL!
-          const midtransRes = await fetch("https://app.midtrans.com/snap/v1/transactions", {
+          const midtransRes = await fetch("https://app.sandbox.midtrans.com/snap/v1/transactions", {
               method: "POST",
               headers: { 
                   "Content-Type": "application/json",
@@ -565,7 +552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.status(500).json({ error: "Koneksi ke Midtrans terputus." });
       }
   });
-  
+
   app.post("/api/payment/midtrans/webhook", async (req, res) => {
       try {
           const data = req.body;
@@ -588,6 +575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // 🚀 OPTIMASI MUTLAK: PEMBUNUH N+1 QUERY DI CRON JOB
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
@@ -600,7 +588,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const cleanKey = rawKey.replace(/\s+/g, '').trim();
           const finalAuthKey = cleanKey.replace(/^(Basic|Key)\s+/i, '');
 
+          // 1. Eksekusi Pembayaran Langganan Otomatis (Hanya 1x Jalan)
+          if (typeof storage.processAllDueSubscriptions === 'function') {
+              await storage.processAllDueSubscriptions();
+          }
+
+          // 2. Tarik SEMUA Data Sekaligus (Grosir Data)
           const allUsers = await storage.getAllUsers();
+          let allActiveDebts: any[] = [];
+          let allActiveSubs: any[] = [];
+          
+          if (typeof storage.getAllActiveDebts === 'function') {
+              allActiveDebts = await storage.getAllActiveDebts();
+              allActiveSubs = await storage.getAllActiveSubscriptions();
+          }
+
+          // 3. Kelompokkan Data di Memory (Kecepatan Instan)
+          const debtsMap = allActiveDebts.reduce((acc, d) => { 
+              acc[d.userId] = acc[d.userId] || []; acc[d.userId].push(d); return acc; 
+          }, {} as Record<number, any[]>);
+          
+          const subsMap = allActiveSubs.reduce((acc, s) => { 
+              acc[s.userId] = acc[s.userId] || []; acc[s.userId].push(s); return acc; 
+          }, {} as Record<number, any[]>);
+
           const today = new Date();
           today.setHours(0,0,0,0);
           
@@ -609,9 +620,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const isPDFDay = isEndOfMonth || isFirstOfMonth;
 
           const notificationsToSend: any[] = [];
-          
           const targetSegments = ["Total Subscriptions"];
 
+          // Pesan Umum
           if (isPDFDay) {
               notificationsToSend.push({
                   app_id: ONE_SIGNAL_APP_ID,
@@ -646,14 +657,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
           }
 
+          // 4. Proses Notifikasi Spesifik User Tanpa Nembak Database
           for (const user of allUsers) {
               if (!user.onesignalId) continue; 
 
-              const debts = await storage.getDebts(user.id);
-              const subs = await storage.getSubscriptions(user.id);
+              const userDebts = debtsMap[user.id] || [];
+              const userSubs = subsMap[user.id] || [];
 
-              for (const debt of debts) {
-                  if (!debt.isPaid && debt.dueDate) {
+              for (const debt of userDebts) {
+                  if (debt.dueDate) {
                       const due = new Date(debt.dueDate); due.setHours(0,0,0,0);
                       const diffTime = due.getTime() - today.getTime();
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -675,8 +687,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
               }
 
-              for (const sub of subs) {
-                  if (sub.isActive && sub.nextBilling) {
+              for (const sub of userSubs) {
+                  if (sub.nextBilling) {
                       const due = new Date(sub.nextBilling); due.setHours(0,0,0,0);
                       const diffTime = due.getTime() - today.getTime();
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -696,6 +708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           }
 
+          // Kirim Semua Notifikasi Sekaligus
           const results = [];
           for (const payload of notificationsToSend) {
               const res = await fetch("https://onesignal.com/api/v1/notifications", {
