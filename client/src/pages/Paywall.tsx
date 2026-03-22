@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
-import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, ShieldCheck, CreditCard, Gift, BookOpen, AlertCircle, ChevronRight, Target, TrendingUp } from "lucide-react";
+import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, ShieldCheck, CreditCard, ChevronRight, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Paywall() {
@@ -11,8 +11,6 @@ export default function Paywall() {
   const [isExpired, setIsExpired] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
-  
-  // 🚀 STATE BARU UNTUK KANDANG LAYAR PENUH (VISION MODAL)
   const [showVisionModal, setShowVisionModal] = useState(false);
   const [iframeUrl, setIframeUrl] = useState("");
 
@@ -51,7 +49,6 @@ export default function Paywall() {
           const data = await res.json();
 
           if (res.ok && data.redirectUrl) {
-              // Bypass lokal
               localStorage.setItem("bilano_pro", "true");
               localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
               localStorage.setItem("bilano_trial_expired", "false");
@@ -141,48 +138,39 @@ export default function Paywall() {
                     ))}
                 </div>
 
-                {/* 💳 KARTU HARGA (CONTEK DARI POSTER) */}
-                <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-6 rounded-[28px] border border-indigo-500 shadow-2xl relative animate-in zoom-in-95 delay-300 mb-5 overflow-hidden">
-                    <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
-                    <div className="absolute -top-3 right-4 bg-amber-400 text-amber-950 text-[9px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-md z-10">
+                {/* 💳 KARTU HARGA (KEMBALI 100% SEPERTI ASLI) */}
+                <div className="bg-gradient-to-br from-indigo-600 to-violet-800 p-5 rounded-[24px] border border-indigo-400/30 shadow-2xl relative animate-in zoom-in-95 delay-300 mb-4">
+                    <div className="absolute -top-3 right-4 bg-amber-400 text-amber-950 text-[9px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
                         Penawaran Spesial
                     </div>
-                    <p className="text-indigo-200 text-xs font-bold mb-1 relative z-10">Paket Tahunan BILANO PRO</p>
-                    <div className="flex items-center gap-2 mb-1.5 relative z-10">
+                    <p className="text-indigo-200 text-xs font-bold mb-1">Paket Tahunan BILANO PRO</p>
+                    <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-bold text-indigo-300 line-through decoration-rose-500 decoration-2">Rp 249.000</span>
-                        <span className="text-[9px] bg-rose-500 text-white px-2.5 py-1 rounded-full font-extrabold animate-pulse tracking-wider">HEMAT 60%</span>
+                        <span className="text-[9px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-extrabold animate-pulse tracking-wider">HEMAT 60%</span>
                     </div>
-                    <div className="flex items-end gap-1.5 relative z-10">
-                        <span className="text-5xl font-extrabold drop-shadow-md text-white font-display">Rp 99.000</span>
-                        <span className="text-xs text-indigo-100 font-medium mb-1.5">/ tahun</span>
+                    <div className="flex items-end gap-1 mb-2">
+                        <span className="text-4xl font-extrabold drop-shadow-md text-white">Rp 99.000</span>
+                        <span className="text-xs text-indigo-200 font-medium mb-1.5">/ tahun</span>
                     </div>
-                    <p className="text-[10px] text-emerald-200 flex items-center gap-1.5 font-bold mt-3 bg-emerald-950/40 p-2.5 rounded-lg relative z-10 border border-emerald-500/20">✨ Setara hanya Rp 8.250 / bulan.</p>
+                    <p className="text-[10px] text-indigo-300 flex items-center gap-1 font-medium">✨ Setara hanya Rp 8.250 / bulan.</p>
                 </div>
 
-                {/* ========================================================= */}
-                {/* 🚀 PEMICU BARU (DI BAWAH HARGA, STYLE INDIGO PREDIKSI TAP) */}
-                {/* ========================================================= */}
+                {/* 🚀 TOMBOL PEMICU SEDERHANA & ELEGAN (TANPA EFEK NEON) */}
                 <button 
                     onClick={() => setShowVisionModal(true)}
-                    className="w-full flex items-center justify-between bg-slate-800 hover:bg-slate-700 border border-slate-700 p-4 rounded-2xl mb-8 self-start active:scale-95 transition-all shadow-lg text-left"
+                    className="w-full flex items-center justify-between bg-white/5 hover:bg-white/10 border border-white/10 p-3.5 rounded-2xl mb-8 active:scale-95 transition-all text-left"
                 >
-                    <div className="flex items-center gap-3.5">
-                        <div className="bg-amber-400/10 p-2.5 rounded-xl border border-amber-500/20 flex-shrink-0">
-                            <TrendingUp className="w-5 h-5 text-amber-400" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-extrabold text-white">Inilah Kenapa Gabung Sekarang Adalah Keputusan Cerdas</p>
-                            <p className="text-[11px] text-slate-300 font-medium mt-0.5 leading-relaxed">Amankan Harga Tetap Selamanya & Bonus E-Book Premium.</p>
-                        </div>
+                    <div className="flex items-center gap-3">
+                        <ShieldCheck className="w-5 h-5 text-amber-400" />
+                        <p className="text-sm font-bold text-slate-200">Kenapa harga ini menguntungkan Anda?</p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-500 flex-shrink-0 ml-3" />
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
                 </button>
-                {/* ========================================================= */}
 
                 <div className="w-full relative z-10 animate-in slide-in-from-bottom-8 delay-500">
                     <Button 
                         onClick={handleBukaModal} 
-                        className={`w-full h-16 text-lg font-extrabold rounded-full active:scale-95 transition-transform flex items-center justify-center gap-2 ${isExpired ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-[0_0_30px_rgba(225,29,72,0.3)]' : 'bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 shadow-[0_0_30px_rgba(251,191,36,0.3)]'}`}
+                        className={`w-full h-16 text-lg font-extrabold rounded-full active:scale-95 transition-transform flex items-center justify-center gap-2 ${isExpired ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-[0_0_30px_rgba(225,29,72,0.3)]' : 'bg-amber-400 hover:bg-amber-500 text-amber-950 shadow-[0_0_30px_rgba(251,191,36,0.3)]'}`}
                     >
                         <Sparkles className="w-5 h-5"/>
                         {isExpired ? "BUKA KUNCI AKSES" : "BERLANGGANAN SEKARANG"}
@@ -199,7 +187,7 @@ export default function Paywall() {
 
         {/* MODAL KONFIRMASI PEMBAYARAN */}
         {showModal && (
-            <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 sm:zoom-in-95">
                     <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-white">
                         <div className="flex items-center gap-2">
@@ -239,56 +227,37 @@ export default function Paywall() {
         )}
 
         {/* ========================================================= */}
-        {/* 🚀 KANDANG LAYAR PENUH (FULL-SCREEN MOBILE VISION MODAL) */}
+        {/* 🚀 KOTAK KECIL PENJELASAN (CERITA NARATIF PRICE LOCK)     */}
         {/* ========================================================= */}
         {showVisionModal && (
-            <div className="fixed inset-0 z-[999999] bg-slate-950 flex flex-col animate-in slide-in-from-bottom duration-300 overflow-hidden text-white">
-                
-                {/* Header Custom */}
-                <div className="h-16 bg-slate-900 flex items-center justify-between px-5 text-white shadow-md z-10 shrink-0 border-b border-slate-800">
-                    <div className="flex items-center gap-2.5">
-                        <Gift className="w-5 h-5 text-amber-400" />
-                        <span className="font-extrabold text-base tracking-tight">Investasi Anda Aman</span>
-                    </div>
-                    <button onClick={() => setShowVisionModal(false)} className="p-2 bg-white/10 hover:bg-rose-500 rounded-full transition-colors active:scale-95">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-5 animate-in fade-in duration-200">
+                <div className="bg-slate-900 w-full max-w-sm rounded-[28px] overflow-hidden shadow-2xl border border-slate-700 relative animate-in zoom-in-95">
+                    
+                    <button onClick={() => setShowVisionModal(false)} className="absolute top-4 right-4 p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-full transition-colors z-10">
                         <X className="w-5 h-5" />
                     </button>
-                </div>
-                
-                {/* Teks Penjelasan (Full Screen Scrollable) */}
-                <div className="flex-1 w-full bg-slate-950 relative overflow-y-auto custom-scrollbar p-6 pt-8 pb-24">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
                     
-                    <h2 className="text-2xl font-black text-white mb-3 tracking-tighter leading-snug relative z-10">Keuntungan Eksklusif <br/>Pengguna Awal BILANO PRO</h2>
-                    <p className="text-sm text-slate-400 mb-10 leading-relaxed font-medium relative z-10">Berikut adalah alasan kenapa bergabung sekarang adalah keputusan finansial terbaik Anda.</p>
-                    
-                    <div className="space-y-8 relative z-10">
-                        {[
-                            { icon: Sparkles, title: "Update Fitur Berkelanjutan", desc: "Akses gratis selamanya ke semua inovasi analisa AI terbaru & alat pelacak aset canggih di masa depan." },
-                            { icon: BookOpen, title: "Segera Hadir: E-Book Premium ALA Bank Statement!", desc: "Dapatkan seri E-Book eksklusif 'Mastering Money'. Panduan taktis menghasilkan, mengelola, & menabung uang ala PRO." },
-                            { icon: AlertCircle, title: "Garansi Harga Tetap Selamanya", desc: "Seiring bertambahnya fitur, harga untuk pengguna baru akan terus naik. Namun, sebagai pengguna hari ini, harga perpanjangan Anda dikunci di Rp 99rb selamanya (tidak akan naik)." }
-                        ].map((item, idx) => (
-                            <div key={idx} className="flex gap-4 items-start">
-                                <div className="p-2.5 rounded-xl bg-slate-800 border border-slate-700 mt-1 flex-shrink-0">
-                                    <item.icon className="w-5 h-5 text-indigo-300" />
-                                </div>
-                                <div>
-                                    <h3 className="font-extrabold text-sm text-white">{item.title}</h3>
-                                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed font-medium">{item.desc}</p>
-                                </div>
-                            </div>
-                        ))}
+                    <div className="p-6 pt-8 text-left relative">
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                        
+                        <div className="w-12 h-12 bg-amber-400/10 text-amber-400 rounded-full flex items-center justify-center mb-5 border border-amber-400/20">
+                            <Lock className="w-6 h-6" />
+                        </div>
+                        
+                        <h3 className="text-xl font-black text-white mb-3 tracking-tight">Garansi Harga Tetap</h3>
+                        
+                        <p className="text-[13px] text-slate-300 leading-relaxed mb-8">
+                            Aplikasi BILANO akan terus merilis <b>fitur kecerdasan AI baru</b> dan <b>E-Book Premium</b> eksklusif seputar manajemen keuangan dan investasi.<br/><br/>
+                            Seiring bertambahnya fitur, harga langganan akan terus <b>NAIK</b> untuk pengguna baru. <span className="text-amber-400 font-bold">NAMUN, khusus Anda yang bergabung hari ini</span>, harga perpanjangan Anda tahun depan dan seterusnya akan <b>DIKUNCI SELAMANYA</b> di angka Rp 99.000. Anda mendapatkan semua update masa depan tanpa membayar lebih.
+                        </p>
+                        
+                        <Button 
+                            onClick={() => { setShowVisionModal(false); setShowModal(true); }} 
+                            className="w-full py-4 rounded-full bg-amber-400 hover:bg-amber-500 text-amber-950 font-extrabold text-sm transition-all active:scale-95 shadow-[0_0_20px_rgba(251,191,36,0.2)]"
+                        >
+                            SAYA MENGERTI
+                        </Button>
                     </div>
-                </div>
-
-                {/* Sticky Button di Bawah */}
-                <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-slate-950 via-slate-950 to-transparent pt-10 z-20">
-                    <Button 
-                        onClick={() => { setShowVisionModal(false); setShowModal(true); }} 
-                        className="w-full h-15 text-base font-extrabold rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 shadow-[0_0_30px_rgba(251,191,36,0.3)] active:scale-95 transition-transform"
-                    >
-                        Paham, Saya Ambil Penawaran Ini!
-                    </Button>
                 </div>
             </div>
         )}
