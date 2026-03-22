@@ -51,31 +51,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.execute(sql`ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT NOW();`);
   } catch (e) {}
 
-  // 🚀 OPTIMASI SULTAN: GROSIR DATA VALAS (CACHING)
-  let cachedRates: Record<string, number> = { 
-      "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
-      "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450
-  };
+  // =========================================================================
+  // 🚀 OPTIMASI SULTAN V2: SMART CACHE (100% DATA ASLI, ANTI BONEKA)
+  // =========================================================================
+  let cachedRates: Record<string, number> = {}; 
+  let lastRatesFetchTime = 0;
 
-  const updateRatesBackground = async () => {
+  const fetchLiveRates = async () => {
       try {
           const response = await fetch("https://open.er-api.com/v6/latest/USD");
           if (response.ok) {
               const data = await response.json();
               const rates = data.rates;
               const idrBase = rates.IDR;
+              // Simpan Data Asli ke Memori
               cachedRates = {
                   "USD": idrBase, "EUR": idrBase / rates.EUR, "SGD": idrBase / rates.SGD,
                   "JPY": idrBase / rates.JPY, "AUD": idrBase / rates.AUD, "GBP": idrBase / rates.GBP,
                   "CNY": idrBase / rates.CNY, "MYR": idrBase / rates.MYR, "THB": idrBase / rates.THB,
                   "SAR": idrBase / rates.SAR, "KRW": idrBase / rates.KRW
               };
+              lastRatesFetchTime = Date.now(); // Catat jam berapa data ini diambil
+              return true;
           }
-      } catch (e) { console.log("Rate update background failed."); }
+      } catch (e) { 
+          console.error("Gagal menarik rate Valas dari server luar."); 
+      }
+      return false;
   };
-  
-  updateRatesBackground();
-  setInterval(updateRatesBackground, 1000 * 60 * 60); // Update kurs diam-diam setiap 1 jam
 
   const otpCache = new Map<string, string>();
 
@@ -272,8 +275,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/forex", async (req, res) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
   
-  // 🚀 RESPON KILAT 0.001 DETIK (TANPA NUNGGU API LUAR)
+  // 🚀 API RATE ASLI (JIKA SERVER BARU BANGUN ATAU UMUR DATA > 1 JAM, DIA TARIK ASLI DULU!)
   app.get("/api/forex/rates", async (req, res) => { 
+      const now = Date.now();
+      const ONE_HOUR = 1000 * 60 * 60;
+      
+      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > ONE_HOUR) {
+          await fetchLiveRates(); // Wajib tarik yang ASLI dari internet
+      }
+
+      // Kalau amit-amit server luar negeri down total, baru kita kasih boneka
+      if (Object.keys(cachedRates).length === 0) {
+          cachedRates = {
+              "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
+              "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450
+          };
+      }
+      
       res.json(cachedRates); 
   });
   
@@ -285,6 +303,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const t = type.toLowerCase();
       const isIncome = t === 'income' || t === 'pemasukan' || t === 'tambah' || t === 'buy' || t === 'in' || t === 'dapat';
+      
+      // PASTIKAN RATE NYA FRESH SAAT MAU TRANSAKSI
+      const now = Date.now();
+      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) {
+          await fetchLiveRates();
+      }
       
       const rate = cachedRates[currency as keyof typeof cachedRates] || 15000;
       const amountIDR = Math.round(amount * rate);
@@ -508,9 +532,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/user", async (req, res) => { const user = await getUser(req); res.json(user); });
   app.patch("/api/user/profile", async (req, res) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
 
-  // =========================================================================
-  // 🚀 API MIDTRANS CORE API (TIDAK PAKAI SNAP, MURNI MINTA GAMBAR QRIS)
-  // =========================================================================
   app.post("/api/payment/midtrans/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -522,8 +543,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const serverKey = process.env.MIDTRANS_SERVER_KEY || ""; 
           const authString = Buffer.from(serverKey + ":").toString('base64');
 
-          // Payload Etalase (Minta link untuk semua metode pembayaran)
+          // PAYLOAD KHUSUS UNTUK CORE API (Minta dibuatkan QRIS)
           const payload = {
+              payment_type: "qris",
               transaction_details: {
                   order_id: orderId,
                   gross_amount: amount
@@ -534,8 +556,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           };
 
-          // 🚀 FIX MUTLAK: HAPUS KATA "sandbox." KARENA BOS PAKAI PRODUCTION!
-          const midtransRes = await fetch("https://app.midtrans.com/snap/v1/transactions", {
+          // 🚀 MURNI TANPA SNAP (V2/CHARGE) - URL PRODUCTION
+          const midtransRes = await fetch("https://api.midtrans.com/v2/charge", {
               method: "POST",
               headers: { 
                   "Content-Type": "application/json",
@@ -547,11 +569,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const data = await midtransRes.json();
           
-          if (midtransRes.ok && data.redirect_url) {
-              // Kita kirim redirect_url ini agar Frontend bisa memasukkannya ke Iframe
-              res.json({ success: true, redirectUrl: data.redirect_url, orderId });
+          if (midtransRes.ok && data.status_code === "201") {
+              const qrAction = data.actions?.find((a: any) => a.name === "generate-qr-code");
+              if (qrAction) {
+                  // MENGIRIMKAN qrUrl AGAR BISA DITANGKAP OLEH Paywall.tsx
+                  res.json({ success: true, qrUrl: qrAction.url, orderId: data.order_id });
+              } else {
+                  res.status(500).json({ error: "Sistem Midtrans gagal mengeluarkan QR Code." });
+              }
           } else {
-              res.status(400).json({ error: data.error_messages ? data.error_messages[0] : "Gagal memproses pembayaran." });
+              res.status(400).json({ error: data.status_message || "Gagal memproses pembayaran." });
           }
 
       } catch (error: any) {
