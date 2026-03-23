@@ -33,6 +33,16 @@ export default function Subscriptions() {
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
   const getAuthHeaders = () => ({ "x-user-email": currentUserEmail });
 
+  // 🚀 SMART FORMATTER (TITIK UNTUK RIBUAN, KOMA UNTUK DESIMAL)
+  const formatNum = (val: string) => {
+      if (!val) return "";
+      let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
+      const parts = raw.split(",");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return parts.slice(0, 2).join(",");
+  };
+  const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
+
   const { data: subs = [], isLoading: loading, refetch: fetchSubs } = useQuery({
       queryKey: ['subscriptions', currentUserEmail],
       queryFn: async () => {
@@ -49,6 +59,7 @@ export default function Subscriptions() {
       }
 
       if (!name || !nextDate) return;
+      const nominal = parseNum(price);
       
       try {
           const res = await fetch("/api/subscriptions", {
@@ -56,8 +67,8 @@ export default function Subscriptions() {
               headers: { "Content-Type": "application/json", ...getAuthHeaders() },
               body: JSON.stringify({ 
                   name, 
-                  price: parseFloat(price) || 0, 
-                  cost: parseFloat(price) || 0, 
+                  price: nominal || 0, 
+                  cost: nominal || 0, 
                   cycle, 
                   nextBilling: nextDate,
                   nextPaymentDate: nextDate, 
@@ -162,7 +173,8 @@ export default function Subscriptions() {
                     
                     {billType === 'statis' ? (
                         <div className="flex gap-2 animate-in fade-in">
-                            <Input type="number" placeholder="Harga (Rp)" value={price} onChange={e => setPrice(e.target.value)} className="flex-1 h-14 rounded-[20px] bg-slate-50 border-transparent font-bold"/>
+                            {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
+                            <Input type="text" inputMode="decimal" placeholder="Harga (Rp)" value={price} onChange={e => setPrice(formatNum(e.target.value))} className="flex-1 h-14 rounded-[20px] bg-slate-50 border-transparent font-bold"/>
                             <select value={cycle} onChange={e => setCycle(e.target.value)} className="w-1/3 bg-slate-50 border-transparent rounded-[20px] px-3 font-bold text-slate-700 text-sm outline-none">
                                 <option value="monthly">/ Bln</option>
                                 <option value="yearly">/ Thn</option>

@@ -16,6 +16,8 @@ export default function Income() {
   
   const [paymentMode, setPaymentMode] = useState<'cash' | 'piutang'>('cash');
   const [debtName, setDebtName] = useState("");
+  // 🚀 FIX: STATE UNTUK TENGGAT WAKTU DITAMBAHKAN
+  const [dueDate, setDueDate] = useState("");
 
   const formatRp = (val: number) => "Rp " + val.toLocaleString("id-ID");
   const currentCash = user?.cashBalance || 0;
@@ -40,8 +42,9 @@ export default function Income() {
         return;
     }
     
-    if (paymentMode === 'piutang' && !debtName) { 
-        alert("Masukkan nama pihak yang berhutang"); 
+    // 🚀 FIX: VALIDASI TENGGAT WAKTU WAJIB DIISI
+    if (paymentMode === 'piutang' && (!debtName || !dueDate)) { 
+        alert("Masukkan nama pihak dan tenggat waktu piutang"); 
         return; 
     }
 
@@ -56,6 +59,7 @@ export default function Income() {
               date: new Date().toISOString() 
           });
       } else {
+          // 🚀 FIX: dueDate DIKIRIM KE API
           await fetch("/api/debts", {
               method: "POST", 
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
@@ -63,6 +67,7 @@ export default function Income() {
                   type: 'piutang', 
                   name: `${debtName}|IDR`, 
                   amount: cleanAmount, 
+                  dueDate: dueDate,
                   description: `[Piutang Pemasukan: ${category}] ${description}`,
                   isFromTransaction: true
               })
@@ -85,7 +90,6 @@ export default function Income() {
     }
   };
 
-  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE
   const displayBalance = formatRp(currentCash);
   const getBalanceTextSize = (text: string) => {
       if (text.length >= 20) return "text-2xl"; 
@@ -102,7 +106,6 @@ export default function Income() {
             <div className="inline-flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-full">
                 <Wallet className="w-3.5 h-3.5" /> Saldo Tunai (Cash)
             </div>
-            {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
             <div className={`${getBalanceTextSize(displayBalance)} font-extrabold text-slate-800 tracking-tight whitespace-nowrap transition-all duration-300`}>
                 {displayBalance}
             </div>
@@ -127,7 +130,11 @@ export default function Income() {
               {paymentMode === 'piutang' && (
                   <div className="animate-in fade-in slide-in-from-top-2">
                       <label className="text-[11px] uppercase tracking-widest font-bold text-amber-500 block mb-2 ml-1">Ditagih Ke Siapa?</label>
-                      <Input placeholder="Nama Klien / Pihak" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-14 bg-amber-50 border-transparent focus:border-amber-400 rounded-[16px]"/>
+                      <Input placeholder="Nama Klien / Pihak" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-14 bg-amber-50 border-transparent focus:border-amber-400 rounded-[16px] mb-3"/>
+                      
+                      {/* 🚀 FIX: KOLOM TENGGAT WAKTU DITAMBAHKAN */}
+                      <label className="text-[11px] uppercase tracking-widest font-bold text-amber-500 block mb-2 ml-1">Tenggat Waktu (Wajib)</label>
+                      <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-14 bg-amber-50 border-transparent focus:border-amber-400 rounded-[16px] text-sm"/>
                   </div>
               )}
 

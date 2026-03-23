@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, PlusCircle, X, Loader2, Info } from "lucide-react"; 
 import { TrendingUp, Building2, LineChart, Briefcase, Gem, Landmark, ScrollText, Coins } from "lucide-react";
-import { Button, Input, CurrencyInput } from "@/components/UIComponents";
+import { Button, Input } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
 import { useUser, useInvestments } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +21,16 @@ export default function Investment() {
   const { data: portfolioRaw = [], isLoading: isInvLoading } = useInvestments();
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+
+  // 🚀 SMART FORMATTER (TITIK UNTUK RIBUAN, KOMA UNTUK DESIMAL)
+  const formatNum = (val: string) => {
+      if (!val) return "";
+      let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
+      const parts = raw.split(",");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return parts.slice(0, 2).join(",");
+  };
+  const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
 
   const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
       queryKey: ['forexRates', currentUserEmail],
@@ -89,7 +99,6 @@ export default function Investment() {
   const totalPortfolioValue = aggregatedPortfolio.reduce((acc, p) => acc + calculateLiveValue(p), 0);
   const categoryValue = filteredItems.reduce((acc, p) => acc + calculateLiveValue(p), 0);
 
-  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE (INVESTASI)
   const displayTotalPortfolio = formatRp(totalPortfolioValue);
   const displayCategoryValue = formatRp(categoryValue);
   const getBalanceTextSize = (text: string, defaultSize: string) => {
@@ -101,8 +110,8 @@ export default function Investment() {
   const handleTransaction = async () => {
     if (!inputPrice || !inputQty) return;
     
-    const price = parseFloat(inputPrice);
-    const qty = parseFloat(inputQty);
+    const price = parseNum(inputPrice);
+    const qty = parseNum(inputQty);
 
     setIsSubmitting(true); 
 
@@ -150,8 +159,8 @@ export default function Investment() {
 
   const renderDynamicForm = () => {
     const config = activeCategory ? assetConfig[activeCategory] : assetConfig['saham'];
-    const qtyNum = parseFloat(inputQty || "0");
-    const priceNum = parseFloat(inputPrice || "0");
+    const qtyNum = parseNum(inputQty);
+    const priceNum = parseNum(inputPrice);
     
     const rate = inputCurrency === 'IDR' ? 1 : (forexRates[inputCurrency] || 1);
     const isSaham = activeCategory === 'saham';
@@ -215,14 +224,16 @@ export default function Investment() {
         <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
                 <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">Jumlah</label>
+                {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
                 <Input 
-                    type="number" value={inputQty} onChange={e => setInputQty(e.target.value)} placeholder="0" 
+                    type="text" inputMode="decimal" value={inputQty} onChange={e => setInputQty(formatNum(e.target.value))} placeholder="0" 
                     className={`h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg focus:bg-white transition-all ${isSellOverLimit ? "border-rose-500 focus:border-rose-500 bg-rose-50" : "focus:border-indigo-500"}`}
                 />
             </div>
             <div className="space-y-2">
                 <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">Harga Beli {inputCurrency}</label>
-                <CurrencyInput value={inputPrice} onChange={setInputPrice} placeholder="0" className="h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg focus:bg-white focus:border-indigo-500 transition-all" />
+                {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
+                <Input type="text" inputMode="decimal" value={inputPrice} onChange={e => setInputPrice(formatNum(e.target.value))} placeholder="0" className="h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg focus:bg-white focus:border-indigo-500 transition-all" />
             </div>
         </div>
 
@@ -274,7 +285,6 @@ export default function Investment() {
                 <div className="relative z-10">
                     <p className="text-[11px] font-bold text-indigo-200 mb-1 uppercase tracking-widest">Total Semua Aset</p>
                     
-                    {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
                     <h2 className={`${getBalanceTextSize(displayTotalPortfolio, "text-4xl")} font-extrabold tracking-tight mb-4 whitespace-nowrap transition-all duration-300`}>
                         {displayTotalPortfolio}
                     </h2>
@@ -323,7 +333,6 @@ export default function Investment() {
                            <span className="text-[11px] uppercase font-bold tracking-widest">Portfolio {activeCategory}</span>
                        </div>
                        
-                       {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI JUGA */}
                        <h2 className={`${getBalanceTextSize(displayCategoryValue, "text-3xl")} font-extrabold tracking-tight whitespace-nowrap transition-all duration-300`}>
                            {displayCategoryValue}
                        </h2>

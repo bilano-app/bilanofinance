@@ -138,8 +138,8 @@ export default function Paywall() {
                     ))}
                 </div>
 
-                {/* 💳 KARTU HARGA (KEMBALI 100% SEPERTI ASLI) */}
-                <div className="bg-gradient-to-br from-indigo-600 to-violet-800 p-5 rounded-[24px] border border-indigo-400/30 shadow-2xl relative animate-in zoom-in-95 delay-300 mb-4">
+                {/* 💳 KARTU HARGA */}
+                <div className="bg-gradient-to-br from-indigo-600 to-violet-800 p-5 rounded-[24px] border border-indigo-400/30 shadow-2xl relative animate-in zoom-in-95 delay-300 mb-5">
                     <div className="absolute -top-3 right-4 bg-amber-400 text-amber-950 text-[9px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
                         Penawaran Spesial
                     </div>
@@ -155,17 +155,29 @@ export default function Paywall() {
                     <p className="text-[10px] text-indigo-300 flex items-center gap-1 font-medium">✨ Setara hanya Rp 8.250 / bulan.</p>
                 </div>
 
-                {/* 🚀 TOMBOL PEMICU SEDERHANA & ELEGAN (TANPA EFEK NEON) */}
+                {/* ========================================================= */}
+                {/* 🚀 TOMBOL PEMICU (DIBUAT SANGAT JELAS SEBAGAI TOMBOL KLIK) */}
+                {/* ========================================================= */}
                 <button 
                     onClick={() => setShowVisionModal(true)}
-                    className="w-full flex items-center justify-between bg-white/5 hover:bg-white/10 border border-white/10 p-3.5 rounded-2xl mb-8 active:scale-95 transition-all text-left"
+                    className="w-full flex items-center justify-between bg-slate-800 border border-slate-700 hover:border-amber-500/50 p-4 rounded-2xl mb-8 active:scale-95 transition-all text-left shadow-lg group relative overflow-hidden"
                 >
-                    <div className="flex items-center gap-3">
-                        <ShieldCheck className="w-5 h-5 text-amber-400" />
-                        <p className="text-sm font-bold text-slate-200">Kenapa harga ini menguntungkan Anda?</p>
+                    <div className="flex items-center gap-3.5 relative z-10">
+                        <div className="bg-amber-400/10 p-2.5 rounded-full flex-shrink-0 border border-amber-400/20 group-hover:scale-110 transition-transform">
+                            <ShieldCheck className="w-5 h-5 text-amber-400" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-extrabold text-white">Kenapa harga ini menguntungkan Anda?</p>
+                            <p className="text-[10px] text-amber-400 font-bold mt-1 tracking-wider uppercase flex items-center gap-1">
+                                Baca Penjelasannya <ArrowRight className="w-3 h-3" />
+                            </p>
+                        </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-400 transition-colors relative z-10 shadow-inner">
+                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-amber-950" />
+                    </div>
                 </button>
+                {/* ========================================================= */}
 
                 <div className="w-full relative z-10 animate-in slide-in-from-bottom-8 delay-500">
                     <Button 
@@ -247,7 +259,7 @@ export default function Paywall() {
                         <h3 className="text-xl font-black text-white mb-3 tracking-tight">Garansi Harga Tetap</h3>
                         
                         <p className="text-[13px] text-slate-300 leading-relaxed mb-8">
-                            Aplikasi BILANO akan terus mengadakan update,<b>merilis kumpulan E-Book Premium</b> (mengandung edukasi untuk menghasilkan uang dan mengelola uang), serta fitur tambahan lainnya.<br/><br/>
+                            Aplikasi BILANO akan terus mengadakan update, <b>merilis kumpulan E-Book Premium</b> (mengandung edukasi untuk menghasilkan uang dan mengelola uang), serta fitur tambahan lainnya.<br/><br/>
                             Seiring bertambahnya fitur, harga langganan akan terus <b>NAIK</b> untuk pengguna baru. <span className="text-amber-400 font-bold">NAMUN, khusus Anda yang bergabung hari ini</span>, harga perpanjangan Anda tahun depan dan seterusnya akan <b>DIKUNCI SELAMANYA</b> di angka Rp 99.000. Anda mendapatkan semua update masa depan tanpa membayar lebih.
                         </p>
                         
@@ -261,7 +273,6 @@ export default function Paywall() {
                 </div>
             </div>
         )}
-        {/* ========================================================= */}
     </MobileLayout>
   );
 }

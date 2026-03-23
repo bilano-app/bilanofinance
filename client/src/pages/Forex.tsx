@@ -4,7 +4,7 @@ import { Card, Button, Input } from "@/components/UIComponents";
 import { 
     RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, 
     Globe, ChevronDown, ArrowRightLeft, FileText, Wallet,
-    TrendingUp, X, Activity, StickyNote, Plus, Check, Loader2
+    TrendingUp, X, Activity, StickyNote, Plus, Check, Loader2, HandCoins
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -47,6 +47,11 @@ export default function Forex() {
   const [amountMutation, setAmountMutation] = useState("");
   const [noteMutation, setNoteMutation] = useState(""); 
   
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'debt'>('cash');
+  const [debtName, setDebtName] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCurr, setSelectedCurr] = useState(CURRENCY_LIST[0]); 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -60,6 +65,16 @@ export default function Forex() {
 
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
+
+  // 🚀 SMART FORMATTER (TITIK UNTUK RIBUAN, KOMA UNTUK DESIMAL)
+  const formatNum = (val: string) => {
+      if (!val) return "";
+      let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
+      const parts = raw.split(",");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return parts.slice(0, 2).join(",");
+  };
+  const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
 
   const { data: rates = {}, isLoading: isRatesLoading, refetch: refetchRates } = useQuery({
       queryKey: ['forexRates', currentUserEmail],
@@ -104,7 +119,6 @@ export default function Forex() {
   }, []);
 
   const handleCurrencyClick = async (currencyCode: string) => {
-      // 🚀 FIX: Menggunakan dispatchEvent untuk Modal 2 Tombol
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));
           return;
@@ -146,10 +160,11 @@ export default function Forex() {
           return;
       }
 
-      const qty = parseFloat(amountExchange);
-      const rate = parseFloat(rateExchange);
+      const qty = parseNum(amountExchange);
+      const rate = parseNum(rateExchange);
       if (!qty || !rate) { toast({ title: "Error", description: "Isi jumlah dan kurs.", variant: "destructive" }); return; }
 
+      setIsSubmitting(true);
       try {
           const forexType = exchangeMode === 'buy' ? 'income' : 'expense';
           
@@ -182,7 +197,11 @@ export default function Forex() {
           toast({ title: "Sukses", description: "Transaksi pertukaran berhasil." });
           setAmountExchange(""); setRateExchange(""); 
           fetchData(); 
-      } catch (e) { toast({ title: "Error", variant: "destructive" }); }
+      } catch (e) { 
+          toast({ title: "Error", variant: "destructive" }); 
+      } finally {
+          setIsSubmitting(false);
+      }
   };
 
   const handleMutation = async () => {
@@ -191,31 +210,73 @@ export default function Forex() {
           return;
       }
 
-      const qty = parseFloat(amountMutation);
+      const qty = parseNum(amountMutation);
       if (!qty) { toast({ title: "Error", description: "Isi nominal.", variant: "destructive" }); return; }
       
-      const note = noteMutation.trim() || "Koreksi Saldo";
+      if (paymentMode === 'debt' && (!debtName || !dueDate)) {
+          toast({ title: "Error", description: "Isi nama pihak dan tenggat waktu!", variant: "destructive" });
+          return;
+      }
+
+      const note = noteMutation.trim() || (mutationMode === 'in' ? "Pemasukan Valas" : "Pengeluaran Valas");
+      setIsSubmitting(true);
 
       try {
-          const res = await fetch("/api/forex/transaction", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ 
-                  currency: selectedCurr.code, 
-                  amount: qty, 
-                  type: mutationMode === 'in' ? 'income' : 'expense',
-                  description: note
-              })
-          });
+          if (paymentMode === 'cash') {
+              const res = await fetch("/api/forex/transaction", {
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ 
+                      currency: selectedCurr.code, 
+                      amount: qty, 
+                      type: mutationMode === 'in' ? 'income' : 'expense',
+                      description: note
+                  })
+              });
 
-          if (res.ok) {
-              const data = await res.json();
-              toast({ title: "Tercatat!", description: `Saldo ${selectedCurr.code}: ${data.newBalance}` });
-              setAmountMutation(""); setNoteMutation(""); 
-              fetchData();
+              if (res.ok) {
+                  const data = await res.json();
+                  toast({ title: "Tercatat!", description: `Saldo Valas Tunai Diperbarui.` });
+                  setAmountMutation(""); setNoteMutation(""); setDebtName(""); setDueDate("");
+                  fetchData();
+              } else {
+                  toast({ title: "Gagal", description: "Gagal menyimpan atau saldo Rupiah kurang.", variant: "destructive" });
+              }
           } else {
-              toast({ title: "Gagal", description: "Gagal menyimpan data.", variant: "destructive" });
+              const rate = rates[selectedCurr.code] || 15000;
+              const idrEquivalent = qty * rate;
+
+              await fetch("/api/debts", {
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({
+                      type: mutationMode === 'in' ? 'piutang' : 'hutang',
+                      name: `${debtName}|${selectedCurr.code}`,
+                      amount: qty,
+                      dueDate: dueDate,
+                      description: `[${mutationMode === 'in' ? 'Piutang' : 'Hutang'} Valas] ${note}`,
+                      isFromTransaction: true
+                  })
+              });
+
+              await fetch("/api/transactions", {
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({
+                      type: mutationMode === 'in' ? 'income' : 'expense',
+                      amount: idrEquivalent,
+                      category: mutationMode === 'in' ? `Piutang Valas (${selectedCurr.code})` : `Hutang Valas (${selectedCurr.code})`,
+                      description: `Belum Dibayar - ${debtName}`,
+                      date: new Date().toISOString()
+                  })
+              });
+
+              toast({ title: "Tercatat!", description: `${mutationMode === 'in' ? 'Piutang' : 'Hutang'} Valas berhasil disimpan ke daftar Tagihan.` });
+              setAmountMutation(""); setNoteMutation(""); setDebtName(""); setDueDate("");
+              fetchData();
           }
-      } catch (e) { toast({ title: "Error", variant: "destructive" }); }
+      } catch (e) { 
+          toast({ title: "Error", description: "Gagal terhubung ke server.", variant: "destructive" }); 
+      } finally {
+          setIsSubmitting(false);
+      }
   };
 
   const totalValasInRupiah = assets.reduce((acc: number, asset: ForexAsset) => {
@@ -225,7 +286,7 @@ export default function Forex() {
 
   const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
 
-  const displayTotalValas = isTrialExpired ? "🔒 Premium" : formatRp(totalValasInRupiah);
+  const displayTotalValas = isTrialExpired ? "✨ Premium" : formatRp(totalValasInRupiah);
   const getBalanceTextSize = (text: string) => {
       if (text.length >= 20) return "text-xl"; 
       if (text.length >= 15) return "text-2xl"; 
@@ -268,14 +329,14 @@ export default function Forex() {
         <div>
             <div className="flex justify-between items-end mb-2 px-1">
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Live Market Rates</h3>
-                <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-1 rounded">Klik untuk Grafik 📊</span>
+                <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-1 rounded">Klik untuk Grafik 📈</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
                 {POPULAR_RATES.map(curr => (
                     <button key={curr} onClick={() => handleCurrencyClick(curr)} className="bg-white border border-slate-200 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-all active:scale-95">
                         <div className="text-xs font-bold text-slate-400 mb-1">{curr}</div>
                         <div className={`text-xs font-bold ${isTrialExpired ? 'text-rose-500' : 'text-slate-700'}`}>
-                             {isTrialExpired ? "🔒 Premium" : (rates[curr] ? `Rp ${Math.round(rates[curr]).toLocaleString("id-ID")}` : "...")}
+                             {isTrialExpired ? "✨ Premium" : (rates[curr] ? `Rp ${Math.round(rates[curr]).toLocaleString("id-ID")}` : "...")}
                         </div>
                     </button>
                 ))}
@@ -362,17 +423,42 @@ export default function Forex() {
                             <button onClick={() => setMutationMode('out')} className={`flex-1 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 ${mutationMode === 'out' ? 'bg-rose-500 text-white shadow' : 'text-slate-500'}`}><ArrowUpCircle className="w-4 h-4"/> PENGELUARAN</button>
                         </div>
                         
+                        <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
+                            <button onClick={() => setPaymentMode('cash')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${paymentMode === 'cash' ? (mutationMode === 'in' ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'bg-rose-100 text-rose-700 shadow-sm') : 'text-slate-400'}`}>
+                                <Wallet className="w-3.5 h-3.5"/> TUNAI (Cash)
+                            </button>
+                            <button onClick={() => setPaymentMode('debt')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${paymentMode === 'debt' ? 'bg-amber-100 text-amber-700 shadow-sm' : 'text-slate-400'}`}>
+                                <HandCoins className="w-3.5 h-3.5"/> {mutationMode === 'in' ? 'PIUTANG' : 'HUTANG'}
+                            </button>
+                        </div>
+
+                        {paymentMode === 'debt' && (
+                            <div className="animate-in fade-in slide-in-from-top-2 bg-amber-50 p-4 rounded-2xl border border-amber-100 space-y-4 shadow-inner">
+                                <div>
+                                    <label className="text-[10px] uppercase tracking-widest font-bold text-amber-600 block mb-1.5">{mutationMode === 'in' ? 'Ditagih Ke Siapa?' : 'Ngutang Ke Siapa?'}</label>
+                                    <Input placeholder="Nama Klien / Toko" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-12 text-sm bg-white border-amber-200 focus:border-amber-400 rounded-xl"/>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] uppercase tracking-widest font-bold text-amber-600 block mb-1.5">Tenggat Waktu (Wajib)</label>
+                                    <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-12 text-sm bg-white border-amber-200 focus:border-amber-400 rounded-xl"/>
+                                </div>
+                            </div>
+                        )}
+
                         <div>
                             <label className="text-xs font-bold text-slate-500 mb-1 block">Nominal ({selectedCurr.code})</label>
-                            <Input type="number" placeholder="Contoh: 100" className="h-12 text-lg font-bold" value={amountMutation} onChange={(e) => setAmountMutation(e.target.value)}/>
+                            {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
+                            <Input type="text" inputMode="decimal" placeholder="Contoh: 100" className="h-14 text-xl font-bold rounded-xl" value={amountMutation} onChange={(e) => setAmountMutation(formatNum(e.target.value))}/>
                         </div>
                         
                         <div>
                             <label className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1"><StickyNote className="w-3 h-3"/> Keterangan</label>
-                            <textarea placeholder="Contoh: Sisa liburan, Dapat hadiah..." className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[80px]" value={noteMutation} onChange={(e) => setNoteMutation(e.target.value)}/>
+                            <textarea placeholder="Contoh: Bayaran Freelance, Beli Aset..." className="w-full bg-white border border-slate-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" value={noteMutation} onChange={(e) => setNoteMutation(e.target.value)}/>
                         </div>
 
-                        <Button onClick={handleMutation} className={`w-full h-12 font-bold ${mutationMode === 'in' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>SIMPAN DATA</Button>
+                        <Button disabled={isSubmitting} onClick={handleMutation} className={`w-full h-14 font-extrabold text-base shadow-md rounded-xl transition-all active:scale-95 ${paymentMode === 'debt' ? 'bg-amber-500 hover:bg-amber-600 text-white' : (mutationMode === 'in' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700')}`}>
+                            {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : "SIMPAN DATA VALAS"}
+                        </Button>
                     </div>
                 )}
 
@@ -384,16 +470,19 @@ export default function Forex() {
                         </div>
                         
                         <div className="grid grid-cols-2 gap-4">
-                            <div><label className="text-xs font-bold text-slate-500 mb-1 block">Jml ({selectedCurr.code})</label><Input type="number" placeholder="100" className="h-12 text-lg font-bold" value={amountExchange} onChange={(e) => setAmountExchange(e.target.value)}/></div>
-                            <div><label className="text-xs font-bold text-slate-500 mb-1 block">Kurs Deal (Rp)</label><Input type="number" placeholder={isTrialExpired ? "🔒" : (rates[selectedCurr.code] ? Math.round(rates[selectedCurr.code]).toString() : "0")} className="h-12 text-lg font-bold" value={rateExchange} onChange={(e) => setRateExchange(e.target.value)}/></div>
+                            {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
+                            <div><label className="text-xs font-bold text-slate-500 mb-1 block">Jml ({selectedCurr.code})</label><Input type="text" inputMode="decimal" placeholder="100" className="h-12 text-lg font-bold" value={amountExchange} onChange={(e) => setAmountExchange(formatNum(e.target.value))}/></div>
+                            <div><label className="text-xs font-bold text-slate-500 mb-1 block">Kurs Deal (Rp)</label><Input type="text" inputMode="decimal" placeholder={isTrialExpired ? "✨" : (rates[selectedCurr.code] ? formatNum(Math.round(rates[selectedCurr.code]).toString()) : "0")} className="h-12 text-lg font-bold" value={rateExchange} onChange={(e) => setRateExchange(formatNum(e.target.value))}/></div>
                         </div>
                         
                         <div className={`p-3 rounded-xl border text-center ${exchangeMode === 'buy' ? 'bg-purple-50 border-purple-100' : 'bg-orange-50 border-orange-100'}`}>
                             <p className={`text-xs mb-1 ${exchangeMode === 'buy' ? 'text-purple-600' : 'text-orange-600'}`}>Total Rupiah</p>
-                            <p className="text-xl font-extrabold text-slate-800">{amountExchange && rateExchange ? formatRp(parseFloat(amountExchange) * parseFloat(rateExchange)) : "Rp 0"}</p>
+                            <p className="text-xl font-extrabold text-slate-800">{amountExchange && rateExchange ? formatRp(parseNum(amountExchange) * parseNum(rateExchange)) : "Rp 0"}</p>
                         </div>
                         
-                        <Button onClick={handleExchange} className={`w-full h-12 font-bold ${exchangeMode === 'buy' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-orange-500 hover:bg-orange-600'}`}>KONFIRMASI TRANSAKSI</Button>
+                        <Button disabled={isSubmitting} onClick={handleExchange} className={`w-full h-12 font-bold ${exchangeMode === 'buy' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-orange-500 hover:bg-orange-600'}`}>
+                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : "KONFIRMASI TRANSAKSI"}
+                        </Button>
                     </div>
                 )}
             </div>
@@ -420,7 +509,7 @@ export default function Forex() {
                                 </div>
                                 <div className="text-right">
                                     <div className={`font-bold ${isTrialExpired ? 'text-rose-500' : 'text-emerald-600'} text-sm`}>
-                                        {isTrialExpired ? "🔒 Premium" : formatRp(idrVal)}
+                                        {isTrialExpired ? "✨ Premium" : formatRp(idrVal)}
                                     </div>
                                     <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1">
                                         <Activity className="w-3 h-3"/> 

@@ -24,6 +24,8 @@ export default function Expense() {
 
   const [paymentMode, setPaymentMode] = useState<'cash' | 'hutang'>('cash');
   const [debtName, setDebtName] = useState("");
+  // 🚀 FIX: STATE UNTUK TENGGAT WAKTU DITAMBAHKAN
+  const [dueDate, setDueDate] = useState("");
 
   const formatNumber = (value: string) => value.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => setAmountStr(formatNumber(e.target.value));
@@ -74,8 +76,9 @@ export default function Expense() {
           return;
       }
 
-      if (paymentMode === 'hutang' && !debtName) { 
-          toast({ title: "Error", description: "Isi nama pihak yang dihutangi!", variant: "destructive" }); 
+      // 🚀 FIX: VALIDASI TENGGAT WAKTU WAJIB DIISI
+      if (paymentMode === 'hutang' && (!debtName || !dueDate)) { 
+          toast({ title: "Error", description: "Isi nama pihak dan tenggat waktu!", variant: "destructive" }); 
           return; 
       }
       
@@ -126,12 +129,14 @@ export default function Expense() {
                   toast({ title: "Tercatat!", description: "Pengeluaran berhasil disimpan." });
               }
           } else {
+              // 🚀 FIX: dueDate DIKIRIM KE API
               await fetch("/api/debts", {
                   method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
                   body: JSON.stringify({ 
                       type: 'hutang', 
                       name: `${debtName}|IDR`, 
                       amount: spendingAmount, 
+                      dueDate: dueDate, 
                       description: `[Hutang Pengeluaran: ${category}] ${desc}`,
                       isFromTransaction: true 
                   })
@@ -158,8 +163,6 @@ export default function Expense() {
   };
 
   const currentCash = user?.cashBalance || 0;
-
-  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE
   const displayBalance = formatRp(currentCash);
   const getBalanceTextSize = (text: string) => {
       if (text.length >= 20) return "text-2xl"; 
@@ -239,7 +242,6 @@ export default function Expense() {
             <div className="inline-flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-full">
                 <Wallet className="w-3.5 h-3.5" /> Saldo Tunai (Cash)
             </div>
-            {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
             <div className={`${getBalanceTextSize(displayBalance)} font-extrabold text-slate-800 tracking-tight whitespace-nowrap transition-all duration-300`}>
                 {displayBalance}
             </div>
@@ -280,7 +282,11 @@ export default function Expense() {
                 {paymentMode === 'hutang' && (
                     <div className="animate-in fade-in slide-in-from-top-2">
                         <label className="text-[11px] uppercase tracking-widest font-bold text-amber-500 block mb-2 ml-1">Ngutang Ke Siapa?</label>
-                        <Input placeholder="Nama Toko / Teman" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-14 bg-amber-50 border-transparent focus:border-amber-400 rounded-[16px]"/>
+                        <Input placeholder="Nama Toko / Teman" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-14 bg-amber-50 border-transparent focus:border-amber-400 rounded-[16px] mb-3"/>
+                        
+                        {/* 🚀 FIX: KOLOM TENGGAT WAKTU DITAMBAHKAN */}
+                        <label className="text-[11px] uppercase tracking-widest font-bold text-amber-500 block mb-2 ml-1">Tenggat Waktu (Wajib)</label>
+                        <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-14 bg-amber-50 border-transparent focus:border-amber-400 rounded-[16px] text-sm"/>
                     </div>
                 )}
 

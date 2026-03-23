@@ -6,14 +6,13 @@ import {
     Globe, AlertTriangle, RefreshCw, Loader2, HandCoins, Wallet
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser } from "@/hooks/use-finance"; // Ditambahkan untuk cek isPro
+import { useUser } from "@/hooks/use-finance";
 import Tesseract from 'tesseract.js';
 
 export default function SmartScan() {
     const { toast } = useToast();
-    const { data: user } = useUser(); // Ambil data user
+    const { data: user } = useUser();
     
-    // --- STATE ---
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState("");
     const [isScanning, setIsScanning] = useState(false);
@@ -21,12 +20,10 @@ export default function SmartScan() {
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [liveRates, setLiveRates] = useState<Record<string, number>>({});
     
-    // Budget Data
     const [targetData, setTargetData] = useState<any>(null);
     const [currentExpense, setCurrentExpense] = useState(0);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     
-    // Form Hasil
     const [showResultForm, setShowResultForm] = useState(false);
     const [detectedType, setDetectedType] = useState<'income' | 'expense' | 'debt' | 'receivable'>('expense');
     
@@ -37,7 +34,7 @@ export default function SmartScan() {
     const [category, setCategory] = useState("");
     const [desc, setDesc] = useState("");
     const [currency, setCurrency] = useState("USD");
-    const [rate, setRate] = useState("16000");
+    const [rate, setRate] = useState("16.000");
     const [debtName, setDebtName] = useState("");
 
     const [showEmergencyModal, setShowEmergencyModal] = useState(false);
@@ -49,9 +46,19 @@ export default function SmartScan() {
 
     const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
-    const isLocked = !user?.isPro && isTrialExpired; // 🚀 FIX: Logika kunci aman
+    const isLocked = !user?.isPro && isTrialExpired; 
     
     const getAuthHeaders = () => ({ "x-user-email": currentUserEmail });
+
+    // 🚀 SMART FORMATTER (TITIK UNTUK RIBUAN, KOMA UNTUK DESIMAL)
+    const formatNum = (val: string) => {
+        if (!val) return "";
+        let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
+        const parts = raw.split(",");
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        return parts.slice(0, 2).join(",");
+    };
+    const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
 
     useEffect(() => {
         const checkSharedImage = async () => {
@@ -60,7 +67,6 @@ export default function SmartScan() {
                 const response = await cache.match('/shared-image');
                 
                 if (response) {
-                    // Cek Gembok saat nerima dari share HP
                     if (isLocked) {
                         window.dispatchEvent(new Event('trigger-paywall-lock'));
                         return;
@@ -100,7 +106,7 @@ export default function SmartScan() {
             try {
                 fetch("/api/forex/rates", { headers: getAuthHeaders() }).then(r => r.json()).then(d => {
                     setLiveRates(d);
-                    if(d['USD']) setRate(Math.floor(d['USD']).toString());
+                    if(d['USD']) setRate(formatNum(Math.floor(d['USD']).toString()));
                 }).catch(() => {});
 
                 const [resTarget, resTx] = await Promise.all([
@@ -201,10 +207,12 @@ export default function SmartScan() {
         setDetectedType(newType);
         setIsForex(newIsForex);
         setCurrency(newCurrency);
-        setAmount(newAmount > 0 ? newAmount.toString() : ""); 
+        
+        // 🚀 Terapkan Formatter disini
+        setAmount(newAmount > 0 ? formatNum(newAmount.toString().replace(".", ",")) : ""); 
         setCategory(newCategory);
         setDesc(isScanning ? "Hasil Scan Struk/Transfer" : transcript || text);
-        if (newIsForex && liveRates[newCurrency]) setRate(Math.floor(liveRates[newCurrency]).toString());
+        if (newIsForex && liveRates[newCurrency]) setRate(formatNum(Math.floor(liveRates[newCurrency]).toString()));
 
         setShowResultForm(true);
     };
@@ -250,8 +258,7 @@ export default function SmartScan() {
 
         if (!amount) { toast({title: "Nominal kosong", variant:"destructive"}); return; }
         
-        const sanitizedAmount = amount.toString().replace(/\./g, "").replace(/,/g, ".");
-        const finalAmount = parseFloat(sanitizedAmount); 
+        const finalAmount = parseNum(amount); 
 
         if (!isEmergencyOverride && isDataLoaded && detectedType === 'expense' && !isForex && targetData?.monthlyBudget > 0) {
             const remainingBudget = targetData.monthlyBudget - currentExpense;
@@ -500,11 +507,13 @@ export default function SmartScan() {
                                             {Object.keys(liveRates).length > 0 ? Object.keys(liveRates).map(c => <option key={c} value={c}>{c}</option>) : <option>USD</option>}
                                         </select>
                                     </div>
-                                    <div><label className="text-[10px] font-bold text-blue-700 uppercase mb-1 block">Kurs Live</label><Input value={rate} onChange={e => setRate(e.target.value)} className="h-10 text-xs bg-white border-blue-200"/></div>
+                                    {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
+                                    <div><label className="text-[10px] font-bold text-blue-700 uppercase mb-1 block">Kurs Live</label><Input type="text" inputMode="decimal" value={rate} onChange={e => setRate(formatNum(e.target.value))} className="h-10 text-xs bg-white border-blue-200"/></div>
                                 </div>
                             )}
 
-                            <div><label className="text-xs font-bold text-slate-500 block mb-1">Nominal {isForex ? currency : '(IDR)'}</label><Input value={amount} onChange={e => setAmount(e.target.value)} type="text" className="text-2xl font-bold text-slate-800 bg-slate-50 border-slate-200 h-12" placeholder="0"/></div>
+                            {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
+                            <div><label className="text-xs font-bold text-slate-500 block mb-1">Nominal {isForex ? currency : '(IDR)'}</label><Input type="text" inputMode="decimal" value={amount} onChange={e => setAmount(formatNum(e.target.value))} className="text-2xl font-bold text-slate-800 bg-slate-50 border-slate-200 h-12" placeholder="0"/></div>
 
                             {(detectedType === 'debt' || detectedType === 'receivable' || paymentMode === 'pending') && (
                                 <div className="animate-in fade-in slide-in-from-top-2">
