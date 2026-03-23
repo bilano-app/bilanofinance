@@ -12,7 +12,8 @@ import {
   TrendingUp, Sparkles, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
-  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, Calculator
+  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, Calculator,
+  CreditCard // 🚀 IKON BARU UNTUK CICILAN
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -44,9 +45,6 @@ export default function Home() {
 
   const [showProWelcome, setShowProWelcome] = useState(false);
   
-  // 🚀 STATE FOMO DINAMIS
-  const [fomoFeature, setFomoFeature] = useState<{title: string, desc: string} | null>(null);
-
   const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
 
@@ -105,18 +103,6 @@ export default function Home() {
   const userEmail = rawEmail || "Pengguna";
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
-
-  // 🚀 FUNGSI KLIK FOMO DINAMIS
-  const handleFomoClick = (title: string, desc: string) => {
-      if (isUserPro) {
-          toast({ 
-              title: "Akses VIP Terjamin! 👑", 
-              description: "Karena Anda member PRO, fitur ini akan otomatis terbuka GRATIS saat rilis nanti!" 
-          });
-      } else {
-          setFomoFeature({ title, desc });
-      }
-  };
 
   useEffect(() => {
       if (!rawEmail) return;
@@ -371,42 +357,6 @@ export default function Home() {
 
   return (
     <MobileLayout>
-
-      {/* 🚀 MODAL RANJAU FOMO (DINAMIS MENYESUAIKAN TOMBOL) */}
-      {fomoFeature && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
-                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-100 rounded-full blur-3xl pointer-events-none"></div>
-                  
-                  <button onClick={() => setFomoFeature(null)} className="absolute top-4 right-4 p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
-                  
-                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.4)] relative z-10">
-                      <Rocket className="w-10 h-10 text-amber-950"/>
-                  </div>
-                  
-                  <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Misi Selanjutnya! 🚀</h2>
-                  <p className="text-sm text-slate-500 mb-5 leading-relaxed px-2">
-                      Fitur <b>{fomoFeature.title}</b> adalah salah satu inovasi besar yang masuk dalam rencana pengembangan (roadmap) kami ke depan.<br/><br/>
-                      <span className="text-[11px] bg-slate-100 px-2 py-1 rounded-lg">"{fomoFeature.desc}"</span>
-                  </p>
-                  
-                  <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-6 text-left relative z-10 shadow-inner">
-                      <div className="flex items-center gap-2 mb-2">
-                          <AlertTriangle className="w-4 h-4 text-amber-600"/>
-                          <span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span>
-                      </div>
-                      <p className="text-[12px] text-amber-700 leading-relaxed font-medium">
-                          Begitu fitur eksklusif ini diluncurkan nanti, harga langganan pengguna baru pasti akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>
-                          Kabar baiknya: Kunci harga Anda di <b>Rp 99.000/tahun HARI INI</b>, dan Anda akan mendapatkan fitur ini secara <b>GRATIS</b> seumur hidup saat rilis nanti tanpa biaya tambahan!
-                      </p>
-                  </div>
-                  
-                  <Button onClick={() => { setFomoFeature(null); setLocation('/paywall'); }} className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
-                      <Lock className="w-4 h-4"/> AMANKAN HARGA SAYA ➔
-                  </Button>
-              </div>
-          </div>
-      )}
 
       {dueDynamicSub && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
@@ -682,79 +632,39 @@ export default function Home() {
             <h3 className="font-bold text-slate-800 text-sm mb-4">Fitur Pilihan</h3>
             <div className="grid grid-cols-3 gap-y-6 gap-x-3">
                 <MenuIconBox href="/forex" icon={DollarSign} bg="bg-blue-500" label="Valas" />
-                <MenuIconBox href="/debts" icon={HandCoins} bg="bg-pink-500" label="Hutang" />
-                <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-teal-400" label="Langganan" />
+                <MenuIconBox href="/debts" icon={HandCoins} bg="bg-pink-500" label="Piutang" />
+                
+                {/* 🚀 FIX: TOMBOL CICILAN MENGGANTIKAN LAPORAN. MENGARAH KE INPUT, BUKAN KALKULATOR */}
+                <MenuIconBox href="/loans" icon={CreditCard} bg="bg-teal-400" label="Cicilan" />
+                
                 <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-emerald-500" label="Investasi" />
-                <MenuIconBox href="/reports" icon={FileText} bg="bg-orange-400" label="Laporan" />
+                <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-orange-400" label="Langganan" />
                 <MenuIconBox href="/scan" icon={ScanLine} bg="bg-indigo-500" label="Scan" />
             </div>
         </div>
 
-        {/* ======================================================== */}
-        {/* 🚀 2 BANNER FOMO SEJAJAR (ACADEMY & KALKULATOR KPR)      */}
-        {/* ======================================================== */}
-        <div className="px-1 mt-6 mb-2 space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm mb-2 px-1 uppercase tracking-widest text-[11px]">Eksklusif Segera Hadir</h3>
+        <div className="flex flex-col gap-4 mt-6 px-1">
             
-            {/* Banner 1: Academy */}
-            <div onClick={() => handleFomoClick("BILANO Academy", "Kumpulan E-Book Premium dan panduan mengelola uang serta investasi dari pakar finansial.")} className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
-                <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
-                <div className="flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
-                            <BookOpen className="w-6 h-6 text-amber-400"/>
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-black text-white text-base">BILANO Academy</h3>
-                                <span className="text-[9px] font-extrabold bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-sm">Segera</span>
-                            </div>
-                            <p className="text-[11px] text-slate-400 font-medium">E-Book & Panduan Finansial VIP</p>
-                        </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-amber-400 transition-colors"/>
-                </div>
-            </div>
-
-            {/* Banner 2: Kalkulator */}
-            <div onClick={() => handleFomoClick("Kalkulator Pintar", "Simulasikan angsuran KPR, KKB, Bunga Majemuk, hingga tabungan masa Pensiun Anda dengan mudah.")} className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
-                <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/20 transition-colors"></div>
-                <div className="flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-indigo-400/20 border border-indigo-400/30 flex items-center justify-center">
-                            <Calculator className="w-6 h-6 text-indigo-400"/>
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-black text-white text-base">Kalkulator Pintar</h3>
-                                <span className="text-[9px] font-extrabold bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-sm">Segera</span>
-                            </div>
-                            <p className="text-[11px] text-slate-400 font-medium">Simulasi Cicilan KPR & Pensiun</p>
-                        </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-indigo-400 transition-colors"/>
-                </div>
-            </div>
-        </div>
-        {/* ======================================================== */}
-
-        <div className="flex flex-col gap-4 mt-2 px-1">
+            {/* 🚀 FIX: AI ASSISTANT RESMI MENJADI FITUR UTAMA (TIDAK TERTULIS SEGARA) */}
             <Link href="/chat-ai">
-                <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
-                    <div className="flex items-center gap-4 z-10">
-                        <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Sparkles className="w-6 h-6 text-indigo-600"/>
+                <div className="bg-gradient-to-r from-indigo-950 to-indigo-900 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-indigo-800 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
+                    <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/20 transition-colors"></div>
+                    <div className="flex items-center justify-between z-10 relative">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <Sparkles className="w-6 h-6 text-indigo-200"/>
+                            </div>
+                            <div>
+                                <h3 className="font-black text-white text-base">Tanya AI Assistant</h3>
+                                <p className="text-xs text-indigo-300 mt-0.5">Konsultasi cerdas 24/7</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
-                            <p className="text-xs text-slate-500 mt-0.5">Konsultasi cerdas 24/7</p>
-                        </div>
+                        <ChevronRight className="w-5 h-5 text-indigo-600 z-10 group-hover:text-indigo-200"/>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-300 z-10"/>
-                    <div className="absolute right-0 top-0 w-24 h-full bg-gradient-to-l from-indigo-50 to-transparent pointer-events-none"></div>
                 </div>
             </Link>
 
+            {/* 🚀 FIX: PERFORMANCE ANALYSA RESMI MENJADI FITUR UTAMA */}
             <Link href="/performance">
                 <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
                     <div className="flex items-center gap-4">
@@ -766,14 +676,15 @@ export default function Home() {
                             <p className="text-xs text-slate-500 mt-0.5">Pantau target & grafikmu</p>
                         </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-300"/>
+                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-orange-400 transition-colors"/>
                 </div>
             </Link>
         </div>
 
-        <div className="mt-8 mb-6 flex flex-col items-center justify-center opacity-60">
+        <div className="mt-12 mb-6 flex flex-col items-center justify-center opacity-60 px-4 text-center">
             <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Smart Wealth Management</p>
-            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+            <p className="text-[10px] text-slate-400 mt-1.5 font-medium leading-relaxed">
+                Platform intelijen finansial untuk kebebasan waktu Anda.<br/>
                 © {new Date().getFullYear()} • Bilano Official
             </p>
         </div>

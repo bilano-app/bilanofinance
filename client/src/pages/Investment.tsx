@@ -1,32 +1,34 @@
 import { useState } from "react";
-import { ArrowLeft, PlusCircle, X, Loader2, Info } from "lucide-react"; 
-import { TrendingUp, Building2, LineChart, Briefcase, Gem, Landmark, ScrollText, Coins, Sparkles, Rocket, AlertTriangle, Lock } from "lucide-react";
+import { ArrowLeft, PlusCircle, X, Loader2, Info, Sparkles, BookOpen, Calculator, Rocket, Lock, Target } from "lucide-react"; 
+import { TrendingUp, Building2, LineChart, Briefcase, Gem, Landmark, ScrollText, Coins } from "lucide-react";
 import { Button, Input, CurrencyInput } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
 import { useUser, useInvestments } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
 
 type AssetType = 'saham' | 'crypto' | 'reksadana' | 'obligasi' | 'p2p' | 'emas' | 'properti' | 'koleksi';
 
 export default function Investment() {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  
+  // 🚀 FIX: UX DIPULIHKAN. KEMBALI KE MAIN ATAU DETAIL.
   const [viewState, setViewState] = useState<'main' | 'detail'>('main');
   const [activeCategory, setActiveCategory] = useState<AssetType | null>(null);
+  
+  // 🚀 FIX: FORM TRANSAKSI HANYA TERBUKA JIKA TOMBOL 'TAMBAH' DIKLIK
   const [isTxOpen, setIsTxOpen] = useState(false);
   const [txType, setTxType] = useState<'BUY' | 'SELL'>('BUY');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 🚀 FIX: STATE BARU UNTUK HALAMAN ANALISA (COMING SOON) - TAMPILAN SESUAI SS
+  const [isAnalysisView, setIsAnalysisView] = useState(false);
 
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: portfolioRaw = [], isLoading: isInvLoading } = useInvestments();
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
-
-  // 🚀 STATE FOMO DINAMIS (INVESTASI)
-  const [fomoFeature, setFomoFeature] = useState<{title: string, desc: string} | null>(null);
 
   const formatNum = (val: string) => {
       if (!val) return "";
@@ -110,22 +112,6 @@ export default function Investment() {
       if (text.length >= 20) return "text-2xl"; 
       if (text.length >= 15) return "text-3xl"; 
       return defaultSize; 
-  };
-
-  // 🚀 FUNGSI KLIK FOMO (INVESTASI)
-  const handleFomoClick = () => {
-      if (isUserPro) {
-          toast({ 
-              title: "Akses VIP Terjamin! 👑", 
-              description: "Karena Anda member PRO, fitur analisis AI ini akan otomatis terbuka GRATIS saat rilis nanti!" 
-          });
-      } else {
-          const categoryName = activeCategory ? assetConfig[activeCategory].label : "Aset";
-          setFomoFeature({ 
-              title: `Smart Screener ${categoryName}`, 
-              desc: `Fitur screening cerdas dan analisa tren harga menggunakan AI khusus untuk ${categoryName} portofolio Anda.` 
-          });
-      }
   };
 
   const handleTransaction = async () => {
@@ -292,50 +278,14 @@ export default function Investment() {
   return (
     <MobileLayout title="Investasi & Portfolio" showBack={true}>
        
-       {/* 🚀 MODAL RANJAU FOMO (KHUSUS INVESTASI) */}
-       {fomoFeature && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
-                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-100 rounded-full blur-3xl pointer-events-none"></div>
-                  
-                  <button onClick={() => setFomoFeature(null)} className="absolute top-4 right-4 p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
-                  
-                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.4)] relative z-10">
-                      <Rocket className="w-10 h-10 text-amber-950"/>
-                  </div>
-                  
-                  <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Misi Selanjutnya! 🚀</h2>
-                  <p className="text-sm text-slate-500 mb-5 leading-relaxed px-2">
-                      Fitur <b>{fomoFeature.title}</b> adalah salah satu inovasi besar yang masuk dalam rencana pengembangan kami ke depan.<br/><br/>
-                      <span className="text-[11px] bg-slate-100 px-2 py-1 rounded-lg">"{fomoFeature.desc}"</span>
-                  </p>
-                  
-                  <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-6 text-left relative z-10 shadow-inner">
-                      <div className="flex items-center gap-2 mb-2">
-                          <AlertTriangle className="w-4 h-4 text-amber-600"/>
-                          <span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span>
-                      </div>
-                      <p className="text-[12px] text-amber-700 leading-relaxed font-medium">
-                          Begitu fitur eksklusif ini diluncurkan nanti, harga langganan pengguna baru pasti akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>
-                          Kabar baiknya: Kunci harga Anda di <b>Rp 99.000/tahun HARI INI</b>, dan Anda akan mendapatkan fitur ini secara <b>GRATIS</b> seumur hidup saat rilis nanti tanpa biaya tambahan!
-                      </p>
-                  </div>
-                  
-                  <Button onClick={() => { setFomoFeature(null); setLocation('/paywall'); }} className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
-                      <Lock className="w-4 h-4"/> AMANKAN HARGA SAYA ➔
-                  </Button>
-              </div>
-          </div>
-      )}
-
-       {viewState !== 'main' && (
+       {viewState !== 'main' && !isAnalysisView && (
           <Button variant="ghost" size="sm" onClick={() => setViewState('main')} className="mb-4 pl-0 hover:bg-transparent text-slate-500">
              <ArrowLeft className="w-5 h-5 mr-2"/> Kembali ke Semua Aset
           </Button>
        )}
 
        {viewState === 'main' ? (
-          <div className="space-y-6 mt-2 animate-in fade-in duration-500 px-1">
+          <div className="space-y-6 mt-2 animate-in fade-in duration-500 px-1 pt-2 pb-20">
              <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 text-white p-6 rounded-[32px] shadow-xl shadow-indigo-200 relative overflow-hidden group">
                 <div className="relative z-10">
                     <p className="text-[11px] font-bold text-indigo-200 mb-1 uppercase tracking-widest">Total Semua Aset</p>
@@ -377,7 +327,65 @@ export default function Investment() {
           </div>
 
        ) : (
-          <div className="animate-in slide-in-from-right duration-300 px-1">
+          <div className="animate-in slide-in-from-right duration-300 px-1 pt-2 pb-20 relative">
+             
+             {/* ================================================================= */}
+             {/* 🚀 FIX: HALAMAN ANALISA (COMING SOON) - TAMPILAN SESUAI SS BOS */}
+             {/* ================================================================= */}
+             {isAnalysisView && activeCategory && (() => {
+                 const Icon = assetConfig[activeCategory].icon;
+                 const color = assetConfig[activeCategory].color;
+                 const categoryName = assetConfig[activeCategory].label;
+                 
+                 return (
+                    <div className="absolute inset-0 z-50 bg-slate-50 min-h-screen p-4 animate-in slide-in-from-right duration-300">
+                        <Button variant="ghost" size="sm" onClick={() => setIsAnalysisView(false)} className="mb-4 pl-0 hover:bg-transparent text-slate-500">
+                            <ArrowLeft className="w-5 h-5 mr-2"/> Kembali ke Portfolio {categoryName}
+                        </Button>
+
+                        <div className="bg-gradient-to-br from-slate-950 to-slate-900 rounded-[32px] p-8 min-h-[85vh] shadow-2xl relative overflow-hidden text-center flex flex-col border-[3px] border-amber-300/30">
+                            
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                            <div className="w-24 h-24 bg-gradient-to-br from-amber-400 to-yellow-300 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgba(251,191,36,0.5)] relative z-10 animate-bounce">
+                                <Sparkles className="w-12 h-12 text-amber-950"/>
+                            </div>
+
+                            <div className="flex items-center justify-center gap-2 text-white/60 mb-3 z-10 relative">
+                                <Icon className="w-5 h-5"/>
+                                <span className="text-xs uppercase font-extrabold tracking-widest text-amber-100">Analisa {categoryName} (Coming Soon)</span>
+                            </div>
+
+                            <h2 className="text-3xl font-black text-white mb-6 leading-tight tracking-tight relative z-10">Misi Selanjutnya: Smart Wealth Management! 🚀</h2>
+
+                            <p className="text-sm text-slate-300 mb-8 leading-relaxed font-medium relative z-10 px-2">
+                                Fitur screening cerdas, sinyal teknikal asli, dan analisa fundamental mendalam menggunakan AI konsultan untuk aset <b>{categoryName}</b> Anda adalah inovasi besar berikutnya yang masuk dalam rencana pengembangan kami ke depan.
+                            </p>
+                            
+                            <div className="bg-amber-100 border-2 border-amber-300/50 rounded-[28px] p-6 mb-10 text-left relative z-10 shadow-lg text-amber-950">
+                                <div className="flex items-center gap-2.5 mb-2.5">
+                                    <AlertTriangle className="w-5 h-5 text-rose-600"/>
+                                    <span className="text-xs font-black uppercase tracking-widest text-amber-950">PERHATIAN PENTING PENGGUNA PRO</span>
+                                </div>
+                                <p className="text-[13px] leading-relaxed font-bold">
+                                    Begitu fitur eksklusif ini diluncurkan nanti, harga langganan pengguna baru BILANO PRO <b className="text-rose-600">PASTI AKAN DINAIKKAN.</b><br/><br/>
+                                    
+                                    Amankan harga Anda di <b className="text-emerald-700">Rp 99.000/tahun HARI INI</b>, dan Anda akan mendapatkan fitur Analisa {categoryName} ini secara <b>GRATIS SEUMUR HIDUP</b> saat rilis nanti tanpa biaya tambahan sepeser pun!
+                                </p>
+                            </div>
+
+                            <Button 
+                                onClick={() => { setIsAnalysisView(false); setViewState('detail'); setLocation('/paywall'); }} 
+                                className="w-full h-16 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 rounded-full font-black text-base shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10"
+                            >
+                                <Lock className="w-5 h-5"/> AMANKAN HARGA PRO SAYA ➔
+                            </Button>
+                        </div>
+                    </div>
+                 )
+             })()}
+
              <div className={`mb-6 rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden ${activeCategory ? assetConfig[activeCategory].headerBg : 'bg-slate-800'}`}>
                    <div className="relative z-10">
                        <div className="flex items-center gap-2 mb-2 text-white/80">
@@ -396,16 +404,16 @@ export default function Investment() {
                    <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/10 rounded-tl-full pointer-events-none"></div>
              </div>
 
-             {/* 🚀 FIX: DUA TOMBOL BERDAMPINGAN (TAMBAH & ANALISA) */}
+             {/* 🚀 FIX: DUA TOMBOL BERDAMPINGAN (TAMBAH & ANALISA) DI HALAMAN DETAIL */}
              {!isTxOpen ? (
                 <div className="flex gap-3 mb-6">
                     <Button onClick={() => { setIsTxOpen(true); setTxType('BUY'); }} className="flex-1 bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 shadow-[0_4px_20px_rgb(0,0,0,0.03)] rounded-[20px] h-14 text-sm font-bold flex items-center justify-center gap-2 transition-transform active:scale-95">
-                        <PlusCircle className="w-5 h-5 text-indigo-600"/> Tambah
+                        <PlusCircle className="w-5 h-5 text-indigo-600"/> Tambah Aset
                     </Button>
                     
-                    {/* TOMBOL RANJAU FOMO */}
-                    <Button onClick={handleFomoClick} className="flex-[1.5] bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 border-0 shadow-[0_4px_20px_rgb(251,191,36,0.3)] rounded-[20px] h-14 text-sm font-extrabold flex items-center justify-center gap-1.5 transition-transform active:scale-95">
-                        <Sparkles className="w-4 h-4"/> Analisa {activeCategory ? assetConfig[activeCategory].label : ''}
+                    {/* TOMBOL ANALISA (MUNCULIN HALAMAN COMING SOON SESUAI SS) */}
+                    <Button onClick={() => setIsAnalysisView(true)} className="flex-[1.2] bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-slate-100 border border-slate-700 shadow-[0_4px_20px_rgb(0,0,0,0.1)] rounded-[20px] h-14 text-sm font-extrabold flex items-center justify-center gap-1.5 transition-transform active:scale-95">
+                        <Sparkles className="w-4 h-4 text-amber-300"/> Analisa {activeCategory ? assetConfig[activeCategory].label : ''}
                     </Button>
                 </div>
              ) : (
