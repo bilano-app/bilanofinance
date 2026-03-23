@@ -12,7 +12,7 @@ import {
   TrendingUp, Sparkles, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
-  BellRing, Mic, Camera, AlertTriangle 
+  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -43,6 +43,7 @@ export default function Home() {
   const [isRequestingPerms, setIsRequestingPerms] = useState(false);
 
   const [showProWelcome, setShowProWelcome] = useState(false);
+  const [showFomoModal, setShowFomoModal] = useState(false); // 🚀 STATE BARU UNTUK MODAL FOMO
 
   const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
@@ -102,6 +103,18 @@ export default function Home() {
   const userEmail = rawEmail || "Pengguna";
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
+
+  // 🚀 LOGIKA KLIK RANJAU FOMO
+  const handleFomoClick = () => {
+      if (isUserPro) {
+          toast({ 
+              title: "Akses VIP Terjamin! 👑", 
+              description: "Karena Anda member PRO, fitur ini akan otomatis terbuka GRATIS saat rilis nanti!" 
+          });
+      } else {
+          setShowFomoModal(true);
+      }
+  };
 
   useEffect(() => {
       if (!rawEmail) return;
@@ -341,10 +354,6 @@ export default function Home() {
       );
   }
 
-  // =========================================================================
-  // 🚀 FIX MUTLAK: LOADING SCREEN ELEGAN (Menggantikan Layar Rusak)
-  // Menahan layar sampai semua data benar-benar matang tanpa menakut-nakuti user!
-  // =========================================================================
   if (isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading || !user || !transactions || (user && user.username === 'guest')) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
@@ -360,6 +369,41 @@ export default function Home() {
 
   return (
     <MobileLayout>
+
+      {/* 🚀 MODAL RANJAU FOMO */}
+      {showFomoModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
+                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-100 rounded-full blur-3xl pointer-events-none"></div>
+                  
+                  <button onClick={() => setShowFomoModal(false)} className="absolute top-4 right-4 p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
+                  
+                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.4)] relative z-10">
+                      <Rocket className="w-10 h-10 text-amber-950"/>
+                  </div>
+                  
+                  <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Perakitan Akhir! 🚀</h2>
+                  <p className="text-sm text-slate-500 mb-5 leading-relaxed px-2">
+                      Fitur <b>BILANO Academy (E-Book Premium)</b> sedang dalam tahap akhir penyempurnaan untuk memaksimalkan ilmu finansial Anda.
+                  </p>
+                  
+                  <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-6 text-left relative z-10 shadow-inner">
+                      <div className="flex items-center gap-2 mb-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-600"/>
+                          <span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span>
+                      </div>
+                      <p className="text-[12px] text-amber-700 leading-relaxed font-medium">
+                          Saat fitur ini resmi dirilis, harga langganan pengguna baru akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>
+                          Kunci harga Anda di <b>Rp 99.000/tahun HARI INI</b>, dan dapatkan fitur ini secara <b>GRATIS</b> seumur hidup saat rilis nanti!
+                      </p>
+                  </div>
+                  
+                  <Button onClick={() => { setShowFomoModal(false); setLocation('/paywall'); }} className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
+                      <Lock className="w-4 h-4"/> AMANKAN HARGA SAYA ➔
+                  </Button>
+              </div>
+          </div>
+      )}
 
       {dueDynamicSub && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
@@ -642,6 +686,31 @@ export default function Home() {
                 <MenuIconBox href="/scan" icon={ScanLine} bg="bg-indigo-500" label="Scan" />
             </div>
         </div>
+
+        {/* ======================================================== */}
+        {/* 🚀 BANNER FOMO: E-BOOK (BILANO ACADEMY) NATIVE-LOOK      */}
+        {/* ======================================================== */}
+        <div className="px-1 mt-6 mb-2">
+            <div onClick={handleFomoClick} className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
+                <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
+                <div className="flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
+                            <BookOpen className="w-6 h-6 text-amber-400"/>
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-black text-white text-base">BILANO Academy</h3>
+                                <span className="text-[9px] font-extrabold bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-sm">Segera</span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 font-medium">E-Book & Panduan Finansial VIP</p>
+                        </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-amber-400 transition-colors"/>
+                </div>
+            </div>
+        </div>
+        {/* ======================================================== */}
 
         <div className="flex flex-col gap-4 mt-2 px-1">
             <Link href="/chat-ai">
