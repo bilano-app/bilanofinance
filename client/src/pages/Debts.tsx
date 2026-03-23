@@ -39,6 +39,16 @@ export default function Debts() {
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
+  // 🚀 SMART FORMATTER (TITIK UNTUK RIBUAN, KOMA UNTUK DESIMAL)
+  const formatNum = (val: string) => {
+      if (!val) return "";
+      let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
+      const parts = raw.split(",");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return parts.slice(0, 2).join(",");
+  };
+  const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
+
   const { data: items = [], isLoading: isDebtsLoading, refetch: refetchDebts } = useQuery({
       queryKey: ['debts', currentUserEmail],
       queryFn: async () => {
@@ -78,10 +88,11 @@ export default function Debts() {
       if(!name || !amount) return;
       try {
           const nameWithCurrency = `${name}|${currency}`;
+          const nominal = parseNum(amount); // Menggunakan angka yang sudah bersih
           const res = await fetch("/api/debts", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ type: activeTab, name: nameWithCurrency, amount: parseFloat(amount), dueDate, description: desc })
+              body: JSON.stringify({ type: activeTab, name: nameWithCurrency, amount: nominal, dueDate, description: desc })
           });
           if(res.ok) {
               toast({ title: "Tersimpan", description: "Catatan berhasil ditambahkan." });
@@ -94,7 +105,7 @@ export default function Debts() {
   const handlePay = async () => {
       if (checkPaywall() || !selectedDebt) return;
       
-      const nominal = parseFloat(payAmount) || selectedDebt.amount;
+      const nominal = parseNum(payAmount) || selectedDebt.amount; // Menggunakan angka yang sudah bersih
       
       if (nominal > selectedDebt.amount) { 
           toast({title: "Nominal Berlebih", description: "Maksimal pembayaran adalah sisa tagihan saat ini.", variant: "destructive"}); 
@@ -172,7 +183,6 @@ export default function Debts() {
 
   const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
 
-  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE
   const displayTotalDebt = formatRp(totalAmountIDR);
   const getBalanceTextSize = (text: string) => {
       if (text.length >= 20) return "text-2xl"; 
@@ -193,7 +203,8 @@ export default function Debts() {
                     <h3 className="text-lg font-extrabold text-slate-800 mb-2">Pelunasan / Cicilan</h3>
                     <p className="text-xs text-slate-500 mb-4">Sisa Tagihan: <span className="font-bold text-rose-600">{formatRp(selectedDebt.amount)}</span></p>
                     
-                    <Input type="number" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(e.target.value)} className="h-14 font-bold text-lg mb-4"/>
+                    {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
+                    <Input type="text" inputMode="decimal" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(formatNum(e.target.value))} className="h-14 font-bold text-lg mb-4"/>
                     
                     <Button onClick={handlePay} disabled={isPaying} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold mb-3 shadow-lg">
                         {isPaying ? <Loader2 className="w-5 h-5 animate-spin"/> : "KONFIRMASI PEMBAYARAN"}
@@ -227,7 +238,6 @@ export default function Debts() {
                     {activeTab === 'piutang' ? <HandCoins className="w-4 h-4"/> : <AlertCircle className="w-4 h-4"/>}
                     Total {activeTab === 'piutang' ? 'Uang di Orang (Piutang)' : 'Kewajiban (Hutang)'}
                 </p>
-                {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
                 <h2 className={`${getBalanceTextSize(displayTotalDebt)} font-extrabold tracking-tight whitespace-nowrap transition-all duration-300`}>
                     {displayTotalDebt}
                 </h2>
@@ -263,7 +273,8 @@ export default function Debts() {
                             <option value="IDR">IDR</option>
                             {availableCurrencies.filter(c => c !== 'IDR').map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <Input type="number" placeholder="Nominal" value={amount} onChange={e => setAmount(e.target.value)} className="flex-1 h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg"/>
+                        {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
+                        <Input type="text" inputMode="decimal" placeholder="Nominal" value={amount} onChange={e => setAmount(formatNum(e.target.value))} className="flex-1 h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg"/>
                     </div>
                     
                     <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent text-sm"/>

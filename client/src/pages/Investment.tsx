@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, PlusCircle, X, Loader2, Info } from "lucide-react"; 
 import { TrendingUp, Building2, LineChart, Briefcase, Gem, Landmark, ScrollText, Coins } from "lucide-react";
-import { Button, Input } from "@/components/UIComponents";
+import { Button, Input, CurrencyInput } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
 import { useUser, useInvestments } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +22,7 @@ export default function Investment() {
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
-  // 🚀 SMART FORMATTER (TITIK UNTUK RIBUAN, KOMA UNTUK DESIMAL)
+  // 🚀 SMART FORMATTER 
   const formatNum = (val: string) => {
       if (!val) return "";
       let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
@@ -52,15 +52,16 @@ export default function Investment() {
 
   const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
 
-  const assetConfig: Record<AssetType, { label: string, unit: string, icon: any, color: string, bg: string }> = {
-      saham: { label: 'Saham', unit: 'Lot/Lembar', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-100' },
-      crypto: { label: 'Crypto', unit: 'Koin', icon: Coins, color: 'text-orange-500', bg: 'bg-orange-100' },
-      reksadana: { label: 'Reksadana', unit: 'Unit', icon: LineChart, color: 'text-blue-500', bg: 'bg-blue-100' },
-      obligasi: { label: 'Obligasi', unit: 'Lembar', icon: ScrollText, color: 'text-indigo-500', bg: 'bg-indigo-100' },
-      p2p: { label: 'P2P Lending', unit: 'Akun / Lot', icon: Landmark, color: 'text-purple-500', bg: 'bg-purple-100' },
-      emas: { label: 'Emas & Logam', unit: 'Gram', icon: Gem, color: 'text-yellow-600', bg: 'bg-yellow-100' },
-      properti: { label: 'Properti', unit: 'Unit Properti', icon: Building2, color: 'text-cyan-600', bg: 'bg-cyan-100' },
-      koleksi: { label: 'Koleksi', unit: 'Item', icon: Briefcase, color: 'text-rose-600', bg: 'bg-rose-100' },
+  // 🚀 FIX ANTI-PURGE: Menulis `headerBg` secara utuh agar tidak dibuang Tailwind
+  const assetConfig: Record<AssetType, { label: string, unit: string, icon: any, color: string, bg: string, headerBg: string }> = {
+      saham: { label: 'Saham', unit: 'Lot/Lembar', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-100', headerBg: 'bg-emerald-500' },
+      crypto: { label: 'Crypto', unit: 'Koin', icon: Coins, color: 'text-orange-500', bg: 'bg-orange-100', headerBg: 'bg-orange-500' },
+      reksadana: { label: 'Reksadana', unit: 'Unit', icon: LineChart, color: 'text-blue-500', bg: 'bg-blue-100', headerBg: 'bg-blue-500' },
+      obligasi: { label: 'Obligasi', unit: 'Lembar', icon: ScrollText, color: 'text-indigo-500', bg: 'bg-indigo-100', headerBg: 'bg-indigo-500' },
+      p2p: { label: 'P2P Lending', unit: 'Akun / Lot', icon: Landmark, color: 'text-purple-500', bg: 'bg-purple-100', headerBg: 'bg-purple-500' },
+      emas: { label: 'Emas & Logam', unit: 'Gram', icon: Gem, color: 'text-yellow-600', bg: 'bg-yellow-100', headerBg: 'bg-yellow-500' },
+      properti: { label: 'Properti', unit: 'Unit Properti', icon: Building2, color: 'text-cyan-600', bg: 'bg-cyan-100', headerBg: 'bg-cyan-500' },
+      koleksi: { label: 'Koleksi', unit: 'Item', icon: Briefcase, color: 'text-rose-600', bg: 'bg-rose-100', headerBg: 'bg-rose-500' },
   };
 
   const aggregatedPortfolio = Object.values(portfolioRaw.reduce((acc, p: any) => {
@@ -224,7 +225,6 @@ export default function Investment() {
         <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
                 <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">Jumlah</label>
-                {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
                 <Input 
                     type="text" inputMode="decimal" value={inputQty} onChange={e => setInputQty(formatNum(e.target.value))} placeholder="0" 
                     className={`h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg focus:bg-white transition-all ${isSellOverLimit ? "border-rose-500 focus:border-rose-500 bg-rose-50" : "focus:border-indigo-500"}`}
@@ -232,7 +232,6 @@ export default function Investment() {
             </div>
             <div className="space-y-2">
                 <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">Harga Beli {inputCurrency}</label>
-                {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
                 <Input type="text" inputMode="decimal" value={inputPrice} onChange={e => setInputPrice(formatNum(e.target.value))} placeholder="0" className="h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg focus:bg-white focus:border-indigo-500 transition-all" />
             </div>
         </div>
@@ -323,7 +322,8 @@ export default function Investment() {
 
        ) : (
           <div className="animate-in slide-in-from-right duration-300 px-1">
-             <div className={`mb-6 rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden ${activeCategory ? assetConfig[activeCategory].bg.replace('100', '500') : 'bg-slate-800'}`}>
+             {/* 🚀 FIX ANTI-PURGE: MENGGUNAKAN property headerBg yang eksplisit */}
+             <div className={`mb-6 rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden ${activeCategory ? assetConfig[activeCategory].headerBg : 'bg-slate-800'}`}>
                    <div className="relative z-10">
                        <div className="flex items-center gap-2 mb-2 text-white/80">
                            {activeCategory && (() => {
