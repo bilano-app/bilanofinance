@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { ArrowLeft, PlusCircle, X, Loader2, Info } from "lucide-react"; 
-import { TrendingUp, Building2, LineChart, Briefcase, Gem, Landmark, ScrollText, Coins } from "lucide-react";
+import { TrendingUp, Building2, LineChart, Briefcase, Gem, Landmark, ScrollText, Coins, Sparkles, Rocket, AlertTriangle, Lock } from "lucide-react";
 import { Button, Input, CurrencyInput } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
 import { useUser, useInvestments } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 type AssetType = 'saham' | 'crypto' | 'reksadana' | 'obligasi' | 'p2p' | 'emas' | 'properti' | 'koleksi';
 
 export default function Investment() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [viewState, setViewState] = useState<'main' | 'detail'>('main');
   const [activeCategory, setActiveCategory] = useState<AssetType | null>(null);
   const [isTxOpen, setIsTxOpen] = useState(false);
@@ -21,8 +23,11 @@ export default function Investment() {
   const { data: portfolioRaw = [], isLoading: isInvLoading } = useInvestments();
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
-  // 🚀 SMART FORMATTER 
+  // 🚀 STATE FOMO DINAMIS (INVESTASI)
+  const [fomoFeature, setFomoFeature] = useState<{title: string, desc: string} | null>(null);
+
   const formatNum = (val: string) => {
       if (!val) return "";
       let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
@@ -52,7 +57,6 @@ export default function Investment() {
 
   const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
 
-  // 🚀 FIX ANTI-PURGE: Menulis `headerBg` secara utuh agar tidak dibuang Tailwind
   const assetConfig: Record<AssetType, { label: string, unit: string, icon: any, color: string, bg: string, headerBg: string }> = {
       saham: { label: 'Saham', unit: 'Lot/Lembar', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-100', headerBg: 'bg-emerald-500' },
       crypto: { label: 'Crypto', unit: 'Koin', icon: Coins, color: 'text-orange-500', bg: 'bg-orange-100', headerBg: 'bg-orange-500' },
@@ -106,6 +110,22 @@ export default function Investment() {
       if (text.length >= 20) return "text-2xl"; 
       if (text.length >= 15) return "text-3xl"; 
       return defaultSize; 
+  };
+
+  // 🚀 FUNGSI KLIK FOMO (INVESTASI)
+  const handleFomoClick = () => {
+      if (isUserPro) {
+          toast({ 
+              title: "Akses VIP Terjamin! 👑", 
+              description: "Karena Anda member PRO, fitur analisis AI ini akan otomatis terbuka GRATIS saat rilis nanti!" 
+          });
+      } else {
+          const categoryName = activeCategory ? assetConfig[activeCategory].label : "Aset";
+          setFomoFeature({ 
+              title: `Smart Screener ${categoryName}`, 
+              desc: `Fitur screening cerdas dan analisa tren harga menggunakan AI khusus untuk ${categoryName} portofolio Anda.` 
+          });
+      }
   };
 
   const handleTransaction = async () => {
@@ -272,6 +292,42 @@ export default function Investment() {
   return (
     <MobileLayout title="Investasi & Portfolio" showBack={true}>
        
+       {/* 🚀 MODAL RANJAU FOMO (KHUSUS INVESTASI) */}
+       {fomoFeature && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
+                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-100 rounded-full blur-3xl pointer-events-none"></div>
+                  
+                  <button onClick={() => setFomoFeature(null)} className="absolute top-4 right-4 p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
+                  
+                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.4)] relative z-10">
+                      <Rocket className="w-10 h-10 text-amber-950"/>
+                  </div>
+                  
+                  <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Misi Selanjutnya! 🚀</h2>
+                  <p className="text-sm text-slate-500 mb-5 leading-relaxed px-2">
+                      Fitur <b>{fomoFeature.title}</b> adalah salah satu inovasi besar yang masuk dalam rencana pengembangan kami ke depan.<br/><br/>
+                      <span className="text-[11px] bg-slate-100 px-2 py-1 rounded-lg">"{fomoFeature.desc}"</span>
+                  </p>
+                  
+                  <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-6 text-left relative z-10 shadow-inner">
+                      <div className="flex items-center gap-2 mb-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-600"/>
+                          <span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span>
+                      </div>
+                      <p className="text-[12px] text-amber-700 leading-relaxed font-medium">
+                          Begitu fitur eksklusif ini diluncurkan nanti, harga langganan pengguna baru pasti akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>
+                          Kabar baiknya: Kunci harga Anda di <b>Rp 99.000/tahun HARI INI</b>, dan Anda akan mendapatkan fitur ini secara <b>GRATIS</b> seumur hidup saat rilis nanti tanpa biaya tambahan!
+                      </p>
+                  </div>
+                  
+                  <Button onClick={() => { setFomoFeature(null); setLocation('/paywall'); }} className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
+                      <Lock className="w-4 h-4"/> AMANKAN HARGA SAYA ➔
+                  </Button>
+              </div>
+          </div>
+      )}
+
        {viewState !== 'main' && (
           <Button variant="ghost" size="sm" onClick={() => setViewState('main')} className="mb-4 pl-0 hover:bg-transparent text-slate-500">
              <ArrowLeft className="w-5 h-5 mr-2"/> Kembali ke Semua Aset
@@ -322,7 +378,6 @@ export default function Investment() {
 
        ) : (
           <div className="animate-in slide-in-from-right duration-300 px-1">
-             {/* 🚀 FIX ANTI-PURGE: MENGGUNAKAN property headerBg yang eksplisit */}
              <div className={`mb-6 rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden ${activeCategory ? assetConfig[activeCategory].headerBg : 'bg-slate-800'}`}>
                    <div className="relative z-10">
                        <div className="flex items-center gap-2 mb-2 text-white/80">
@@ -341,10 +396,18 @@ export default function Investment() {
                    <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/10 rounded-tl-full pointer-events-none"></div>
              </div>
 
+             {/* 🚀 FIX: DUA TOMBOL BERDAMPINGAN (TAMBAH & ANALISA) */}
              {!isTxOpen ? (
-                <Button onClick={() => { setIsTxOpen(true); setTxType('BUY'); }} className="w-full mb-6 bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 shadow-[0_4px_20px_rgb(0,0,0,0.03)] rounded-full h-14 text-sm font-bold flex items-center justify-center gap-2 transition-transform active:scale-95">
-                   <PlusCircle className="w-5 h-5 text-indigo-600"/> Tambah {activeCategory ? assetConfig[activeCategory].label : 'Aset'}
-                </Button>
+                <div className="flex gap-3 mb-6">
+                    <Button onClick={() => { setIsTxOpen(true); setTxType('BUY'); }} className="flex-1 bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 shadow-[0_4px_20px_rgb(0,0,0,0.03)] rounded-[20px] h-14 text-sm font-bold flex items-center justify-center gap-2 transition-transform active:scale-95">
+                        <PlusCircle className="w-5 h-5 text-indigo-600"/> Tambah
+                    </Button>
+                    
+                    {/* TOMBOL RANJAU FOMO */}
+                    <Button onClick={handleFomoClick} className="flex-[1.5] bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 border-0 shadow-[0_4px_20px_rgb(251,191,36,0.3)] rounded-[20px] h-14 text-sm font-extrabold flex items-center justify-center gap-1.5 transition-transform active:scale-95">
+                        <Sparkles className="w-4 h-4"/> Analisa {activeCategory ? assetConfig[activeCategory].label : ''}
+                    </Button>
+                </div>
              ) : (
                 <div className="mb-6 bg-white rounded-[32px] shadow-xl shadow-indigo-100/50 border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200">
                    <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50/50">
