@@ -43,7 +43,7 @@ export default function Home() {
   const [isRequestingPerms, setIsRequestingPerms] = useState(false);
 
   const [showProWelcome, setShowProWelcome] = useState(false);
-  const [showFomoModal, setShowFomoModal] = useState(false); // 🚀 STATE BARU UNTUK MODAL FOMO
+  const [showFomoModal, setShowFomoModal] = useState(false); 
 
   const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
@@ -104,7 +104,6 @@ export default function Home() {
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
-  // 🚀 LOGIKA KLIK RANJAU FOMO
   const handleFomoClick = () => {
       if (isUserPro) {
           toast({ 
@@ -370,7 +369,7 @@ export default function Home() {
   return (
     <MobileLayout>
 
-      {/* 🚀 MODAL RANJAU FOMO */}
+      {/* 🚀 MODAL RANJAU FOMO (KONTEN DIUBAH MENJADI 100% JUJUR) */}
       {showFomoModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
@@ -382,9 +381,10 @@ export default function Home() {
                       <Rocket className="w-10 h-10 text-amber-950"/>
                   </div>
                   
-                  <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Perakitan Akhir! 🚀</h2>
+                  {/* 🚀 TEKS FOMO YANG JUJUR (ROADMAP) */}
+                  <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Misi Selanjutnya! 🚀</h2>
                   <p className="text-sm text-slate-500 mb-5 leading-relaxed px-2">
-                      Fitur <b>BILANO Academy (E-Book Premium)</b> sedang dalam tahap akhir penyempurnaan untuk memaksimalkan ilmu finansial Anda.
+                      Fitur <b>BILANO Academy (E-Book Premium)</b> adalah salah satu inovasi besar yang masuk dalam rencana pengembangan (roadmap) kami ke depan.
                   </p>
                   
                   <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-6 text-left relative z-10 shadow-inner">
@@ -393,8 +393,8 @@ export default function Home() {
                           <span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span>
                       </div>
                       <p className="text-[12px] text-amber-700 leading-relaxed font-medium">
-                          Saat fitur ini resmi dirilis, harga langganan pengguna baru akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>
-                          Kunci harga Anda di <b>Rp 99.000/tahun HARI INI</b>, dan dapatkan fitur ini secara <b>GRATIS</b> seumur hidup saat rilis nanti!
+                          Begitu fitur eksklusif ini diluncurkan nanti, harga langganan pengguna baru pasti akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>
+                          Kabar baiknya: Kunci harga Anda di <b>Rp 99.000/tahun HARI INI</b>, dan Anda akan mendapatkan fitur ini secara <b>GRATIS</b> seumur hidup saat rilis nanti tanpa biaya tambahan!
                       </p>
                   </div>
                   
