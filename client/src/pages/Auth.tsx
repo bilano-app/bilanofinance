@@ -9,7 +9,6 @@ import {
     getRedirectResult,
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
-    sendPasswordResetEmail,
     User
 } from "firebase/auth";
 
@@ -29,10 +28,13 @@ export default function Auth() {
   const [errorMessage, setErrorMessage] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0); 
   
-  // State untuk Fitur Lupa Password
+  // 🚀 FIX: STATE BARU UNTUK FITUR LUPA PASSWORD VIA OTP
   const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'email' | 'otp'>('email');
   const [forgotEmail, setForgotEmail] = useState("");
-  const [isForgotSuccess, setIsForgotSuccess] = useState(false); // <-- STATE BARU UNTUK UI SUKSES
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [isForgotSuccess, setIsForgotSuccess] = useState(false); 
 
   const [loading, setLoading] = useState(false);
   const [, setLocation] = useLocation();
@@ -110,11 +112,13 @@ export default function Auth() {
     } catch (error: any) {
         let msg = "Terjadi kesalahan sistem.";
         
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-            msg = "Akun belum terdaftar atau kombinasi salah. Silakan Daftar (Sign Up) terlebih dahulu.";
+        if (error.code === 'auth/user-not-found') {
+            msg = "Akun belum terdaftar. Silakan Daftar (Sign Up) terlebih dahulu.";
             setIsLogin(false); 
         } else if (error.code === 'auth/wrong-password') {
             msg = "Password yang Anda masukkan salah. Coba lagi atau gunakan fitur Lupa Password.";
+        } else if (error.code === 'auth/invalid-credential') {
+            msg = "Email belum terdaftar atau Password salah. Jika belum punya akun, silakan daftar.";
         } else if (error.code === 'auth/email-already-in-use') {
             msg = "Email ini sudah terdaftar. Silakan Login.";
             setIsLogin(true); 
@@ -179,21 +183,50 @@ export default function Auth() {
       }
   };
 
-  // === FUNGSI MENGIRIM EMAIL RESET PASSWORD ===
-  const handleForgotPassword = async () => {
-      if (!forgotEmail) {
-          return toast({ title: "Email Kosong", description: "Silakan ketik email Anda terlebih dahulu.", variant: "destructive" });
-      }
-      
+  // 🚀 FIX: FUNGSI MEMINTA OTP UNTUK RESET PASSWORD (ANTI-SPAM)
+  const handleSendOtpReset = async () => {
+      if (!forgotEmail) return toast({ title: "Email Kosong", description: "Isi email dulu Bos!", variant: "destructive" });
       setLoading(true);
+      
       try {
-          await sendPasswordResetEmail(auth, forgotEmail);
-          setIsForgotSuccess(true); // <-- Ubah UI menjadi layar sukses
-      } catch (error: any) {
-          let msg = "Gagal mengirim link reset.";
-          if (error.code === 'auth/user-not-found') msg = "Email ini belum terdaftar di aplikasi kami.";
-          if (error.code === 'auth/invalid-email') msg = "Format email tidak valid.";
-          toast({ title: "Gagal", description: msg, variant: "destructive" });
+          const res = await fetch("/api/auth/send-otp-reset", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: forgotEmail })
+          });
+          const data = await res.json();
+          
+          if (res.ok) {
+              setForgotStep('otp');
+              toast({ title: "OTP Terkirim!", description: "Cek kotak masuk Gmail Anda sekarang." });
+          } else {
+              toast({ title: "Gagal", description: data.error, variant: "destructive" });
+          }
+      } catch (e) {
+          toast({ title: "Error", description: "Gagal terhubung ke server.", variant: "destructive" });
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  // 🚀 FIX: FUNGSI EKSEKUSI GANTI PASSWORD
+  const handleResetPassword = async () => {
+      if (forgotOtp.length < 6 || !newPassword) return toast({ title: "Lengkapi Data", description: "OTP dan Password Baru wajib diisi.", variant: "destructive" });
+      setLoading(true);
+      
+      try {
+          const res = await fetch("/api/auth/reset-password", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: forgotEmail, code: forgotOtp, newPassword })
+          });
+          const data = await res.json();
+          
+          if (res.ok) {
+              setIsForgotSuccess(true);
+          } else {
+              toast({ title: "Gagal", description: data.error, variant: "destructive" });
+          }
+      } catch (e) {
+          toast({ title: "Error", description: "Gagal terhubung ke server.", variant: "destructive" });
       } finally {
           setLoading(false);
       }
@@ -275,7 +308,10 @@ export default function Auth() {
                                 type="button" 
                                 onClick={() => { 
                                     setShowForgotModal(true); 
-                                    setIsForgotSuccess(false); // Pastikan state di-reset saat modal dibuka
+                                    setIsForgotSuccess(false);
+                                    setForgotStep('email');
+                                    setForgotOtp("");
+                                    setNewPassword("");
                                     setForgotEmail(""); 
                                 }} 
                                 className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
@@ -293,7 +329,7 @@ export default function Auth() {
           </div>
       </Card>
 
-      {/* POP-UP LUPA PASSWORD */}
+      {/* 🚀 MODAL LUPA PASSWORD (UI BARU: OTP KE GMAIL ASLI) */}
       {showForgotModal && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95">
@@ -301,45 +337,78 @@ export default function Auth() {
                       <X className="w-5 h-5"/>
                   </button>
 
-                  {/* LOGIKA PERUBAHAN UI BERDASARKAN STATUS SUKSES */}
                   {!isForgotSuccess ? (
-                      <>
-                          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
-                              <Lock className="w-6 h-6"/>
-                          </div>
-                          <h3 className="text-lg font-extrabold text-slate-800 mb-1">Reset Password</h3>
-                          <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-                              Masukkan email yang terdaftar. Kami akan mengirimkan link rahasia agar Anda bisa mengatur ulang password.
-                          </p>
-                          
-                          <div className="space-y-4">
-                              <div className="relative">
-                                  <Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
-                                  <Input 
-                                      type="email" 
-                                      placeholder="Masukkan email Anda..." 
-                                      className="pl-10 h-12 border-slate-200" 
-                                      value={forgotEmail} 
-                                      onChange={(e) => setForgotEmail(e.target.value)}
-                                  />
+                      forgotStep === 'email' ? (
+                          <>
+                              <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
+                                  <Lock className="w-6 h-6"/>
                               </div>
-                              <Button onClick={handleForgotPassword} disabled={loading || !forgotEmail} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold shadow-md">
-                                  {loading ? <RefreshCw className="w-5 h-5 animate-spin"/> : "KIRIM LINK RESET"}
-                              </Button>
-                          </div>
-                      </>
+                              <h3 className="text-lg font-extrabold text-slate-800 mb-1">Reset Password</h3>
+                              <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+                                  Masukkan email Anda. Kami akan mengirimkan OTP langsung ke kotak masuk (Inbox) Anda.
+                              </p>
+                              
+                              <div className="space-y-4">
+                                  <div className="relative">
+                                      <Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
+                                      <Input 
+                                          type="email" 
+                                          placeholder="Masukkan email Anda..." 
+                                          className="pl-10 h-12 border-slate-200" 
+                                          value={forgotEmail} 
+                                          onChange={(e) => setForgotEmail(e.target.value)}
+                                      />
+                                  </div>
+                                  <Button onClick={handleSendOtpReset} disabled={loading || !forgotEmail} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold shadow-md">
+                                      {loading ? <RefreshCw className="w-5 h-5 animate-spin"/> : "KIRIM OTP RESET"}
+                                  </Button>
+                              </div>
+                          </>
+                      ) : (
+                          <>
+                              <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mb-4">
+                                  <ShieldCheck className="w-6 h-6"/>
+                              </div>
+                              <h3 className="text-lg font-extrabold text-slate-800 mb-1">Buat Password Baru</h3>
+                              <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+                                  Masukkan 6 digit kode OTP dari email beserta password baru Anda.
+                              </p>
+                              
+                              <div className="space-y-3">
+                                  <Input 
+                                      className="text-center tracking-[0.5em] font-bold h-12 border-slate-200" 
+                                      maxLength={6} 
+                                      placeholder="000000"
+                                      value={forgotOtp}
+                                      onChange={(e) => setForgotOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                                  />
+                                  <div className="relative">
+                                      <Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
+                                      <Input 
+                                          type="password" 
+                                          placeholder="Ketik Password Baru..." 
+                                          className="pl-10 h-12 border-slate-200" 
+                                          value={newPassword} 
+                                          onChange={(e) => setNewPassword(e.target.value)}
+                                      />
+                                  </div>
+                                  <Button onClick={handleResetPassword} disabled={loading || forgotOtp.length < 6 || !newPassword} className="w-full h-12 bg-rose-600 hover:bg-rose-700 font-bold shadow-md mt-2">
+                                      {loading ? <RefreshCw className="w-5 h-5 animate-spin"/> : "UBAH PASSWORD SAYA"}
+                                  </Button>
+                              </div>
+                          </>
+                      )
                   ) : (
-                      // UI LAYAR SUKSES MENGIRIM EMAIL
                       <div className="text-center py-4 animate-in fade-in zoom-in-95">
                           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
                               <CheckCircle2 className="w-8 h-8"/>
                           </div>
-                          <h3 className="text-lg font-extrabold text-slate-800 mb-2">Tautan Terkirim!</h3>
+                          <h3 className="text-lg font-extrabold text-slate-800 mb-2">Sukses Bos!</h3>
                           <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                              Silakan cek kotak masuk atau folder <strong className="text-rose-600">Spam / Junk</strong> di email <strong>{forgotEmail}</strong>.
+                              Password untuk akun <strong>{forgotEmail}</strong> telah berhasil diperbarui. Silakan login kembali.
                           </p>
-                          <Button onClick={() => setShowForgotModal(false)} className="w-full h-12 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold shadow-none">
-                              TUTUP
+                          <Button onClick={() => setShowForgotModal(false)} className="w-full h-12 bg-indigo-600 text-white hover:bg-indigo-700 font-bold shadow-md">
+                              TUTUP & LOGIN
                           </Button>
                       </div>
                   )}

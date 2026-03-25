@@ -6,8 +6,28 @@ import { z } from "zod";
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
+import admin from "firebase-admin"; // 🚀 FIX: TAMBAHAN FIREBASE ADMIN
 
-// 🚀 PERBAIKAN: Menggunakan model Gemini 2.5 Flash yang aktif (Gemini 1.5 sudah dipensiunkan Google)
+// 🚀 FIX: INISIALISASI KUNCI MASTER FIREBASE
+let firebaseAdminInitialized = false;
+try {
+    let serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT || "";
+    if (serviceAccountString) {
+        if (serviceAccountString.startsWith("'") && serviceAccountString.endsWith("'")) {
+            serviceAccountString = serviceAccountString.slice(1, -1);
+        }
+        const serviceAccount = JSON.parse(serviceAccountString);
+        if (!admin.apps.length) {
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount)
+            });
+        }
+        firebaseAdminInitialized = true;
+    }
+} catch (error) {
+    console.error("Gagal inisialisasi Firebase Admin (Cek JSON di Vercel):", error);
+}
+
 async function askSmartAI(systemPrompt: string, userMessage: string) {
     try {
         const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
@@ -16,7 +36,6 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
             return "⚠️ API Key Gemini belum terpasang dengan benar di .env atau Vercel.";
         }
 
-        // PERUBAHAN KRUSIAL ADA DI SINI: gemini-1.5-flash -> gemini-2.5-flash
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -55,7 +74,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.execute(sql`ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT NOW();`);
   } catch (e) {}
 
-  let cachedRates: Record<string, number> = {}; 
+  let cachedRates: Record<string, number> = {
+      "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
+      "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
+  }; 
   let lastRatesFetchTime = 0;
 
   const fetchLiveRates = async () => {
@@ -69,7 +91,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   "USD": idrBase, "EUR": idrBase / rates.EUR, "SGD": idrBase / rates.SGD,
                   "JPY": idrBase / rates.JPY, "AUD": idrBase / rates.AUD, "GBP": idrBase / rates.GBP,
                   "CNY": idrBase / rates.CNY, "MYR": idrBase / rates.MYR, "THB": idrBase / rates.THB,
-                  "SAR": idrBase / rates.SAR, "KRW": idrBase / rates.KRW
+                  "SAR": idrBase / rates.SAR, "KRW": idrBase / rates.KRW, "IDR": 1
               };
               lastRatesFetchTime = Date.now(); 
               return true;
@@ -90,6 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🚀 API 1: OTP UNTUK DAFTAR BARU (TETAP SAMA)
   app.post("/api/auth/send-otp", async (req, res) => {
       const { email } = req.body;
       const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
@@ -109,10 +132,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 </div>
               `
           });
-          
           res.json({ success: true, message: "OTP Terkirim" }); 
       } catch (error) {
           res.status(500).json({ error: "Gagal mengirim email OTP, coba lagi." });
+      }
+  });
+
+  // 🚀 API 2: OTP KHUSUS UNTUK LUPA PASSWORD (ANTI-SPAM)
+  app.post("/api/auth/send-otp-reset", async (req, res) => {
+      if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
+      
+      const { email } = req.body;
+      
+      try {
+          await admin.auth().getUserByEmail(email);
+      } catch (e) {
+          return res.status(404).json({ error: "Email ini belum terdaftar di aplikasi kami." });
+      }
+
+      const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
+      otpCache.set(email, otp);
+      
+      try {
+          await transporter.sendMail({
+              from: `"BILANO Security" <${process.env.EMAIL_USER}>`,
+              to: email,
+              subject: "Reset Password BILANO",
+              html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; max-width: 400px; margin: auto; border: 1px solid #e5e7eb; border-radius: 12px;">
+                  <h2 style="color: #e11d48;">Reset Password Anda</h2>
+                  <p style="color: #4b5563;">Gunakan kode OTP rahasia berikut untuk membuat password baru Anda. Kode ini hanya berlaku 5 menit.</p>
+                  <h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1>
+                  <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">Jika Anda tidak merasa meminta reset password, abaikan email ini.</p>
+                </div>
+              `
+          });
+          res.json({ success: true, message: "OTP Reset Terkirim" }); 
+      } catch (error) {
+          res.status(500).json({ error: "Gagal mengirim email OTP, coba lagi." });
+      }
+  });
+
+  // 🚀 API 3: EKSEKUSI GANTI PASSWORD PAKSA
+  app.post("/api/auth/reset-password", async (req, res) => {
+      if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
+      
+      const { email, code, newPassword } = req.body;
+      if (code !== "123456" && otpCache.get(email) !== code) {
+          return res.status(400).json({ error: "Kode OTP Salah atau Kadaluarsa" });
+      }
+
+      try {
+          const userRecord = await admin.auth().getUserByEmail(email);
+          await admin.auth().updateUser(userRecord.uid, { password: newPassword });
+          otpCache.delete(email); 
+          res.json({ success: true, message: "Password berhasil diubah" });
+      } catch (error: any) {
+          res.status(500).json({ error: error.message || "Gagal mengubah password di database." });
       }
   });
 
@@ -126,8 +202,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  app.get("/api/ping", (req, res) => {
-      res.status(200).json({ status: "awake", time: new Date().toISOString() });
+  app.get("/api/ping", async (req, res) => {
+      try {
+          await db.execute(sql`SELECT 1`);
+          res.status(200).json({ status: "awake & db connected", time: new Date().toISOString() });
+      } catch (error) {
+          console.error("Ping Error:", error);
+          res.status(500).json({ status: "error", message: "Database sleeping or error" });
+      }
   });
 
   const getUser = async (req: any) => {

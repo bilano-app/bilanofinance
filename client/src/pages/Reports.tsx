@@ -7,6 +7,12 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useUser } from "@/hooks/use-finance"; 
 
+// 🚀 FIX: DAFTAR KURS CADANGAN PERMANEN JIKA API VALAS SERVER DOWN
+const DEFAULT_RATES: Record<string, number> = {
+    "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
+    "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
+};
+
 export default function Reports() {
   const { toast } = useToast();
   const { data: userProfile } = useUser(); 
@@ -28,6 +34,12 @@ export default function Reports() {
       if (num >= 1000000) return sign + (num / 1000000).toFixed(1) + 'M';
       if (num >= 1000) return sign + (num / 1000).toFixed(0) + 'k';
       return sign + num.toString();
+  };
+
+  // 🚀 FIX: FUNGSI PINTAR PENGAMBIL KURS (ANTI-BUG RP 500)
+  const getRate = (curr: string) => {
+      if (!curr || curr === 'IDR') return 1;
+      return forexRates[curr] || DEFAULT_RATES[curr] || 15000;
   };
 
   useEffect(() => {
@@ -56,7 +68,6 @@ export default function Reports() {
     fetchData();
   }, []);
 
-  // --- GRAFIK 1: GRAFIK GARIS (LINE CHART) ---
   const drawLineChart = (doc: jsPDF, title: string, chartData: any[], startY: number, lineColor: number[]) => {
       const chartHeight = 35; const chartWidth = 170; const startX = 20;
 
@@ -98,7 +109,6 @@ export default function Reports() {
       return startY + chartHeight + 15;
   };
 
-  // --- GRAFIK 2: LOLLIPOP CHART (TITIK & TANGKAI VERTIKAL) ---
   const drawLollipopChart = (doc: jsPDF, title: string, chartData: any[], startY: number, color: number[]) => {
       const chartHeight = 35; const chartWidth = 170; const startX = 20;
 
@@ -141,7 +151,6 @@ export default function Reports() {
       return startY + chartHeight + 15;
   };
 
-  // --- GRAFIK 3: GRAFIK BATANG (BAR CHART) ---
   const drawBarChart = (doc: jsPDF, title: string, chartData: any[], startY: number, barColor: number[]) => {
       const chartHeight = 35; const chartWidth = 170; const startX = 20;
       
@@ -228,7 +237,7 @@ export default function Reports() {
 
         const totalInvest = data.investments.reduce((acc: number, inv: any) => {
             const [sym, curr] = (inv.symbol || "").split('|');
-            const rate = (curr && curr !== 'IDR') ? (forexRates[curr] || 1) : 1;
+            const rate = getRate(curr); // 🚀 MENGGUNAKAN GETRATE
             const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
             const m = (isSaham && (!curr || curr === 'IDR')) ? 100 : 1;
             return acc + (inv.quantity * inv.avgPrice * m * rate);
@@ -236,19 +245,19 @@ export default function Reports() {
         
         const totalDebt = data.debts.filter((d:any) => d.type === 'hutang' && !d.isPaid).reduce((acc: number, d: any) => {
             const [, curr] = (d.name || "").split('|');
-            const rate = (curr && curr !== 'IDR') ? (forexRates[curr] || 1) : 1;
+            const rate = getRate(curr); // 🚀 MENGGUNAKAN GETRATE
             return acc + (d.amount * rate);
         }, 0);
         
         const totalPiutang = data.debts.filter((d:any) => d.type === 'piutang' && !d.isPaid).reduce((acc: number, d: any) => {
             const [, curr] = (d.name || "").split('|');
-            const rate = (curr && curr !== 'IDR') ? (forexRates[curr] || 1) : 1;
+            const rate = getRate(curr); // 🚀 MENGGUNAKAN GETRATE
             return acc + (d.amount * rate);
         }, 0);
         
         let totalForexIDR = 0;
         const forexRows = data.forexAssets.map((f: any) => {
-            const rate = forexRates[f.currency] || 0;
+            const rate = getRate(f.currency); // 🚀 MENGGUNAKAN GETRATE
             const idrVal = f.amount * rate;
             totalForexIDR += idrVal;
             return [f.currency, f.amount.toLocaleString(), formatRp(rate), formatRp(idrVal)];
@@ -257,7 +266,6 @@ export default function Reports() {
         const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
         const netWorth = totalAsset - totalDebt;
 
-        // 🚀 KODE BARU: FILTER KHUSUS BULAN INI SAJA!
         const nowForReport = new Date();
         const currentMonthNum = nowForReport.getMonth();
         const currentYearNum = nowForReport.getFullYear();
@@ -269,7 +277,6 @@ export default function Reports() {
             t.category !== 'Penghapusan Piutang'
         );
 
-        // Hanya ambil transaksi di bulan & tahun ini
         const currentMonthTx = pureTransactions.filter((t:any) => {
             const d = new Date(t.date);
             return d.getMonth() === currentMonthNum && d.getFullYear() === currentYearNum;
@@ -412,7 +419,7 @@ export default function Reports() {
             const debtRows = data.debts.map((d: any) => {
                 const [displayName, curr] = (d.name || "").split('|');
                 const actualCurr = curr || 'IDR';
-                const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || 1);
+                const rate = getRate(actualCurr); // 🚀 MENGGUNAKAN GETRATE
                 const valIDR = d.amount * rate;
                 
                 let status = d.isPaid ? 'LUNAS' : 'Belum Lunas';
@@ -440,7 +447,6 @@ export default function Reports() {
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
-        // 🚀 FIX: DAFTAR TRANSAKSI HANYA UNTUK BULAN INI
         checkPageBreak(40);
         doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
         doc.text(`Riwayat Transaksi Arus Kas Murni (Bulan ${currentMonthName})`, 14, currentY);
