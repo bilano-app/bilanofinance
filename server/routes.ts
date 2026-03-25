@@ -7,28 +7,26 @@ import { db } from "./db.js";
 import { sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 
-// 🚀 FIX ABSOLUT: FUNGSI AI DENGAN FORMAT REST API GOOGLE YANG BENAR
+// 🚀 PERBAIKAN: Menggunakan model Gemini 2.5 Flash yang aktif (Gemini 1.5 sudah dipensiunkan Google)
 async function askSmartAI(systemPrompt: string, userMessage: string) {
     try {
-        // Pembersihan otomatis untuk kunci API dari Vercel
         const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
         
         if (!apiKey || apiKey.includes("KUNCI_SUDAH_DIAMANKAN")) {
             return "⚠️ API Key Gemini belum terpasang dengan benar di .env atau Vercel.";
         }
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        // PERUBAHAN KRUSIAL ADA DI SINI: gemini-1.5-flash -> gemini-2.5-flash
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                // 🚀 WAJIB GARIS BAWAH: REST API Google menolak format camelCase
                 system_instruction: { parts: [{ text: systemPrompt }] }, 
                 contents: [{ role: "user", parts: [{ text: userMessage }] }]
             })
         });
 
         if (!response.ok) {
-            // Kita bongkar pesan error dari Google biar ketahuan kalau salah
             const errData = await response.text();
             console.error("Gemini REST Error Detail:", errData);
             return `⚠️ Koneksi ditolak Google. Alasan: ${errData.substring(0, 150)}...`; 
@@ -36,7 +34,6 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
 
         const data = await response.json();
         
-        // Pengecekan jika Google membalas tapi kosong (Kena sensor keamanan)
         if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
              return "⚠️ Pesan ditahan oleh filter keamanan Google. Coba tanyakan dengan bahasa lain.";
         }
@@ -207,7 +204,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const listValas = forexAssets.map(f => `${f.amount} ${f.currency}`).join(', ') || '0';
       const listSubs = subscriptions.filter(s => s.isActive).map(s => `${s.name} (${s.cost})`).join(', ') || 'Tidak ada';
 
-      // 🚀 FIX: FOKUS "ANTI-YAPPING"
       const systemPrompt = `
       Kamu adalah BILANO Intelligence, asisten konsultan keuangan tingkat elit.
       INFO MUTLAK PEMBUATMU (Adrien Fandra):
