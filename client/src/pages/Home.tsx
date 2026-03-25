@@ -44,13 +44,11 @@ export default function Home() {
 
   const [showProWelcome, setShowProWelcome] = useState(false);
   
-  // 🚀 STATE FOMO DINAMIS
   const [fomoFeature, setFomoFeature] = useState<{title: string, desc: string} | null>(null);
 
   const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
 
-  // 🚀 STATE UNTUK INDIKATOR HALAMAN (DOTS) FITUR PILIHAN
   const [activeMenuPage, setActiveMenuPage] = useState(0);
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
@@ -109,7 +107,6 @@ export default function Home() {
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
-  // 🚀 FUNGSI KLIK FOMO DINAMIS
   const handleFomoClick = (title: string, desc: string) => {
       if (isUserPro) {
           toast({ 
@@ -121,7 +118,6 @@ export default function Home() {
       }
   };
 
-  // 🚀 FUNGSI DETEKSI SCROLL UNTUK HALAMAN MENU
   const handleMenuScroll = (e: any) => {
       const scrollLeft = e.target.scrollLeft;
       const width = e.target.clientWidth;
@@ -383,7 +379,6 @@ export default function Home() {
   return (
     <MobileLayout>
 
-      {/* 🚀 MODAL RANJAU FOMO (DINAMIS MENYESUAIKAN TOMBOL) */}
       {fomoFeature && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
@@ -693,8 +688,9 @@ export default function Home() {
         <div className="px-1 mt-2">
             <h3 className="font-bold text-slate-800 text-sm mb-4">Fitur Pilihan</h3>
             
+            {/* 🚀 FIX: pt-4 UNTUK MENCEGAH BADGE SEGERA TERPOTONG */}
             <div 
-                className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-2"
+                className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-2 pt-4 -mt-4 -mx-1 px-1"
                 onScroll={handleMenuScroll}
             >
                 <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
@@ -800,16 +796,18 @@ export default function Home() {
 
 function MenuIconBox({ href, icon: Icon, bg, label, onClick, badge }: any) {
     const content = (
-        <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-            <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
-                <Icon className="w-6 h-6"/>
+        <div className="flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
+            <div className="relative">
+                <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all`}>
+                    <Icon className="w-6 h-6"/>
+                </div>
                 {badge && (
-                    <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full z-10 animate-pulse border border-white shadow-sm">
+                    <span className="absolute -top-2 -right-3 bg-rose-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full z-10 animate-pulse border-2 border-white shadow-sm">
                         {badge}
                     </span>
                 )}
             </div>
-            <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
+            <span className="text-[11px] font-bold text-slate-700 text-center">{label}</span>
         </div>
     );
 
