@@ -12,7 +12,7 @@ import {
   TrendingUp, Sparkles, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
-  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, Lightbulb
+  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, ArrowRight, Lightbulb
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -126,7 +126,6 @@ export default function Home() {
           clearInterval(interval);
       };
   }, [isUserLoading, isTargetLoading, isRatesLoading, isTxLoading, isFxLoading, isSubLoading]);
-
 
   const handlePinUnlock = (num: string) => {
       setPinError(false);
@@ -411,6 +410,7 @@ export default function Home() {
       );
   }
 
+  // 🚀 TAMPILAN LOADING DENGAN TIPS EDUKATIF
   if (isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading || !user || !transactions || (user && user.username === 'guest')) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
@@ -806,13 +806,13 @@ export default function Home() {
             </div>
         </div>
 
-        {/* 🚀 FIX KOTAK PUTIH, IKON GRADIENT BIRU DONGKER */}
+        {/* 🚀 AI ASSISTANT: KOTAK PUTIH, IKON GRADIENT BIRU DONGKER */}
         <div className="flex flex-col gap-4 mt-2 px-1">
             <Link href="/chat-ai">
                 <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
                     <div className="flex items-center gap-4 z-10">
-                        {/* 👇 IKON GRADIENT BIRU DONGKER 👇 */}
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-800 to-indigo-950 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-indigo-900/20">
+                        {/* 👇 INI IKONNYA: bg-gradient-to-br dari biru dongker 👇 */}
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-800 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-indigo-900/20">
                             <Sparkles className="w-6 h-6 text-white"/>
                         </div>
                         <div>
