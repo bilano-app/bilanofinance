@@ -372,7 +372,7 @@ export default function Home() {
   return (
     <MobileLayout>
 
-      {/* 🚀 MODAL RANJAU FOMO */}
+      {/* 🚀 MODAL RANJAU FOMO (DINAMIS MENYESUAIKAN TOMBOL) */}
       {fomoFeature && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
@@ -687,21 +687,32 @@ export default function Home() {
             
             <div className="overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar -mx-2 px-2">
                 <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
-                <div className="grid grid-rows-2 grid-flow-col gap-y-6 gap-x-6 w-max px-2">
-                    <MenuIconBox href="/forex" icon={DollarSign} bg="bg-blue-500" label="Valas" />
-                    <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-emerald-500" label="Investasi" />
+                <div className="flex gap-6 w-max px-2">
+                    {/* Kolom 1 */}
+                    <div className="flex flex-col gap-6 w-[72px] snap-center">
+                        <MenuIconBox href="/forex" icon={DollarSign} bg="bg-blue-500" label="Valas" />
+                        <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-emerald-500" label="Investasi" />
+                    </div>
                     
-                    <MenuIconBox href="/debts" icon={HandCoins} bg="bg-pink-500" label="Hutang" />
-                    <MenuIconBox href="/reports" icon={FileText} bg="bg-orange-400" label="Laporan" />
+                    {/* Kolom 2 */}
+                    <div className="flex flex-col gap-6 w-[72px] snap-center">
+                        <MenuIconBox href="/debts" icon={HandCoins} bg="bg-pink-500" label="Hutang" />
+                        <MenuIconBox href="/reports" icon={FileText} bg="bg-orange-400" label="Laporan" />
+                    </div>
                     
-                    <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-teal-400" label="Langganan" />
-                    <MenuIconBox href="/scan" icon={ScanLine} bg="bg-indigo-500" label="Scan" />
+                    {/* Kolom 3 */}
+                    <div className="flex flex-col gap-6 w-[72px] snap-center">
+                        <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-teal-400" label="Langganan" />
+                        <MenuIconBox href="/scan" icon={ScanLine} bg="bg-indigo-500" label="Scan" />
+                    </div>
                     
-                    {/* FOMO CICILAN */}
-                    <MenuIconBox 
-                        onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} 
-                        icon={CreditCard} bg="bg-slate-800" label="Cicilan" badge="SEGERA" 
-                    />
+                    {/* Kolom 4 (FOMO CICILAN) */}
+                    <div className="flex flex-col gap-6 w-[72px] snap-center">
+                        <MenuIconBox 
+                            onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} 
+                            icon={CreditCard} bg="bg-slate-800" label="Cicilan" badge="SEGERA" 
+                        />
+                    </div>
                 </div>
             </div>
         </div>
@@ -729,23 +740,21 @@ export default function Home() {
             </div>
         </div>
 
-        {/* 🚀 FIX: AI ASSISTANT & PERFORMA KEMBALI KE BENTUK KOTAK PUTIH ASLINYA (TIDAK ADA FOMO/SEGERA) */}
+        {/* 🚀 FIX: AI ASSISTANT & PERFORMA KEMBALI KE DESAIN KOTAK PUTIH BERSIH */}
         <div className="flex flex-col gap-4 mt-2 px-1">
             <Link href="/chat-ai">
-                <div className="bg-gradient-to-r from-indigo-950 to-indigo-900 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-indigo-800 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
-                    <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/20 transition-colors"></div>
-                    <div className="flex items-center justify-between z-10 relative">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <Sparkles className="w-6 h-6 text-indigo-200"/>
-                            </div>
-                            <div>
-                                <h3 className="font-black text-white text-base">Tanya AI Assistant</h3>
-                                <p className="text-xs text-indigo-300 mt-0.5">Konsultasi cerdas 24/7</p>
-                            </div>
+                <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
+                    <div className="flex items-center gap-4 z-10">
+                        <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Sparkles className="w-6 h-6 text-indigo-600"/>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-indigo-600 z-10 group-hover:text-indigo-200"/>
+                        <div>
+                            <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
+                            <p className="text-xs text-slate-500 mt-0.5">Konsultasi cerdas 24/7</p>
+                        </div>
                     </div>
+                    <ChevronRight className="w-5 h-5 text-slate-300 z-10"/>
+                    <div className="absolute right-0 top-0 w-24 h-full bg-gradient-to-l from-indigo-50 to-transparent pointer-events-none"></div>
                 </div>
             </Link>
 
@@ -760,7 +769,7 @@ export default function Home() {
                             <p className="text-xs text-slate-500 mt-0.5">Pantau target & grafikmu</p>
                         </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-orange-400 transition-colors"/>
+                    <ChevronRight className="w-5 h-5 text-slate-300"/>
                 </div>
             </Link>
         </div>
@@ -780,18 +789,16 @@ export default function Home() {
 
 function MenuIconBox({ href, icon: Icon, bg, label, onClick, badge }: any) {
     const content = (
-        <div className="flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group w-[72px] snap-center">
-            <div className="relative">
-                <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all`}>
-                    <Icon className="w-6 h-6"/>
-                </div>
+        <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
+            <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
+                <Icon className="w-6 h-6"/>
                 {badge && (
-                    <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full z-10 animate-pulse border border-white shadow-sm">
+                    <span className="absolute -top-1 -right-2 bg-rose-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full z-10 animate-pulse border border-white shadow-sm">
                         {badge}
                     </span>
                 )}
             </div>
-            <span className="text-[11px] font-bold text-slate-700 text-center leading-tight">{label}</span>
+            <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
         </div>
     );
 
