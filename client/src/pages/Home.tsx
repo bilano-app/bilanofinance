@@ -12,7 +12,7 @@ import {
   TrendingUp, Sparkles, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
-  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, ArrowRight
+  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -49,6 +49,9 @@ export default function Home() {
 
   const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
+
+  // 🚀 STATE UNTUK INDIKATOR HALAMAN (DOTS) FITUR PILIHAN
+  const [activeMenuPage, setActiveMenuPage] = useState(0);
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   
@@ -116,6 +119,14 @@ export default function Home() {
       } else {
           setFomoFeature({ title, desc });
       }
+  };
+
+  // 🚀 FUNGSI DETEKSI SCROLL UNTUK HALAMAN MENU
+  const handleMenuScroll = (e: any) => {
+      const scrollLeft = e.target.scrollLeft;
+      const width = e.target.clientWidth;
+      const pageIndex = Math.round(scrollLeft / width);
+      setActiveMenuPage(pageIndex);
   };
 
   useEffect(() => {
@@ -678,36 +689,31 @@ export default function Home() {
            </Link>
         </div>
 
-        {/* 🚀 FIX: GRID HORIZONTAL SWIPE ANTI-MENUMPUK */}
+        {/* 🚀 FIX: GRID MENU SWIPE PER PAGE (APP DRAWER STYLE) */}
         <div className="px-1 mt-2">
-            <div className="flex justify-between items-center mb-4 px-1">
-                <h3 className="font-bold text-slate-800 text-sm">Fitur Pilihan</h3>
-                <span className="text-[10px] font-bold text-indigo-500 flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded-full">Geser <ArrowRight className="w-3 h-3"/></span>
-            </div>
+            <h3 className="font-bold text-slate-800 text-sm mb-4">Fitur Pilihan</h3>
             
-            <div className="overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar -mx-2 px-2">
+            <div 
+                className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-2"
+                onScroll={handleMenuScroll}
+            >
                 <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
-                <div className="flex gap-6 w-max px-2">
-                    {/* Kolom 1 */}
-                    <div className="flex flex-col gap-6 w-[72px] snap-center">
+                
+                {/* PAGE 1 (6 Fitur Utama) */}
+                <div className="w-full flex-shrink-0 snap-center px-1">
+                    <div className="grid grid-cols-3 gap-y-6 gap-x-3">
                         <MenuIconBox href="/forex" icon={DollarSign} bg="bg-blue-500" label="Valas" />
-                        <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-emerald-500" label="Investasi" />
-                    </div>
-                    
-                    {/* Kolom 2 */}
-                    <div className="flex flex-col gap-6 w-[72px] snap-center">
                         <MenuIconBox href="/debts" icon={HandCoins} bg="bg-pink-500" label="Hutang" />
-                        <MenuIconBox href="/reports" icon={FileText} bg="bg-orange-400" label="Laporan" />
-                    </div>
-                    
-                    {/* Kolom 3 */}
-                    <div className="flex flex-col gap-6 w-[72px] snap-center">
                         <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-teal-400" label="Langganan" />
+                        <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-emerald-500" label="Investasi" />
+                        <MenuIconBox href="/reports" icon={FileText} bg="bg-orange-400" label="Laporan" />
                         <MenuIconBox href="/scan" icon={ScanLine} bg="bg-indigo-500" label="Scan" />
                     </div>
-                    
-                    {/* Kolom 4 (FOMO CICILAN) */}
-                    <div className="flex flex-col gap-6 w-[72px] snap-center">
+                </div>
+
+                {/* PAGE 2 (Cicilan & Fitur Masa Depan) */}
+                <div className="w-full flex-shrink-0 snap-center px-1">
+                    <div className="grid grid-cols-3 gap-y-6 gap-x-3">
                         <MenuIconBox 
                             onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} 
                             icon={CreditCard} bg="bg-slate-800" label="Cicilan" badge="SEGERA" 
@@ -715,11 +721,16 @@ export default function Home() {
                     </div>
                 </div>
             </div>
+
+            {/* DOT INDICATORS */}
+            <div className="flex justify-center gap-1.5 mt-3">
+                <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 0 ? 'bg-indigo-600 w-4' : 'bg-slate-200 w-1.5'}`}></div>
+                <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 1 ? 'bg-indigo-600 w-4' : 'bg-slate-200 w-1.5'}`}></div>
+            </div>
         </div>
 
         {/* 🚀 FIX: E-BOOK KEMBALI MENJADI BANNER UTUH SEPERTI SEMULA */}
-        <div className="px-1 mt-2 mb-2">
-            <h3 className="font-bold text-slate-800 text-sm mb-2 px-1 uppercase tracking-widest text-[11px]">Eksklusif Segera Hadir</h3>
+        <div className="px-1 mt-4 mb-2">
             <div onClick={() => handleFomoClick("BILANO Academy", "Kumpulan E-Book Premium dan panduan mengelola uang serta investasi dari pakar finansial.")} className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
                 <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
                 <div className="flex items-center justify-between relative z-10">
@@ -729,10 +740,10 @@ export default function Home() {
                         </div>
                         <div>
                             <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-black text-white text-base">BILANO Academy</h3>
+                                <h3 className="font-black text-white text-base">Eksklusif Segera Hadir</h3>
                                 <span className="text-[9px] font-extrabold bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-sm">Segera</span>
                             </div>
-                            <p className="text-[11px] text-slate-400 font-medium">E-Book & Panduan Finansial VIP</p>
+                            <p className="text-[11px] text-slate-400 font-medium">BILANO Academy (E-Book & VIP)</p>
                         </div>
                     </div>
                     <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-amber-400 transition-colors"/>
@@ -793,7 +804,7 @@ function MenuIconBox({ href, icon: Icon, bg, label, onClick, badge }: any) {
             <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
                 <Icon className="w-6 h-6"/>
                 {badge && (
-                    <span className="absolute -top-1 -right-2 bg-rose-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full z-10 animate-pulse border border-white shadow-sm">
+                    <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full z-10 animate-pulse border border-white shadow-sm">
                         {badge}
                     </span>
                 )}
