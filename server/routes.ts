@@ -7,10 +7,11 @@ import { db } from "./db.js";
 import { sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 
-// 🚀 FIX: FUNGSI AI LANGSUNG TEMBAK KE GOOGLE (ANTI-ERROR VERCEL)
+// 🚀 FIX: FUNGSI AI LANGSUNG TEMBAK KE GOOGLE DENGAN PARAMETER YANG BENAR
 async function askSmartAI(systemPrompt: string, userMessage: string) {
     try {
-        const apiKey = process.env.GEMINI_API_KEY || "";
+        // Bersihkan tanda kutip ganda/tunggal jika terbawa dari .env Vercel
+        const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
         
         if (!apiKey || apiKey.includes("KUNCI_SUDAH_DIAMANKAN")) {
             return "⚠️ API Key Gemini belum terpasang dengan benar di .env atau Vercel.";
@@ -20,22 +21,29 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                system_instruction: { parts: [{ text: systemPrompt }] },
+                // HARUS systemInstruction (huruf i besar), BUKAN system_instruction
+                systemInstruction: { parts: [{ text: systemPrompt }] }, 
                 contents: [{ role: "user", parts: [{ text: userMessage }] }]
             })
         });
 
         if (!response.ok) {
             const errData = await response.text();
-            console.error("Gemini REST Error:", errData);
-            return "⚠️ Maaf Bos, koneksi ke Google Gemini ditolak. Mungkin API Key salah atau limit.";
+            console.error("Gemini REST Error Detail:", errData);
+            return "⚠️ Maaf Bos, Google menolak kunci API. Cek lagi apakah API Key di Vercel sudah benar dan tidak ada spasi/kutip yang tertinggal.";
         }
 
         const data = await response.json();
+        
+        // Pengecekan jika Google membalas tapi kosong
+        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+             return "⚠️ AI tidak memberikan jawaban. Mungkin karena filter keamanan Google.";
+        }
+        
         return data.candidates[0].content.parts[0].text;
     } catch (error: any) {
         console.error("Network Error Gemini:", error);
-        return "⚠️ Maaf Bos, sistem Asisten AI sedang sangat sibuk atau mengalami gangguan koneksi. Silakan coba lagi nanti ya! 🙏";
+        return "⚠️ Maaf Bos, sistem Asisten AI sedang sangat sibuk atau mengalami gangguan jaringan. Silakan coba lagi nanti ya! 🙏";
     }
 }
 
@@ -198,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const listValas = forexAssets.map(f => `${f.amount} ${f.currency}`).join(', ') || '0';
       const listSubs = subscriptions.filter(s => s.isActive).map(s => `${s.name} (${s.cost})`).join(', ') || 'Tidak ada';
 
-      // 🚀 FIX: FOKUS "ANTI-YAPPING" & FORMAT MARKDOWN
+      // 🚀 FIX: FOKUS "ANTI-YAPPING"
       const systemPrompt = `
       Kamu adalah BILANO Intelligence, asisten konsultan keuangan tingkat elit.
       INFO MUTLAK PEMBUATMU (Adrien Fandra):
@@ -215,12 +223,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       - Saldo Kas IDR: Rp ${saldoTunai.toLocaleString('id-ID')}
       - Aset Investasi: Rp ${totalInvestasi.toLocaleString('id-ID')}
       - Sisa Limit Pengeluaran Bulan Ini: ${sisaBudget}
-      - Hutang Pribadi: ${listHutang}
-      - Piutang Pribadi: ${listPiutang}
-      - Valuta Asing: ${listValas}
+      - Hutang Pribadi (Kewajiban Valas & IDR): ${listHutang}
+      - Piutang Pribadi (Uang di orang lain): ${listPiutang}
+      - Dompet Valuta Asing: ${listValas}
       - Tagihan Langganan: ${listSubs}
       
-      Gunakan Markdown agar rapi (gunakan bold dan bullet points).
+      Pahami bahwa pengguna mungkin mencicil hutang/piutang valas mereka. Beri tanggapan sesuai konteks data di atas menggunakan Markdown.
       `;
 
       const reply = await askSmartAI(systemPrompt, req.body.message);
