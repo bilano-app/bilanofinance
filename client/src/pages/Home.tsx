@@ -12,15 +12,14 @@ import {
   TrendingUp, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
-  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, Lightbulb,
-  Bot // 🚀 FIX: IKON BARU UNTUK AI ASSISTANT
+  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, ArrowRight, Lightbulb,
+  Bot, CheckCircle2 // IMPORT CHECKCIRCLE2 DITAMBAHKAN DI SINI AGAR TIDAK BLANK
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
-// 🚀 DAFTAR TIPS EDUKATIF FINANSIAL (MUNCUL SAAT LOADING LAMA)
 const FINANCIAL_TIPS = [
     "Bunga majemuk (Compound Interest) adalah keajaiban dunia kedelapan. - Albert Einstein",
     "Jangan menabung apa yang tersisa setelah belanja, tapi belanjalah dari apa yang tersisa setelah menabung.",
@@ -86,7 +85,6 @@ export default function Home() {
   
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
-          console.warn("⚠️ KTP Tertinggal! Sesi membaca akun Guest. Melakukan reload kilat...");
           window.location.reload();
       }
   }, [user, rawEmail]);
@@ -449,9 +447,6 @@ export default function Home() {
   return (
     <MobileLayout>
 
-      {/* 🚀 MODAL POP-UP YANG KEMBALI DIMASUKKAN (TIDAK TERHAPUS LAGI) */}
-      
-      {/* POP UP EKSKLUSIF UNTUK USER PRO */}
       {proFeatureModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-indigo-500/30">
@@ -476,7 +471,6 @@ export default function Home() {
           </div>
       )}
 
-      {/* POP UP FOMO UNTUK USER GRATISAN */}
       {fomoFeature && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
@@ -501,7 +495,6 @@ export default function Home() {
           </div>
       )}
 
-      {/* POP UP TAGIHAN LANGGANAN JATUH TEMPO */}
       {dueDynamicSub && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
             <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 border-orange-500">
@@ -531,7 +524,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* POP UP WELCOME PRO */}
       {showProWelcome && (
         <div className="fixed inset-0 z-[99998] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-500">
             <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 rounded-[32px] p-1 w-full max-w-sm shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-10 relative overflow-hidden border border-indigo-500/30">
@@ -563,7 +555,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* POP UP PERMISSIONS NOTIF & KAMERA */}
       {showPermissionPrompt && (
           <div className="fixed inset-0 z-[99997] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100">
@@ -617,7 +608,6 @@ export default function Home() {
           </div>
       )}
 
-      {/* POP UP TARGET TERCAPAI */}
       {showTargetModal && (
           <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border-4 border-emerald-100">
@@ -634,7 +624,6 @@ export default function Home() {
           </div>
       )}
 
-      {/* POP UP ZOOM FOTO PROFIL */}
       {isProfileZoomed && (
         <div className="fixed inset-0 z-[999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsProfileZoomed(false)}>
             <div className="relative animate-in fade-in zoom-in duration-200">
@@ -649,10 +638,6 @@ export default function Home() {
         </div>
       )}
 
-
-      {/* ========================================= */}
-      {/* DASHBOARD UTAMA */}
-      {/* ========================================= */}
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between px-2 pt-2">
             <div className="flex items-center gap-3">

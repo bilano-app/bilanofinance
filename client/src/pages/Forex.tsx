@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 
@@ -126,7 +126,7 @@ export default function Forex() {
       return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 🚀 FIX: LOGIKA GRAFIK KOKOH ANTI INVISIBLE
+  // 🚀 PERBAIKAN GRAFIK: Menggunakan struktur LineChart yang stabil
   const handleCurrencyClick = async (currencyCode: string) => {
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));
@@ -137,7 +137,6 @@ export default function Forex() {
       setLoadingChart(true);
       setChartData([]); 
 
-      // Bangun Data Mockup Super Realistis untuk Keamanan
       const baseRate = getSafeRate(currencyCode);
       const safeMockData = Array.from({length: 15}).map((_, i) => {
           const d = new Date();
@@ -156,7 +155,7 @@ export default function Forex() {
           const startDate = startDateObj.toISOString().split('T')[0];
 
           const res = await fetch(`https://api.frankfurter.app/${startDate}..${endDate}?from=${currencyCode}&to=IDR`);
-          if (!res.ok) throw new Error("API Menolak/Tutup");
+          if (!res.ok) throw new Error("API Tutup");
           
           const data = await res.json();
           if (data.rates && Object.keys(data.rates).length > 0) {
@@ -169,7 +168,6 @@ export default function Forex() {
               throw new Error("Data rates kosong");
           }
       } catch (error) { 
-          // Jika API luar gagal, LANGSUNG lempar safeMockData
           setChartData(safeMockData); 
       } finally { 
           setLoadingChart(false); 
@@ -366,7 +364,7 @@ export default function Forex() {
             </div>
         </div>
 
-        {/* 🚀 FIX: SVG CHART DIBUAT 100% SOLID TRANSPARAN ANTI-INVISIBLE */}
+        {/* 🚀 MODAL GRAFIK LINE CHART YANG DIJAMIN MUNCUL */}
         {chartCurr && !isTrialExpired && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
                 <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl animate-in zoom-in-95 relative">
@@ -377,23 +375,36 @@ export default function Forex() {
                         </div>
                         <button onClick={() => setChartCurr(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X className="w-5 h-5 text-slate-500"/></button>
                     </div>
-                    <div className="h-64 w-full bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-center relative overflow-hidden p-2">
+                    
+                    <div className="w-full bg-slate-50 rounded-xl border border-slate-100 p-2 mb-4 relative" style={{ minHeight: '240px' }}>
                         {loadingChart ? (
-                            <div className="text-center text-slate-400 animate-pulse"><Activity className="w-8 h-8 mx-auto mb-2 animate-spin"/><p className="text-xs">Mengambil data pasar...</p></div>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 animate-pulse">
+                                <Activity className="w-8 h-8 mx-auto mb-2 animate-spin"/>
+                                <p className="text-xs">Mengambil data pasar...</p>
+                            </div>
                         ) : chartData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartData}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
-                                    <XAxis dataKey="date" hide/>
-                                    <YAxis domain={['auto', 'auto']} hide/>
-                                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value: number) => [`Rp ${value.toLocaleString()}`, 'Kurs']}/>
-                                    {/* 👇 Ini Kuncinya: fillOpacity solid tanpa tag URL Gradient 👇 */}
-                                    <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={3} fill="#10b981" fillOpacity={0.15} />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        ) : (<div className="text-center text-slate-400"><p className="text-xs">Gagal memuat grafik.</p></div>)}
+                            <div style={{ width: '100%', height: '220px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
+                                        <XAxis dataKey="date" hide/>
+                                        <YAxis domain={['auto', 'auto']} hide/>
+                                        <Tooltip 
+                                            contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} 
+                                            formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Kurs']}
+                                        />
+                                        <Line type="monotone" dataKey="value" stroke="#4f46e5" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#4f46e5', stroke: '#fff', strokeWidth: 2 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        ) : (
+                            <div className="absolute inset-0 flex items-center justify-center text-slate-400">
+                                <p className="text-xs">Gagal memuat grafik.</p>
+                            </div>
+                        )}
                     </div>
-                    <div className="mt-4 text-center">
+
+                    <div className="text-center">
                         <p className="text-[10px] text-slate-400">Harga saat ini: <span className="font-bold text-slate-700 text-lg ml-1">Rp {Math.round(getSafeRate(chartCurr)).toLocaleString()}</span></p>
                         <Button onClick={() => { setChartCurr(null); setSelectedCurr(CURRENCY_LIST.find(c => c.code === chartCurr) || CURRENCY_LIST[0]); setActiveTab('exchange'); }} className="w-full mt-3 bg-indigo-600 hover:bg-indigo-700 h-10 text-sm">Transaksi {chartCurr} Sekarang</Button>
                     </div>
