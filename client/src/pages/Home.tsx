@@ -12,7 +12,7 @@ import {
   TrendingUp, Sparkles, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
-  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard
+  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, ArrowRight
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -44,7 +44,6 @@ export default function Home() {
 
   const [showProWelcome, setShowProWelcome] = useState(false);
   
-  // 🚀 STATE FOMO DINAMIS
   const [fomoFeature, setFomoFeature] = useState<{title: string, desc: string} | null>(null);
 
   const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
@@ -106,7 +105,6 @@ export default function Home() {
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
-  // 🚀 FUNGSI KLIK FOMO DINAMIS
   const handleFomoClick = (title: string, desc: string) => {
       if (isUserPro) {
           toast({ 
@@ -678,82 +676,61 @@ export default function Home() {
            </Link>
         </div>
 
-        {/* 🚀 FIX: GRID KEMBALI KE ASLI, LAPORAN ADA LAGI, CICILAN MASUK SINI */}
-        <div className="px-1 mt-2">
-            <h3 className="font-bold text-slate-800 text-sm mb-4">Fitur Pilihan</h3>
-            <div className="grid grid-cols-3 gap-y-6 gap-x-3">
-                <MenuIconBox href="/forex" icon={DollarSign} bg="bg-blue-500" label="Valas" />
-                <MenuIconBox href="/debts" icon={HandCoins} bg="bg-pink-500" label="Hutang" />
-                <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-teal-400" label="Langganan" />
-                <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-emerald-500" label="Investasi" />
-                <MenuIconBox href="/reports" icon={FileText} bg="bg-orange-400" label="Laporan" />
-                <MenuIconBox href="/scan" icon={ScanLine} bg="bg-indigo-500" label="Scan" />
-            </div>
-        </div>
-
-        {/* ======================================================== */}
-        {/* 🚀 BANNER FOMO E-BOOK & CICILAN DENGAN DESAIN MENGGODA */}
-        {/* ======================================================== */}
-        <div className="px-1 mt-6 mb-2 space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm mb-2 px-1 uppercase tracking-widest text-[11px]">Eksklusif Segera Hadir</h3>
+        {/* 🚀 FIX: GRID SWIPE HORIZONTAL (2 BARIS) */}
+        <div className="mt-2 px-1">
+            <h3 className="font-bold text-slate-800 text-sm mb-4 flex items-center justify-between px-1">
+                Fitur Pilihan 
+                <span className="text-[10px] text-slate-400 font-normal flex items-center gap-1">Geser <ArrowRight className="w-3 h-3"/></span>
+            </h3>
             
-            {/* Banner 1: Academy */}
-            <div onClick={() => handleFomoClick("BILANO Academy", "Kumpulan E-Book Premium dan panduan mengelola uang serta investasi dari pakar finansial.")} className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
-                <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
-                <div className="flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
-                            <BookOpen className="w-6 h-6 text-amber-400"/>
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-black text-white text-base">BILANO Academy</h3>
-                                <span className="text-[9px] font-extrabold bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-sm">Segera</span>
-                            </div>
-                            <p className="text-[11px] text-slate-400 font-medium">E-Book & Panduan Finansial VIP</p>
-                        </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-amber-400 transition-colors"/>
-                </div>
-            </div>
-
-            {/* Banner 2: Manajemen Cicilan */}
-            <div onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
-                <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/20 transition-colors"></div>
-                <div className="flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-indigo-400/20 border border-indigo-400/30 flex items-center justify-center">
-                            <CreditCard className="w-6 h-6 text-indigo-400"/>
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-black text-white text-base">Manajemen Cicilan</h3>
-                                <span className="text-[9px] font-extrabold bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-sm">Segera</span>
-                            </div>
-                            <p className="text-[11px] text-slate-400 font-medium">Catat & kelola semua cicilanmu</p>
-                        </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-indigo-400 transition-colors"/>
+            <div 
+                className="overflow-x-auto pb-4 snap-x snap-mandatory pt-1 -mx-2 px-2"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+                <style>{`::-webkit-scrollbar { display: none; }`}</style>
+                <div className="grid grid-rows-2 grid-flow-col gap-y-6 gap-x-6 w-max">
+                    {/* Kolom 1 */}
+                    <MenuIconBox href="/forex" icon={DollarSign} bg="bg-blue-500" label="Valas" />
+                    <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-emerald-500" label="Investasi" />
+                    
+                    {/* Kolom 2 */}
+                    <MenuIconBox href="/debts" icon={HandCoins} bg="bg-pink-500" label="Hutang" />
+                    <MenuIconBox href="/reports" icon={FileText} bg="bg-orange-400" label="Laporan" />
+                    
+                    {/* Kolom 3 */}
+                    <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-teal-400" label="Langganan" />
+                    <MenuIconBox href="/scan" icon={ScanLine} bg="bg-indigo-500" label="Scan" />
+                    
+                    {/* Kolom 4 (COMING SOON / RANJAU FOMO) */}
+                    <MenuIconBox 
+                        onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} 
+                        icon={CreditCard} bg="bg-slate-800" label="Cicilan" badge="SEGERA" 
+                    />
+                    <MenuIconBox 
+                        onClick={() => handleFomoClick("BILANO Academy", "Kumpulan E-Book Premium dan panduan mengelola uang serta investasi dari pakar finansial.")} 
+                        icon={BookOpen} bg="bg-amber-500" label="Academy" badge="SEGERA" 
+                    />
                 </div>
             </div>
         </div>
-        {/* ======================================================== */}
 
         {/* 🚀 FIX: AI ASSISTANT & PERFORMANCE KEMBALI MENJADI FITUR NORMAL */}
         <div className="flex flex-col gap-4 mt-2 px-1">
             <Link href="/chat-ai">
-                <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
-                    <div className="flex items-center gap-4 z-10">
-                        <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Sparkles className="w-6 h-6 text-indigo-600"/>
+                <div className="bg-gradient-to-r from-indigo-950 to-indigo-900 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-indigo-800 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
+                    <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/20 transition-colors"></div>
+                    <div className="flex items-center justify-between z-10 relative">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <Sparkles className="w-6 h-6 text-indigo-200"/>
+                            </div>
+                            <div>
+                                <h3 className="font-black text-white text-base">Tanya AI Assistant</h3>
+                                <p className="text-xs text-indigo-300 mt-0.5">Konsultasi cerdas 24/7</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
-                            <p className="text-xs text-slate-500 mt-0.5">Konsultasi cerdas 24/7</p>
-                        </div>
+                        <ChevronRight className="w-5 h-5 text-indigo-600 z-10 group-hover:text-indigo-200"/>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-300 z-10"/>
-                    <div className="absolute right-0 top-0 w-24 h-full bg-gradient-to-l from-indigo-50 to-transparent pointer-events-none"></div>
                 </div>
             </Link>
 
@@ -768,14 +745,15 @@ export default function Home() {
                             <p className="text-xs text-slate-500 mt-0.5">Pantau target & grafikmu</p>
                         </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-300"/>
+                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-orange-400 transition-colors"/>
                 </div>
             </Link>
         </div>
 
-        <div className="mt-8 mb-6 flex flex-col items-center justify-center opacity-60">
+        <div className="mt-8 mb-6 flex flex-col items-center justify-center opacity-60 px-4 text-center">
             <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Smart Wealth Management</p>
-            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+            <p className="text-[10px] text-slate-400 mt-1.5 font-medium leading-relaxed">
+                Platform intelijen finansial untuk kebebasan waktu Anda.<br/>
                 © {new Date().getFullYear()} • Bilano Official
             </p>
         </div>
@@ -785,15 +763,24 @@ export default function Home() {
   );
 }
 
-function MenuIconBox({ href, icon: Icon, bg, label }: any) {
-    return (
-        <Link href={href}>
-            <div className="flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all`}>
-                    <Icon className="w-6 h-6"/>
-                </div>
-                <span className="text-[11px] font-bold text-slate-700 text-center">{label}</span>
+function MenuIconBox({ href, icon: Icon, bg, label, onClick, badge }: any) {
+    const content = (
+        <div className="flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group w-16 snap-center relative">
+            {badge && (
+                <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full z-10 animate-pulse border border-white shadow-sm">
+                    {badge}
+                </span>
+            )}
+            <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
+                <Icon className="w-6 h-6"/>
             </div>
-        </Link>
-    )
+            <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
+        </div>
+    );
+
+    if (onClick) {
+        return <div onClick={onClick}>{content}</div>;
+    }
+
+    return <Link href={href}>{content}</Link>;
 }
