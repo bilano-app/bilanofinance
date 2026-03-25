@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
-    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 
@@ -126,7 +126,20 @@ export default function Forex() {
       return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 🚀 PERBAIKAN GRAFIK: Menggunakan struktur LineChart yang stabil
+  // Fungsi Fetch dengan Timeout agar tidak loading selamanya
+  const fetchWithTimeout = async (url: string, timeout = 2500) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+          const response = await fetch(url, { signal: controller.signal });
+          clearTimeout(id);
+          return response;
+      } catch (error) {
+          clearTimeout(id);
+          throw error;
+      }
+  };
+
   const handleCurrencyClick = async (currencyCode: string) => {
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));
@@ -154,7 +167,8 @@ export default function Forex() {
           startDateObj.setDate(startDateObj.getDate() - 30);
           const startDate = startDateObj.toISOString().split('T')[0];
 
-          const res = await fetch(`https://api.frankfurter.app/${startDate}..${endDate}?from=${currencyCode}&to=IDR`);
+          const res = await fetchWithTimeout(`https://api.frankfurter.app/${startDate}..${endDate}?from=${currencyCode}&to=IDR`, 2500);
+          
           if (!res.ok) throw new Error("API Tutup");
           
           const data = await res.json();
@@ -168,6 +182,7 @@ export default function Forex() {
               throw new Error("Data rates kosong");
           }
       } catch (error) { 
+          // Langsung gunakan data mockup jika Timeout / Error
           setChartData(safeMockData); 
       } finally { 
           setLoadingChart(false); 
@@ -364,50 +379,67 @@ export default function Forex() {
             </div>
         </div>
 
-        {/* 🚀 MODAL GRAFIK LINE CHART YANG DIJAMIN MUNCUL */}
+        {/* MODAL GRAFIK PROFESIONAL DENGAN AXIS DAN WARNA SOLID */}
         {chartCurr && !isTrialExpired && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl animate-in zoom-in-95 relative">
-                    <div className="flex justify-between items-center mb-4">
+                <div className="bg-white w-full max-w-md rounded-3xl p-5 shadow-2xl animate-in zoom-in-95 relative">
+                    <div className="flex justify-between items-center mb-5">
                         <div>
                             <h3 className="font-bold text-xl text-slate-800 flex items-center gap-2">{chartCurr} / IDR</h3>
-                            <p className="text-xs text-slate-500">Tren Terakhir (Live/Estimasi)</p>
+                            <p className="text-xs text-slate-500">Tren Nilai Tukar 30 Hari Terakhir</p>
                         </div>
                         <button onClick={() => setChartCurr(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X className="w-5 h-5 text-slate-500"/></button>
                     </div>
                     
-                    <div className="w-full bg-slate-50 rounded-xl border border-slate-100 p-2 mb-4 relative" style={{ minHeight: '240px' }}>
+                    <div className="w-full bg-white rounded-xl border border-slate-200 p-3 mb-5 shadow-inner" style={{ height: '260px' }}>
                         {loadingChart ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 animate-pulse">
+                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 animate-pulse">
                                 <Activity className="w-8 h-8 mx-auto mb-2 animate-spin"/>
-                                <p className="text-xs">Mengambil data pasar...</p>
+                                <p className="text-xs font-bold">Mengambil data pasar...</p>
                             </div>
                         ) : chartData.length > 0 ? (
-                            <div style={{ width: '100%', height: '220px' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
-                                        <XAxis dataKey="date" hide/>
-                                        <YAxis domain={['auto', 'auto']} hide/>
-                                        <Tooltip 
-                                            contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} 
-                                            formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Kurs']}
-                                        />
-                                        <Line type="monotone" dataKey="value" stroke="#4f46e5" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#4f46e5', stroke: '#fff', strokeWidth: 2 }} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
+                                    <XAxis 
+                                        dataKey="date" 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                        tick={{ fontSize: 9, fill: '#94a3b8' }} 
+                                        minTickGap={20}
+                                    />
+                                    <YAxis 
+                                        domain={['auto', 'auto']} 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                        tick={{ fontSize: 9, fill: '#94a3b8' }}
+                                        tickFormatter={(val) => `Rp ${(val/1000).toFixed(1)}k`}
+                                        orientation="right"
+                                    />
+                                    <Tooltip 
+                                        contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '12px', fontWeight: 'bold' }} 
+                                        formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Kurs']}
+                                        labelStyle={{ color: '#64748b', marginBottom: '4px', fontSize: '10px' }}
+                                    />
+                                    {/* MENGGUNAKAN FILL SOLID DENGAN OPACITY AGAR KOMPATIBEL DI SEMUA DEVICE */}
+                                    <Area type="monotone" dataKey="value" stroke="#4f46e5" strokeWidth={3} fill="#4f46e5" fillOpacity={0.15} activeDot={{ r: 6, fill: '#4f46e5', stroke: '#fff', strokeWidth: 2 }} />
+                                </AreaChart>
+                            </ResponsiveContainer>
                         ) : (
-                            <div className="absolute inset-0 flex items-center justify-center text-slate-400">
-                                <p className="text-xs">Gagal memuat grafik.</p>
+                            <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                <p className="text-xs font-bold">Gagal memuat grafik.</p>
                             </div>
                         )}
                     </div>
 
-                    <div className="text-center">
-                        <p className="text-[10px] text-slate-400">Harga saat ini: <span className="font-bold text-slate-700 text-lg ml-1">Rp {Math.round(getSafeRate(chartCurr)).toLocaleString()}</span></p>
-                        <Button onClick={() => { setChartCurr(null); setSelectedCurr(CURRENCY_LIST.find(c => c.code === chartCurr) || CURRENCY_LIST[0]); setActiveTab('exchange'); }} className="w-full mt-3 bg-indigo-600 hover:bg-indigo-700 h-10 text-sm">Transaksi {chartCurr} Sekarang</Button>
+                    <div className="flex items-center justify-between bg-indigo-50 p-3 rounded-xl mb-4 border border-indigo-100">
+                        <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-widest">Harga Saat Ini</span>
+                        <span className="font-extrabold text-indigo-600 text-lg">Rp {Math.round(getSafeRate(chartCurr)).toLocaleString('id-ID')}</span>
                     </div>
+
+                    <Button onClick={() => { setChartCurr(null); setSelectedCurr(CURRENCY_LIST.find(c => c.code === chartCurr) || CURRENCY_LIST[0]); setActiveTab('exchange'); }} className="w-full bg-slate-900 hover:bg-slate-800 h-14 text-sm font-extrabold rounded-full shadow-lg">
+                        TRANSAKSI {chartCurr} SEKARANG
+                    </Button>
                 </div>
             </div>
         )}
