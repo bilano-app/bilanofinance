@@ -749,7 +749,6 @@ export default function Home() {
         <div className="px-1 mt-2">
             <div className="flex justify-between items-center mb-4 px-1">
                 <h3 className="font-bold text-slate-800 text-sm">Fitur Pilihan</h3>
-                <span className="text-[10px] font-bold text-indigo-500 flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded-full">Geser <ArrowRight className="w-3 h-3"/></span>
             </div>
             
             <div 
