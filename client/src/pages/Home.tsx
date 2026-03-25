@@ -12,12 +12,36 @@ import {
   TrendingUp, Sparkles, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
-  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard
+  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, Lightbulb
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+
+// 🚀 DAFTAR TIPS EDUKATIF FINANSIAL (MUNCUL SAAT LOADING LAMA)
+const FINANCIAL_TIPS = [
+    "Bunga majemuk (Compound Interest) adalah keajaiban dunia kedelapan. - Albert Einstein",
+    "Jangan menabung apa yang tersisa setelah belanja, tapi belanjalah dari apa yang tersisa setelah menabung.",
+    "Aset menaruh uang di saku Anda, Liabilitas mengeluarkan uang dari saku Anda.",
+    "Pengeluaran kecil yang bocor bisa menenggelamkan kapal yang sangat besar.",
+    "Investasi terbaik yang bisa Anda lakukan adalah investasi pada diri Anda sendiri.",
+    "Dana Darurat adalah payung Anda saat badai finansial turun tiba-tiba.",
+    "Diversifikasi: Jangan pernah menaruh semua telurmu dalam satu keranjang.",
+    "Hutang konsumtif merampok masa depanmu, hutang produktif membangun masa depanmu.",
+    "Kekayaan sejati bukanlah seberapa banyak uang yang dihasilkan, tapi seberapa banyak yang disimpan.",
+    "Waktu di pasar saham jauh lebih penting daripada sekadar menebak waktu pasar (Time in the market > Timing the market).",
+    "Pemasukan yang besar tanpa manajemen yang baik hanya akan menghasilkan kebangkrutan yang tertunda.",
+    "Uang adalah majikan yang buruk, tetapi merupakan pelayan yang sangat baik.",
+    "Aturan 50/30/20: 50% Kebutuhan, 30% Keinginan, 20% Tabungan & Investasi.",
+    "Jika kamu membeli barang yang tidak kamu butuhkan, kelak kamu harus menjual barang yang kamu butuhkan.",
+    "Pasar saham adalah alat untuk mentransfer uang dari orang yang tidak sabar kepada orang yang sabar.",
+    "Pahami perbedaan antara 'Saya mampu membelinya' dan 'Saya mampu membayarnya tanpa mengorbankan masa depan'.",
+    "Orang kaya membeli aset, orang miskin membeli liabilitas yang mereka pikir adalah aset.",
+    "Inflasi adalah pencuri diam-diam. Jika uangmu hanya diam di bawah kasur, nilainya terus merosot setiap hari.",
+    "Pendapatan pasif (Passive Income) adalah kunci menuju kebebasan finansial sejati.",
+    "Catat setiap rupiah yang keluar. Kesadaran adalah langkah pertama menuju kendali finansial penuh."
+];
 
 export default function Home() {
   const { data: user, isLoading: isUserLoading } = useUser();
@@ -51,6 +75,9 @@ export default function Home() {
 
   const [activeMenuPage, setActiveMenuPage] = useState(0);
 
+  const [isLongLoading, setIsLongLoading] = useState(false);
+  const [loadingTipIndex, setLoadingTipIndex] = useState(() => Math.floor(Math.random() * FINANCIAL_TIPS.length));
+
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   
   useEffect(() => {
@@ -79,6 +106,27 @@ export default function Home() {
       const hasPrompted = localStorage.getItem("bilano_permissions_prompted");
       if (!hasPrompted) setShowPermissionPrompt(true);
   }, []);
+
+  useEffect(() => {
+      const isDataLoading = isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading;
+      let timer: any;
+      let interval: any;
+
+      if (isDataLoading) {
+          timer = setTimeout(() => setIsLongLoading(true), 3000);
+          interval = setInterval(() => {
+              setLoadingTipIndex(prev => (prev + 1) % FINANCIAL_TIPS.length);
+          }, 5000);
+      } else {
+          setIsLongLoading(false);
+      }
+
+      return () => {
+          clearTimeout(timer);
+          clearInterval(interval);
+      };
+  }, [isUserLoading, isTargetLoading, isRatesLoading, isTxLoading, isFxLoading, isSubLoading]);
+
 
   const handlePinUnlock = (num: string) => {
       setPinError(false);
@@ -365,13 +413,25 @@ export default function Home() {
 
   if (isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading || !user || !transactions || (user && user.username === 'guest')) {
       return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
               <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
+              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm mb-2">
                   <Loader2 className="w-4 h-4 animate-spin"/>
                   <span>Menyiapkan Dasbor...</span>
               </div>
-              <p className="text-[10px] font-medium text-slate-400 mt-4 max-w-[200px] text-center animate-pulse">Menyinkronkan data dengan aman...</p>
+              
+              <div className={`transition-all duration-1000 max-w-[280px] text-center mt-4 ${isLongLoading ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 h-0 overflow-hidden'}`}>
+                  <p className="text-[10px] font-black text-amber-500 mb-2 uppercase tracking-widest flex items-center justify-center gap-1.5 bg-amber-50 py-1 px-3 rounded-full w-max mx-auto shadow-sm">
+                      <Lightbulb className="w-3.5 h-3.5"/> BILANO Tips
+                  </p>
+                  <p key={loadingTipIndex} className="text-[13px] font-bold text-slate-600 italic leading-relaxed animate-in fade-in duration-500 text-balance">
+                      "{FINANCIAL_TIPS[loadingTipIndex]}"
+                  </p>
+              </div>
+
+              {!isLongLoading && (
+                  <p className="text-[10px] font-medium text-slate-400 mt-2 text-center animate-pulse">Menyinkronkan data dengan aman...</p>
+              )}
           </div>
       );
   }
@@ -379,6 +439,7 @@ export default function Home() {
   return (
     <MobileLayout>
 
+      {/* 🚀 MODAL RANJAU FOMO */}
       {fomoFeature && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
@@ -684,19 +745,19 @@ export default function Home() {
            </Link>
         </div>
 
-        {/* 🚀 FIX: GRID MENU SWIPE PER PAGE (APP DRAWER STYLE) */}
         <div className="px-1 mt-2">
-            <h3 className="font-bold text-slate-800 text-sm mb-4">Fitur Pilihan</h3>
+            <div className="flex justify-between items-center mb-4 px-1">
+                <h3 className="font-bold text-slate-800 text-sm">Fitur Pilihan</h3>
+                <span className="text-[10px] font-bold text-indigo-500 flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded-full">Geser <ArrowRight className="w-3 h-3"/></span>
+            </div>
             
-            {/* 🚀 FIX: pt-4 UNTUK MENCEGAH BADGE SEGERA TERPOTONG */}
             <div 
-                className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-2 pt-4 -mt-4 -mx-1 px-1"
+                className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-2 pt-4 -mt-4 -mx-1"
                 onScroll={handleMenuScroll}
             >
                 <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
                 
-                {/* PAGE 1 (6 Fitur Utama) */}
-                <div className="w-full flex-shrink-0 snap-center px-1">
+                <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
                         <MenuIconBox href="/forex" icon={DollarSign} bg="bg-blue-500" label="Valas" />
                         <MenuIconBox href="/debts" icon={HandCoins} bg="bg-pink-500" label="Hutang" />
@@ -707,8 +768,7 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* PAGE 2 (Cicilan & Fitur Masa Depan) */}
-                <div className="w-full flex-shrink-0 snap-center px-1">
+                <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
                         <MenuIconBox 
                             onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} 
@@ -718,15 +778,14 @@ export default function Home() {
                 </div>
             </div>
 
-            {/* DOT INDICATORS */}
             <div className="flex justify-center gap-1.5 mt-3">
                 <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 0 ? 'bg-indigo-600 w-4' : 'bg-slate-200 w-1.5'}`}></div>
                 <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 1 ? 'bg-indigo-600 w-4' : 'bg-slate-200 w-1.5'}`}></div>
             </div>
         </div>
 
-        {/* 🚀 FIX: E-BOOK KEMBALI MENJADI BANNER UTUH SEPERTI SEMULA */}
         <div className="px-1 mt-4 mb-2">
+            <h3 className="font-bold text-slate-800 text-sm mb-2 px-1 uppercase tracking-widest text-[11px]">Eksklusif Segera Hadir</h3>
             <div onClick={() => handleFomoClick("BILANO Academy", "Kumpulan E-Book Premium dan panduan mengelola uang serta investasi dari pakar finansial.")} className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
                 <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
                 <div className="flex items-center justify-between relative z-10">
@@ -736,10 +795,10 @@ export default function Home() {
                         </div>
                         <div>
                             <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-black text-white text-base">Eksklusif Segera Hadir</h3>
+                                <h3 className="font-black text-white text-base">BILANO Academy</h3>
                                 <span className="text-[9px] font-extrabold bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-sm">Segera</span>
                             </div>
-                            <p className="text-[11px] text-slate-400 font-medium">BILANO Academy (E-Book & VIP)</p>
+                            <p className="text-[11px] text-slate-400 font-medium">E-Book & Panduan Finansial VIP</p>
                         </div>
                     </div>
                     <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-amber-400 transition-colors"/>
@@ -747,13 +806,14 @@ export default function Home() {
             </div>
         </div>
 
-        {/* 🚀 FIX: AI ASSISTANT & PERFORMA KEMBALI KE DESAIN KOTAK PUTIH BERSIH */}
+        {/* 🚀 FIX KOTAK PUTIH, IKON GRADIENT BIRU DONGKER */}
         <div className="flex flex-col gap-4 mt-2 px-1">
             <Link href="/chat-ai">
                 <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
                     <div className="flex items-center gap-4 z-10">
-                        <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Sparkles className="w-6 h-6 text-indigo-600"/>
+                        {/* 👇 IKON GRADIENT BIRU DONGKER 👇 */}
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-800 to-indigo-950 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-indigo-900/20">
+                            <Sparkles className="w-6 h-6 text-white"/>
                         </div>
                         <div>
                             <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
@@ -761,7 +821,6 @@ export default function Home() {
                         </div>
                     </div>
                     <ChevronRight className="w-5 h-5 text-slate-300 z-10"/>
-                    <div className="absolute right-0 top-0 w-24 h-full bg-gradient-to-l from-indigo-50 to-transparent pointer-events-none"></div>
                 </div>
             </Link>
 
@@ -784,7 +843,6 @@ export default function Home() {
         <div className="mt-8 mb-6 flex flex-col items-center justify-center opacity-60 px-4 text-center">
             <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Smart Wealth Management</p>
             <p className="text-[10px] text-slate-400 mt-1.5 font-medium leading-relaxed">
-                Platform intelijen finansial untuk kebebasan waktu Anda.<br/>
                 © {new Date().getFullYear()} • Bilano Official
             </p>
         </div>
@@ -796,18 +854,16 @@ export default function Home() {
 
 function MenuIconBox({ href, icon: Icon, bg, label, onClick, badge }: any) {
     const content = (
-        <div className="flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-            <div className="relative">
-                <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all`}>
-                    <Icon className="w-6 h-6"/>
-                </div>
+        <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
+            <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
+                <Icon className="w-6 h-6"/>
                 {badge && (
-                    <span className="absolute -top-2 -right-3 bg-rose-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full z-10 animate-pulse border-2 border-white shadow-sm">
+                    <span className="absolute -top-1 -right-2 bg-rose-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full z-10 animate-pulse border border-white shadow-sm">
                         {badge}
                     </span>
                 )}
             </div>
-            <span className="text-[11px] font-bold text-slate-700 text-center">{label}</span>
+            <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
         </div>
     );
 
