@@ -79,7 +79,6 @@ export default function ChatAI() {
     };
 
     const handleSend = async () => {
-        // 🚀 FIX: PELATUK PAYWALL ELEGAN
         if (isLocked) {
             window.dispatchEvent(new Event('trigger-paywall-lock'));
             return;
@@ -110,11 +109,17 @@ export default function ChatAI() {
         const investSummary = investments?.map(i => `${i.quantity} ${i.symbol}`).join(", ") || "Tidak ada investasi";
         const targetSummary = target ? `Target: Rp${target.targetAmount}, Limit Keluar: Rp${target.monthlyBudget} (${target.budgetType})` : "Tidak ada target";
 
+        // 🚀 FIX: DOKTRIN LOGIKA AKUNTANSI DIMASUKKAN!
         const bilanoKnowledgeBase = `
-        [PANDUAN APLIKASI BILANO]
-        1. Hutang & Piutang: Aplikasi ini mendukung transaksi Hutang dan Piutang menggunakan Valuta Asing (Valas). Nilai valas akan dikonversi ke IDR secara otomatis saat dibayar/dicicil.
-        2. Investasi (Saham/Crypto): Harga saham lokal per lembar, otomatis dikali 100 (1 Lot).
-        3. Langganan: Mendukung tagihan statis dan dinamis.
+        [PANDUAN LOGIKA KEUANGAN BILANO - WAJIB PATUH 1000%]
+        1. KAS vs KEKAYAAN BERSIH: 
+           - "Saldo Kas" = Uang tunai riil (IDR) yang likuid.
+           - "Kekayaan Bersih" = Kas + Valas + Investasi + Piutang - Hutang.
+        2. LOGIKA PIUTANG (Write-off): 
+           - Piutang itu BUKAN Kas. 
+           - Jika pengguna mengikhlaskan (write-off) piutang, Saldo Kas TETAP (TIDAK BERKURANG). Yang berkurang adalah Kekayaan Bersih (karena dicatat sebagai kerugian/Beban Penghapusan Piutang).
+        3. LOGIKA VALAS/INVESTASI:
+           - Naik turunnya harga aset Valas/Saham di pasar TIDAK mengubah Kas, hanya mengubah Kekayaan Bersih. Kas hanya berubah jika aset dijual (Kas naik) atau dibeli (Kas turun).
         `;
 
         const systemContext = `[ATURAN MUTLAK SISTEM AI]
@@ -122,16 +127,16 @@ export default function ChatAI() {
         
         PERATURAN SIKAP:
         1. FOKUS 100% pada analisis keuangan, strategi finansial, evaluasi kelayakan belanja, dan kesehatan dompet user.
-        2. DILARANG KERAS MENGGURU MENGENAI CARA PAKAI APLIKASI, LETAK TOMBOL, ATAU MENU NAVIGASI KECUALI user secara spesifik bertanya menggunakan kata seperti "bagaimana cara...", "di mana menu...", atau terlihat kebingungan soal aplikasi. Jika mereka curhat finansial, JANGAN jelaskan fitur aplikasi!
+        2. DILARANG KERAS MENGGURU MENGENAI CARA PAKAI APLIKASI KECUALI DITANYA SECARA EKSPLISIT.
 
         ${bilanoKnowledgeBase}
 
-        DATA RINGKAS: 
-        - Kas IDR: Rp ${totalCash.toLocaleString('id-ID')}
+        DATA RINGKAS USER: 
+        - Kas Tunai IDR: Rp ${totalCash.toLocaleString('id-ID')}
         - Valas: ${forexSummary}
         - Investasi: ${investSummary}
         - Target: ${targetSummary}
-        - History Tx: ${txSummary}
+        - History Tx Terakhir: ${txSummary}
 
         Pertanyaan User: ${userMsg.text}`;
 
@@ -215,7 +220,7 @@ export default function ChatAI() {
                         <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
                             <div className={`flex gap-2 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                                 
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden ${msg.sender === 'user' ? 'bg-white border border-slate-200' : 'bg-gradient-to-br from-indigo-600 to-purple-700'}`}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden ${msg.sender === 'user' ? 'bg-white border border-slate-200' : 'bg-gradient-to-br from-blue-900 via-indigo-800 to-blue-950'}`}>
                                     {msg.sender === 'user' ? (
                                         user?.profilePicture ? (
                                             <img src={user.profilePicture} alt="User" className="w-full h-full object-cover" />

@@ -28,7 +28,6 @@ export default function Auth() {
   const [errorMessage, setErrorMessage] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0); 
   
-  // 🚀 FIX: STATE BARU UNTUK FITUR LUPA PASSWORD VIA OTP
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotStep, setForgotStep] = useState<'email' | 'otp'>('email');
   const [forgotEmail, setForgotEmail] = useState("");
@@ -91,6 +90,7 @@ export default function Auth() {
       window.location.href = "/"; 
   };
 
+  // 🚀 FIX: LOGIKA LOGIN ANTI JEBAKAN FIREBASE
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return toast({ title: "Isi semua data!", variant: "destructive" });
@@ -104,29 +104,35 @@ export default function Auth() {
 
     try {
         if (isLogin) {
+            // LANGKAH 1: Mata-mata cek ke Backend apakah Email terdaftar
+            try {
+                const checkRes = await fetch("/api/auth/check-email", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email })
+                });
+                if (checkRes.ok) {
+                    const checkData = await checkRes.json();
+                    if (!checkData.exists) {
+                        toast({ title: "Akun Belum Terdaftar", description: "Email ini belum terdaftar di BILANO. Silakan Daftar (Sign Up) terlebih dahulu.", variant: "destructive" });
+                        setIsLogin(false); // Otomatis lempar ke tab Daftar
+                        setLoading(false);
+                        return;
+                    }
+                }
+            } catch (e) {
+                // Biarkan lanjut ke Firebase kalau backend error
+            }
+
+            // LANGKAH 2: Jika email ADA, paksa login. 
             const cred = await signInWithEmailAndPassword(auth, email, password);
             handleSuccess(cred.user);
         } else {
             await requestOtp();
         }
     } catch (error: any) {
-        let msg = "Terjadi kesalahan sistem.";
-        
-        if (error.code === 'auth/user-not-found') {
-            msg = "Akun belum terdaftar. Silakan Daftar (Sign Up) terlebih dahulu.";
-            setIsLogin(false); 
-        } else if (error.code === 'auth/wrong-password') {
-            msg = "Password yang Anda masukkan salah. Coba lagi atau gunakan fitur Lupa Password.";
-        } else if (error.code === 'auth/invalid-credential') {
-            msg = "Email belum terdaftar atau Password salah. Jika belum punya akun, silakan daftar.";
-        } else if (error.code === 'auth/email-already-in-use') {
-            msg = "Email ini sudah terdaftar. Silakan Login.";
-            setIsLogin(true); 
-        } else if (error.code === 'auth/too-many-requests') {
-            msg = "Terlalu banyak percobaan gagal. Coba lagi nanti.";
-        }
-
-        toast({ title: "Akses Ditolak", description: msg, variant: "destructive" });
+        // Karena di Langkah 1 sudah dicek emailnya ADA, berarti error disini PASTI PASSWORD SALAH!
+        toast({ title: "Password Salah", description: "Password yang Anda masukkan salah. Coba lagi atau gunakan fitur Lupa Password.", variant: "destructive" });
         setLoading(false);
     } 
   };
@@ -183,7 +189,6 @@ export default function Auth() {
       }
   };
 
-  // 🚀 FIX: FUNGSI MEMINTA OTP UNTUK RESET PASSWORD (ANTI-SPAM)
   const handleSendOtpReset = async () => {
       if (!forgotEmail) return toast({ title: "Email Kosong", description: "Isi email dulu Bos!", variant: "destructive" });
       setLoading(true);
@@ -208,9 +213,11 @@ export default function Auth() {
       }
   };
 
-  // 🚀 FIX: FUNGSI EKSEKUSI GANTI PASSWORD
+  // 🚀 FIX: TOMBOL RESET PASSWORD YANG SUPER KOKOH (ANTI ERROR TERSEMBUNYI)
   const handleResetPassword = async () => {
-      if (forgotOtp.length < 6 || !newPassword) return toast({ title: "Lengkapi Data", description: "OTP dan Password Baru wajib diisi.", variant: "destructive" });
+      if (forgotOtp.length < 6 || newPassword.length < 6) {
+          return toast({ title: "Data Kurang", description: "OTP 6 digit dan Password Baru (min. 6 karakter) wajib diisi.", variant: "destructive" });
+      }
       setLoading(true);
       
       try {
@@ -223,7 +230,7 @@ export default function Auth() {
           if (res.ok) {
               setIsForgotSuccess(true);
           } else {
-              toast({ title: "Gagal", description: data.error, variant: "destructive" });
+              toast({ title: "Gagal", description: data.error || "Gagal mengubah password", variant: "destructive" });
           }
       } catch (e) {
           toast({ title: "Error", description: "Gagal terhubung ke server.", variant: "destructive" });
@@ -329,7 +336,7 @@ export default function Auth() {
           </div>
       </Card>
 
-      {/* 🚀 MODAL LUPA PASSWORD (UI BARU: OTP KE GMAIL ASLI) */}
+      {/* POP-UP LUPA PASSWORD */}
       {showForgotModal && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95">
@@ -371,7 +378,7 @@ export default function Auth() {
                               </div>
                               <h3 className="text-lg font-extrabold text-slate-800 mb-1">Buat Password Baru</h3>
                               <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-                                  Masukkan 6 digit kode OTP dari email beserta password baru Anda.
+                                  Masukkan 6 digit kode OTP dari email beserta password baru Anda (min. 6 karakter).
                               </p>
                               
                               <div className="space-y-3">
@@ -392,7 +399,11 @@ export default function Auth() {
                                           onChange={(e) => setNewPassword(e.target.value)}
                                       />
                                   </div>
-                                  <Button onClick={handleResetPassword} disabled={loading || forgotOtp.length < 6 || !newPassword} className="w-full h-12 bg-rose-600 hover:bg-rose-700 font-bold shadow-md mt-2">
+                                  <Button 
+                                      onClick={handleResetPassword} 
+                                      disabled={loading || forgotOtp.length < 6 || newPassword.length < 6} 
+                                      className="w-full h-12 bg-rose-600 hover:bg-rose-700 font-bold shadow-md mt-2"
+                                  >
                                       {loading ? <RefreshCw className="w-5 h-5 animate-spin"/> : "UBAH PASSWORD SAYA"}
                                   </Button>
                               </div>

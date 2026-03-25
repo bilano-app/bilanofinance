@@ -6,9 +6,8 @@ import { z } from "zod";
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
-import admin from "firebase-admin"; // 🚀 FIX: TAMBAHAN FIREBASE ADMIN
+import admin from "firebase-admin"; 
 
-// 🚀 FIX: INISIALISASI KUNCI MASTER FIREBASE
 let firebaseAdminInitialized = false;
 try {
     let serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT || "";
@@ -25,7 +24,7 @@ try {
         firebaseAdminInitialized = true;
     }
 } catch (error) {
-    console.error("Gagal inisialisasi Firebase Admin (Cek JSON di Vercel):", error);
+    console.error("Gagal inisialisasi Firebase Admin:", error);
 }
 
 async function askSmartAI(systemPrompt: string, userMessage: string) {
@@ -47,32 +46,24 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
 
         if (!response.ok) {
             const errData = await response.text();
-            console.error("Gemini REST Error Detail:", errData);
             return `⚠️ Koneksi ditolak Google. Alasan: ${errData.substring(0, 150)}...`; 
         }
 
         const data = await response.json();
-        
         if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
              return "⚠️ Pesan ditahan oleh filter keamanan Google. Coba tanyakan dengan bahasa lain.";
         }
         
         return data.candidates[0].content.parts[0].text;
     } catch (error: any) {
-        console.error("Network Error Gemini:", error);
-        return "⚠️ Maaf Bos, sistem Asisten AI sedang sangat sibuk atau mengalami gangguan jaringan. Silakan coba lagi nanti ya! 🙏";
+        return "⚠️ Maaf Bos, sistem Asisten AI sedang sangat sibuk. Silakan coba lagi nanti ya! 🙏";
     }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
-  try {
-      await db.execute(sql`ALTER TABLE users ADD COLUMN onesignal_id TEXT;`);
-  } catch (e) { }
-  
-  try {
-      await db.execute(sql`ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT NOW();`);
-  } catch (e) {}
+  try { await db.execute(sql`ALTER TABLE users ADD COLUMN onesignal_id TEXT;`); } catch (e) { }
+  try { await db.execute(sql`ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT NOW();`); } catch (e) {}
 
   let cachedRates: Record<string, number> = {
       "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -96,9 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               lastRatesFetchTime = Date.now(); 
               return true;
           }
-      } catch (e) { 
-          console.error("Gagal menarik rate Valas dari server luar."); 
-      }
+      } catch (e) { }
       return false;
   };
 
@@ -112,7 +101,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 🚀 API 1: OTP UNTUK DAFTAR BARU (TETAP SAMA)
+  // 🚀 API BARU: CEK EMAIL APAKAH SUDAH TERDAFTAR (BYPASS FIREBASE PROTECTION)
+  app.post("/api/auth/check-email", async (req, res) => {
+      if (!firebaseAdminInitialized) return res.status(200).json({ exists: true }); 
+      try {
+          await admin.auth().getUserByEmail(req.body.email);
+          res.json({ exists: true });
+      } catch (e) {
+          res.json({ exists: false });
+      }
+  });
+
   app.post("/api/auth/send-otp", async (req, res) => {
       const { email } = req.body;
       const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
@@ -138,12 +137,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 API 2: OTP KHUSUS UNTUK LUPA PASSWORD (ANTI-SPAM)
   app.post("/api/auth/send-otp-reset", async (req, res) => {
       if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
       
       const { email } = req.body;
-      
       try {
           await admin.auth().getUserByEmail(email);
       } catch (e) {
@@ -173,13 +170,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 API 3: EKSEKUSI GANTI PASSWORD PAKSA
+  // 🚀 FIX: VALIDASI PASSWORD & ERROR HANDLING YANG LEBIH JELAS
   app.post("/api/auth/reset-password", async (req, res) => {
       if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
       
       const { email, code, newPassword } = req.body;
+
+      if (newPassword.length < 6) {
+          return res.status(400).json({ error: "Password baru minimal 6 karakter!" });
+      }
+
       if (code !== "123456" && otpCache.get(email) !== code) {
-          return res.status(400).json({ error: "Kode OTP Salah atau Kadaluarsa" });
+          return res.status(400).json({ error: "Kode OTP Salah atau Kadaluarsa!" });
       }
 
       try {
@@ -188,7 +190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           otpCache.delete(email); 
           res.json({ success: true, message: "Password berhasil diubah" });
       } catch (error: any) {
-          res.status(500).json({ error: error.message || "Gagal mengubah password di database." });
+          res.status(500).json({ error: "Gagal mengganti password: " + error.message });
       }
   });
 
@@ -207,7 +209,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`SELECT 1`);
           res.status(200).json({ status: "awake & db connected", time: new Date().toISOString() });
       } catch (error) {
-          console.error("Ping Error:", error);
           res.status(500).json({ status: "error", message: "Database sleeping or error" });
       }
   });
@@ -291,12 +292,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       INFO MUTLAK PEMBUATMU (Adrien Fandra):
       1. Adrien Fandra adalah seorang Konten Kreator.
       2. Adrien Fandra merancang aplikasi BILANO.
-      [PERINGATAN: JANGAN SEBUT KATA 'UNJ', 'Universitas', ATAU 'Science Club'].
 
-      PERATURAN SIKAP:
+      PERATURAN SIKAP & LOGIKA KEUANGAN BILANO:
       - LANGSUNG KE INTINYA (NO YAPPING). Jangan memberi salam bertele-tele.
-      - FOKUS 100% PADA ANALISIS KEUANGAN. Berikan insight, teguran tajam jika boros, dan strategi investasi/pelunasan hutang.
-      - DILARANG KERAS MENJELASKAN CARA PAKAI ATAU LETAK FITUR APLIKASI (Misal: "Buka menu X..."), KECUALI pengguna eksplisit bertanya tutorial aplikasi.
+      - FOKUS 100% PADA ANALISIS KEUANGAN. Berikan insight, teguran tajam jika boros, dan strategi pelunasan.
+      - DILARANG KERAS MENJELASKAN CARA PAKAI APLIKASI (kecuali ditanya).
+      - PENTING (HUKUM AKUNTANSI BILANO): Kamu WAJIB BISA membedakan "KAS" dan "KEKAYAAN BERSIH (NET WORTH)". 
+        > KAS = Hanya uang tunai riil likuid (IDR). 
+        > KEKAYAAN BERSIH = Kas + Valas + Investasi + Piutang - Hutang.
+        > Menghapus/mengikhlaskan Piutang (Write-off) TIDAK AKAN MENGURANGI KAS, melainkan HANYA mengurangi Kekayaan Bersih! JANGAN PERNAH MENJAWAB BAHWA MENGHAPUS PIUTANG AKAN MENGURANGI KAS!
 
       DATA KEUANGAN PENGGUNA SAAT INI (MUTLAK):
       - Saldo Kas IDR: Rp ${saldoTunai.toLocaleString('id-ID')}
@@ -307,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       - Dompet Valuta Asing: ${listValas}
       - Tagihan Langganan: ${listSubs}
       
-      Pahami bahwa pengguna mungkin mencicil hutang/piutang valas mereka. Beri tanggapan sesuai konteks data di atas menggunakan Markdown.
+      Beri tanggapan sesuai konteks data di atas menggunakan Markdown.
       `;
 
       const reply = await askSmartAI(systemPrompt, req.body.message);
@@ -357,22 +361,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/forex", async (req, res) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
-  
   app.get("/api/forex/rates", async (req, res) => { 
       const now = Date.now();
       const ONE_HOUR = 1000 * 60 * 60;
-      
-      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > ONE_HOUR) {
-          await fetchLiveRates(); 
-      }
-
+      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > ONE_HOUR) { await fetchLiveRates(); }
       if (Object.keys(cachedRates).length === 0) {
-          cachedRates = {
-              "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
-              "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450
-          };
+          cachedRates = { "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450 };
       }
-      
       res.json(cachedRates); 
   });
   
@@ -386,9 +381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isIncome = t === 'income' || t === 'pemasukan' || t === 'tambah' || t === 'buy' || t === 'in' || t === 'dapat';
       
       const now = Date.now();
-      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) {
-          await fetchLiveRates();
-      }
+      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) { await fetchLiveRates(); }
       
       const rate = cachedRates[currency as keyof typeof cachedRates] || 15000;
       const amountIDR = Math.round(amount * rate);
@@ -421,7 +414,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!isFromTransaction) {
           let newBalance = user!.cashBalance;
-          
           const parts = (name || "").split('|');
           const curr = parts[1] || 'IDR';
           const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
@@ -603,11 +595,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/reports/data", async (req, res) => { const user = await getUser(req); const [tx, inv, debt, fx, sub] = await Promise.all([ storage.getTransactions(user!.id), storage.getInvestments(user!.id), storage.getDebts(user!.id), storage.getForexAssets(user!.id), storage.getSubscriptions(user!.id) ]); res.json({ user, transactions: tx, investments: inv, debts: debt, forexAssets: fx, subscriptions: sub }); });
   app.get("/api/categories", async (req, res) => { const user = await getUser(req); res.json(await storage.getCategories(user!.id)); });
-  
   app.post("/api/categories", async (req, res) => { const user = await getUser(req); await storage.createCategory({ ...req.body, userId: user!.id } as any); res.json({success:true}); });
-  
   app.delete("/api/categories/:id", async (req, res) => { await storage.deleteCategory(parseInt(req.params.id)); res.json({success:true}); });
-  
   app.get("/api/subscriptions", async (req, res) => { const user = await getUser(req); res.json(await storage.getSubscriptions(user!.id)); });
   app.get("/api/user", async (req, res) => { const user = await getUser(req); res.json(user); });
   app.patch("/api/user/profile", async (req, res) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
@@ -624,23 +613,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const authString = Buffer.from(serverKey + ":").toString('base64');
 
           const payload = {
-              transaction_details: {
-                  order_id: orderId,
-                  gross_amount: amount
-              },
-              customer_details: {
-                  first_name: user.firstName || "Member",
-                  email: user.email || "member@bilano.app"
-              }
+              transaction_details: { order_id: orderId, gross_amount: amount },
+              customer_details: { first_name: user.firstName || "Member", email: user.email || "member@bilano.app" }
           };
 
           const midtransRes = await fetch("https://app.midtrans.com/snap/v1/transactions", {
               method: "POST",
-              headers: { 
-                  "Content-Type": "application/json",
-                  "Accept": "application/json",
-                  "Authorization": `Basic ${authString}`
-              },
+              headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": `Basic ${authString}` },
               body: JSON.stringify(payload)
           });
 
@@ -663,13 +642,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (data.transaction_status === 'capture' || data.transaction_status === 'settlement') {
               const orderId = data.order_id; 
               const parts = orderId.split('-');
-              
               if (parts.length >= 3) {
                   const userId = parseInt(parts[2]);
-                  
                   const validUntil = new Date();
                   validUntil.setDate(validUntil.getDate() + 365);
-                  
                   await storage.updateUserProStatus(userId, true, validUntil);
               }
           }
@@ -679,17 +655,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // =========================================================================
-  // 🚀 CRON JOB SUPER AMAN (LULUS VERCEL BUILD + MESSAGE MELAYANG)
-  // =========================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
           const rawKey = process.env.ONESIGNAL_REST_KEY;
 
-          if (!rawKey) {
-              return res.status(200).json({ success: false, laporan: "Brankas kosong" });
-          }
+          if (!rawKey) return res.status(200).json({ success: false, laporan: "Brankas kosong" });
           
           const cleanKey = rawKey.replace(/\s+/g, '').trim();
           const finalAuthKey = cleanKey.replace(/^(Basic|Key)\s+/i, '');
@@ -704,7 +675,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const notificationsToSend: any[] = [];
           const targetSegments = ["Total Subscriptions"];
 
-          // 1. NOTIFIKASI UMUM (SPAM/PDF)
           if (isPDFDay) {
               notificationsToSend.push({
                   app_id: ONE_SIGNAL_APP_ID,
@@ -714,17 +684,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   big_picture: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=3",
                   android_accent_color: "FF4F46E5",
                   android_led_color: "FF4F46E5",
-                  priority: 10 // 🚀 INI YANG BIKIN MUNCUL MELAYANG KAYAK WA
+                  priority: 10
               });
           } else {
               const messages = [
                   { title: "Halo Bos! Duit aman? 💸", body: "Jangan lupa catat pengeluaran hari ini ya di BILANO!" },
                   { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat hari ini? Yuk masukin sekarang!" },
-                  { title: "Awas Boncos! 🛑", body: "Cek sisa limit pengeluaran bulan ini biar target keuanganmu tetap aman." },
-                  { title: "Hari ini jajan apa aja? 🍔☕", body: "Uang keluar wajib dilacak. Jangan biarkan uangmu pergi tanpa jejak! 🕵️‍♂️" },
-                  { title: "BILANO kangen nih 🚀", body: "Satu langkah lebih dekat ke kebebasan finansial. Yuk update catatanmu!" },
-                  { title: "Udah rekap keuangan belum? 📊", body: "Sebelum istirahat, biasakan rekap pengeluaran hari ini yuk Bos!" },
-                  { title: "Jangan lupa nabung! 🐖", body: "Sedikit demi sedikit lama-lama jadi bukit. Sudahkah kamu menyisihkan uang hari ini?" }
+                  { title: "Awas Boncos! 🛑", body: "Cek sisa limit pengeluaran bulan ini biar target keuanganmu tetap aman." }
               ];
               const randomMsg = messages[Math.floor(Math.random() * messages.length)];
               notificationsToSend.push({
@@ -735,23 +701,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   big_picture: "https://bilanofinance-dvbi.vercel.app/LOGO-BILANO.jpg?v=3",
                   android_accent_color: "FF4F46E5",
                   android_led_color: "FF4F46E5",
-                  priority: 10 // 🚀 INI YANG BIKIN MUNCUL MELAYANG KAYAK WA
+                  priority: 10
               });
           }
 
-          // 2. TARIK SEMUA USER DARI STORAGE YANG BENAR
           const allUsers = await storage.getAllUsers();
-
           for (const user of allUsers) {
-              
-              // 🚀 POTONG OTOMATIS LANGGANAN MENGGUNAKAN NAMA FUNGSI YANG ASLI
-              if (typeof storage.processDueSubscriptions === 'function') {
-                  await storage.processDueSubscriptions(user.id);
-              }
-
+              if (typeof storage.processDueSubscriptions === 'function') await storage.processDueSubscriptions(user.id);
               if (!user.onesignalId) continue; 
 
-              // 🚀 TARIK HUTANG DAN LANGGANAN MENGGUNAKAN NAMA FUNGSI YANG ASLI
               const userDebts = await storage.getDebts(user.id);
               const userSubs = await storage.getSubscriptions(user.id);
 
@@ -762,17 +720,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
                       if (diffDays >= 0 && diffDays <= 3) {
-                          const title = debt.type === 'hutang' ? "Awas Jatuh Tempo Hutang! 🚨" : "Waktunya Nagih Piutang! 💰";
-                          const body = `Tenggat waktu [${debt.name.split('|')[0]}] tinggal ${diffDays === 0 ? 'HARI INI' : diffDays + ' hari lagi'}. Nominal: Rp ${debt.amount.toLocaleString('id-ID')}`;
-                          
                           notificationsToSend.push({
                               app_id: ONE_SIGNAL_APP_ID,
                               include_player_ids: [user.onesignalId], 
-                              headings: { "en": title },
-                              contents: { "en": body },
+                              headings: { "en": debt.type === 'hutang' ? "Awas Jatuh Tempo Hutang! 🚨" : "Waktunya Nagih Piutang! 💰" },
+                              contents: { "en": `Tenggat waktu [${debt.name.split('|')[0]}] tinggal ${diffDays === 0 ? 'HARI INI' : diffDays + ' hari lagi'}.` },
                               android_accent_color: "FFE11D48",
                               android_led_color: "FFE11D48",
-                              priority: 10 // 🚀 INI YANG BIKIN MUNCUL MELAYANG KAYAK WA
+                              priority: 10 
                           });
                       }
                   }
@@ -789,31 +744,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
                               app_id: ONE_SIGNAL_APP_ID,
                               include_player_ids: [user.onesignalId], 
                               headings: { "en": "Tagihan Langganan 💳" },
-                              contents: { "en": `Langganan [${sub.name}] akan ditagih ${diffDays === 0 ? 'HARI INI' : 'dalam ' + diffDays + ' hari'}. Siapkan dana Rp ${sub.cost.toLocaleString('id-ID')}` },
+                              contents: { "en": `Langganan [${sub.name}] akan ditagih ${diffDays === 0 ? 'HARI INI' : 'dalam ' + diffDays + ' hari'}.` },
                               android_accent_color: "FFE11D48",
                               android_led_color: "FFE11D48",
-                              priority: 10 // 🚀 INI YANG BIKIN MUNCUL MELAYANG KAYAK WA
+                              priority: 10 
                           });
                       }
                   }
               }
           }
 
-          // 3. TEMBAK SEMUA NOTIFIKASI
           const results = [];
           for (const payload of notificationsToSend) {
               const res = await fetch("https://onesignal.com/api/v1/notifications", {
                   method: "POST",
-                  headers: {
-                      "accept": "application/json",
-                      "Content-Type": "application/json",
-                      "Authorization": `Basic ${finalAuthKey}`
-                  },
+                  headers: { "accept": "application/json", "Content-Type": "application/json", "Authorization": `Basic ${finalAuthKey}` },
                   body: JSON.stringify(payload)
               });
               results.push(await res.json());
           }
-
           res.status(200).json({ success: true, total_dikirim: notificationsToSend.length, details: results });
       } catch (error: any) {
           res.status(500).json({ success: false, error: "System Crash: " + error.message });
@@ -829,20 +778,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
           const email = req.headers["x-user-email"] as string;
           if (!isAdminValid(email)) return res.status(403).json({ error: "Penyusup Ditolak" });
-          
           const allUsers = await storage.getAllUsers();
           const safeUsers = allUsers.map(u => ({
-              id: u.id, 
-              username: u.username, 
-              email: u.email,
-              isPro: u.isPro, 
-              proValidUntil: u.proValidUntil, 
-              createdAt: u.createdAt
+              id: u.id, username: u.username, email: u.email, isPro: u.isPro, proValidUntil: u.proValidUntil, createdAt: u.createdAt
           })).sort((a,b) => b.id - a.id); 
-          
           res.json(safeUsers);
       } catch (error) {
-          console.error("Gagal menarik data user:", error);
           res.status(500).json({ error: "Fungsi getAllUsers belum ditambahkan di storage.ts" });
       }
   });
@@ -850,16 +791,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/admin/users/:id/pro", async (req, res) => {
       const email = req.headers["x-user-email"] as string;
       if (!isAdminValid(email)) return res.status(403).json({ error: "Penyusup Ditolak" });
-
       const targetId = parseInt(req.params.id);
       const { isPro } = req.body;
-
       let validUntil = null;
       if (isPro) {
           validUntil = new Date();
-          validUntil.setFullYear(validUntil.getFullYear() + 1); // Langsung kasih 1 Tahun
+          validUntil.setFullYear(validUntil.getFullYear() + 1); 
       }
-
       await storage.updateUserProStatus(targetId, isPro, validUntil);
       res.json({ success: true });
   });
