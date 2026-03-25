@@ -7,37 +7,28 @@ import { z } from "zod";
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
 
-import Groq from "groq-sdk";
-import OpenAI from "openai";
 import nodemailer from "nodemailer";
+// 🚀 FIX: IMPORT GEMINI SDK (GROQ & OPENAI DIBUANG)
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY || "KUNCI_SUDAH_DIAMANKAN_DI_VERCEL" });
-const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "ISI_KEY_OPENAI_DISINI_NANTI" });
+// 🚀 FIX: INISIALISASI GEMINI MENGGUNAKAN API KEY DARI .ENV
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "KUNCI_SUDAH_DIAMANKAN_DI_VERCEL");
 
+// 🚀 FIX: FUNGSI AI DIREWRITE MENGGUNAKAN GEMINI 1.5 FLASH
 async function askSmartAI(systemPrompt: string, userMessage: string) {
     try {
-        const completion = await groqClient.chat.completions.create({
-            messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }],
-            model: "llama-3.3-70b-versatile",
-            temperature: 0.3, max_tokens: 1000,
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash" 
         });
-        return completion.choices[0]?.message?.content;
+        
+        // Gabungkan instruksi sistem (karakter AI) dengan pertanyaan user
+        const fullPrompt = `${systemPrompt}\n\n[PERTANYAAN USER]:\n${userMessage}`;
+        
+        const result = await model.generateContent(fullPrompt);
+        return result.response.text();
     } catch (error: any) {
-        if (error.status === 429 || error.status >= 500 || error.status === 401) {
-            try {
-                if (!openaiClient.apiKey || openaiClient.apiKey === "ISI_KEY_OPENAI_DISINI_NANTI") {
-                    return "⚠️ Maaf, Asisten AI sedang mengalami kendala koneksi ke pusat. Mohon coba lagi dalam beberapa saat.";
-                }
-                const completionBackup = await openaiClient.chat.completions.create({
-                    messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }],
-                    model: "gpt-3.5-turbo",
-                });
-                return completionBackup.choices[0]?.message?.content;
-            } catch (e) { 
-                return "⚠️ Sistem AI sedang sangat sibuk menangani banyak permintaan. Silakan coba lagi nanti."; 
-            }
-        }
-        return "⚠️ Sistem asisten virtual sedang dalam pemeliharaan rutin. Mohon maaf atas ketidaknyamanannya.";
+        console.error("Gemini AI Error:", error);
+        return "⚠️ Maaf Bos, sistem Asisten AI sedang sangat sibuk atau mengalami gangguan koneksi. Silakan coba lagi nanti ya! 🙏";
     }
 }
 
@@ -200,6 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const listValas = forexAssets.map(f => `${f.amount} ${f.currency}`).join(', ') || '0';
       const listSubs = subscriptions.filter(s => s.isActive).map(s => `${s.name} (${s.cost})`).join(', ') || 'Tidak ada';
 
+      // 🚀 FIX: FOKUS "ANTI-YAPPING"
       const systemPrompt = `
       Kamu adalah BILANO Intelligence, asisten konsultan keuangan tingkat elit.
       INFO MUTLAK PEMBUATMU (Adrien Fandra):
@@ -208,6 +200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       [PERINGATAN: JANGAN SEBUT KATA 'UNJ', 'Universitas', ATAU 'Science Club'].
 
       PERATURAN SIKAP:
+      - LANGSUNG KE INTINYA (NO YAPPING). Jangan memberi salam bertele-tele.
       - FOKUS 100% PADA ANALISIS KEUANGAN. Berikan insight, teguran tajam jika boros, dan strategi investasi/pelunasan hutang.
       - DILARANG KERAS MENJELASKAN CARA PAKAI ATAU LETAK FITUR APLIKASI (Misal: "Buka menu X..."), KECUALI pengguna eksplisit bertanya tutorial aplikasi.
 
@@ -220,7 +213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       - Dompet Valuta Asing: ${listValas}
       - Tagihan Langganan: ${listSubs}
       
-      Pahami bahwa pengguna mungkin mencicil hutang/piutang valas mereka. Beri tanggapan sesuai konteks data di atas menggunakan Markdown.
+      Pahami bahwa pengguna mungkin mencicil hutang/piutang valas mereka. Beri tanggapan sesuai konteks data di atas menggunakan Markdown agar rapi (gunakan bullet points jika perlu).
       `;
 
       const reply = await askSmartAI(systemPrompt, req.body.message);
