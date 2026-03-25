@@ -7,10 +7,10 @@ import { db } from "./db.js";
 import { sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 
-// 🚀 FIX: FUNGSI AI LANGSUNG TEMBAK KE GOOGLE DENGAN PARAMETER YANG BENAR
+// 🚀 FIX ABSOLUT: FUNGSI AI DENGAN FORMAT REST API GOOGLE YANG BENAR
 async function askSmartAI(systemPrompt: string, userMessage: string) {
     try {
-        // Bersihkan tanda kutip ganda/tunggal jika terbawa dari .env Vercel
+        // Pembersihan otomatis untuk kunci API dari Vercel
         const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
         
         if (!apiKey || apiKey.includes("KUNCI_SUDAH_DIAMANKAN")) {
@@ -21,23 +21,24 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                // HARUS systemInstruction (huruf i besar), BUKAN system_instruction
-                systemInstruction: { parts: [{ text: systemPrompt }] }, 
+                // 🚀 WAJIB GARIS BAWAH: REST API Google menolak format camelCase
+                system_instruction: { parts: [{ text: systemPrompt }] }, 
                 contents: [{ role: "user", parts: [{ text: userMessage }] }]
             })
         });
 
         if (!response.ok) {
+            // Kita bongkar pesan error dari Google biar ketahuan kalau salah
             const errData = await response.text();
             console.error("Gemini REST Error Detail:", errData);
-            return "⚠️ Maaf Bos, Google menolak kunci API. Cek lagi apakah API Key di Vercel sudah benar dan tidak ada spasi/kutip yang tertinggal.";
+            return `⚠️ Koneksi ditolak Google. Alasan: ${errData.substring(0, 150)}...`; 
         }
 
         const data = await response.json();
         
-        // Pengecekan jika Google membalas tapi kosong
+        // Pengecekan jika Google membalas tapi kosong (Kena sensor keamanan)
         if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-             return "⚠️ AI tidak memberikan jawaban. Mungkin karena filter keamanan Google.";
+             return "⚠️ Pesan ditahan oleh filter keamanan Google. Coba tanyakan dengan bahasa lain.";
         }
         
         return data.candidates[0].content.parts[0].text;
