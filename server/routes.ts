@@ -3,31 +3,38 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { insertTransactionSchema, insertTargetSchema } from "../shared/schema.js";
 import { z } from "zod";
-
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
-
 import nodemailer from "nodemailer";
-// 🚀 FIX: IMPORT GEMINI SDK (GROQ & OPENAI DIBUANG)
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 🚀 FIX: INISIALISASI GEMINI MENGGUNAKAN API KEY DARI .ENV
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "KUNCI_SUDAH_DIAMANKAN_DI_VERCEL");
-
-// 🚀 FIX: FUNGSI AI DIREWRITE MENGGUNAKAN GEMINI 1.5 FLASH
+// 🚀 FIX: FUNGSI AI LANGSUNG TEMBAK KE GOOGLE (ANTI-ERROR VERCEL)
 async function askSmartAI(systemPrompt: string, userMessage: string) {
     try {
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash" 
+        const apiKey = process.env.GEMINI_API_KEY || "";
+        
+        if (!apiKey || apiKey.includes("KUNCI_SUDAH_DIAMANKAN")) {
+            return "⚠️ API Key Gemini belum terpasang dengan benar di .env atau Vercel.";
+        }
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                system_instruction: { parts: [{ text: systemPrompt }] },
+                contents: [{ role: "user", parts: [{ text: userMessage }] }]
+            })
         });
-        
-        // Gabungkan instruksi sistem (karakter AI) dengan pertanyaan user
-        const fullPrompt = `${systemPrompt}\n\n[PERTANYAAN USER]:\n${userMessage}`;
-        
-        const result = await model.generateContent(fullPrompt);
-        return result.response.text();
+
+        if (!response.ok) {
+            const errData = await response.text();
+            console.error("Gemini REST Error:", errData);
+            return "⚠️ Maaf Bos, koneksi ke Google Gemini ditolak. Mungkin API Key salah atau limit.";
+        }
+
+        const data = await response.json();
+        return data.candidates[0].content.parts[0].text;
     } catch (error: any) {
-        console.error("Gemini AI Error:", error);
+        console.error("Network Error Gemini:", error);
         return "⚠️ Maaf Bos, sistem Asisten AI sedang sangat sibuk atau mengalami gangguan koneksi. Silakan coba lagi nanti ya! 🙏";
     }
 }
@@ -191,7 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const listValas = forexAssets.map(f => `${f.amount} ${f.currency}`).join(', ') || '0';
       const listSubs = subscriptions.filter(s => s.isActive).map(s => `${s.name} (${s.cost})`).join(', ') || 'Tidak ada';
 
-      // 🚀 FIX: FOKUS "ANTI-YAPPING"
+      // 🚀 FIX: FOKUS "ANTI-YAPPING" & FORMAT MARKDOWN
       const systemPrompt = `
       Kamu adalah BILANO Intelligence, asisten konsultan keuangan tingkat elit.
       INFO MUTLAK PEMBUATMU (Adrien Fandra):
@@ -208,12 +215,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       - Saldo Kas IDR: Rp ${saldoTunai.toLocaleString('id-ID')}
       - Aset Investasi: Rp ${totalInvestasi.toLocaleString('id-ID')}
       - Sisa Limit Pengeluaran Bulan Ini: ${sisaBudget}
-      - Hutang Pribadi (Kewajiban Valas & IDR): ${listHutang}
-      - Piutang Pribadi (Uang di orang lain): ${listPiutang}
-      - Dompet Valuta Asing: ${listValas}
+      - Hutang Pribadi: ${listHutang}
+      - Piutang Pribadi: ${listPiutang}
+      - Valuta Asing: ${listValas}
       - Tagihan Langganan: ${listSubs}
       
-      Pahami bahwa pengguna mungkin mencicil hutang/piutang valas mereka. Beri tanggapan sesuai konteks data di atas menggunakan Markdown agar rapi (gunakan bullet points jika perlu).
+      Gunakan Markdown agar rapi (gunakan bold dan bullet points).
       `;
 
       const reply = await askSmartAI(systemPrompt, req.body.message);
