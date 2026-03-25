@@ -70,20 +70,24 @@ export default function Home() {
   const [showProWelcome, setShowProWelcome] = useState(false);
   
   const [fomoFeature, setFomoFeature] = useState<{title: string, desc: string} | null>(null);
+  
+  // 🚀 STATE BARU: POP-UP EKSKLUSIF UNTUK USER PRO
+  const [proFeatureModal, setProFeatureModal] = useState<{title: string, desc: string} | null>(null);
 
   const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
-
   const [activeMenuPage, setActiveMenuPage] = useState(0);
 
   const [isLongLoading, setIsLongLoading] = useState(false);
   const [loadingTipIndex, setLoadingTipIndex] = useState(() => Math.floor(Math.random() * FINANCIAL_TIPS.length));
+  
+  // 🚀 STATE BARU: TOMBOL MUNCUL JIKA SERVER TERTIDUR LELAP
+  const [showRetryButton, setShowRetryButton] = useState(false);
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
-          console.warn("⚠️ KTP Tertinggal! Sesi membaca akun Guest. Melakukan reload kilat...");
           window.location.reload();
       }
   }, [user, rawEmail]);
@@ -108,25 +112,32 @@ export default function Home() {
       if (!hasPrompted) setShowPermissionPrompt(true);
   }, []);
 
-  useEffect(() => {
-      const isDataLoading = isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading;
-      let timer: any;
-      let interval: any;
+  // 🚀 FIX: LOGIKA LOADING YANG ANTI NYANGKUT
+  const isAnyDataLoading = isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading;
 
-      if (isDataLoading) {
-          timer = setTimeout(() => setIsLongLoading(true), 3000);
-          interval = setInterval(() => {
+  useEffect(() => {
+      let timerLongLoad: any;
+      let timerRetry: any;
+      let intervalTips: any;
+
+      if (isAnyDataLoading) {
+          timerLongLoad = setTimeout(() => setIsLongLoading(true), 2500);
+          timerRetry = setTimeout(() => setShowRetryButton(true), 12000); // Munculkan tombol Force Refresh jika lebih dari 12 detik
+
+          intervalTips = setInterval(() => {
               setLoadingTipIndex(prev => (prev + 1) % FINANCIAL_TIPS.length);
-          }, 5000);
+          }, 4500);
       } else {
           setIsLongLoading(false);
+          setShowRetryButton(false);
       }
 
       return () => {
-          clearTimeout(timer);
-          clearInterval(interval);
+          clearTimeout(timerLongLoad);
+          clearTimeout(timerRetry);
+          clearInterval(intervalTips);
       };
-  }, [isUserLoading, isTargetLoading, isRatesLoading, isTxLoading, isFxLoading, isSubLoading]);
+  }, [isAnyDataLoading]);
 
   const handlePinUnlock = (num: string) => {
       setPinError(false);
@@ -155,12 +166,10 @@ export default function Home() {
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
+  // 🚀 FIX: LOGIKA POP-UP PRO DITERAPKAN DI SINI
   const handleFomoClick = (title: string, desc: string) => {
       if (isUserPro) {
-          toast({ 
-              title: "Akses VIP Terjamin! 👑", 
-              description: "Karena Anda member PRO, fitur ini akan otomatis terbuka GRATIS saat rilis nanti!" 
-          });
+          setProFeatureModal({ title, desc });
       } else {
           setFomoFeature({ title, desc });
       }
@@ -219,21 +228,16 @@ export default function Home() {
   useEffect(() => {
       if (!subscriptions) return;
       const todayStr = new Date().toISOString().split('T')[0];
-      
       const due = subscriptions.find(sub => {
           if (!sub.isActive || sub.category !== 'dinamis') return false;
-          
           const nextDate = new Date(sub.nextPaymentDate);
           const today = new Date();
           today.setHours(0,0,0,0);
           nextDate.setHours(0,0,0,0);
-          
           if (nextDate > today) return false; 
           if (localStorage.getItem(`skip_sub_${sub.id}_${todayStr}`)) return false; 
-          
           return true;
       });
-
       setDueDynamicSub(due || null);
   }, [subscriptions]);
 
@@ -288,7 +292,6 @@ export default function Home() {
 
   useEffect(() => {
       if (isUserPro || !user) return;
-      
       const startTime = new Date(user.createdAt || Date.now()).getTime();
       const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
       const TRIAL_DURATION_DAYS = 3; 
@@ -299,14 +302,6 @@ export default function Home() {
           setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
       }
   }, [isUserPro, user]);
-
-  useEffect(() => {
-      if (!isUserLoading && !isTargetLoading) {
-          if (target !== undefined && target !== null && typeof target === 'object' && Object.keys(target).length === 0) {
-              setLocation("/target");
-          }
-      }
-  }, [target, isUserLoading, isTargetLoading, setLocation]);
 
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
@@ -336,8 +331,25 @@ export default function Home() {
       setShowPermissionPrompt(false);
   };
 
+  const handleLogout = async () => {
+    try {
+        await signOut(auth); 
+        localStorage.removeItem("bilano_auth");
+        localStorage.removeItem("bilano_email");
+        sessionStorage.removeItem("bilano_session_unlocked");
+        localStorage.removeItem("bilano_trial_expired"); 
+        localStorage.removeItem("bilano_pro"); 
+        
+        toast({ title: "Berhasil Keluar", description: "Sampai jumpa lagi!" });
+        setLocation("/auth"); 
+    } catch (error) { console.error(error); }
+  };
+
+  const safeTransactions = transactions || [];
+  const safeForexAssets = forexAssets || [];
+
   const cashRupiah = (user?.cashBalance || 0); 
-  const forexValue = (forexAssets || []).reduce((acc, asset) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
+  const forexValue = safeForexAssets.reduce((acc, asset) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
   const totalBalance = cashRupiah + forexValue;
 
   const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
@@ -359,32 +371,18 @@ export default function Home() {
       setShowTargetModal(false);
   };
 
-  const handleLogout = async () => {
-    try {
-        await signOut(auth); 
-        localStorage.removeItem("bilano_auth");
-        localStorage.removeItem("bilano_email");
-        sessionStorage.removeItem("bilano_session_unlocked");
-        localStorage.removeItem("bilano_trial_expired"); 
-        localStorage.removeItem("bilano_pro"); 
-        
-        toast({ title: "Berhasil Keluar", description: "Sampai jumpa lagi!" });
-        setLocation("/auth"); 
-    } catch (error) { console.error(error); }
-  };
-
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
 
-  const income = transactions?.filter(t => {
+  const income = safeTransactions.filter(t => {
       const d = new Date(t.date);
       return t.type === 'income' && (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
-  }).reduce((acc, t) => acc + t.amount, 0) || 0;
+  }).reduce((acc, t) => acc + t.amount, 0);
 
-  const expense = transactions?.filter(t => {
+  const expense = safeTransactions.filter(t => {
       const d = new Date(t.date);
       return t.type === 'expense' && (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
-  }).reduce((acc, t) => acc + t.amount, 0) || 0;
+  }).reduce((acc, t) => acc + t.amount, 0);
   
   if (isLocked) {
       return (
@@ -411,10 +409,10 @@ export default function Home() {
       );
   }
 
-  // 🚀 TAMPILAN LOADING DENGAN TIPS EDUKATIF
-  if (isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading || !user || !transactions || (user && user.username === 'guest')) {
+  // 🚀 FIX: LOGIKA LOADING SCREEN YANG BISA DI-BYPASS
+  if (isAnyDataLoading || (!user && !isUserLoading)) {
       return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 relative">
               <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
               <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm mb-2">
                   <Loader2 className="w-4 h-4 animate-spin"/>
@@ -430,8 +428,12 @@ export default function Home() {
                   </p>
               </div>
 
-              {!isLongLoading && (
-                  <p className="text-[10px] font-medium text-slate-400 mt-2 text-center animate-pulse">Menyinkronkan data dengan aman...</p>
+              {showRetryButton && (
+                  <div className="absolute bottom-16 animate-in fade-in slide-in-from-bottom-4">
+                      <Button onClick={() => window.location.reload()} className="bg-white border-2 border-rose-200 text-rose-600 font-bold shadow-lg hover:bg-rose-50 rounded-full h-12 px-6">
+                          Server Terlalu Lama? Muat Ulang ➔
+                      </Button>
+                  </div>
               )}
           </div>
       );
@@ -440,69 +442,54 @@ export default function Home() {
   return (
     <MobileLayout>
 
-      {/* 🚀 MODAL RANJAU FOMO */}
-      {fomoFeature && (
+      {/* 🚀 POP UP EKSKLUSIF UNTUK USER PRO */}
+      {proFeatureModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
-                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-100 rounded-full blur-3xl pointer-events-none"></div>
+              <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-indigo-500/30">
+                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
                   
-                  <button onClick={() => setFomoFeature(null)} className="absolute top-4 right-4 p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
+                  <button onClick={() => setProFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
                   
-                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.4)] relative z-10">
-                      <Rocket className="w-10 h-10 text-amber-950"/>
+                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10">
+                      <Crown className="w-10 h-10 text-amber-950"/>
                   </div>
                   
-                  <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Misi Selanjutnya! 🚀</h2>
-                  <p className="text-sm text-slate-500 mb-5 leading-relaxed px-2">
-                      Fitur <b>{fomoFeature.title}</b> adalah salah satu inovasi besar yang masuk dalam rencana pengembangan (roadmap) kami ke depan.<br/><br/>
-                      <span className="text-[11px] bg-slate-100 px-2 py-1 rounded-lg">"{fomoFeature.desc}"</span>
+                  <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Akses VIP Terjamin! 👑</h2>
+                  <p className="text-sm text-indigo-200 mb-6 leading-relaxed px-2 font-medium">
+                      Fitur <b className="text-amber-400">{proFeatureModal.title}</b> saat ini sedang dalam tahap akhir pengembangan oleh tim kami. <br/><br/>
+                      Sebagai pengguna <b>PRO</b>, Anda tidak perlu membayar biaya tambahan apapun. Fitur ini akan otomatis terbuka untuk Anda begitu dirilis!
                   </p>
                   
-                  <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-6 text-left relative z-10 shadow-inner">
-                      <div className="flex items-center gap-2 mb-2">
-                          <AlertTriangle className="w-4 h-4 text-amber-600"/>
-                          <span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span>
-                      </div>
-                      <p className="text-[12px] text-amber-700 leading-relaxed font-medium">
-                          Begitu fitur eksklusif ini diluncurkan nanti, harga langganan pengguna baru pasti akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>
-                          Kabar baiknya: Kunci harga Anda di <b>Rp 99.000/tahun HARI INI</b>, dan Anda akan mendapatkan fitur ini secara <b>GRATIS</b> seumur hidup saat rilis nanti tanpa biaya tambahan!
-                      </p>
-                  </div>
-                  
-                  <Button onClick={() => { setFomoFeature(null); setLocation('/paywall'); }} className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
-                      <Lock className="w-4 h-4"/> AMANKAN HARGA SAYA ➔
+                  <Button onClick={() => setProFeatureModal(null)} className="w-full h-14 bg-white hover:bg-slate-100 text-indigo-950 rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
+                      <CheckCircle2 className="w-5 h-5"/> SAYA MENGERTI
                   </Button>
               </div>
           </div>
       )}
 
-      {dueDynamicSub && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
-            <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 border-orange-500">
-                <div className="w-16 h-16 mx-auto bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-4">
-                    <AlertTriangle className="w-8 h-8" />
-                </div>
-                <h3 className="text-xl font-extrabold text-slate-800 mb-2">Tagihan Jatuh Tempo!</h3>
-                <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                    Waktunya bayar tagihan <strong>{dueDynamicSub.name}</strong>. Berapa nominal yang Anda bayarkan bulan ini?
-                </p>
-                <Input 
-                    type="number" 
-                    placeholder="Masukkan nominal (Rp)..." 
-                    value={dynamicAmount} 
-                    onChange={e => setDynamicAmount(e.target.value)} 
-                    className="h-14 font-bold text-lg mb-4 text-center bg-slate-50 border-transparent rounded-[20px]"
-                />
-                <div className="space-y-3">
-                    <Button onClick={handlePayDynamic} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-lg shadow-emerald-200 active:scale-95 transition-transform">
-                        BAYAR & CATAT SEKARANG
-                    </Button>
-                    <Button variant="ghost" onClick={handleSkipDynamic} className="w-full h-12 rounded-full font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">
-                        Nanti Saja (Lewati Hari Hari Ini)
-                    </Button>
-                </div>
-            </div>
-        </div>
+      {/* POP UP FOMO UNTUK USER GRATISAN */}
+      {fomoFeature && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
+                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-100 rounded-full blur-3xl pointer-events-none"></div>
+                  <button onClick={() => setFomoFeature(null)} className="absolute top-4 right-4 p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
+                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.4)] relative z-10">
+                      <Rocket className="w-10 h-10 text-amber-950"/>
+                  </div>
+                  <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Misi Selanjutnya! 🚀</h2>
+                  <p className="text-sm text-slate-500 mb-5 leading-relaxed px-2">
+                      Fitur <b>{fomoFeature.title}</b> adalah inovasi besar yang masuk dalam rencana pengembangan kami.<br/><br/>
+                      <span className="text-[11px] bg-slate-100 px-2 py-1 rounded-lg">"{fomoFeature.desc}"</span>
+                  </p>
+                  <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-6 text-left relative z-10 shadow-inner">
+                      <div className="flex items-center gap-2 mb-2"><AlertTriangle className="w-4 h-4 text-amber-600"/><span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span></div>
+                      <p className="text-[12px] text-amber-700 leading-relaxed font-medium">Begitu fitur ini diluncurkan, harga pengguna baru pasti akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>Kunci harga Anda di <b>Rp 99.000/tahun HARI INI</b>, dan dapatkan fitur ini secara <b>GRATIS</b> seumur hidup saat rilis nanti!</p>
+                  </div>
+                  <Button onClick={() => { setFomoFeature(null); setLocation('/paywall'); }} className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
+                      <Lock className="w-4 h-4"/> AMANKAN HARGA SAYA ➔
+                  </Button>
+              </div>
+          </div>
       )}
 
       {showProWelcome && (
@@ -536,89 +523,7 @@ export default function Home() {
         </div>
       )}
 
-      {showPermissionPrompt && (
-          <div className="fixed inset-0 z-[99997] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100">
-                  <div className="text-center mb-6 pt-2">
-                      <img src="/BILANO-ICON.png" alt="BILANO" className="w-20 h-20 object-contain mx-auto mb-5 drop-shadow-xl" />
-                      <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">Satu Langkah Lagi!</h2>
-                      <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">Biar BILANO makin pintar bantu kelola uangmu, kami butuh sedikit izin untuk fitur ini:</p>
-                  </div>
-
-                  <div className="space-y-4 mb-8">
-                      <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                          <div className="bg-blue-100 p-2.5 rounded-full text-blue-600"><BellRing className="w-5 h-5"/></div>
-                          <div>
-                              <h4 className="font-bold text-slate-800 text-sm">Notifikasi Pengingat</h4>
-                              <p className="text-[11px] text-slate-500 mt-0.5">Biar kamu gak lupa catat jajan hari ini.</p>
-                          </div>
-                      </div>
-                      <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                          <div className="bg-rose-100 p-2.5 rounded-full text-rose-600"><Mic className="w-5 h-5"/></div>
-                          <div>
-                              <h4 className="font-bold text-slate-800 text-sm">Akses Mikrofon</h4>
-                              <p className="text-[11px] text-slate-500 mt-0.5">Catat cepat pakai perintah suara AI.</p>
-                          </div>
-                      </div>
-                      <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                          <div className="bg-emerald-100 p-2.5 rounded-full text-emerald-600"><Camera className="w-5 h-5"/></div>
-                          <div>
-                              <h4 className="font-bold text-slate-800 text-sm">Akses Kamera</h4>
-                              <p className="text-[11px] text-slate-500 mt-0.5">Biar bisa scan struk belanja otomatis.</p>
-                          </div>
-                      </div>
-                  </div>
-
-                  <div className="space-y-3">
-                      <Button 
-                          onClick={requestAllPermissions} 
-                          disabled={isRequestingPerms} 
-                          className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-extrabold rounded-full shadow-lg shadow-indigo-200 active:scale-95 transition-transform"
-                      >
-                          {isRequestingPerms ? <Loader2 className="w-6 h-6 animate-spin"/> : "IZINKAN SEMUA"}
-                      </Button>
-                      <Button 
-                          variant="ghost" 
-                          onClick={skipPermissions} 
-                          className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full"
-                      >
-                          Nanti Saja
-                      </Button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {showTargetModal && (
-          <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-              <div className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border-4 border-emerald-100">
-                  <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <Crown className="w-10 h-10" />
-                  </div>
-                  <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Target Tercapai! 🎉</h2>
-                  <p className="text-slate-500 text-sm mb-8">Luar biasa! Saldo kamu sudah melebihi impian yang kamu targetkan. Ingin membuat target baru?</p>
-                  <div className="space-y-3">
-                      <Button onClick={() => { dismissTargetModal(); setLocation('/target'); }} className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 font-bold rounded-full text-lg shadow-lg shadow-emerald-200">BUAT TARGET BARU</Button>
-                      <Button variant="ghost" onClick={dismissTargetModal} className="w-full h-14 font-bold text-slate-400 hover:text-slate-600 rounded-full">BIARKAN SAJA</Button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {isProfileZoomed && (
-        <div className="fixed inset-0 z-[999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsProfileZoomed(false)}>
-            <div className="relative animate-in fade-in zoom-in duration-200">
-                {user?.profilePicture ? (
-                    <img src={user.profilePicture} alt="Profile Large" className="max-w-full max-h-[80vh] rounded-full border-4 border-white shadow-2xl" />
-                ) : (
-                    <div className="w-64 h-64 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-6xl border-4 border-white">
-                        {greetingName.charAt(0).toUpperCase()}
-                    </div>
-                )}
-            </div>
-        </div>
-      )}
-
+      {/* DASHBOARD UTAMA */}
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between px-2 pt-2">
             <div className="flex items-center gap-3">
@@ -651,19 +556,13 @@ export default function Home() {
                 {isMenuOpen && (
                     <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
                         <Link href="/profile">
-                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3">
-                                <User className="w-4 h-4 text-slate-400"/> Edit Profil
-                            </button>
+                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400"/> Edit Profil</button>
                         </Link>
                         <Link href="/security">
-                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3">
-                                <ShieldCheck className="w-4 h-4 text-slate-400"/> Keamanan
-                            </button>
+                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400"/> Keamanan</button>
                         </Link>
                         <div className="h-px bg-slate-100 my-1 mx-2"></div>
-                        <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold">
-                            <LogOut className="w-4 h-4 text-rose-500"/> Keluar
-                        </button>
+                        <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500"/> Keluar</button>
                     </div>
                 )}
             </div>
@@ -676,18 +575,12 @@ export default function Home() {
                         {trialDaysLeft === 0 ? <Lock className="w-5 h-5" /> : <Crown className="w-5 h-5" />}
                     </div>
                     <div>
-                        <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">
-                            {trialDaysLeft === 0 ? "MASA COBA HABIS" : "Masa Coba Gratis"}
-                        </p>
-                        <p className="text-xs font-medium opacity-90">
-                            {trialDaysLeft === 0 ? "Fungsi aplikasi dikunci." : <span>Sisa waktu: <b>{trialDaysLeft} Hari</b></span>}
-                        </p>
+                        <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">{trialDaysLeft === 0 ? "MASA COBA HABIS" : "Masa Coba Gratis"}</p>
+                        <p className="text-xs font-medium opacity-90">{trialDaysLeft === 0 ? "Fungsi aplikasi dikunci." : <span>Sisa waktu: <b>{trialDaysLeft} Hari</b></span>}</p>
                     </div>
                 </div>
                 <Link href="/paywall">
-                    <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-full text-[10px] font-extrabold backdrop-blur-sm transition-all active:scale-95 shadow-sm">
-                        {trialDaysLeft === 0 ? "BUKA KUNCI" : "UPGRADE PRO"}
-                    </button>
+                    <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-full text-[10px] font-extrabold backdrop-blur-sm transition-all active:scale-95 shadow-sm">{trialDaysLeft === 0 ? "BUKA KUNCI" : "UPGRADE PRO"}</button>
                 </Link>
             </div>
         )}
