@@ -126,7 +126,6 @@ export default function Forex() {
       return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fungsi Fetch dengan Timeout agar tidak loading selamanya
   const fetchWithTimeout = async (url: string, timeout = 2500) => {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeout);
@@ -151,9 +150,11 @@ export default function Forex() {
       setChartData([]); 
 
       const baseRate = getSafeRate(currencyCode);
-      const safeMockData = Array.from({length: 15}).map((_, i) => {
+      
+      // PERBAIKAN: Menghasilkan data simulasi harian penuh (30 hari berurutan)
+      const safeMockData = Array.from({length: 30}).map((_, i) => {
           const d = new Date();
-          d.setDate(d.getDate() - (14 - i) * 2);
+          d.setDate(d.getDate() - (29 - i));
           return {
               date: d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
               value: Math.round(baseRate * (1 + (Math.random() * 0.015 - 0.0075)))
@@ -182,7 +183,6 @@ export default function Forex() {
               throw new Error("Data rates kosong");
           }
       } catch (error) { 
-          // Langsung gunakan data mockup jika Timeout / Error
           setChartData(safeMockData); 
       } finally { 
           setLoadingChart(false); 
@@ -379,7 +379,6 @@ export default function Forex() {
             </div>
         </div>
 
-        {/* MODAL GRAFIK PROFESIONAL DENGAN AXIS DAN WARNA SOLID */}
         {chartCurr && !isTrialExpired && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
                 <div className="bg-white w-full max-w-md rounded-3xl p-5 shadow-2xl animate-in zoom-in-95 relative">
@@ -421,8 +420,8 @@ export default function Forex() {
                                         formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Kurs']}
                                         labelStyle={{ color: '#64748b', marginBottom: '4px', fontSize: '10px' }}
                                     />
-                                    {/* MENGGUNAKAN FILL SOLID DENGAN OPACITY AGAR KOMPATIBEL DI SEMUA DEVICE */}
-                                    <Area type="monotone" dataKey="value" stroke="#4f46e5" strokeWidth={3} fill="#4f46e5" fillOpacity={0.15} activeDot={{ r: 6, fill: '#4f46e5', stroke: '#fff', strokeWidth: 2 }} />
+                                    {/* PERBAIKAN: Warna grafik diubah menjadi Hijau Emerald (#10b981) */}
+                                    <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={3} fill="#10b981" fillOpacity={0.15} activeDot={{ r: 6, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} />
                                 </AreaChart>
                             </ResponsiveContainer>
                         ) : (
