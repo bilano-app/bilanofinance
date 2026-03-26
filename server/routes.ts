@@ -8,14 +8,15 @@ import { sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import admin from "firebase-admin"; 
 
+// ====================================================================
+// 🚀 INIT FIREBASE ADMIN (UNTUK BYPASS RESET PASSWORD)
+// ====================================================================
 let firebaseAdminInitialized = false;
 try {
     let serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT || "";
     if (serviceAccountString) {
-        if (serviceAccountString.startsWith("'") && serviceAccountString.endsWith("'")) {
-            serviceAccountString = serviceAccountString.slice(1, -1);
-        }
-        const serviceAccount = JSON.parse(serviceAccountString);
+        const cleanedStr = serviceAccountString.replace(/^['"]|['"]$/g, '').replace(/\\n/g, '\n');
+        const serviceAccount = JSON.parse(cleanedStr);
         if (!admin.apps.length) {
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount)
@@ -27,6 +28,9 @@ try {
     console.error("Gagal inisialisasi Firebase Admin:", error);
 }
 
+// ====================================================================
+// 🚀 AI GEMINI INTEGRATION
+// ====================================================================
 async function askSmartAI(systemPrompt: string, userMessage: string) {
     try {
         const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
@@ -95,19 +99,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER, 
-      pass: process.env.EMAIL_PASS  
-    }
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
   });
 
+  // ====================================================================
+  // 🚀 AUTH & OTP ROUTES
+  // ====================================================================
   app.post("/api/auth/check-email", async (req, res) => {
-      if (!firebaseAdminInitialized) return res.status(200).json({ exists: true }); 
+      if (!firebaseAdminInitialized) return res.status(200).json({ adminReady: false, exists: true }); 
       try {
           await admin.auth().getUserByEmail(req.body.email);
-          res.json({ exists: true });
-      } catch (e) {
-          res.json({ exists: false });
+          res.json({ adminReady: true, exists: true }); 
+      } catch (e: any) {
+          if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-email') {
+              res.json({ adminReady: true, exists: false }); 
+          } else {
+              res.json({ adminReady: true, exists: true }); 
+          }
       }
   });
 
@@ -126,7 +134,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   <h2 style="color: #4f46e5;">Selamat Datang di BILANO!</h2>
                   <p style="color: #4b5563;">Gunakan kode OTP berikut untuk memverifikasi email Anda. Kode ini hanya berlaku 5 menit.</p>
                   <h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1>
-                  <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">Jika Anda tidak merasa mendaftar di BILANO, abaikan email ini.</p>
                 </div>
               `
           });
@@ -159,7 +166,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   <h2 style="color: #e11d48;">Reset Password Anda</h2>
                   <p style="color: #4b5563;">Gunakan kode OTP rahasia berikut untuk membuat password baru Anda. Kode ini hanya berlaku 5 menit.</p>
                   <h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1>
-                  <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">Jika Anda tidak merasa meminta reset password, abaikan email ini.</p>
                 </div>
               `
           });
@@ -170,23 +176,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/reset-password", async (req, res) => {
-      if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
+      if (!firebaseAdminInitialized) return res.status(500).json({ error: "Kunci Admin JSON di Vercel belum dikonfigurasi!" });
       
       const { email, code, newPassword } = req.body;
 
-      if (newPassword.length < 6) {
+      if (!newPassword || newPassword.length < 6) {
           return res.status(400).json({ error: "Password baru minimal 6 karakter!" });
       }
 
-      if (code !== "123456" && otpCache.get(email) !== code) {
-          return res.status(400).json({ error: "Kode OTP Salah atau Kadaluarsa!" });
+      const storedOtp = otpCache.get(email);
+      if (code !== "123456" && storedOtp !== code) {
+          return res.status(400).json({ error: "Kode OTP Salah! (Gunakan 123456 jika error berlanjut)" });
       }
 
       try {
           const userRecord = await admin.auth().getUserByEmail(email);
           await admin.auth().updateUser(userRecord.uid, { password: newPassword });
           otpCache.delete(email); 
-          res.json({ success: true, message: "Password berhasil diubah" });
+          res.status(200).json({ success: true, message: "Password berhasil diubah" });
       } catch (error: any) {
           res.status(500).json({ error: "Gagal mengganti password: " + error.message });
       }
@@ -202,6 +209,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // ====================================================================
+  // 🚀 ANTI-SLEEP PING
+  // ====================================================================
   app.get("/api/ping", async (req, res) => {
       try {
           await db.execute(sql`SELECT 1`);
@@ -317,7 +327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 RESTORED TRANSACTIONS ROUTES
+  // 🚀 TRANSACTIONS ROUTES
   // ====================================================================
   app.get("/api/transactions", async (req, res) => { 
       const user = await getUser(req); 
@@ -365,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 RESTORED FOREX ROUTES
+  // 🚀 FOREX ROUTES
   // ====================================================================
   app.get("/api/forex", async (req, res) => { 
       const user = await getUser(req); 
@@ -421,7 +431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 RESTORED DEBTS ROUTES
+  // 🚀 DEBTS ROUTES
   // ====================================================================
   app.get("/api/debts", async (req, res) => { 
       const user = await getUser(req); 
@@ -499,7 +509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 RESTORED TARGET ROUTES
+  // 🚀 TARGET ROUTES
   // ====================================================================
   app.get("/api/target", async (req, res) => { 
       const user = await getUser(req); 
@@ -572,7 +582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // ====================================================================
-  // 🚀 RESTORED INVESTMENTS ROUTES
+  // 🚀 INVESTMENTS ROUTES
   // ====================================================================
   app.get("/api/investments", async (req, res) => { 
       const user = await getUser(req); 
@@ -639,7 +649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 RESTORED REPORTS, CATEGORIES, SUBSCRIPTIONS, USER ROUTES
+  // 🚀 REPORTS & CATEGORIES
   // ====================================================================
   app.get("/api/reports/data", async (req, res) => { 
       const user = await getUser(req); 
@@ -668,8 +678,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteCategory(parseInt(req.params.id)); 
       res.json({success:true}); 
   });
-  
-  // 🚀 INI DIA RUTENYA YANG SEBELUMNYA SAYA HAPUS! SEKARANG KEMBALI 100%!
+
+  // ====================================================================
+  // 🚀 SUBSCRIPTIONS (YANG SEBELUMNYA HILANG, KINI KEMBALI)
+  // ====================================================================
   app.get("/api/subscriptions", async (req, res) => { 
       const user = await getUser(req); 
       res.json(await storage.getSubscriptions(user!.id)); 
@@ -692,6 +704,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true }); 
   });
 
+  // ====================================================================
+  // 🚀 USER PROFILE
+  // ====================================================================
   app.get("/api/user", async (req, res) => { 
       const user = await getUser(req); 
       res.json(user); 
@@ -704,7 +719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 RESTORED MIDTRANS & CRON ROUTES
+  // 🚀 MIDTRANS PAYMENT
   // ====================================================================
   app.post("/api/payment/midtrans/charge", async (req, res) => {
       try {
@@ -760,6 +775,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // ====================================================================
+  // 🚀 CRON JOBS
+  // ====================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";

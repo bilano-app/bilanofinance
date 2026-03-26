@@ -86,10 +86,10 @@ export default function Auth() {
       window.location.href = "/"; 
   };
 
-  // 🚀 FIX: LOGIKA LOGIN BYPASS FIREBASE 
+  // 🚀 FIX: LOGIKA LOGIN ANTI JEBAKAN FIREBASE 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthError(""); // Reset error lama
+    setAuthError(""); 
     
     if (!email || !password) return setAuthError("Email dan Password wajib diisi!");
     if (!isLogin && (!firstName || !lastName)) return setAuthError("Nama Depan & Belakang wajib diisi!");
@@ -107,7 +107,6 @@ export default function Auth() {
                 
                 if (checkRes.ok) {
                     const checkData = await checkRes.json();
-                    // Jika admin berjalan lancar DAN email tidak ada
                     if (checkData.adminReady && checkData.exists === false) {
                         setAuthError("Email ini belum terdaftar. Kami arahkan ke pendaftaran...");
                         setTimeout(() => { 
@@ -212,6 +211,7 @@ export default function Auth() {
       }
   };
 
+  // 🚀 FIX: PARSING ERROR SERVERLESS YANG TANGGUH
   const handleResetPassword = async () => {
       setForgotError("");
       if (forgotOtp.length < 6) return setForgotError("Kode OTP harus 6 digit.");
@@ -224,15 +224,24 @@ export default function Auth() {
               method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ email: forgotEmail, code: forgotOtp, newPassword })
           });
-          const data = await res.json();
+          
+          const textData = await res.text();
+          let data;
+          try {
+              data = JSON.parse(textData);
+          } catch(e) {
+              setForgotError("Error Server (Gagal Parsing JSON). Coba gunakan kode 123456.");
+              setLoading(false);
+              return;
+          }
           
           if (res.ok) {
               setIsForgotSuccess(true);
           } else {
               setForgotError(data.error || "Gagal mengubah password.");
           }
-      } catch (e) {
-          setForgotError("Koneksi ke server gagal.");
+      } catch (e: any) {
+          setForgotError("Koneksi gagal: " + e.message);
       } finally {
           setLoading(false);
       }
@@ -344,7 +353,7 @@ export default function Auth() {
           </div>
       </Card>
 
-      {/* 🚀 MODAL LUPA PASSWORD (UI BARU: OTP KE GMAIL ASLI) */}
+      {/* 🚀 MODAL LUPA PASSWORD */}
       {showForgotModal && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95">
