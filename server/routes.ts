@@ -101,7 +101,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 🚀 API BARU: CEK EMAIL APAKAH SUDAH TERDAFTAR (BYPASS FIREBASE PROTECTION)
   app.post("/api/auth/check-email", async (req, res) => {
       if (!firebaseAdminInitialized) return res.status(200).json({ exists: true }); 
       try {
@@ -170,7 +169,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 FIX: VALIDASI PASSWORD & ERROR HANDLING YANG LEBIH JELAS
   app.post("/api/auth/reset-password", async (req, res) => {
       if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
       
@@ -318,7 +316,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ reply });
   });
 
-  app.get("/api/transactions", async (req, res) => { const user = await getUser(req); res.json(await storage.getTransactions(user!.id)); });
+  // ====================================================================
+  // 🚀 RESTORED TRANSACTIONS ROUTES
+  // ====================================================================
+  app.get("/api/transactions", async (req, res) => { 
+      const user = await getUser(req); 
+      res.json(await storage.getTransactions(user!.id)); 
+  });
   
   app.post("/api/transactions", async (req, res) => { 
       const user = await getUser(req); 
@@ -360,13 +364,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  app.get("/api/forex", async (req, res) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
+  // ====================================================================
+  // 🚀 RESTORED FOREX ROUTES
+  // ====================================================================
+  app.get("/api/forex", async (req, res) => { 
+      const user = await getUser(req); 
+      res.json(await storage.getForexAssets(user!.id)); 
+  });
+  
   app.get("/api/forex/rates", async (req, res) => { 
       const now = Date.now();
       const ONE_HOUR = 1000 * 60 * 60;
-      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > ONE_HOUR) { await fetchLiveRates(); }
+      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > ONE_HOUR) { 
+          await fetchLiveRates(); 
+      }
       if (Object.keys(cachedRates).length === 0) {
-          cachedRates = { "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450 };
+          cachedRates = { "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1 };
       }
       res.json(cachedRates); 
   });
@@ -381,7 +394,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isIncome = t === 'income' || t === 'pemasukan' || t === 'tambah' || t === 'buy' || t === 'in' || t === 'dapat';
       
       const now = Date.now();
-      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) { await fetchLiveRates(); }
+      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) { 
+          await fetchLiveRates(); 
+      }
       
       const rate = cachedRates[currency as keyof typeof cachedRates] || 15000;
       const amountIDR = Math.round(amount * rate);
@@ -405,7 +420,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, newBalance: currentAmount });
   });
 
-  app.get("/api/debts", async (req, res) => { const user = await getUser(req); res.json(await storage.getDebts(user!.id)); });
+  // ====================================================================
+  // 🚀 RESTORED DEBTS ROUTES
+  // ====================================================================
+  app.get("/api/debts", async (req, res) => { 
+      const user = await getUser(req); 
+      res.json(await storage.getDebts(user!.id)); 
+  });
   
   app.post("/api/debts", async (req, res) => { 
       const user = await getUser(req); 
@@ -472,10 +493,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
   });
 
-  app.delete("/api/debts/:id", async (req, res) => { await storage.deleteDebt(parseInt(req.params.id)); res.json({success:true}); });
+  app.delete("/api/debts/:id", async (req, res) => { 
+      await storage.deleteDebt(parseInt(req.params.id)); 
+      res.json({success:true}); 
+  });
 
-  app.get("/api/target", async (req, res) => { const user = await getUser(req); res.json(await storage.getTarget(user!.id) || {}); });
-  app.patch("/api/target/penalty", async (req, res) => { const user = await getUser(req); try { await storage.updateTargetPenalty(user!.id, req.body.amount); res.json({success:true}); } catch(e) { res.status(500).send("Error"); } });
+  // ====================================================================
+  // 🚀 RESTORED TARGET ROUTES
+  // ====================================================================
+  app.get("/api/target", async (req, res) => { 
+      const user = await getUser(req); 
+      res.json(await storage.getTarget(user!.id) || {}); 
+  });
+  
+  app.patch("/api/target/penalty", async (req, res) => { 
+      const user = await getUser(req); 
+      try { 
+          await storage.updateTargetPenalty(user!.id, req.body.amount); 
+          res.json({success:true}); 
+      } catch(e) { 
+          res.status(500).send("Error"); 
+      } 
+  });
   
   app.post("/api/target", async (req, res) => { 
       const user = await getUser(req); 
@@ -532,7 +571,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(target); 
   });
   
-  app.get("/api/investments", async (req, res) => { const user = await getUser(req); res.json(await storage.getInvestments(user!.id)); });
+  // ====================================================================
+  // 🚀 RESTORED INVESTMENTS ROUTES
+  // ====================================================================
+  app.get("/api/investments", async (req, res) => { 
+      const user = await getUser(req); 
+      res.json(await storage.getInvestments(user!.id)); 
+  });
   
   app.post("/api/investments/buy", async (req, res) => { 
       try {
@@ -593,14 +638,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  app.get("/api/reports/data", async (req, res) => { const user = await getUser(req); const [tx, inv, debt, fx, sub] = await Promise.all([ storage.getTransactions(user!.id), storage.getInvestments(user!.id), storage.getDebts(user!.id), storage.getForexAssets(user!.id), storage.getSubscriptions(user!.id) ]); res.json({ user, transactions: tx, investments: inv, debts: debt, forexAssets: fx, subscriptions: sub }); });
-  app.get("/api/categories", async (req, res) => { const user = await getUser(req); res.json(await storage.getCategories(user!.id)); });
-  app.post("/api/categories", async (req, res) => { const user = await getUser(req); await storage.createCategory({ ...req.body, userId: user!.id } as any); res.json({success:true}); });
-  app.delete("/api/categories/:id", async (req, res) => { await storage.deleteCategory(parseInt(req.params.id)); res.json({success:true}); });
-  app.get("/api/subscriptions", async (req, res) => { const user = await getUser(req); res.json(await storage.getSubscriptions(user!.id)); });
-  app.get("/api/user", async (req, res) => { const user = await getUser(req); res.json(user); });
-  app.patch("/api/user/profile", async (req, res) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
+  // ====================================================================
+  // 🚀 RESTORED REPORTS, CATEGORIES, SUBSCRIPTIONS, USER ROUTES
+  // ====================================================================
+  app.get("/api/reports/data", async (req, res) => { 
+      const user = await getUser(req); 
+      const [tx, inv, debt, fx, sub] = await Promise.all([ 
+          storage.getTransactions(user!.id), 
+          storage.getInvestments(user!.id), 
+          storage.getDebts(user!.id), 
+          storage.getForexAssets(user!.id), 
+          storage.getSubscriptions(user!.id) 
+      ]); 
+      res.json({ user, transactions: tx, investments: inv, debts: debt, forexAssets: fx, subscriptions: sub }); 
+  });
+  
+  app.get("/api/categories", async (req, res) => { 
+      const user = await getUser(req); 
+      res.json(await storage.getCategories(user!.id)); 
+  });
+  
+  app.post("/api/categories", async (req, res) => { 
+      const user = await getUser(req); 
+      await storage.createCategory({ ...req.body, userId: user!.id } as any); 
+      res.json({success:true}); 
+  });
+  
+  app.delete("/api/categories/:id", async (req, res) => { 
+      await storage.deleteCategory(parseInt(req.params.id)); 
+      res.json({success:true}); 
+  });
+  
+  // 🚀 INI DIA RUTENYA YANG SEBELUMNYA SAYA HAPUS! SEKARANG KEMBALI 100%!
+  app.get("/api/subscriptions", async (req, res) => { 
+      const user = await getUser(req); 
+      res.json(await storage.getSubscriptions(user!.id)); 
+  });
 
+  app.post("/api/subscriptions", async (req, res) => { 
+      const user = await getUser(req); 
+      const sub = await storage.createSubscription(user!.id, req.body as any); 
+      res.json(sub); 
+  });
+
+  app.patch("/api/subscriptions/:id/status", async (req, res) => { 
+      const { isActive } = req.body;
+      await storage.updateSubscriptionStatus(parseInt(req.params.id), isActive); 
+      res.json({ success: true }); 
+  });
+
+  app.delete("/api/subscriptions/:id", async (req, res) => { 
+      await storage.deleteSubscription(parseInt(req.params.id)); 
+      res.json({ success: true }); 
+  });
+
+  app.get("/api/user", async (req, res) => { 
+      const user = await getUser(req); 
+      res.json(user); 
+  });
+  
+  app.patch("/api/user/profile", async (req, res) => { 
+      const user = await getUser(req); 
+      await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); 
+      res.json({success:true}); 
+  });
+
+  // ====================================================================
+  // 🚀 RESTORED MIDTRANS & CRON ROUTES
+  // ====================================================================
   app.post("/api/payment/midtrans/charge", async (req, res) => {
       try {
           const user = await getUser(req);

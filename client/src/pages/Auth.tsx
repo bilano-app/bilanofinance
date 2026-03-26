@@ -3,9 +3,8 @@ import { useLocation } from "wouter";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, ShieldCheck, RefreshCw, AlertCircle, ArrowLeft, X, CheckCircle2 } from "lucide-react";
-import { auth, googleProvider } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 import { 
-    signInWithRedirect, 
     getRedirectResult,
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
@@ -25,8 +24,11 @@ export default function Auth() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
 
-  const [errorMessage, setErrorMessage] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0); 
+  
+  // 🚀 FIX: STATE ERROR TEKS MERAH DI BAWAH TOMBOL
+  const [authError, setAuthError] = useState("");
+  const [forgotError, setForgotError] = useState("");
   
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotStep, setForgotStep] = useState<'email' | 'otp'>('email');
@@ -47,10 +49,6 @@ export default function Auth() {
           }
           setLoading(false);
       }).catch((error) => {
-          console.error("Google Redirect Error:", error);
-          if (error.code !== 'auth/redirect-cancelled-by-user') {
-              toast({ title: "Gagal Google", description: error.message, variant: "destructive" });
-          }
           setLoading(false);
       });
   }, []);
@@ -73,9 +71,7 @@ export default function Auth() {
                   headers: { "Content-Type": "application/json", "x-user-email": user.email || "" },
                   body: JSON.stringify({ firstName, lastName })
               });
-          } catch (e) {
-              console.error("Gagal simpan nama:", e);
-          }
+          } catch (e) {}
       }
   };
 
@@ -90,49 +86,59 @@ export default function Auth() {
       window.location.href = "/"; 
   };
 
-  // 🚀 FIX: LOGIKA LOGIN ANTI JEBAKAN FIREBASE
+  // 🚀 FIX: LOGIKA LOGIN BYPASS FIREBASE 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return toast({ title: "Isi semua data!", variant: "destructive" });
+    setAuthError(""); // Reset error lama
     
-    if (!isLogin && (!firstName || !lastName)) {
-        return toast({ title: "Lengkapi Nama", description: "Nama Depan & Belakang wajib diisi.", variant: "destructive" });
-    }
+    if (!email || !password) return setAuthError("Email dan Password wajib diisi!");
+    if (!isLogin && (!firstName || !lastName)) return setAuthError("Nama Depan & Belakang wajib diisi!");
 
     setLoading(true);
-    setErrorMessage("");
 
     try {
         if (isLogin) {
-            // LANGKAH 1: Mata-mata cek ke Backend apakah Email terdaftar
+            // Cek ke Backend apakah Email terdaftar
             try {
                 const checkRes = await fetch("/api/auth/check-email", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email })
                 });
+                
                 if (checkRes.ok) {
                     const checkData = await checkRes.json();
-                    if (!checkData.exists) {
-                        toast({ title: "Akun Belum Terdaftar", description: "Email ini belum terdaftar di BILANO. Silakan Daftar (Sign Up) terlebih dahulu.", variant: "destructive" });
-                        setIsLogin(false); // Otomatis lempar ke tab Daftar
+                    // Jika admin berjalan lancar DAN email tidak ada
+                    if (checkData.adminReady && checkData.exists === false) {
+                        setAuthError("Email ini belum terdaftar. Kami arahkan ke pendaftaran...");
+                        setTimeout(() => { 
+                            setIsLogin(false); 
+                            setAuthError(""); 
+                        }, 2000);
                         setLoading(false);
                         return;
                     }
                 }
             } catch (e) {
-                // Biarkan lanjut ke Firebase kalau backend error
+                // Lanjut ke Firebase jika pengecekan backend gagal (bypass)
             }
 
-            // LANGKAH 2: Jika email ADA, paksa login. 
+            // Eksekusi Login Firebase
             const cred = await signInWithEmailAndPassword(auth, email, password);
-            handleSuccess(cred.user);
+            await handleSuccess(cred.user);
         } else {
             await requestOtp();
         }
     } catch (error: any) {
-        // Karena di Langkah 1 sudah dicek emailnya ADA, berarti error disini PASTI PASSWORD SALAH!
-        toast({ title: "Password Salah", description: "Password yang Anda masukkan salah. Coba lagi atau gunakan fitur Lupa Password.", variant: "destructive" });
+        console.error("Auth Error:", error);
+        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            setAuthError("Password salah. Silakan coba lagi.");
+        } else if (error.code === 'auth/user-not-found') {
+            setAuthError("Akun belum terdaftar. Silakan ke tab Daftar.");
+        } else if (error.code === 'auth/too-many-requests') {
+            setAuthError("Terlalu banyak mencoba. Silakan tunggu sebentar.");
+        } else {
+            setAuthError(error.message);
+        }
         setLoading(false);
     } 
   };
@@ -140,21 +146,19 @@ export default function Auth() {
   const requestOtp = async () => {
       try {
           const res = await fetch("/api/auth/send-otp", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+              method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ email })
           });
           const data = await res.json();
-          
           if (res.ok) {
               setStep('otp'); 
               setResendCooldown(60); 
-              toast({ title: "Cek Kode OTP", description: data.dev_otp ? `Kode Anda: ${data.dev_otp}` : "Kode Terkirim ke Email!" });
+              toast({ title: "Cek Email", description: "Kode OTP telah terkirim!" });
           } else {
-              throw new Error(data.error || "Gagal kirim kode");
+              setAuthError(data.error || "Gagal kirim kode.");
           }
       } catch (error: any) {
-          throw error; 
+          setAuthError("Gagal menghubungi server.");
       } finally {
           setLoading(false);
       }
@@ -163,34 +167,29 @@ export default function Auth() {
   const verifyOtpAndRegister = async () => {
       if(otpCode.length < 6) return;
       setLoading(true);
-      setErrorMessage(""); 
+      setAuthError(""); 
 
       try {
           const res = await fetch("/api/auth/verify-otp", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+              method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ email, code: otpCode })
           });
-          
           if (!res.ok) {
-              setErrorMessage("Kode OTP Salah! Coba cek lagi.");
+              setAuthError("Kode OTP Salah! Coba cek lagi.");
               setLoading(false);
               return;
           }
-
           const cred = await createUserWithEmailAndPassword(auth, email, password);
           await handleSuccess(cred.user);
-
       } catch (error: any) {
-          console.error(error);
-          setErrorMessage(error.message || "Gagal verifikasi.");
-          toast({ title: "Error", description: "Gagal membuat akun Firebase", variant: "destructive" });
+          setAuthError(error.message || "Gagal verifikasi OTP.");
           setLoading(false);
       }
   };
 
   const handleSendOtpReset = async () => {
-      if (!forgotEmail) return toast({ title: "Email Kosong", description: "Isi email dulu Bos!", variant: "destructive" });
+      setForgotError("");
+      if (!forgotEmail) return setForgotError("Isi email Anda terlebih dahulu!");
       setLoading(true);
       
       try {
@@ -204,20 +203,20 @@ export default function Auth() {
               setForgotStep('otp');
               toast({ title: "OTP Terkirim!", description: "Cek kotak masuk Gmail Anda sekarang." });
           } else {
-              toast({ title: "Gagal", description: data.error, variant: "destructive" });
+              setForgotError(data.error);
           }
       } catch (e) {
-          toast({ title: "Error", description: "Gagal terhubung ke server.", variant: "destructive" });
+          setForgotError("Koneksi ke server gagal.");
       } finally {
           setLoading(false);
       }
   };
 
-  // 🚀 FIX: TOMBOL RESET PASSWORD YANG SUPER KOKOH (ANTI ERROR TERSEMBUNYI)
   const handleResetPassword = async () => {
-      if (forgotOtp.length < 6 || newPassword.length < 6) {
-          return toast({ title: "Data Kurang", description: "OTP 6 digit dan Password Baru (min. 6 karakter) wajib diisi.", variant: "destructive" });
-      }
+      setForgotError("");
+      if (forgotOtp.length < 6) return setForgotError("Kode OTP harus 6 digit.");
+      if (newPassword.length < 6) return setForgotError("Password baru minimal 6 karakter.");
+      
       setLoading(true);
       
       try {
@@ -230,10 +229,10 @@ export default function Auth() {
           if (res.ok) {
               setIsForgotSuccess(true);
           } else {
-              toast({ title: "Gagal", description: data.error || "Gagal mengubah password", variant: "destructive" });
+              setForgotError(data.error || "Gagal mengubah password.");
           }
       } catch (e) {
-          toast({ title: "Error", description: "Gagal terhubung ke server.", variant: "destructive" });
+          setForgotError("Koneksi ke server gagal.");
       } finally {
           setLoading(false);
       }
@@ -251,17 +250,17 @@ export default function Auth() {
                 
                 <div className="relative mb-2">
                     <Input 
-                        className={`text-center text-2xl tracking-[0.5em] font-bold h-14 ${errorMessage ? "border-red-500 bg-red-50 focus:ring-red-200" : "border-slate-200"}`} 
+                        className={`text-center text-2xl tracking-[0.5em] font-bold h-14 ${authError ? "border-red-500 bg-red-50 focus:ring-red-200" : "border-slate-200"}`} 
                         maxLength={6} 
                         placeholder="000000"
                         value={otpCode}
-                        onChange={(e) => { setOtpCode(e.target.value.replace(/[^0-9]/g, '')); setErrorMessage(""); }}
+                        onChange={(e) => { setOtpCode(e.target.value.replace(/[^0-9]/g, '')); setAuthError(""); }}
                     />
                 </div>
 
-                {errorMessage && (
-                    <div className="flex items-center justify-center gap-2 text-red-600 text-xs font-bold mb-4 animate-pulse">
-                        <AlertCircle className="w-3 h-3" /> {errorMessage}
+                {authError && (
+                    <div className="flex items-center justify-center gap-2 text-red-600 text-[11px] font-bold mb-4 animate-pulse">
+                        <AlertCircle className="w-3 h-3" /> {authError}
                     </div>
                 )}
 
@@ -289,8 +288,8 @@ export default function Auth() {
 
       <Card className="w-full max-w-sm p-6 shadow-xl border-none bg-white animate-in zoom-in-95">
           <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
-              <button onClick={() => setIsLogin(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${isLogin ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Masuk</button>
-              <button onClick={() => setIsLogin(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${!isLogin ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Daftar</button>
+              <button onClick={() => {setIsLogin(true); setAuthError("");}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${isLogin ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Masuk</button>
+              <button onClick={() => {setIsLogin(false); setAuthError("");}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${!isLogin ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Daftar</button>
           </div>
 
           <div className="space-y-4">
@@ -320,6 +319,7 @@ export default function Auth() {
                                     setForgotOtp("");
                                     setNewPassword("");
                                     setForgotEmail(""); 
+                                    setForgotError("");
                                 }} 
                                 className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
                               >
@@ -329,6 +329,14 @@ export default function Auth() {
                       )}
                   </div>
                   
+                  {/* 🚀 FIX: TEKS ERROR MERAH MENYALA */}
+                  {authError && (
+                      <div className="flex items-center gap-1.5 text-rose-500 bg-rose-50 p-3 rounded-xl text-[11px] font-bold leading-tight animate-in fade-in">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          <p>{authError}</p>
+                      </div>
+                  )}
+
                   <Button disabled={loading} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold text-md shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 mt-2">
                       {loading ? <RefreshCw className="animate-spin w-5 h-5"/> : (isLogin ? "MASUK SEKARANG" : "DAFTAR SEKARANG")}
                   </Button>
@@ -336,7 +344,7 @@ export default function Auth() {
           </div>
       </Card>
 
-      {/* POP-UP LUPA PASSWORD */}
+      {/* 🚀 MODAL LUPA PASSWORD (UI BARU: OTP KE GMAIL ASLI) */}
       {showForgotModal && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95">
@@ -363,9 +371,17 @@ export default function Auth() {
                                           placeholder="Masukkan email Anda..." 
                                           className="pl-10 h-12 border-slate-200" 
                                           value={forgotEmail} 
-                                          onChange={(e) => setForgotEmail(e.target.value)}
+                                          onChange={(e) => { setForgotEmail(e.target.value); setForgotError(""); }}
                                       />
                                   </div>
+                                  
+                                  {forgotError && (
+                                      <div className="flex items-center gap-1.5 text-rose-500 bg-rose-50 p-2.5 rounded-xl text-[10px] font-bold leading-tight">
+                                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                          <p>{forgotError}</p>
+                                      </div>
+                                  )}
+
                                   <Button onClick={handleSendOtpReset} disabled={loading || !forgotEmail} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold shadow-md">
                                       {loading ? <RefreshCw className="w-5 h-5 animate-spin"/> : "KIRIM OTP RESET"}
                                   </Button>
@@ -387,7 +403,7 @@ export default function Auth() {
                                       maxLength={6} 
                                       placeholder="000000"
                                       value={forgotOtp}
-                                      onChange={(e) => setForgotOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                                      onChange={(e) => { setForgotOtp(e.target.value.replace(/[^0-9]/g, '')); setForgotError(""); }}
                                   />
                                   <div className="relative">
                                       <Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
@@ -396,9 +412,17 @@ export default function Auth() {
                                           placeholder="Ketik Password Baru..." 
                                           className="pl-10 h-12 border-slate-200" 
                                           value={newPassword} 
-                                          onChange={(e) => setNewPassword(e.target.value)}
+                                          onChange={(e) => { setNewPassword(e.target.value); setForgotError(""); }}
                                       />
                                   </div>
+
+                                  {forgotError && (
+                                      <div className="flex items-center gap-1.5 text-rose-500 bg-rose-50 p-2.5 rounded-xl text-[10px] font-bold leading-tight">
+                                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                          <p>{forgotError}</p>
+                                      </div>
+                                  )}
+
                                   <Button 
                                       onClick={handleResetPassword} 
                                       disabled={loading || forgotOtp.length < 6 || newPassword.length < 6} 
