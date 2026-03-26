@@ -9,23 +9,42 @@ import nodemailer from "nodemailer";
 import admin from "firebase-admin"; 
 
 // ====================================================================
-// 🚀 INIT FIREBASE ADMIN (UNTUK BYPASS RESET PASSWORD)
+// 🚀 PERBAIKAN FATAL: PARSER JSON SUPER TANGGUH UNTUK VERCEL ENV
 // ====================================================================
 let firebaseAdminInitialized = false;
 try {
-    let serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT || "";
-    if (serviceAccountString) {
-        const cleanedStr = serviceAccountString.replace(/^['"]|['"]$/g, '').replace(/\\n/g, '\n');
-        const serviceAccount = JSON.parse(cleanedStr);
+    let saStr = process.env.FIREBASE_SERVICE_ACCOUNT || "";
+    if (saStr) {
+        // 1. Bersihkan petik ganda/tunggal di awal & akhir string bawaan Vercel
+        saStr = saStr.trim().replace(/^['"]|['"]$/g, '');
+        
+        let parsedAccount;
+        try {
+            // Coba parsing normal
+            parsedAccount = JSON.parse(saStr);
+        } catch (e) {
+            // 2. Jika gagal, perbaiki escape karakter yang dirusak Vercel
+            const unescaped = saStr.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+            parsedAccount = JSON.parse(unescaped);
+        }
+
+        // 3. Pastikan private_key memiliki baris baru (\n) yang valid agar Firebase tidak menolak
+        if (parsedAccount && parsedAccount.private_key) {
+            parsedAccount.private_key = parsedAccount.private_key.replace(/\\n/g, '\n');
+        }
+
         if (!admin.apps.length) {
             admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount)
+                credential: admin.credential.cert(parsedAccount)
             });
         }
         firebaseAdminInitialized = true;
+        console.log("✅ Firebase Admin Berhasil Diinisialisasi!");
+    } else {
+        console.warn("⚠️ FIREBASE_SERVICE_ACCOUNT kosong di Vercel Env!");
     }
 } catch (error) {
-    console.error("Gagal inisialisasi Firebase Admin:", error);
+    console.error("❌ Gagal total inisialisasi Firebase Admin:", error);
 }
 
 // ====================================================================
@@ -186,7 +205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const storedOtp = otpCache.get(email);
       if (code !== "123456" && storedOtp !== code) {
-          return res.status(400).json({ error: "Kode OTP Salah! (Gunakan 123456 jika error berlanjut)" });
+          return res.status(400).json({ error: "Kode OTP Salah! (Atau gunakan kode darurat 123456)" });
       }
 
       try {
@@ -680,7 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 SUBSCRIPTIONS (YANG SEBELUMNYA HILANG, KINI KEMBALI)
+  // 🚀 SUBSCRIPTIONS
   // ====================================================================
   app.get("/api/subscriptions", async (req, res) => { 
       const user = await getUser(req); 
@@ -815,7 +834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   { title: "Waktunya ngecek dompet! 🤔", body: "Ada jajan yang belum dicatat hari ini? Yuk masukin sekarang!" },
                   { title: "Awas Boncos! 🛑", body: "Cek sisa limit pengeluaran bulan ini biar target keuanganmu tetap aman." }
               ];
-              const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+              const randomMsg = messages[Math.floor(Math.random() * Math.random() * messages.length)];
               notificationsToSend.push({
                   app_id: ONE_SIGNAL_APP_ID,
                   included_segments: targetSegments, 
