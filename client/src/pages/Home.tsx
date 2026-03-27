@@ -13,7 +13,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, ArrowRight, Lightbulb,
-  Bot, CheckCircle2 // IMPORT CHECKCIRCLE2 DITAMBAHKAN DI SINI AGAR TIDAK BLANK
+  Bot 
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -28,7 +28,7 @@ const FINANCIAL_TIPS = [
     "Investasi terbaik yang bisa Anda lakukan adalah investasi pada diri Anda sendiri.",
     "Dana Darurat adalah payung Anda saat badai finansial turun tiba-tiba.",
     "Diversifikasi: Jangan pernah menaruh semua telurmu dalam satu keranjang.",
-    "Hutang konsumtif merampok masa depanmu, hutang produktif membangun masa depanmu.",
+    "Hutang konsumripsi merampok masa depanmu, hutang produktif membangun masa depanmu.",
     "Kekayaan sejati bukanlah seberapa banyak uang yang dihasilkan, tapi seberapa banyak yang disimpan.",
     "Waktu di pasar saham jauh lebih penting daripada sekadar menebak waktu pasar (Time in the market > Timing the market).",
     "Pemasukan yang besar tanpa manajemen yang baik hanya akan menghasilkan kebangkrutan yang tertunda.",
@@ -85,6 +85,7 @@ export default function Home() {
   
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
+          console.warn("⚠️ KTP Tertinggal! Sesi membaca akun Guest. Melakukan reload kilat...");
           window.location.reload();
       }
   }, [user, rawEmail]);
@@ -481,13 +482,22 @@ export default function Home() {
                   </div>
                   <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Misi Selanjutnya! 🚀</h2>
                   <p className="text-sm text-slate-500 mb-5 leading-relaxed px-2">
-                      Fitur <b>{fomoFeature.title}</b> adalah inovasi besar yang masuk dalam rencana pengembangan kami.<br/><br/>
+                      Fitur <b>{fomoFeature.title}</b> adalah salah satu inovasi besar yang masuk dalam rencana pengembangan (roadmap) kami ke depan.<br/><br/>
                       <span className="text-[11px] bg-slate-100 px-2 py-1 rounded-lg">"{fomoFeature.desc}"</span>
                   </p>
+                  
+                  {/* 🚀 PERBAIKAN TEKS GARANSI HARGA TETAP */}
                   <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-6 text-left relative z-10 shadow-inner">
-                      <div className="flex items-center gap-2 mb-2"><AlertTriangle className="w-4 h-4 text-amber-600"/><span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span></div>
-                      <p className="text-[12px] text-amber-700 leading-relaxed font-medium">Begitu fitur ini diluncurkan, harga pengguna baru pasti akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>Kunci harga Anda di <b>Rp 99.000/tahun HARI INI</b>, dan dapatkan fitur ini secara <b>GRATIS</b> seumur hidup saat rilis nanti!</p>
+                      <div className="flex items-center gap-2 mb-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-600"/>
+                          <span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span>
+                      </div>
+                      <p className="text-[12px] text-amber-700 leading-relaxed font-medium">
+                          Begitu fitur eksklusif ini diluncurkan nanti, harga langganan pengguna baru pasti akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>
+                          <b>Garansi Harga Tetap:</b> Kunci harga Anda di <b>Rp 99.000/tahun HARI INI</b>. Maka harga perpanjangan Anda tahun depan dan seterusnya akan <b>TERKUNCI SELAMANYA</b> di angka tersebut. Anda otomatis menikmati fitur baru ini tanpa perlu membayar selisih kenaikan harga!
+                      </p>
                   </div>
+                  
                   <Button onClick={() => { setFomoFeature(null); setLocation('/paywall'); }} className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
                       <Lock className="w-4 h-4"/> AMANKAN HARGA SAYA ➔
                   </Button>

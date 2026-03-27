@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, PlusCircle, X, Loader2, Info, Sparkles, AlertTriangle, Lock } from "lucide-react"; 
+import { ArrowLeft, PlusCircle, X, Loader2, Info, Sparkles, AlertTriangle, Lock, Crown, CheckCircle2 } from "lucide-react"; 
 import { TrendingUp, Building2, LineChart, Briefcase, Gem, Landmark, ScrollText, Coins } from "lucide-react";
 import { Button, Input } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
@@ -16,10 +16,12 @@ export default function Investment() {
   const [viewState, setViewState] = useState<'main' | 'detail'>('main');
   const [activeCategory, setActiveCategory] = useState<AssetType | null>(null);
   
-  // 🚀 FIX: SISTEM TAB PER GANTI HALAMAN DETAIL (TRANSAKSI VS ANALISA)
   const [detailTab, setDetailTab] = useState<'transaksi' | 'analisa'>('transaksi');
   const [txType, setTxType] = useState<'BUY' | 'SELL'>('BUY');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 🚀 STATE BARU: UNTUK POP-UP VIP PRO
+  const [proFeatureModal, setProFeatureModal] = useState<{title: string, desc: string} | null>(null);
 
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: portfolioRaw = [], isLoading: isInvLoading } = useInvestments();
@@ -273,6 +275,31 @@ export default function Investment() {
   return (
     <MobileLayout title="Investasi & Portfolio" showBack={true}>
        
+       {/* 🚀 POP UP EKSKLUSIF UNTUK USER PRO DI HALAMAN INVESTASI */}
+       {proFeatureModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-indigo-500/30">
+                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+                  
+                  <button onClick={() => setProFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
+                  
+                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10">
+                      <Crown className="w-10 h-10 text-amber-950"/>
+                  </div>
+                  
+                  <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Akses VIP Terjamin! 👑</h2>
+                  <p className="text-sm text-indigo-200 mb-6 leading-relaxed px-2 font-medium">
+                      Fitur <b className="text-amber-400">{proFeatureModal.title}</b> saat ini sedang dalam tahap akhir pengembangan oleh tim kami. <br/><br/>
+                      Sebagai pengguna <b>PRO</b>, Anda tidak perlu membayar biaya tambahan apapun. Fitur ini akan otomatis terbuka untuk Anda saat dirilis!
+                  </p>
+                  
+                  <Button onClick={() => setProFeatureModal(null)} className="w-full h-14 bg-white hover:bg-slate-100 text-indigo-950 rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
+                      <CheckCircle2 className="w-5 h-5"/> SAYA MENGERTI
+                  </Button>
+              </div>
+          </div>
+      )}
+
        {viewState !== 'main' && (
           <Button variant="ghost" size="sm" onClick={() => { setViewState('main'); setDetailTab('transaksi'); }} className="mb-4 pl-0 hover:bg-transparent text-slate-500">
              <ArrowLeft className="w-5 h-5 mr-2"/> Kembali ke Semua Aset
@@ -341,7 +368,6 @@ export default function Investment() {
                    <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/10 rounded-tl-full pointer-events-none"></div>
              </div>
 
-             {/* 🚀 FIX: SISTEM TAB TRANSAKSI vs ANALISA ASET (SEPERTI PEMASUKAN/PENGELUARAN) */}
              <div className="flex bg-slate-100 p-1.5 rounded-[20px] mb-6">
                 <button
                     onClick={() => setDetailTab('transaksi')}
@@ -351,8 +377,12 @@ export default function Investment() {
                 </button>
                 <button
                     onClick={() => {
+                        // 🚀 FIX: PRO USER AKAN MENDAPATKAN POP UP VIP!
                         if (isUserPro) {
-                            toast({ title: "Akses VIP Terjamin! 👑", description: "Karena Anda member PRO, fitur analisis AI ini akan otomatis terbuka GRATIS saat rilis nanti!" });
+                            setProFeatureModal({ 
+                                title: `Smart Screener ${assetConfig[activeCategory as AssetType].label}`, 
+                                desc: "Fitur screening cerdas dan analisa tren harga menggunakan AI." 
+                            });
                         } else {
                             setDetailTab('analisa');
                         }
@@ -363,7 +393,6 @@ export default function Investment() {
                 </button>
             </div>
 
-            {/* 🚀 KONTEN FORM TRANSAKSI (UTAMA) */}
             {detailTab === 'transaksi' && (
                 <div className="animate-in fade-in slide-in-from-left-4 duration-300">
                     <div className="bg-white rounded-[32px] shadow-xl shadow-indigo-100/50 border border-slate-100 p-5 mb-6">
@@ -372,7 +401,7 @@ export default function Investment() {
                 </div>
             )}
 
-            {/* 🚀 KONTEN ANALISA ASET (FOMO SLIDE) */}
+            {/* 🚀 PERBAIKAN TEKS "GARANSI HARGA TETAP" UNTUK USER GRATIS */}
             {detailTab === 'analisa' && activeCategory && (
                 <div className="animate-in fade-in slide-in-from-right-4 duration-300 mb-6">
                     <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[32px] p-6 shadow-2xl relative overflow-hidden border-2 border-amber-300/30 text-center">
@@ -394,7 +423,7 @@ export default function Investment() {
                             </div>
                             <p className="text-[12px] leading-relaxed font-bold text-amber-900">
                                 Begitu fitur eksklusif ini diluncurkan nanti, harga langganan pengguna baru BILANO PRO <b className="text-rose-600">PASTI NAIK.</b><br/><br/>
-                                Amankan harga Anda di <b className="text-emerald-700">Rp 99.000/tahun HARI INI</b>, dan Anda akan mendapatkan fitur ini secara <b>GRATIS SEUMUR HIDUP</b> saat rilis nanti!
+                                <b>Garansi Harga Tetap:</b> Kunci harga Anda di <b className="text-emerald-700">Rp 99.000/tahun HARI INI</b>. Maka harga perpanjangan Anda tahun depan dan seterusnya akan <b>TERKUNCI SELAMANYA</b> di angka tersebut. Anda otomatis menikmati fitur baru tanpa perlu membayar selisih kenaikan harga!
                             </p>
                         </div>
 
