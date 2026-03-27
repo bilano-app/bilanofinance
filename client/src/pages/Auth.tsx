@@ -149,8 +149,7 @@ export default function Auth() {
           try {
               data = JSON.parse(textData);
           } catch(e) {
-              setAuthError("Server lambat. Silakan gunakan kode 123456.");
-              setStep('otp'); 
+              setAuthError("Server lambat atau timeout. Silakan coba lagi.");
               setLoading(false);
               return;
           }
@@ -169,32 +168,27 @@ export default function Auth() {
       }
   };
 
-  // 🚀 PERBAIKAN MUTLAK: BYPASS VERCEL SERVER UNTUK KODE DARURAT
+  // 🚀 KEMBALI NORMAL: TIDAK ADA BYPASS 123456
   const verifyOtpAndRegister = async () => {
       if(otpCode.length < 6) return;
       setLoading(true);
       setAuthError(""); 
 
       try {
-          // Jika kode bukan 123456, baru cek ke server. 
-          // Jika 123456, langsung tembak Firebase untuk buat akun!
-          if (otpCode !== "123456") {
-              const res = await fetch("/api/auth/verify-otp", {
-                  method: "POST", headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ email, code: otpCode })
-              });
-              if (!res.ok) {
-                  setAuthError("Kode OTP Salah atau Kadaluarsa.");
-                  setLoading(false);
-                  return;
-              }
+          const res = await fetch("/api/auth/verify-otp", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, code: otpCode })
+          });
+          if (!res.ok) {
+              setAuthError("Kode OTP Salah atau Kadaluarsa.");
+              setLoading(false);
+              return;
           }
 
           const cred = await createUserWithEmailAndPassword(auth, email, password);
           await handleSuccess(cred.user);
 
       } catch (error: any) {
-          // Jika akun sebenarnya sudah terbuat (saat Anda mencoba sebelumnya tapi Vercel Timeout)
           if (error.code === 'auth/email-already-in-use') {
               setAuthError("Akun ini sudah berhasil dibuat! Silakan kembali dan pilih 'Masuk'.");
           } else {
@@ -220,8 +214,7 @@ export default function Auth() {
           try {
               data = JSON.parse(textData);
           } catch(e) {
-              setForgotError("Server sibuk (Timeout). Gunakan kode 123456.");
-              setForgotStep('otp');
+              setForgotError("Server sibuk (Timeout). Silakan coba lagi.");
               setLoading(false);
               return;
           }
@@ -257,7 +250,7 @@ export default function Auth() {
           try {
               data = JSON.parse(textData);
           } catch(e) {
-              setForgotError("Error Server. Coba gunakan kode 123456.");
+              setForgotError("Error Server. Silakan coba lagi.");
               setLoading(false);
               return;
           }

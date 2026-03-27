@@ -114,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 AUTH & OTP ROUTES (ANTI VERCEL TIMEOUT)
+  // 🚀 AUTH & OTP ROUTES (SISTEM NORMAL PRODUCTION)
   // ====================================================================
   app.post("/api/auth/check-email", async (req, res) => {
       if (!firebaseAdminInitialized) return res.status(200).json({ adminReady: false, exists: true }); 
@@ -135,12 +135,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
       otpCache.set(email, otp);
 
-      // 🚀 BYPASS VIP UNTUK AKUN REVIEW/DUMMY AGAR SERVER TIDAK CRASH
-      const dummyKeywords = ["midtrans", "dummy", "review", "test"];
-      if (dummyKeywords.some(kw => email.toLowerCase().includes(kw))) {
-          return res.json({ success: true, message: "Bypass OTP Dummy Berhasil" });
-      }
-      
       try {
           const mailOptions = {
               from: `"BILANO Finance" <${process.env.EMAIL_USER}>`,
@@ -149,15 +143,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               html: `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #4f46e5;">Selamat Datang di BILANO!</h2><p style="color: #4b5563;">Gunakan kode OTP berikut untuk memverifikasi email Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`
           };
 
-          // 🚀 LIMITASI 5 DETIK AGAR VERCEL TIDAK ERROR 504
           const sendPromise = transporter.sendMail(mailOptions);
           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP Timeout')), 5000));
           
           await Promise.race([sendPromise, timeoutPromise]);
           res.json({ success: true, message: "OTP Terkirim" }); 
       } catch (error) {
-          // JIKA GAGAL/TIMEOUT, TETAP BERIKAN SUCCESS AGAR UI BERGESER KE INPUT OTP (Bisa pakai 123456)
-          res.json({ success: true, message: "Gunakan kode darurat 123456" });
+          res.status(500).json({ error: "Gagal mengirim email OTP. Pastikan email valid atau coba lagi nanti." });
       }
   });
 
@@ -173,11 +165,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
       otpCache.set(email, otp);
-
-      const dummyKeywords = ["midtrans", "dummy", "review", "test"];
-      if (dummyKeywords.some(kw => email.toLowerCase().includes(kw))) {
-          return res.json({ success: true, message: "Bypass OTP Dummy Berhasil" });
-      }
       
       try {
           const mailOptions = {
@@ -193,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await Promise.race([sendPromise, timeoutPromise]);
           res.json({ success: true, message: "OTP Reset Terkirim" }); 
       } catch (error) {
-          res.json({ success: true, message: "Gunakan kode darurat 123456" });
+          res.status(500).json({ error: "Gagal mengirim email OTP. Pastikan email valid atau coba lagi nanti." });
       }
   });
 
@@ -205,7 +192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: "Password baru minimal 6 karakter!" });
 
       const storedOtp = otpCache.get(email);
-      if (code !== "123456" && storedOtp !== code) return res.status(400).json({ error: "Kode OTP Salah! (Gunakan kode darurat 123456)" });
+      if (!storedOtp || storedOtp !== code) return res.status(400).json({ error: "Kode OTP Salah atau Kadaluarsa!" });
 
       try {
           const userRecord = await admin.auth().getUserByEmail(email);
@@ -219,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/verify-otp", async (req, res) => {
       const { email, code } = req.body;
-      if (code === "123456" || otpCache.get(email) === code) {
+      if (otpCache.get(email) === code) {
           otpCache.delete(email);
           res.json({ success: true });
       } else {
