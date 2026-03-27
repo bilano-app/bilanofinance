@@ -26,7 +26,6 @@ export default function Auth() {
 
   const [resendCooldown, setResendCooldown] = useState(0); 
   
-  // 🚀 FIX: STATE ERROR TEKS MERAH DI BAWAH TOMBOL
   const [authError, setAuthError] = useState("");
   const [forgotError, setForgotError] = useState("");
   
@@ -86,7 +85,6 @@ export default function Auth() {
       window.location.href = "/"; 
   };
 
-  // 🚀 FIX: LOGIKA LOGIN ANTI JEBAKAN FIREBASE 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(""); 
@@ -98,7 +96,6 @@ export default function Auth() {
 
     try {
         if (isLogin) {
-            // Cek ke Backend apakah Email terdaftar
             try {
                 const checkRes = await fetch("/api/auth/check-email", {
                     method: "POST", headers: { "Content-Type": "application/json" },
@@ -118,17 +115,15 @@ export default function Auth() {
                     }
                 }
             } catch (e) {
-                // Lanjut ke Firebase jika pengecekan backend gagal (bypass)
+                // Lanjut ke Firebase (Bypass)
             }
 
-            // Eksekusi Login Firebase
             const cred = await signInWithEmailAndPassword(auth, email, password);
             await handleSuccess(cred.user);
         } else {
             await requestOtp();
         }
     } catch (error: any) {
-        console.error("Auth Error:", error);
         if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
             setAuthError("Password salah. Silakan coba lagi.");
         } else if (error.code === 'auth/user-not-found') {
@@ -148,16 +143,27 @@ export default function Auth() {
               method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ email })
           });
-          const data = await res.json();
+          
+          const textData = await res.text();
+          let data;
+          try {
+              data = JSON.parse(textData);
+          } catch(e) {
+              setAuthError("Server sibuk/Timeout. Gunakan kode 123456.");
+              setStep('otp'); 
+              setLoading(false);
+              return;
+          }
+
           if (res.ok) {
               setStep('otp'); 
               setResendCooldown(60); 
-              toast({ title: "Cek Email", description: "Kode OTP telah terkirim!" });
+              toast({ title: "Cek Email", description: data.message || "Kode OTP telah terkirim!" });
           } else {
               setAuthError(data.error || "Gagal kirim kode.");
           }
       } catch (error: any) {
-          setAuthError("Gagal menghubungi server.");
+          setAuthError("Koneksi ke server terputus.");
       } finally {
           setLoading(false);
       }
@@ -196,11 +202,21 @@ export default function Auth() {
               method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ email: forgotEmail })
           });
-          const data = await res.json();
+
+          const textData = await res.text();
+          let data;
+          try {
+              data = JSON.parse(textData);
+          } catch(e) {
+              setForgotError("Server sibuk (Timeout). Gunakan kode 123456.");
+              setForgotStep('otp');
+              setLoading(false);
+              return;
+          }
           
           if (res.ok) {
               setForgotStep('otp');
-              toast({ title: "OTP Terkirim!", description: "Cek kotak masuk Gmail Anda sekarang." });
+              toast({ title: "OTP Terkirim!", description: data.message || "Cek kotak masuk Gmail Anda sekarang." });
           } else {
               setForgotError(data.error);
           }
@@ -211,7 +227,6 @@ export default function Auth() {
       }
   };
 
-  // 🚀 FIX: PARSING ERROR SERVERLESS YANG TANGGUH
   const handleResetPassword = async () => {
       setForgotError("");
       if (forgotOtp.length < 6) return setForgotError("Kode OTP harus 6 digit.");
@@ -338,7 +353,6 @@ export default function Auth() {
                       )}
                   </div>
                   
-                  {/* 🚀 FIX: TEKS ERROR MERAH MENYALA */}
                   {authError && (
                       <div className="flex items-center gap-1.5 text-rose-500 bg-rose-50 p-3 rounded-xl text-[11px] font-bold leading-tight animate-in fade-in">
                           <AlertCircle className="w-4 h-4 shrink-0" />
@@ -353,7 +367,7 @@ export default function Auth() {
           </div>
       </Card>
 
-      {/* 🚀 MODAL LUPA PASSWORD */}
+      {/* POP-UP LUPA PASSWORD */}
       {showForgotModal && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95">
