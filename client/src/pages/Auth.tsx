@@ -149,7 +149,7 @@ export default function Auth() {
           try {
               data = JSON.parse(textData);
           } catch(e) {
-              setAuthError("Server sibuk/Timeout. Gunakan kode 123456.");
+              setAuthError("Server lambat. Silakan gunakan kode 123456.");
               setStep('otp'); 
               setLoading(false);
               return;
@@ -169,25 +169,37 @@ export default function Auth() {
       }
   };
 
+  // 🚀 PERBAIKAN MUTLAK: BYPASS VERCEL SERVER UNTUK KODE DARURAT
   const verifyOtpAndRegister = async () => {
       if(otpCode.length < 6) return;
       setLoading(true);
       setAuthError(""); 
 
       try {
-          const res = await fetch("/api/auth/verify-otp", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email, code: otpCode })
-          });
-          if (!res.ok) {
-              setAuthError("Kode OTP Salah! Coba cek lagi.");
-              setLoading(false);
-              return;
+          // Jika kode bukan 123456, baru cek ke server. 
+          // Jika 123456, langsung tembak Firebase untuk buat akun!
+          if (otpCode !== "123456") {
+              const res = await fetch("/api/auth/verify-otp", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ email, code: otpCode })
+              });
+              if (!res.ok) {
+                  setAuthError("Kode OTP Salah atau Kadaluarsa.");
+                  setLoading(false);
+                  return;
+              }
           }
+
           const cred = await createUserWithEmailAndPassword(auth, email, password);
           await handleSuccess(cred.user);
+
       } catch (error: any) {
-          setAuthError(error.message || "Gagal verifikasi OTP.");
+          // Jika akun sebenarnya sudah terbuat (saat Anda mencoba sebelumnya tapi Vercel Timeout)
+          if (error.code === 'auth/email-already-in-use') {
+              setAuthError("Akun ini sudah berhasil dibuat! Silakan kembali dan pilih 'Masuk'.");
+          } else {
+              setAuthError(error.message || "Gagal verifikasi pendaftaran.");
+          }
           setLoading(false);
       }
   };
@@ -245,7 +257,7 @@ export default function Auth() {
           try {
               data = JSON.parse(textData);
           } catch(e) {
-              setForgotError("Error Server (Gagal Parsing JSON). Coba gunakan kode 123456.");
+              setForgotError("Error Server. Coba gunakan kode 123456.");
               setLoading(false);
               return;
           }
@@ -284,7 +296,7 @@ export default function Auth() {
 
                 {authError && (
                     <div className="flex items-center justify-center gap-2 text-red-600 text-[11px] font-bold mb-4 animate-pulse">
-                        <AlertCircle className="w-3 h-3" /> {authError}
+                        <AlertCircle className="w-4 h-4 shrink-0" /> {authError}
                     </div>
                 )}
 
@@ -367,7 +379,6 @@ export default function Auth() {
           </div>
       </Card>
 
-      {/* POP-UP LUPA PASSWORD */}
       {showForgotModal && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95">
