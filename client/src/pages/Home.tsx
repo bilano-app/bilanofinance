@@ -13,7 +13,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, ArrowRight, Lightbulb,
-  Bot, CheckCircle2, LifeBuoy, HelpCircle // 🚀 SEMUA IKON LENGKAP ADA DI SINI
+  Bot, CheckCircle2, HelpCircle, Compass // 🚀 Ikon Compass ditambahkan untuk Panduan
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -448,22 +448,22 @@ export default function Home() {
   return (
     <MobileLayout>
 
-      {/* 🚀 2 TOMBOL FLOATING ACTION BARU (PUSAT BANTUAN & PANDUAN) */}
+      {/* 🚀 2 TOMBOL FLOATING ACTION BARU (PUSAT BANTUAN & PANDUAN) DI SINI */}
       <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
-          {/* Tombol Pusat Bantuan */}
+          {/* Tombol Pusat Bantuan (Tanda Tanya, Posisi di Atas) */}
           <Link href="/help">
               <button className="w-12 h-12 bg-white text-rose-500 rounded-full shadow-lg border border-rose-100 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group relative">
-                  <LifeBuoy className="w-5 h-5 group-hover:animate-bounce" />
+                  <HelpCircle className="w-6 h-6 group-hover:animate-bounce" />
                   <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                       Pusat Bantuan
                   </span>
               </button>
           </Link>
 
-          {/* Tombol Panduan Fitur */}
+          {/* Tombol Panduan Fitur (Ikon Compass, Warna Teal, Posisi di Bawah) */}
           <Link href="/guide">
-              <button className="w-12 h-12 bg-indigo-600 text-white rounded-full shadow-lg shadow-indigo-200 flex items-center justify-center hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all group relative">
-                  <HelpCircle className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+              <button className="w-12 h-12 bg-teal-500 text-white rounded-full shadow-lg shadow-teal-200 flex items-center justify-center hover:bg-teal-600 hover:scale-105 active:scale-95 transition-all group relative">
+                  <Compass className="w-6 h-6 group-hover:rotate-12 transition-transform" />
                   <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                       Panduan Fitur
                   </span>
@@ -471,7 +471,6 @@ export default function Home() {
           </Link>
       </div>
 
-      {/* POP UP EKSKLUSIF UNTUK USER PRO */}
       {proFeatureModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-indigo-500/30">
@@ -496,7 +495,6 @@ export default function Home() {
           </div>
       )}
 
-      {/* POP UP FOMO UNTUK USER GRATISAN */}
       {fomoFeature && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
@@ -511,7 +509,6 @@ export default function Home() {
                       <span className="text-[11px] bg-slate-100 px-2 py-1 rounded-lg">"{fomoFeature.desc}"</span>
                   </p>
                   
-                  {/* 🚀 PERBAIKAN TEKS GARANSI HARGA TETAP */}
                   <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-6 text-left relative z-10 shadow-inner">
                       <div className="flex items-center gap-2 mb-2">
                           <AlertTriangle className="w-4 h-4 text-amber-600"/>
