@@ -13,7 +13,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, ArrowRight, Lightbulb,
-  Bot, CheckCircle2, HelpCircle, Notebook // 🚀 IKON BARU: Notebook untuk Panduan
+  Bot, CheckCircle2, HelpCircle, Notebook
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -448,7 +448,6 @@ export default function Home() {
   return (
     <MobileLayout>
 
-      {/* 🚀 2 TOMBOL FLOATING ACTION BARU YANG SUDAH DIPERMAK WARNA DAN IKONNYA */}
       <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
           {/* Tombol Pusat Bantuan (Kuning & Hijau Tua) */}
           <Link href="/help">
@@ -460,7 +459,7 @@ export default function Home() {
               </button>
           </Link>
 
-          {/* Tombol Panduan Fitur (Biru Langit & Cokelat, Gambar Buku Catatan Tertutup) */}
+          {/* Tombol Panduan Fitur (Biru Langit & Cokelat) */}
           <Link href="/guide">
               <button className="w-12 h-12 bg-sky-400 text-amber-900 rounded-full shadow-lg shadow-sky-200 flex items-center justify-center hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all group relative">
                   <Notebook className="w-6 h-6 group-hover:rotate-12 transition-transform" />

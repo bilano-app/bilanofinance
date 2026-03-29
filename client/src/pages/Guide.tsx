@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Card } from "@/components/UIComponents";
-import { BookOpen, Home, Wallet, TrendingDown, DollarSign, HandCoins, RefreshCcw, TrendingUp } from "lucide-react";
+import { BookOpen, Home, TrendingDown, DollarSign, HandCoins, RefreshCcw, TrendingUp } from "lucide-react"; 
 
 export default function Guide() {
   const [activeTab, setActiveTab] = useState(0);
@@ -41,7 +41,7 @@ export default function Guide() {
     <MobileLayout title="Panduan Fitur" showBack={true}>
       <div className="pt-4 pb-20 space-y-6">
           <div className="px-2">
-              <div className="bg-slate-900 rounded-[32px] p-6 text-white shadow-xl relative overflow-hidden flex items-center gap-4">
+              <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 rounded-[32px] p-6 text-white shadow-xl relative overflow-hidden flex items-center gap-4">
                   <div className="w-14 h-14 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md shrink-0">
                       <BookOpen className="w-7 h-7 text-indigo-300" />
                   </div>
@@ -55,14 +55,13 @@ export default function Guide() {
               </div>
           </div>
 
-          {/* TAB MENU MENYAMPING */}
           <div className="flex overflow-x-auto hide-scrollbar gap-3 px-2 pb-2">
               <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
               {guides.map((g, idx) => (
                   <button 
                       key={g.id}
                       onClick={() => setActiveTab(idx)}
-                      className={`flex items-center gap-2 px-4 py-3 rounded-full font-bold text-sm transition-all shrink-0 shadow-sm ${activeTab === idx ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                      className={`flex items-center gap-2 px-4 py-3 rounded-full font-bold text-sm transition-all shrink-0 shadow-sm ${activeTab === idx ? 'bg-blue-600 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
                   >
                       <g.icon className={`w-4 h-4 ${activeTab === idx ? 'text-white' : g.color}`} />
                       {g.title}
@@ -70,7 +69,6 @@ export default function Guide() {
               ))}
           </div>
 
-          {/* KONTEN PENJELASAN */}
           <div className="px-2 animate-in fade-in slide-in-from-right-4 duration-300">
               <Card className="rounded-[32px] p-6 shadow-xl border-none bg-white relative overflow-hidden">
                   <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 ${guides[activeTab].bg}`}>
