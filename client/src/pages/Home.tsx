@@ -68,7 +68,6 @@ export default function Home() {
 
   const [showProWelcome, setShowProWelcome] = useState(false);
   
-  // 🚀 STATE BARU UNTUK BUBBLE CHAT (ONBOARDING)
   const [showGuideTooltip, setShowGuideTooltip] = useState(false);
   
   const [fomoFeature, setFomoFeature] = useState<{title: string, desc: string} | null>(null);
@@ -139,12 +138,10 @@ export default function Home() {
       };
   }, [isAnyDataLoading]);
 
-  // 🚀 LOGIKA UNTUK MEMUNCULKAN BUBBLE CHAT PERTAMA KALI SAJA
   useEffect(() => {
       if (rawEmail && !isAnyDataLoading && user) {
           const tooltipKey = `bilano_guide_tooltip_seen_${rawEmail}`;
           if (!localStorage.getItem(tooltipKey)) {
-              // Beri sedikit jeda 1.5 detik setelah loading selesai agar efeknya natural
               const timer = setTimeout(() => setShowGuideTooltip(true), 1500);
               return () => clearTimeout(timer);
           }
@@ -470,20 +467,23 @@ export default function Home() {
 
       <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
           
-          {/* 🚀 BUBBLE CHAT PETUNJUK ARAH (ONBOARDING) */}
+          {/* 🚀 BUBBLE CHAT PETUNJUK ARAH (NEO-BRUTALISM STYLE) */}
           {showGuideTooltip && (
-              <div className="absolute right-[60px] bottom-0 w-[260px] bg-slate-900 text-white p-4 rounded-[20px] shadow-2xl animate-in fade-in zoom-in slide-in-from-right-4 duration-500">
-                  <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-white transition-colors rounded-full hover:bg-white/10">
+              <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-slate-900 p-4 rounded-[20px] shadow-[6px_6px_0px_#0f172a] animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
+                  <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-full hover:bg-slate-100">
                       <X className="w-4 h-4" />
                   </button>
-                  <p className="text-[13px] font-black mb-1.5 text-amber-400 flex items-center gap-1.5">
+                  <p className="text-[13px] font-black mb-1.5 text-slate-900 flex items-center gap-1.5">
                       👋 Bingung Mulai dari Mana?
                   </p>
-                  <p className="text-[11px] text-slate-300 leading-relaxed font-medium pr-2">
+                  <p className="text-[11px] text-slate-600 leading-relaxed font-bold pr-2">
                       Baru pertama kali pakai BILANO? Klik buku pintar ini untuk melihat panduan lengkap cara memaksimalkan seluruh fitur canggih kami!
                   </p>
-                  {/* Segitiga Panah Menunjuk ke Kanan (Ke arah tombol Guide) */}
-                  <div className="absolute bottom-4 -right-[6px] w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[8px] border-l-slate-900"></div>
+                  {/* Segitiga Panah Neo-Brutalism */}
+                  {/* Garis luar (Hitam) */}
+                  <div className="absolute bottom-[14px] -right-[10px] w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[10px] border-l-slate-900"></div>
+                  {/* Isi Panah (Putih) */}
+                  <div className="absolute bottom-[16px] -right-[7px] w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[8px] border-l-white"></div>
               </div>
           )}
 
