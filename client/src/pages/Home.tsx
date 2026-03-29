@@ -68,6 +68,9 @@ export default function Home() {
 
   const [showProWelcome, setShowProWelcome] = useState(false);
   
+  // 🚀 STATE BARU UNTUK BUBBLE CHAT (ONBOARDING)
+  const [showGuideTooltip, setShowGuideTooltip] = useState(false);
+  
   const [fomoFeature, setFomoFeature] = useState<{title: string, desc: string} | null>(null);
   const [proFeatureModal, setProFeatureModal] = useState<{title: string, desc: string} | null>(null);
 
@@ -135,6 +138,23 @@ export default function Home() {
           clearInterval(intervalTips);
       };
   }, [isAnyDataLoading]);
+
+  // 🚀 LOGIKA UNTUK MEMUNCULKAN BUBBLE CHAT PERTAMA KALI SAJA
+  useEffect(() => {
+      if (rawEmail && !isAnyDataLoading && user) {
+          const tooltipKey = `bilano_guide_tooltip_seen_${rawEmail}`;
+          if (!localStorage.getItem(tooltipKey)) {
+              // Beri sedikit jeda 1.5 detik setelah loading selesai agar efeknya natural
+              const timer = setTimeout(() => setShowGuideTooltip(true), 1500);
+              return () => clearTimeout(timer);
+          }
+      }
+  }, [rawEmail, isAnyDataLoading, user]);
+
+  const dismissGuideTooltip = () => {
+      setShowGuideTooltip(false);
+      localStorage.setItem(`bilano_guide_tooltip_seen_${rawEmail}`, "true");
+  };
 
   const handlePinUnlock = (num: string) => {
       setPinError(false);
@@ -449,6 +469,24 @@ export default function Home() {
     <MobileLayout>
 
       <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
+          
+          {/* 🚀 BUBBLE CHAT PETUNJUK ARAH (ONBOARDING) */}
+          {showGuideTooltip && (
+              <div className="absolute right-[60px] bottom-0 w-[260px] bg-slate-900 text-white p-4 rounded-[20px] shadow-2xl animate-in fade-in zoom-in slide-in-from-right-4 duration-500">
+                  <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-white transition-colors rounded-full hover:bg-white/10">
+                      <X className="w-4 h-4" />
+                  </button>
+                  <p className="text-[13px] font-black mb-1.5 text-amber-400 flex items-center gap-1.5">
+                      👋 Bingung Mulai dari Mana?
+                  </p>
+                  <p className="text-[11px] text-slate-300 leading-relaxed font-medium pr-2">
+                      Baru pertama kali pakai BILANO? Klik buku pintar ini untuk melihat panduan lengkap cara memaksimalkan seluruh fitur canggih kami!
+                  </p>
+                  {/* Segitiga Panah Menunjuk ke Kanan (Ke arah tombol Guide) */}
+                  <div className="absolute bottom-4 -right-[6px] w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[8px] border-l-slate-900"></div>
+              </div>
+          )}
+
           {/* Tombol Pusat Bantuan (Kuning & Hijau Tua) */}
           <Link href="/help">
               <button className="w-12 h-12 bg-yellow-400 text-emerald-900 rounded-full shadow-lg shadow-yellow-200 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group relative">
@@ -461,7 +499,7 @@ export default function Home() {
 
           {/* Tombol Panduan Fitur (Biru Langit & Cokelat) */}
           <Link href="/guide">
-              <button className="w-12 h-12 bg-sky-400 text-amber-900 rounded-full shadow-lg shadow-sky-200 flex items-center justify-center hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all group relative">
+              <button onClick={dismissGuideTooltip} className="w-12 h-12 bg-sky-400 text-amber-900 rounded-full shadow-lg shadow-sky-200 flex items-center justify-center hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all group relative">
                   <Notebook className="w-6 h-6 group-hover:rotate-12 transition-transform" />
                   <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                       Panduan Fitur
