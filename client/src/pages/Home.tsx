@@ -13,7 +13,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, ArrowRight, Lightbulb,
-  Bot, CheckCircle2, HelpCircle, Compass // 🚀 Ikon Compass ditambahkan untuk Panduan
+  Bot, CheckCircle2, HelpCircle, Notebook // 🚀 IKON BARU: Notebook untuk Panduan
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -448,11 +448,11 @@ export default function Home() {
   return (
     <MobileLayout>
 
-      {/* 🚀 2 TOMBOL FLOATING ACTION BARU (PUSAT BANTUAN & PANDUAN) DI SINI */}
+      {/* 🚀 2 TOMBOL FLOATING ACTION BARU YANG SUDAH DIPERMAK WARNA DAN IKONNYA */}
       <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
-          {/* Tombol Pusat Bantuan (Tanda Tanya, Posisi di Atas) */}
+          {/* Tombol Pusat Bantuan (Kuning & Hijau Tua) */}
           <Link href="/help">
-              <button className="w-12 h-12 bg-white text-rose-500 rounded-full shadow-lg border border-rose-100 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group relative">
+              <button className="w-12 h-12 bg-yellow-400 text-emerald-900 rounded-full shadow-lg shadow-yellow-200 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group relative">
                   <HelpCircle className="w-6 h-6 group-hover:animate-bounce" />
                   <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                       Pusat Bantuan
@@ -460,10 +460,10 @@ export default function Home() {
               </button>
           </Link>
 
-          {/* Tombol Panduan Fitur (Ikon Compass, Warna Teal, Posisi di Bawah) */}
+          {/* Tombol Panduan Fitur (Biru Langit & Cokelat, Gambar Buku Catatan Tertutup) */}
           <Link href="/guide">
-              <button className="w-12 h-12 bg-teal-500 text-white rounded-full shadow-lg shadow-teal-200 flex items-center justify-center hover:bg-teal-600 hover:scale-105 active:scale-95 transition-all group relative">
-                  <Compass className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+              <button className="w-12 h-12 bg-sky-400 text-amber-900 rounded-full shadow-lg shadow-sky-200 flex items-center justify-center hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all group relative">
+                  <Notebook className="w-6 h-6 group-hover:rotate-12 transition-transform" />
                   <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                       Panduan Fitur
                   </span>
