@@ -79,6 +79,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   try { await db.execute(sql`ALTER TABLE users ADD COLUMN onesignal_id TEXT;`); } catch (e) { }
   try { await db.execute(sql`ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT NOW();`); } catch (e) {}
+  
+  // 🚀 TAMBAHAN: BIKIN TABEL DATABASE PERMANEN UNTUK TIKET BANTUAN
+  try { 
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (
+          id VARCHAR(255) PRIMARY KEY, 
+          user_id INTEGER, 
+          email TEXT, 
+          name TEXT, 
+          subject TEXT, 
+          message TEXT, 
+          status TEXT, 
+          date TIMESTAMP DEFAULT NOW()
+      );`); 
+  } catch (e) { console.error("Info: Tabel tiket sudah ada."); }
 
   let cachedRates: Record<string, number> = {
       "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -897,6 +911,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // ====================================================================
+  // 🚀 ADMIN ROUTES & HELP CENTER
+  // ====================================================================
   const isAdminValid = (email: string) => {
       if (!email) return false;
       return ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(email.toLowerCase());
@@ -928,6 +945,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       await storage.updateUserProStatus(targetId, isPro, validUntil);
       res.json({ success: true });
+  });
+
+  // 🚀 TIKET BANTUAN DI BAWAH SINI
+  app.post("/api/help/submit", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+          
+          const { subject, message } = req.body;
+          const ticketId = `TCK-${Date.now()}`;
+          const name = user.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Pengguna BILANO';
+          
+          try {
+              await db.execute(sql`INSERT INTO help_tickets (id, user_id, email, name, subject, message, status) VALUES (${ticketId}, ${user.id}, ${user.email}, ${name}, ${subject}, ${message}, 'Menunggu Balasan')`);
+          } catch (dbErr) {
+              console.error("Gagal menyimpan ke DB:", dbErr);
+          }
+          
+          try {
+              await transporter.sendMail({
+                  from: `"Sistem Bantuan BILANO" <${process.env.EMAIL_USER}>`,
+                  to: process.env.EMAIL_USER,
+                  subject: `[TIKET BARU] ${subject} - dari ${user.email}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px;">
+                      <h2 style="color: #4f46e5;">Tiket Bantuan Baru #${ticketId}</h2>
+                      <p><strong>Pengirim:</strong> ${name} (${user.email})</p>
+                      <p><strong>Subjek:</strong> ${subject}</p>
+                      <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                          ${message}
+                      </div>
+                      <p style="margin-top:20px; font-size:12px; color:#666;">Silakan balas dari dashboard Admin Premium.</p>
+                    </div>
+                  `
+              });
+          } catch(e) {}
+          
+          res.json({ success: true, ticketId });
+      } catch (error) {
+          res.status(500).json({ error: "Gagal mengirimkan laporan." });
+      }
+  });
+
+  app.get("/api/admin/help", async (req, res) => {
+      const email = req.headers["x-user-email"] as string;
+      if (!isAdminValid(email)) return res.status(403).json({ error: "Penyusup Ditolak" });
+      
+      try {
+          const result = await db.execute(sql`SELECT * FROM help_tickets ORDER BY date DESC`);
+          const rows = Array.isArray(result) ? result : (result as any).rows || [];
+          res.json(rows);
+      } catch (e) {
+          res.json([]);
+      }
+  });
+
+  app.post("/api/admin/help/reply", async (req, res) => {
+      const emailAdmin = req.headers["x-user-email"] as string;
+      if (!isAdminValid(emailAdmin)) return res.status(403).json({ error: "Penyusup Ditolak" });
+      
+      const { ticketId, userEmail, subject, replyMessage } = req.body;
+      
+      try {
+          await transporter.sendMail({
+              from: `"Tim Bantuan BILANO" <${process.env.EMAIL_USER}>`,
+              to: userEmail,
+              subject: `Re: [${ticketId}] ${subject}`,
+              html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 600px; margin: auto;">
+                  <img src="https://bilanofinance-dvbi.vercel.app/Bilano_horiz_rbg.png" width="120" style="margin-bottom: 20px;" />
+                  <h2 style="color: #4f46e5; margin-bottom: 5px;">Balasan Tim Bantuan BILANO</h2>
+                  <p style="color: #6b7280; font-size: 12px; margin-top: 0;">Tiket: ${ticketId}</p>
+                  
+                  <div style="font-size: 14px; color: #1f2937; line-height: 1.6; margin-top: 20px;">
+                      ${replyMessage.replace(/\n/g, '<br/>')}
+                  </div>
+                  
+                  <hr style="border:none; border-top: 1px dashed #e5e7eb; margin: 30px 0;" />
+                  <p style="font-size: 11px; color: #9ca3af; text-align: center;">Pesan ini dikirim otomatis oleh sistem pusat bantuan BILANO. Jika ada pertanyaan, buat tiket baru di aplikasi.</p>
+                </div>
+              `
+          });
+          
+          try {
+              await db.execute(sql`DELETE FROM help_tickets WHERE id = ${ticketId}`);
+          } catch(e) {}
+          
+          res.json({ success: true });
+      } catch (error) {
+          res.status(500).json({ error: "Gagal mengirimkan email balasan." });
+      }
   });
 
   const httpServer = createServer(app);
