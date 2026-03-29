@@ -88,6 +88,8 @@ import Performance from "@/pages/Performance";
 import Paywall from "@/pages/Paywall";
 import Debts from "@/pages/Debts"; 
 import SmartScan from "@/pages/SmartScan"; 
+import Help from "@/pages/Help";
+import Guide from "@/pages/Guide";
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -233,6 +235,8 @@ function Router() {
         <Route path="/scan" component={SmartScan} />
         <Route path="/paywall" component={Paywall} />
         <Route path="/security" component={Security} />
+        <Route path="/help" component={Help} />
+        <Route path="/guide" component={Guide} />
         <Route component={NotFound} />
       </Switch>
 

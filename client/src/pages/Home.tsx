@@ -13,7 +13,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, ArrowRight, Lightbulb,
-  Bot 
+  Bot, CheckCircle2, LifeBuoy, HelpCircle // 🚀 SEMUA IKON LENGKAP ADA DI SINI
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -28,7 +28,7 @@ const FINANCIAL_TIPS = [
     "Investasi terbaik yang bisa Anda lakukan adalah investasi pada diri Anda sendiri.",
     "Dana Darurat adalah payung Anda saat badai finansial turun tiba-tiba.",
     "Diversifikasi: Jangan pernah menaruh semua telurmu dalam satu keranjang.",
-    "Hutang konsumripsi merampok masa depanmu, hutang produktif membangun masa depanmu.",
+    "Hutang konsumtif merampok masa depanmu, hutang produktif membangun masa depanmu.",
     "Kekayaan sejati bukanlah seberapa banyak uang yang dihasilkan, tapi seberapa banyak yang disimpan.",
     "Waktu di pasar saham jauh lebih penting daripada sekadar menebak waktu pasar (Time in the market > Timing the market).",
     "Pemasukan yang besar tanpa manajemen yang baik hanya akan menghasilkan kebangkrutan yang tertunda.",
@@ -448,6 +448,30 @@ export default function Home() {
   return (
     <MobileLayout>
 
+      {/* 🚀 2 TOMBOL FLOATING ACTION BARU (PUSAT BANTUAN & PANDUAN) */}
+      <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
+          {/* Tombol Pusat Bantuan */}
+          <Link href="/help">
+              <button className="w-12 h-12 bg-white text-rose-500 rounded-full shadow-lg border border-rose-100 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group relative">
+                  <LifeBuoy className="w-5 h-5 group-hover:animate-bounce" />
+                  <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                      Pusat Bantuan
+                  </span>
+              </button>
+          </Link>
+
+          {/* Tombol Panduan Fitur */}
+          <Link href="/guide">
+              <button className="w-12 h-12 bg-indigo-600 text-white rounded-full shadow-lg shadow-indigo-200 flex items-center justify-center hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all group relative">
+                  <HelpCircle className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                  <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                      Panduan Fitur
+                  </span>
+              </button>
+          </Link>
+      </div>
+
+      {/* POP UP EKSKLUSIF UNTUK USER PRO */}
       {proFeatureModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-indigo-500/30">
@@ -472,6 +496,7 @@ export default function Home() {
           </div>
       )}
 
+      {/* POP UP FOMO UNTUK USER GRATISAN */}
       {fomoFeature && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
@@ -544,20 +569,14 @@ export default function Home() {
                     <div className="w-20 h-20 mx-auto bg-gradient-to-tr from-amber-400 to-yellow-300 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(251,191,36,0.4)] animate-bounce">
                         <Crown className="w-10 h-10 text-amber-950" />
                     </div>
-                    
                     <h2 className="text-2xl font-black text-white mb-2 tracking-tight">
                         Selamat Datang di <br/>
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-500">BILANO PRO!</span> 🎉
                     </h2>
-                    
                     <p className="text-indigo-200 text-sm mb-8 leading-relaxed font-medium px-2">
                         Luar biasa! Seluruh fitur eksklusif, analisa tanpa batas, laporan premium, dan asisten AI kini sepenuhnya terbuka untuk Anda.
                     </p>
-
-                    <Button 
-                        onClick={handleTutupWelcomePro}
-                        className="w-full h-14 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 font-black text-[15px] rounded-full shadow-xl shadow-amber-500/20 active:scale-95 transition-transform"
-                    >
+                    <Button onClick={handleTutupWelcomePro} className="w-full h-14 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 font-black text-[15px] rounded-full shadow-xl shadow-amber-500/20 active:scale-95 transition-transform">
                         AYO MULAI SEKARANG! 🚀
                     </Button>
                 </div>
