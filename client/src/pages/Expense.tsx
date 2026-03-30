@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useUser, useTarget, useAddTransaction, useTransactions } from "@/hooks/use-finance"; 
 import { MobileLayout } from "@/components/Layout";
-import { Card, Button, Input } from "@/components/UIComponents"; 
-import { Wallet, AlertTriangle, ShieldCheck, X, AlertOctagon, Loader2, HandCoins } from "lucide-react"; 
+import { Button, Input } from "@/components/UIComponents"; 
+import { Wallet, AlertOctagon, Loader2, HandCoins, X } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
 
 export default function Expense() {
   const { toast } = useToast();
@@ -24,7 +23,6 @@ export default function Expense() {
 
   const [paymentMode, setPaymentMode] = useState<'cash' | 'hutang'>('cash');
   const [debtName, setDebtName] = useState("");
-  // 🚀 FIX: STATE UNTUK TENGGAT WAKTU DITAMBAHKAN
   const [dueDate, setDueDate] = useState("");
 
   const formatNumber = (value: string) => value.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -36,7 +34,6 @@ export default function Expense() {
   const currentMonthIdx = now.getMonth(); 
   const currentYear = now.getFullYear();
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   let remainingBudget = 0;     
   let budgetLabel = "Batas Bulan Ini";
@@ -76,7 +73,6 @@ export default function Expense() {
           return;
       }
 
-      // 🚀 FIX: VALIDASI TENGGAT WAKTU WAJIB DIISI
       if (paymentMode === 'hutang' && (!debtName || !dueDate)) { 
           toast({ title: "Error", description: "Isi nama pihak dan tenggat waktu!", variant: "destructive" }); 
           return; 
@@ -115,21 +111,12 @@ export default function Expense() {
                   try {
                       await fetch("/api/target/penalty", {
                           method: "PATCH",
-                          headers: { 
-                              "Content-Type": "application/json",
-                              "x-user-email": currentUserEmail 
-                          },
+                          headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
                           body: JSON.stringify({ amount: emergencyDetails.deficit })
                       });
-                      toast({ title: "Dana Darurat Dipakai", description: "Budget bulan depan telah dikurangi." });
-                  } catch (err) {
-                      console.error("Gagal update penalti, tapi transaksi tersimpan.", err);
-                  }
-              } else {
-                  toast({ title: "Tercatat!", description: "Pengeluaran berhasil disimpan." });
+                  } catch (err) {}
               }
           } else {
-              // 🚀 FIX: dueDate DIKIRIM KE API
               await fetch("/api/debts", {
                   method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
                   body: JSON.stringify({ 
@@ -141,14 +128,14 @@ export default function Expense() {
                       isFromTransaction: true 
                   })
               });
+              // 🚀 FIX: TUKAR JENIS KE HUTANG_RECORD AGAR BAKI TUNAI TAK BERKURANG
               await addTransactionMutation.mutateAsync({ 
-                  type: 'expense', 
+                  type: 'hutang_record', 
                   amount: spendingAmount, 
                   category: `Hutang: ${category}`, 
                   description: `Belum Dibayar - ${debtName}`, 
                   date: new Date().toISOString() 
               });
-              toast({ title: "Tercatat!", description: "Hutang pengeluaran berhasil disimpan." });
           }
 
           setShowEmergencyModal(false);
@@ -158,7 +145,6 @@ export default function Expense() {
           toast({ title: "Gagal", description: "Terjadi kesalahan sistem.", variant: "destructive" });
       } finally {
           setIsSubmitting(false);
-          setShowEmergencyModal(false);
       }
   };
 
@@ -172,12 +158,8 @@ export default function Expense() {
 
   if (isUserLoading || isTargetLoading || isTxLoading) {
       return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
-              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
-                  <Loader2 className="w-4 h-4 animate-spin"/>
-                  <span>Memuat Data...</span>
-              </div>
+          <div className="min-h-screen flex flex-col items-center justify-center">
+              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin"/>
           </div>
       );
   }
@@ -225,11 +207,7 @@ export default function Expense() {
                             <Button variant="outline" onClick={() => setShowEmergencyModal(false)} className="flex-1 rounded-full border-slate-200">
                                 Batalkan
                             </Button>
-                            <Button 
-                                onClick={() => handleSubmit(true)} 
-                                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full shadow-lg shadow-rose-200"
-                                disabled={isSubmitting}
-                            >
+                            <Button onClick={() => handleSubmit(true)} className="flex-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full shadow-lg shadow-rose-200" disabled={isSubmitting}>
                                 {isSubmitting ? "Memproses..." : "Pakai Darurat"}
                             </Button>
                         </div>
@@ -264,7 +242,6 @@ export default function Expense() {
         </div>
 
         <div className="bg-white p-6 rounded-[32px] space-y-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
-            
             <div className="flex bg-slate-100 p-1.5 rounded-xl">
                 <button onClick={() => setPaymentMode('cash')} className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${paymentMode === 'cash' ? 'bg-rose-500 text-white shadow' : 'text-slate-500'}`}>TUNAI (Cash)</button>
                 <button onClick={() => setPaymentMode('hutang')} className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${paymentMode === 'hutang' ? 'bg-amber-500 text-white shadow' : 'text-slate-500'}`}><HandCoins className="w-4 h-4"/> HUTANG (Ngutang Dulu)</button>
@@ -284,7 +261,6 @@ export default function Expense() {
                         <label className="text-[11px] uppercase tracking-widest font-bold text-amber-500 block mb-2 ml-1">Ngutang Ke Siapa?</label>
                         <Input placeholder="Nama Toko / Teman" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-14 bg-amber-50 border-transparent focus:border-amber-400 rounded-[16px] mb-3"/>
                         
-                        {/* 🚀 FIX: KOLOM TENGGAT WAKTU DITAMBAHKAN */}
                         <label className="text-[11px] uppercase tracking-widest font-bold text-amber-500 block mb-2 ml-1">Tenggat Waktu (Wajib)</label>
                         <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-14 bg-amber-50 border-transparent focus:border-amber-400 rounded-[16px] text-sm"/>
                     </div>

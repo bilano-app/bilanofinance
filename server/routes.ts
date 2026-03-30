@@ -120,8 +120,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return false;
   };
 
-  const otpCache = new Map<string, string>();
-
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
@@ -418,7 +416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 TRANSACTIONS ROUTES
+  // 🚀 TRANSACTIONS ROUTES (LOGIK SALDO KAS DIPERKETAT)
   // ====================================================================
   app.get("/api/transactions", async (req, res) => { 
       const user = await getUser(req); 
@@ -432,8 +430,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const tx = await storage.createTransaction(user!.id, { ...parsed.data, userId: user!.id } as any); 
       let newBalance = user!.cashBalance; 
-      if (parsed.data.type === 'income') newBalance += parsed.data.amount; else newBalance -= parsed.data.amount; 
-      await storage.updateUserBalance(user!.id, newBalance); 
+      
+      // 🚀 PERBAIKAN FATAL: Hanya ubah saldo jika transaksi benar-benar melibatkan TUNAI
+      if (parsed.data.type === 'income') {
+          newBalance += parsed.data.amount; 
+      } else if (parsed.data.type === 'expense') {
+          newBalance -= parsed.data.amount; 
+      }
+      // Jika type adalah 'piutang_record' atau 'hutang_record', SALDO KAS TIDAK BERUBAH!
+      
+      if (newBalance !== user!.cashBalance) {
+          await storage.updateUserBalance(user!.id, newBalance); 
+      }
       res.json(tx); 
   });
 
@@ -479,15 +487,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!txToDelete) return res.status(404).json({ error: "Data transaksi tidak ditemukan" });
 
           let newBalance = user!.cashBalance;
-          const isIncome = txToDelete.type.includes('income') || txToDelete.type.includes('receive') || txToDelete.type === 'debt_borrow' || txToDelete.type === 'invest_sell' || txToDelete.type === 'forex_sell';
+          
+          // 🚀 PERBAIKAN LOGIKA DELETE (Hanya kembalikan saldo jika transaksi asal melibatkan TUNAI)
+          if (txToDelete.type === 'income') newBalance -= txToDelete.amount;
+          else if (txToDelete.type === 'expense') newBalance += txToDelete.amount;
+          else if (txToDelete.type === 'invest_buy') newBalance += txToDelete.amount; 
+          else if (txToDelete.type === 'invest_sell') newBalance -= txToDelete.amount; 
+          else if (txToDelete.type === 'forex_buy') newBalance += txToDelete.amount;
+          else if (txToDelete.type === 'forex_sell') newBalance -= txToDelete.amount;
+          else if (txToDelete.type === 'debt_borrow') newBalance -= txToDelete.amount;
+          else if (txToDelete.type === 'debt_lend') newBalance += txToDelete.amount;
+          else if (txToDelete.type === 'debt_receive') newBalance -= txToDelete.amount;
+          else if (txToDelete.type === 'debt_pay') newBalance += txToDelete.amount;
+          // piutang_record dan hutang_record diabaikan! (Tidak mengubah saldo)
 
-          if (isIncome) {
-              newBalance -= txToDelete.amount; 
-          } else {
-              newBalance += txToDelete.amount; 
+          if (newBalance !== user!.cashBalance) {
+              await storage.updateUserBalance(user!.id, newBalance);
           }
-
-          await storage.updateUserBalance(user!.id, newBalance);
           if (typeof storage.deleteTransaction === 'function') {
               await storage.deleteTransaction(txId);
           }

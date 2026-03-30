@@ -16,13 +16,11 @@ export default function Income() {
   
   const [paymentMode, setPaymentMode] = useState<'cash' | 'piutang'>('cash');
   const [debtName, setDebtName] = useState("");
-  // 🚀 FIX: STATE UNTUK TENGGAT WAKTU DITAMBAHKAN
   const [dueDate, setDueDate] = useState("");
 
   const formatRp = (val: number) => "Rp " + val.toLocaleString("id-ID");
   const currentCash = user?.cashBalance || 0;
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, "");
@@ -42,7 +40,6 @@ export default function Income() {
         return;
     }
     
-    // 🚀 FIX: VALIDASI TENGGAT WAKTU WAJIB DIISI
     if (paymentMode === 'piutang' && (!debtName || !dueDate)) { 
         alert("Masukkan nama pihak dan tenggat waktu piutang"); 
         return; 
@@ -59,7 +56,6 @@ export default function Income() {
               date: new Date().toISOString() 
           });
       } else {
-          // 🚀 FIX: dueDate DIKIRIM KE API
           await fetch("/api/debts", {
               method: "POST", 
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
@@ -72,9 +68,10 @@ export default function Income() {
                   isFromTransaction: true
               })
           });
+          // 🚀 FIX: TUKAR JENIS (TYPE) KE PIUTANG_RECORD AGAR SALDO TAK BERTAMBAH
           await addTransaction.mutateAsync({ 
               amount: cleanAmount, 
-              type: "income", 
+              type: "piutang_record", 
               category: `Piutang: ${category}`, 
               description: `Belum Dibayar - ${debtName}`, 
               date: new Date().toISOString() 
@@ -112,7 +109,6 @@ export default function Income() {
         </div>
 
         <div className="bg-white p-6 rounded-[32px] space-y-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
-            
             <div className="flex bg-slate-100 p-1.5 rounded-xl">
                 <button onClick={() => setPaymentMode('cash')} className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${paymentMode === 'cash' ? 'bg-emerald-500 text-white shadow' : 'text-slate-500'}`}>TUNAI (Cash)</button>
                 <button onClick={() => setPaymentMode('piutang')} className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all ${paymentMode === 'piutang' ? 'bg-amber-500 text-white shadow' : 'text-slate-500'}`}><HandCoins className="w-4 h-4"/> PIUTANG (Belum Dibayar)</button>
@@ -132,7 +128,6 @@ export default function Income() {
                       <label className="text-[11px] uppercase tracking-widest font-bold text-amber-500 block mb-2 ml-1">Ditagih Ke Siapa?</label>
                       <Input placeholder="Nama Klien / Pihak" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-14 bg-amber-50 border-transparent focus:border-amber-400 rounded-[16px] mb-3"/>
                       
-                      {/* 🚀 FIX: KOLOM TENGGAT WAKTU DITAMBAHKAN */}
                       <label className="text-[11px] uppercase tracking-widest font-bold text-amber-500 block mb-2 ml-1">Tenggat Waktu (Wajib)</label>
                       <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-14 bg-amber-50 border-transparent focus:border-amber-400 rounded-[16px] text-sm"/>
                   </div>
@@ -154,7 +149,6 @@ export default function Income() {
                   className="w-full bg-slate-50 border border-transparent rounded-[16px] px-4 py-4 outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all text-sm min-h-[100px] resize-none"
                 />
               </div>
-
             </div>
 
             <Button 
