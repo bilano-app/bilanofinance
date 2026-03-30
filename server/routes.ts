@@ -143,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // ====================================================================
-  // 🚀 AUTH & OTP ROUTES (SISTEM NORMAL PRODUCTION)
+  // 🚀 AUTH & OTP ROUTES (SISTEM DATABASE PERSISTENT & DAUR ULANG)
   // ====================================================================
   app.post("/api/auth/check-email", async (req, res) => {
       if (!firebaseAdminInitialized) return res.status(200).json({ adminReady: false, exists: true }); 
@@ -161,16 +161,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/send-otp", async (req, res) => {
       const { email } = req.body;
-      const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
-      
+      let otp = "";
+
       try {
-          // 🚀 SIMPAN KE DATABASE POSTGRESQL (BUKAN MEMORI SEMENTARA)
-          await db.execute(sql`
-              INSERT INTO otp_sessions (email, code, created_at)
-              VALUES (${email}, ${otp}, NOW())
-              ON CONFLICT (email)
-              DO UPDATE SET code = ${otp}, created_at = NOW()
-          `);
+          // 🚀 1. CEK DATABASE: APAKAH ADA OTP YANG MASIH HIDUP? (Anti-Bentrok)
+          const existing = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`);
+          const rows = Array.isArray(existing) ? existing : (existing as any).rows || [];
+          
+          if (rows.length > 0) {
+              const createdAt = new Date(rows[0].created_at).getTime();
+              const now = Date.now();
+              // Jika umur OTP kurang dari 5 menit (300000 ms), DAUR ULANG (REUSE)!
+              if (now - createdAt < 300000) {
+                  otp = rows[0].code;
+              }
+          }
+
+          // 🚀 2. JIKA KOSONG / KADALUARSA, BARU BIKIN YANG BARU
+          if (!otp) {
+              otp = Math.floor(100000 + Math.random() * 900000).toString(); 
+              await db.execute(sql`
+                  INSERT INTO otp_sessions (email, code, created_at)
+                  VALUES (LOWER(TRIM(${email})), ${otp}, NOW())
+                  ON CONFLICT (email)
+                  DO UPDATE SET code = ${otp}, created_at = NOW()
+              `);
+          }
 
           const mailOptions = {
               from: `"BILANO Finance" <${process.env.EMAIL_USER}>`,
@@ -180,7 +196,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
 
           const sendPromise = transporter.sendMail(mailOptions);
-          // 🚀 WAKTU TIMEOUT DIPERPANJANG JADI 15 DETIK AGAR TIDAK ERROR
           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP Timeout')), 15000));
           
           await Promise.race([sendPromise, timeoutPromise]);
@@ -200,16 +215,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Email ini belum terdaftar di aplikasi kami." });
       }
 
-      const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
+      let otp = "";
       
       try {
-          // 🚀 SIMPAN KE DATABASE POSTGRESQL
-          await db.execute(sql`
-              INSERT INTO otp_sessions (email, code, created_at)
-              VALUES (${email}, ${otp}, NOW())
-              ON CONFLICT (email)
-              DO UPDATE SET code = ${otp}, created_at = NOW()
-          `);
+          // 🚀 1. DAUR ULANG OTP RESET JUGA JIKA MASIH ADA
+          const existing = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`);
+          const rows = Array.isArray(existing) ? existing : (existing as any).rows || [];
+          
+          if (rows.length > 0) {
+              const createdAt = new Date(rows[0].created_at).getTime();
+              const now = Date.now();
+              if (now - createdAt < 300000) {
+                  otp = rows[0].code;
+              }
+          }
+
+          if (!otp) {
+              otp = Math.floor(100000 + Math.random() * 900000).toString(); 
+              await db.execute(sql`
+                  INSERT INTO otp_sessions (email, code, created_at)
+                  VALUES (LOWER(TRIM(${email})), ${otp}, NOW())
+                  ON CONFLICT (email)
+                  DO UPDATE SET code = ${otp}, created_at = NOW()
+              `);
+          }
 
           const mailOptions = {
               from: `"BILANO Security" <${process.env.EMAIL_USER}>`,
@@ -219,7 +248,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
 
           const sendPromise = transporter.sendMail(mailOptions);
-          // 🚀 TIMEOUT 15 DETIK
           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP Timeout')), 15000));
           
           await Promise.race([sendPromise, timeoutPromise]);
@@ -237,19 +265,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: "Password baru minimal 6 karakter!" });
 
       try {
-          // 🚀 CEK DARI DATABASE
-          const result = await db.execute(sql`SELECT code FROM otp_sessions WHERE email = ${email}`);
+          const result = await db.execute(sql`SELECT code FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`);
           const rows = Array.isArray(result) ? result : (result as any).rows || [];
           
-          if (rows.length === 0 || rows[0].code !== code) {
+          if (rows.length === 0 || rows[0].code.trim() !== code.trim()) {
               return res.status(400).json({ error: "Kode OTP Salah atau Kadaluarsa!" });
           }
 
           const userRecord = await admin.auth().getUserByEmail(email);
           await admin.auth().updateUser(userRecord.uid, { password: newPassword });
           
-          // Hapus OTP setelah sukses
-          await db.execute(sql`DELETE FROM otp_sessions WHERE email = ${email}`); 
+          await db.execute(sql`DELETE FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`); 
           res.status(200).json({ success: true, message: "Password berhasil diubah" });
       } catch (error: any) {
           res.status(500).json({ error: "Gagal mengganti password: " + error.message });
@@ -259,12 +285,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/verify-otp", async (req, res) => {
       const { email, code } = req.body;
       try {
-          // 🚀 CEK DARI DATABASE
-          const result = await db.execute(sql`SELECT code FROM otp_sessions WHERE email = ${email}`);
+          // 🚀 LOGIKA PENGECEKAN KETAT & ANTI-SPASI
+          const result = await db.execute(sql`SELECT code FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`);
           const rows = Array.isArray(result) ? result : (result as any).rows || [];
           
-          if (rows.length > 0 && rows[0].code === code) {
-              await db.execute(sql`DELETE FROM otp_sessions WHERE email = ${email}`);
+          if (rows.length > 0 && rows[0].code.trim() === code.trim()) {
+              await db.execute(sql`DELETE FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`);
               res.json({ success: true });
           } else {
               res.status(400).json({ error: "Kode OTP Salah atau Kadaluarsa" });
