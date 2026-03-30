@@ -365,6 +365,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(tx); 
   });
 
+  app.delete("/api/user/account", async (req, res) => {
+      const user = await getUser(req);
+      if (!user || user.username === 'guest') return res.status(401).json({ error: "Sesi tidak valid." });
+
+      try {
+          // 1. Hapus dari Firebase Auth (Jika Admin Token tersedia)
+          if (firebaseAdminInitialized && user.email) {
+              try {
+                  const record = await admin.auth().getUserByEmail(user.email);
+                  await admin.auth().deleteUser(record.uid);
+              } catch (e) {
+                  console.log("Firebase user not found or error deleting");
+              }
+          }
+
+          // 2. Hapus dari Database PostgreSQL TANPA SISA!
+          await db.execute(sql`DELETE FROM transactions WHERE user_id = ${user.id}`);
+          await db.execute(sql`DELETE FROM investments WHERE user_id = ${user.id}`);
+          await db.execute(sql`DELETE FROM targets WHERE user_id = ${user.id}`);
+          await db.execute(sql`DELETE FROM debts WHERE user_id = ${user.id}`);
+          await db.execute(sql`DELETE FROM subscriptions WHERE user_id = ${user.id}`);
+          await db.execute(sql`DELETE FROM categories WHERE user_id = ${user.id}`);
+          await db.execute(sql`DELETE FROM forex_assets WHERE user_id = ${user.id}`);
+          await db.execute(sql`DELETE FROM help_tickets WHERE user_id = ${user.id}`);
+          await db.execute(sql`DELETE FROM users WHERE id = ${user.id}`);
+
+          res.json({ success: true, message: "Seluruh data akun berhasil dimusnahkan." });
+      } catch (error) {
+          res.status(500).json({ error: "Gagal memusnahkan data akun." });
+      }
+  });
+
   app.delete("/api/transactions/:id", async (req, res) => {
       try {
           const user = await getUser(req);

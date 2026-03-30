@@ -14,15 +14,16 @@ import {
 export default function Auth() {
   localStorage.removeItem("bilano_trial_expired");
 
-  const [isLogin, setIsLogin] = useState(true); 
-  const [step, setStep] = useState<'form' | 'otp'>('form');
+  // 🚀 FIX 1: SIMPAN STATE KE LOCALSTORAGE AGAR TIDAK HILANG SAAT RELOAD BUKA GMAIL
+  const [isLogin, setIsLogin] = useState(() => localStorage.getItem("auth_isLogin") !== "false"); 
+  const [step, setStep] = useState<'form' | 'otp'>(() => (localStorage.getItem("auth_step") as 'form'|'otp') || 'form');
   
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState(() => localStorage.getItem("auth_email") || "");
+  const [password, setPassword] = useState(() => localStorage.getItem("auth_password") || "");
   const [otpCode, setOtpCode] = useState("");
   
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [firstName, setFirstName] = useState(() => localStorage.getItem("auth_firstName") || "");
+  const [lastName, setLastName] = useState(() => localStorage.getItem("auth_lastName") || "");
 
   const [resendCooldown, setResendCooldown] = useState(0); 
   
@@ -39,6 +40,25 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  // 🚀 SIMPAN PERUBAHAN KE LOCAL STORAGE
+  useEffect(() => {
+      localStorage.setItem("auth_isLogin", String(isLogin));
+      localStorage.setItem("auth_step", step);
+      localStorage.setItem("auth_email", email);
+      localStorage.setItem("auth_password", password);
+      localStorage.setItem("auth_firstName", firstName);
+      localStorage.setItem("auth_lastName", lastName);
+  }, [isLogin, step, email, password, firstName, lastName]);
+
+  const clearAuthCache = () => {
+      localStorage.removeItem("auth_isLogin");
+      localStorage.removeItem("auth_step");
+      localStorage.removeItem("auth_email");
+      localStorage.removeItem("auth_password");
+      localStorage.removeItem("auth_firstName");
+      localStorage.removeItem("auth_lastName");
+  };
 
   useEffect(() => {
       setLoading(true);
@@ -81,6 +101,8 @@ export default function Auth() {
       localStorage.setItem("bilano_auth", "true");
       localStorage.setItem("bilano_email", user.email || "");
       
+      clearAuthCache(); // Bersihkan memori sementara saat sukses masuk
+
       toast({ title: "Berhasil Masuk!", description: `Selamat datang!` });
       window.location.href = "/"; 
   };
@@ -95,32 +117,39 @@ export default function Auth() {
     setLoading(true);
 
     try {
-        if (isLogin) {
-            try {
-                const checkRes = await fetch("/api/auth/check-email", {
-                    method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email })
-                });
-                
-                if (checkRes.ok) {
-                    const checkData = await checkRes.json();
-                    if (checkData.adminReady && checkData.exists === false) {
-                        setAuthError("Email ini belum terdaftar. Kami arahkan ke pendaftaran...");
-                        setTimeout(() => { 
-                            setIsLogin(false); 
-                            setAuthError(""); 
-                        }, 2000);
-                        setLoading(false);
-                        return;
-                    }
-                }
-            } catch (e) {
-                // Lanjut ke Firebase (Bypass)
-            }
+        // 🚀 FIX 4: CEK EMAIL APAKAH SUDAH TERDAFTAR (UNTUK LOGIN & DAFTAR)
+        let emailExists = false;
+        let adminReady = false;
 
+        try {
+            const checkRes = await fetch("/api/auth/check-email", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email })
+            });
+            if (checkRes.ok) {
+                const checkData = await checkRes.json();
+                emailExists = checkData.exists;
+                adminReady = checkData.adminReady;
+            }
+        } catch (e) {}
+
+        if (isLogin) {
+            if (adminReady && !emailExists) {
+                setAuthError("Email ini belum terdaftar. Kami arahkan ke pendaftaran...");
+                setTimeout(() => { setIsLogin(false); setAuthError(""); }, 2000);
+                setLoading(false);
+                return;
+            }
             const cred = await signInWithEmailAndPassword(auth, email, password);
             await handleSuccess(cred.user);
         } else {
+            // JIKA MENCOBA DAFTAR TAPI EMAIL SUDAH ADA, TOLAK & ARAHKAN LOGIN
+            if (adminReady && emailExists) {
+                setAuthError("Email sudah terdaftar! Silakan pilih menu Masuk.");
+                setTimeout(() => { setIsLogin(true); setAuthError(""); }, 2000);
+                setLoading(false);
+                return;
+            }
             await requestOtp();
         }
     } catch (error: any) {
@@ -168,7 +197,6 @@ export default function Auth() {
       }
   };
 
-  // 🚀 KEMBALI NORMAL: TIDAK ADA BYPASS 123456
   const verifyOtpAndRegister = async () => {
       if(otpCode.length < 6) return;
       setLoading(true);
@@ -303,7 +331,7 @@ export default function Auth() {
                         {resendCooldown > 0 ? `Tunggu ${resendCooldown} detik` : "KIRIM ULANG KODE"}
                     </button>
                 </div>
-                <button onClick={() => setStep('form')} className="mt-6 flex items-center justify-center gap-1 text-xs text-slate-400 hover:text-slate-600"><ArrowLeft className="w-3 h-3"/> Ganti Email</button>
+                <button onClick={() => {setStep('form'); clearAuthCache();}} className="mt-6 flex items-center justify-center gap-1 text-xs text-slate-400 hover:text-slate-600"><ArrowLeft className="w-3 h-3"/> Ganti Email</button>
             </Card>
         </div>
       );
