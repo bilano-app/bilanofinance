@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
-import { ShieldCheck, KeyRound, EyeOff, Lock, ChevronRight, X, AlertCircle } from "lucide-react";
+import { ShieldCheck, KeyRound, EyeOff, Lock, ChevronRight, X, AlertCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/UIComponents";
+import { auth } from "@/lib/firebase";
+import { signOut } from "firebase/auth";
 
 export default function Security() {
     const { toast } = useToast();
@@ -13,6 +16,10 @@ export default function Security() {
     const [pinAction, setPinAction] = useState<'create' | 'confirm' | 'remove'>('create');
     const [tempPin, setTempPin] = useState("");
     const [pinInput, setPinInput] = useState("");
+
+    // State untuk Hapus Akun
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         setPrivacyMode(localStorage.getItem("bilano_privacy") === "true");
@@ -81,6 +88,28 @@ export default function Security() {
         setShowPinModal(true);
     };
 
+    // 🚀 FUNGSI HAPUS AKUN PERMANEN (CASCADE DELETE)
+    const handleDeleteAccount = async () => {
+        setIsDeleting(true);
+        try {
+            const email = localStorage.getItem("bilano_email") || "";
+            
+            // 1. Eksekusi pemusnahan data di Database (PostgreSQL)
+            await fetch("/api/user/account", {
+                method: "DELETE",
+                headers: { "x-user-email": email }
+            });
+
+            // 2. Cabut sesi Firebase & bersihkan cache
+            await signOut(auth);
+            localStorage.clear(); 
+            window.location.href = "/auth";
+        } catch (error) {
+            setIsDeleting(false);
+            toast({ title: "Gagal Menghapus Akun", description: "Periksa koneksi internet Anda.", variant: "destructive" });
+        }
+    };
+
     return (
         <MobileLayout title="Keamanan" showBack>
             <div className="p-4 space-y-6">
@@ -138,6 +167,23 @@ export default function Security() {
                         Perhatian: PIN Anda tersimpan dengan aman di dalam perangkat (HP) ini. Jika Anda lupa PIN, Anda harus menghapus data browser/aplikasi dan login ulang melalui Email OTP.
                     </p>
                 </div>
+
+                {/* 🚀 ZONA BERBAHAYA (HAPUS AKUN PERMANEN) */}
+                <div className="mt-8 border-t border-rose-100 pt-6">
+                    <h3 className="text-sm font-extrabold text-rose-600 mb-2 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4"/> Zona Berbahaya
+                    </h3>
+                    <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                        Tindakan ini akan memusnahkan seluruh data transaksi, hutang, target, dan investasi Anda di server secara permanen. Data tidak dapat dipulihkan.
+                    </p>
+                    <Button 
+                        onClick={() => setShowDeleteModal(true)} 
+                        className="w-full h-12 bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold shadow-none border border-rose-200 rounded-[16px]"
+                    >
+                        HAPUS AKUN SAYA PERMANEN
+                    </Button>
+                </div>
+
             </div>
 
             {/* MODAL PIN PAD */}
@@ -174,6 +220,38 @@ export default function Security() {
                         <button onClick={deletePinChar} className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 active:bg-slate-600 transition-colors">
                             <X className="w-8 h-8"/>
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* 🚀 MODAL KONFIRMASI HAPUS AKUN */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl text-center">
+                        <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <AlertTriangle className="w-8 h-8"/>
+                        </div>
+                        <h3 className="text-lg font-black text-slate-800 mb-2">Yakin Hapus Akun?</h3>
+                        <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                            Semua catatan keuangan, saldo, dan target Anda akan dihapus permanen dari server. Tindakan ini tidak bisa dibatalkan!
+                        </p>
+                        <div className="space-y-3">
+                            <Button 
+                                onClick={handleDeleteAccount} 
+                                disabled={isDeleting}
+                                className="w-full h-12 bg-rose-600 hover:bg-rose-700 font-bold text-white shadow-md rounded-full"
+                            >
+                                {isDeleting ? "MEMUSNAHKAN DATA..." : "YA, HAPUS SEMUANYA"}
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                onClick={() => setShowDeleteModal(false)} 
+                                disabled={isDeleting}
+                                className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full"
+                            >
+                                BATAL
+                            </Button>
+                        </div>
                     </div>
                 </div>
             )}
