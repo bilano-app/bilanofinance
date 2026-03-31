@@ -141,8 +141,15 @@ export default function Home() {
   useEffect(() => {
       if (rawEmail && !isAnyDataLoading && user) {
           const tooltipKey = `bilano_guide_tooltip_seen_${rawEmail}`;
+          // Jika belum pernah melihat tooltip ini...
           if (!localStorage.getItem(tooltipKey)) {
-              const timer = setTimeout(() => setShowGuideTooltip(true), 1500);
+              const timer = setTimeout(() => {
+                  setShowGuideTooltip(true);
+                  // 🚀 TAMBAHKAN BARIS INI: 
+                  // Begitu bubble-nya dimunculkan, langsung kunci memorinya detik itu juga!
+                  // Jadi besok-besok tidak akan pernah muncul lagi biarpun tidak di-klik silang.
+                  localStorage.setItem(tooltipKey, "true");
+              }, 1500);
               return () => clearTimeout(timer);
           }
       }
@@ -553,7 +560,7 @@ export default function Home() {
                           <span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span>
                       </div>
                       <p className="text-[12px] text-amber-700 leading-relaxed font-medium">
-                          Begitu fitur eksklusif ini diluncurkan nanti, harga langganan pengguna baru pasti akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>
+                          Begitu fitur eksklusif ini diluncurkan nanti, harga langganan pengguna baru berpotensi akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>
                           <b>Garansi Harga Tetap:</b> Kunci harga Anda di <b>Rp 99.000/tahun HARI INI</b>. Maka harga perpanjangan Anda tahun depan dan seterusnya akan <b>TERKUNCI SELAMANYA</b> di angka tersebut. Anda otomatis menikmati fitur baru ini tanpa perlu membayar selisih kenaikan harga!
                       </p>
                   </div>
