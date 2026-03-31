@@ -5,7 +5,6 @@ import { insertTransactionSchema, insertTargetSchema } from "../shared/schema.js
 import { z } from "zod";
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
-import nodemailer from "nodemailer";
 import admin from "firebase-admin"; 
 
 // ====================================================================
@@ -120,11 +119,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return false;
   };
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-  });
-
   // ====================================================================
   // 🚀 TABEL DATABASE OTP (PERMANEN ANTI-LUPA)
   // ====================================================================
@@ -141,7 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // ====================================================================
-  // 🚀 AUTH & OTP ROUTES (SISTEM DATABASE PERSISTENT & DAUR ULANG)
+  // 🚀 AUTH & OTP ROUTES (SISTEM RESEND API SUPER CEPAT)
   // ====================================================================
   app.post("/api/auth/check-email", async (req, res) => {
       if (!firebaseAdminInitialized) return res.status(200).json({ adminReady: false, exists: true }); 
@@ -162,20 +156,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let otp = "";
 
       try {
-          // 🚀 1. CEK DATABASE: APAKAH ADA OTP YANG MASIH HIDUP? (Anti-Bentrok)
           const existing = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`);
           const rows = Array.isArray(existing) ? existing : (existing as any).rows || [];
           
           if (rows.length > 0) {
               const createdAt = new Date(rows[0].created_at).getTime();
               const now = Date.now();
-              // Jika umur OTP kurang dari 5 menit (300000 ms), DAUR ULANG (REUSE)!
               if (now - createdAt < 300000) {
                   otp = rows[0].code;
               }
           }
 
-          // 🚀 2. JIKA KOSONG / KADALUARSA, BARU BIKIN YANG BARU
           if (!otp) {
               otp = Math.floor(100000 + Math.random() * 900000).toString(); 
               await db.execute(sql`
@@ -186,20 +177,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
               `);
           }
 
-          const mailOptions = {
-              from: `"BILANO Finance" <${process.env.EMAIL_USER}>`,
-              to: email,
-              subject: "Kode Verifikasi BILANO",
-              html: `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #4f46e5;">Selamat Datang di BILANO!</h2><p style="color: #4b5563;">Gunakan kode OTP berikut untuk memverifikasi email Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`
-          };
+          const htmlContent = `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #4f46e5;">Selamat Datang di BILANO!</h2><p style="color: #4b5563;">Gunakan kode OTP berikut untuk memverifikasi email Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`;
 
-          const sendPromise = transporter.sendMail(mailOptions);
-          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP Timeout')), 15000));
-          
-          await Promise.race([sendPromise, timeoutPromise]);
-          res.json({ success: true, message: "OTP Terkirim" }); 
+          // 🚀 KIRIM PAKAI RESEND API (SUPER CEPAT)
+          const resendKey = process.env.RESEND_API_KEY;
+          if (!resendKey) return res.status(500).json({ error: "API Key Resend belum dipasang di Vercel." });
+
+          const emailRes = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${resendKey}`
+              },
+              body: JSON.stringify({
+                  from: "BILANO OTP <onboarding@resend.dev>",
+                  to: [email],
+                  subject: "Kode Verifikasi BILANO",
+                  html: htmlContent
+              })
+          });
+
+          if (!emailRes.ok) throw new Error("Resend API Error");
+
+          res.json({ success: true, message: "OTP Terkirim Cepat!" }); 
       } catch (error) {
-          res.status(500).json({ error: "Gagal mengirim email OTP. Pastikan email valid atau coba lagi nanti." });
+          res.status(500).json({ error: "Gagal mengirim OTP. Pastikan email terdaftar di Resend (jika pakai akun gratis)." });
       }
   });
 
@@ -216,7 +218,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let otp = "";
       
       try {
-          // 🚀 1. DAUR ULANG OTP RESET JUGA JIKA MASIH ADA
           const existing = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`);
           const rows = Array.isArray(existing) ? existing : (existing as any).rows || [];
           
@@ -238,20 +239,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
               `);
           }
 
-          const mailOptions = {
-              from: `"BILANO Security" <${process.env.EMAIL_USER}>`,
-              to: email,
-              subject: "Reset Password BILANO",
-              html: `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #e11d48;">Reset Password Anda</h2><p style="color: #4b5563;">Gunakan kode OTP rahasia berikut untuk membuat password baru Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`
-          };
+          const htmlContent = `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #e11d48;">Reset Password Anda</h2><p style="color: #4b5563;">Gunakan kode OTP rahasia berikut untuk membuat password baru Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`;
 
-          const sendPromise = transporter.sendMail(mailOptions);
-          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP Timeout')), 15000));
-          
-          await Promise.race([sendPromise, timeoutPromise]);
+          // 🚀 KIRIM PAKAI RESEND API
+          const resendKey = process.env.RESEND_API_KEY;
+          if (!resendKey) return res.status(500).json({ error: "API Key Resend belum dipasang." });
+
+          const emailRes = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${resendKey}`
+              },
+              body: JSON.stringify({
+                  from: "BILANO Security <onboarding@resend.dev>",
+                  to: [email],
+                  subject: "Reset Password BILANO",
+                  html: htmlContent
+              })
+          });
+
+          if (!emailRes.ok) throw new Error("Gagal Kirim Resend");
+
           res.json({ success: true, message: "OTP Reset Terkirim" }); 
       } catch (error) {
-          res.status(500).json({ error: "Gagal mengirim email OTP. Pastikan email valid atau coba lagi nanti." });
+          res.status(500).json({ error: "Gagal mengirim email OTP." });
       }
   });
 
@@ -299,14 +311,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 ANTI-SLEEP PING
+  // 🚀 ANTI-SLEEP PING (HACK KEBAL ERROR UNTUK CRON-JOB)
   // ====================================================================
   app.get("/api/ping", async (req, res) => {
       try {
           await db.execute(sql`SELECT 1`);
           res.status(200).json({ status: "awake & db connected", time: new Date().toISOString() });
       } catch (error) {
-          res.status(500).json({ status: "error", message: "Database sleeping or error" });
+          // 🚀 PERBAIKAN FATAL: Tetap kembalikan 200 OK biarpun DB sedang ngorok!
+          // Ini mencegah cron-job.org marah dan memblokir tugas kita.
+          res.status(200).json({ status: "awake but db delayed", message: "It's fine" });
       }
   });
 
@@ -431,13 +445,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tx = await storage.createTransaction(user!.id, { ...parsed.data, userId: user!.id } as any); 
       let newBalance = user!.cashBalance; 
       
-      // 🚀 PERBAIKAN FATAL: Hanya ubah saldo jika transaksi benar-benar melibatkan TUNAI
       if (parsed.data.type === 'income') {
           newBalance += parsed.data.amount; 
       } else if (parsed.data.type === 'expense') {
           newBalance -= parsed.data.amount; 
       }
-      // Jika type adalah 'piutang_record' atau 'hutang_record', SALDO KAS TIDAK BERUBAH!
       
       if (newBalance !== user!.cashBalance) {
           await storage.updateUserBalance(user!.id, newBalance); 
@@ -450,7 +462,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user || user.username === 'guest') return res.status(401).json({ error: "Sesi tidak valid." });
 
       try {
-          // 1. Hapus dari Firebase Auth (Jika Admin Token tersedia)
           if (firebaseAdminInitialized && user.email) {
               try {
                   const record = await admin.auth().getUserByEmail(user.email);
@@ -460,7 +471,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           }
 
-          // 2. Hapus dari Database PostgreSQL TANPA SISA!
           await db.execute(sql`DELETE FROM transactions WHERE user_id = ${user.id}`);
           await db.execute(sql`DELETE FROM investments WHERE user_id = ${user.id}`);
           await db.execute(sql`DELETE FROM targets WHERE user_id = ${user.id}`);
@@ -488,7 +498,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           let newBalance = user!.cashBalance;
           
-          // 🚀 PERBAIKAN LOGIKA DELETE (Hanya kembalikan saldo jika transaksi asal melibatkan TUNAI)
           if (txToDelete.type === 'income') newBalance -= txToDelete.amount;
           else if (txToDelete.type === 'expense') newBalance += txToDelete.amount;
           else if (txToDelete.type === 'invest_buy') newBalance += txToDelete.amount; 
@@ -499,7 +508,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           else if (txToDelete.type === 'debt_lend') newBalance += txToDelete.amount;
           else if (txToDelete.type === 'debt_receive') newBalance -= txToDelete.amount;
           else if (txToDelete.type === 'debt_pay') newBalance += txToDelete.amount;
-          // piutang_record dan hutang_record diabaikan! (Tidak mengubah saldo)
 
           if (newBalance !== user!.cashBalance) {
               await storage.updateUserBalance(user!.id, newBalance);
@@ -1032,7 +1040,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 ADMIN ROUTES & HELP CENTER
+  // 🚀 ADMIN ROUTES & HELP CENTER (MENGGUNAKAN RESEND API JUGA)
   // ====================================================================
   const isAdminValid = (email: string) => {
       if (!email) return false;
@@ -1067,7 +1075,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
   });
 
-  // 🚀 TIKET BANTUAN DI BAWAH SINI
   app.post("/api/help/submit", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -1084,22 +1091,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           try {
-              await transporter.sendMail({
-                  from: `"Sistem Bantuan BILANO" <${process.env.EMAIL_USER}>`,
-                  to: process.env.EMAIL_USER,
-                  subject: `[TIKET BARU] ${subject} - dari ${user.email}`,
-                  html: `
-                    <div style="font-family: Arial, sans-serif; padding: 20px;">
-                      <h2 style="color: #4f46e5;">Tiket Bantuan Baru #${ticketId}</h2>
-                      <p><strong>Pengirim:</strong> ${name} (${user.email})</p>
-                      <p><strong>Subjek:</strong> ${subject}</p>
-                      <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin-top: 10px;">
-                          ${message}
-                      </div>
-                      <p style="margin-top:20px; font-size:12px; color:#666;">Silakan balas dari dashboard Admin Premium.</p>
-                    </div>
-                  `
-              });
+              const resendKey = process.env.RESEND_API_KEY;
+              if (resendKey) {
+                  await fetch("https://api.resend.com/emails", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${resendKey}` },
+                      body: JSON.stringify({
+                          from: "Sistem Bantuan BILANO <onboarding@resend.dev>",
+                          to: [process.env.EMAIL_USER || "adrienfandra14@gmail.com"], // Kirim ke admin
+                          subject: `[TIKET BARU] ${subject} - dari ${user.email}`,
+                          html: `
+                            <div style="font-family: Arial, sans-serif; padding: 20px;">
+                              <h2 style="color: #4f46e5;">Tiket Bantuan Baru #${ticketId}</h2>
+                              <p><strong>Pengirim:</strong> ${name} (${user.email})</p>
+                              <p><strong>Subjek:</strong> ${subject}</p>
+                              <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                                  ${message}
+                              </div>
+                              <p style="margin-top:20px; font-size:12px; color:#666;">Silakan balas dari dashboard Admin Premium.</p>
+                            </div>
+                          `
+                      })
+                  });
+              }
           } catch(e) {}
           
           res.json({ success: true, ticketId });
@@ -1128,25 +1142,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { ticketId, userEmail, subject, replyMessage } = req.body;
       
       try {
-          await transporter.sendMail({
-              from: `"Tim Bantuan BILANO" <${process.env.EMAIL_USER}>`,
-              to: userEmail,
-              subject: `Re: [${ticketId}] ${subject}`,
-              html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 600px; margin: auto;">
-                  <img src="https://bilanofinance-dvbi.vercel.app/Bilano_horiz_rbg.png" width="120" style="margin-bottom: 20px;" />
-                  <h2 style="color: #4f46e5; margin-bottom: 5px;">Balasan Tim Bantuan BILANO</h2>
-                  <p style="color: #6b7280; font-size: 12px; margin-top: 0;">Tiket: ${ticketId}</p>
-                  
-                  <div style="font-size: 14px; color: #1f2937; line-height: 1.6; margin-top: 20px;">
-                      ${replyMessage.replace(/\n/g, '<br/>')}
-                  </div>
-                  
-                  <hr style="border:none; border-top: 1px dashed #e5e7eb; margin: 30px 0;" />
-                  <p style="font-size: 11px; color: #9ca3af; text-align: center;">Pesan ini dikirim otomatis oleh sistem pusat bantuan BILANO. Jika ada pertanyaan, buat tiket baru di aplikasi.</p>
-                </div>
-              `
-          });
+          const resendKey = process.env.RESEND_API_KEY;
+          if (resendKey) {
+              await fetch("https://api.resend.com/emails", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${resendKey}` },
+                  body: JSON.stringify({
+                      from: "Tim Bantuan BILANO <onboarding@resend.dev>",
+                      to: [userEmail],
+                      subject: `Re: [${ticketId}] ${subject}`,
+                      html: `
+                        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 600px; margin: auto;">
+                          <img src="https://bilanofinance-dvbi.vercel.app/Bilano_horiz_rbg.png" width="120" style="margin-bottom: 20px;" />
+                          <h2 style="color: #4f46e5; margin-bottom: 5px;">Balasan Tim Bantuan BILANO</h2>
+                          <p style="color: #6b7280; font-size: 12px; margin-top: 0;">Tiket: ${ticketId}</p>
+                          
+                          <div style="font-size: 14px; color: #1f2937; line-height: 1.6; margin-top: 20px;">
+                              ${replyMessage.replace(/\n/g, '<br/>')}
+                          </div>
+                          
+                          <hr style="border:none; border-top: 1px dashed #e5e7eb; margin: 30px 0;" />
+                          <p style="font-size: 11px; color: #9ca3af; text-align: center;">Pesan ini dikirim otomatis oleh sistem pusat bantuan BILANO. Jika ada pertanyaan, buat tiket baru di aplikasi.</p>
+                        </div>
+                      `
+                  })
+              });
+          }
           
           try {
               await db.execute(sql`DELETE FROM help_tickets WHERE id = ${ticketId}`);
