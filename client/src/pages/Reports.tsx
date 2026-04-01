@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
-import { Download, FileText, Globe, Wallet, FileBarChart, Loader2, Target, Briefcase, HandCoins } from "lucide-react";
+import { Download, FileText, Globe, Wallet, FileBarChart, Loader2, Target, Briefcase, HandCoins, Archive } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -21,12 +21,9 @@ export default function Reports() {
   const [targetData, setTargetData] = useState<any>(null); 
   
   const [loading, setLoading] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  // 🚀 TAMBAHAN: State untuk memilih bulan dan tahun arsip PDF
-  const today = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
-  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+  
+  // 🚀 REVISI: Menggunakan ID untuk melacak tombol mana yang sedang loading
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   const formatRp = (val: number) => {
       const num = Number(val) || 0;
@@ -41,7 +38,6 @@ export default function Reports() {
       return sign + num.toString();
   };
 
-  // 🚀 FIX: FUNGSI PINTAR PENGAMBIL KURS (ANTI-BUG RP 500)
   const getRate = (curr: string) => {
       if (!curr || curr === 'IDR') return 1;
       return forexRates[curr] || DEFAULT_RATES[curr] || 15000;
@@ -72,6 +68,39 @@ export default function Reports() {
     };
     fetchData();
   }, []);
+
+  // 🚀 LOGIKA BARU: MENGHASILKAN DAFTAR ARSIP BULAN LALU
+  const getArchiveMonths = () => {
+      if (!data) return [];
+      
+      let firstDate = new Date();
+      if (data.transactions && data.transactions.length > 0) {
+          const minTime = Math.min(...data.transactions.map((t:any) => new Date(t.date).getTime()));
+          firstDate = new Date(minTime);
+      } else if (userProfile && userProfile.createdAt) {
+          firstDate = new Date(userProfile.createdAt);
+      }
+
+      const archives = [];
+      const now = new Date();
+      // Mulai dari tanggal 1 bulan pertama kali transaksi/daftar
+      let iterDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+      // Batasnya adalah tanggal 1 bulan INI (Bulan ini tidak masuk arsip)
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      while (iterDate < currentMonthStart) {
+          archives.push({
+              month: iterDate.getMonth(),
+              year: iterDate.getFullYear(),
+              label: iterDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+          });
+          // Maju 1 bulan
+          iterDate.setMonth(iterDate.getMonth() + 1);
+      }
+      
+      // Dibalik agar yang terbaru (misal bulan kemarin) ada di atas
+      return archives.reverse(); 
+  };
 
   const drawLineChart = (doc: jsPDF, title: string, chartData: any[], startY: number, lineColor: number[]) => {
       const chartHeight = 35; const chartWidth = 170; const startX = 20;
@@ -194,7 +223,8 @@ export default function Reports() {
       return startY + chartHeight + 15;
   };
 
-  const generatePDF = async () => {
+  // 🚀 REVISI: Fungsi PDF sekarang menerima bulan dan tahun sebagai parameter opsional
+  const generatePDF = async (targetMonth?: number, targetYear?: number) => {
     const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     const isTrialExpired = userEmail ? localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true" : false;
 
@@ -204,7 +234,10 @@ export default function Reports() {
     }
 
     if (!data) return;
-    setIsGenerating(true);
+    
+    // Set ID loading sesuai laporan yang dicetak
+    const processId = targetMonth !== undefined ? `archive_${targetMonth}_${targetYear}` : 'current';
+    setGeneratingId(processId);
 
     try {
         const doc = new jsPDF('p', 'mm', 'a4');
@@ -242,7 +275,7 @@ export default function Reports() {
 
         const totalInvest = data.investments.reduce((acc: number, inv: any) => {
             const [sym, curr] = (inv.symbol || "").split('|');
-            const rate = getRate(curr); // 🚀 MENGGUNAKAN GETRATE
+            const rate = getRate(curr); 
             const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
             const m = (isSaham && (!curr || curr === 'IDR')) ? 100 : 1;
             return acc + (inv.quantity * inv.avgPrice * m * rate);
@@ -250,19 +283,19 @@ export default function Reports() {
         
         const totalDebt = data.debts.filter((d:any) => d.type === 'hutang' && !d.isPaid).reduce((acc: number, d: any) => {
             const [, curr] = (d.name || "").split('|');
-            const rate = getRate(curr); // 🚀 MENGGUNAKAN GETRATE
+            const rate = getRate(curr); 
             return acc + (d.amount * rate);
         }, 0);
         
         const totalPiutang = data.debts.filter((d:any) => d.type === 'piutang' && !d.isPaid).reduce((acc: number, d: any) => {
             const [, curr] = (d.name || "").split('|');
-            const rate = getRate(curr); // 🚀 MENGGUNAKAN GETRATE
+            const rate = getRate(curr); 
             return acc + (d.amount * rate);
         }, 0);
         
         let totalForexIDR = 0;
         const forexRows = data.forexAssets.map((f: any) => {
-            const rate = getRate(f.currency); // 🚀 MENGGUNAKAN GETRATE
+            const rate = getRate(f.currency); 
             const idrVal = f.amount * rate;
             totalForexIDR += idrVal;
             return [f.currency, f.amount.toLocaleString(), formatRp(rate), formatRp(idrVal)];
@@ -271,8 +304,11 @@ export default function Reports() {
         const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
         const netWorth = totalAsset - totalDebt;
 
-        // 🚀 REVISI: Gunakan bulan dan tahun dari dropdown (Bukan dari tanggal hari ini)!
-        const nowForReport = new Date(selectedYear, selectedMonth, 1);
+        // 🚀 PENENTUAN WAKTU: Jika ada targetMonth, pakai itu. Jika tidak, pakai bulan ini.
+        const nowForReport = (targetMonth !== undefined && targetYear !== undefined) 
+            ? new Date(targetYear, targetMonth, 1) 
+            : new Date();
+            
         const currentMonthNum = nowForReport.getMonth();
         const currentYearNum = nowForReport.getFullYear();
         const currentMonthName = nowForReport.toLocaleDateString('id-ID', { month: 'long' });
@@ -425,7 +461,7 @@ export default function Reports() {
             const debtRows = data.debts.map((d: any) => {
                 const [displayName, curr] = (d.name || "").split('|');
                 const actualCurr = curr || 'IDR';
-                const rate = getRate(actualCurr); // 🚀 MENGGUNAKAN GETRATE
+                const rate = getRate(actualCurr); 
                 const valIDR = d.amount * rate;
                 
                 let status = d.isPaid ? 'LUNAS' : 'Belum Lunas';
@@ -521,8 +557,8 @@ export default function Reports() {
             firstTxDate = new Date(minTime);
         }
         
-        // 🚀 REVISI: Grafik mundur 12 bulan menyesuaikan bulan yang dipilih
-        const nowGraph = new Date(selectedYear, selectedMonth, 1);
+        // 🚀 REVISI: Grafik mundur 12 bulan menyesuaikan waktu laporan
+        const nowGraph = new Date(nowForReport.getFullYear(), nowForReport.getMonth(), 1);
         const totalMonthsUsed = (nowGraph.getFullYear() - firstTxDate.getFullYear()) * 12 + nowGraph.getMonth() - firstTxDate.getMonth() + 1;
 
         let chartStartMonth: Date;
@@ -606,7 +642,7 @@ export default function Reports() {
     } catch (error) {
         toast({ title: "Gagal", description: "Terjadi kesalahan saat membuat PDF.", variant: "destructive" });
     } finally {
-        setIsGenerating(false);
+        setGeneratingId(null);
     }
   };
 
@@ -622,59 +658,74 @@ export default function Reports() {
       );
   }
 
+  const archiveList = getArchiveMonths();
+
   return (
     <MobileLayout title="Pusat Laporan" showBack>
       <div className="space-y-6 pt-4 pb-20 px-2">
         
+        {/* LAPORAN BULAN INI (CURRENT MONTH) */}
         <div className="bg-gradient-to-br from-violet-600 to-indigo-600 p-8 rounded-[32px] text-white shadow-xl shadow-indigo-200 text-center relative overflow-hidden">
             <div className="relative z-10">
                 <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 backdrop-blur-sm border border-white/20">
                     <FileBarChart className="w-8 h-8 text-white"/>
                 </div>
-                <h2 className="text-2xl font-extrabold mb-2">Arsip Laporan</h2>
-                <p className="text-indigo-100 text-xs mb-5 px-4 leading-relaxed opacity-90 font-medium">
-                    Pilih periode bulan dan download laporan PDF lengkap dengan neraca, arus kas, dan investasi.
+                <h2 className="text-2xl font-extrabold mb-2">Cetak Laporan Bulan Ini</h2>
+                <p className="text-indigo-100 text-xs mb-8 px-4 leading-relaxed opacity-90 font-medium">
+                    Download laporan PDF profesional lengkap dengan neraca, arus kas, hutang, dan riwayat investasi terkini.
                 </p>
-
-                {/* 🚀 TAMBAHAN: DROPDOWN PEMILIH BULAN & TAHUN */}
-                <div className="flex gap-3 mb-6 px-4">
-                    <div className="flex-1 bg-white/20 rounded-[16px] overflow-hidden border border-white/30 backdrop-blur-md shadow-inner">
-                        <select 
-                            value={selectedMonth} 
-                            onChange={e => setSelectedMonth(Number(e.target.value))}
-                            className="w-full bg-transparent text-white p-3 font-bold text-sm outline-none appearance-none text-center cursor-pointer"
-                        >
-                            {Array.from({length: 12}).map((_, i) => (
-                                <option key={i} value={i} className="text-slate-800 font-bold">
-                                    {new Date(2000, i, 1).toLocaleDateString('id-ID', { month: 'long' })}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="flex-1 bg-white/20 rounded-[16px] overflow-hidden border border-white/30 backdrop-blur-md shadow-inner">
-                        <select 
-                            value={selectedYear} 
-                            onChange={e => setSelectedYear(Number(e.target.value))}
-                            className="w-full bg-transparent text-white p-3 font-bold text-sm outline-none appearance-none text-center cursor-pointer"
-                        >
-                            {[today.getFullYear() - 2, today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1].map(y => (
-                                <option key={y} value={y} className="text-slate-800 font-bold">{y}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-
                 <Button 
-                    onClick={generatePDF} 
-                    disabled={isGenerating}
+                    onClick={() => generatePDF()} 
+                    disabled={generatingId !== null}
                     className="w-full bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold shadow-xl border-none h-14 rounded-full text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
                 >
-                    {isGenerating ? <Loader2 className="w-5 h-5 animate-spin"/> : <Download className="w-5 h-5"/>}
-                    {isGenerating ? "MEMPROSES PDF..." : "DOWNLOAD PDF SEKARANG"}
+                    {generatingId === 'current' ? <Loader2 className="w-5 h-5 animate-spin"/> : <Download className="w-5 h-5"/>}
+                    {generatingId === 'current' ? "MEMPROSES PDF..." : "DOWNLOAD PDF SEKARANG"}
                 </Button>
             </div>
             <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
+        </div>
+
+        {/* 🚀 ARSIP LAPORAN TAHUNAN & BULANAN (CORPORATE STYLE) */}
+        <div className="bg-white rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100">
+            <div className="flex items-center gap-2 mb-6">
+                <Archive className="w-5 h-5 text-indigo-500"/>
+                <h3 className="font-extrabold text-slate-800 text-lg">Arsip Laporan Bulanan</h3>
+            </div>
+            
+            <div className="space-y-0">
+                {archiveList.map((arc, i) => (
+                    <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between py-5 border-b border-slate-100 last:border-0 gap-4">
+                        <div>
+                            <h4 className="font-bold text-slate-800 text-sm">Laporan Keuangan {arc.label}</h4>
+                            <p className="text-[11px] text-slate-400 mt-1 font-medium">PDF Document - {arc.year}</p>
+                        </div>
+                        <button 
+                            onClick={() => generatePDF(arc.month, arc.year)} 
+                            disabled={generatingId !== null}
+                            className={`flex items-center justify-center gap-2 font-bold text-xs px-5 py-2.5 rounded-full transition-colors ${
+                                generatingId === `archive_${arc.month}_${arc.year}` 
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                                : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white active:scale-95'
+                            }`}
+                        >
+                            {generatingId === `archive_${arc.month}_${arc.year}` ? <Loader2 className="w-4 h-4 animate-spin"/> : <Download className="w-4 h-4"/>}
+                            Download
+                        </button>
+                    </div>
+                ))}
+
+                {archiveList.length === 0 && (
+                    <div className="text-center py-8">
+                        <div className="bg-slate-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Archive className="w-5 h-5 text-slate-300"/>
+                        </div>
+                        <p className="text-sm text-slate-400 font-medium">Belum ada arsip laporan bulan lalu.</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Laporan bulan ini akan otomatis masuk ke arsip pada awal bulan depan.</p>
+                    </div>
+                )}
+            </div>
         </div>
 
         <div>
@@ -697,8 +748,8 @@ export default function Reports() {
                         <FileText className="w-5 h-5"/>
                     </div>
                     <div className="flex-1">
-                        <h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Sesuai Bulan Dipilih)</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional sehari-hari pada bulan tersebut.</p>
+                        <h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Sesuai Bulan Laporan)</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional pada bulan terkait.</p>
                     </div>
                 </div>
 
@@ -728,7 +779,7 @@ export default function Reports() {
                     </div>
                     <div className="flex-1">
                         <h4 className="font-extrabold text-slate-800 text-sm">Estimasi Valas Live</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Tabel aset mata uang asing dikali kurs pertukaran saat dicetak.</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Tabel aset mata uang asing dikali kurs pertukaran hari ini.</p>
                     </div>
                 </div>
             </div>
