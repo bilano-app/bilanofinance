@@ -23,6 +23,11 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // 🚀 TAMBAHAN: State untuk memilih bulan dan tahun arsip PDF
+  const today = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+
   const formatRp = (val: number) => {
       const num = Number(val) || 0;
       return "Rp " + Math.round(num).toLocaleString("id-ID");
@@ -266,7 +271,8 @@ export default function Reports() {
         const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
         const netWorth = totalAsset - totalDebt;
 
-        const nowForReport = new Date();
+        // 🚀 REVISI: Gunakan bulan dan tahun dari dropdown (Bukan dari tanggal hari ini)!
+        const nowForReport = new Date(selectedYear, selectedMonth, 1);
         const currentMonthNum = nowForReport.getMonth();
         const currentYearNum = nowForReport.getFullYear();
         const currentMonthName = nowForReport.toLocaleDateString('id-ID', { month: 'long' });
@@ -310,7 +316,7 @@ export default function Reports() {
         doc.setTextColor(50, 50, 50);
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
-        doc.text(`Ringkasan Arus Kas Murni (Bulan ${currentMonthName})`, 14, 88);
+        doc.text(`Ringkasan Arus Kas Murni (Bulan ${currentMonthName} ${currentYearNum})`, 14, 88);
 
         doc.setFont("helvetica", "normal");
         doc.setTextColor(16, 185, 129); 
@@ -449,7 +455,7 @@ export default function Reports() {
 
         checkPageBreak(40);
         doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
-        doc.text(`Riwayat Transaksi Arus Kas Murni (Bulan ${currentMonthName})`, 14, currentY);
+        doc.text(`Riwayat Transaksi Arus Kas Murni (Bulan ${currentMonthName} ${currentYearNum})`, 14, currentY);
 
         const txRows = currentMonthTx.map((t: any) => [
           new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -515,7 +521,8 @@ export default function Reports() {
             firstTxDate = new Date(minTime);
         }
         
-        const nowGraph = new Date();
+        // 🚀 REVISI: Grafik mundur 12 bulan menyesuaikan bulan yang dipilih
+        const nowGraph = new Date(selectedYear, selectedMonth, 1);
         const totalMonthsUsed = (nowGraph.getFullYear() - firstTxDate.getFullYear()) * 12 + nowGraph.getMonth() - firstTxDate.getMonth() + 1;
 
         let chartStartMonth: Date;
@@ -624,10 +631,39 @@ export default function Reports() {
                 <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 backdrop-blur-sm border border-white/20">
                     <FileBarChart className="w-8 h-8 text-white"/>
                 </div>
-                <h2 className="text-2xl font-extrabold mb-2">Cetak Laporan</h2>
-                <p className="text-indigo-100 text-xs mb-8 px-4 leading-relaxed opacity-90 font-medium">
-                    Download laporan PDF profesional lengkap dengan neraca, arus kas, hutang, dan riwayat investasi.
+                <h2 className="text-2xl font-extrabold mb-2">Arsip Laporan</h2>
+                <p className="text-indigo-100 text-xs mb-5 px-4 leading-relaxed opacity-90 font-medium">
+                    Pilih periode bulan dan download laporan PDF lengkap dengan neraca, arus kas, dan investasi.
                 </p>
+
+                {/* 🚀 TAMBAHAN: DROPDOWN PEMILIH BULAN & TAHUN */}
+                <div className="flex gap-3 mb-6 px-4">
+                    <div className="flex-1 bg-white/20 rounded-[16px] overflow-hidden border border-white/30 backdrop-blur-md shadow-inner">
+                        <select 
+                            value={selectedMonth} 
+                            onChange={e => setSelectedMonth(Number(e.target.value))}
+                            className="w-full bg-transparent text-white p-3 font-bold text-sm outline-none appearance-none text-center cursor-pointer"
+                        >
+                            {Array.from({length: 12}).map((_, i) => (
+                                <option key={i} value={i} className="text-slate-800 font-bold">
+                                    {new Date(2000, i, 1).toLocaleDateString('id-ID', { month: 'long' })}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex-1 bg-white/20 rounded-[16px] overflow-hidden border border-white/30 backdrop-blur-md shadow-inner">
+                        <select 
+                            value={selectedYear} 
+                            onChange={e => setSelectedYear(Number(e.target.value))}
+                            className="w-full bg-transparent text-white p-3 font-bold text-sm outline-none appearance-none text-center cursor-pointer"
+                        >
+                            {[today.getFullYear() - 2, today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1].map(y => (
+                                <option key={y} value={y} className="text-slate-800 font-bold">{y}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
                 <Button 
                     onClick={generatePDF} 
                     disabled={isGenerating}
@@ -661,8 +697,8 @@ export default function Reports() {
                         <FileText className="w-5 h-5"/>
                     </div>
                     <div className="flex-1">
-                        <h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Bulan Berjalan)</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional sehari-hari pada bulan ini.</p>
+                        <h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Sesuai Bulan Dipilih)</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional sehari-hari pada bulan tersebut.</p>
                     </div>
                 </div>
 
@@ -692,7 +728,7 @@ export default function Reports() {
                     </div>
                     <div className="flex-1">
                         <h4 className="font-extrabold text-slate-800 text-sm">Estimasi Valas Live</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Tabel aset mata uang asing dikali kurs pertukaran hari ini.</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Tabel aset mata uang asing dikali kurs pertukaran saat dicetak.</p>
                     </div>
                 </div>
             </div>

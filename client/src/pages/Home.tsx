@@ -405,16 +405,14 @@ export default function Home() {
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
 
-  // 🚀 FIX: KOTAK PEMASUKAN DAN PENGELUARAN SEKARANG MEMBACA HUTANG DAN PIUTANG!
-  const income = transactions?.filter(t => {
-      const d = new Date(t.date);
-      return (t.type === 'income' || t.type === 'piutang_record') && (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
-  }).reduce((acc, t) => acc + t.amount, 0) || 0;
+  // 🚀 REVISI: SEKARANG MENGHITUNG TOTAL AKUMULASI SEPANJANG MASA (TIDAK DI-RESET)
+  const income = transactions?.filter(t => 
+      t.type === 'income' || t.type === 'piutang_record'
+  ).reduce((acc, t) => acc + t.amount, 0) || 0;
 
-  const expense = transactions?.filter(t => {
-      const d = new Date(t.date);
-      return (t.type === 'expense' || t.type === 'hutang_record') && (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
-  }).reduce((acc, t) => acc + t.amount, 0) || 0;
+  const expense = transactions?.filter(t => 
+      t.type === 'expense' || t.type === 'hutang_record'
+  ).reduce((acc, t) => acc + t.amount, 0) || 0;
   
   if (isLocked) {
       return (
