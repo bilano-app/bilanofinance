@@ -7,28 +7,19 @@ import {
     BarChart3, Camera 
 } from "lucide-react"; 
 
-// 🚀 KOMPONEN GAMBAR AKTUAL (MENGGANTIKAN PLACEHOLDER LAMA)
-const GuideImage = ({ src, label }: { src?: string, label: string }) => {
-    if (!src) {
+// Komponen penanda (placeholder) untuk gambar
+const ImagePlaceholder = ({ label, src }: { label: string, src?: string }) => {
+    // Jika gambar tersedia, tampilkan gambarnya
+    if (src) {
         return (
-            <div className="w-full h-32 bg-slate-50 border-2 border-dashed border-slate-300 rounded-[20px] flex flex-col items-center justify-center text-slate-400 my-6 hover:bg-slate-100 transition-colors">
-                <Camera className="w-6 h-6 mb-2 opacity-50" />
-                <span className="text-[10px] font-bold uppercase tracking-widest px-4 text-center">{label}</span>
-            </div>
+            <img src={`/${src}`} alt={label} className="w-full h-auto rounded-[16px] shadow-md my-4 border border-slate-200" />
         );
     }
-
+    // Jika tidak ada, kembalikan ke placeholder asli
     return (
-        <div className="my-6 group">
-            <div className="relative overflow-hidden rounded-[24px] border border-slate-200 shadow-md transition-all group-hover:shadow-xl group-hover:scale-[1.01]">
-                <img 
-                    src={`/${src}`} 
-                    alt={label} 
-                    className="w-full h-auto object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-            <p className="text-[10px] font-bold text-slate-400 mt-2 text-center uppercase tracking-tighter">Tampilan: {label}</p>
+        <div className="w-full h-32 bg-slate-50 border-2 border-dashed border-slate-300 rounded-[16px] flex flex-col items-center justify-center text-slate-400 my-4 hover:bg-slate-100 transition-colors">
+            <Camera className="w-6 h-6 mb-2 opacity-50" />
+            <span className="text-xs font-bold uppercase tracking-widest">{label}</span>
         </div>
     );
 };
@@ -43,12 +34,14 @@ export default function Guide() {
           <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
               <p>Halaman utama BILANO adalah pusat kendali finansial Anda. Dari sini, Anda dapat memantau seluruh kekayaan secara langsung dan mengakses berbagai fitur dengan cepat.</p>
               
-              <GuideImage src="Home1.jpg" label="Saldo Kas Utama & Ringkasan" />
+              <ImagePlaceholder label="Letak Gambar: Saldo Kas Utama" src="Home1.jpg" />
               
               <ul className="list-disc pl-4 space-y-2">
                   <li><b>Kartu Saldo Kas (Biru Besar):</b> Menampilkan total ketersediaan dana likuid Anda secara <i>real-time</i> (gabungan Rupiah dan Valas). <i>Tips:</i> Tekan ikon mata di pojok kanan atas untuk menyembunyikan nominal (Mode Privasi).</li>
                   <li><b>Ringkasan Mutasi:</b> Dua kartu putih di bawah saldo menunjukkan total akumulasi uang masuk dan keluar khusus pada bulan ini.</li>
               </ul>
+
+              <ImagePlaceholder label="Letak Gambar: Fitur Pilihan & Pintasan" src="Home2.jpg" />
 
               <ul className="list-disc pl-4 space-y-2">
                   <li><b>Fitur Pilihan:</b> Menu utama aplikasi (Valas, Hutang, Langganan, dll). Geser (swipe) area ini ke kiri/kanan untuk melihat fitur tambahan.</li>
@@ -63,16 +56,16 @@ export default function Guide() {
           <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
               <p>Catat setiap tetes keringat hasil kerja Anda di sini. BILANO memisahkan pemasukan ke dalam dua mode pintar agar pembukuan tetap akurat:</p>
               
-              <GuideImage src="Income1.jpg" label="Pemasukan Tunai" />
+              <ImagePlaceholder label="Letak Gambar: Pemasukan Tunai" src="Income1.jpg" />
 
               <ul className="list-disc pl-4 space-y-2 mb-4">
                   <li><b>Mode TUNAI (Cash) - Hijau:</b> Gunakan ini jika uangnya sudah benar-benar masuk ke dompet/rekening Anda. Transaksi ini akan langsung menambah Saldo Kas Utama saat itu juga.</li>
               </ul>
 
-              <GuideImage src="Income2.jpg" label="Pemasukan Piutang" />
+              <ImagePlaceholder label="Letak Gambar: Pemasukan Piutang" src="Income2.jpg" />
 
               <ul className="list-disc pl-4 space-y-2">
-                  <li><b>Mode PIUTANG (Belum Dibayar) - Oranye:</b> Sangat berguna bagi freelancer/pebisnis! Gunakan jika pekerjaan selesai tapi uang masih ditahan klien. Ini TIDAK akan menambah saldo kas sekarang, melainkan dicatat aman di menu "Hutang" sebagai Piutang.</li>
+                  <li><b>Mode PIUTANG (Belum Dibayar) - Oranye:</b> Sangat berguna bagi freelancer/pebisnis! Gunakan jika pekerjaan selesai tapi uang masih ditahan klien. Ini TIDAK akan menambah saldo kas sekarang, melainkan dicatat aman di menu "Hutang" sebagai Piutang, lengkap dengan pengingat jatuh temponya.</li>
               </ul>
           </div>
       )
@@ -83,17 +76,17 @@ export default function Guide() {
           <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
               <p>Kendalikan pengeluaran Anda agar tidak bocor alus. Halaman ini dilengkapi dengan Satpam Finansial otomatis.</p>
               
-              <GuideImage src="Expense1.jpg" label="Pengeluaran Tunai & Peringatan Budget" />
+              <ImagePlaceholder label="Letak Gambar: Pengeluaran Tunai & Peringatan Budget" src="Expense1.jpg" />
 
               <ul className="list-disc pl-4 space-y-2 mb-4">
                   <li><b>Mode TUNAI (Cash) - Merah:</b> Untuk pembelanjaan menggunakan uang riil Anda saat ini.</li>
-                  <li><b>Proteksi & Peringatan:</b> Jika Anda belanja melebihi Saldo, transaksi diblokir. Jika Anda belanja melebihi Target Limit Bulanan, sistem akan membunyikan alarm!</li>
+                  <li><b>Proteksi & Peringatan:</b> Jika Anda belanja melebihi Saldo, transaksi diblokir. Jika Anda belanja melebihi Target Limit Bulanan, sistem akan membunyikan alarm! Anda bisa lanjut menembus limit menggunakan Dana Darurat, namun jatah budget bulan depan Anda akan dipotong otomatis.</li>
               </ul>
 
-              <GuideImage src="Expense2.jpg" label="Pengeluaran Ngutang" />
+              <ImagePlaceholder label="Letak Gambar: Pengeluaran Ngutang" src="Expense2.jpg" />
 
               <ul className="list-disc pl-4 space-y-2">
-                  <li><b>Mode HUTANG (Ngutang Dulu) - Oranye:</b> Gunakan jika Anda berbelanja dengan uang teman, Paylater, atau kasbon warung. Saldo Kas tidak terpotong sekarang, melainkan dicatat sebagai kewajiban di menu "Hutang".</li>
+                  <li><b>Mode HUTANG (Ngutang Dulu) - Oranye:</b> Gunakan jika Anda berbelanja dengan uang teman, Paylater, atau kasbon warung. Saldo Kas tidak terpotong sekarang, melainkan dicatat sebagai kewajiban di menu "Hutang" agar Anda tidak lupa membayarnya.</li>
               </ul>
           </div>
       )
@@ -104,16 +97,22 @@ export default function Guide() {
           <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
               <p>Fitur elit kelas dunia! Pantau kurs secara <i>real-time</i> dan lacak kekayaan Anda dalam mata uang asing (USD, EUR, SGD, dll) tanpa repot menghitung manual.</p>
               
-              <GuideImage src="Valas2.jpg" label="Dasbor Valas & Live Rates" />
+              <ImagePlaceholder label="Letak Gambar: Dasbor Valas & Live Rates" src="Valas1.jpg" />
 
               <ul className="list-disc pl-4 space-y-2 mb-4">
-                  <li><b>Pemantauan Pasar:</b> Lihat estimasi total aset valas Anda dalam Rupiah. Tekan salah satu mata uang untuk melihat grafik tren.</li>
+                  <li><b>Pemantauan Pasar:</b> Lihat estimasi total aset valas Anda dalam Rupiah. Tekan salah satu mata uang (misal: USD) untuk membuka Grafik Tren Nilai Tukar 30 Hari Terakhir.</li>
               </ul>
 
-              <GuideImage src="Valas3.jpg" label="Catat Mutasi & Tukar Valas" />
+              <ImagePlaceholder label="Letak Gambar: Catat Mutasi Valas" src="Valas2.jpg" />
+
+              <ul className="list-disc pl-4 space-y-2 mb-4">
+                  <li><b>Catat Mutasi:</b> Gunakan tab ini jika Anda menerima atau mengeluarkan valas murni (misal: digaji pakai USD) tanpa melibatkan saldo Rupiah Anda.</li>
+              </ul>
+
+              <ImagePlaceholder label="Letak Gambar: Tukar Valas (Jual/Beli)" src="Valas3.jpg" />
 
               <ul className="list-disc pl-4 space-y-2">
-                  <li><b>Tukar Valas:</b> Gunakan tab ini saat Anda menukarkan uang secara fisik di Money Changer/Bank. Pilih Beli (Rupiah keluar) atau Jual (Rupiah masuk).</li>
+                  <li><b>Tukar Valas:</b> Gunakan tab ini saat Anda menukarkan uang secara fisik di Money Changer/Bank. Pilih Beli (Rupiah keluar) atau Jual (Rupiah masuk), lalu masukkan kurs deal yang Anda dapatkan.</li>
               </ul>
           </div>
       )
@@ -124,16 +123,16 @@ export default function Guide() {
           <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
               <p>Jaga kesehatan finansial dan pertemanan Anda. <b>Penting:</b> Halaman ini khusus untuk aktivitas Pinjam Meminjam Uang Tunai secara langsung.</p>
               
-              <GuideImage src="Debt1.jpg" label="Piutang (Uang Kita)" />
+              <ImagePlaceholder label="Letak Gambar: Piutang (Uang Kita)" src="Debt1.jpg" />
 
               <ul className="list-disc pl-4 space-y-2 mb-4">
-                  <li><b>Mode PIUTANG (Hijau):</b> Catat saat Anda meminjamkan uang. Jika dibayar, tekan tombol TAGIH. Jika uang dibawa kabur, tekan tombol IKHLAS untuk menjadikannya kerugian di laporan.</li>
+                  <li><b>Mode PIUTANG (Hijau):</b> Catat saat Anda meminjamkan uang ke orang lain. Jika dia membayar, tekan tombol TAGIH (bisa bayar lunas atau cicil). Jika uang dibawa kabur, tekan tombol IKHLAS untuk menjadikannya kerugian di laporan.</li>
               </ul>
 
-              <GuideImage src="Debt2.jpg" label="Hutang (Pinjaman)" />
+              <ImagePlaceholder label="Letak Gambar: Hutang (Pinjaman)" src="Debt2.jpg" />
 
               <ul className="list-disc pl-4 space-y-2">
-                  <li><b>Mode HUTANG (Merah):</b> Catat saat Anda meminjam uang (Pinjol, Bank, Teman). BILANO akan memberi notifikasi sebelum jatuh tempo.</li>
+                  <li><b>Mode HUTANG (Merah):</b> Catat saat Anda meminjam uang (Pinjol, Bank, Teman). BILANO akan memberi notifikasi sebelum jatuh tempo. Tekan tombol BAYAR saat Anda menyicil/melunasinya, dan saldo Anda akan terpotong otomatis.</li>
               </ul>
           </div>
       )
@@ -144,16 +143,20 @@ export default function Guide() {
           <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
               <p>Biarkan BILANO mengingat tagihan rutin Anda (WiFi, Netflix, Listrik, dll) agar terhindar dari denda keterlambatan.</p>
               
-              <GuideImage src="Subs1.jpg" label="Tambah Langganan Statis" />
+              <ImagePlaceholder label="Letak Gambar: Estimasi Beban Tetap & Tambah Langganan" src="Subs1.jpg" />
 
               <ul className="list-disc pl-4 space-y-2 mb-4">
-                  <li><b>Nominal Tetap (Statis):</b> Untuk tagihan yang harganya pasti (Cth: Spotify, Kosan).</li>
+                  <li><b>Nominal Tetap (Statis):</b> Untuk tagihan yang harganya pasti (Cth: Spotify, Kosan). Masukkan siklus (/Bulan atau /Tahun) dan tanggal tagihan.</li>
               </ul>
 
-              <GuideImage src="Subs2.jpg" label="Tagihan Berubah-ubah (Dinamis)" />
+              <ImagePlaceholder label="Letak Gambar: Tagihan Berubah-ubah (Dinamis)" src="Subs2.jpg" />
+
+              <ul className="list-disc pl-4 space-y-2 mb-4">
+                  <li><b>Berubah-ubah (Dinamis):</b> Untuk tagihan tak pasti (Cth: Listrik, PDAM, Kartu Kredit). Saat jatuh tempo tiba, aplikasi akan memunculkan Pop-Up menanyakan "Berapa tagihan Anda bulan ini?".</li>
+              </ul>
 
               <ul className="list-disc pl-4 space-y-2">
-                  <li><b>Berubah-ubah (Dinamis):</b> Untuk tagihan tak pasti (Cth: Listrik, PDAM). Saat jatuh tempo, aplikasi akan memunculkan Pop-Up menanyakan nominal bulan ini.</li>
+                  <li><b>Kelola Tagihan:</b> Anda bisa menonaktifkan sementara tagihan tanpa menghapusnya dari riwayat. Sangat pas jika Anda sedang "jeda" berlangganan bulan ini.</li>
               </ul>
           </div>
       )
@@ -164,14 +167,22 @@ export default function Guide() {
           <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
               <p>BILANO bertindak sebagai manajer investasi pribadi Anda untuk berbagai kelas aset (Saham, Crypto, Reksadana, Emas, dll).</p>
               
-              <GuideImage label="Letak Gambar: Dasbor Investasi (Coming Soon)" />
+              <ImagePlaceholder label="Letak Gambar: Dasbor Investasi" src="Aset1.jpg" />
 
               <ul className="list-disc pl-4 space-y-2 mb-4">
                   <li><b>Beli Aset (Hijau):</b> Catat saat Anda mengalokasikan uang. Khusus Saham (IDR), cukup masukkan harga per 1 lembar, sistem otomatis mengalikannya dengan 100 (1 Lot).</li>
               </ul>
 
+              <ImagePlaceholder label="Letak Gambar: Jual Aset & Profit/Loss" src="Aset2.jpg" />
+
+              <ul className="list-disc pl-4 space-y-2 mb-4">
+                  <li><b>Jual Aset (Merah):</b> Saat Anda <i>take profit</i> atau <i>cut loss</i>. Sistem akan otomatis menghitung Keuntungan (Profit) atau Kerugian (Loss) Anda dari selisih harga beli dan jual! Uang hasil penjualan langsung masuk kembali ke Saldo Kas.</li>
+              </ul>
+
+              <ImagePlaceholder label="Letak Gambar: Analisa Aset" src="Aset3.jpg" />
+
               <ul className="list-disc pl-4 space-y-2">
-                  <li><b>Jual Aset (Merah):</b> Saat Anda <i>take profit</i> atau <i>cut loss</i>. Sistem akan otomatis menghitung Profit/Loss dari selisih harga beli dan jual!</li>
+                  <li><b>Analisa Aset:</b> Fitur Smart Screener berbasis AI untuk melihat tren harga pasar (Eksklusif pengguna BILANO PRO).</li>
               </ul>
           </div>
       )
@@ -182,12 +193,21 @@ export default function Guide() {
           <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
               <p>Tidak perlu pusing membuat pembukuan manual di Excel! Dengan satu klik, BILANO menyusun seluruh data Anda menjadi dokumen PDF profesional.</p>
               
-              <GuideImage src="pdf1.jpg" label="Download Laporan PDF & Grafik" />
+              <ImagePlaceholder label="Letak Gambar: Download Laporan PDF" src="pdf1.jpg" />
 
               <p className="font-bold text-slate-800">Isi Dokumen Laporan PDF:</p>
               <ul className="list-disc pl-4 space-y-2">
-                  <li><b>Neraca & Arus Kas:</b> Rangkuman Total Kekayaan Bersih dan uang masuk/keluar harian.</li>
-                  <li><b>Grafik Visual:</b> Sistem otomatis menggambar Line Chart, Lollipop Chart, & Bar Chart yang memetakan tren aset Anda!</li>
+                  <li><b>Neraca Terpadu:</b> Rangkuman Total Kekayaan Bersih (Net Worth).</li>
+                  <li><b>Arus Kas Murni:</b> Daftar uang masuk/keluar harian pada bulan berjalan.</li>
+                  <li><b>Riwayat Investasi:</b> Catatan beli/jual lengkap dengan kalkulasi Profit/Loss.</li>
+                  <li><b>Detail Hutang Piutang:</b> Status kelunasan tagihan Anda.</li>
+                  <li><b>Estimasi Valas:</b> Portofolio asing yang dikonversi ke Rupiah dengan kurs live.</li>
+              </ul>
+
+              <ImagePlaceholder label="Letak Gambar: Contoh Hasil Cetakan PDF & Grafik" src="pdf2.jpg" />
+
+              <ul className="list-disc pl-4 space-y-2">
+                  <li><b>Grafik Visual:</b> Di halaman belakang PDF, sistem otomatis menggambar Line Chart, Lollipop Chart, & Bar Chart yang memetakan tren aset Anda 12 bulan terakhir!</li>
               </ul>
           </div>
       )
@@ -198,14 +218,16 @@ export default function Guide() {
           <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
               <p>Malas mengetik? Biarkan AI (Kecerdasan Buatan) BILANO mencatat transaksi hanya dengan suara atau foto struk.</p>
               
-              <GuideImage src="scan2.jpg" label="Mode Scan Struk & Suara" />
+              <ImagePlaceholder label="Letak Gambar: Mode Suara (Voice Command)" src="scan1.jpg" />
 
               <ul className="list-disc pl-4 space-y-2 mb-4">
-                  <li><b>Mode Suara:</b> Tekan ikon mikrofon dan bicaralah natural. AI akan membedakan jenis transaksi, nominal, dan kategori secara instan!</li>
+                  <li><b>Mode Suara:</b> Tekan ikon mikrofon dan bicaralah natural. Contoh: <i>"Baru aja beli kopi 50 ribu"</i> atau <i>"Dipinjam Budi uang 100 ribu"</i>. AI akan membedakan jenis transaksi, nominal, dan kategorinya secara instan!</li>
               </ul>
 
+              <ImagePlaceholder label="Letak Gambar: Mode Scan Struk" src="scan2.jpg" />
+
               <ul className="list-disc pl-4 space-y-2">
-                  <li><b>Mode Scan:</b> Upload foto struk belanja. Sistem OCR kami akan membaca teks dan menemukan total nominal belanja secara otomatis.</li>
+                  <li><b>Mode Scan:</b> Upload foto struk belanja minimarket/restoran. Sistem OCR kami akan membaca teks di gambar, menemukan total nominal belanja, dan menyiapkannya di formulir konfirmasi sebelum disimpan.</li>
               </ul>
           </div>
       )
@@ -216,17 +238,18 @@ export default function Guide() {
           <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
               <p>Ini adalah "Buku Rapor" keuangan Anda untuk mengevaluasi kesehatan finansial dan memantau budget bulanan.</p>
               
-              <GuideImage src="perfom.jpg" label="Progress Target Kekayaan" />
+              <ImagePlaceholder label="Letak Gambar: Progress Target Kekayaan" src="perfom.jpg" />
 
               <ul className="list-disc pl-4 space-y-2 mb-4">
                   <li><b>Capaian Impian:</b> Progress bar ini membandingkan Kekayaan Bersih Anda saat ini dengan Target Finansial impian Anda.</li>
+                  <li><b>Kesehatan Budget:</b> Awasi perbandingan Batas Pengeluaran vs Uang yang sudah Terpakai bulan ini agar tidak overbudget.</li>
               </ul>
 
-              <GuideImage src="perfom2.jpg" label="Top Kategori & ROI Premium" />
+              <ImagePlaceholder label="Letak Gambar: Top Kategori & ROI Premium" src="perfom2.jpg" />
 
               <ul className="list-disc pl-4 space-y-2">
-                  <li><b>Top Kategori:</b> Cari tahu ke mana uang Anda "bocor" berdasarkan kategori belanja paling boros.</li>
-                  <li><b>Kalkulasi ROI:</b> Insight mendalam tentang keuntungan investasi (Eksklusif BILANO PRO).</li>
+                  <li><b>Top Kategori:</b> Cari tahu ke mana uang Anda "bocor". Merangking kategori belanja paling boros bulan ini.</li>
+                  <li><b>Kalkulasi ROI:</b> Insight mendalam tentang keuntungan investasi dan persentase kekayaan (Terkunci khusus pengguna BILANO PRO).</li>
               </ul>
           </div>
       )
@@ -277,7 +300,7 @@ export default function Guide() {
                   
                   <h3 className="text-2xl font-black text-slate-800 mb-6">{guides[activeTab].title}</h3>
                   
-                  {/* Area Konten Dinamis (Teks & Gambar Aktual) */}
+                  {/* Area Konten Dinamis (Teks & Placeholder Gambar) */}
                   {guides[activeTab].content}
                   
               </Card>
