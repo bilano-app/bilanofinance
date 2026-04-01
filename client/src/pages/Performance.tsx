@@ -3,7 +3,11 @@ import { MobileLayout } from "@/components/Layout";
 import { Card, Button } from "@/components/UIComponents";
 import { useUser, useTransactions, useTarget, useInvestments } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
-import { Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2, Lock, Crown, ShieldCheck, Sparkles, ChevronRight, X, CreditCard } from "lucide-react";
+import { 
+  Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, 
+  ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2, Lock, Crown, 
+  ShieldCheck, Sparkles, ChevronRight, X, CreditCard, Briefcase, TrendingUp 
+} from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -108,6 +112,19 @@ export default function Performance() {
   });
 
   const currentWealth = cashReal + investmentReal + forexValue + piutangReal - hutangReal;
+
+  // 🚀 LOGIKA BARU: HITUNG MODAL & ROI UNTUK FITUR PRO
+  const totalCapitalInvested = investments?.reduce((acc, inv) => {
+      const [sym, curr] = (inv.symbol || "").split('|');
+      const rate = curr === 'IDR' || !curr ? 1 : (forexRates[curr] || 1);
+      const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
+      const m = (isSaham && (curr === 'IDR' || !curr)) ? 100 : 1;
+      return acc + (inv.quantity * inv.avgPrice * m * rate);
+  }, 0) || 0;
+
+  const unrealizedProfit = investmentReal - totalCapitalInvested;
+  const roiPercentage = totalCapitalInvested > 0 ? (unrealizedProfit / totalCapitalInvested) * 100 : 0;
+  const assetAlocationRatio = currentWealth > 0 ? (investmentReal / currentWealth) * 100 : 0;
 
   let targetIncomeMonth = 0;
   let savingRequired = 0;
@@ -225,7 +242,6 @@ export default function Performance() {
           </div>
       )}
 
-      {/* 🚀 JIKA DIKUNCI, PADDING BAWAH DITAMBAH AGAR FLOATING BUTTON TIDAK MENUTUPI KONTEN */}
       <div className={`space-y-6 pt-4 px-1 ${locked ? 'pb-32' : 'pb-24'}`}>
 
         {isPeriodEnded && (
@@ -252,7 +268,6 @@ export default function Performance() {
             </div>
         )}
 
-        {/* 🚀 KARTU UTAMA GHOSTED (ANGKA DI-BLUR JIKA TERKUNCI) */}
         <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-800 text-white p-7 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden">
             <div className="relative z-10 mb-6">
                 
@@ -307,7 +322,6 @@ export default function Performance() {
         {target ? (
             <div className="grid grid-cols-1 gap-5">
                 
-                {/* 🚀 KARTU GOAL GHOSTED (OVERLAY PROFESSIONAL JIKA DIKUNCI) */}
                 {target.targetAmount > 0 && (
                     <div className="p-6 rounded-[32px] bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 relative overflow-hidden">
                         
@@ -342,7 +356,6 @@ export default function Performance() {
                             )}
                         </div>
 
-                        {/* LAPISAN KUNCI NATIVE */}
                         {locked && (
                             <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-4">
                                 <Lock className="w-6 h-6 text-indigo-400 mb-2"/>
@@ -352,8 +365,7 @@ export default function Performance() {
                     </div>
                 )}
 
-                {/* 🚀 KARTU CASHFLOW GHOSTED */}
-                <div className="p-0 border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] bg-white overflow-hidden rounded-[32px] relative">
+                <div className="p-0 border border-slate-100 shadow-[0_4px_20_rgb(0,0,0,0.03)] bg-white overflow-hidden rounded-[32px] relative">
                     <div className={locked ? 'blur-[5px] pointer-events-none select-none' : ''}>
                         <div className="p-6 border-b border-slate-100">
                             <div className="flex justify-between items-center mb-6">
@@ -424,7 +436,6 @@ export default function Performance() {
                         </div>
                     </div>
 
-                    {/* LAPISAN KUNCI NATIVE */}
                     {locked && (
                         <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-6">
                             <Lock className="w-8 h-8 text-indigo-400 mb-3"/>
@@ -434,41 +445,82 @@ export default function Performance() {
                     )}
                 </div>
 
-                {/* 🚀 KARTU DIAGNOSA GHOSTED */}
-                {target.targetAmount > 0 && (
-                    <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${isSafe ? "border-emerald-100 bg-emerald-50" : "border-orange-100 bg-orange-50"}`}>
-                        <div className={locked ? 'blur-[5px] select-none' : ''}>
-                            <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Diagnosa Bulan Ini</p>
-                            {isSafe ? (
-                                <>
-                                    <h3 className="text-xl font-extrabold text-emerald-600 mb-2">AMAN (ON TRACK) 🎉</h3>
-                                    <p className="text-xs text-emerald-700 leading-relaxed font-medium">
-                                        Sisa uang bulan ini {formatRp(monthlyNet)}.<br/>
-                                        Memenuhi syarat minimal nabung ({formatRp(savingRequired)}).
-                                    </p>
-                                </>
-                            ) : (
-                                <>
-                                    <h3 className="text-xl font-extrabold text-orange-600 mb-2">KURANG (OFF TRACK) ⚠️</h3>
-                                    <p className="text-xs text-orange-700 leading-relaxed font-medium">
-                                        Sisa uang hanya {formatRp(monthlyNet)}.<br/>
-                                        Masih kurang <b>{formatRp(savingRequired - monthlyNet)}</b> untuk mencapai target tabungan bulan ini.
-                                    </p>
-                                </>
+                {/* 🚀 DIAGNOSA & ROI PORTFOLIO SECTION */}
+                <div className="space-y-4">
+                    {/* 🚀 KARTU DIAGNOSA GHOSTED */}
+                    {target.targetAmount > 0 && (
+                        <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${isSafe ? "border-emerald-100 bg-emerald-50" : "border-orange-100 bg-orange-50"}`}>
+                            <div className={locked ? 'blur-[5px] select-none' : ''}>
+                                <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Diagnosa Bulan Ini</p>
+                                {isSafe ? (
+                                    <>
+                                        <h3 className="text-xl font-extrabold text-emerald-600 mb-2">AMAN (ON TRACK) 🎉</h3>
+                                        <p className="text-xs text-emerald-700 leading-relaxed font-medium">
+                                            Sisa uang bulan ini {formatRp(monthlyNet)}.<br/>
+                                            Memenuhi syarat minimal nabung ({formatRp(savingRequired)}).
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h3 className="text-xl font-extrabold text-orange-600 mb-2">KURANG (OFF TRACK) ⚠️</h3>
+                                        <p className="text-xs text-orange-700 leading-relaxed font-medium">
+                                            Sisa uang hanya {formatRp(monthlyNet)}.<br/>
+                                            Masih kurang <b>{formatRp(savingRequired - monthlyNet)}</b> untuk mencapai target tabungan bulan ini.
+                                        </p>
+                                    </>
+                                )}
+                            </div>
+                            {locked && (
+                                <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center">
+                                    <Lock className="w-6 h-6 text-indigo-400 mb-1"/>
+                                    <p className="font-extrabold text-slate-800 text-sm">Diagnosa Terkunci</p>
+                                </div>
                             )}
                         </div>
+                    )}
 
-                        {/* LAPISAN KUNCI NATIVE */}
-                        {locked && (
-                            <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center">
-                                <Lock className="w-6 h-6 text-indigo-400 mb-1"/>
-                                <p className="font-extrabold text-slate-800 text-sm">Diagnosa Terkunci</p>
+                    {/* 👑 KHUSUS PRO: ANALISA ROI & PORTFOLIO */}
+                    {!locked && isPro && (investmentReal > 0 || virtualPLTxs.length > 0) && (
+                        <div className="p-6 rounded-[32px] bg-slate-900 text-white shadow-xl border border-slate-700 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h3 className="font-black text-lg flex items-center gap-2"><Briefcase className="w-5 h-5 text-amber-400"/> Performa Aset</h3>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">ROI & Portfolio Insight</p>
+                                </div>
+                                <div className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-1 rounded-md">PRO</div>
                             </div>
-                        )}
-                    </div>
-                )}
 
-                {/* 🚀 KARTU KONTROL GHOSTED */}
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">Pertumbuhan (ROI)</p>
+                                    <p className={`text-xl font-black ${unrealizedProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {unrealizedProfit >= 0 ? '+' : ''}{roiPercentage.toFixed(2)}%
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 font-medium">{formatRp(unrealizedProfit)} dari modal</p>
+                                </div>
+                                <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">Alokasi Aset</p>
+                                    <p className="text-xl font-black text-blue-400">{assetAlocationRatio.toFixed(1)}%</p>
+                                    <p className="text-[10px] text-slate-500 font-medium">Porsi dari Kekayaan Bersih</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-amber-400/10 border border-amber-400/20 p-4 rounded-2xl">
+                                <div className="flex items-center gap-2 mb-1.5 text-amber-400">
+                                    <TrendingUp className="w-4 h-4"/>
+                                    <span className="text-[11px] font-black uppercase">Saran Strategi:</span>
+                                </div>
+                                <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
+                                    {roiPercentage > 5 ? "Performa aset sangat sehat! Pertimbangkan untuk menambah porsi investasi secara rutin." : 
+                                     roiPercentage < 0 ? "Aset sedang mengalami penurunan nilai. Tetap tenang dan lakukan evaluasi fundamental portfolio Anda." :
+                                     "Portfolio stabil. Fokuslah pada manajemen risiko dan diversifikasi aset untuk pertumbuhan jangka panjang."}
+                                </p>
+                            </div>
+                            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl"></div>
+                        </div>
+                    )}
+                </div>
+
                 {target.targetAmount === 0 && expenseLimit > 0 && (
                     <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${!isOverBudget ? "border-emerald-100 bg-emerald-50" : "border-rose-100 bg-rose-50"}`}>
                         <div className={locked ? 'blur-[5px] select-none' : ''}>
@@ -485,8 +537,6 @@ export default function Performance() {
                                 </>
                             )}
                         </div>
-
-                        {/* LAPISAN KUNCI NATIVE */}
                         {locked && (
                             <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center">
                                 <Lock className="w-6 h-6 text-indigo-400 mb-1"/>
@@ -514,9 +564,7 @@ export default function Performance() {
 
       </div>
 
-      {/* ===================================================================== */}
-      {/* 🚀 FLOATING NATIVE PAYWALL BUTTON (Muncul Melayang di Bawah jika Terkunci) */}
-      {/* ===================================================================== */}
+      {/* FLOATING NATIVE PAYWALL BUTTON */}
       {locked && (
           <div className="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-slate-50 via-slate-50/95 to-slate-50/0 z-40 animate-in slide-in-from-bottom duration-500">
               <Card onClick={() => setPaywallModalOpen(true)} className="p-4 rounded-3xl bg-slate-900 shadow-[0_10px_40px_rgba(30,41,59,0.3)] border border-slate-800 flex items-center justify-between cursor-pointer group active:scale-[0.98] transition-all">
@@ -532,9 +580,7 @@ export default function Performance() {
           </div>
       )}
 
-      {/* ===================================================================== */}
-      {/* 🚀 MODAL PENJELASAN BILANO PRO (Desain Kartu Premium) */}
-      {/* ===================================================================== */}
+      {/* MODAL PENJELASAN BILANO PRO */}
       {paywallModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
               <Card className="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-200">
