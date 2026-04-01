@@ -113,18 +113,28 @@ export default function Performance() {
 
   const currentWealth = cashReal + investmentReal + forexValue + piutangReal - hutangReal;
 
-  // 🚀 LOGIKA BARU: HITUNG MODAL & ROI UNTUK FITUR PRO
-  const totalCapitalInvested = investments?.reduce((acc, inv) => {
-      const [sym, curr] = (inv.symbol || "").split('|');
-      const rate = curr === 'IDR' || !curr ? 1 : (forexRates[curr] || 1);
-      const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
-      const m = (isSaham && (curr === 'IDR' || !curr)) ? 100 : 1;
-      return acc + (inv.quantity * inv.avgPrice * m * rate);
-  }, 0) || 0;
+  // 🚀 LOGIKA BARU: MENGHITUNG ROI BERDASARKAN REALISASI CUAN (TRANSAKSI JUAL)
+  const allTimeTx = transactions || [];
+  let totalCuanJual = 0;
+  let totalModalTerpakai = 0;
 
-  const unrealizedProfit = investmentReal - totalCapitalInvested;
-  const roiPercentage = totalCapitalInvested > 0 ? (unrealizedProfit / totalCapitalInvested) * 100 : 0;
-  const assetAlocationRatio = currentWealth > 0 ? (investmentReal / currentWealth) * 100 : 0;
+  // Mencari transaksi 'invest_sell' yang mengandung info P/L di deskripsi
+  allTimeTx.filter(t => t.type === 'invest_sell').forEach(t => {
+      if (t.description && t.description.includes('P/L:')) {
+          const plString = t.description.split('P/L:')[1];
+          if (plString) {
+              // Membersihkan teks Rp dan titik agar jadi angka murni
+              const plValue = parseInt(plString.replace(/[^0-9-]/g, ''), 10);
+              if (!isNaN(plValue)) {
+                  totalCuanJual += plValue;
+                  totalModalTerpakai += (t.amount - plValue); // Modal asli = Harga Jual - Untung
+              }
+          }
+      }
+  });
+
+  const roiPercentage = totalModalTerpakai > 0 ? (totalCuanJual / totalModalTerpakai) * 100 : 0;
+  const assetAlocationRatio = currentWealth > 0 ? ((investmentReal + forexValue) / currentWealth) * 100 : 0;
 
   let targetIncomeMonth = 0;
   let savingRequired = 0;
@@ -479,8 +489,8 @@ export default function Performance() {
                         </div>
                     )}
 
-                    {/* 👑 KHUSUS PRO: ANALISA ROI & PORTFOLIO */}
-                    {!locked && isPro && (investmentReal > 0 || virtualPLTxs.length > 0) && (
+                    {/* 👑 KHUSUS PRO: ANALISA ROI BERDASARKAN REALISASI CUAN JUAL */}
+                    {!locked && isPro && (totalCuanJual !== 0 || investmentReal > 0) && (
                         <div className="p-6 rounded-[32px] bg-slate-900 text-white shadow-xl border border-slate-700 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
                             <div className="flex justify-between items-start mb-6">
                                 <div>
@@ -492,31 +502,31 @@ export default function Performance() {
 
                             <div className="grid grid-cols-2 gap-4 mb-6">
                                 <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                                    <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">Pertumbuhan (ROI)</p>
-                                    <p className={`text-xl font-black ${unrealizedProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {unrealizedProfit >= 0 ? '+' : ''}{roiPercentage.toFixed(2)}%
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">Total ROI (Realisasi)</p>
+                                    <p className={`text-xl font-black ${totalCuanJual >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {totalCuanJual >= 0 ? '+' : ''}{roiPercentage.toFixed(2)}%
                                     </p>
-                                    <p className="text-[10px] text-slate-500 font-medium">{formatRp(unrealizedProfit)} dari modal</p>
+                                    <p className="text-[10px] text-slate-500 font-medium">{formatRp(totalCuanJual)} dari modal {formatRp(totalModalTerpakai)}</p>
                                 </div>
                                 <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                                    <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">Alokasi Aset</p>
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">Porsi Aset & Valas</p>
                                     <p className="text-xl font-black text-blue-400">{assetAlocationRatio.toFixed(1)}%</p>
-                                    <p className="text-[10px] text-slate-500 font-medium">Porsi dari Kekayaan Bersih</p>
+                                    <p className="text-[10px] text-slate-500 font-medium">dari Kekayaan Bersih</p>
                                 </div>
                             </div>
 
                             <div className="bg-amber-400/10 border border-amber-400/20 p-4 rounded-2xl">
                                 <div className="flex items-center gap-2 mb-1.5 text-amber-400">
                                     <TrendingUp className="w-4 h-4"/>
-                                    <span className="text-[11px] font-black uppercase">Saran Strategi:</span>
+                                    <span className="text-[11px] font-black uppercase">Analisa Strategi:</span>
                                 </div>
                                 <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
-                                    {roiPercentage > 5 ? "Performa aset sangat sehat! Pertimbangkan untuk menambah porsi investasi secara rutin." : 
-                                     roiPercentage < 0 ? "Aset sedang mengalami penurunan nilai. Tetap tenang dan lakukan evaluasi fundamental portfolio Anda." :
-                                     "Portfolio stabil. Fokuslah pada manajemen risiko dan diversifikasi aset untuk pertumbuhan jangka panjang."}
+                                    {roiPercentage > 5 ? "Gaya trading Anda sangat efektif! Lanjutkan konsistensi ini untuk mempercepat kebebasan finansial." : 
+                                     roiPercentage < 0 ? "Realisasi cuan sedang negatif. Lakukan evaluasi mendalam pada pemilihan aset atau waktu masuk/keluar pasar." :
+                                     "Hasil investasi masih stabil. Fokus pada manajemen risiko dan diversifikasi aset untuk pertumbuhan jangka panjang."}
                                 </p>
                             </div>
-                            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl"></div>
+                            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
                         </div>
                     )}
                 </div>
