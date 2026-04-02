@@ -232,6 +232,40 @@ export default function Debts() {
                 </div>
             </div>
         </div>
+
+        {/* 🚀 TOMBOL SEMENTARA: PEMULIHAN PIUTANG GAIB */}
+        {activeTab === 'piutang' && (
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-lg my-2">
+                <div>
+                    <h4 className="text-white font-extrabold text-sm flex items-center gap-2"><Loader2 className="w-4 h-4 text-emerald-400"/> Recovery Tool</h4>
+                    <p className="text-slate-400 text-[10px] mt-0.5">Pulihkan piutang $500 untuk mengunci Maret.</p>
+                </div>
+                <Button onClick={async () => {
+                    try {
+                        setIsPaying(true);
+                        await fetch("/api/debts", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                            body: JSON.stringify({ 
+                                type: 'piutang', 
+                                name: 'Piutang Dipulihkan|USD', 
+                                amount: 500, 
+                                dueDate: '2026-03-31', 
+                                description: 'Dipulihkan manual dari sistem' 
+                            })
+                        });
+                        toast({ title: "Berhasil!", description: "Piutang $500 telah dikembalikan." });
+                        setTimeout(() => window.location.reload(), 1000);
+                    } catch(e) {
+                        toast({ title: "Gagal", variant: "destructive" });
+                    } finally {
+                        setIsPaying(false);
+                    }
+                }} disabled={isPaying} className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs h-10 px-4 rounded-full">
+                    PULIHKAN
+                </Button>
+            </div>
+        )}
         
         <div className={`p-6 rounded-[32px] text-white shadow-xl relative overflow-hidden transition-colors duration-500 ${activeTab === 'piutang' ? 'bg-gradient-to-br from-emerald-500 to-teal-700' : 'bg-gradient-to-br from-rose-500 to-pink-700'}`}>
             <div className="relative z-10">
