@@ -28,6 +28,7 @@ export default function Debts() {
   const [dueDate, setDueDate] = useState("");
   const [desc, setDesc] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // 🚀 FIX: State untuk mencegah Double Submit
 
   // PAYMENT STATES
   const [payModalOpen, setPayModalOpen] = useState(false);
@@ -84,7 +85,21 @@ export default function Debts() {
 
   const handleAdd = async () => {
       if (checkPaywall()) return;
-      if(!name || !amount) return;
+      
+      // 🚀 FIX: Peringatan Form Kosong
+      if (!name || !amount) {
+          toast({ 
+              title: "Form Tidak Lengkap!", 
+              description: "Nama Pihak dan Nominal wajib diisi sebelum menyimpan.", 
+              variant: "destructive" 
+          });
+          return;
+      }
+
+      // 🚀 FIX: Mencegah Double Submit (Klik Berkali-kali)
+      if (isSubmitting) return;
+      setIsSubmitting(true);
+
       try {
           const nameWithCurrency = `${name}|${currency}`;
           const nominal = parseNum(amount); 
@@ -97,8 +112,14 @@ export default function Debts() {
               toast({ title: "Tersimpan", description: "Catatan berhasil ditambahkan." });
               setIsFormOpen(false); setName(""); setAmount(""); setDueDate(""); setDesc(""); setCurrency("IDR");
               fetchData();
+          } else {
+              toast({ title: "Gagal menyimpan", description: "Terjadi kesalahan pada server.", variant: "destructive" });
           }
-      } catch (e) { toast({ title: "Error", variant: "destructive" }); }
+      } catch (e) { 
+          toast({ title: "Error Jaringan", description: "Periksa koneksi internet Anda.", variant: "destructive" }); 
+      } finally {
+          setIsSubmitting(false); // Buka kunci tombol setelah proses selesai
+      }
   };
 
   const handlePay = async () => {
@@ -195,7 +216,6 @@ export default function Debts() {
       } catch (e) {}
   };
 
-  // 🚀 FUNGSI SEMENTARA UNTUK MEMULIHKAN PIPPIT AI
   const handleRecoverPippit = async () => {
       if (checkPaywall()) return;
       setIsPaying(true);
@@ -212,7 +232,6 @@ export default function Debts() {
               })
           });
           
-          // Menetralkan efek kas dari penciptaan piutang (karena ini masa lalu)
           await fetch("/api/transactions", {
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ type: 'income', amount: 500, category: 'Penyesuaian Sistem', description: `Netralisir: Pippit AI|USD`, date: new Date().toISOString() })
@@ -264,7 +283,7 @@ export default function Debts() {
                         {isPaying ? <Loader2 className="w-5 h-5 animate-spin"/> : "KONFIRMASI PEMBAYARAN"}
                     </Button>
 
-                    {/* TOMBOL IKHLAS ADA UNTUK PIUTANG DAN HUTANG */}
+                    {/* 🚀 FIX: TOMBOL IKHLAS / PEMUTIHAN DI DALAM POP-UP */}
                     <Button variant="outline" onClick={handleWriteOff} disabled={isPaying} className={`w-full h-12 rounded-full font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'piutang' ? 'border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700'}`}>
                         <HeartCrack className="w-4 h-4"/> {activeTab === 'piutang' ? 'IKHLASKAN (RUGI)' : 'PEMUTIHAN (UNTUNG)'}
                     </Button>
@@ -348,7 +367,11 @@ export default function Debts() {
                     </div>
 
                     <Input placeholder="Catatan Tambahan (Opsional)" value={desc} onChange={e => setDesc(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent text-sm"/>
-                    <Button onClick={handleAdd} className={`w-full h-14 rounded-full font-extrabold text-white mt-2 shadow-lg ${activeTab === 'piutang' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`}>SIMPAN</Button>
+                    
+                    {/* 🚀 FIX: TOMBOL SIMPAN ANTI DOUBLE-CLICK */}
+                    <Button onClick={handleAdd} disabled={isSubmitting} className={`w-full h-14 rounded-full font-extrabold text-white mt-2 shadow-lg transition-transform active:scale-95 ${activeTab === 'piutang' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`}>
+                        {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto"/> : "SIMPAN"}
+                    </Button>
                 </div>
             </div>
         )}
@@ -376,7 +399,6 @@ export default function Debts() {
                         <div key={item.id} className={`bg-white p-5 rounded-[24px] border shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex justify-between items-center transition-all ${item.isPaid ? 'opacity-60 border-slate-100' : (activeTab === 'piutang' ? 'border-emerald-50' : 'border-rose-50')}`}>
                             <div className="flex-1 mr-4">
                                 <div className="flex items-center gap-2 mb-1">
-                                    {/* 🚀 BADGE UI DIIKHLASKAN/DIPUTIHKAN */}
                                     <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${item.isPaid ? (isIkhlas ? 'bg-rose-100 text-rose-600' : isPemutihan ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500') : (activeTab === 'piutang' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700')}`}>
                                         {item.isPaid ? (isIkhlas ? 'DIIKHLASKAN' : isPemutihan ? 'DIPUTIHKAN' : 'LUNAS') : (isCicilan ? 'DICICIL' : 'BELUM LUNAS')}
                                     </span>
@@ -412,7 +434,6 @@ export default function Debts() {
                                             <span className="text-[9px] font-extrabold uppercase tracking-wider">{activeTab === 'hutang' ? 'Bayar' : 'Tagih'}</span>
                                         </button>
                                         
-                                        {/* 🚀 TOMBOL TONG SAMPAH DIBUKA UNTUK ITEM BELUM LUNAS */}
                                         <button onClick={() => handleDelete(item.id)} className="p-2 rounded-[16px] bg-slate-50 text-slate-400 hover:bg-rose-500 hover:text-white shadow-sm active:scale-95 transition-colors flex flex-col items-center justify-center border border-slate-100" title="Hapus Permanen">
                                             <Trash2 className="w-4 h-4 mb-0.5"/>
                                             <span className="text-[8px] font-extrabold uppercase tracking-wider">Hapus</span>
