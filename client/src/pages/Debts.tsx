@@ -232,40 +232,6 @@ export default function Debts() {
                 </div>
             </div>
         </div>
-
-        {/* 🚀 TOMBOL SEMENTARA: PEMULIHAN PIUTANG PIPPIT AI */}
-        {activeTab === 'piutang' && (
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col gap-3 shadow-lg my-2 animate-in fade-in">
-                <div>
-                    <h4 className="text-emerald-400 font-black text-sm flex items-center gap-2"><Loader2 className="w-4 h-4"/> Recovery Pippit AI</h4>
-                    <p className="text-slate-400 text-[11px] mt-1 leading-relaxed">Klik tombol di bawah untuk mengembalikan piutang Pippit AI ($500) ke bulan Maret.</p>
-                </div>
-                <Button onClick={async () => {
-                    try {
-                        setIsPaying(true);
-                        await fetch("/api/debts", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                            body: JSON.stringify({ 
-                                type: 'piutang', 
-                                name: `Pippit AI|USD`, 
-                                amount: 500, 
-                                dueDate: '2026-03-31', 
-                                description: 'Pemulihan manual' 
-                            })
-                        });
-                        toast({ title: "Sukses!", description: "Pippit AI $500 telah kembali." });
-                        setTimeout(() => window.location.reload(), 1500);
-                    } catch(e) {
-                        toast({ title: "Gagal", variant: "destructive" });
-                    } finally {
-                        setIsPaying(false);
-                    }
-                }} disabled={isPaying} className="bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-sm h-12 w-full rounded-xl shadow-lg shadow-emerald-900/50">
-                    {isPaying ? <Loader2 className="w-5 h-5 animate-spin"/> : "PULIHKAN PIPPIT AI ($500)"}
-                </Button>
-            </div>
-        )}
         
         <div className={`p-6 rounded-[32px] text-white shadow-xl relative overflow-hidden transition-colors duration-500 ${activeTab === 'piutang' ? 'bg-gradient-to-br from-emerald-500 to-teal-700' : 'bg-gradient-to-br from-rose-500 to-pink-700'}`}>
             <div className="relative z-10">
@@ -390,12 +356,6 @@ export default function Debts() {
                                                 <span className="text-[8px] font-extrabold uppercase tracking-wider">Ikhlas</span>
                                             </button>
                                         )}
-
-                                        {/* 🚀 FITUR SEMENTARA: HARD DELETE UNTUK PIUTANG YANG BELUM LUNAS */}
-                                        <button onClick={() => handleDelete(item.id)} className="p-2 rounded-[16px] bg-slate-100 text-slate-500 hover:bg-rose-500 hover:text-white shadow-sm active:scale-95 transition-colors flex flex-col items-center justify-center border border-slate-200" title="Hapus Permanen (Bug Fix)">
-                                            <Trash2 className="w-4 h-4 mb-0.5"/>
-                                            <span className="text-[8px] font-extrabold uppercase tracking-wider">Hapus</span>
-                                        </button>
                                     </>
                                 ) : (
                                     <button onClick={() => handleDelete(item.id)} className="p-3 bg-slate-50 text-slate-400 rounded-[16px] hover:bg-rose-50 hover:text-rose-500 transition-colors">
