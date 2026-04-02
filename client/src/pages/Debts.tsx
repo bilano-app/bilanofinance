@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { 
     Users, ArrowUpRight, ArrowDownLeft, Calendar, 
-    CheckCircle2, Trash2, Plus, HandCoins, AlertCircle, X, Loader2, ArrowRight, HeartCrack, RefreshCcw
+    CheckCircle2, Trash2, Plus, HandCoins, AlertCircle, X, Loader2, ArrowRight, HeartCrack
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
@@ -28,7 +28,7 @@ export default function Debts() {
   const [dueDate, setDueDate] = useState("");
   const [desc, setDesc] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // 🚀 FIX: State untuk mencegah Double Submit
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // PAYMENT STATES
   const [payModalOpen, setPayModalOpen] = useState(false);
@@ -86,17 +86,11 @@ export default function Debts() {
   const handleAdd = async () => {
       if (checkPaywall()) return;
       
-      // 🚀 FIX: Peringatan Form Kosong
       if (!name || !amount) {
-          toast({ 
-              title: "Form Tidak Lengkap!", 
-              description: "Nama Pihak dan Nominal wajib diisi sebelum menyimpan.", 
-              variant: "destructive" 
-          });
+          toast({ title: "Form Tidak Lengkap!", description: "Nama Pihak dan Nominal wajib diisi.", variant: "destructive" });
           return;
       }
 
-      // 🚀 FIX: Mencegah Double Submit (Klik Berkali-kali)
       if (isSubmitting) return;
       setIsSubmitting(true);
 
@@ -113,12 +107,12 @@ export default function Debts() {
               setIsFormOpen(false); setName(""); setAmount(""); setDueDate(""); setDesc(""); setCurrency("IDR");
               fetchData();
           } else {
-              toast({ title: "Gagal menyimpan", description: "Terjadi kesalahan pada server.", variant: "destructive" });
+              toast({ title: "Gagal menyimpan", variant: "destructive" });
           }
       } catch (e) { 
-          toast({ title: "Error Jaringan", description: "Periksa koneksi internet Anda.", variant: "destructive" }); 
+          toast({ title: "Error Jaringan", variant: "destructive" }); 
       } finally {
-          setIsSubmitting(false); // Buka kunci tombol setelah proses selesai
+          setIsSubmitting(false);
       }
   };
 
@@ -150,11 +144,11 @@ export default function Debts() {
       finally { setIsPaying(false); }
   };
 
-  // 🚀 LOGIKA IKHLAS (WRITE-OFF) YANG SUPER AMAN & AKURAT
-  const handleWriteOff = async () => {
-      if (checkPaywall() || !selectedDebt) return;
+  // 🚀 LOGIKA IKHLAS YANG AMAN, LANGSUNG BACA ITEM, NO DOUBLE CLICK
+  const handleWriteOff = async (debtToProcess: DebtItem) => {
+      if (checkPaywall() || !debtToProcess) return;
       
-      const isPiutang = selectedDebt.type === 'piutang';
+      const isPiutang = debtToProcess.type === 'piutang';
       const confirmText = isPiutang 
           ? "Ikhlaskan piutang ini? Ini akan dicatat sebagai KERUGIAN di laporan." 
           : "Apakah hutang ini diputihkan/diikhlaskan oleh pemberi pinjaman? Ini akan dicatat sebagai KEUNTUNGAN di laporan.";
@@ -163,44 +157,47 @@ export default function Debts() {
       
       setIsPaying(true);
       try {
-          // 1. Hapus catatan lama agar bisa diperbarui deskripsinya
-          await fetch(`/api/debts/${selectedDebt.id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
+          // 1. Ambil Rate untuk PDF
+          const rate = (debtToProcess.name.split('|')[1] || 'IDR') === 'IDR' ? 1 : (forexRates[debtToProcess.name.split('|')[1]] || 1);
+          const idrNominal = debtToProcess.amount * rate;
+
+          // 2. Hapus catatan lama
+          await fetch(`/api/debts/${debtToProcess.id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
           
-          // 2. Buat ulang dengan label Ikhlas
+          // 3. Buat ulang dengan label Ikhlas
           const label = isPiutang ? '[Diikhlaskan]' : '[Pemutihan]';
           const createRes = await fetch("/api/debts", {
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ 
-                  type: selectedDebt.type, 
-                  name: selectedDebt.name, 
-                  amount: selectedDebt.amount, 
-                  dueDate: selectedDebt.dueDate, 
-                  description: `${selectedDebt.description || ''} ${label}`.trim(),
+                  type: debtToProcess.type, 
+                  name: debtToProcess.name, 
+                  amount: debtToProcess.amount, 
+                  dueDate: debtToProcess.dueDate, 
+                  description: `${debtToProcess.description || ''} ${label}`.trim(),
                   isFromTransaction: true 
               })
           });
           const newDebt = await createRes.json();
 
-          // 3. Lunasi secara sistem (agar tercoret di UI)
+          // 4. Lunasi secara sistem
           await fetch(`/api/debts/${newDebt.id}/pay`, { 
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ amount: selectedDebt.amount }) 
+              body: JSON.stringify({ amount: debtToProcess.amount }) 
           });
           
-          // 4. Buat transaksi penetralisir (Agar KAS tidak berubah, tapi Kekayaan berubah di Laporan!)
+          // 5. Buat transaksi laporan untuk PDF
           await fetch("/api/transactions", {
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ 
                   type: isPiutang ? 'expense' : 'income', 
-                  amount: selectedDebt.amount, // Sesuai angka aslinya (misal: 500) agar menetralkan kas di backend
+                  amount: idrNominal, 
                   category: isPiutang ? 'Penghapusan Piutang' : 'Pemutihan Hutang', 
-                  description: `Write-Off: ${selectedDebt.name}`, // Laporan PDF akan mendeteksi mata uang dari nama ini
+                  description: `Write-Off: ${debtToProcess.name}`, 
                   date: new Date().toISOString() 
               })
           });
           
           toast({ title: "Berhasil!", description: "Tercatat di Laporan PDF Anda." });
-          setPayModalOpen(false); 
           window.location.reload();
       } catch (e) { toast({ title: "Gagal memproses", variant: "destructive" }); }
       finally { setIsPaying(false); }
@@ -208,42 +205,12 @@ export default function Debts() {
 
   const handleDelete = async (id: number) => {
       if (checkPaywall()) return;
-      if(!confirm("Hapus catatan ini SECARA PERMANEN? Laporan Anda bisa terganggu!")) return;
+      if(!confirm("Hapus catatan ini SECARA PERMANEN?")) return;
       try {
           await fetch(`/api/debts/${id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
           toast({ title: "Berhasil dihapus." });
           fetchData();
       } catch (e) {}
-  };
-
-  const handleRecoverPippit = async () => {
-      if (checkPaywall()) return;
-      setIsPaying(true);
-      try {
-          await fetch("/api/debts", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ 
-                  type: 'piutang', 
-                  name: `Pippit AI|USD`, 
-                  amount: 500, 
-                  dueDate: '2026-03-31', 
-                  description: 'Pemulihan Manual' 
-              })
-          });
-          
-          await fetch("/api/transactions", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ type: 'income', amount: 500, category: 'Penyesuaian Sistem', description: `Netralisir: Pippit AI|USD`, date: new Date().toISOString() })
-          });
-          
-          toast({ title: "Sukses!", description: "Pippit AI ($500) telah dikembalikan." });
-          setTimeout(() => window.location.reload(), 1500);
-      } catch(e) {
-          toast({ title: "Gagal", variant: "destructive" });
-      } finally {
-          setIsPaying(false);
-      }
   };
 
   const filteredItems = items.filter((i: DebtItem) => i.type === activeTab);
@@ -279,13 +246,8 @@ export default function Debts() {
                     
                     <Input type="text" inputMode="decimal" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(formatNum(e.target.value))} className="h-14 font-bold text-lg mb-4"/>
                     
-                    <Button onClick={handlePay} disabled={isPaying} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold mb-3 shadow-lg">
+                    <Button onClick={handlePay} disabled={isPaying} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg">
                         {isPaying ? <Loader2 className="w-5 h-5 animate-spin"/> : "KONFIRMASI PEMBAYARAN"}
-                    </Button>
-
-                    {/* 🚀 FIX: TOMBOL IKHLAS / PEMUTIHAN DI DALAM POP-UP */}
-                    <Button variant="outline" onClick={handleWriteOff} disabled={isPaying} className={`w-full h-12 rounded-full font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'piutang' ? 'border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700'}`}>
-                        <HeartCrack className="w-4 h-4"/> {activeTab === 'piutang' ? 'IKHLASKAN (RUGI)' : 'PEMUTIHAN (UNTUNG)'}
                     </Button>
                 </div>
             </div>
@@ -304,19 +266,6 @@ export default function Debts() {
             </div>
         </div>
 
-        {/* 🚀 TOMBOL PENYELAMAT SEMENTARA */}
-        {activeTab === 'piutang' && (
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-lg my-2">
-                <div>
-                    <h4 className="text-emerald-400 font-extrabold text-sm flex items-center gap-2"><RefreshCcw className="w-4 h-4"/> Recovery Tool</h4>
-                    <p className="text-slate-400 text-[10px] mt-0.5">Pulihkan piutang Pippit AI ($500)</p>
-                </div>
-                <Button onClick={handleRecoverPippit} disabled={isPaying} className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[10px] h-10 px-4 rounded-full">
-                    {isPaying ? <Loader2 className="w-4 h-4 animate-spin"/> : "PULIHKAN"}
-                </Button>
-            </div>
-        )}
-        
         <div className={`p-6 rounded-[32px] text-white shadow-xl relative overflow-hidden transition-colors duration-500 ${activeTab === 'piutang' ? 'bg-gradient-to-br from-emerald-500 to-teal-700' : 'bg-gradient-to-br from-rose-500 to-pink-700'}`}>
             <div className="relative z-10">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-white/80 mb-1 flex items-center gap-2">
@@ -368,7 +317,6 @@ export default function Debts() {
 
                     <Input placeholder="Catatan Tambahan (Opsional)" value={desc} onChange={e => setDesc(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent text-sm"/>
                     
-                    {/* 🚀 FIX: TOMBOL SIMPAN ANTI DOUBLE-CLICK */}
                     <Button onClick={handleAdd} disabled={isSubmitting} className={`w-full h-14 rounded-full font-extrabold text-white mt-2 shadow-lg transition-transform active:scale-95 ${activeTab === 'piutang' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`}>
                         {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto"/> : "SIMPAN"}
                     </Button>
@@ -434,9 +382,10 @@ export default function Debts() {
                                             <span className="text-[9px] font-extrabold uppercase tracking-wider">{activeTab === 'hutang' ? 'Bayar' : 'Tagih'}</span>
                                         </button>
                                         
-                                        <button onClick={() => handleDelete(item.id)} className="p-2 rounded-[16px] bg-slate-50 text-slate-400 hover:bg-rose-500 hover:text-white shadow-sm active:scale-95 transition-colors flex flex-col items-center justify-center border border-slate-100" title="Hapus Permanen">
-                                            <Trash2 className="w-4 h-4 mb-0.5"/>
-                                            <span className="text-[8px] font-extrabold uppercase tracking-wider">Hapus</span>
+                                        {/* 🚀 TOMBOL IKHLAS/PEMUTIHAN KEMBALI KE SINI (OUTSIDE MODAL) */}
+                                        <button onClick={() => handleWriteOff(item)} className={`p-2 rounded-[16px] shadow-sm active:scale-95 transition-transform flex flex-col items-center justify-center border ${activeTab === 'piutang' ? 'bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-500 hover:bg-emerald-100 hover:text-emerald-600 border-emerald-100'}`} title={activeTab === 'piutang' ? 'Ikhlaskan (Rugi)' : 'Pemutihan (Untung)'}>
+                                            <HeartCrack className="w-4 h-4 mb-0.5"/>
+                                            <span className="text-[8px] font-extrabold uppercase tracking-wider">{activeTab === 'piutang' ? 'Ikhlas' : 'Putihkan'}</span>
                                         </button>
                                     </>
                                 ) : (
