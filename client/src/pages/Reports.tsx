@@ -7,6 +7,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useUser } from "@/hooks/use-finance"; 
 
+// 🚀 FIX: DAFTAR KURS CADANGAN PERMANEN JIKA API VALAS SERVER DOWN
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
     "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
@@ -20,9 +21,14 @@ export default function Reports() {
   const [targetData, setTargetData] = useState<any>(null); 
   
   const [loading, setLoading] = useState(true);
+  
+  // 🚀 REVISI: Menggunakan ID untuk melacak tombol mana yang sedang loading
   const [generatingId, setGeneratingId] = useState<string | null>(null);
 
-  const formatRp = (val: number) => "Rp " + Math.round(Number(val) || 0).toLocaleString("id-ID");
+  const formatRp = (val: number) => {
+      const num = Number(val) || 0;
+      return "Rp " + Math.round(num).toLocaleString("id-ID");
+  };
 
   const formatRpPendek = (val: number) => {
       const num = Math.abs(Number(val) || 0);
@@ -41,7 +47,11 @@ export default function Reports() {
     const fetchData = async () => {
       try {
         const userEmail = localStorage.getItem("bilano_email") || "";
-        const fetchOpts = { headers: { "x-user-email": userEmail }, cache: "no-store" as RequestCache };
+        const fetchOpts = { 
+            headers: { "x-user-email": userEmail },
+            cache: "no-store" as RequestCache
+        };
+
         const timestamp = Date.now();
         const [resData, resRates, resTarget] = await Promise.all([
             fetch(`/api/reports/data?t=${timestamp}`, fetchOpts),
@@ -52,13 +62,17 @@ export default function Reports() {
         if (resData.ok) setData(await resData.json());
         if (resRates.ok) setForexRates(await resRates.json());
         if (resTarget.ok) setTargetData(await resTarget.json());
-      } catch (e) { console.error(e); } finally { setLoading(false); }
+
+      } catch (e) { console.error(e); } 
+      finally { setLoading(false); }
     };
     fetchData();
   }, []);
 
+  // 🚀 LOGIKA BARU: MENGHASILKAN DAFTAR ARSIP BULAN LALU
   const getArchiveMonths = () => {
       if (!data) return [];
+      
       let firstDate = new Date();
       if (data.transactions && data.transactions.length > 0) {
           const minTime = Math.min(...data.transactions.map((t:any) => new Date(t.date).getTime()));
@@ -66,36 +80,51 @@ export default function Reports() {
       } else if (userProfile && userProfile.createdAt) {
           firstDate = new Date(userProfile.createdAt);
       }
+
       const archives = [];
       const now = new Date();
+      // Mulai dari tanggal 1 bulan pertama kali transaksi/daftar
       let iterDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+      // Batasnya adalah tanggal 1 bulan INI (Bulan ini tidak masuk arsip)
       const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
       while (iterDate < currentMonthStart) {
-          archives.push({ month: iterDate.getMonth(), year: iterDate.getFullYear(), label: iterDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) });
+          archives.push({
+              month: iterDate.getMonth(),
+              year: iterDate.getFullYear(),
+              label: iterDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+          });
+          // Maju 1 bulan
           iterDate.setMonth(iterDate.getMonth() + 1);
       }
+      
+      // Dibalik agar yang terbaru (misal bulan kemarin) ada di atas
       return archives.reverse(); 
   };
 
   const drawLineChart = (doc: jsPDF, title: string, chartData: any[], startY: number, lineColor: number[]) => {
       const chartHeight = 35; const chartWidth = 170; const startX = 20;
+
       doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold");
       doc.text(title, startX, startY - 3);
 
       let maxVal = Math.max(...chartData.map(d => d.value), 0);
       let minVal = Math.min(...chartData.map(d => d.value), 0);
+      
       if (maxVal > 0) maxVal = maxVal * 1.3; 
       if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
+      
       let range = maxVal - minVal; if (range === 0) range = 1;
 
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY);
 
       const pointGap = chartWidth / 11; 
-      doc.setDrawColor(lineColor[0], lineColor[1], lineColor[2]); doc.setFillColor(lineColor[0], lineColor[1], lineColor[2]); doc.setLineWidth(0.8);
+      doc.setDrawColor(lineColor[0], lineColor[1], lineColor[2]);
+      doc.setFillColor(lineColor[0], lineColor[1], lineColor[2]); doc.setLineWidth(0.8);
 
       let prevX = -1, prevY = -1;
+
       chartData.forEach((item, i) => {
           const x = startX + (i * pointGap);
           const valH = ((item.value - minVal) / range) * chartHeight;
@@ -103,8 +132,10 @@ export default function Reports() {
 
           if (prevX !== -1) doc.line(prevX, prevY, x, y); 
           doc.circle(x, y, 1.2, 'FD');
+
           doc.setFontSize(5); doc.setTextColor(lineColor[0], lineColor[1], lineColor[2]); doc.setFont("helvetica", "bold");
           doc.text(formatRpPendek(item.value), x, y - 2.5, { align: 'center' });
+
           doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal");
           doc.text(item.label, x, startY + chartHeight + 6, { align: 'center' });
           prevX = x; prevY = y;
@@ -114,28 +145,40 @@ export default function Reports() {
 
   const drawLollipopChart = (doc: jsPDF, title: string, chartData: any[], startY: number, color: number[]) => {
       const chartHeight = 35; const chartWidth = 170; const startX = 20;
+
       doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold");
       doc.text(title, startX, startY - 3);
 
       let maxVal = Math.max(...chartData.map(d => d.value), 0);
       let minVal = Math.min(...chartData.map(d => d.value), 0);
+      
       if (maxVal > 0) maxVal = maxVal * 1.3; 
       if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
+      
       let range = maxVal - minVal; if (range === 0) range = 1;
 
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
       const pointGap = chartWidth / 11; 
-      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY);
+
+      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); 
+      doc.line(startX, zeroY, startX + chartWidth, zeroY);
 
       chartData.forEach((item, i) => {
           const x = startX + (i * pointGap);
           const valH = ((item.value - minVal) / range) * chartHeight;
           const y = startY + chartHeight - valH;
-          doc.setDrawColor(color[0], color[1], color[2]); doc.setLineWidth(1.2); doc.line(x, zeroY, x, y); 
-          doc.setFillColor(color[0], color[1], color[2]); doc.circle(x, y, 1.8, 'FD'); 
+
+          doc.setDrawColor(color[0], color[1], color[2]); 
+          doc.setLineWidth(1.2); 
+          doc.line(x, zeroY, x, y); 
+          
+          doc.setFillColor(color[0], color[1], color[2]);
+          doc.circle(x, y, 1.8, 'FD'); 
+
           doc.setFontSize(5); doc.setTextColor(color[0], color[1], color[2]); doc.setFont("helvetica", "bold");
           const textY = item.value >= 0 ? y - 3 : y + 4;
           doc.text(formatRpPendek(item.value), x, textY, { align: 'center' });
+
           doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal");
           doc.text(item.label, x, startY + chartHeight + 6, { align: 'center' });
       });
@@ -144,42 +187,55 @@ export default function Reports() {
 
   const drawBarChart = (doc: jsPDF, title: string, chartData: any[], startY: number, barColor: number[]) => {
       const chartHeight = 35; const chartWidth = 170; const startX = 20;
+      
       doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold");
       doc.text(title, startX, startY - 3);
 
       let maxVal = Math.max(...chartData.map(d => d.value), 0);
       let minVal = Math.min(...chartData.map(d => d.value), 0);
+      
       if (maxVal > 0) maxVal = maxVal * 1.3; 
       if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
+      
       let range = maxVal - minVal; if (range === 0) range = 1;
 
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY); 
 
       const barGap = 3; const barWidth = (chartWidth / 12) - barGap;
+
       chartData.forEach((item, i) => {
           const x = startX + (i * (barWidth + barGap)) + barGap / 2;
           const valH = (Math.abs(item.value) / range) * chartHeight;
           const barY = item.value >= 0 ? zeroY - valH : zeroY;
+
           if (title.includes("Arus Kas")) doc.setFillColor(item.value >= 0 ? 16 : 244, item.value >= 0 ? 185 : 63, item.value >= 0 ? 129 : 94);
           else doc.setFillColor(barColor[0], barColor[1], barColor[2]);
           doc.rect(x, barY, barWidth, valH, 'F');
+
           doc.setFontSize(5); doc.setTextColor(80, 80, 80); doc.setFont("helvetica", "bold");
           const textY = item.value >= 0 ? barY - 2 : barY + valH + 3;
           doc.text(formatRpPendek(item.value), x + (barWidth / 2), textY, { align: 'center' });
+
           doc.setFontSize(6); doc.setFont("helvetica", "normal"); doc.setTextColor(100, 100, 100);
           doc.text(item.label, x + (barWidth / 2), startY + chartHeight + 6, { align: 'center' });
       });
       return startY + chartHeight + 15;
   };
 
+  // 🚀 REVISI: Fungsi PDF sekarang menerima bulan dan tahun sebagai parameter opsional
   const generatePDF = async (targetMonth?: number, targetYear?: number) => {
     const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     const isTrialExpired = userEmail ? localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true" : false;
 
-    if (!userProfile?.isPro && isTrialExpired) { window.dispatchEvent(new Event('trigger-paywall-lock')); return; }
+    if (!userProfile?.isPro && isTrialExpired) {
+        window.dispatchEvent(new Event('trigger-paywall-lock')); 
+        return;
+    }
+
     if (!data) return;
     
+    // Set ID loading sesuai laporan yang dicetak
     const processId = targetMonth !== undefined ? `archive_${targetMonth}_${targetYear}` : 'current';
     setGeneratingId(processId);
 
@@ -188,19 +244,34 @@ export default function Reports() {
         const user = data.user;
         
         try {
-            const img = new Image(); img.src = '/bilano_logo_horiz.png';
+            const img = new Image();
+            img.src = '/bilano_logo_horiz.png';
             await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
             doc.addImage(img, 'PNG', 14, 10, 35, 12);
         } catch (e) {
-            doc.setTextColor(79, 70, 229); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("BILANO", 14, 18);
+            doc.setTextColor(79, 70, 229);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.text("BILANO", 14, 18);
         }
 
-        doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
         doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}`, 196, 14, { align: 'right' });
         doc.text(`Dicetak Oleh: ${user.firstName} ${user.lastName || ''}`, 196, 19, { align: 'right' });
-        doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.5); doc.line(14, 26, 196, 26);
-        doc.setFillColor(79, 70, 229); doc.rect(14, 32, 182, 14, 'F');
-        doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.text("WEALTH MANAGEMENT REPORT", 20, 41);
+
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.5);
+        doc.line(14, 26, 196, 26);
+
+        doc.setFillColor(79, 70, 229); 
+        doc.rect(14, 32, 182, 14, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text("WEALTH MANAGEMENT REPORT", 20, 41);
 
         // 🚀 INJEKSI VIRTUAL TRANSAKSI UNTUK PENGHAPUSAN PIUTANG (KERUGIAN)
         const writeOffDebts = data.debts.filter((d:any) => d.type === 'piutang' && d.isPaid && (d.description?.toLowerCase().includes('ikhlas') || d.description?.toLowerCase().includes('penghapus')));
@@ -224,17 +295,35 @@ export default function Reports() {
             return acc + (inv.quantity * inv.avgPrice * m * rate);
         }, 0);
         
-        const totalDebt = data.debts.filter((d:any) => d.type === 'hutang' && !d.isPaid).reduce((acc: number, d: any) => { return acc + (d.amount * getRate((d.name || "").split('|')[1])); }, 0);
-        const totalPiutang = data.debts.filter((d:any) => d.type === 'piutang' && !d.isPaid).reduce((acc: number, d: any) => { return acc + (d.amount * getRate((d.name || "").split('|')[1])); }, 0);
+        const totalDebt = data.debts.filter((d:any) => d.type === 'hutang' && !d.isPaid).reduce((acc: number, d: any) => {
+            const [, curr] = (d.name || "").split('|');
+            const rate = getRate(curr); 
+            return acc + (d.amount * rate);
+        }, 0);
+        
+        const totalPiutang = data.debts.filter((d:any) => d.type === 'piutang' && !d.isPaid).reduce((acc: number, d: any) => {
+            const [, curr] = (d.name || "").split('|');
+            const rate = getRate(curr); 
+            return acc + (d.amount * rate);
+        }, 0);
         
         let totalForexIDR = 0;
         const forexRows = data.forexAssets.map((f: any) => {
-            const rate = getRate(f.currency); const idrVal = f.amount * rate; totalForexIDR += idrVal;
+            const rate = getRate(f.currency); 
+            const idrVal = f.amount * rate;
+            totalForexIDR += idrVal;
             return [f.currency, f.amount.toLocaleString(), formatRp(rate), formatRp(idrVal)];
         });
 
+        const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
+        const netWorth = totalAsset - totalDebt;
+
+        // 🚀 PENENTUAN WAKTU: Jika ada targetMonth, pakai itu. Jika tidak, pakai bulan ini.
+        const nowForReport = (targetMonth !== undefined && targetYear !== undefined) 
+            ? new Date(targetYear, targetMonth, 1) 
+            : new Date();
+            
         // 🚀 LOGIKA TIME MACHINE: Mundurkan Total Aset & Cash ke Bulan Arsip
-        const nowForReport = (targetMonth !== undefined && targetYear !== undefined) ? new Date(targetYear, targetMonth, 1) : new Date();
         const reportDateEnd = new Date(nowForReport.getFullYear(), nowForReport.getMonth() + 1, 0, 23, 59, 59);
         const now = new Date();
 
@@ -249,12 +338,16 @@ export default function Reports() {
                 const tDate = new Date(t.date);
                 if (tDate > reportDateEnd) {
                     // Reverse Cash
-                    if (t.type === 'income' || t.type === 'debt_borrow' || t.type === 'debt_receive' || t.type === 'invest_sell' || t.type === 'forex_sell') archiveCash -= t.amount;
-                    else if ((t.type === 'expense' && t.category !== 'Penghapusan Piutang') || t.type === 'debt_lend' || t.type === 'debt_pay' || t.type === 'invest_buy' || t.type === 'forex_buy') archiveCash += t.amount;
+                    if (t.type === 'income' || t.type === 'debt_borrow' || t.type === 'debt_receive' || t.type === 'invest_sell' || t.type === 'forex_sell') {
+                        archiveCash -= t.amount;
+                    } else if ((t.type === 'expense' && t.category !== 'Penghapusan Piutang') || t.type === 'debt_lend' || t.type === 'debt_pay' || t.type === 'invest_buy' || t.type === 'forex_buy') {
+                        archiveCash += t.amount;
+                    }
 
                     // Reverse Invest
-                    if (t.type === 'invest_buy') archiveInvest -= t.amount;
-                    else if (t.type === 'invest_sell') {
+                    if (t.type === 'invest_buy') {
+                        archiveInvest -= t.amount;
+                    } else if (t.type === 'invest_sell') {
                         let buyVal = t.amount;
                         if (t.description?.includes('P/L:')) {
                             const plString = t.description.split('P/L:')[1];
@@ -266,14 +359,21 @@ export default function Reports() {
                         archiveInvest += buyVal;
                     }
 
-                    // Reverse Piutang (Jika di bulan April diikhlaskan, di bulan Maret piutangnya HARUS masih aktif)
-                    if (t.type === 'debt_lend') archivePiutang -= t.amount; 
-                    else if (t.type === 'debt_receive') archivePiutang += t.amount; 
-                    else if (t.category === 'Penghapusan Piutang') archivePiutang += t.amount; 
+                    // Reverse Piutang
+                    if (t.type === 'debt_lend') {
+                        archivePiutang -= t.amount; 
+                    } else if (t.type === 'debt_receive') {
+                        archivePiutang += t.amount; 
+                    } else if (t.category === 'Penghapusan Piutang') {
+                        archivePiutang += t.amount; 
+                    }
 
                     // Reverse Hutang
-                    if (t.type === 'debt_borrow') archiveDebt -= t.amount;
-                    else if (t.type === 'debt_pay') archiveDebt += t.amount;
+                    if (t.type === 'debt_borrow') {
+                        archiveDebt -= t.amount;
+                    } else if (t.type === 'debt_pay') {
+                        archiveDebt += t.amount;
+                    }
                 }
             });
         }
@@ -284,8 +384,16 @@ export default function Reports() {
         const currentYearNum = nowForReport.getFullYear();
         const currentMonthName = nowForReport.toLocaleDateString('id-ID', { month: 'long' });
 
-        const pureTransactions = allTxs.filter((t:any) => (t.type === 'income' || t.type === 'expense') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Penghapusan Piutang');
-        const currentMonthTx = pureTransactions.filter((t:any) => { const d = new Date(t.date); return d.getMonth() === currentMonthNum && d.getFullYear() === currentYearNum; });
+        const pureTransactions = allTxs.filter((t:any) => 
+            (t.type === 'income' || t.type === 'expense') && 
+            t.category !== 'Penyesuaian Sistem' && 
+            t.category !== 'Penghapusan Piutang'
+        );
+
+        const currentMonthTx = pureTransactions.filter((t:any) => {
+            const d = new Date(t.date);
+            return d.getMonth() === currentMonthNum && d.getFullYear() === currentYearNum;
+        });
 
         const totalIncome = currentMonthTx.filter((t:any) => t.type === 'income').reduce((acc:number, t:any) => acc + t.amount, 0);
         const totalExpense = currentMonthTx.filter((t:any) => t.type === 'expense').reduce((acc:number, t:any) => acc + t.amount, 0);
@@ -300,31 +408,55 @@ export default function Reports() {
         const totalWriteOff = validWriteOffs.reduce((sum: number, t:any) => sum + t.amount, 0);
 
         let currentY = 108;
-        const checkPageBreak = (neededSpace: number) => { if (currentY + neededSpace > 280) { doc.addPage(); currentY = 20; } };
+        const checkPageBreak = (neededSpace: number) => {
+            if (currentY + neededSpace > 280) {
+                doc.addPage();
+                currentY = 20;
+            }
+        };
 
-        doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.text("TOTAL KEKAYAAN BERSIH (NET WORTH)", 14, 60);
-        doc.setTextColor(16, 185, 129); doc.setFontSize(26); doc.text(formatRp(archiveNetWorth), 14, 70);
-        doc.setDrawColor(226, 232, 240); doc.line(14, 78, 196, 78);
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(11);
+        doc.text("TOTAL KEKAYAAN BERSIH (NET WORTH)", 14, 60);
+        doc.setTextColor(16, 185, 129); 
+        doc.setFontSize(26);
+        doc.text(formatRp(archiveNetWorth), 14, 70);
 
-        doc.setTextColor(50, 50, 50); doc.setFontSize(10); doc.setFont("helvetica", "bold");
+        doc.setDrawColor(226, 232, 240);
+        doc.line(14, 78, 196, 78);
+
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
         doc.text(`Ringkasan Arus Kas Murni (Bulan ${currentMonthName} ${currentYearNum})`, 14, 88);
+
         doc.setFont("helvetica", "normal");
-        doc.setTextColor(16, 185, 129); doc.text(`Pemasukan: + ${formatRp(totalIncome)}`, 14, 95);
-        doc.setTextColor(244, 63, 94); doc.text(`Pengeluaran: - ${formatRp(totalExpense)}`, 80, 95);
+        doc.setTextColor(16, 185, 129); 
+        doc.text(`Pemasukan: + ${formatRp(totalIncome)}`, 14, 95);
+        doc.setTextColor(244, 63, 94); 
+        doc.text(`Pengeluaran: - ${formatRp(totalExpense)}`, 80, 95);
 
         if (targetData && targetData.targetAmount > 0) {
             checkPageBreak(40);
-            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Performa Pencapaian Target", 14, currentY);
+            doc.setTextColor(50, 50, 50);
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text("Performa Pencapaian Target", 14, currentY);
 
             const progress = Math.min(100, Math.max(0, (archiveNetWorth / targetData.targetAmount) * 100));
             const sisa = targetData.targetAmount - archiveNetWorth;
 
-            doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(100, 100, 100);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 100, 100);
             doc.text(`Target Impian: ${formatRp(targetData.targetAmount)}`, 14, currentY + 6);
             doc.text(`Terkumpul saat ini: ${formatRp(archiveNetWorth)} (${progress.toFixed(1)}%)`, 14, currentY + 11);
             
-            if (sisa > 0) { doc.setTextColor(244, 63, 94); doc.text(`Kekurangan: ${formatRp(sisa)}`, 14, currentY + 16); } 
-            else { doc.setTextColor(16, 185, 129); doc.setFont("helvetica", "bold"); doc.text(`Tercapai! Anda berhasil mencapai target.`, 14, currentY + 16); }
+            if (sisa > 0) {
+                doc.setTextColor(244, 63, 94); doc.text(`Kekurangan: ${formatRp(sisa)}`, 14, currentY + 16);
+            } else {
+                doc.setTextColor(16, 185, 129); doc.setFont("helvetica", "bold"); doc.text(`Tercapai! Anda berhasil mencapai target.`, 14, currentY + 16);
+            }
 
             doc.setFillColor(226, 232, 240); doc.roundedRect(14, currentY + 20, 182, 4, 2, 2, 'F');
             if (progress > 0) { doc.setFillColor(16, 185, 129); doc.roundedRect(14, currentY + 20, (progress / 100) * 182, 4, 2, 2, 'F'); }
@@ -351,54 +483,147 @@ export default function Reports() {
 
         if (forexRows.length > 0) {
             checkPageBreak(40);
-            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Detail Kepemilikan Valas (Berdasarkan Kurs Live)", 14, currentY);
-            autoTable(doc, { startY: currentY + 5, head: [['Mata Uang', 'Jumlah Kepemilikan', 'Kurs Saat Ini', 'Estimasi Nilai IDR']], body: forexRows, theme: 'striped', headStyles: { fillColor: [14, 165, 233] }, columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' } } });
+            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text("Detail Kepemilikan Valas (Berdasarkan Kurs Live)", 14, currentY);
+            
+            autoTable(doc, {
+                startY: currentY + 5,
+                head: [['Mata Uang', 'Jumlah Kepemilikan', 'Kurs Saat Ini', 'Estimasi Nilai IDR']],
+                body: forexRows,
+                theme: 'striped',
+                headStyles: { fillColor: [14, 165, 233] }, 
+                columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' } },
+            });
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
         if (investTransactions.length > 0) {
             checkPageBreak(40);
-            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Riwayat Transaksi Investasi (Capital & Yield)", 14, currentY);
-            const invRows = investTransactions.map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), t.type === 'invest_buy' ? 'Beli Aset' : 'Jual Aset', t.description, formatRp(t.amount) ]);
-            autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Tindakan', 'Detail Aset (Volume & Harga/Unit)', 'Total Nilai (IDR)']], body: invRows, theme: 'grid', headStyles: { fillColor: [16, 185, 129] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } }, didParseCell: function(data) { if (data.section === 'body' && data.column.index === 2 && typeof data.cell.raw === 'string') { if (data.cell.raw.includes('(P/L: +')) { data.cell.styles.textColor = [16, 185, 129]; } else if (data.cell.raw.includes('(P/L: -')) { data.cell.styles.textColor = [244, 63, 94]; } } } });
+            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text("Riwayat Transaksi Investasi (Capital & Yield)", 14, currentY);
+
+            const invRows = investTransactions.map((t: any) => [
+                new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+                t.type === 'invest_buy' ? 'Beli Aset' : 'Jual Aset',
+                t.description, 
+                formatRp(t.amount)
+            ]);
+
+            autoTable(doc, {
+                startY: currentY + 5,
+                head: [['Tanggal', 'Tindakan', 'Detail Aset (Volume & Harga/Unit)', 'Total Nilai (IDR)']],
+                body: invRows,
+                theme: 'grid',
+                headStyles: { fillColor: [16, 185, 129] }, 
+                columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } },
+                didParseCell: function(data) {
+                    if (data.section === 'body' && data.column.index === 2 && typeof data.cell.raw === 'string') {
+                        if (data.cell.raw.includes('(P/L: +')) {
+                            data.cell.styles.textColor = [16, 185, 129]; 
+                        } else if (data.cell.raw.includes('(P/L: -')) {
+                            data.cell.styles.textColor = [244, 63, 94]; 
+                        }
+                    }
+                }
+            });
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
         if (data.debts && data.debts.length > 0) {
             checkPageBreak(40);
-            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Daftar Rincian Hutang & Piutang", 14, currentY);
+            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text("Daftar Rincian Hutang & Piutang", 14, currentY);
+
             const debtRows = data.debts.map((d: any) => {
                 const [displayName, curr] = (d.name || "").split('|');
-                const actualCurr = curr || 'IDR'; const rate = getRate(actualCurr); const valIDR = d.amount * rate;
+                const actualCurr = curr || 'IDR';
+                const rate = getRate(actualCurr); 
+                const valIDR = d.amount * rate;
+                
                 let status = d.isPaid ? 'LUNAS' : 'Belum Lunas';
-                if (d.type === 'piutang' && d.isPaid && (d.description?.includes('Penghapusan') || d.description?.toLowerCase().includes('ikhlas'))) status = 'DIHAPUS (Rugi)';
-                return [ d.type === 'hutang' ? 'HUTANG' : 'PIUTANG', displayName, actualCurr !== 'IDR' ? `${actualCurr} ${d.amount.toLocaleString()} (~ ${formatRp(valIDR)})` : formatRp(d.amount), d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tanpa Tenggat', status ];
+                if (d.type === 'piutang' && d.isPaid && (d.description?.includes('Penghapusan') || d.description?.toLowerCase().includes('ikhlas'))) {
+                    status = 'DIHAPUS (Rugi)';
+                }
+
+                return [
+                    d.type === 'hutang' ? 'HUTANG' : 'PIUTANG',
+                    displayName,
+                    actualCurr !== 'IDR' ? `${actualCurr} ${d.amount.toLocaleString()} (~ ${formatRp(valIDR)})` : formatRp(d.amount),
+                    d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tanpa Tenggat',
+                    status
+                ]
             });
-            autoTable(doc, { startY: currentY + 5, head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']], body: debtRows, theme: 'grid', headStyles: { fillColor: [236, 72, 153] }, columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } } });
+
+            autoTable(doc, {
+                startY: currentY + 5,
+                head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']],
+                body: debtRows,
+                theme: 'grid',
+                headStyles: { fillColor: [236, 72, 153] }, 
+                columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } },
+            });
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
         checkPageBreak(40);
-        doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text(`Riwayat Transaksi Arus Kas Murni (Bulan ${currentMonthName} ${currentYearNum})`, 14, currentY);
-        const txRows = currentMonthTx.map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), t.type === 'income' ? 'Masuk' : 'Keluar', t.category, t.description || "-", formatRp(t.amount) ]);
+        doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+        doc.text(`Riwayat Transaksi Arus Kas Murni (Bulan ${currentMonthName} ${currentYearNum})`, 14, currentY);
+
+        const txRows = currentMonthTx.map((t: any) => [
+          new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+          t.type === 'income' ? 'Masuk' : 'Keluar',
+          t.category,
+          t.description || "-",
+          formatRp(t.amount)
+        ]);
 
         if (txRows.length === 0) {
-            doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(150, 150, 150); doc.text("Tidak ada catatan pengeluaran/pemasukan di bulan ini.", 14, currentY + 10); currentY += 20;
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(150, 150, 150);
+            doc.text("Tidak ada catatan pengeluaran/pemasukan di bulan ini.", 14, currentY + 10);
+            currentY += 20;
         } else {
-            autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Arus', 'Kategori', 'Catatan', 'Nominal']], body: txRows, theme: 'grid', headStyles: { fillColor: [249, 115, 22] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } }, didParseCell: function (data) { if (data.section === 'body' && data.column.index === 1) { if (data.cell.raw === 'Masuk') data.cell.styles.textColor = [16, 185, 129]; if (data.cell.raw === 'Keluar') data.cell.styles.textColor = [244, 63, 94]; } } });
+            autoTable(doc, {
+              startY: currentY + 5,
+              head: [['Tanggal', 'Arus', 'Kategori', 'Catatan', 'Nominal']],
+              body: txRows,
+              theme: 'grid',
+              headStyles: { fillColor: [249, 115, 22] }, 
+              columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } },
+              didParseCell: function (data) {
+                  if (data.section === 'body' && data.column.index === 1) {
+                      if (data.cell.raw === 'Masuk') data.cell.styles.textColor = [16, 185, 129];
+                      if (data.cell.raw === 'Keluar') data.cell.styles.textColor = [244, 63, 94];
+                  }
+              }
+            });
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
         doc.addPage();
         let graphY = 20;
-        doc.setTextColor(50, 50, 50); doc.setFontSize(14); doc.setFont("helvetica", "bold"); doc.text("Analisis Grafik Performa Keuangan (12 Bulan)", 14, graphY); graphY += 15;
 
-        // 🚀 KOTAK MERAH PENCATATAN KERUGIAN SEKARANG AKAN MUNCUL!
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Analisis Grafik Performa Keuangan (12 Bulan)", 14, graphY);
+        graphY += 15;
+
         if (totalWriteOff > 0) {
-            doc.setFillColor(254, 226, 226); doc.setDrawColor(248, 113, 113); doc.rect(14, graphY, 182, 22, 'FD');
-            doc.setTextColor(225, 29, 72); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Pencatatan Kerugian (Penghapusan Piutang Tak Tertagih)", 18, graphY + 7);
-            doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(150, 50, 50); doc.text(`Total Piutang Dihapuskan / Ikhlas: ${formatRp(totalWriteOff)}`, 18, graphY + 13);
-            doc.setFontSize(8); doc.text("*Nilai ini telah dikurangkan dari aset dan dicatat sebagai beban kerugian (Bad Debt Expense).", 18, graphY + 18);
+            doc.setFillColor(254, 226, 226); 
+            doc.setDrawColor(248, 113, 113); 
+            doc.rect(14, graphY, 182, 22, 'FD');
+
+            doc.setTextColor(225, 29, 72); 
+            doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text("Pencatatan Kerugian (Penghapusan Piutang Tak Tertagih)", 18, graphY + 7);
+            
+            doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(150, 50, 50);
+            doc.text(`Total Piutang Dihapuskan / Ikhlas: ${formatRp(totalWriteOff)}`, 18, graphY + 13);
+            doc.setFontSize(8);
+            doc.text("*Nilai ini telah dikurangkan dari aset dan dicatat sebagai beban kerugian (Bad Debt Expense).", 18, graphY + 18);
+            
             graphY += 35;
         }
 
@@ -408,16 +633,18 @@ export default function Reports() {
             firstTxDate = new Date(minTime);
         }
         
+        // 🚀 REVISI: Grafik mundur 12 bulan menyesuaikan waktu laporan
         const nowGraph = new Date(nowForReport.getFullYear(), nowForReport.getMonth(), 1);
         const totalMonthsUsed = (nowGraph.getFullYear() - firstTxDate.getFullYear()) * 12 + nowGraph.getMonth() - firstTxDate.getMonth() + 1;
 
         let chartStartMonth: Date;
-        if (totalMonthsUsed > 12) chartStartMonth = new Date(nowGraph.getFullYear(), nowGraph.getMonth() - 11, 1);
-        else chartStartMonth = new Date(firstTxDate.getFullYear(), firstTxDate.getMonth(), 1);
+        if (totalMonthsUsed > 12) {
+            chartStartMonth = new Date(nowGraph.getFullYear(), nowGraph.getMonth() - 11, 1);
+        } else {
+            chartStartMonth = new Date(firstTxDate.getFullYear(), firstTxDate.getMonth(), 1);
+        }
 
         const paddedData = [];
-        
-        // 🚀 KUNCI KESTABILAN GRAFIK (Cash vs Asset terpisah)
         let runningCash = user.cashBalance;
         let runningAsset = totalAsset; 
         
@@ -437,18 +664,27 @@ export default function Reports() {
                 if(d.getMonth() === mIdx && d.getFullYear() === yIdx) {
                     
                     // Dampak Kas (Cashflow Riil)
-                    if (t.type === 'income' || t.type === 'debt_borrow' || t.type === 'debt_receive' || t.type === 'invest_sell' || t.type === 'forex_sell') inCash += t.amount;
-                    else if ((t.type === 'expense' && t.category !== 'Penghapusan Piutang') || t.type === 'debt_lend' || t.type === 'debt_pay' || t.type === 'invest_buy' || t.type === 'forex_buy') outCash += t.amount;
+                    if (t.type === 'income' || t.type === 'debt_borrow' || t.type === 'debt_receive' || t.type === 'invest_sell' || t.type === 'forex_sell') {
+                        inCash += t.amount;
+                    } else if ((t.type === 'expense' && t.category !== 'Penghapusan Piutang') || t.type === 'debt_lend' || t.type === 'debt_pay' || t.type === 'invest_buy' || t.type === 'forex_buy') {
+                        outCash += t.amount;
+                    }
 
                     // Dampak Aset / Net Worth
-                    if (t.type === 'income') inAsset += t.amount;
-                    else if (t.type === 'expense') outAsset += t.amount; // write-off piutang masuk ke sini!
+                    if (t.type === 'income') {
+                        inAsset += t.amount;
+                    } else if (t.type === 'expense') {
+                        outAsset += t.amount; // write-off piutang masuk ke sini!
+                    }
                     
                     if (t.type === 'invest_sell' && t.description?.includes('P/L:')) {
                         const plStr = t.description.split('P/L:')[1];
                         if (plStr) {
                             const plVal = parseInt(plStr.replace(/[^0-9-]/g, ''), 10);
-                            if (!isNaN(plVal)) { if (plVal > 0) inAsset += plVal; else outAsset += Math.abs(plVal); }
+                            if (!isNaN(plVal)) { 
+                                if (plVal > 0) inAsset += plVal; 
+                                else outAsset += Math.abs(plVal); 
+                            }
                         }
                     }
 
@@ -487,29 +723,41 @@ export default function Reports() {
         const chartCash = paddedData.map(d => ({ label: d.label, value: d.cash }));
         const chartNetFlow = paddedData.map(d => ({ label: d.label, value: d.netFlow }));
 
-        graphY = drawLineChart(doc, "1. Grafik Jumlah Aset Keseluruhan (Line Chart)", chartAsset, graphY, [79, 70, 229]); graphY += 10;
-        graphY = drawLollipopChart(doc, "2. Grafik Jumlah Kas Tunai (Lollipop Chart)", chartCash, graphY, [14, 165, 233]); graphY += 10;
+        graphY = drawLineChart(doc, "1. Grafik Jumlah Aset Keseluruhan (Line Chart)", chartAsset, graphY, [79, 70, 229]);
+        graphY += 10;
+        graphY = drawLollipopChart(doc, "2. Grafik Jumlah Kas Tunai (Lollipop Chart)", chartCash, graphY, [14, 165, 233]);
+        graphY += 10;
         drawBarChart(doc, "3. Grafik Net Arus Kas Bulanan (Bar Chart)", chartNetFlow, graphY, [16, 185, 129]);
 
         const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i); doc.setFontSize(8); doc.setTextColor(150, 150, 150); doc.setFont("helvetica", "italic");
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.setFont("helvetica", "italic");
             doc.text("Dokumen ini di-generate secara otomatis oleh Sistem Aplikasi BILANO.", 14, 285);
             doc.text(`Halaman ${i} dari ${pageCount}`, 196, 285, { align: 'right' });
         }
 
         const fileName = `Laporan_Keuangan_BILANO_${currentMonthName}_${currentYearNum}.pdf`;
-        doc.save(fileName); toast({ title: "Berhasil Mengunduh!", description: "Laporan PDF Premium siap dilihat." });
+        doc.save(fileName);
+        toast({ title: "Berhasil Mengunduh!", description: "Laporan PDF Premium siap dilihat." });
 
-    } catch (error) { toast({ title: "Gagal", description: "Terjadi kesalahan saat membuat PDF.", variant: "destructive" }); } 
-    finally { setGeneratingId(null); }
+    } catch (error) {
+        toast({ title: "Gagal", description: "Terjadi kesalahan saat membuat PDF.", variant: "destructive" });
+    } finally {
+        setGeneratingId(null);
+    }
   };
 
   if (loading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
               <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm"><Loader2 className="w-4 h-4 animate-spin"/><span>Memuat Data...</span></div>
+              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin"/>
+                  <span>Memuat Data...</span>
+              </div>
           </div>
       );
   }
@@ -523,10 +771,18 @@ export default function Reports() {
         {/* LAPORAN BULAN INI (CURRENT MONTH) */}
         <div className="bg-gradient-to-br from-violet-600 to-indigo-600 p-8 rounded-[32px] text-white shadow-xl shadow-indigo-200 text-center relative overflow-hidden">
             <div className="relative z-10">
-                <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 backdrop-blur-sm border border-white/20"><FileBarChart className="w-8 h-8 text-white"/></div>
+                <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 backdrop-blur-sm border border-white/20">
+                    <FileBarChart className="w-8 h-8 text-white"/>
+                </div>
                 <h2 className="text-2xl font-extrabold mb-2">Cetak Laporan Bulan Ini</h2>
-                <p className="text-indigo-100 text-xs mb-8 px-4 leading-relaxed opacity-90 font-medium">Download laporan PDF profesional lengkap dengan neraca, arus kas, hutang, dan riwayat investasi terkini.</p>
-                <Button onClick={() => generatePDF()} disabled={generatingId !== null} className="w-full bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold shadow-xl border-none h-14 rounded-full text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                <p className="text-indigo-100 text-xs mb-8 px-4 leading-relaxed opacity-90 font-medium">
+                    Download laporan PDF profesional lengkap dengan neraca, arus kas, hutang, dan riwayat investasi terkini.
+                </p>
+                <Button 
+                    onClick={() => generatePDF()} 
+                    disabled={generatingId !== null}
+                    className="w-full bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold shadow-xl border-none h-14 rounded-full text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                >
                     {generatingId === 'current' ? <Loader2 className="w-5 h-5 animate-spin"/> : <Download className="w-5 h-5"/>}
                     {generatingId === 'current' ? "MEMPROSES PDF..." : "DOWNLOAD PDF SEKARANG"}
                 </Button>
@@ -535,21 +791,40 @@ export default function Reports() {
             <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
         </div>
 
-        {/* 🚀 ARSIP LAPORAN TAHUNAN & BULANAN */}
+        {/* 🚀 ARSIP LAPORAN TAHUNAN & BULANAN (CORPORATE STYLE) */}
         <div className="bg-white rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100">
-            <div className="flex items-center gap-2 mb-6"><Archive className="w-5 h-5 text-indigo-500"/><h3 className="font-extrabold text-slate-800 text-lg">Arsip Laporan Bulanan</h3></div>
+            <div className="flex items-center gap-2 mb-6">
+                <Archive className="w-5 h-5 text-indigo-500"/>
+                <h3 className="font-extrabold text-slate-800 text-lg">Arsip Laporan Bulanan</h3>
+            </div>
+            
             <div className="space-y-0">
                 {archiveList.map((arc, i) => (
                     <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between py-5 border-b border-slate-100 last:border-0 gap-4">
-                        <div><h4 className="font-bold text-slate-800 text-sm">Laporan Keuangan {arc.label}</h4><p className="text-[11px] text-slate-400 mt-1 font-medium">PDF Document - {arc.year}</p></div>
-                        <button onClick={() => generatePDF(arc.month, arc.year)} disabled={generatingId !== null} className={`flex items-center justify-center gap-2 font-bold text-xs px-5 py-2.5 rounded-full transition-colors ${generatingId === `archive_${arc.month}_${arc.year}` ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white active:scale-95'}`}>
-                            {generatingId === `archive_${arc.month}_${arc.year}` ? <Loader2 className="w-4 h-4 animate-spin"/> : <Download className="w-4 h-4"/>} Download
+                        <div>
+                            <h4 className="font-bold text-slate-800 text-sm">Laporan Keuangan {arc.label}</h4>
+                            <p className="text-[11px] text-slate-400 mt-1 font-medium">PDF Document - {arc.year}</p>
+                        </div>
+                        <button 
+                            onClick={() => generatePDF(arc.month, arc.year)} 
+                            disabled={generatingId !== null}
+                            className={`flex items-center justify-center gap-2 font-bold text-xs px-5 py-2.5 rounded-full transition-colors ${
+                                generatingId === `archive_${arc.month}_${arc.year}` 
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                                : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white active:scale-95'
+                            }`}
+                        >
+                            {generatingId === `archive_${arc.month}_${arc.year}` ? <Loader2 className="w-4 h-4 animate-spin"/> : <Download className="w-4 h-4"/>}
+                            Download
                         </button>
                     </div>
                 ))}
+
                 {archiveList.length === 0 && (
                     <div className="text-center py-8">
-                        <div className="bg-slate-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"><Archive className="w-5 h-5 text-slate-300"/></div>
+                        <div className="bg-slate-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Archive className="w-5 h-5 text-slate-300"/>
+                        </div>
                         <p className="text-sm text-slate-400 font-medium">Belum ada arsip laporan bulan lalu.</p>
                         <p className="text-[10px] text-slate-400 mt-1">Laporan bulan ini akan otomatis masuk ke arsip pada awal bulan depan.</p>
                     </div>
@@ -558,27 +833,58 @@ export default function Reports() {
         </div>
 
         <div>
-            <h3 className="font-extrabold text-slate-800 mb-4 text-sm flex items-center gap-2 px-2"><FileText className="w-5 h-5 text-indigo-500"/> Apa saja yang ada di dalam PDF?</h3>
+            <h3 className="font-extrabold text-slate-800 mb-4 text-sm flex items-center gap-2 px-2">
+                <FileText className="w-5 h-5 text-indigo-500"/> Apa saja yang ada di dalam PDF?
+            </h3>
             <div className="space-y-3">
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform"><Wallet className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan Terpadu</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap total Kas, Investasi, Valas, dan Hutang/Piutang.</p></div>
+                    <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                        <Wallet className="w-5 h-5"/>
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan Terpadu</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap total Kas, Investasi, Valas, dan Hutang/Piutang.</p>
+                    </div>
                 </div>
+
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform"><FileText className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Sesuai Bulan Laporan)</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional pada bulan terkait.</p></div>
+                    <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
+                        <FileText className="w-5 h-5"/>
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Sesuai Bulan Laporan)</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional pada bulan terkait.</p>
+                    </div>
                 </div>
+
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform"><Briefcase className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Riwayat Mutasi Investasi</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Data harga beli aset, total nominal, serta kalkulasi P/L.</p></div>
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+                        <Briefcase className="w-5 h-5"/>
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="font-extrabold text-slate-800 text-sm">Riwayat Mutasi Investasi</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Data harga beli aset, total nominal, serta kalkulasi P/L.</p>
+                    </div>
                 </div>
+
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform"><HandCoins className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Detail Hutang & Piutang</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Daftar pihak terkait, total nominal, dan jatuh temponya.</p></div>
+                    <div className="w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform">
+                        <HandCoins className="w-5 h-5"/>
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="font-extrabold text-slate-800 text-sm">Detail Hutang & Piutang</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Daftar pihak terkait, total nominal, dan jatuh temponya.</p>
+                    </div>
                 </div>
+
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-cyan-50 flex items-center justify-center text-cyan-600 group-hover:scale-110 transition-transform"><Globe className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Estimasi Valas Live</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Tabel aset mata uang asing dikali kurs pertukaran hari ini.</p></div>
+                    <div className="w-12 h-12 rounded-full bg-cyan-50 flex items-center justify-center text-cyan-600 group-hover:scale-110 transition-transform">
+                        <Globe className="w-5 h-5"/>
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="font-extrabold text-slate-800 text-sm">Estimasi Valas Live</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Tabel aset mata uang asing dikali kurs pertukaran hari ini.</p>
+                    </div>
                 </div>
             </div>
         </div>
