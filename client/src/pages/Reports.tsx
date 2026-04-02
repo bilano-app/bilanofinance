@@ -273,19 +273,29 @@ export default function Reports() {
         doc.setFontSize(14);
         doc.text("WEALTH MANAGEMENT REPORT", 20, 41);
 
-        // 🚀 INJEKSI VIRTUAL TRANSAKSI UNTUK PENGHAPUSAN PIUTANG (KERUGIAN)
-        const writeOffDebts = data.debts.filter((d:any) => d.type === 'piutang' && d.isPaid && (d.description?.toLowerCase().includes('ikhlas') || d.description?.toLowerCase().includes('penghapus')));
-        const virtualWriteOffTxs = writeOffDebts.map((d:any) => ({
-            id: 'vw_' + d.id,
-            date: new Date().toISOString(), // Dianggap terjadi hari ini agar tidak merusak bulan sebelumnya secara statis
-            type: 'expense',
-            category: 'Penghapusan Piutang',
-            description: `Kerugian Piutang Diikhlaskan: ${d.name.split('|')[0]}`,
-            amount: d.amount * getRate(d.name.split('|')[1] || 'IDR')
-        }));
+        // 🚀 INJEKSI VIRTUAL TRANSAKSI UNTUK PENGHAPUSAN PIUTANG (ALGORITMA DETEKTIF)
+        const paidPiutangs = data.debts.filter((d:any) => d.type === 'piutang' && d.isPaid);
+        const virtualWriteOffTxs: any[] = [];
+        
+        paidPiutangs.forEach((d: any) => {
+            const debtorName = d.name.split('|')[0];
+            const hasReceiveTx = data.transactions.some((t:any) => t.type === 'debt_receive' && t.description?.includes(debtorName));
+            const hasWriteOffTx = data.transactions.some((t:any) => t.category === 'Penghapusan Piutang' && t.description?.includes(debtorName));
+            const isDescribedAsIkhlas = d.description?.toLowerCase().includes('ikhlas') || d.description?.toLowerCase().includes('penghapus');
 
-        const hasDBWriteOffs = data.transactions.some((t:any) => t.category === 'Penghapusan Piutang');
-        const allTxs = hasDBWriteOffs ? data.transactions : [...data.transactions, ...virtualWriteOffTxs];
+            if ((!hasReceiveTx && !hasWriteOffTx) || (isDescribedAsIkhlas && !hasWriteOffTx)) {
+                virtualWriteOffTxs.push({
+                    id: 'vw_' + d.id,
+                    date: new Date().toISOString(), // Dianggap terjadi hari ini agar tidak merusak bulan sebelumnya secara statis
+                    type: 'expense',
+                    category: 'Penghapusan Piutang',
+                    description: `Kerugian Piutang Diikhlaskan: ${debtorName}`,
+                    amount: d.amount * getRate(d.name.split('|')[1] || 'IDR')
+                });
+            }
+        });
+
+        const allTxs = [...data.transactions, ...virtualWriteOffTxs];
 
         const totalInvest = data.investments.reduce((acc: number, inv: any) => {
             const [sym, curr] = (inv.symbol || "").split('|');
@@ -483,7 +493,9 @@ export default function Reports() {
 
         if (forexRows.length > 0) {
             checkPageBreak(40);
-            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.setTextColor(50, 50, 50);
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
             doc.text("Detail Kepemilikan Valas (Berdasarkan Kurs Live)", 14, currentY);
             
             autoTable(doc, {
@@ -499,7 +511,9 @@ export default function Reports() {
 
         if (investTransactions.length > 0) {
             checkPageBreak(40);
-            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.setTextColor(50, 50, 50);
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
             doc.text("Riwayat Transaksi Investasi (Capital & Yield)", 14, currentY);
 
             const invRows = investTransactions.map((t: any) => [
@@ -531,7 +545,9 @@ export default function Reports() {
 
         if (data.debts && data.debts.length > 0) {
             checkPageBreak(40);
-            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.setTextColor(50, 50, 50);
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
             doc.text("Daftar Rincian Hutang & Piutang", 14, currentY);
 
             const debtRows = data.debts.map((d: any) => {
@@ -541,7 +557,10 @@ export default function Reports() {
                 const valIDR = d.amount * rate;
                 
                 let status = d.isPaid ? 'LUNAS' : 'Belum Lunas';
-                if (d.type === 'piutang' && d.isPaid && (d.description?.includes('Penghapusan') || d.description?.toLowerCase().includes('ikhlas'))) {
+                
+                const hasReceiveTxForTable = data.transactions.some((t:any) => t.type === 'debt_receive' && t.description?.includes(displayName));
+
+                if (d.type === 'piutang' && d.isPaid && (!hasReceiveTxForTable || d.description?.toLowerCase().includes('ikhlas') || d.description?.toLowerCase().includes('penghapus'))) {
                     status = 'DIHAPUS (Rugi)';
                 }
 
@@ -566,7 +585,9 @@ export default function Reports() {
         }
 
         checkPageBreak(40);
-        doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
         doc.text(`Riwayat Transaksi Arus Kas Murni (Bulan ${currentMonthName} ${currentYearNum})`, 14, currentY);
 
         const txRows = currentMonthTx.map((t: any) => [
@@ -616,10 +637,13 @@ export default function Reports() {
             doc.rect(14, graphY, 182, 22, 'FD');
 
             doc.setTextColor(225, 29, 72); 
-            doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
             doc.text("Pencatatan Kerugian (Penghapusan Piutang Tak Tertagih)", 18, graphY + 7);
             
-            doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(150, 50, 50);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(150, 50, 50);
             doc.text(`Total Piutang Dihapuskan / Ikhlas: ${formatRp(totalWriteOff)}`, 18, graphY + 13);
             doc.setFontSize(8);
             doc.text("*Nilai ini telah dikurangkan dari aset dan dicatat sebagai beban kerugian (Bad Debt Expense).", 18, graphY + 18);
