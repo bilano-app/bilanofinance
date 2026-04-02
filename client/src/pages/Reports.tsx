@@ -7,6 +7,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useUser } from "@/hooks/use-finance"; 
 
+// 🚀 FIX: DAFTAR KURS CADANGAN PERMANEN JIKA API VALAS SERVER DOWN
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
     "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
@@ -20,6 +21,8 @@ export default function Reports() {
   const [targetData, setTargetData] = useState<any>(null); 
   
   const [loading, setLoading] = useState(true);
+  
+  // 🚀 REVISI: Menggunakan ID untuk melacak tombol mana yang sedang loading
   const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   const formatRp = (val: number) => {
@@ -66,6 +69,7 @@ export default function Reports() {
     fetchData();
   }, []);
 
+  // 🚀 LOGIKA BARU: MENGHASILKAN DAFTAR ARSIP BULAN LALU
   const getArchiveMonths = () => {
       if (!data) return [];
       
@@ -79,7 +83,9 @@ export default function Reports() {
 
       const archives = [];
       const now = new Date();
+      // Mulai dari tanggal 1 bulan pertama kali transaksi/daftar
       let iterDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+      // Batasnya adalah tanggal 1 bulan INI (Bulan ini tidak masuk arsip)
       const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
       while (iterDate < currentMonthStart) {
@@ -88,8 +94,11 @@ export default function Reports() {
               year: iterDate.getFullYear(),
               label: iterDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
           });
+          // Maju 1 bulan
           iterDate.setMonth(iterDate.getMonth() + 1);
       }
+      
+      // Dibalik agar yang terbaru (misal bulan kemarin) ada di atas
       return archives.reverse(); 
   };
 
@@ -214,6 +223,7 @@ export default function Reports() {
       return startY + chartHeight + 15;
   };
 
+  // 🚀 REVISI: Fungsi PDF sekarang menerima bulan dan tahun sebagai parameter opsional
   const generatePDF = async (targetMonth?: number, targetYear?: number) => {
     const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     const isTrialExpired = userEmail ? localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true" : false;
@@ -225,13 +235,13 @@ export default function Reports() {
 
     if (!data) return;
     
+    // Set ID loading sesuai laporan yang dicetak
     const processId = targetMonth !== undefined ? `archive_${targetMonth}_${targetYear}` : 'current';
     setGeneratingId(processId);
 
     try {
         const doc = new jsPDF('p', 'mm', 'a4');
         const user = data.user;
-        const allTxs = data.transactions || [];
         
         try {
             const img = new Image();
@@ -291,88 +301,22 @@ export default function Reports() {
             return [f.currency, f.amount.toLocaleString(), formatRp(rate), formatRp(idrVal)];
         });
 
-        // =========================================================================
-        // 🚀 MURNI SNAPSHOT SAAT INI
-        // =========================================================================
         const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
         const netWorth = totalAsset - totalDebt;
 
+        // 🚀 PENENTUAN WAKTU: Jika ada targetMonth, pakai itu. Jika tidak, pakai bulan ini.
         const nowForReport = (targetMonth !== undefined && targetYear !== undefined) 
             ? new Date(targetYear, targetMonth, 1) 
             : new Date();
             
-        // 🚀 LOGIKA TIME MACHINE MATEMATIS (100% AKURAT & BEBAS BUG)
-        const reportDateEnd = new Date(nowForReport.getFullYear(), nowForReport.getMonth() + 1, 0, 23, 59, 59);
-        const now = new Date();
-
-        let archiveCash = user.cashBalance;
-        let archiveInvest = totalInvest;
-        let archiveForex = totalForexIDR;
-        let archiveNetWorth = netWorth;
-
-        if (reportDateEnd < now) {
-            allTxs.forEach((t:any) => {
-                const tDate = new Date(t.date);
-                if (tDate > reportDateEnd) {
-                    
-                    // REVERSE CASH
-                    if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
-                        archiveCash -= t.amount;
-                    } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
-                        archiveCash += t.amount;
-                    }
-
-                    // REVERSE INVEST
-                    if (t.type === 'invest_buy') {
-                        archiveInvest -= t.amount;
-                    } else if (t.type === 'invest_sell') {
-                        let buyVal = t.amount;
-                        if (t.description?.includes('P/L:')) {
-                            const plString = t.description.split('P/L:')[1];
-                            if (plString) {
-                                const plValue = parseInt(plString.replace(/[^0-9-]/g, ''), 10);
-                                if (!isNaN(plValue)) buyVal -= plValue;
-                            }
-                        }
-                        archiveInvest += buyVal;
-                    }
-
-                    // REVERSE NET WORTH (Berubah HANYA karena Pemasukan, Pengeluaran, dan Profit)
-                    if (t.type === 'income') {
-                        let val = t.amount;
-                        // 🚀 Deteksi Pemutihan Hutang (Kurs)
-                        if (t.category === 'Pemutihan Hutang') {
-                            const curr = t.description?.split('|')[1]?.trim() || 'IDR';
-                            val = t.amount * getRate(curr);
-                        }
-                        archiveNetWorth -= val;
-                    } else if (t.type === 'expense') {
-                        let val = t.amount;
-                        // 🚀 Deteksi Kerugian Piutang (Kurs)
-                        if (t.category === 'Penghapusan Piutang') {
-                            const curr = t.description?.split('|')[1]?.trim() || 'IDR';
-                            val = t.amount * getRate(curr);
-                        }
-                        archiveNetWorth += val;
-                    } else if (t.type === 'invest_sell' && t.description?.includes('P/L:')) {
-                        const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''));
-                        if (!isNaN(pl)) {
-                            archiveNetWorth -= pl;
-                        }
-                    }
-                }
-            });
-        }
-
         const currentMonthNum = nowForReport.getMonth();
         const currentYearNum = nowForReport.getFullYear();
         const currentMonthName = nowForReport.toLocaleDateString('id-ID', { month: 'long' });
 
-        const pureTransactions = allTxs.filter((t:any) => 
+        const pureTransactions = data.transactions.filter((t:any) => 
             (t.type === 'income' || t.type === 'expense') && 
             t.category !== 'Penyesuaian Sistem' && 
-            t.category !== 'Penghapusan Piutang' &&
-            t.category !== 'Pemutihan Hutang'
+            t.category !== 'Penghapusan Piutang'
         );
 
         const currentMonthTx = pureTransactions.filter((t:any) => {
@@ -383,20 +327,9 @@ export default function Reports() {
         const totalIncome = currentMonthTx.filter((t:any) => t.type === 'income').reduce((acc:number, t:any) => acc + t.amount, 0);
         const totalExpense = currentMonthTx.filter((t:any) => t.type === 'expense').reduce((acc:number, t:any) => acc + t.amount, 0);
 
-        const investTransactions = allTxs.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
-        
-        // 🚀 MENGHITUNG KOTAK KERUGIAN & KEUNTUNGAN (Write-Off IDR CONVERTED)
-        const writeOffTransactions = allTxs.filter((t:any) => t.category === 'Penghapusan Piutang' && new Date(t.date) <= reportDateEnd);
-        const totalWriteOffLoss = writeOffTransactions.reduce((sum: number, t:any) => {
-            const curr = t.description?.split('|')[1]?.trim() || 'IDR';
-            return sum + (t.amount * getRate(curr));
-        }, 0);
-
-        const pemutihanTransactions = allTxs.filter((t:any) => t.category === 'Pemutihan Hutang' && new Date(t.date) <= reportDateEnd);
-        const totalPemutihanGain = pemutihanTransactions.reduce((sum: number, t:any) => {
-            const curr = t.description?.split('|')[1]?.trim() || 'IDR';
-            return sum + (t.amount * getRate(curr));
-        }, 0);
+        const investTransactions = data.transactions.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
+        const writeOffTransactions = data.transactions.filter((t:any) => t.category === 'Penghapusan Piutang');
+        const totalWriteOff = writeOffTransactions.reduce((sum: number, t:any) => sum + t.amount, 0);
 
         let currentY = 108;
         const checkPageBreak = (neededSpace: number) => {
@@ -411,7 +344,7 @@ export default function Reports() {
         doc.text("TOTAL KEKAYAAN BERSIH (NET WORTH)", 14, 60);
         doc.setTextColor(16, 185, 129); 
         doc.setFontSize(26);
-        doc.text(formatRp(archiveNetWorth), 14, 70);
+        doc.text(formatRp(netWorth), 14, 70);
 
         doc.setDrawColor(226, 232, 240);
         doc.line(14, 78, 196, 78);
@@ -434,14 +367,14 @@ export default function Reports() {
             doc.setFont("helvetica", "bold");
             doc.text("Performa Pencapaian Target", 14, currentY);
 
-            const progress = Math.min(100, Math.max(0, (archiveNetWorth / targetData.targetAmount) * 100));
-            const sisa = targetData.targetAmount - archiveNetWorth;
+            const progress = Math.min(100, Math.max(0, (netWorth / targetData.targetAmount) * 100));
+            const sisa = targetData.targetAmount - netWorth;
 
             doc.setFontSize(10);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(100, 100, 100);
             doc.text(`Target Impian: ${formatRp(targetData.targetAmount)}`, 14, currentY + 6);
-            doc.text(`Terkumpul saat ini: ${formatRp(archiveNetWorth)} (${progress.toFixed(1)}%)`, 14, currentY + 11);
+            doc.text(`Terkumpul saat ini: ${formatRp(netWorth)} (${progress.toFixed(1)}%)`, 14, currentY + 11);
             
             if (sisa > 0) {
                 doc.setTextColor(244, 63, 94); doc.text(`Kekurangan: ${formatRp(sisa)}`, 14, currentY + 16);
@@ -459,10 +392,11 @@ export default function Reports() {
           startY: currentY,
           head: [['Rincian Aset & Kewajiban (Neraca)', 'Estimasi Nominal (IDR)']],
           body: [
-            ["Saldo Tunai Kas", formatRp(archiveCash)],
-            ["Aset Investasi (Saham, Crypto, Emas, dll)", formatRp(archiveInvest)],
-            ["Aset Mata Uang Asing (Valas)", formatRp(archiveForex)],
-            ["Snapshot Snapshot Piutang / Hutang", "Sesuai Data Real-Time"] // Historical debts is mathematically complex so simplified here for safety
+            ["Saldo Tunai Kas", formatRp(user.cashBalance)],
+            ["Aset Investasi (Saham, Crypto, Emas, dll)", formatRp(totalInvest)],
+            ["Aset Mata Uang Asing (Valas)", formatRp(totalForexIDR)],
+            ["Piutang Aktif (Uang di Pihak Lain)", formatRp(totalPiutang)],
+            ["Hutang (Kewajiban)", `(${formatRp(totalDebt)})`]
           ],
           theme: 'grid',
           headStyles: { fillColor: [79, 70, 229], fontSize: 10 }, 
@@ -473,9 +407,7 @@ export default function Reports() {
 
         if (forexRows.length > 0) {
             checkPageBreak(40);
-            doc.setTextColor(50, 50, 50);
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
+            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
             doc.text("Detail Kepemilikan Valas (Berdasarkan Kurs Live)", 14, currentY);
             
             autoTable(doc, {
@@ -491,9 +423,7 @@ export default function Reports() {
 
         if (investTransactions.length > 0) {
             checkPageBreak(40);
-            doc.setTextColor(50, 50, 50);
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
+            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
             doc.text("Riwayat Transaksi Investasi (Capital & Yield)", 14, currentY);
 
             const invRows = investTransactions.map((t: any) => [
@@ -525,9 +455,7 @@ export default function Reports() {
 
         if (data.debts && data.debts.length > 0) {
             checkPageBreak(40);
-            doc.setTextColor(50, 50, 50);
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
+            doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
             doc.text("Daftar Rincian Hutang & Piutang", 14, currentY);
 
             const debtRows = data.debts.map((d: any) => {
@@ -537,11 +465,8 @@ export default function Reports() {
                 const valIDR = d.amount * rate;
                 
                 let status = d.isPaid ? 'LUNAS' : 'Belum Lunas';
-                
-                if (d.type === 'piutang' && d.isPaid && (d.description?.includes('Diikhlaskan') || d.description?.includes('Penghapusan'))) {
-                    status = 'DIIKHLASKAN (Rugi)';
-                } else if (d.type === 'hutang' && d.isPaid && (d.description?.includes('Pemutihan'))) {
-                    status = 'DIPUTIHKAN (Untung)';
+                if (d.type === 'piutang' && d.isPaid && d.description?.includes('Penghapusan')) {
+                    status = 'DIHAPUS (Rugi)';
                 }
 
                 return [
@@ -565,9 +490,7 @@ export default function Reports() {
         }
 
         checkPageBreak(40);
-        doc.setTextColor(50, 50, 50);
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
+        doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
         doc.text(`Riwayat Transaksi Arus Kas Murni (Bulan ${currentMonthName} ${currentYearNum})`, 14, currentY);
 
         const txRows = currentMonthTx.map((t: any) => [
@@ -611,54 +534,30 @@ export default function Reports() {
         doc.text("Analisis Grafik Performa Keuangan (12 Bulan)", 14, graphY);
         graphY += 15;
 
-        // 🚀 KOTAK PENJABARAN KERUGIAN (PIUTANG DIIKHLASKAN)
-        if (totalWriteOffLoss > 0) {
+        if (totalWriteOff > 0) {
             doc.setFillColor(254, 226, 226); 
             doc.setDrawColor(248, 113, 113); 
             doc.rect(14, graphY, 182, 22, 'FD');
 
             doc.setTextColor(225, 29, 72); 
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
+            doc.setFontSize(11); doc.setFont("helvetica", "bold");
             doc.text("Pencatatan Kerugian (Penghapusan Piutang Tak Tertagih)", 18, graphY + 7);
             
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(150, 50, 50);
-            doc.text(`Total Piutang Diikhlaskan: ${formatRp(totalWriteOffLoss)}`, 18, graphY + 13);
+            doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(150, 50, 50);
+            doc.text(`Total Piutang Dihapuskan / Ikhlas: ${formatRp(totalWriteOff)}`, 18, graphY + 13);
             doc.setFontSize(8);
-            doc.text("*Nilai ini telah dikurangkan dari Net Worth dan dicatat sebagai beban kerugian (Non-Kas).", 18, graphY + 18);
-            
-            graphY += 30;
-        }
-
-        // 🚀 KOTAK PENJABARAN KEUNTUNGAN (HUTANG DIPUTIHKAN)
-        if (totalPemutihanGain > 0) {
-            doc.setFillColor(209, 250, 229); 
-            doc.setDrawColor(52, 211, 153); 
-            doc.rect(14, graphY, 182, 22, 'FD');
-
-            doc.setTextColor(5, 150, 105); 
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
-            doc.text("Pencatatan Keuntungan (Pemutihan Hutang)", 18, graphY + 7);
-            
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(6, 95, 70);
-            doc.text(`Total Hutang Diputihkan / Dibebaskan: ${formatRp(totalPemutihanGain)}`, 18, graphY + 13);
-            doc.setFontSize(8);
-            doc.text("*Nilai ini telah ditambahkan ke Net Worth sebagai keuntungan pembebasan hutang (Non-Kas).", 18, graphY + 18);
+            doc.text("*Nilai ini telah dikurangkan dari aset dan dicatat sebagai beban kerugian (Bad Debt Expense).", 18, graphY + 18);
             
             graphY += 35;
         }
 
         let firstTxDate = new Date();
-        if (allTxs && allTxs.length > 0) {
-            const minTime = Math.min(...allTxs.map((t:any) => new Date(t.date).getTime()));
+        if (data.transactions && data.transactions.length > 0) {
+            const minTime = Math.min(...data.transactions.map((t:any) => new Date(t.date).getTime()));
             firstTxDate = new Date(minTime);
         }
         
+        // 🚀 REVISI: Grafik mundur 12 bulan menyesuaikan waktu laporan
         const nowGraph = new Date(nowForReport.getFullYear(), nowForReport.getMonth(), 1);
         const totalMonthsUsed = (nowGraph.getFullYear() - firstTxDate.getFullYear()) * 12 + nowGraph.getMonth() - firstTxDate.getMonth() + 1;
 
@@ -671,62 +570,40 @@ export default function Reports() {
 
         const paddedData = [];
         let runningCash = user.cashBalance;
-        let runningAsset = netWorth; 
+        let runningAsset = totalAsset; 
         
-        let iterDate = new Date(now.getFullYear(), now.getMonth(), 1); 
+        let iterDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1);
         
         while (iterDate >= chartStartMonth) {
             const mIdx = iterDate.getMonth();
             const yIdx = iterDate.getFullYear();
             const label = iterDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
 
-            let inCash = 0; let outCash = 0;
+            let inMonth = 0; let outMonth = 0;
             let pureIn = 0; let pureOut = 0; 
-            let netWorthChange = 0;
             
-            allTxs.forEach((t:any) => {
+            data.transactions.forEach((t:any) => {
                 const d = new Date(t.date);
                 if(d.getMonth() === mIdx && d.getFullYear() === yIdx) {
+                    if (t.type.includes('income') || t.type.includes('receive') || t.type === 'debt_borrow') inMonth += t.amount;
+                    else if (t.type.includes('expense') || t.type.includes('pay') || t.type.includes('buy') || t.type === 'debt_lend') outMonth += t.amount;
                     
-                    // 1. CASHFLOW
-                    if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
-                        inCash += t.amount;
-                    } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
-                        outCash += t.amount;
-                    }
-
-                    // 2. NET WORTH CHANGES
-                    if (t.type === 'income') {
-                        let val = t.amount;
-                        if (t.category === 'Pemutihan Hutang') val = t.amount * getRate(t.description?.split('|')[1]?.trim() || 'IDR');
-                        netWorthChange += val;
-                    }
-                    if (t.type === 'expense') {
-                        let val = t.amount;
-                        if (t.category === 'Penghapusan Piutang') val = t.amount * getRate(t.description?.split('|')[1]?.trim() || 'IDR');
-                        netWorthChange -= val;
-                    }
-                    if (t.type === 'invest_sell' && t.description?.includes('P/L:')) {
-                        const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''));
-                        if (!isNaN(pl)) netWorthChange += pl;
-                    }
-
-                    // 3. BAR CHART PURE
-                    if ((t.type === 'income' || t.type === 'expense') && !['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang'].includes(t.category)) {
+                    if ((t.type === 'income' || t.type === 'expense') && 
+                        t.category !== 'Penyesuaian Sistem' && 
+                        t.category !== 'Penghapusan Piutang') {
                         if (t.type === 'income') pureIn += t.amount;
                         if (t.type === 'expense') pureOut += t.amount;
                     }
                 }
             });
             
+            const rawNetFlow = inMonth - outMonth;
             const pureNetFlow = pureIn - pureOut; 
             
-            if (iterDate <= nowGraph) {
-                paddedData.unshift({ label, netFlow: pureNetFlow, cash: runningCash, asset: runningAsset });
-            }
+            paddedData.unshift({ label, netFlow: pureNetFlow, cash: runningCash, asset: runningAsset });
             
-            runningCash -= (inCash - outCash);
-            runningAsset -= netWorthChange; 
+            runningCash -= rawNetFlow;
+            runningAsset -= rawNetFlow; 
             
             iterDate.setMonth(iterDate.getMonth() - 1);
         }
