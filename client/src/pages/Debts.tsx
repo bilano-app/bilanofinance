@@ -88,7 +88,7 @@ export default function Debts() {
       if(!name || !amount) return;
       try {
           const nameWithCurrency = `${name}|${currency}`;
-          const nominal = parseNum(amount); 
+          const nominal = parseNum(amount); // Menggunakan angka yang sudah bersih
           const res = await fetch("/api/debts", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
@@ -105,7 +105,7 @@ export default function Debts() {
   const handlePay = async () => {
       if (checkPaywall() || !selectedDebt) return;
       
-      const nominal = parseNum(payAmount) || selectedDebt.amount; 
+      const nominal = parseNum(payAmount) || selectedDebt.amount; // Menggunakan angka yang sudah bersih
       
       if (nominal > selectedDebt.amount) { 
           toast({title: "Nominal Berlebih", description: "Maksimal pembayaran adalah sisa tagihan saat ini.", variant: "destructive"}); 
@@ -135,52 +135,28 @@ export default function Debts() {
       finally { setIsPaying(false); }
   };
 
-  // 🚀 PERBAIKAN FATAL: ALGORITMA WRITE-OFF TANPA HARD DELETE
-  const handleWriteOff = async (debtToIkhlas: DebtItem) => {
-      if (checkPaywall() || !debtToIkhlas) return;
-      if (!confirm("Ikhlaskan piutang ini? Catatan akan dicoret (Lunas) dan dimasukkan sebagai 'Kerugian' di Laporan Anda.")) return;
+  const handleWriteOff = async () => {
+      if (checkPaywall() || !selectedDebt) return;
+      if (!confirm("Ikhlaskan piutang ini? Catatan akan dihapus dan nilai piutang dimasukkan sebagai 'Kerugian' di Laporan Anda.")) return;
       
       setIsPaying(true);
       try {
-          const rate = (debtToIkhlas.name.split('|')[1] || 'IDR') === 'IDR' ? 1 : (forexRates[debtToIkhlas.name.split('|')[1]] || 1);
-          const idrNominal = debtToIkhlas.amount * rate;
+          const rate = (selectedDebt.name.split('|')[1] || 'IDR') === 'IDR' ? 1 : (forexRates[selectedDebt.name.split('|')[1]] || 1);
+          const idrNominal = selectedDebt.amount * rate;
           
-          // 1. Hapus piutang yang lama (yang masih aktif) agar tidak dobel
-          await fetch(`/api/debts/${debtToIkhlas.id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
+          await fetch(`/api/debts/${selectedDebt.id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
           
-          // 2. Buat ulang piutang tersebut dengan tag "[Diikhlaskan]" tanpa membuat transaksi uang keluar lagi
-          const createRes = await fetch("/api/debts", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ 
-                  type: debtToIkhlas.type, 
-                  name: debtToIkhlas.name, 
-                  amount: debtToIkhlas.amount, 
-                  dueDate: debtToIkhlas.dueDate, 
-                  description: `${debtToIkhlas.description || ''} [Diikhlaskan]`.trim(),
-                  isFromTransaction: true 
-              })
-          });
-          const newDebt = await createRes.json();
-
-          // 3. Lunasi piutang baru ini secara sistem (agar statusnya jadi 'isPaid = true' dan tercoret di UI)
-          await fetch(`/api/debts/${newDebt.id}/pay`, { 
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ amount: debtToIkhlas.amount }) 
-          });
-
-          // 4. Buat transaksi pengeluaran (Kerugian) untuk menetralisir uang masuk dari step 3
           await fetch("/api/transactions", {
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ 
-                  type: 'expense', 
-                  amount: idrNominal, 
-                  category: 'Penghapusan Piutang', 
-                  description: `Write-Off (Diikhlaskan): ${debtToIkhlas.name.split('|')[0]}`, 
-                  date: new Date() 
-              })
+              body: JSON.stringify({ type: 'income', amount: idrNominal, category: 'Penyesuaian Sistem', description: `Write-Off Balance: ${selectedDebt.name.split('|')[0]}`, date: new Date() })
           });
           
-          toast({ title: "Diikhlaskan", description: "Piutang tercoret dan tercatat sebagai kerugian." });
+          await fetch("/api/transactions", {
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ type: 'expense', amount: idrNominal, category: 'Penghapusan Piutang', description: `Write-Off (Diikhlaskan): ${selectedDebt.name.split('|')[0]}`, date: new Date() })
+          });
+          
+          toast({ title: "Diikhlaskan", description: "Tercatat sebagai kerugian di Laporan." });
           setPayModalOpen(false); 
           window.location.reload();
       } catch (e) { toast({ title: "Gagal memproses", variant: "destructive" }); }
@@ -207,6 +183,7 @@ export default function Debts() {
 
   const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
 
+  // 🚀 FITUR BARU: AUTO-SHRINK TEXT AGAR TIDAK OFFSIDE
   const displayTotalDebt = formatRp(totalAmountIDR);
   const getBalanceTextSize = (text: string) => {
       if (text.length >= 20) return "text-2xl"; 
@@ -227,6 +204,7 @@ export default function Debts() {
                     <h3 className="text-lg font-extrabold text-slate-800 mb-2">Pelunasan / Cicilan</h3>
                     <p className="text-xs text-slate-500 mb-4">Sisa Tagihan: <span className="font-bold text-rose-600">{formatRp(selectedDebt.amount)}</span></p>
                     
+                    {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
                     <Input type="text" inputMode="decimal" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(formatNum(e.target.value))} className="h-14 font-bold text-lg mb-4"/>
                     
                     <Button onClick={handlePay} disabled={isPaying} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold mb-3 shadow-lg">
@@ -234,7 +212,7 @@ export default function Debts() {
                     </Button>
 
                     {activeTab === 'piutang' && (
-                        <Button variant="outline" onClick={() => handleWriteOff(selectedDebt)} disabled={isPaying} className="w-full h-12 rounded-full border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-bold flex items-center justify-center gap-2 transition-colors">
+                        <Button variant="outline" onClick={handleWriteOff} disabled={isPaying} className="w-full h-12 rounded-full border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-bold flex items-center justify-center gap-2 transition-colors">
                             <HeartCrack className="w-4 h-4"/> IKHLASKAN (WRITE-OFF RUGI)
                         </Button>
                     )}
@@ -261,6 +239,7 @@ export default function Debts() {
                     {activeTab === 'piutang' ? <HandCoins className="w-4 h-4"/> : <AlertCircle className="w-4 h-4"/>}
                     Total {activeTab === 'piutang' ? 'Uang di Orang (Piutang)' : 'Kewajiban (Hutang)'}
                 </p>
+                {/* 🚀 AUTO SHRINK DITERAPKAN DI SINI */}
                 <h2 className={`${getBalanceTextSize(displayTotalDebt)} font-extrabold tracking-tight whitespace-nowrap transition-all duration-300`}>
                     {displayTotalDebt}
                 </h2>
@@ -296,9 +275,11 @@ export default function Debts() {
                             <option value="IDR">IDR</option>
                             {availableCurrencies.filter(c => c !== 'IDR').map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
+                        {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
                         <Input type="text" inputMode="decimal" placeholder="Nominal" value={amount} onChange={e => setAmount(formatNum(e.target.value))} className="flex-1 h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg"/>
                     </div>
                     
+                    {/* 🚀 FIX: LABEL TENGGAT WAKTU DIKEMBALIKAN */}
                     <div className="space-y-1">
                         <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">Tenggat Waktu (Wajib)</label>
                         <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent text-sm w-full block"/>
@@ -366,9 +347,11 @@ export default function Debts() {
                                             <span className="text-[9px] font-extrabold uppercase tracking-wider">{activeTab === 'hutang' ? 'Bayar' : 'Tagih'}</span>
                                         </button>
                                         
-                                        {/* 🚀 FIX: MENGHILANGKAN BUG STALE CLOSURE */}
                                         {activeTab === 'piutang' && (
-                                            <button onClick={() => handleWriteOff(item)} className="p-2 rounded-[16px] bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-600 shadow-sm active:scale-95 transition-transform flex flex-col items-center justify-center border border-rose-100" title="Ikhlaskan (Write-Off)">
+                                            <button onClick={() => {
+                                                setSelectedDebt(item); 
+                                                setTimeout(() => handleWriteOff(), 100); 
+                                            }} className="p-2 rounded-[16px] bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-600 shadow-sm active:scale-95 transition-transform flex flex-col items-center justify-center border border-rose-100" title="Ikhlaskan (Write-Off)">
                                                 <HeartCrack className="w-4 h-4 mb-0.5"/>
                                                 <span className="text-[8px] font-extrabold uppercase tracking-wider">Ikhlas</span>
                                             </button>
