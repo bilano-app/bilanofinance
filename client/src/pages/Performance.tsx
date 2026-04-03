@@ -17,9 +17,6 @@ export default function Performance() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // =====================================================================
-  // 🔒 LOGIKA PENGUNCIAN GHOSTED UI (NATIVE LOOK)
-  // =====================================================================
   const isPro = user?.isPro || localStorage.getItem("bilano_pro") === "true";
   const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
   const locked = !isUserLoading && !isPro && isTrialExpired;
@@ -30,7 +27,6 @@ export default function Performance() {
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
-  // 🚀 LOGIKA PEMBAYARAN MIDTRANS
   const handleLanjutBayar = async () => {
       if (!currentUserEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
       setIsCharging(true);
@@ -44,7 +40,6 @@ export default function Performance() {
   };
 
   const handleCloseIframe = () => { setIframeUrl(""); toast({ title: "Mengecek Pembayaran...", description: "Status akun sedang diperbarui." }); setTimeout(() => window.location.reload(), 1500); };
-  // =====================================================================
 
   const { data: transactions, isLoading: isTxLoading } = useTransactions();
   const { data: target, isLoading: isTargetLoading } = useTarget();
@@ -113,21 +108,18 @@ export default function Performance() {
 
   const currentWealth = cashReal + investmentReal + forexValue + piutangReal - hutangReal;
 
-  // 🚀 LOGIKA BARU: MENGHITUNG ROI BERDASARKAN REALISASI CUAN (TRANSAKSI JUAL)
   const allTimeTx = transactions || [];
   let totalCuanJual = 0;
   let totalModalTerpakai = 0;
 
-  // Mencari transaksi 'invest_sell' yang mengandung info P/L di deskripsi
   allTimeTx.filter(t => t.type === 'invest_sell').forEach(t => {
       if (t.description && t.description.includes('P/L:')) {
           const plString = t.description.split('P/L:')[1];
           if (plString) {
-              // Membersihkan teks Rp dan titik agar jadi angka murni
               const plValue = parseInt(plString.replace(/[^0-9-]/g, ''), 10);
               if (!isNaN(plValue)) {
                   totalCuanJual += plValue;
-                  totalModalTerpakai += (t.amount - plValue); // Modal asli = Harga Jual - Untung
+                  totalModalTerpakai += (t.amount - plValue); 
               }
           }
       }
@@ -176,8 +168,9 @@ export default function Performance() {
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
-  const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income');
-  const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest'));
+  // 🚀 FILTER ARUS KAS: Abaikan transaksi Penyesuaian/Pemutihan agar Arus Kas tetap real!
+  const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income' && !['Pemutihan Hutang', 'Penyesuaian Sistem'].includes(t.category));
+  const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest') && !['Penghapusan Piutang', 'Penyesuaian Sistem'].includes(t.category));
 
   const virtualPLTxs: any[] = [];
   thisMonthTx.filter(t => t.type === 'invest_sell').forEach(t => {
@@ -241,7 +234,6 @@ export default function Performance() {
   return (
     <MobileLayout title="Analisa Performa" showBack>
       
-      {/* IFRAME MIDTRANS */}
       {iframeUrl && (
           <div className="fixed inset-0 z-[999999] bg-slate-50 flex flex-col animate-in slide-in-from-bottom duration-300">
               <div className="h-14 bg-slate-900 flex items-center justify-between px-4 text-white shadow-md z-10 shrink-0">
@@ -455,9 +447,7 @@ export default function Performance() {
                     )}
                 </div>
 
-                {/* 🚀 DIAGNOSA & ROI PORTFOLIO SECTION */}
                 <div className="space-y-4">
-                    {/* 🚀 KARTU DIAGNOSA GHOSTED */}
                     {target.targetAmount > 0 && (
                         <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${isSafe ? "border-emerald-100 bg-emerald-50" : "border-orange-100 bg-orange-50"}`}>
                             <div className={locked ? 'blur-[5px] select-none' : ''}>
@@ -489,7 +479,6 @@ export default function Performance() {
                         </div>
                     )}
 
-                    {/* 👑 KHUSUS PRO: ANALISA ROI BERDASARKAN REALISASI CUAN JUAL */}
                     {!locked && isPro && (totalCuanJual !== 0 || investmentReal > 0) && (
                         <div className="p-6 rounded-[32px] bg-slate-900 text-white shadow-xl border border-slate-700 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
                             <div className="flex justify-between items-start mb-6">
@@ -574,7 +563,6 @@ export default function Performance() {
 
       </div>
 
-      {/* FLOATING NATIVE PAYWALL BUTTON */}
       {locked && (
           <div className="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-slate-50 via-slate-50/95 to-slate-50/0 z-40 animate-in slide-in-from-bottom duration-500">
               <Card onClick={() => setPaywallModalOpen(true)} className="p-4 rounded-3xl bg-slate-900 shadow-[0_10px_40px_rgba(30,41,59,0.3)] border border-slate-800 flex items-center justify-between cursor-pointer group active:scale-[0.98] transition-all">
@@ -590,7 +578,6 @@ export default function Performance() {
           </div>
       )}
 
-      {/* MODAL PENJELASAN BILANO PRO */}
       {paywallModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
               <Card className="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-200">
