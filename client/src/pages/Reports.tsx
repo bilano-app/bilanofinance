@@ -291,15 +291,15 @@ export default function Reports() {
             return [f.currency, f.amount.toLocaleString(), formatRp(rate), formatRp(idrVal)];
         });
 
-        // 🚀 MURNI SNAPSHOT SAAT INI 
+        // 🚀 MURNI SNAPSHOT SAAT INI
         const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
         const netWorth = totalAsset - totalDebt;
 
+        // 🚀 PENGUNCI WAKTU (TIME MACHINE)
         const nowForReport = (targetMonth !== undefined && targetYear !== undefined) 
             ? new Date(targetYear, targetMonth, 1) 
             : new Date();
             
-        // 🚀 TIME MACHINE MATEMATIS (100% AKURAT & BEBAS BUG KALI DUA)
         const reportDateEnd = new Date(nowForReport.getFullYear(), nowForReport.getMonth() + 1, 0, 23, 59, 59);
         const now = new Date();
 
@@ -309,31 +309,33 @@ export default function Reports() {
         let archivePiutang = totalPiutang;
         let archiveDebt = totalDebt;
 
+        // FUNGSI HELPER UNTUK MEMBACA TRANSAKSI VALAS
+        const getTxIdrAmount = (t: any) => {
+            if (!t.type.startsWith('debt_')) return t.amount;
+            let c = 'IDR';
+            if (t.description?.includes('|')) c = t.description.split('|')[1].trim().substring(0,3);
+            else if (t.description?.toLowerCase().includes('usd')) c = 'USD';
+            else if (t.amount < 10000) c = 'USD'; 
+            return t.amount * getRate(c);
+        };
+
         if (reportDateEnd < now) {
             allTxs.forEach((t:any) => {
                 const tDate = new Date(t.date);
                 if (tDate > reportDateEnd) {
-                    
-                    // Deteksi IDR Nominal yang akurat untuk transaksi pinjaman
-                    let txIdrAmount = t.amount;
-                    if (t.type.startsWith('debt_')) {
-                        let c = 'IDR';
-                        if (t.description?.includes('|')) c = t.description.split('|')[1].trim().substring(0,3);
-                        else if (t.description?.toLowerCase().includes('usd')) c = 'USD';
-                        txIdrAmount = t.amount * getRate(c);
-                    }
+                    const idrAmount = getTxIdrAmount(t);
 
                     // REVERSE CASH
                     if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
-                        archiveCash -= txIdrAmount;
+                        archiveCash -= idrAmount;
                     } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
-                        archiveCash += txIdrAmount;
+                        archiveCash += idrAmount;
                     }
 
                     // REVERSE INVEST
-                    if (t.type === 'invest_buy') archiveInvest -= txIdrAmount;
+                    if (t.type === 'invest_buy') archiveInvest -= idrAmount;
                     if (t.type === 'invest_sell') {
-                        let buyVal = txIdrAmount;
+                        let buyVal = idrAmount;
                         if (t.description?.includes('P/L:')) {
                             const plString = t.description.split('P/L:')[1];
                             if (plString) {
@@ -344,13 +346,12 @@ export default function Reports() {
                         archiveInvest += buyVal;
                     }
 
-                    // REVERSE PIUTANG (Termasuk Piutang Gaib yang diikhlaskan)
-                    if (t.type === 'debt_lend') archivePiutang -= txIdrAmount; 
-                    if (t.type === 'debt_receive') archivePiutang += txIdrAmount; 
+                    // REVERSE PIUTANG & HUTANG MASA LALU
+                    if (t.type === 'debt_lend') archivePiutang -= idrAmount; 
+                    if (t.type === 'debt_receive') archivePiutang += idrAmount; 
 
-                    // REVERSE HUTANG
-                    if (t.type === 'debt_borrow') archiveDebt -= txIdrAmount;
-                    if (t.type === 'debt_pay') archiveDebt += txIdrAmount;
+                    if (t.type === 'debt_borrow') archiveDebt -= idrAmount;
+                    if (t.type === 'debt_pay') archiveDebt += idrAmount;
                 }
             });
         }
@@ -378,7 +379,7 @@ export default function Reports() {
 
         const investTransactions = allTxs.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
         
-        // 🚀 MENGHITUNG KOTAK KERUGIAN & KEUNTUNGAN (MURNI MEMBACA ANGKA IDR TRANSAKSI)
+        // 🚀 MENGHITUNG KOTAK KERUGIAN & KEUNTUNGAN (Data ini HANYA diambil karena t.amount dari Database SUDAH DALAM IDR)
         const writeOffTransactions = allTxs.filter((t:any) => t.category === 'Penghapusan Piutang' && new Date(t.date) <= reportDateEnd);
         const totalWriteOffLoss = writeOffTransactions.reduce((sum: number, t:any) => sum + t.amount, 0);
 
@@ -672,10 +673,12 @@ export default function Reports() {
                 const d = new Date(t.date);
                 if(d.getMonth() === mIdx && d.getFullYear() === yIdx) {
                     
+                    const idrAmount = t.type.startsWith('debt_') ? getTxIdrAmount(t) : t.amount;
+
                     if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
-                        inCash += t.amount;
+                        inCash += idrAmount;
                     } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
-                        outCash += t.amount;
+                        outCash += idrAmount;
                     }
 
                     if (t.type === 'income') {
