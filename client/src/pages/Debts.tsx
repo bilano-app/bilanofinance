@@ -70,21 +70,12 @@ export default function Debts() {
       enabled: !!currentUserEmail
   });
 
-  const { data: txs = [], refetch: refetchTxs } = useQuery({
-      queryKey: ['transactions', currentUserEmail],
-      queryFn: async () => {
-          const res = await fetch(`/api/transactions`, { headers: { "x-user-email": currentUserEmail } });
-          return res.json();
-      },
-      enabled: !!currentUserEmail
-  });
-
   const loading = isDebtsLoading || isRatesLoading;
   const activeRates = Object.keys(forexRates).length > 0 ? forexRates : DEFAULT_RATES;
   const availableCurrencies = Object.keys(activeRates);
 
   const fetchData = async () => {
-      await Promise.all([refetchDebts(), refetchRates(), refetchTxs()]);
+      await Promise.all([refetchDebts(), refetchRates()]);
   };
 
   const checkPaywall = () => {
@@ -148,7 +139,7 @@ export default function Debts() {
           if (res.ok) {
               toast({ title: nominal < selectedDebt.amount ? "Cicilan Berhasil!" : "Lunas!", description: "Tagihan diperbarui." }); 
               setPayModalOpen(false); setPayAmount(""); setSelectedDebt(null);
-              await fetchData();
+              await fetchData(); 
           } else {
               toast({ title: "Gagal memproses", variant: "destructive" });
           }
@@ -156,53 +147,89 @@ export default function Debts() {
       finally { setIsPaying(false); }
   };
 
-  // 🚀 LOGIKA WRITE-OFF YANG SEMPURNA (TANPA DELETE DATA)
+  // 🚀 LOGIKA AKUNTANSI MURNI: Tidak Delete Data, Kas Netral, Kekayaan Berubah
   const handleWriteOff = async (debtToProcess: DebtItem) => {
       if (checkPaywall() || !debtToProcess) return;
       
       const isPiutang = debtToProcess.type === 'piutang';
       const confirmText = isPiutang 
-          ? "Ikhlaskan piutang ini? Ini akan dicatat sebagai KERUGIAN di laporan." 
-          : "Apakah hutang ini diputihkan/diikhlaskan oleh pemberi pinjaman? Ini akan dicatat sebagai KEUNTUNGAN di laporan.";
+          ? "Ikhlaskan piutang ini? Ini akan dicatat sebagai KERUGIAN di Laporan Anda." 
+          : "Hutang ini diputihkan oleh pihak lawan? Ini akan dicatat sebagai KEUNTUNGAN di Laporan Anda.";
           
       if (!confirm(confirmText)) return;
       
       setIsPaying(true);
+      setSelectedDebt(debtToProcess);
+
       try {
-          // Konversi IDR yang akurat untuk dicatat ke database Laporan
           const curr = debtToProcess.name.split('|')[1] || 'IDR';
           const rate = curr === 'IDR' ? 1 : (activeRates[curr] || 1);
           const idrNominal = debtToProcess.amount * rate;
 
-          // 1. Tandai sebagai LUNAS (ini akan menghasilkan transaksi uang masuk/keluar standar)
-          const resPay = await fetch(`/api/debts/${debtToProcess.id}/pay`, { 
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ amount: debtToProcess.amount }) 
-          });
-
-          if (!resPay.ok) throw new Error("Gagal memproses pelunasan sistem");
+          // 1. Ganti identitas piutang dengan label baru
+          await fetch(`/api/debts/${debtToProcess.id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
           
-          // 2. Buat transaksi penyeimbang (Offset) agar Kas Netral, namun Net Worth membaca Kerugian/Keuntungan
-          await fetch("/api/transactions", {
+          const label = isPiutang ? '[Diikhlaskan]' : '[Pemutihan]';
+          const createRes = await fetch("/api/debts", {
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ 
-                  type: isPiutang ? 'expense' : 'income', 
-                  amount: idrNominal, 
-                  category: isPiutang ? 'Penghapusan Piutang' : 'Pemutihan Hutang', 
-                  description: `[Sistem] ${debtToProcess.name}`, 
-                  date: new Date().toISOString() 
+                  type: debtToProcess.type, 
+                  name: debtToProcess.name, 
+                  amount: debtToProcess.amount, 
+                  dueDate: debtToProcess.dueDate, 
+                  description: `${debtToProcess.description || ''} ${label}`.trim(),
+                  isFromTransaction: true 
               })
           });
+          const newDebt = await createRes.json();
+
+          // 2. Lunasi tagihan, buat offset, dan catat kerugian sekaligus (SUPER CEPAT)
+          await Promise.all([
+              fetch(`/api/debts/${newDebt.id}/pay`, { 
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ amount: debtToProcess.amount }) 
+              }),
+              fetch("/api/transactions", {
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ 
+                      type: isPiutang ? 'expense' : 'income', 
+                      amount: debtToProcess.amount, 
+                      category: 'Penyesuaian Sistem', 
+                      description: `[Offset Pelunasan] ${debtToProcess.name}`, 
+                      date: new Date().toISOString() 
+                  })
+              }),
+              fetch("/api/transactions", {
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ 
+                      type: isPiutang ? 'expense' : 'income', 
+                      amount: idrNominal, 
+                      category: isPiutang ? 'Penghapusan Piutang' : 'Pemutihan Hutang', 
+                      description: `[Kerugian/Keuntungan] Write-Off: ${debtToProcess.name}`, 
+                      date: new Date().toISOString() 
+                  })
+              }),
+              fetch("/api/transactions", {
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ 
+                      type: isPiutang ? 'income' : 'expense', 
+                      amount: idrNominal, 
+                      category: 'Penyesuaian Sistem', 
+                      description: `[Offset Kas] Write-Off: ${debtToProcess.name}`, 
+                      date: new Date().toISOString() 
+                  })
+              })
+          ]);
           
           toast({ title: "Berhasil!", description: "Tercatat di Laporan PDF Anda." });
           await fetchData();
       } catch (e) { toast({ title: "Gagal memproses", variant: "destructive" }); }
-      finally { setIsPaying(false); }
+      finally { setIsPaying(false); setSelectedDebt(null); }
   };
 
   const handleDelete = async (id: number) => {
       if (checkPaywall()) return;
-      if(!confirm("Hapus catatan LUNAS ini dari riwayat?")) return;
+      if(!confirm("Hapus riwayat tagihan LUNAS ini SECARA PERMANEN?")) return;
       try {
           await fetch(`/api/debts/${id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
           toast({ title: "Berhasil dihapus." });
@@ -228,6 +255,7 @@ export default function Debts() {
       return "text-4xl"; 
   };
 
+  // 🚀 TAMPILAN SISA TAGIHAN USD -> IDR YANG AKURAT
   let modalSisaTagihanUI = "Rp 0";
   if (selectedDebt) {
       const curr = selectedDebt.name.split('|')[1] || 'IDR';
@@ -247,6 +275,7 @@ export default function Debts() {
                 <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl relative">
                     <button onClick={() => {setPayModalOpen(false); setPayAmount(""); setSelectedDebt(null);}} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>
                     <h3 className="text-lg font-extrabold text-slate-800 mb-2">Pelunasan / Cicilan</h3>
+                    
                     <p className="text-xs text-slate-500 mb-4">Sisa Tagihan: <span className="font-bold text-rose-600">{modalSisaTagihanUI}</span></p>
                     
                     <Input type="text" inputMode="decimal" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(formatNum(e.target.value))} className="h-14 font-bold text-lg mb-4"/>
@@ -345,19 +374,15 @@ export default function Debts() {
                     const totalIDR = item.amount * rate;
 
                     const isCicilan = item.description?.includes('(Sisa dari');
-                    
-                    // 🚀 LOGIKA MEMBACA TRANSAKSI IKHLAS DARI DATABASE TRANSACTIONS
-                    const isWrittenOff = txs.some((t:any) => 
-                        (t.category === 'Penghapusan Piutang' || t.category === 'Pemutihan Hutang') && 
-                        t.description.includes(`[Sistem] ${item.name}`)
-                    );
+                    const isIkhlas = item.description?.includes('[Diikhlaskan]') || item.description?.includes('Penghapusan');
+                    const isPemutihan = item.description?.includes('[Pemutihan]');
 
                     return (
                         <div key={item.id} className={`bg-white p-5 rounded-[24px] border shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex justify-between items-center transition-all ${item.isPaid ? 'opacity-60 border-slate-100' : (activeTab === 'piutang' ? 'border-emerald-50' : 'border-rose-50')}`}>
                             <div className="flex-1 mr-4">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${item.isPaid ? (isWrittenOff ? (activeTab === 'piutang' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600') : 'bg-slate-100 text-slate-500') : (activeTab === 'piutang' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700')}`}>
-                                        {item.isPaid ? (isWrittenOff ? (activeTab === 'piutang' ? 'DIIKHLASKAN' : 'DIPUTIHKAN') : 'LUNAS') : (isCicilan ? 'DICICIL' : 'BELUM LUNAS')}
+                                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${item.isPaid ? (isIkhlas ? 'bg-rose-100 text-rose-600' : isPemutihan ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500') : (activeTab === 'piutang' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700')}`}>
+                                        {item.isPaid ? (isIkhlas ? 'DIIKHLASKAN' : isPemutihan ? 'DIPUTIHKAN' : 'LUNAS') : (isCicilan ? 'DICICIL' : 'BELUM LUNAS')}
                                     </span>
                                     <span className="font-extrabold text-slate-800 text-base">{displayName}</span>
                                 </div>
@@ -379,7 +404,7 @@ export default function Debts() {
 
                                 <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1 mt-2">
                                     <Calendar className="w-3 h-3"/> Tempo: {item.dueDate ? new Date(item.dueDate).toLocaleDateString('id-ID') : "-"} 
-                                    {item.description && <span className="ml-1 text-slate-400 truncate max-w-[120px]">• {item.description}</span>}
+                                    {item.description && <span className="ml-1 text-slate-400 truncate max-w-[120px]">• {item.description.replace('[Diikhlaskan]', '').replace('[Pemutihan]', '')}</span>}
                                 </div>
                             </div>
                             
@@ -397,7 +422,7 @@ export default function Debts() {
                                         </button>
                                     </>
                                 ) : (
-                                    <button onClick={() => handleDelete(item.id)} className="p-3 bg-slate-50 text-slate-400 rounded-[16px] hover:bg-rose-50 hover:text-rose-500 transition-colors" title="Hapus Riwayat Lunas">
+                                    <button onClick={() => handleDelete(item.id)} className="p-3 bg-slate-50 text-slate-400 rounded-[16px] hover:bg-rose-50 hover:text-rose-500 transition-colors" title="Hapus Riwayat">
                                         <Trash2 className="w-5 h-5"/>
                                     </button>
                                 )}

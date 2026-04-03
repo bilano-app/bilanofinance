@@ -314,17 +314,23 @@ export default function Reports() {
                 const tDate = new Date(t.date);
                 if (tDate > reportDateEnd) {
                     
-                    // CASH REVERSAL: Mengembalikan kas jika ada pemasukan/pengeluaran setelah bulan ini
+                    let txIdrAmount = t.amount;
+                    if (t.type.startsWith('debt_') && t.description?.includes('|')) {
+                        const curr = t.description.split('|')[1].trim().substring(0,3);
+                        txIdrAmount = t.amount * getRate(curr);
+                    }
+
+                    // CASH REVERSAL
                     if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
-                        archiveCash -= t.amount;
+                        archiveCash -= txIdrAmount;
                     } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
-                        archiveCash += t.amount;
+                        archiveCash += txIdrAmount;
                     }
 
                     // INVEST REVERSAL
-                    if (t.type === 'invest_buy') archiveInvest -= t.amount;
+                    if (t.type === 'invest_buy') archiveInvest -= txIdrAmount;
                     if (t.type === 'invest_sell') {
-                        let buyVal = t.amount;
+                        let buyVal = txIdrAmount;
                         if (t.description?.includes('P/L:')) {
                             const plString = t.description.split('P/L:')[1];
                             if (plString) {
@@ -335,18 +341,12 @@ export default function Reports() {
                         archiveInvest += buyVal;
                     }
 
-                    // REVERSE PIUTANG/HUTANG MASA LALU (Catatan: t.amount untuk debt_lend mungkin dalam valas, jadi kita cek kurs-nya jika ada)
-                    let rawDebtAmount = t.amount;
-                    if (t.type.startsWith('debt_') && t.description?.includes('|')) {
-                        const curr = t.description.split('|')[1].trim().substring(0,3);
-                        rawDebtAmount = t.amount * getRate(curr);
-                    }
+                    // REVERSE PIUTANG/HUTANG MASA LALU 
+                    if (t.type === 'debt_lend') archivePiutang -= txIdrAmount; 
+                    if (t.type === 'debt_receive') archivePiutang += txIdrAmount; 
 
-                    if (t.type === 'debt_lend') archivePiutang -= rawDebtAmount; 
-                    if (t.type === 'debt_receive') archivePiutang += rawDebtAmount; 
-
-                    if (t.type === 'debt_borrow') archiveDebt -= rawDebtAmount;
-                    if (t.type === 'debt_pay') archiveDebt += rawDebtAmount;
+                    if (t.type === 'debt_borrow') archiveDebt -= txIdrAmount;
+                    if (t.type === 'debt_pay') archiveDebt += txIdrAmount;
                 }
             });
         }
@@ -374,7 +374,7 @@ export default function Reports() {
 
         const investTransactions = allTxs.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
         
-        // 🚀 MENGHITUNG KOTAK KERUGIAN & KEUNTUNGAN (MURNI MEMBACA T.AMOUNT KARENA SUDAH DISIMPAN SEBAGAI IDR)
+        // 🚀 MENGHITUNG KOTAK KERUGIAN & KEUNTUNGAN
         const writeOffTransactions = allTxs.filter((t:any) => t.category === 'Penghapusan Piutang' && new Date(t.date) <= reportDateEnd);
         const totalWriteOffLoss = writeOffTransactions.reduce((sum: number, t:any) => sum + t.amount, 0);
 
@@ -518,14 +518,10 @@ export default function Reports() {
                 
                 let status = d.isPaid ? 'LUNAS' : 'Belum Lunas';
                 
-                // 🚀 DETEKSI DARI DATABASE SECARA LANGSUNG
-                const isWrittenOff = allTxs.some((t:any) => 
-                    (t.category === 'Penghapusan Piutang' || t.category === 'Pemutihan Hutang') && 
-                    t.description.includes(`[Sistem] ${d.name}`)
-                );
-
-                if (d.isPaid && isWrittenOff) {
-                    status = d.type === 'piutang' ? 'DIIKHLASKAN (Rugi)' : 'DIPUTIHKAN (Untung)';
+                if (d.type === 'piutang' && d.isPaid && (d.description?.includes('Diikhlaskan') || d.description?.includes('Penghapusan'))) {
+                    status = 'DIIKHLASKAN (Rugi)';
+                } else if (d.type === 'hutang' && d.isPaid && (d.description?.includes('Pemutihan'))) {
+                    status = 'DIPUTIHKAN (Untung)';
                 }
 
                 return [
@@ -678,9 +674,10 @@ export default function Reports() {
                         outCash += t.amount;
                     }
 
-                    if (t.type === 'income') {
+                    // Hanya transaksi non-Offset Kas yang dihitung mengubah Net Worth
+                    if (t.type === 'income' && !t.description?.includes('[Offset Kas]')) {
                         netWorthChange += t.amount;
-                    } else if (t.type === 'expense') {
+                    } else if (t.type === 'expense' && !t.description?.includes('[Offset Kas]')) {
                         netWorthChange -= t.amount;
                     } else if (t.type === 'invest_sell' && t.description?.includes('P/L:')) {
                         const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''));
@@ -785,7 +782,7 @@ export default function Reports() {
             <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
         </div>
 
-        {/* 🚀 ARSIP LAPORAN TAHUNAN & BULANAN */}
+        {/* 🚀 ARSIP LAPORAN TAHUNAN & BULANAN (CORPORATE STYLE) */}
         <div className="bg-white rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100">
             <div className="flex items-center gap-2 mb-6">
                 <Archive className="w-5 h-5 text-indigo-500"/>

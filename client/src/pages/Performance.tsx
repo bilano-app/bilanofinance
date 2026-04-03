@@ -168,9 +168,9 @@ export default function Performance() {
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
-  // 🚀 FILTER ARUS KAS: Abaikan transaksi Penyesuaian/Pemutihan agar Arus Kas tetap real!
-  const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income' && !['Pemutihan Hutang', 'Penyesuaian Sistem'].includes(t.category));
-  const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest') && !['Penghapusan Piutang', 'Penyesuaian Sistem'].includes(t.category));
+  // 🚀 FILTER ARUS KAS MURNI: Jangan sampai transaksi Write-Off System/Offset Kas masuk ke hitungan bulanan!
+  const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income' && !t.description?.includes('[Offset') && !t.description?.includes('[Kerugian/Keuntungan]'));
+  const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest') && !t.description?.includes('[Offset') && !t.description?.includes('[Kerugian/Keuntungan]'));
 
   const virtualPLTxs: any[] = [];
   thisMonthTx.filter(t => t.type === 'invest_sell').forEach(t => {
