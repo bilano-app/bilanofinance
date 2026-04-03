@@ -142,7 +142,8 @@ export default function Debts() {
           if (res.ok) {
               toast({ title: nominal < selectedDebt.amount ? "Cicilan Berhasil!" : "Lunas!", description: "Tagihan diperbarui." }); 
               setPayModalOpen(false); setPayAmount(""); 
-              window.location.reload(); 
+              // 🚀 FIX: Menggunakan fetchData() agar UI Instan, tidak perlu loading reload halaman!
+              fetchData(); 
           } else {
               toast({ title: "Gagal memproses", variant: "destructive" });
           }
@@ -150,7 +151,6 @@ export default function Debts() {
       finally { setIsPaying(false); }
   };
 
-  // 🚀 LOGIKA IKHLAS/PEMUTIHAN YANG AMAN (TANPA MENGHAPUS DATA ASLI)
   const handleWriteOff = async (debtToProcess: DebtItem) => {
       if (checkPaywall() || !debtToProcess) return;
       
@@ -161,45 +161,51 @@ export default function Debts() {
           
       if (!confirm(confirmText)) return;
       
+      setSelectedDebt(debtToProcess);
       setIsPaying(true);
       try {
-          const curr = debtToProcess.name.split('|')[1] || 'IDR';
-          const rate = curr === 'IDR' ? 1 : (activeRates[curr] || 1);
+          const rate = (debtToProcess.name.split('|')[1] || 'IDR') === 'IDR' ? 1 : (activeRates[debtToProcess.name.split('|')[1]] || 1);
           const idrNominal = debtToProcess.amount * rate;
 
-          // 1. Coba update deskripsinya di backend (Jika gagal tidak apa-apa, fallback aman)
-          const label = isPiutang ? '[Diikhlaskan]' : '[Pemutihan]';
-          await fetch(`/api/debts/${debtToProcess.id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ description: `${debtToProcess.description || ''} ${label}`.trim() })
-          }).catch(() => console.log("PUT description fallback"));
-
-          // 2. Lunasi tagihan tersebut secara sistem (Agar Cash Flow bergerak)
-          const resPay = await fetch(`/api/debts/${debtToProcess.id}/pay`, { 
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ amount: debtToProcess.amount }) 
-          });
-
-          if (!resPay.ok) throw new Error("Gagal melunasi");
+          await fetch(`/api/debts/${debtToProcess.id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
           
-          // 3. Buat transaksi penyeimbang agar Uang Kas kita tidak bertambah/berkurang
-          await fetch("/api/transactions", {
+          const label = isPiutang ? '[Diikhlaskan]' : '[Pemutihan]';
+          const createRes = await fetch("/api/debts", {
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ 
-                  type: isPiutang ? 'expense' : 'income', 
-                  amount: idrNominal, 
-                  category: isPiutang ? 'Penghapusan Piutang' : 'Pemutihan Hutang', 
-                  description: `Write-Off: ${debtToProcess.name}`, 
-                  date: new Date().toISOString() 
+                  type: debtToProcess.type, 
+                  name: debtToProcess.name, 
+                  amount: debtToProcess.amount, 
+                  dueDate: debtToProcess.dueDate, 
+                  description: `${debtToProcess.description || ''} ${label}`.trim(),
+                  isFromTransaction: true 
               })
           });
+          const newDebt = await createRes.json();
+
+          // 🚀 FIX: Mempercepat proses dengan Promise.all agar 2 API tereksekusi bersamaan!
+          await Promise.all([
+              fetch(`/api/debts/${newDebt.id}/pay`, { 
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ amount: debtToProcess.amount }) 
+              }),
+              fetch("/api/transactions", {
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ 
+                      type: isPiutang ? 'expense' : 'income', 
+                      amount: idrNominal, 
+                      category: isPiutang ? 'Penghapusan Piutang' : 'Pemutihan Hutang', 
+                      description: `Write-Off: ${debtToProcess.name}`, 
+                      date: new Date().toISOString() 
+                  })
+              })
+          ]);
           
           toast({ title: "Berhasil!", description: "Tercatat di Laporan PDF Anda." });
-          setPayModalOpen(false);
-          window.location.reload();
+          // 🚀 FIX: Update Instan tanpa reload website!
+          fetchData();
       } catch (e) { toast({ title: "Gagal memproses", variant: "destructive" }); }
-      finally { setIsPaying(false); }
+      finally { setIsPaying(false); setSelectedDebt(null); }
   };
 
   const handleDelete = async (id: number) => {
@@ -230,7 +236,7 @@ export default function Debts() {
       return "text-4xl"; 
   };
 
-  // 🚀 LOGIKA UI MODAL UNTUK MATA UANG YANG BENAR
+  // LOGIKA UI MODAL UNTUK MATA UANG
   let modalSisaTagihanUI = "Rp 0";
   if (selectedDebt) {
       const curr = selectedDebt.name.split('|')[1] || 'IDR';
@@ -250,18 +256,12 @@ export default function Debts() {
                 <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl relative">
                     <button onClick={() => {setPayModalOpen(false); setPayAmount("");}} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>
                     <h3 className="text-lg font-extrabold text-slate-800 mb-2">Pelunasan / Cicilan</h3>
-                    
-                    {/* 🚀 FIX: TAMPILAN SISA TAGIHAN USD/EUR YANG BENAR */}
                     <p className="text-xs text-slate-500 mb-4">Sisa Tagihan: <span className="font-bold text-rose-600">{modalSisaTagihanUI}</span></p>
                     
                     <Input type="text" inputMode="decimal" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(formatNum(e.target.value))} className="h-14 font-bold text-lg mb-4"/>
                     
                     <Button onClick={handlePay} disabled={isPaying} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold mb-3 shadow-lg">
                         {isPaying ? <Loader2 className="w-5 h-5 animate-spin"/> : "KONFIRMASI PEMBAYARAN"}
-                    </Button>
-
-                    <Button variant="outline" onClick={() => handleWriteOff(selectedDebt)} disabled={isPaying} className={`w-full h-12 rounded-full font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'piutang' ? 'border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700'}`}>
-                        <HeartCrack className="w-4 h-4"/> {activeTab === 'piutang' ? 'IKHLASKAN (RUGI)' : 'PEMUTIHAN (UNTUNG)'}
                     </Button>
                 </div>
             </div>
@@ -390,10 +390,18 @@ export default function Debts() {
                             
                             <div className="flex flex-col gap-2">
                                 {!item.isPaid ? (
-                                    <button onClick={() => { setSelectedDebt(item); setPayModalOpen(true); }} className={`p-3 rounded-[16px] text-white shadow-md active:scale-95 transition-transform flex flex-col items-center justify-center ${activeTab === 'hutang' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
-                                        <CheckCircle2 className="w-5 h-5 mb-0.5"/>
-                                        <span className="text-[9px] font-extrabold uppercase tracking-wider">{activeTab === 'hutang' ? 'Bayar' : 'Tagih'}</span>
-                                    </button>
+                                    <>
+                                        <button onClick={() => { setSelectedDebt(item); setPayModalOpen(true); }} disabled={isPaying} className={`p-3 rounded-[16px] text-white shadow-md active:scale-95 transition-transform flex flex-col items-center justify-center ${activeTab === 'hutang' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
+                                            <CheckCircle2 className="w-5 h-5 mb-0.5"/>
+                                            <span className="text-[9px] font-extrabold uppercase tracking-wider">{activeTab === 'hutang' ? 'Bayar' : 'Tagih'}</span>
+                                        </button>
+                                        
+                                        {/* 🚀 FIX: TOMBOL IKHLAS ADA DI LUAR & ADA INDIKATOR LOADING */}
+                                        <button onClick={() => handleWriteOff(item)} disabled={isPaying} className={`p-2 rounded-[16px] shadow-sm active:scale-95 transition-transform flex flex-col items-center justify-center border ${activeTab === 'piutang' ? 'bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-500 hover:bg-emerald-100 hover:text-emerald-600 border-emerald-100'}`} title={activeTab === 'piutang' ? 'Ikhlaskan (Rugi)' : 'Pemutihan (Untung)'}>
+                                            {isPaying && selectedDebt?.id === item.id ? <Loader2 className="w-4 h-4 mb-0.5 animate-spin"/> : <HeartCrack className="w-4 h-4 mb-0.5"/>}
+                                            <span className="text-[8px] font-extrabold uppercase tracking-wider">{activeTab === 'piutang' ? 'Ikhlas' : 'Putihkan'}</span>
+                                        </button>
+                                    </>
                                 ) : (
                                     <button onClick={() => handleDelete(item.id)} className="p-3 bg-slate-50 text-slate-400 rounded-[16px] hover:bg-rose-50 hover:text-rose-500 transition-colors" title="Hapus Permanen">
                                         <Trash2 className="w-5 h-5"/>
