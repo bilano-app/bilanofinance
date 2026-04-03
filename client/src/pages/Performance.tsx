@@ -168,9 +168,9 @@ export default function Performance() {
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
-  // 🚀 FILTER ARUS KAS MURNI: Jangan sampai transaksi Write-Off System/Offset Kas masuk ke hitungan bulanan!
-  const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income' && !t.description?.includes('[Offset') && !t.description?.includes('[Kerugian/Keuntungan]'));
-  const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest') && !t.description?.includes('[Offset') && !t.description?.includes('[Kerugian/Keuntungan]'));
+  // 🚀 MURNIKAN ARUS KAS: Sembunyikan transaksi Offset & Kerugian/Keuntungan Valas agar tidak merusak Arus Kas Bulanan
+  const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income' && !t.description?.includes('[Offset') && !t.description?.includes('[Kerugian/Keuntungan]') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Pemutihan Hutang');
+  const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest') && !t.description?.includes('[Offset') && !t.description?.includes('[Kerugian/Keuntungan]') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Penghapusan Piutang');
 
   const virtualPLTxs: any[] = [];
   thisMonthTx.filter(t => t.type === 'invest_sell').forEach(t => {

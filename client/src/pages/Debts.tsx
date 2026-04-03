@@ -74,8 +74,10 @@ export default function Debts() {
   const activeRates = Object.keys(forexRates).length > 0 ? forexRates : DEFAULT_RATES;
   const availableCurrencies = Object.keys(activeRates);
 
-  const fetchData = async () => {
-      await Promise.all([refetchDebts(), refetchRates()]);
+  // 🚀 FETCH DATA BACKGROUND (TIDAK MEMBLOKIR UI)
+  const fetchData = () => {
+      refetchDebts();
+      refetchRates();
   };
 
   const checkPaywall = () => {
@@ -108,7 +110,7 @@ export default function Debts() {
           if(res.ok) {
               toast({ title: "Tersimpan", description: "Catatan berhasil ditambahkan." });
               setIsFormOpen(false); setName(""); setAmount(""); setDueDate(""); setDesc(""); setCurrency("IDR");
-              await fetchData();
+              fetchData(); // 🚀 UI Langsung merespon tanpa menunggu fetch selesai
           } else {
               toast({ title: "Gagal menyimpan", variant: "destructive" });
           }
@@ -139,7 +141,7 @@ export default function Debts() {
           if (res.ok) {
               toast({ title: nominal < selectedDebt.amount ? "Cicilan Berhasil!" : "Lunas!", description: "Tagihan diperbarui." }); 
               setPayModalOpen(false); setPayAmount(""); setSelectedDebt(null);
-              await fetchData(); 
+              fetchData(); 
           } else {
               toast({ title: "Gagal memproses", variant: "destructive" });
           }
@@ -147,7 +149,7 @@ export default function Debts() {
       finally { setIsPaying(false); }
   };
 
-  // 🚀 LOGIKA AKUNTANSI MURNI: Tidak Delete Data, Kas Netral, Kekayaan Berubah
+  // 🚀 LOGIKA AKUNTANSI TUNGGAL (SEKUENSIAL, ANTI-NGELAG)
   const handleWriteOff = async (debtToProcess: DebtItem) => {
       if (checkPaywall() || !debtToProcess) return;
       
@@ -166,9 +168,10 @@ export default function Debts() {
           const rate = curr === 'IDR' ? 1 : (activeRates[curr] || 1);
           const idrNominal = debtToProcess.amount * rate;
 
-          // 1. Ganti identitas piutang dengan label baru
+          // 1. Hapus catatan lama
           await fetch(`/api/debts/${debtToProcess.id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
           
+          // 2. Buat ulang dengan stempel [Diikhlaskan] / [Pemutihan]
           const label = isPiutang ? '[Diikhlaskan]' : '[Pemutihan]';
           const createRes = await fetch("/api/debts", {
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
@@ -183,57 +186,37 @@ export default function Debts() {
           });
           const newDebt = await createRes.json();
 
-          // 2. Lunasi tagihan, buat offset, dan catat kerugian sekaligus (SUPER CEPAT)
-          await Promise.all([
-              fetch(`/api/debts/${newDebt.id}/pay`, { 
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ amount: debtToProcess.amount }) 
-              }),
-              fetch("/api/transactions", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ 
-                      type: isPiutang ? 'expense' : 'income', 
-                      amount: debtToProcess.amount, 
-                      category: 'Penyesuaian Sistem', 
-                      description: `[Offset Pelunasan] ${debtToProcess.name}`, 
-                      date: new Date().toISOString() 
-                  })
-              }),
-              fetch("/api/transactions", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ 
-                      type: isPiutang ? 'expense' : 'income', 
-                      amount: idrNominal, 
-                      category: isPiutang ? 'Penghapusan Piutang' : 'Pemutihan Hutang', 
-                      description: `[Kerugian/Keuntungan] Write-Off: ${debtToProcess.name}`, 
-                      date: new Date().toISOString() 
-                  })
-              }),
-              fetch("/api/transactions", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ 
-                      type: isPiutang ? 'income' : 'expense', 
-                      amount: idrNominal, 
-                      category: 'Penyesuaian Sistem', 
-                      description: `[Offset Kas] Write-Off: ${debtToProcess.name}`, 
-                      date: new Date().toISOString() 
-                  })
+          // 3. Lunasi Tagihan (Ini memicu Kas Berubah secara sistem)
+          await fetch(`/api/debts/${newDebt.id}/pay`, { 
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ amount: debtToProcess.amount }) 
+          });
+          
+          // 4. Buat 1 Transaksi Penyeimbang (Menganulir Kas, namun mengubah Net Worth)
+          await fetch("/api/transactions", {
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ 
+                  type: isPiutang ? 'expense' : 'income', 
+                  amount: idrNominal, 
+                  category: isPiutang ? 'Penghapusan Piutang' : 'Pemutihan Hutang', 
+                  description: `Penyesuaian Valas: ${debtToProcess.name}`, 
+                  date: new Date().toISOString() 
               })
-          ]);
+          });
           
           toast({ title: "Berhasil!", description: "Tercatat di Laporan PDF Anda." });
-          await fetchData();
+          fetchData(); // UI Refresh instant
       } catch (e) { toast({ title: "Gagal memproses", variant: "destructive" }); }
       finally { setIsPaying(false); setSelectedDebt(null); }
   };
 
   const handleDelete = async (id: number) => {
       if (checkPaywall()) return;
-      if(!confirm("Hapus riwayat tagihan LUNAS ini SECARA PERMANEN?")) return;
+      if(!confirm("Hapus catatan LUNAS ini dari riwayat?")) return;
       try {
           await fetch(`/api/debts/${id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
           toast({ title: "Berhasil dihapus." });
-          await fetchData();
+          fetchData();
       } catch (e) {}
   };
 
@@ -255,7 +238,6 @@ export default function Debts() {
       return "text-4xl"; 
   };
 
-  // 🚀 TAMPILAN SISA TAGIHAN USD -> IDR YANG AKURAT
   let modalSisaTagihanUI = "Rp 0";
   if (selectedDebt) {
       const curr = selectedDebt.name.split('|')[1] || 'IDR';
@@ -351,6 +333,7 @@ export default function Debts() {
 
                     <Input placeholder="Catatan Tambahan (Opsional)" value={desc} onChange={e => setDesc(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent text-sm"/>
                     
+                    {/* 🚀 INDIKATOR LOADING PADA TOMBOL SIMPAN */}
                     <Button onClick={handleAdd} disabled={isSubmitting} className={`w-full h-14 rounded-full font-extrabold text-white mt-2 shadow-lg transition-transform active:scale-95 ${activeTab === 'piutang' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`}>
                         {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto"/> : "SIMPAN"}
                     </Button>
@@ -374,7 +357,7 @@ export default function Debts() {
                     const totalIDR = item.amount * rate;
 
                     const isCicilan = item.description?.includes('(Sisa dari');
-                    const isIkhlas = item.description?.includes('[Diikhlaskan]') || item.description?.includes('Penghapusan');
+                    const isIkhlas = item.description?.includes('[Diikhlaskan]');
                     const isPemutihan = item.description?.includes('[Pemutihan]');
 
                     return (

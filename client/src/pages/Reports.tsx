@@ -291,7 +291,7 @@ export default function Reports() {
             return [f.currency, f.amount.toLocaleString(), formatRp(rate), formatRp(idrVal)];
         });
 
-        // 🚀 MURNI SNAPSHOT SAAT INI
+        // 🚀 MURNI SNAPSHOT SAAT INI 
         const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
         const netWorth = totalAsset - totalDebt;
 
@@ -314,23 +314,17 @@ export default function Reports() {
                 const tDate = new Date(t.date);
                 if (tDate > reportDateEnd) {
                     
-                    let txIdrAmount = t.amount;
-                    if (t.type.startsWith('debt_') && t.description?.includes('|')) {
-                        const curr = t.description.split('|')[1].trim().substring(0,3);
-                        txIdrAmount = t.amount * getRate(curr);
-                    }
-
-                    // CASH REVERSAL
+                    // REVERSE CASH 
                     if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
-                        archiveCash -= txIdrAmount;
+                        archiveCash -= t.amount; // Murni IDR karena disave dr DB dalam bentuk IDR
                     } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
-                        archiveCash += txIdrAmount;
+                        archiveCash += t.amount;
                     }
 
-                    // INVEST REVERSAL
-                    if (t.type === 'invest_buy') archiveInvest -= txIdrAmount;
+                    // REVERSE INVEST
+                    if (t.type === 'invest_buy') archiveInvest -= t.amount;
                     if (t.type === 'invest_sell') {
-                        let buyVal = txIdrAmount;
+                        let buyVal = t.amount;
                         if (t.description?.includes('P/L:')) {
                             const plString = t.description.split('P/L:')[1];
                             if (plString) {
@@ -341,12 +335,18 @@ export default function Reports() {
                         archiveInvest += buyVal;
                     }
 
-                    // REVERSE PIUTANG/HUTANG MASA LALU 
-                    if (t.type === 'debt_lend') archivePiutang -= txIdrAmount; 
-                    if (t.type === 'debt_receive') archivePiutang += txIdrAmount; 
+                    // REVERSE PIUTANG/HUTANG MASA LALU (Hitung dari kurs di database)
+                    let rawDebtAmount = t.amount;
+                    if (t.type.startsWith('debt_') && t.description?.includes('|')) {
+                        const curr = t.description.split('|')[1].trim().substring(0,3);
+                        rawDebtAmount = t.amount * getRate(curr);
+                    }
 
-                    if (t.type === 'debt_borrow') archiveDebt -= txIdrAmount;
-                    if (t.type === 'debt_pay') archiveDebt += txIdrAmount;
+                    if (t.type === 'debt_lend') archivePiutang -= rawDebtAmount; 
+                    if (t.type === 'debt_receive') archivePiutang += rawDebtAmount; 
+
+                    if (t.type === 'debt_borrow') archiveDebt -= rawDebtAmount;
+                    if (t.type === 'debt_pay') archiveDebt += rawDebtAmount;
                 }
             });
         }
@@ -374,7 +374,7 @@ export default function Reports() {
 
         const investTransactions = allTxs.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
         
-        // 🚀 MENGHITUNG KOTAK KERUGIAN & KEUNTUNGAN
+        // 🚀 MENGHITUNG KOTAK KERUGIAN & KEUNTUNGAN (Membaca T.AMOUNT murni dari database yang sudah dikonversi)
         const writeOffTransactions = allTxs.filter((t:any) => t.category === 'Penghapusan Piutang' && new Date(t.date) <= reportDateEnd);
         const totalWriteOffLoss = writeOffTransactions.reduce((sum: number, t:any) => sum + t.amount, 0);
 
@@ -518,9 +518,10 @@ export default function Reports() {
                 
                 let status = d.isPaid ? 'LUNAS' : 'Belum Lunas';
                 
-                if (d.type === 'piutang' && d.isPaid && (d.description?.includes('Diikhlaskan') || d.description?.includes('Penghapusan'))) {
+                // 🚀 BACA STEMPEL IKHLAS DARI DESKRIPSI (AKURAT 100%)
+                if (d.isPaid && d.description?.includes('[Diikhlaskan]')) {
                     status = 'DIIKHLASKAN (Rugi)';
-                } else if (d.type === 'hutang' && d.isPaid && (d.description?.includes('Pemutihan'))) {
+                } else if (d.isPaid && d.description?.includes('[Pemutihan]')) {
                     status = 'DIPUTIHKAN (Untung)';
                 }
 
@@ -674,10 +675,10 @@ export default function Reports() {
                         outCash += t.amount;
                     }
 
-                    // Hanya transaksi non-Offset Kas yang dihitung mengubah Net Worth
-                    if (t.type === 'income' && !t.description?.includes('[Offset Kas]')) {
+                    // 🚀 GRAFIK NET WORTH: Hanya hitung yang bukan "Offset Sistem"
+                    if (t.type === 'income' && !t.description?.includes('Penyesuaian Valas')) {
                         netWorthChange += t.amount;
-                    } else if (t.type === 'expense' && !t.description?.includes('[Offset Kas]')) {
+                    } else if (t.type === 'expense' && !t.description?.includes('Penyesuaian Valas')) {
                         netWorthChange -= t.amount;
                     } else if (t.type === 'invest_sell' && t.description?.includes('P/L:')) {
                         const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''));
