@@ -564,7 +564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 DEBTS ROUTES (SANGAT KOKOH ANTI DESIMAL & ANTI 404)
+  // 🚀 DEBTS ROUTES (MENGGUNAKAN LIVE RATE YANG AKURAT)
   // ====================================================================
   app.get("/api/debts", async (req, res) => { 
       const user = await getUser(req); 
@@ -578,17 +578,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const d = await storage.createDebt(user!.id, req.body as any); 
           
           if (!isFromTransaction) {
-              let newBalance = Math.round(user!.cashBalance);
+              // 🚀 CEK KURS LIVE SEBELUM KALKULASI!
+              const now = Date.now();
+              if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) { 
+                  await fetchLiveRates(); 
+              }
+
               const parts = (name || "").split('|');
               const curr = parts[1] || 'IDR';
               const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
               const amountIDR = Math.round(amount * rate);
               
               let txType = '', txCat = '';
-              if(type === 'hutang') { newBalance += amountIDR; txType = 'debt_borrow'; txCat = 'Dapat Pinjaman'; } 
-              else { newBalance -= amountIDR; txType = 'debt_lend'; txCat = 'Beri Pinjaman'; }
+              if(type === 'hutang') { txType = 'debt_borrow'; txCat = 'Dapat Pinjaman'; } 
+              else { txType = 'debt_lend'; txCat = 'Beri Pinjaman'; }
               
-              await storage.updateUserBalance(user!.id, newBalance);
+              if (curr === 'IDR') {
+                  let newBalance = Math.round(user!.cashBalance);
+                  if(type === 'hutang') { newBalance += amountIDR; } 
+                  else { newBalance -= amountIDR; }
+                  await storage.updateUserBalance(user!.id, newBalance);
+              } else {
+                  const existingForex = await storage.getForexByCurrency(user!.id, curr);
+                  let currentForexAmount = existingForex ? existingForex.amount : 0;
+                  
+                  if (type === 'hutang') {
+                      currentForexAmount += amount; 
+                  } else {
+                      currentForexAmount -= amount; 
+                      if (currentForexAmount < 0) currentForexAmount = 0;
+                  }
+                  
+                  if (existingForex) {
+                      await storage.updateForexAsset(existingForex.id, currentForexAmount);
+                  } else if (currentForexAmount > 0) {
+                      await storage.createForexAsset(user!.id, { currency: curr, amount: currentForexAmount } as any);
+                  }
+              }
+
               await storage.createTransaction(user!.id, { userId: user!.id, type: txType, amount: amountIDR, category: txCat, description: `[${type.toUpperCase()}] ${name} - ${description||''}`, date: new Date() } as any);
           }
           res.json(d); 
@@ -605,6 +632,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (!id || isNaN(id)) return res.status(400).json({ error: "ID Tagihan tidak terbaca oleh server." });
 
+          // 🚀 AMBIL KURS LIVE TERBARU SEBELUM MENGHITUNG VALAS!
+          const now = Date.now();
+          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) { 
+              await fetchLiveRates(); 
+          }
+
           const debts = await storage.getDebts(user!.id);
           const debt = debts.find(d => d.id === id);
           
@@ -616,8 +649,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const curr = (debt.name || "").split('|')[1] || 'IDR';
           const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
-          
-          // PEMBULATAN WAJIB agar tidak meledakkan database integer
           const payAmountIDR = Math.round(payAmount * rate); 
           
           if (isWriteOff) {
@@ -633,14 +664,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   date: new Date() 
               } as any);
           } else {
-              if (debt.type === 'piutang') { 
-                  newBalance += payAmountIDR; 
-                  await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]}`, date: new Date() } as any); 
-              } else { 
-                  newBalance -= payAmountIDR; 
-                  await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
+              if (curr === 'IDR') {
+                  if (debt.type === 'piutang') { 
+                      newBalance += payAmountIDR; 
+                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]}`, date: new Date() } as any); 
+                  } else { 
+                      newBalance -= payAmountIDR; 
+                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
+                  }
+                  await storage.updateUserBalance(user!.id, newBalance);
+              } else {
+                  // BAYAR ATAU TERIMA VALAS AKAN MASUK KE DOMPET VALAS
+                  const existingForex = await storage.getForexByCurrency(user!.id, curr);
+                  let currentForexAmount = existingForex ? existingForex.amount : 0;
+
+                  if (debt.type === 'piutang') { 
+                      currentForexAmount += payAmount; 
+                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Valas Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]} (Masuk ke Dompet Valas)`, date: new Date() } as any); 
+                  } else { 
+                      currentForexAmount -= payAmount; 
+                      if (currentForexAmount < 0) currentForexAmount = 0;
+                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang Valas', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]} (Potong dari Dompet Valas)`, date: new Date() } as any); 
+                  }
+
+                  if (existingForex) {
+                      await storage.updateForexAsset(existingForex.id, currentForexAmount);
+                  } else if (currentForexAmount > 0) {
+                      await storage.createForexAsset(user!.id, { currency: curr, amount: currentForexAmount } as any);
+                  }
               }
-              await storage.updateUserBalance(user!.id, newBalance);
           }
           
           const remaining = debt.amount - payAmount;
@@ -1190,6 +1242,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.json({ success: true });
       } catch (error) {
           res.status(500).json({ error: "Gagal mengirimkan email balasan." });
+      }
+  });
+
+  // ====================================================================
+  // 🚀 SCRIPT HOTFIX: PENYEMBUH DATA VALAS YANG NYASAR
+  // ====================================================================
+  app.post("/api/admin/fix-valas-nyasar", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          const { debtName, valasAmount, currency } = req.body;
+
+          // 1. Cari transaksi yang nyasar di database
+          const txs = await storage.getTransactions(user!.id);
+          const badTx = txs.find(t => 
+              t.type === 'debt_receive' && 
+              t.category === 'Piutang Dibayar' &&
+              t.description.toLowerCase().includes(debtName.toLowerCase())
+          );
+
+          if (!badTx) return res.status(404).json({ error: "Transaksi dengan nama tersebut tidak ditemukan." });
+
+          // 2. Tarik balik Saldo Rupiah yang salah masuk (TIDAK dicatat sebagai pengeluaran)
+          let newBalance = Math.round(user!.cashBalance - badTx.amount);
+          await storage.updateUserBalance(user!.id, newBalance);
+
+          // 3. Masukkan jumlah aslinya ke Dompet Valas
+          const existingForex = await storage.getForexByCurrency(user!.id, currency);
+          let currentForexAmount = existingForex ? existingForex.amount : 0;
+          currentForexAmount += valasAmount;
+
+          if (existingForex) {
+              await storage.updateForexAsset(existingForex.id, currentForexAmount);
+          } else {
+              await storage.createForexAsset(user!.id, { currency, amount: currentForexAmount } as any);
+          }
+
+          // 4. Ubah riwayat agar laporannya bersih (pakai raw SQL agar aman)
+          await db.execute(sql`
+              UPDATE transactions
+              SET category = 'Piutang Valas Dibayar',
+                  description = ${`Lunas dari ${debtName} (Diperbaiki otomatis ke Dompet ${currency})`}
+              WHERE id = ${badTx.id}
+          `);
+
+          res.json({ success: true, message: "Bedah data sukses! Saldo IDR ditarik & Valas masuk." });
+      } catch(e:any) {
+          res.status(500).json({ error: e.message });
       }
   });
 
