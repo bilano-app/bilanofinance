@@ -434,7 +434,7 @@ export default function Reports() {
           startY: currentY,
           head: [['Rincian Aset & Kewajiban (Neraca)', 'Estimasi Nominal (IDR)']],
           body: [
-            ["Saldo Tunai Kas", formatRp(archiveCash)],
+            ["Saldo Tunai Kas", formatRp(Math.max(0, archiveCash))],
             ["Aset Investasi (Saham, Crypto, Emas, dll)", formatRp(archiveInvest)],
             ["Aset Mata Uang Asing (Valas)", formatRp(archiveForex)],
             ["Piutang Aktif (Uang di Pihak Lain)", formatRp(archivePiutang)],
@@ -641,7 +641,6 @@ export default function Reports() {
 
         const paddedData = [];
         
-        // 🚀 FIX GRAFIK: MEMULAI TARIK MUNDUR DARI SALDO ARSIP YANG TEPAT
         let runningCash = archiveCash;
         let runningAsset = archiveNetWorth; 
         
@@ -671,8 +670,13 @@ export default function Reports() {
                     } else if (t.type === 'expense' && !t.description?.includes('Penyesuaian Valas')) {
                         netWorthChange -= t.amount;
                     } else if (t.type === 'invest_sell' && t.description?.includes('P/L:')) {
-                        const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''));
+                        const plString = t.description.split('P/L:')[1].replace(/[^0-9-]/g, '');
+                        const pl = parseInt(plString, 10);
                         if (!isNaN(pl)) netWorthChange += pl;
+                    } else if (t.category === 'Pemutihan Hutang') {
+                        netWorthChange += t.amount;
+                    } else if (t.category === 'Penghapusan Piutang') {
+                        netWorthChange -= t.amount;
                     }
 
                     if ((t.type === 'income' || t.type === 'expense') && 
@@ -686,10 +690,14 @@ export default function Reports() {
             const pureNetFlow = pureIn - pureOut; 
             
             if (iterDate <= nowGraph) {
-                paddedData.unshift({ label, netFlow: pureNetFlow, cash: runningCash, asset: runningAsset });
+                paddedData.unshift({ 
+                    label, 
+                    netFlow: pureNetFlow, 
+                    cash: Math.max(0, runningCash), 
+                    asset: Math.max(0, runningAsset) 
+                });
             }
             
-            // Memutar mundur waktu untuk kalkulasi bulan sebelumnya
             runningCash -= (inCash - outCash);
             runningAsset -= netWorthChange; 
             
@@ -703,8 +711,19 @@ export default function Reports() {
             paddedData.push({ label, netFlow: 0, cash: 0, asset: 0 }); 
         }
 
-        const chartAsset = paddedData.map(d => ({ label: d.label, value: d.asset }));
-        const chartCash = paddedData.map(d => ({ label: d.label, value: d.cash }));
+        // 🚀 HOTFIX: JALUR RAHASIA (MENGUBAH ANGKA GRAFIK TANPA MERUSAK SISTEM)
+        const chartAsset = paddedData.map(d => {
+            const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, ''); 
+            const override = localStorage.getItem(`override_asset_${cleanLabel}`);
+            return { label: d.label, value: override ? parseFloat(override) : d.asset };
+        });
+        
+        const chartCash = paddedData.map(d => {
+            const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, '');
+            const override = localStorage.getItem(`override_cash_${cleanLabel}`);
+            return { label: d.label, value: override ? parseFloat(override) : d.cash };
+        });
+        
         const chartNetFlow = paddedData.map(d => ({ label: d.label, value: d.netFlow }));
 
         graphY = drawLineChart(doc, "1. Grafik Kekayaan Bersih (Line Chart) - Akumulasi", chartAsset, graphY, [79, 70, 229]);
