@@ -106,16 +106,15 @@ export default function Debts() {
       }
       if (isSubmitting) return;
       
+      // FIX: Jangan tutup form di sini agar loading state terlihat
       setIsSubmitting(true);
-      setIsFormOpen(false);
-      toast({ title: "Mencatat...", description: "Data sedang diamankan." });
+      toast({ title: "Mencatat...", description: "Mohon tunggu, data sedang diamankan." });
 
       try {
           const nameWithCurrency = `${name}|${currency}`;
           const rate = currency === 'IDR' ? 1 : (activeRates[currency] || 1);
           const idrNominal = nominal * rate;
 
-          // 🚀 FIX: Paralel eksekusi agar tidak antre dan mencegah timeout (Lebih Cepat)
           const debtReq = fetch("/api/debts", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
@@ -133,14 +132,15 @@ export default function Debts() {
               })
           });
 
-          const [resDebt, resTx] = await Promise.all([debtReq, txReq]);
+          const responses = await Promise.all([debtReq, txReq]);
 
-          if(resDebt.ok && resTx.ok) {
+          if (responses.every(res => res.ok)) {
+              await fetchData();
               toast({ title: "Tersimpan", description: "Catatan berhasil ditambahkan." });
               setName(""); setAmount(""); setDueDate(""); setDesc(""); setCurrency("IDR");
-              await fetchData();
+              setIsFormOpen(false); // FIX: Tutup form HANYA jika server sudah membalas sukses
           } else { 
-              toast({ title: "Gagal menyimpan", variant: "destructive" }); 
+              toast({ title: "Gagal menyimpan", description: "Terjadi kesalahan di server.", variant: "destructive" }); 
           }
       } catch (e) { 
           toast({ title: "Error Jaringan", variant: "destructive" }); 
@@ -156,8 +156,8 @@ export default function Debts() {
       if (nominal > selectedDebt.amount) { toast({title: "Nominal Berlebih", variant: "destructive"}); return; }
       if (nominal <= 0) { toast({title: "Nominal tidak valid", variant: "destructive"}); return; }
       
+      // FIX: Jangan tutup modal dulu
       setIsPaying(true);
-      setPayModalOpen(false);
       toast({ title: "Memproses Pembayaran...", description: "Harap tunggu sesaat." });
 
       try {
@@ -166,7 +166,6 @@ export default function Debts() {
           const rate = curr === 'IDR' ? 1 : (activeRates[curr] || 1);
           const idrNominal = nominal * rate;
 
-          // 🚀 FIX: Array of Promises (Semua tembakan ke DB dilakukan serentak!)
           const promises = [];
 
           promises.push(
@@ -203,11 +202,17 @@ export default function Debts() {
               );
           }
           
-          await Promise.all(promises);
+          const results = await Promise.all(promises);
+          
+          if (results.some(res => !res.ok)) {
+              throw new Error("Gagal mengupdate database");
+          }
 
-          toast({ title: "Berhasil!", description: "Tagihan diperbarui." }); 
-          setPayAmount(""); setSelectedDebt(null);
           await fetchData(); 
+          toast({ title: "Berhasil!", description: "Tagihan diperbarui." }); 
+          setPayAmount(""); 
+          setSelectedDebt(null);
+          setPayModalOpen(false); // FIX: Tutup modal setelah data ter-refresh
       } catch (e) { 
           toast({ title: "Gagal memproses", variant: "destructive" }); 
       } finally { 
@@ -225,15 +230,16 @@ export default function Debts() {
           
       if (!confirm(confirmText)) return;
       
+      // FIX: Set selectedDebt terlebih dahulu agar animasi Loading muncul di tombol yang tepat
+      setSelectedDebt(debtToProcess); 
       setIsPaying(true);
-      toast({ title: "Memproses Write-Off...", description: "Data sedang diamankan di pembukuan." });
+      toast({ title: "Memproses Write-Off...", description: "Data sedang disinkronisasi, mohon tunggu..." });
 
       try {
           const curr = debtToProcess.name.split('|')[1] || 'IDR';
           const rate = curr === 'IDR' ? 1 : (activeRates[curr] || 1);
           const idrNominal = debtToProcess.amount * rate;
 
-          // 🚀 FIX: Jalankan 3 transaksi DB secara serentak untuk mencegah Timeout Serverless Vercel!
           const promises = [
               fetch(`/api/debts/${debtToProcess.id}/pay`, { 
                   method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
@@ -261,14 +267,19 @@ export default function Debts() {
               })
           ];
 
-          await Promise.all(promises);
+          const results = await Promise.all(promises);
           
-          toast({ title: "Selesai!", description: "Tercatat di Laporan PDF Anda." });
+          if (results.some(res => !res.ok)) {
+              throw new Error("Gagal mengupdate database");
+          }
+          
           await fetchData(); 
+          toast({ title: "Selesai!", description: "Tercatat di Laporan PDF Anda." });
       } catch (e) { 
           toast({ title: "Gagal memproses", variant: "destructive" }); 
       } finally { 
-          setIsPaying(false); setSelectedDebt(null); 
+          setIsPaying(false); 
+          setSelectedDebt(null); // FIX: Hapus state setelah loading selesai
       }
   };
 
@@ -307,12 +318,13 @@ export default function Debts() {
         {payModalOpen && selectedDebt && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
                 <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl relative">
-                    <button onClick={() => {setPayModalOpen(false); setPayAmount(""); setSelectedDebt(null);}} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>
+                    {/* Cegah tombol close saat loading */}
+                    {!isPaying && <button onClick={() => {setPayModalOpen(false); setPayAmount(""); setSelectedDebt(null);}} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>}
                     <h3 className="text-lg font-extrabold text-slate-800 mb-2">Pelunasan / Cicilan</h3>
                     
                     <p className="text-xs text-slate-500 mb-4">Sisa Tagihan: <span className="font-bold text-rose-600">{modalSisaTagihanUI}</span></p>
                     
-                    <Input type="text" inputMode="decimal" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(formatNum(e.target.value))} className="h-14 font-bold text-lg mb-4"/>
+                    <Input disabled={isPaying} type="text" inputMode="decimal" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(formatNum(e.target.value))} className="h-14 font-bold text-lg mb-4"/>
                     
                     <Button onClick={handlePay} disabled={isPaying} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg">
                         {isPaying ? <Loader2 className="w-5 h-5 animate-spin"/> : "KONFIRMASI PEMBAYARAN"}
@@ -365,25 +377,25 @@ export default function Debts() {
             <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 animate-in zoom-in-95">
                 <div className="flex justify-between items-center mb-5">
                     <h3 className="font-extrabold text-slate-800">Form {activeTab === 'hutang' ? 'Hutang' : 'Piutang'}</h3>
-                    <button onClick={() => setIsFormOpen(false)} className="p-1.5 bg-slate-50 text-slate-400 rounded-full hover:bg-rose-50 hover:text-rose-500"><X className="w-5 h-5"/></button>
+                    {!isSubmitting && <button onClick={() => setIsFormOpen(false)} className="p-1.5 bg-slate-50 text-slate-400 rounded-full hover:bg-rose-50 hover:text-rose-500"><X className="w-5 h-5"/></button>}
                 </div>
                 <div className="space-y-4">
-                    <Input placeholder="Nama Pihak (Cth: Budi)" value={name} onChange={e => setName(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent font-bold"/>
+                    <Input disabled={isSubmitting} placeholder="Nama Pihak (Cth: Budi)" value={name} onChange={e => setName(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent font-bold"/>
                     
                     <div className="flex gap-2">
-                        <select value={currency} onChange={e => setCurrency(e.target.value)} className="w-24 px-3 bg-indigo-50 text-indigo-700 font-bold border-transparent rounded-[20px] outline-none text-sm">
+                        <select disabled={isSubmitting} value={currency} onChange={e => setCurrency(e.target.value)} className="w-24 px-3 bg-indigo-50 text-indigo-700 font-bold border-transparent rounded-[20px] outline-none text-sm">
                             <option value="IDR">IDR</option>
                             {availableCurrencies.filter(c => c !== 'IDR').map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <Input type="text" inputMode="decimal" placeholder="Nominal" value={amount} onChange={e => setAmount(formatNum(e.target.value))} className="flex-1 h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg"/>
+                        <Input disabled={isSubmitting} type="text" inputMode="decimal" placeholder="Nominal" value={amount} onChange={e => setAmount(formatNum(e.target.value))} className="flex-1 h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg"/>
                     </div>
                     
                     <div className="space-y-1">
                         <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">Tenggat Waktu (Wajib)</label>
-                        <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent text-sm w-full block"/>
+                        <Input disabled={isSubmitting} type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent text-sm w-full block"/>
                     </div>
 
-                    <Input placeholder="Catatan Tambahan (Opsional)" value={desc} onChange={e => setDesc(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent text-sm"/>
+                    <Input disabled={isSubmitting} placeholder="Catatan Tambahan (Opsional)" value={desc} onChange={e => setDesc(e.target.value)} className="h-14 rounded-[20px] bg-slate-50 border-transparent text-sm"/>
                     
                     <Button onClick={handleAdd} disabled={isSubmitting} className={`w-full h-14 rounded-full font-extrabold text-white mt-2 shadow-lg transition-transform active:scale-95 ${activeTab === 'piutang' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`}>
                         {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto"/> : "SIMPAN"}
