@@ -107,7 +107,6 @@ export default function Performance() {
       enabled: !!currentUserEmail
   });
 
-  // 🚀 FIX: PENGGUNAAN KURS CADANGAN AGAR NILAI TIDAK PERNAH JATUH KE RP 0
   const forexValue = forexAssetsData.reduce((acc: number, asset: any) => {
       const curr = asset.currency;
       const rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
@@ -202,9 +201,38 @@ export default function Performance() {
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
-  const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income' && !t.description?.includes('[Offset') && !t.description?.includes('[WRITE_OFF]') && !t.description?.includes('[Catat Awal]') && !t.description?.includes('[Bayar Valas]') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Pemutihan Hutang');
+  // 🚀 FIX: FILTER SANGAT KETAT ANTI VALAS
+  const baseIncomeTxs = thisMonthTx.filter(t => 
+      (t.type === 'income' || t.type === 'piutang_record') && 
+      !t.description?.includes('[Offset') && 
+      !t.description?.includes('[WRITE_OFF]') && 
+      !t.description?.includes('[Catat Awal]') && 
+      !t.description?.includes('[Bayar Valas]') && 
+      t.category !== 'Penyesuaian Sistem' && 
+      t.category !== 'Pemutihan Hutang' &&
+      t.category !== 'Cairkan Valas' &&
+      t.category !== 'Investasi Valas' && 
+      t.category !== 'Tukar Valas' &&
+      t.category !== 'Jual Aset' &&
+      !(t.category || '').includes('Piutang Dibayar') &&
+      !(t.category || '').includes('Dapat Pinjaman')
+  );
   
-  const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest') && !t.description?.includes('[Offset') && !t.description?.includes('[WRITE_OFF]') && !t.description?.includes('[Catat Awal]') && !t.description?.includes('[Bayar Valas]') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Penghapusan Piutang');
+  const baseExpenseTxs = thisMonthTx.filter(t => 
+      (t.type === 'expense' || t.type === 'hutang_record') && 
+      !(t.category || '').toLowerCase().includes('invest') && 
+      !t.description?.includes('[Offset') && 
+      !t.description?.includes('[WRITE_OFF]') && 
+      !t.description?.includes('[Catat Awal]') && 
+      !t.description?.includes('[Bayar Valas]') && 
+      t.category !== 'Penyesuaian Sistem' && 
+      t.category !== 'Penghapusan Piutang' &&
+      t.category !== 'Tukar Valas' &&
+      t.category !== 'Investasi Valas' && 
+      t.category !== 'Cairkan Valas' &&
+      !(t.category || '').includes('Bayar Hutang') &&
+      !(t.category || '').includes('Beri Pinjaman')
+  );
 
   const virtualPLTxs: any[] = [];
   thisMonthTx.filter(t => t.type === 'invest_sell').forEach(t => {

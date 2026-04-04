@@ -151,7 +151,6 @@ export default function Forex() {
 
       const baseRate = getSafeRate(currencyCode);
       
-      // PERBAIKAN: Menghasilkan data simulasi harian penuh (30 hari berurutan)
       const safeMockData = Array.from({length: 30}).map((_, i) => {
           const d = new Date();
           d.setDate(d.getDate() - (29 - i));
@@ -189,6 +188,7 @@ export default function Forex() {
       }
   };
 
+  // 🚀 FIX: MENGHAPUS PERINTAH GANDA (DOBEL TRANSAKSI) SAAT PERTUKARAN VALAS
   const handleExchange = async () => {
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));
@@ -214,22 +214,10 @@ export default function Forex() {
           
           if (!resForex.ok) { toast({ title: "Gagal", description: "Cek saldo valas Anda.", variant: "destructive" }); return; }
 
-          const totalRp = qty * rate;
-          const txType = exchangeMode === 'buy' ? 'expense' : 'income';
-          const txDesc = exchangeMode === 'buy' ? `Beli ${selectedCurr.code} ${qty}` : `Jual ${selectedCurr.code} ${qty}`;
+          // KODE PENYEBAB DOBEL TELAH DIHAPUS DI SINI. 
+          // Server sudah otomatis mencatat "forex_buy" / "forex_sell" di backend tanpa butuh request kedua.
 
-          await fetch("/api/transactions", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ 
-                  type: txType, 
-                  amount: totalRp, 
-                  category: "Investasi Valas", 
-                  description: `${txDesc} @ Rp ${rate.toLocaleString()}`,
-                  date: new Date()
-              })
-          });
-
-          toast({ title: "Sukses", description: "Transaksi pertukaran berhasil." });
+          toast({ title: "Sukses", description: "Transaksi pertukaran berhasil diproses." });
           setAmountExchange(""); setRateExchange(""); 
           fetchData(); 
       } catch (e) { 
@@ -420,7 +408,6 @@ export default function Forex() {
                                         formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Kurs']}
                                         labelStyle={{ color: '#64748b', marginBottom: '4px', fontSize: '10px' }}
                                     />
-                                    {/* PERBAIKAN: Warna grafik diubah menjadi Hijau Emerald (#10b981) */}
                                     <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={3} fill="#10b981" fillOpacity={0.15} activeDot={{ r: 6, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} />
                                 </AreaChart>
                             </ResponsiveContainer>

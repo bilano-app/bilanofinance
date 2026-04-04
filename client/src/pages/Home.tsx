@@ -43,7 +43,6 @@ const FINANCIAL_TIPS = [
     "Catat setiap rupiah yang keluar. Kesadaran adalah langkah pertama menuju kendali finansial penuh."
 ];
 
-// 🚀 FIX: KURS CADANGAN (FALLBACK) AGAR TARGET TIDAK JANTUNGAN SAAT LOADING
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
     "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
@@ -367,16 +366,9 @@ export default function Home() {
       setShowPermissionPrompt(false);
   };
 
+  // 🚀 FIX 1: SALDO KAS HOME MURNI HANYA RUPIAH
   const cashRupiah = (user?.cashBalance || 0); 
-  
-  // 🚀 FIX: KALKULASI FOREX AMAN (DIJAMIN TIDAK 0)
-  const forexValue = (forexAssets || []).reduce((acc: number, asset: any) => {
-      const curr = asset.currency;
-      const rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
-      return acc + (asset.amount * rate);
-  }, 0);
-  
-  const totalBalance = cashRupiah + forexValue;
+  const totalBalance = cashRupiah;
 
   const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
   const getBalanceTextSize = (text: string) => {
@@ -419,6 +411,7 @@ export default function Home() {
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
+  // 🚀 FIX 2: FILTER EKSTREM ANTI-ILUSI VALAS
   const baseIncomeTxs = thisMonthTx.filter(t => 
       (t.type === 'income' || t.type === 'piutang_record') && 
       !t.description?.includes('[Offset') && 
@@ -428,6 +421,8 @@ export default function Home() {
       t.category !== 'Penyesuaian Sistem' && 
       t.category !== 'Pemutihan Hutang' &&
       t.category !== 'Cairkan Valas' &&
+      t.category !== 'Investasi Valas' && 
+      t.category !== 'Tukar Valas' &&
       t.category !== 'Jual Aset' &&
       !(t.category || '').includes('Piutang Dibayar') &&
       !(t.category || '').includes('Dapat Pinjaman')
@@ -443,6 +438,8 @@ export default function Home() {
       t.category !== 'Penyesuaian Sistem' && 
       t.category !== 'Penghapusan Piutang' &&
       t.category !== 'Tukar Valas' &&
+      t.category !== 'Investasi Valas' && 
+      t.category !== 'Cairkan Valas' &&
       !(t.category || '').includes('Bayar Hutang') &&
       !(t.category || '').includes('Beri Pinjaman')
   );
@@ -829,11 +826,6 @@ export default function Home() {
                   <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
                       <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                   </div>
-                  {forexValue > 0 && (
-                      <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                          <span>Valas:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(forexValue).split(",")[0]}</span>
-                      </div>
-                  )}
               </div>
            </div>
            <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
