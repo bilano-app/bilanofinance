@@ -79,7 +79,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   try { await db.execute(sql`ALTER TABLE users ADD COLUMN onesignal_id TEXT;`); } catch (e) { }
   try { await db.execute(sql`ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT NOW();`); } catch (e) {}
   
-  // 🚀 TAMBAHAN: BIKIN TABEL DATABASE PERMANEN UNTUK TIKET BANTUAN
   try { 
       await db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (
           id VARCHAR(255) PRIMARY KEY, 
@@ -119,9 +118,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return false;
   };
 
-  // ====================================================================
-  // 🚀 TABEL DATABASE OTP (PERMANEN ANTI-LUPA)
-  // ====================================================================
   try {
       await db.execute(sql`
           CREATE TABLE IF NOT EXISTS otp_sessions (
@@ -134,9 +130,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Gagal memastikan tabel OTP:", e);
   }
 
-  // ====================================================================
-  // 🚀 AUTH & OTP ROUTES (SISTEM RESEND API SUPER CEPAT)
-  // ====================================================================
   app.post("/api/auth/check-email", async (req, res) => {
       if (!firebaseAdminInitialized) return res.status(200).json({ adminReady: false, exists: true }); 
       try {
@@ -179,7 +172,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const htmlContent = `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #4f46e5;">Selamat Datang di BILANO!</h2><p style="color: #4b5563;">Gunakan kode OTP berikut untuk memverifikasi email Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`;
 
-          // 🚀 KIRIM PAKAI RESEND API (SUPER CEPAT)
           const resendKey = process.env.RESEND_API_KEY;
           if (!resendKey) return res.status(500).json({ error: "API Key Resend belum dipasang di Vercel." });
 
@@ -201,7 +193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           res.json({ success: true, message: "OTP Terkirim Cepat!" }); 
       } catch (error) {
-          res.status(500).json({ error: "Gagal mengirim OTP. Pastikan email terdaftar di Resend (jika pakai akun gratis)." });
+          res.status(500).json({ error: "Gagal mengirim OTP. Pastikan email terdaftar di Resend." });
       }
   });
 
@@ -241,7 +233,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const htmlContent = `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #e11d48;">Reset Password Anda</h2><p style="color: #4b5563;">Gunakan kode OTP rahasia berikut untuk membuat password baru Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`;
 
-          // 🚀 KIRIM PAKAI RESEND API
           const resendKey = process.env.RESEND_API_KEY;
           if (!resendKey) return res.status(500).json({ error: "API Key Resend belum dipasang." });
 
@@ -295,7 +286,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/verify-otp", async (req, res) => {
       const { email, code } = req.body;
       try {
-          // 🚀 LOGIKA PENGECEKAN KETAT & ANTI-SPASI
           const result = await db.execute(sql`SELECT code FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`);
           const rows = Array.isArray(result) ? result : (result as any).rows || [];
           
@@ -310,16 +300,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // ====================================================================
-  // 🚀 ANTI-SLEEP PING (HACK KEBAL ERROR UNTUK CRON-JOB)
-  // ====================================================================
   app.get("/api/ping", async (req, res) => {
       try {
           await db.execute(sql`SELECT 1`);
           res.status(200).json({ status: "awake & db connected", time: new Date().toISOString() });
       } catch (error) {
-          // 🚀 PERBAIKAN FATAL: Tetap kembalikan 200 OK biarpun DB sedang ngorok!
-          // Ini mencegah cron-job.org marah dan memblokir tugas kita.
           res.status(200).json({ status: "awake but db delayed", message: "It's fine" });
       }
   });
@@ -430,7 +415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 TRANSACTIONS ROUTES (LOGIK SALDO KAS DIPERKETAT)
+  // 🚀 TRANSACTIONS ROUTES
   // ====================================================================
   app.get("/api/transactions", async (req, res) => { 
       const user = await getUser(req); 
@@ -443,12 +428,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!parsed.success) return res.status(400).json(parsed.error); 
       
       const tx = await storage.createTransaction(user!.id, { ...parsed.data, userId: user!.id } as any); 
-      let newBalance = user!.cashBalance; 
+      let newBalance = Math.round(user!.cashBalance); 
       
       if (parsed.data.type === 'income') {
-          newBalance += parsed.data.amount; 
+          newBalance += Math.round(parsed.data.amount); 
       } else if (parsed.data.type === 'expense') {
-          newBalance -= parsed.data.amount; 
+          newBalance -= Math.round(parsed.data.amount); 
       }
       
       if (newBalance !== user!.cashBalance) {
@@ -496,20 +481,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (!txToDelete) return res.status(404).json({ error: "Data transaksi tidak ditemukan" });
 
-          let newBalance = user!.cashBalance;
+          let newBalance = Math.round(user!.cashBalance);
+          const amt = Math.round(txToDelete.amount);
           
-          if (txToDelete.type === 'income') newBalance -= txToDelete.amount;
-          else if (txToDelete.type === 'expense') newBalance += txToDelete.amount;
-          else if (txToDelete.type === 'invest_buy') newBalance += txToDelete.amount; 
-          else if (txToDelete.type === 'invest_sell') newBalance -= txToDelete.amount; 
-          else if (txToDelete.type === 'forex_buy') newBalance += txToDelete.amount;
-          else if (txToDelete.type === 'forex_sell') newBalance -= txToDelete.amount;
-          else if (txToDelete.type === 'debt_borrow') newBalance -= txToDelete.amount;
-          else if (txToDelete.type === 'debt_lend') newBalance += txToDelete.amount;
-          else if (txToDelete.type === 'debt_receive') newBalance -= txToDelete.amount;
-          else if (txToDelete.type === 'debt_pay') newBalance += txToDelete.amount;
+          if (txToDelete.type === 'income') newBalance -= amt;
+          else if (txToDelete.type === 'expense') newBalance += amt;
+          else if (txToDelete.type === 'invest_buy') newBalance += amt; 
+          else if (txToDelete.type === 'invest_sell') newBalance -= amt; 
+          else if (txToDelete.type === 'forex_buy') newBalance += amt;
+          else if (txToDelete.type === 'forex_sell') newBalance -= amt;
+          else if (txToDelete.type === 'debt_borrow') newBalance -= amt;
+          else if (txToDelete.type === 'debt_lend') newBalance += amt;
+          else if (txToDelete.type === 'debt_receive') newBalance -= amt;
+          else if (txToDelete.type === 'debt_pay') newBalance += amt;
 
-          if (newBalance !== user!.cashBalance) {
+          if (newBalance !== Math.round(user!.cashBalance)) {
               await storage.updateUserBalance(user!.id, newBalance);
           }
           if (typeof storage.deleteTransaction === 'function') {
@@ -557,7 +543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const rate = cachedRates[currency as keyof typeof cachedRates] || 15000;
       const amountIDR = Math.round(amount * rate);
-      let newCashBalance = user!.cashBalance;
+      let newCashBalance = Math.round(user!.cashBalance);
 
       if (isIncome) {
           if (newCashBalance < amountIDR) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk beli Valas."});
@@ -578,7 +564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 DEBTS ROUTES (UPDATE 100% BEBAS BUG FREEZE / TABRAKAN)
+  // 🚀 DEBTS ROUTES (SANGAT KOKOH ANTI DESIMAL & ANTI 404)
   // ====================================================================
   app.get("/api/debts", async (req, res) => { 
       const user = await getUser(req); 
@@ -586,49 +572,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   app.post("/api/debts", async (req, res) => { 
-      const user = await getUser(req); 
-      const { type, amount, name, description, isFromTransaction } = req.body;
-      const d = await storage.createDebt(user!.id, req.body as any); 
-      
-      if (!isFromTransaction) {
-          let newBalance = user!.cashBalance;
-          const parts = (name || "").split('|');
-          const curr = parts[1] || 'IDR';
-          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
-          const amountIDR = amount * rate;
+      try {
+          const user = await getUser(req); 
+          const { type, amount, name, description, isFromTransaction } = req.body;
+          const d = await storage.createDebt(user!.id, req.body as any); 
           
-          let txType = '', txCat = '';
-          if(type === 'hutang') { newBalance += amountIDR; txType = 'debt_borrow'; txCat = 'Dapat Pinjaman'; } 
-          else { newBalance -= amountIDR; txType = 'debt_lend'; txCat = 'Beri Pinjaman'; }
-          
-          await storage.updateUserBalance(user!.id, newBalance);
-          await storage.createTransaction(user!.id, { userId: user!.id, type: txType, amount: amountIDR, category: txCat, description: `[${type.toUpperCase()}] ${name} - ${description||''}`, date: new Date() } as any);
+          if (!isFromTransaction) {
+              let newBalance = Math.round(user!.cashBalance);
+              const parts = (name || "").split('|');
+              const curr = parts[1] || 'IDR';
+              const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
+              const amountIDR = Math.round(amount * rate);
+              
+              let txType = '', txCat = '';
+              if(type === 'hutang') { newBalance += amountIDR; txType = 'debt_borrow'; txCat = 'Dapat Pinjaman'; } 
+              else { newBalance -= amountIDR; txType = 'debt_lend'; txCat = 'Beri Pinjaman'; }
+              
+              await storage.updateUserBalance(user!.id, newBalance);
+              await storage.createTransaction(user!.id, { userId: user!.id, type: txType, amount: amountIDR, category: txCat, description: `[${type.toUpperCase()}] ${name} - ${description||''}`, date: new Date() } as any);
+          }
+          res.json(d); 
+      } catch(e:any) {
+          res.status(500).json({error: e.message});
       }
-      res.json(d); 
   });
 
-  // 🚀 PERBAIKAN FATAL: SINGLE REQUEST API UNTUK BAYAR & WRITE-OFF
   app.post("/api/debts/:id/pay", async (req, res) => {
       try {
           const user = await getUser(req);
           const id = parseInt(req.params.id);
           const { amount, isWriteOff } = req.body; 
           
+          if (!id || isNaN(id)) return res.status(400).json({ error: "ID Tagihan tidak terbaca oleh server." });
+
           const debts = await storage.getDebts(user!.id);
           const debt = debts.find(d => d.id === id);
           
-          if (!debt || debt.isPaid) {
-              return res.status(400).json({ error: "Tagihan tidak valid atau sudah lunas." });
-          }
+          if (!debt) return res.status(404).json({ error: "Tagihan ini sudah tidak ada di database." });
+          if (debt.isPaid) return res.status(400).json({ error: "Tagihan ini sudah berstatus lunas sebelumnya." });
 
           const payAmount = (amount !== undefined && amount > 0) ? Math.min(amount, debt.amount) : debt.amount;
-          let newBalance = user!.cashBalance;
+          let newBalance = Math.round(user!.cashBalance);
           
           const curr = (debt.name || "").split('|')[1] || 'IDR';
           const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
-          const payAmountIDR = payAmount * rate;
           
-          // 🚀 JIKA INI ADALAH WRITE-OFF (IKHLASKAN / PUTIHKAN)
+          // PEMBULATAN WAJIB agar tidak meledakkan database integer
+          const payAmountIDR = Math.round(payAmount * rate); 
+          
           if (isWriteOff) {
               const txType = debt.type === 'piutang' ? 'expense' : 'income';
               const txCat = debt.type === 'piutang' ? 'Penghapusan Piutang' : 'Pemutihan Hutang';
@@ -641,9 +632,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   description: `[WRITE_OFF] ${debt.name}`, 
                   date: new Date() 
               } as any);
-              // Saldo KAS tidak diubah sama sekali!
-
-          // 🚀 LOGIKA BAYAR NORMAL
           } else {
               if (debt.type === 'piutang') { 
                   newBalance += payAmountIDR; 
@@ -652,11 +640,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   newBalance -= payAmountIDR; 
                   await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
               }
-              // Update saldo kas karena ada uang fisik bergerak
               await storage.updateUserBalance(user!.id, newBalance);
           }
           
-          // Urus sisa cicilan
           const remaining = debt.amount - payAmount;
           if (remaining > 0) {
               await storage.createDebt(user!.id, {
@@ -672,9 +658,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.markDebtPaid(id); 
           res.json({ success: true });
 
-      } catch (error) {
+      } catch (error: any) {
           console.error("Error pay debt:", error);
-          res.status(500).json({ error: "Gagal memproses tagihan." });
+          res.status(500).json({ error: error.message || "Gagal memproses ke database." });
       }
   });
 
@@ -694,7 +680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/target/penalty", async (req, res) => { 
       const user = await getUser(req); 
       try { 
-          await storage.updateTargetPenalty(user!.id, req.body.amount); 
+          await storage.updateTargetPenalty(user!.id, Math.round(req.body.amount)); 
           res.json({success:true}); 
       } catch(e) { 
           res.status(500).send("Error"); 
@@ -710,7 +696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const target = await storage.setTarget(user!.id, targetData as any); 
       
       if (addCurrentCash !== undefined && addCurrentCash > 0) {
-          await storage.updateUserBalance(user!.id, addCurrentCash); 
+          await storage.updateUserBalance(user!.id, Math.round(addCurrentCash)); 
       }
       
       if (initialForexList && Array.isArray(initialForexList)) {
@@ -770,10 +756,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const { symbol, quantity, price, type } = req.body; 
           const typeLower = (type || 'saham').toLowerCase();
           const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
-          const total = quantity*price*m; 
+          const total = Math.round(quantity*price*m); 
           
           if(user!.cashBalance < total) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk pembelian ini."}); 
-          await storage.updateUserBalance(user!.id, user!.cashBalance - total); 
+          await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance - total)); 
           
           await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_buy', amount:total, category:'Beli Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}`, date:new Date()} as any); 
           await storage.createInvestment(user!.id, {userId: user!.id, symbol: symbol.toUpperCase(), quantity, avgPrice:price, type: typeLower} as any); 
@@ -789,7 +775,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const { symbol, quantity, price, type } = req.body; 
           const typeLower = (type || 'saham').toLowerCase(); 
           const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
-          const totalSellPrice = quantity*price*m; 
+          const totalSellPrice = Math.round(quantity*price*m); 
           
           const allInvestments = await storage.getInvestments(user!.id);
           const existings = allInvestments.filter(i => i.symbol === symbol); 
@@ -811,10 +797,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           } 
 
-          const pl = totalSellPrice - totalBuyPrice;
+          const pl = Math.round(totalSellPrice - totalBuyPrice);
           const profitLossText = ` (P/L: ${pl >= 0 ? '+' : ''}Rp ${pl.toLocaleString('id-ID')})`;
 
-          await storage.updateUserBalance(user!.id, user!.cashBalance + totalSellPrice); 
+          await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + totalSellPrice)); 
           
           await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_sell', amount:totalSellPrice, category:'Jual Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`, date:new Date()} as any); 
           res.json({success:true}); 
@@ -1068,7 +1054,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 ADMIN ROUTES & HELP CENTER (MENGGUNAKAN RESEND API JUGA)
+  // 🚀 ADMIN ROUTES & HELP CENTER
   // ====================================================================
   const isAdminValid = (email: string) => {
       if (!email) return false;
@@ -1126,7 +1112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${resendKey}` },
                       body: JSON.stringify({
                           from: "Sistem Bantuan BILANO <onboarding@resend.dev>",
-                          to: [process.env.EMAIL_USER || "adrienfandra14@gmail.com"], // Kirim ke admin
+                          to: [process.env.EMAIL_USER || "adrienfandra14@gmail.com"], 
                           subject: `[TIKET BARU] ${subject} - dari ${user.email}`,
                           html: `
                             <div style="font-family: Arial, sans-serif; padding: 20px;">

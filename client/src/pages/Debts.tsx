@@ -130,40 +130,54 @@ export default function Debts() {
       }
   };
 
-  // 🚀 SINGLE REQUEST API - SUPER CEPAT & AMAN DARI VERCEL LIMIT
+  // 🚀 SINGLE REQUEST LUNAS (ANTI 404 & BEBAS CRASH)
   const handlePay = async () => {
       if (checkPaywall() || !selectedDebt) return;
       
+      if (!selectedDebt.id) {
+          toast({ title: "Error Sistem", description: "ID Tagihan tidak terbaca", variant: "destructive" });
+          return;
+      }
+
       const nominal = parseNum(payAmount) || selectedDebt.amount; 
       if (nominal > selectedDebt.amount) { toast({title: "Nominal Berlebih", variant: "destructive"}); return; }
       if (nominal <= 0) { toast({title: "Nominal tidak valid", variant: "destructive"}); return; }
       
       setIsPaying(true);
-      toast({ title: "Memproses...", description: "Menyinkronkan data..." });
+      toast({ title: "Memproses Pembayaran...", description: "Harap tunggu..." });
 
       try {
-          // Hanya 1 Request ke Server!
           const res = await fetch(`/api/debts/${selectedDebt.id}/pay`, { 
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              method: "POST", 
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ amount: nominal, isWriteOff: false }) 
           });
 
-          if (!res.ok) throw new Error("Gagal");
+          // 🚀 TAMPILKAN ERROR ASLI DARI SERVER JIKA GAGAL
+          if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || `Server Error ${res.status}`);
+          }
           
           await fetchData(); 
-          toast({ title: "Berhasil!", description: "Tagihan diperbarui." }); 
+          toast({ title: "Berhasil!", description: "Tagihan telah diperbarui." }); 
           setPayAmount(""); setSelectedDebt(null); setPayModalOpen(false); 
       } catch (e: any) { 
-          toast({ title: "Gagal memproses", variant: "destructive" }); 
+          toast({ title: "Gagal Memproses", description: e.message, variant: "destructive" }); 
       } finally { 
           setIsPaying(false); 
       }
   };
 
-  // 🚀 SINGLE REQUEST API - BEBAS BUG WRITE OFF
+  // 🚀 SINGLE REQUEST WRITE-OFF (ANTI 500 & TIDAK MEMOTONG KAS)
   const handleWriteOff = async (debtToProcess: DebtItem) => {
       if (checkPaywall() || !debtToProcess) return;
       
+      if (!debtToProcess.id) {
+          toast({ title: "Error Sistem", description: "ID Tagihan tidak terbaca", variant: "destructive" });
+          return;
+      }
+
       const isPiutang = debtToProcess.type === 'piutang';
       const confirmText = isPiutang 
           ? "Ikhlaskan piutang ini? Ini akan dicatat sebagai KERUGIAN di Laporan Anda." 
@@ -173,21 +187,25 @@ export default function Debts() {
       
       setSelectedDebt(debtToProcess); 
       setIsPaying(true);
-      toast({ title: "Menganulir Data...", description: "Mohon bersabar..." });
+      toast({ title: "Menganulir Tagihan...", description: "Menghitung kerugian/keuntungan..." });
 
       try {
-          // Hanya 1 Request ke Server, sisanya server yang ngurus KAS-nya!
           const res = await fetch(`/api/debts/${debtToProcess.id}/pay`, { 
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              method: "POST", 
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ amount: debtToProcess.amount, isWriteOff: true }) 
           });
 
-          if (!res.ok) throw new Error("Gagal");
+          // 🚀 TAMPILKAN ERROR ASLI DARI SERVER JIKA GAGAL
+          if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || `Server Error ${res.status}`);
+          }
           
           await fetchData(); 
           toast({ title: "Selesai!", description: "Tercatat di Laporan PDF Anda." });
       } catch (e: any) { 
-          toast({ title: "Gagal memproses", variant: "destructive" }); 
+          toast({ title: "Gagal Memproses", description: e.message, variant: "destructive" }); 
       } finally { 
           setIsPaying(false); setSelectedDebt(null); 
       }
