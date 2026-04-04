@@ -12,6 +12,12 @@ import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
+// 🚀 FIX: KURS CADANGAN (FALLBACK) AGAR TARGET TIDAK JANTUNGAN SAAT LOADING
+const DEFAULT_RATES: Record<string, number> = {
+    "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
+    "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
+};
+
 export default function Performance() {
   const { data: user, isLoading: isUserLoading } = useUser();
   const [, setLocation] = useLocation();
@@ -42,7 +48,6 @@ export default function Performance() {
 
   const handleCloseIframe = () => { setIframeUrl(""); toast({ title: "Mengecek Pembayaran...", description: "Status akun sedang diperbarui." }); setTimeout(() => window.location.reload(), 1500); };
 
-  // 🚀 FITUR BARU: HAPUS TRANSAKSI & NORMALISASI SALDO
   const handleDeleteTransaction = async (id: number) => {
       if (!confirm("Hapus transaksi ini? Saldo Kas Anda akan otomatis disesuaikan/dinormalkan kembali.")) return;
       setIsDeletingTx(true);
@@ -102,14 +107,19 @@ export default function Performance() {
       enabled: !!currentUserEmail
   });
 
-  const forexValue = forexAssetsData.reduce((acc: number, asset: any) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
+  // 🚀 FIX: PENGGUNAAN KURS CADANGAN AGAR NILAI TIDAK PERNAH JATUH KE RP 0
+  const forexValue = forexAssetsData.reduce((acc: number, asset: any) => {
+      const curr = asset.currency;
+      const rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+      return acc + (asset.amount * rate);
+  }, 0);
 
   const cashReal = (user?.cashBalance || 0); 
   
   const investmentReal = investments?.reduce((acc, inv) => {
       const [sym, curr] = (inv.symbol || "").split('|');
       const actualCurr = curr || 'IDR';
-      const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || 1);
+      const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_RATES[actualCurr] || 15000);
       
       const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
       const m = (isSaham && actualCurr === 'IDR') ? 100 : 1;
@@ -124,7 +134,7 @@ export default function Performance() {
       if (d.isPaid) return;
       const [, curr] = (d.name || "").split('|');
       const actualCurr = curr || 'IDR';
-      const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || 1);
+      const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_RATES[actualCurr] || 15000);
       
       if (d.type === 'piutang') piutangReal += (d.amount * rate);
       else if (d.type === 'hutang') hutangReal += (d.amount * rate);
@@ -461,7 +471,6 @@ export default function Performance() {
                                                 <p className="text-[10px] text-slate-400 font-medium">{new Date(t.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</p>
                                             </div>
                                             
-                                            {/* TOMBOL HAPUS TRANSAKSI */}
                                             {t.id && (
                                                 <button 
                                                     onClick={() => handleDeleteTransaction(t.id)} 

@@ -43,6 +43,12 @@ const FINANCIAL_TIPS = [
     "Catat setiap rupiah yang keluar. Kesadaran adalah langkah pertama menuju kendali finansial penuh."
 ];
 
+// 🚀 FIX: KURS CADANGAN (FALLBACK) AGAR TARGET TIDAK JANTUNGAN SAAT LOADING
+const DEFAULT_RATES: Record<string, number> = {
+    "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
+    "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
+};
+
 export default function Home() {
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: transactions, isLoading: isTxLoading } = useTransactions();
@@ -362,7 +368,14 @@ export default function Home() {
   };
 
   const cashRupiah = (user?.cashBalance || 0); 
-  const forexValue = (forexAssets || []).reduce((acc, asset) => acc + (asset.amount * (forexRates[asset.currency] || 0)), 0);
+  
+  // 🚀 FIX: KALKULASI FOREX AMAN (DIJAMIN TIDAK 0)
+  const forexValue = (forexAssets || []).reduce((acc: number, asset: any) => {
+      const curr = asset.currency;
+      const rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+      return acc + (asset.amount * rate);
+  }, 0);
+  
   const totalBalance = cashRupiah + forexValue;
 
   const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
@@ -398,7 +411,6 @@ export default function Home() {
     } catch (error) { console.error(error); }
   };
 
-  // 🚀 REVISI FINAL: SINKRONISASI TOTAL ARUS KAS MURNI DENGAN HALAMAN PERFORMANCE (HANYA BULAN INI)
   const currentMonthIdx = new Date().getMonth();
   const currentYear = new Date().getFullYear();
 
@@ -836,7 +848,7 @@ export default function Home() {
                         <ArrowDownCircle className="w-5 h-5 text-emerald-500" />
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pemasukan (Bulan Ini)</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pemasukan</p>
                         <p className="text-base font-extrabold text-slate-800 leading-tight">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
                     </div>
                </div>
@@ -847,7 +859,7 @@ export default function Home() {
                         <ArrowUpCircle className="w-5 h-5 text-rose-500" />
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pengeluaran (Bulan Ini)</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pengeluaran</p>
                         <p className="text-base font-extrabold text-slate-800 leading-tight">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
                     </div>
                </div>
