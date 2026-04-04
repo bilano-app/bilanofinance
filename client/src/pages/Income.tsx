@@ -56,26 +56,28 @@ export default function Income() {
               date: new Date().toISOString() 
           });
       } else {
-          await fetch("/api/debts", {
-              method: "POST", 
-              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ 
-                  type: 'piutang', 
-                  name: `${debtName}|IDR`, 
+          // 🚀 FIX: Paralel eksekusi Piutang dan Record Transaksi
+          await Promise.all([
+              fetch("/api/debts", {
+                  method: "POST", 
+                  headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ 
+                      type: 'piutang', 
+                      name: `${debtName}|IDR`, 
+                      amount: cleanAmount, 
+                      dueDate: dueDate,
+                      description: `[Piutang Pemasukan: ${category}] ${description}`,
+                      isFromTransaction: true
+                  })
+              }),
+              addTransaction.mutateAsync({ 
                   amount: cleanAmount, 
-                  dueDate: dueDate,
-                  description: `[Piutang Pemasukan: ${category}] ${description}`,
-                  isFromTransaction: true
+                  type: "piutang_record", 
+                  category: `Piutang: ${category}`, 
+                  description: `Belum Dibayar - ${debtName}`, 
+                  date: new Date().toISOString() 
               })
-          });
-          // 🚀 FIX: TUKAR JENIS (TYPE) KE PIUTANG_RECORD AGAR SALDO TAK BERTAMBAH
-          await addTransaction.mutateAsync({ 
-              amount: cleanAmount, 
-              type: "piutang_record", 
-              category: `Piutang: ${category}`, 
-              description: `Belum Dibayar - ${debtName}`, 
-              date: new Date().toISOString() 
-          });
+          ]);
       }
       
       await queryClient.invalidateQueries();

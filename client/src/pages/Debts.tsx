@@ -70,7 +70,6 @@ export default function Debts() {
       enabled: !!currentUserEmail
   });
 
-  // Ambil transaksi untuk mengecek status WRITE-OFF tanpa memodifikasi data Piutang asli
   const { data: txs = [], refetch: refetchTxs } = useQuery({
       queryKey: ['transactions', currentUserEmail],
       queryFn: async () => {
@@ -100,7 +99,11 @@ export default function Debts() {
 
   const handleAdd = async () => {
       if (checkPaywall()) return;
-      if (!name || !amount) { toast({ title: "Form Tidak Lengkap!", variant: "destructive" }); return; }
+      const nominal = parseNum(amount);
+      if (!name || !nominal || nominal <= 0) { 
+          toast({ title: "Form Tidak Lengkap!", variant: "destructive" }); 
+          return; 
+      }
       if (isSubmitting) return;
       
       setIsSubmitting(true);
@@ -109,33 +112,41 @@ export default function Debts() {
 
       try {
           const nameWithCurrency = `${name}|${currency}`;
-          const nominal = parseNum(amount); 
           const rate = currency === 'IDR' ? 1 : (activeRates[currency] || 1);
           const idrNominal = nominal * rate;
 
-          const res = await fetch("/api/debts", {
+          // 🚀 FIX: Paralel eksekusi agar tidak antre dan mencegah timeout (Lebih Cepat)
+          const debtReq = fetch("/api/debts", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ type: activeTab, name: nameWithCurrency, amount: nominal, dueDate, description: desc, isFromTransaction: true })
           });
           
-          if(res.ok) {
-              await fetch("/api/transactions", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ 
-                      type: activeTab === 'piutang' ? 'expense' : 'income', 
-                      amount: idrNominal, 
-                      category: activeTab === 'piutang' ? 'Piutang' : 'Hutang', 
-                      description: `[Catat Awal] ${nameWithCurrency}`, 
-                      date: new Date().toISOString() 
-                  })
-              });
+          const txReq = fetch("/api/transactions", {
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ 
+                  type: activeTab === 'piutang' ? 'expense' : 'income', 
+                  amount: idrNominal, 
+                  category: activeTab === 'piutang' ? 'Piutang' : 'Hutang', 
+                  description: `[Catat Awal] ${nameWithCurrency}`, 
+                  date: new Date().toISOString() 
+              })
+          });
+
+          const [resDebt, resTx] = await Promise.all([debtReq, txReq]);
+
+          if(resDebt.ok && resTx.ok) {
               toast({ title: "Tersimpan", description: "Catatan berhasil ditambahkan." });
               setName(""); setAmount(""); setDueDate(""); setDesc(""); setCurrency("IDR");
               await fetchData();
-          } else { toast({ title: "Gagal menyimpan", variant: "destructive" }); }
-      } catch (e) { toast({ title: "Error Jaringan", variant: "destructive" }); } 
-      finally { setIsSubmitting(false); }
+          } else { 
+              toast({ title: "Gagal menyimpan", variant: "destructive" }); 
+          }
+      } catch (e) { 
+          toast({ title: "Error Jaringan", variant: "destructive" }); 
+      } finally { 
+          setIsSubmitting(false); 
+      }
   };
 
   const handlePay = async () => {
@@ -143,6 +154,7 @@ export default function Debts() {
       
       const nominal = parseNum(payAmount) || selectedDebt.amount; 
       if (nominal > selectedDebt.amount) { toast({title: "Nominal Berlebih", variant: "destructive"}); return; }
+      if (nominal <= 0) { toast({title: "Nominal tidak valid", variant: "destructive"}); return; }
       
       setIsPaying(true);
       setPayModalOpen(false);
@@ -154,44 +166,55 @@ export default function Debts() {
           const rate = curr === 'IDR' ? 1 : (activeRates[curr] || 1);
           const idrNominal = nominal * rate;
 
-          // Eksekusi berurutan agar server tidak tumbang
-          await fetch(`/api/debts/${selectedDebt.id}/pay`, { 
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ amount: nominal }) 
-          });
+          // 🚀 FIX: Array of Promises (Semua tembakan ke DB dilakukan serentak!)
+          const promises = [];
+
+          promises.push(
+              fetch(`/api/debts/${selectedDebt.id}/pay`, { 
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ amount: nominal }) 
+              })
+          );
 
           if (curr !== 'IDR') {
-              // 1. Anulir uang kas mentah (Misal: 300) yang tercatat otomatis
-              await fetch("/api/transactions", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ 
-                      type: isPiutang ? 'expense' : 'income', 
-                      amount: nominal, 
-                      category: 'Penyesuaian Sistem', 
-                      description: `[Offset Kas] ${selectedDebt.name}`, 
-                      date: new Date().toISOString() 
+              promises.push(
+                  fetch("/api/transactions", {
+                      method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                      body: JSON.stringify({ 
+                          type: isPiutang ? 'expense' : 'income', 
+                          amount: nominal, 
+                          category: 'Penyesuaian Sistem', 
+                          description: `[Offset Kas] ${selectedDebt.name}`, 
+                          date: new Date().toISOString() 
+                      })
                   })
-              });
-              // 2. Masukkan uang kas IDR asli (Misal: 5.250.000)
-              await fetch("/api/transactions", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ 
-                      type: isPiutang ? 'income' : 'expense', 
-                      amount: idrNominal, 
-                      category: isPiutang ? 'Pembayaran Piutang' : 'Pembayaran Hutang', 
-                      description: `[Bayar Valas] ${selectedDebt.name}`, 
-                      date: new Date().toISOString() 
+              );
+              promises.push(
+                  fetch("/api/transactions", {
+                      method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                      body: JSON.stringify({ 
+                          type: isPiutang ? 'income' : 'expense', 
+                          amount: idrNominal, 
+                          category: isPiutang ? 'Pembayaran Piutang' : 'Pembayaran Hutang', 
+                          description: `[Bayar Valas] ${selectedDebt.name}`, 
+                          date: new Date().toISOString() 
+                      })
                   })
-              });
+              );
           }
+          
+          await Promise.all(promises);
+
           toast({ title: "Berhasil!", description: "Tagihan diperbarui." }); 
           setPayAmount(""); setSelectedDebt(null);
           await fetchData(); 
-      } catch (e) { toast({ title: "Gagal memproses", variant: "destructive" }); }
-      finally { setIsPaying(false); }
+      } catch (e) { 
+          toast({ title: "Gagal memproses", variant: "destructive" }); 
+      } finally { 
+          setIsPaying(false); 
+      }
   };
 
-  // 🚀 LOGIKA WRITE-OFF: 100% AMAN, TANPA DELETE DATA, ARSIP MARET TERKUNCI ABADI
   const handleWriteOff = async (debtToProcess: DebtItem) => {
       if (checkPaywall() || !debtToProcess) return;
       
@@ -210,40 +233,43 @@ export default function Debts() {
           const rate = curr === 'IDR' ? 1 : (activeRates[curr] || 1);
           const idrNominal = debtToProcess.amount * rate;
 
-          // 1. LUNASI Piutang Asli (Data masa lalu tetap aman, tidak terhapus)
-          await fetch(`/api/debts/${debtToProcess.id}/pay`, { 
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ amount: debtToProcess.amount }) 
-          });
-          
-          // 2. ANULIR Uang Mentah di Kas (Misal: 300) agar Kas tidak bertambah
-          await fetch("/api/transactions", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ 
-                  type: isPiutang ? 'expense' : 'income', 
-                  amount: debtToProcess.amount, 
-                  category: 'Penyesuaian Sistem', 
-                  description: `[Offset Kas] Anulir ${debtToProcess.name}`, 
-                  date: new Date().toISOString() 
+          // 🚀 FIX: Jalankan 3 transaksi DB secara serentak untuk mencegah Timeout Serverless Vercel!
+          const promises = [
+              fetch(`/api/debts/${debtToProcess.id}/pay`, { 
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ amount: debtToProcess.amount }) 
+              }),
+              fetch("/api/transactions", {
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ 
+                      type: isPiutang ? 'expense' : 'income', 
+                      amount: debtToProcess.amount, 
+                      category: 'Penyesuaian Sistem', 
+                      description: `[Offset Kas] Anulir ${debtToProcess.name}`, 
+                      date: new Date().toISOString() 
+                  })
+              }),
+              fetch("/api/transactions", {
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ 
+                      type: isPiutang ? 'expense' : 'income', 
+                      amount: idrNominal, 
+                      category: isPiutang ? 'Penghapusan Piutang' : 'Pemutihan Hutang', 
+                      description: `[WRITE_OFF] ${debtToProcess.name}`, 
+                      date: new Date().toISOString() 
+                  })
               })
-          });
+          ];
 
-          // 3. CATAT Kerugian/Keuntungan murni (IDR) untuk Laporan Kekayaan (PDF)
-          await fetch("/api/transactions", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ 
-                  type: isPiutang ? 'expense' : 'income', 
-                  amount: idrNominal, 
-                  category: isPiutang ? 'Penghapusan Piutang' : 'Pemutihan Hutang', 
-                  description: `[WRITE_OFF] ${debtToProcess.name}`, 
-                  date: new Date().toISOString() 
-              })
-          });
+          await Promise.all(promises);
           
           toast({ title: "Selesai!", description: "Tercatat di Laporan PDF Anda." });
           await fetchData(); 
-      } catch (e) { toast({ title: "Gagal memproses", variant: "destructive" }); }
-      finally { setIsPaying(false); setSelectedDebt(null); }
+      } catch (e) { 
+          toast({ title: "Gagal memproses", variant: "destructive" }); 
+      } finally { 
+          setIsPaying(false); setSelectedDebt(null); 
+      }
   };
 
   const filteredItems = items.filter((i: DebtItem) => i.type === activeTab);
@@ -255,7 +281,7 @@ export default function Debts() {
       return acc + (item.amount * rate);
   }, 0);
 
-  const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
+  const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
 
   const displayTotalDebt = formatRp(totalAmountIDR);
   const getBalanceTextSize = (text: string) => {
@@ -383,7 +409,6 @@ export default function Debts() {
 
                     const isCicilan = item.description?.includes('(Sisa dari');
                     
-                    // 🚀 PEMBACAAN STATUS DARI TRANSAKSI (SANGAT AKURAT)
                     const isWrittenOff = txs.some((t:any) => 
                         t.description?.includes(`[WRITE_OFF] ${item.name}`)
                     );
