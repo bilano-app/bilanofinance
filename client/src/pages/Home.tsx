@@ -141,13 +141,9 @@ export default function Home() {
   useEffect(() => {
       if (rawEmail && !isAnyDataLoading && user) {
           const tooltipKey = `bilano_guide_tooltip_seen_${rawEmail}`;
-          // Jika belum pernah melihat tooltip ini...
           if (!localStorage.getItem(tooltipKey)) {
               const timer = setTimeout(() => {
                   setShowGuideTooltip(true);
-                  // 🚀 TAMBAHKAN BARIS INI: 
-                  // Begitu bubble-nya dimunculkan, langsung kunci memorinya detik itu juga!
-                  // Jadi besok-besok tidak akan pernah muncul lagi biarpun tidak di-klik silang.
                   localStorage.setItem(tooltipKey, "true");
               }, 1500);
               return () => clearTimeout(timer);
@@ -402,17 +398,59 @@ export default function Home() {
     } catch (error) { console.error(error); }
   };
 
-  const currentMonth = new Date().getMonth() + 1;
+  // 🚀 REVISI FINAL: SINKRONISASI TOTAL ARUS KAS MURNI DENGAN HALAMAN PERFORMANCE (HANYA BULAN INI)
+  const currentMonthIdx = new Date().getMonth();
   const currentYear = new Date().getFullYear();
 
-  // 🚀 REVISI: SEKARANG MENGHITUNG TOTAL AKUMULASI SEPANJANG MASA (TIDAK DI-RESET)
-  const income = transactions?.filter(t => 
-      t.type === 'income' || t.type === 'piutang_record'
-  ).reduce((acc, t) => acc + t.amount, 0) || 0;
+  const thisMonthTx = transactions?.filter(t => {
+      const d = new Date(t.date);
+      return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
+  }) || [];
 
-  const expense = transactions?.filter(t => 
-      t.type === 'expense' || t.type === 'hutang_record'
-  ).reduce((acc, t) => acc + t.amount, 0) || 0;
+  const baseIncomeTxs = thisMonthTx.filter(t => 
+      (t.type === 'income' || t.type === 'piutang_record') && 
+      !t.description?.includes('[Offset') && 
+      !t.description?.includes('[WRITE_OFF]') && 
+      !t.description?.includes('[Catat Awal]') && 
+      !t.description?.includes('[Bayar Valas]') && 
+      t.category !== 'Penyesuaian Sistem' && 
+      t.category !== 'Pemutihan Hutang' &&
+      t.category !== 'Cairkan Valas' &&
+      t.category !== 'Jual Aset' &&
+      !(t.category || '').includes('Piutang Dibayar') &&
+      !(t.category || '').includes('Dapat Pinjaman')
+  );
+  
+  const baseExpenseTxs = thisMonthTx.filter(t => 
+      (t.type === 'expense' || t.type === 'hutang_record') && 
+      !(t.category || '').toLowerCase().includes('invest') && 
+      !t.description?.includes('[Offset') && 
+      !t.description?.includes('[WRITE_OFF]') && 
+      !t.description?.includes('[Catat Awal]') && 
+      !t.description?.includes('[Bayar Valas]') && 
+      t.category !== 'Penyesuaian Sistem' && 
+      t.category !== 'Penghapusan Piutang' &&
+      t.category !== 'Tukar Valas' &&
+      !(t.category || '').includes('Bayar Hutang') &&
+      !(t.category || '').includes('Beri Pinjaman')
+  );
+
+  const virtualPLTxs: any[] = [];
+  thisMonthTx.filter(t => t.type === 'invest_sell').forEach(t => {
+      if (t.description && t.description.includes('P/L:')) {
+          const plString = t.description.split('P/L:')[1];
+          if (plString) {
+              const cleanString = plString.replace(/[^0-9-]/g, '');
+              const plValue = parseInt(cleanString, 10);
+              if (!isNaN(plValue) && plValue !== 0) {
+                  virtualPLTxs.push({ amount: Math.abs(plValue), type: plValue > 0 ? 'income' : 'expense' });
+              }
+          }
+      }
+  });
+
+  const income = baseIncomeTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'income').reduce((acc, v) => acc + v.amount, 0);
+  const expense = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'expense').reduce((acc, v) => acc + v.amount, 0);
   
   if (isLocked) {
       return (
@@ -473,7 +511,6 @@ export default function Home() {
 
       <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
           
-          {/* 🚀 BUBBLE CHAT PETUNJUK ARAH (NEO-BRUTALISM STYLE) */}
           {showGuideTooltip && (
               <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-slate-900 p-4 rounded-[20px] shadow-[6px_6px_0px_#0f172a] animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
                   <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-full hover:bg-slate-100">
@@ -485,15 +522,11 @@ export default function Home() {
                   <p className="text-[11px] text-slate-600 leading-relaxed font-bold pr-2">
                       Baru pertama kali pakai BILANO? Klik buku pintar ini untuk melihat panduan lengkap cara memaksimalkan seluruh fitur canggih kami!
                   </p>
-                  {/* Segitiga Panah Neo-Brutalism */}
-                  {/* Garis luar (Hitam) */}
                   <div className="absolute bottom-[14px] -right-[10px] w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[10px] border-l-slate-900"></div>
-                  {/* Isi Panah (Putih) */}
                   <div className="absolute bottom-[16px] -right-[7px] w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[8px] border-l-white"></div>
               </div>
           )}
 
-          {/* Tombol Pusat Bantuan (Kuning & Hijau Tua) */}
           <Link href="/help">
               <button className="w-12 h-12 bg-yellow-400 text-emerald-900 rounded-full shadow-lg shadow-yellow-200 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group relative">
                   <HelpCircle className="w-6 h-6 group-hover:animate-bounce" />
@@ -503,7 +536,6 @@ export default function Home() {
               </button>
           </Link>
 
-          {/* Tombol Panduan Fitur (Biru Langit & Cokelat) */}
           <Link href="/guide">
               <button onClick={dismissGuideTooltip} className="w-12 h-12 bg-sky-400 text-amber-900 rounded-full shadow-lg shadow-sky-200 flex items-center justify-center hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all group relative">
                   <Notebook className="w-6 h-6 group-hover:rotate-12 transition-transform" />
@@ -804,7 +836,7 @@ export default function Home() {
                         <ArrowDownCircle className="w-5 h-5 text-emerald-500" />
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pemasukan</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pemasukan (Bulan Ini)</p>
                         <p className="text-base font-extrabold text-slate-800 leading-tight">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
                     </div>
                </div>
@@ -815,7 +847,7 @@ export default function Home() {
                         <ArrowUpCircle className="w-5 h-5 text-rose-500" />
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pengeluaran</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pengeluaran (Bulan Ini)</p>
                         <p className="text-base font-extrabold text-slate-800 leading-tight">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
                     </div>
                </div>
