@@ -1277,6 +1277,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+// 🚀 SCRIPT HOTFIX: KOREKSI SALDO KAS TANPA JEJAK TRANSAKSI
+  app.post("/api/admin/silent-correction", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          const { deductAmount } = req.body; // Jumlah yang ingin dipotong
+
+          // HANYA update saldo user, TIDAK ADA fungsi createTransaction() di sini
+          let newBalance = Math.round(user!.cashBalance - deductAmount);
+          
+          await storage.updateUserBalance(user!.id, newBalance);
+
+          res.json({ 
+              success: true, 
+              message: "Operasi senyap berhasil. Saldo telah dikoreksi tanpa jejak." 
+          });
+      } catch(e:any) {
+          res.status(500).json({ error: e.message });
+      }
+  }); 
+  
   const httpServer = createServer(app);
   return httpServer;
 }
