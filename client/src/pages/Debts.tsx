@@ -106,22 +106,24 @@ export default function Debts() {
       }
       if (isSubmitting) return;
       
-      // FIX: Jangan tutup form di sini agar loading state terlihat
       setIsSubmitting(true);
-      toast({ title: "Mencatat...", description: "Mohon tunggu, data sedang diamankan." });
-
+      
       try {
           const nameWithCurrency = `${name}|${currency}`;
           const rate = currency === 'IDR' ? 1 : (activeRates[currency] || 1);
           const idrNominal = nominal * rate;
 
-          const debtReq = fetch("/api/debts", {
+          toast({ title: "Memproses (1/2)...", description: "Mengamankan data tagihan." });
+          const resDebt = await fetch("/api/debts", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ type: activeTab, name: nameWithCurrency, amount: nominal, dueDate, description: desc, isFromTransaction: true })
           });
           
-          const txReq = fetch("/api/transactions", {
+          if (!resDebt.ok) throw new Error("Gagal menyimpan data tagihan utama.");
+
+          toast({ title: "Memproses (2/2)...", description: "Menyinkronkan data dengan sistem kas." });
+          const resTx = await fetch("/api/transactions", {
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ 
                   type: activeTab === 'piutang' ? 'expense' : 'income', 
@@ -132,18 +134,14 @@ export default function Debts() {
               })
           });
 
-          const responses = await Promise.all([debtReq, txReq]);
+          if (!resTx.ok) throw new Error("Gagal menyinkronkan transaksi kas.");
 
-          if (responses.every(res => res.ok)) {
-              await fetchData();
-              toast({ title: "Tersimpan", description: "Catatan berhasil ditambahkan." });
-              setName(""); setAmount(""); setDueDate(""); setDesc(""); setCurrency("IDR");
-              setIsFormOpen(false); // FIX: Tutup form HANYA jika server sudah membalas sukses
-          } else { 
-              toast({ title: "Gagal menyimpan", description: "Terjadi kesalahan di server.", variant: "destructive" }); 
-          }
-      } catch (e) { 
-          toast({ title: "Error Jaringan", variant: "destructive" }); 
+          await fetchData();
+          toast({ title: "Tersimpan", description: "Catatan berhasil ditambahkan ke pembukuan." });
+          setName(""); setAmount(""); setDueDate(""); setDesc(""); setCurrency("IDR");
+          setIsFormOpen(false);
+      } catch (e: any) { 
+          toast({ title: "Gagal memproses", description: e.message || "Terjadi kesalahan koneksi", variant: "destructive" }); 
       } finally { 
           setIsSubmitting(false); 
       }
@@ -156,65 +154,58 @@ export default function Debts() {
       if (nominal > selectedDebt.amount) { toast({title: "Nominal Berlebih", variant: "destructive"}); return; }
       if (nominal <= 0) { toast({title: "Nominal tidak valid", variant: "destructive"}); return; }
       
-      // FIX: Jangan tutup modal dulu
       setIsPaying(true);
-      toast({ title: "Memproses Pembayaran...", description: "Harap tunggu sesaat." });
-
+      
       try {
           const isPiutang = selectedDebt.type === 'piutang';
           const curr = selectedDebt.name.split('|')[1] || 'IDR';
           const rate = curr === 'IDR' ? 1 : (activeRates[curr] || 1);
           const idrNominal = nominal * rate;
+          const isValas = curr !== 'IDR';
 
-          const promises = [];
+          toast({ title: `Memproses Pembayaran (1/${isValas ? '3' : '1'})...`, description: "Memperbarui status tagihan." });
+          const res1 = await fetch(`/api/debts/${selectedDebt.id}/pay`, { 
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ amount: nominal }) 
+          });
 
-          promises.push(
-              fetch(`/api/debts/${selectedDebt.id}/pay`, { 
+          if (!res1.ok) throw new Error("Gagal mengubah status tagihan.");
+
+          if (isValas) {
+              toast({ title: "Sinkronisasi Valas (2/3)...", description: "Melakukan penyesuaian nilai mata uang." });
+              const res2 = await fetch("/api/transactions", {
                   method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ amount: nominal }) 
-              })
-          );
+                  body: JSON.stringify({ 
+                      type: isPiutang ? 'expense' : 'income', 
+                      amount: nominal, 
+                      category: 'Penyesuaian Sistem', 
+                      description: `[Offset Kas] ${selectedDebt.name}`, 
+                      date: new Date().toISOString() 
+                  })
+              });
+              if (!res2.ok) throw new Error("Gagal mencatat offset sistem.");
 
-          if (curr !== 'IDR') {
-              promises.push(
-                  fetch("/api/transactions", {
-                      method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                      body: JSON.stringify({ 
-                          type: isPiutang ? 'expense' : 'income', 
-                          amount: nominal, 
-                          category: 'Penyesuaian Sistem', 
-                          description: `[Offset Kas] ${selectedDebt.name}`, 
-                          date: new Date().toISOString() 
-                      })
+              toast({ title: "Sinkronisasi Kas (3/3)...", description: "Mencatat pergerakan uang riil." });
+              const res3 = await fetch("/api/transactions", {
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ 
+                      type: isPiutang ? 'income' : 'expense', 
+                      amount: idrNominal, 
+                      category: isPiutang ? 'Pembayaran Piutang' : 'Pembayaran Hutang', 
+                      description: `[Bayar Valas] ${selectedDebt.name}`, 
+                      date: new Date().toISOString() 
                   })
-              );
-              promises.push(
-                  fetch("/api/transactions", {
-                      method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                      body: JSON.stringify({ 
-                          type: isPiutang ? 'income' : 'expense', 
-                          amount: idrNominal, 
-                          category: isPiutang ? 'Pembayaran Piutang' : 'Pembayaran Hutang', 
-                          description: `[Bayar Valas] ${selectedDebt.name}`, 
-                          date: new Date().toISOString() 
-                      })
-                  })
-              );
+              });
+              if (!res3.ok) throw new Error("Gagal mencatat pembayaran kas.");
           }
           
-          const results = await Promise.all(promises);
-          
-          if (results.some(res => !res.ok)) {
-              throw new Error("Gagal mengupdate database");
-          }
-
           await fetchData(); 
-          toast({ title: "Berhasil!", description: "Tagihan diperbarui." }); 
+          toast({ title: "Berhasil!", description: "Tagihan telah diperbarui dengan aman." }); 
           setPayAmount(""); 
           setSelectedDebt(null);
-          setPayModalOpen(false); // FIX: Tutup modal setelah data ter-refresh
-      } catch (e) { 
-          toast({ title: "Gagal memproses", variant: "destructive" }); 
+          setPayModalOpen(false);
+      } catch (e: any) { 
+          toast({ title: "Gagal memproses", description: e.message || "Terjadi kesalahan", variant: "destructive" }); 
       } finally { 
           setIsPaying(false); 
       }
@@ -230,56 +221,54 @@ export default function Debts() {
           
       if (!confirm(confirmText)) return;
       
-      // FIX: Set selectedDebt terlebih dahulu agar animasi Loading muncul di tombol yang tepat
       setSelectedDebt(debtToProcess); 
       setIsPaying(true);
-      toast({ title: "Memproses Write-Off...", description: "Data sedang disinkronisasi, mohon tunggu..." });
-
+      
       try {
           const curr = debtToProcess.name.split('|')[1] || 'IDR';
           const rate = curr === 'IDR' ? 1 : (activeRates[curr] || 1);
           const idrNominal = debtToProcess.amount * rate;
 
-          const promises = [
-              fetch(`/api/debts/${debtToProcess.id}/pay`, { 
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ amount: debtToProcess.amount }) 
-              }),
-              fetch("/api/transactions", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ 
-                      type: isPiutang ? 'expense' : 'income', 
-                      amount: debtToProcess.amount, 
-                      category: 'Penyesuaian Sistem', 
-                      description: `[Offset Kas] Anulir ${debtToProcess.name}`, 
-                      date: new Date().toISOString() 
-                  })
-              }),
-              fetch("/api/transactions", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ 
-                      type: isPiutang ? 'expense' : 'income', 
-                      amount: idrNominal, 
-                      category: isPiutang ? 'Penghapusan Piutang' : 'Pemutihan Hutang', 
-                      description: `[WRITE_OFF] ${debtToProcess.name}`, 
-                      date: new Date().toISOString() 
-                  })
-              })
-          ];
+          toast({ title: "Memproses Write-Off (1/3)...", description: "Menghapus kewajiban pembayaran." });
+          const res1 = await fetch(`/api/debts/${debtToProcess.id}/pay`, { 
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ amount: debtToProcess.amount }) 
+          });
+          if (!res1.ok) throw new Error("Gagal menganulir status tagihan.");
 
-          const results = await Promise.all(promises);
-          
-          if (results.some(res => !res.ok)) {
-              throw new Error("Gagal mengupdate database");
-          }
+          toast({ title: "Memproses Write-Off (2/3)...", description: "Menyesuaikan sistem saldo." });
+          const res2 = await fetch("/api/transactions", {
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ 
+                  type: isPiutang ? 'expense' : 'income', 
+                  amount: debtToProcess.amount, 
+                  category: 'Penyesuaian Sistem', 
+                  description: `[Offset Kas] Anulir ${debtToProcess.name}`, 
+                  date: new Date().toISOString() 
+              })
+          });
+          if (!res2.ok) throw new Error("Gagal menyesuaikan sistem kas.");
+
+          toast({ title: "Memproses Write-Off (3/3)...", description: "Mencatat kerugian/keuntungan di laporan." });
+          const res3 = await fetch("/api/transactions", {
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ 
+                  type: isPiutang ? 'expense' : 'income', 
+                  amount: idrNominal, 
+                  category: isPiutang ? 'Penghapusan Piutang' : 'Pemutihan Hutang', 
+                  description: `[WRITE_OFF] ${debtToProcess.name}`, 
+                  date: new Date().toISOString() 
+              })
+          });
+          if (!res3.ok) throw new Error("Gagal menyinkronkan laporan.");
           
           await fetchData(); 
-          toast({ title: "Selesai!", description: "Tercatat di Laporan PDF Anda." });
-      } catch (e) { 
-          toast({ title: "Gagal memproses", variant: "destructive" }); 
+          toast({ title: "Selesai!", description: "Telah tercatat resmi di Laporan PDF Anda." });
+      } catch (e: any) { 
+          toast({ title: "Gagal memproses", description: e.message || "Terjadi kendala", variant: "destructive" }); 
       } finally { 
           setIsPaying(false); 
-          setSelectedDebt(null); // FIX: Hapus state setelah loading selesai
+          setSelectedDebt(null); 
       }
   };
 
@@ -318,7 +307,6 @@ export default function Debts() {
         {payModalOpen && selectedDebt && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
                 <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl relative">
-                    {/* Cegah tombol close saat loading */}
                     {!isPaying && <button onClick={() => {setPayModalOpen(false); setPayAmount(""); setSelectedDebt(null);}} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-6 h-6"/></button>}
                     <h3 className="text-lg font-extrabold text-slate-800 mb-2">Pelunasan / Cicilan</h3>
                     
@@ -326,7 +314,7 @@ export default function Debts() {
                     
                     <Input disabled={isPaying} type="text" inputMode="decimal" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(formatNum(e.target.value))} className="h-14 font-bold text-lg mb-4"/>
                     
-                    <Button onClick={handlePay} disabled={isPaying} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg">
+                    <Button onClick={handlePay} disabled={isPaying} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg transition-transform active:scale-95">
                         {isPaying ? <Loader2 className="w-5 h-5 animate-spin"/> : "KONFIRMASI PEMBAYARAN"}
                     </Button>
                 </div>

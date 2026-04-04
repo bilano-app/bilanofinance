@@ -99,50 +99,46 @@ export default function Expense() {
       
       try {
           if (paymentMode === 'cash') {
-              // 🚀 FIX: Paralel eksekusi array Promise
-              const promises: any[] = [
-                  addTransactionMutation.mutateAsync({
-                      type: 'expense',
-                      amount: spendingAmount, 
-                      category: category,
-                      description: desc || "Pengeluaran Rutin",
-                      date: new Date().toISOString()
-                  })
-              ];
+              // Sekuensial untuk mencegah tabrakan data (Contention)
+              await addTransactionMutation.mutateAsync({
+                  type: 'expense',
+                  amount: spendingAmount, 
+                  category: category,
+                  description: desc || "Pengeluaran Rutin",
+                  date: new Date().toISOString()
+              });
 
               if (isEmergencyOverride) {
-                  promises.push(
-                      fetch("/api/target/penalty", {
+                  try {
+                      await fetch("/api/target/penalty", {
                           method: "PATCH",
                           headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
                           body: JSON.stringify({ amount: emergencyDetails.deficit })
-                      }).catch(() => {})
-                  );
+                      });
+                  } catch (e) {}
               }
-              await Promise.all(promises);
 
           } else {
-              // 🚀 FIX: Paralel eksekusi Hutang dan Record Transaksi
-              await Promise.all([
-                  fetch("/api/debts", {
-                      method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                      body: JSON.stringify({ 
-                          type: 'hutang', 
-                          name: `${debtName}|IDR`, 
-                          amount: spendingAmount, 
-                          dueDate: dueDate, 
-                          description: `[Hutang Pengeluaran: ${category}] ${desc}`,
-                          isFromTransaction: true 
-                      })
-                  }),
-                  addTransactionMutation.mutateAsync({ 
-                      type: 'hutang_record', 
+              // Sekuensial untuk mode Hutang
+              await fetch("/api/debts", {
+                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  body: JSON.stringify({ 
+                      type: 'hutang', 
+                      name: `${debtName}|IDR`, 
                       amount: spendingAmount, 
-                      category: `Hutang: ${category}`, 
-                      description: `Belum Dibayar - ${debtName}`, 
-                      date: new Date().toISOString() 
+                      dueDate: dueDate, 
+                      description: `[Hutang Pengeluaran: ${category}] ${desc}`,
+                      isFromTransaction: true 
                   })
-              ]);
+              });
+              
+              await addTransactionMutation.mutateAsync({ 
+                  type: 'hutang_record', 
+                  amount: spendingAmount, 
+                  category: `Hutang: ${category}`, 
+                  description: `Belum Dibayar - ${debtName}`, 
+                  date: new Date().toISOString() 
+              });
           }
 
           setShowEmergencyModal(false);

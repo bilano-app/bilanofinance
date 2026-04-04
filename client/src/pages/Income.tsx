@@ -48,6 +48,7 @@ export default function Income() {
     setIsSubmitting(true);
     try {
       if (paymentMode === 'cash') {
+          // Sekuensial biasa
           await addTransaction.mutateAsync({ 
               amount: cleanAmount, 
               type: "income", 
@@ -56,28 +57,27 @@ export default function Income() {
               date: new Date().toISOString() 
           });
       } else {
-          // 🚀 FIX: Paralel eksekusi Piutang dan Record Transaksi
-          await Promise.all([
-              fetch("/api/debts", {
-                  method: "POST", 
-                  headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ 
-                      type: 'piutang', 
-                      name: `${debtName}|IDR`, 
-                      amount: cleanAmount, 
-                      dueDate: dueDate,
-                      description: `[Piutang Pemasukan: ${category}] ${description}`,
-                      isFromTransaction: true
-                  })
-              }),
-              addTransaction.mutateAsync({ 
+          // Sekuensial untuk mode Piutang demi menghindari contention
+          await fetch("/api/debts", {
+              method: "POST", 
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ 
+                  type: 'piutang', 
+                  name: `${debtName}|IDR`, 
                   amount: cleanAmount, 
-                  type: "piutang_record", 
-                  category: `Piutang: ${category}`, 
-                  description: `Belum Dibayar - ${debtName}`, 
-                  date: new Date().toISOString() 
+                  dueDate: dueDate,
+                  description: `[Piutang Pemasukan: ${category}] ${description}`,
+                  isFromTransaction: true
               })
-          ]);
+          });
+          
+          await addTransaction.mutateAsync({ 
+              amount: cleanAmount, 
+              type: "piutang_record", 
+              category: `Piutang: ${category}`, 
+              description: `Belum Dibayar - ${debtName}`, 
+              date: new Date().toISOString() 
+          });
       }
       
       await queryClient.invalidateQueries();
