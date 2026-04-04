@@ -168,9 +168,10 @@ export default function Performance() {
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
-  // 🚀 MURNIKAN ARUS KAS: Sembunyikan transaksi Offset & Kerugian/Keuntungan Valas agar tidak merusak Arus Kas Bulanan
-  const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income' && !t.description?.includes('[Offset') && !t.description?.includes('[Kerugian/Keuntungan]') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Pemutihan Hutang');
-  const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest') && !t.description?.includes('[Offset') && !t.description?.includes('[Kerugian/Keuntungan]') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Penghapusan Piutang');
+  // 🚀 FILTER ARUS KAS: Abaikan Penyesuaian/Offset/WriteOff agar list Arus Kas Murni bersih
+  const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income' && !t.description?.includes('[Offset') && !t.description?.includes('[WRITE_OFF]') && !t.description?.includes('[Catat Awal]') && !t.description?.includes('[Bayar Valas]') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Pemutihan Hutang');
+  
+  const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest') && !t.description?.includes('[Offset') && !t.description?.includes('[WRITE_OFF]') && !t.description?.includes('[Catat Awal]') && !t.description?.includes('[Bayar Valas]') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Penghapusan Piutang');
 
   const virtualPLTxs: any[] = [];
   thisMonthTx.filter(t => t.type === 'invest_sell').forEach(t => {
@@ -291,12 +292,20 @@ export default function Performance() {
                     {locked ? formatRp(125000000) : displayWealth}
                 </h2>
                 
+                {/* 🚀 TAMPILAN PIUTANG DAN HUTANG DIPISAH, TIDAK ADA MINUS ABSURD LAGI */}
                 <div className="flex flex-wrap gap-2 mt-4 text-[10px] font-bold">
                     <span className={`bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 ${locked ? 'blur-[4px] select-none' : ''}`}>Tunai: {formatRp(cashReal)}</span>
                     <span className={`bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 ${locked ? 'blur-[4px] select-none' : ''}`}>Aset: {formatRp(investmentReal + forexValue)}</span>
-                    {(piutangReal > 0 || hutangReal > 0) && (
-                        <span className={`bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 ${piutangReal - hutangReal >= 0 ? 'text-emerald-200' : 'text-rose-200'} ${locked ? 'blur-[4px] select-none' : ''}`}>
-                            Hutang/Piutang: {formatRp(piutangReal - hutangReal)}
+                    
+                    {piutangReal > 0 && (
+                        <span className={`bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-emerald-200 ${locked ? 'blur-[4px] select-none' : ''}`}>
+                            Piutang: {formatRp(piutangReal)}
+                        </span>
+                    )}
+                    
+                    {hutangReal > 0 && (
+                        <span className={`bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-rose-200 ${locked ? 'blur-[4px] select-none' : ''}`}>
+                            Hutang: {formatRp(hutangReal)}
                         </span>
                     )}
                 </div>
