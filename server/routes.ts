@@ -92,12 +92,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );`); 
   } catch (e) { console.error("Info: Tabel tiket sudah ada."); }
 
-  const DEFAULT_RATES: Record<string, number> = {
+  let cachedRates: Record<string, number> = {
       "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
       "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
-  };
-  
-  let cachedRates: Record<string, number> = { ...DEFAULT_RATES }; 
+  }; 
   let lastRatesFetchTime = 0;
 
   const fetchLiveRates = async () => {
@@ -438,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           newBalance -= Math.round(parsed.data.amount); 
       }
       
-      if (newBalance !== Math.round(user!.cashBalance)) {
+      if (newBalance !== user!.cashBalance) {
           await storage.updateUserBalance(user!.id, newBalance); 
       }
       res.json(tx); 
@@ -474,6 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // 🚀 PERBAIKAN FINAL: HAPUS TRANSAKSI YANG OTOMATIS MENARIK VALAS SILUMAN
   app.delete("/api/transactions/:id", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -508,8 +507,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               } catch(e) {}
           }
           else if (txToDelete.type === 'forex_sell') {
-              newBalance -= amt; 
+              newBalance -= amt; // Tarik kembali Rupiah yang masuk
               try {
+                  // Dan tarik kembali (tambahkan) saldo valas yang terlanjur terhapus
                   const desc = txToDelete.description || "";
                   const match = desc.match(/Jual\s+([0-9.]+)\s+([A-Z]{3})/i);
                   if (match) {
@@ -657,77 +657,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 FITUR BARU: PULIHKAN TAGIHAN (RESTORE PINTAR ANTI-NGACO)
-  app.post("/api/debts/:id/restore", async (req, res) => {
-      try {
-          const user = await getUser(req);
-          const id = parseInt(req.params.id);
-
-          const debts = await storage.getDebts(user!.id);
-          const debt = debts.find(d => d.id === id);
-
-          if (!debt || !debt.isPaid) {
-              return res.status(400).json({ error: "Tagihan ini tidak dapat dipulihkan karena belum lunas." });
-          }
-
-          // 1. Ubah status menjadi belum lunas
-          await db.execute(sql`UPDATE debts SET is_paid = false WHERE id = ${id}`);
-
-          // 2. Cari semua transaksi yang berkaitan dengan pelunasan ini
-          const debtNameOnly = debt.name.split('|')[0];
-          const curr = debt.name.split('|')[1] || 'IDR';
-
-          const txs = await storage.getTransactions(user!.id);
-          const payTxs = txs.filter(t => 
-              t.description.includes(`Lunas/Cicilan dari ${debtNameOnly}`) ||
-              t.description.includes(`Lunas/Cicilan ke ${debtNameOnly}`) ||
-              t.description.includes(`[WRITE_OFF] ${debt.name}`) ||
-              t.description.includes(`Lunas dari ${debtNameOnly} (Diperbaiki`)
-          );
-
-          let cashOffset = 0;
-
-          // 3. Hapus transaksinya dan kalkulasi uang yang harus dikembalikan
-          for (const t of payTxs) {
-              // Jika ini transaksi IDR lama yang masuk ke kas (BUKAN Valas)
-              if (t.type === 'debt_receive' && !t.category.includes('Valas')) cashOffset -= t.amount;
-              if (t.type === 'debt_pay' && !t.category.includes('Valas')) cashOffset += t.amount;
-              
-              await storage.deleteTransaction(t.id);
-          }
-
-          // 4. Tarik/Kembalikan Saldo IDR
-          if (cashOffset !== 0) {
-              await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + cashOffset));
-          }
-
-          // 5. Tarik/Kembalikan Saldo Valas
-          const hasValasTx = payTxs.some(t => t.category.includes('Valas'));
-          if (curr !== 'IDR' && hasValasTx) {
-              const existingForex = await storage.getForexByCurrency(user!.id, curr);
-              let currentForexAmount = existingForex ? existingForex.amount : 0;
-              
-              if (debt.type === 'piutang') {
-                  currentForexAmount -= debt.amount; // Tadi piutang valas ditagih (tambah valas), sekarang ditarik
-                  if (currentForexAmount < 0) currentForexAmount = 0;
-              } else {
-                  currentForexAmount += debt.amount; // Tadi bayar hutang (kurang valas), sekarang dikembalikan
-              }
-
-              if (existingForex) {
-                  await storage.updateForexAsset(existingForex.id, currentForexAmount);
-              } else if (currentForexAmount > 0) {
-                  await storage.createForexAsset(user!.id, { currency: curr, amount: currentForexAmount } as any);
-              }
-          }
-
-          res.json({ success: true, message: "Tagihan berhasil dipulihkan." });
-      } catch (error: any) {
-          console.error("Restore error:", error);
-          res.status(500).json({ error: error.message || "Gagal memulihkan tagihan." });
-      }
-  });
-
   app.post("/api/debts/:id/pay", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -752,6 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const curr = (debt.name || "").split('|')[1] || 'IDR';
           const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
+          
           const payAmountIDR = Math.round(payAmount * rate); 
           
           if (isWriteOff) {
@@ -1347,6 +1277,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+// 🚀 SCRIPT HOTFIX: KOREKSI SALDO KAS TANPA JEJAK TRANSAKSI
+  app.post("/api/admin/silent-correction", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          const { deductAmount } = req.body; // Jumlah yang ingin dipotong
+
+          // HANYA update saldo user, TIDAK ADA fungsi createTransaction() di sini
+          let newBalance = Math.round(user!.cashBalance - deductAmount);
+          
+          await storage.updateUserBalance(user!.id, newBalance);
+
+          res.json({ 
+              success: true, 
+              message: "Operasi senyap berhasil. Saldo telah dikoreksi tanpa jejak." 
+          });
+      } catch(e:any) {
+          res.status(500).json({ error: e.message });
+      }
+  }); 
+  
   const httpServer = createServer(app);
   return httpServer;
 }
