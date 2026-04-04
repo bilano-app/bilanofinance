@@ -98,6 +98,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }; 
   let lastRatesFetchTime = 0;
 
+  // Cek rate dunia
   const fetchLiveRates = async () => {
       try {
           const response = await fetch("https://open.er-api.com/v6/latest/USD");
@@ -436,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           newBalance -= Math.round(parsed.data.amount); 
       }
       
-      if (newBalance !== user!.cashBalance) {
+      if (newBalance !== Math.round(user!.cashBalance)) {
           await storage.updateUserBalance(user!.id, newBalance); 
       }
       res.json(tx); 
@@ -537,7 +538,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isIncome = t === 'income' || t === 'pemasukan' || t === 'tambah' || t === 'buy' || t === 'in' || t === 'dapat';
       
       const now = Date.now();
-      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) { 
+      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) { // Update rate tiap 10 menit
           await fetchLiveRates(); 
       }
       
@@ -564,7 +565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 DEBTS ROUTES 
+  // 🚀 DEBTS ROUTES (UPDATE TERAKHIR: ANTI-LEMOT, LIVE RATE, PEMBULATAN AMAN)
   // ====================================================================
   app.get("/api/debts", async (req, res) => { 
       const user = await getUser(req); 
@@ -579,14 +580,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (!isFromTransaction) {
               const now = Date.now();
-              if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) { 
+              if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) { // 10 menit
                   await fetchLiveRates(); 
               }
 
               const parts = (name || "").split('|');
               const curr = parts[1] || 'IDR';
               const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
-              const amountIDR = Math.round(amount * rate);
+              const amountIDR = Math.round(amount * rate); // PEMBULATAN
               
               let txType = '', txCat = '';
               if(type === 'hutang') { txType = 'debt_borrow'; txCat = 'Dapat Pinjaman'; } 
@@ -623,77 +624,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 FITUR BARU: PULIHKAN TAGIHAN (RESTORE / UNDO)
-  app.post("/api/debts/:id/restore", async (req, res) => {
-      try {
-          const user = await getUser(req);
-          const id = parseInt(req.params.id);
-
-          const debts = await storage.getDebts(user!.id);
-          const debt = debts.find(d => d.id === id);
-
-          if (!debt || !debt.isPaid) {
-              return res.status(400).json({ error: "Tagihan ini tidak dapat dipulihkan karena belum lunas." });
-          }
-
-          // 1. Ubah status menjadi belum lunas
-          await db.execute(sql`UPDATE debts SET is_paid = false WHERE id = ${id}`);
-
-          // 2. Cari semua transaksi yang berkaitan dengan pelunasan ini
-          const debtNameOnly = debt.name.split('|')[0];
-          const curr = debt.name.split('|')[1] || 'IDR';
-
-          const txs = await storage.getTransactions(user!.id);
-          const payTxs = txs.filter(t => 
-              t.description.includes(`Lunas/Cicilan dari ${debtNameOnly}`) ||
-              t.description.includes(`Lunas/Cicilan ke ${debtNameOnly}`) ||
-              t.description.includes(`[WRITE_OFF] ${debt.name}`) ||
-              t.description.includes(`Lunas dari ${debtNameOnly} (Diperbaiki`)
-          );
-
-          let cashOffset = 0;
-
-          // 3. Hapus transaksinya dan kalkulasi uang yang harus dikembalikan
-          for (const t of payTxs) {
-              // Jika ini transaksi IDR lama yang nyasar ke kas
-              if (t.type === 'debt_receive' && (t.category === 'Piutang Dibayar' || t.category.includes('Diperbaiki'))) cashOffset -= t.amount;
-              if (t.type === 'debt_pay' && t.category === 'Bayar Hutang') cashOffset += t.amount;
-              
-              await storage.deleteTransaction(t.id);
-          }
-
-          // 4. Tarik kembali Saldo IDR yang nyasar
-          if (cashOffset !== 0) {
-              await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + cashOffset));
-          }
-
-          // 5. Tarik kembali Saldo Valas (jika ini Valas dan sudah pakai sistem baru)
-          const hasValasTx = payTxs.some(t => t.category.includes('Valas'));
-          if (curr !== 'IDR' && hasValasTx) {
-              const existingForex = await storage.getForexByCurrency(user!.id, curr);
-              let currentForexAmount = existingForex ? existingForex.amount : 0;
-              
-              if (debt.type === 'piutang') {
-                  currentForexAmount -= debt.amount; // Tadi ditambah, sekarang tarik balik
-                  if (currentForexAmount < 0) currentForexAmount = 0;
-              } else {
-                  currentForexAmount += debt.amount; // Tadi dipotong, sekarang kembalikan
-              }
-
-              if (existingForex) {
-                  await storage.updateForexAsset(existingForex.id, currentForexAmount);
-              } else if (currentForexAmount > 0) {
-                  await storage.createForexAsset(user!.id, { currency: curr, amount: currentForexAmount } as any);
-              }
-          }
-
-          res.json({ success: true, message: "Tagihan berhasil dipulihkan." });
-      } catch (error: any) {
-          console.error("Restore error:", error);
-          res.status(500).json({ error: error.message || "Gagal memulihkan tagihan." });
-      }
-  });
-
   app.post("/api/debts/:id/pay", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -703,8 +633,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!id || isNaN(id)) return res.status(400).json({ error: "ID Tagihan tidak terbaca oleh server." });
 
           const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) { 
-              await fetchLiveRates(); 
+          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) { 
+              await fetchLiveRates(); // CEK KURS DUNIA SEBELUM MEMBAYAR
           }
 
           const debts = await storage.getDebts(user!.id);
@@ -718,7 +648,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const curr = (debt.name || "").split('|')[1] || 'IDR';
           const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
-          const payAmountIDR = Math.round(payAmount * rate); 
+          
+          const payAmountIDR = Math.round(payAmount * rate); // PEMBULATAN ANTI-CRASH
           
           if (isWriteOff) {
               const txType = debt.type === 'piutang' ? 'expense' : 'income';
@@ -733,6 +664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   date: new Date() 
               } as any);
           } else {
+              // PEMBAYARAN NORMAL
               if (curr === 'IDR') {
                   if (debt.type === 'piutang') { 
                       newBalance += payAmountIDR; 
@@ -743,6 +675,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                   await storage.updateUserBalance(user!.id, newBalance);
               } else {
+                  // BAYAR VALAS LANGSUNG KE DOMPET VALAS
                   const existingForex = await storage.getForexByCurrency(user!.id, curr);
                   let currentForexAmount = existingForex ? existingForex.amount : 0;
 
