@@ -98,7 +98,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }; 
   let lastRatesFetchTime = 0;
 
-  // Cek rate dunia
   const fetchLiveRates = async () => {
       try {
           const response = await fetch("https://open.er-api.com/v6/latest/USD");
@@ -437,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           newBalance -= Math.round(parsed.data.amount); 
       }
       
-      if (newBalance !== Math.round(user!.cashBalance)) {
+      if (newBalance !== user!.cashBalance) {
           await storage.updateUserBalance(user!.id, newBalance); 
       }
       res.json(tx); 
@@ -473,6 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // 🚀 PERBAIKAN FINAL: HAPUS TRANSAKSI YANG OTOMATIS MENARIK VALAS SILUMAN
   app.delete("/api/transactions/:id", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -489,8 +489,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
           else if (txToDelete.type === 'expense') newBalance += amt;
           else if (txToDelete.type === 'invest_buy') newBalance += amt; 
           else if (txToDelete.type === 'invest_sell') newBalance -= amt; 
-          else if (txToDelete.type === 'forex_buy') newBalance += amt;
-          else if (txToDelete.type === 'forex_sell') newBalance -= amt;
+          else if (txToDelete.type === 'forex_buy') {
+              newBalance += amt;
+              try {
+                  const desc = txToDelete.description || "";
+                  const match = desc.match(/Beli\s+([0-9.]+)\s+([A-Z]{3})/i);
+                  if (match) {
+                      const qty = parseFloat(match[1]);
+                      const curr = match[2].toUpperCase();
+                      const existingForex = await storage.getForexByCurrency(user!.id, curr);
+                      if (existingForex) {
+                          let newForex = existingForex.amount - qty;
+                          if (newForex < 0) newForex = 0;
+                          await storage.updateForexAsset(existingForex.id, newForex);
+                      }
+                  }
+              } catch(e) {}
+          }
+          else if (txToDelete.type === 'forex_sell') {
+              newBalance -= amt; // Tarik kembali Rupiah yang masuk
+              try {
+                  // Dan tarik kembali (tambahkan) saldo valas yang terlanjur terhapus
+                  const desc = txToDelete.description || "";
+                  const match = desc.match(/Jual\s+([0-9.]+)\s+([A-Z]{3})/i);
+                  if (match) {
+                      const qty = parseFloat(match[1]);
+                      const curr = match[2].toUpperCase();
+                      const existingForex = await storage.getForexByCurrency(user!.id, curr);
+                      if (existingForex) {
+                          await storage.updateForexAsset(existingForex.id, existingForex.amount + qty);
+                      } else {
+                          await storage.createForexAsset(user!.id, { currency: curr, amount: qty } as any);
+                      }
+                  }
+              } catch(e) {}
+          }
           else if (txToDelete.type === 'debt_borrow') newBalance -= amt;
           else if (txToDelete.type === 'debt_lend') newBalance += amt;
           else if (txToDelete.type === 'debt_receive') newBalance -= amt;
@@ -502,7 +535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (typeof storage.deleteTransaction === 'function') {
               await storage.deleteTransaction(txId);
           }
-          res.json({ success: true, message: "Transaksi berhasil dimusnahkan" });
+          res.json({ success: true, message: "Transaksi berhasil dimusnahkan dan dikembalikan" });
       } catch (error) {
           res.status(500).json({ error: "Terjadi kesalahan pada server saat menghapus" });
       }
@@ -538,7 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isIncome = t === 'income' || t === 'pemasukan' || t === 'tambah' || t === 'buy' || t === 'in' || t === 'dapat';
       
       const now = Date.now();
-      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) { // Update rate tiap 10 menit
+      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) { 
           await fetchLiveRates(); 
       }
       
@@ -565,7 +598,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 DEBTS ROUTES (UPDATE TERAKHIR: ANTI-LEMOT, LIVE RATE, PEMBULATAN AMAN)
+  // 🚀 DEBTS ROUTES 
   // ====================================================================
   app.get("/api/debts", async (req, res) => { 
       const user = await getUser(req); 
@@ -580,14 +613,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (!isFromTransaction) {
               const now = Date.now();
-              if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) { // 10 menit
+              if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) { 
                   await fetchLiveRates(); 
               }
 
               const parts = (name || "").split('|');
               const curr = parts[1] || 'IDR';
               const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
-              const amountIDR = Math.round(amount * rate); // PEMBULATAN
+              const amountIDR = Math.round(amount * rate); 
               
               let txType = '', txCat = '';
               if(type === 'hutang') { txType = 'debt_borrow'; txCat = 'Dapat Pinjaman'; } 
@@ -634,7 +667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const now = Date.now();
           if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) { 
-              await fetchLiveRates(); // CEK KURS DUNIA SEBELUM MEMBAYAR
+              await fetchLiveRates(); 
           }
 
           const debts = await storage.getDebts(user!.id);
@@ -649,7 +682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const curr = (debt.name || "").split('|')[1] || 'IDR';
           const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
           
-          const payAmountIDR = Math.round(payAmount * rate); // PEMBULATAN ANTI-CRASH
+          const payAmountIDR = Math.round(payAmount * rate); 
           
           if (isWriteOff) {
               const txType = debt.type === 'piutang' ? 'expense' : 'income';
@@ -664,7 +697,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   date: new Date() 
               } as any);
           } else {
-              // PEMBAYARAN NORMAL
               if (curr === 'IDR') {
                   if (debt.type === 'piutang') { 
                       newBalance += payAmountIDR; 
@@ -675,7 +707,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                   await storage.updateUserBalance(user!.id, newBalance);
               } else {
-                  // BAYAR VALAS LANGSUNG KE DOMPET VALAS
                   const existingForex = await storage.getForexByCurrency(user!.id, curr);
                   let currentForexAmount = existingForex ? existingForex.amount : 0;
 

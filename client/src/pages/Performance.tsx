@@ -610,4 +610,44 @@ export default function Performance() {
           <div className="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-slate-50 via-slate-50/95 to-slate-50/0 z-40 animate-in slide-in-from-bottom duration-500">
               <Card onClick={() => setPaywallModalOpen(true)} className="p-4 rounded-3xl bg-slate-900 shadow-[0_10px_40px_rgba(30,41,59,0.3)] border border-slate-800 flex items-center justify-between cursor-pointer group active:scale-[0.98] transition-all">
                   <div className="flex items-center gap-3.5">
-                      <div className="
+                      <div className="bg-amber-400 p-2.5 rounded-full"><Sparkles className="w-5 h-5 text-amber-950"/></div>
+                      <div>
+                          <p className="text-base font-black text-white">Buka Laporan Penuh</p>
+                          <p className="text-xs text-amber-200 font-medium">Lihat detail performa & cashflow.</p>
+                      </div>
+                  </div>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 group-hover:bg-white/20 transition-colors"><ChevronRight className="w-6 h-6 text-white"/></div>
+              </Card>
+          </div>
+      )}
+
+      {paywallModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+              <Card className="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-200">
+                  <button onClick={() => setPaywallModalOpen(false)} className="absolute top-4 right-4 p-1.5 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors z-10"><X className="w-5 h-5 text-slate-600"/></button>
+                  <div className="p-6">
+                      <div className="w-16 h-16 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_30px_rgba(251,191,36,0.3)]">
+                          <Crown className="w-8 h-8 text-amber-950" />
+                      </div>
+                      
+                      <h3 className="text-xl font-black text-slate-800 mb-1 text-center">BILANO PRO</h3>
+                      <p className="text-[11px] text-slate-500 mb-6 font-medium text-center">Akses semua fitur tanpa batas.</p>
+                      
+                      <div className="bg-slate-50 p-4 rounded-3xl text-left mb-6 space-y-3 shadow-inner">
+                          <div className="flex justify-between items-center"><p className="text-slate-500 text-xs font-medium">Batas Bulan Ini (Trial)</p><span className="text-rose-600 text-[10px] font-extrabold bg-rose-50 px-2 py-0.5 rounded-full">Habis</span></div>
+                          <div className="h-px bg-slate-100 w-full"></div>
+                          <p className="text-slate-600 text-xs font-medium mb-1">Berlangganan BILANO PRO (Tahun)</p>
+                          <div className="flex items-end gap-1.5"><span className="text-4xl font-black text-slate-800 tracking-tight">Rp99k</span><span className="text-slate-400 text-sm mb-1.5 font-medium">/ 1 Tahun</span></div>
+                          <p className="text-[10px] text-slate-400 leading-snug">Sesuai penawaran Price-Lock: Harga perpanjangan tahun depan tetap 99k selamanya.</p>
+                      </div>
+                      
+                      <Button onClick={handleLanjutBayar} disabled={isCharging} className="w-full h-14 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-base flex items-center justify-center gap-2 transition-transform active:scale-[0.98]">
+                          {isCharging ? <Loader2 className="animate-spin w-5 h-5"/> : "LANJUTKAN PEMBAYARAN"}
+                      </Button>
+                  </div>
+              </Card>
+          </div>
+      )}
+    </MobileLayout>
+  );
+}
