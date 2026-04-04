@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 import { 
   Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, 
   ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2, Lock, Crown, 
-  ShieldCheck, Sparkles, ChevronRight, X, CreditCard, Briefcase, TrendingUp 
+  ShieldCheck, Sparkles, ChevronRight, X, CreditCard, Briefcase, TrendingUp, Trash2 
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -24,6 +24,7 @@ export default function Performance() {
   const [paywallModalOpen, setPaywallModalOpen] = useState(false);
   const [iframeUrl, setIframeUrl] = useState("");
   const [isCharging, setIsCharging] = useState(false);
+  const [isDeletingTx, setIsDeletingTx] = useState(false);
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
@@ -40,6 +41,29 @@ export default function Performance() {
   };
 
   const handleCloseIframe = () => { setIframeUrl(""); toast({ title: "Mengecek Pembayaran...", description: "Status akun sedang diperbarui." }); setTimeout(() => window.location.reload(), 1500); };
+
+  // 🚀 FITUR BARU: HAPUS TRANSAKSI & NORMALISASI SALDO
+  const handleDeleteTransaction = async (id: number) => {
+      if (!confirm("Hapus transaksi ini? Saldo Kas Anda akan otomatis disesuaikan/dinormalkan kembali.")) return;
+      setIsDeletingTx(true);
+      toast({ title: "Menghapus...", description: "Menyesuaikan saldo kas Anda." });
+      try {
+          const res = await fetch(`/api/transactions/${id}`, {
+              method: "DELETE",
+              headers: { "x-user-email": currentUserEmail }
+          });
+          if (res.ok) {
+              toast({ title: "Terhapus!", description: "Transaksi hilang, saldo kas telah dinormalkan." });
+              setTimeout(() => window.location.reload(), 800); 
+          } else {
+              toast({ title: "Gagal menghapus", variant: "destructive" });
+          }
+      } catch (e) {
+          toast({ title: "Error server", variant: "destructive" });
+      } finally {
+          setIsDeletingTx(false);
+      }
+  };
 
   const { data: transactions, isLoading: isTxLoading } = useTransactions();
   const { data: target, isLoading: isTargetLoading } = useTarget();
@@ -168,7 +192,6 @@ export default function Performance() {
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
-  // 🚀 FILTER ARUS KAS: Abaikan Penyesuaian/Offset/WriteOff agar list Arus Kas Murni bersih
   const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income' && !t.description?.includes('[Offset') && !t.description?.includes('[WRITE_OFF]') && !t.description?.includes('[Catat Awal]') && !t.description?.includes('[Bayar Valas]') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Pemutihan Hutang');
   
   const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && !t.category?.toLowerCase().includes('invest') && !t.description?.includes('[Offset') && !t.description?.includes('[WRITE_OFF]') && !t.description?.includes('[Catat Awal]') && !t.description?.includes('[Bayar Valas]') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Penghapusan Piutang');
@@ -292,7 +315,6 @@ export default function Performance() {
                     {locked ? formatRp(125000000) : displayWealth}
                 </h2>
                 
-                {/* 🚀 TAMPILAN PIUTANG DAN HUTANG DIPISAH, TIDAK ADA MINUS ABSURD LAGI */}
                 <div className="flex flex-wrap gap-2 mt-4 text-[10px] font-bold">
                     <span className={`bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 ${locked ? 'blur-[4px] select-none' : ''}`}>Tunai: {formatRp(cashReal)}</span>
                     <span className={`bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 ${locked ? 'blur-[4px] select-none' : ''}`}>Aset: {formatRp(investmentReal + forexValue)}</span>
@@ -425,19 +447,31 @@ export default function Performance() {
                                     <button onClick={() => setExpandedDetail(null)} className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Tutup</button>
                                 </div>
                                 
-                                <div className="space-y-3 max-h-56 overflow-y-auto custom-scrollbar pr-1">
+                                <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1 pb-4">
                                     {detailList.length > 0 ? detailList.map((t, idx) => (
-                                        <div key={idx} className="bg-white p-4 rounded-[20px] border border-slate-100 shadow-sm flex justify-between items-center">
-                                            <div>
+                                        <div key={t.id || idx} className="bg-white p-4 rounded-[20px] border border-slate-100 shadow-sm flex justify-between items-center group transition-all">
+                                            <div className="flex-1 mr-2">
                                                 <p className="text-sm font-extrabold text-slate-800">{t.category}</p>
                                                 <p className="text-[11px] text-slate-500 line-clamp-1">{t.description || "Tanpa keterangan"}</p>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="text-right mr-3">
                                                 <p className={`text-sm font-extrabold ${t.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                     {t.type === 'income' ? '+' : '-'}{formatRp(t.amount)}
                                                 </p>
                                                 <p className="text-[10px] text-slate-400 font-medium">{new Date(t.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</p>
                                             </div>
+                                            
+                                            {/* TOMBOL HAPUS TRANSAKSI */}
+                                            {t.id && (
+                                                <button 
+                                                    onClick={() => handleDeleteTransaction(t.id)} 
+                                                    disabled={isDeletingTx}
+                                                    className="p-2.5 bg-rose-50 text-rose-500 rounded-[14px] hover:bg-rose-100 transition-colors shrink-0"
+                                                    title="Hapus Transaksi Ini"
+                                                >
+                                                    {isDeletingTx ? <Loader2 className="w-4 h-4 animate-spin"/> : <Trash2 className="w-4 h-4"/>}
+                                                </button>
+                                            )}
                                         </div>
                                     )) : (
                                         <p className="text-center text-xs text-slate-400 italic py-6 bg-white rounded-[20px] border border-dashed border-slate-200">Belum ada transaksi bulan ini.</p>
@@ -576,46 +610,4 @@ export default function Performance() {
           <div className="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-slate-50 via-slate-50/95 to-slate-50/0 z-40 animate-in slide-in-from-bottom duration-500">
               <Card onClick={() => setPaywallModalOpen(true)} className="p-4 rounded-3xl bg-slate-900 shadow-[0_10px_40px_rgba(30,41,59,0.3)] border border-slate-800 flex items-center justify-between cursor-pointer group active:scale-[0.98] transition-all">
                   <div className="flex items-center gap-3.5">
-                      <div className="bg-amber-400 p-2.5 rounded-full"><Sparkles className="w-5 h-5 text-amber-950"/></div>
-                      <div>
-                          <p className="text-base font-black text-white">Buka Laporan Penuh</p>
-                          <p className="text-xs text-amber-200 font-medium">Lihat detail performa & cashflow.</p>
-                      </div>
-                  </div>
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 group-hover:bg-white/20 transition-colors"><ChevronRight className="w-6 h-6 text-white"/></div>
-              </Card>
-          </div>
-      )}
-
-      {paywallModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-              <Card className="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-200">
-                  <button onClick={() => setPaywallModalOpen(false)} className="absolute top-4 right-4 p-1.5 bg-slate-100 hover:bg-rose-100 hover:text-rose-500 rounded-full transition-colors"><X className="w-5 h-5"/></button>
-                  
-                  <div className="p-6 pt-8 text-center relative">
-                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-50 rounded-full blur-3xl pointer-events-none"></div>
-                      
-                      <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-5 border border-indigo-100 shadow-sm"><Crown className="w-8 h-8"/></div>
-                      
-                      <h3 className="text-2xl font-black text-slate-800 mb-2 leading-tight tracking-tight">BILANO PRO</h3>
-                      <p className="text-sm text-slate-500 leading-relaxed mb-6 px-3">Gunakan analitik Performance & Grafik Kekayaan secara lengkap untuk memaksimalkan cuan Anda.</p>
-                      
-                      <div className="bg-slate-50 border border-slate-100 p-5 rounded-3xl text-left mb-6 space-y-3 shadow-inner">
-                          <div className="flex justify-between items-center"><p className="text-slate-500 text-xs font-medium">Batas Bulan Ini (Trial)</p><span className="text-rose-600 text-[10px] font-extrabold bg-rose-50 px-2 py-0.5 rounded-full">Habis</span></div>
-                          <div className="h-px bg-slate-100 w-full"></div>
-                          <p className="text-slate-600 text-xs font-medium mb-1">Berlangganan BILANO PRO (Tahun)</p>
-                          <div className="flex items-end gap-1.5"><span className="text-4xl font-black text-slate-800 tracking-tight">Rp99k</span><span className="text-slate-400 text-sm mb-1.5 font-medium">/ 1 Tahun</span></div>
-                          <p className="text-[10px] text-slate-400 leading-snug">Sesuai penawaran Price-Lock: Harga perpanjangan tahun depan tetap 99k selamanya.</p>
-                      </div>
-                      
-                      <Button onClick={handleLanjutBayar} disabled={isCharging} className="w-full h-14 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-base flex items-center justify-center gap-2 transition-transform active:scale-[0.98]">
-                          {isCharging ? <Loader2 className="animate-spin w-5 h-5"/> : <><ShieldCheck className="w-5 h-5"/> BAYAR Rp 99.000 (AMAN)</>}
-                      </Button>
-                  </div>
-              </Card>
-          </div>
-      )}
-
-    </MobileLayout>
-  );
-}
+                      <div className="
