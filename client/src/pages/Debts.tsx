@@ -23,9 +23,6 @@ interface DebtItem {
   isPaid: boolean;
 }
 
-// 🚀 FUNGSI NAPAS SERVER: Memberikan jeda agar Vercel tidak memblokir request
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 export default function Debts() {
   const [activeTab, setActiveTab] = useState<'hutang' | 'piutang'>('piutang'); 
 
@@ -110,46 +107,30 @@ export default function Debts() {
       if (isSubmitting) return;
       
       setIsSubmitting(true);
-      toast({ title: "Mencatat...", description: "Mohon tunggu, jangan tutup aplikasi." });
+      toast({ title: "Mencatat...", description: "Mohon tunggu sebentar." });
 
       try {
           const nameWithCurrency = `${name}|${currency}`;
-          const rate = currency === 'IDR' ? 1 : (activeRates[currency] || 1);
-          const idrNominal = nominal * rate;
-
           const resDebt = await fetch("/api/debts", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ type: activeTab, name: nameWithCurrency, amount: nominal, dueDate, description: desc, isFromTransaction: true })
+              body: JSON.stringify({ type: activeTab, name: nameWithCurrency, amount: nominal, dueDate, description: desc, isFromTransaction: false })
           });
-          if (!resDebt.ok) throw new Error(`Gagal simpan tagihan: Status ${resDebt.status}`);
           
-          await sleep(1000); // Tarik napas 1 detik
-
-          const resTx = await fetch("/api/transactions", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ 
-                  type: activeTab === 'piutang' ? 'expense' : 'income', 
-                  amount: idrNominal, 
-                  category: activeTab === 'piutang' ? 'Piutang' : 'Hutang', 
-                  description: `[Catat Awal] ${nameWithCurrency}`, 
-                  date: new Date().toISOString() 
-              })
-          });
-          if (!resTx.ok) throw new Error(`Gagal sinkronisasi kas: Status ${resTx.status}`);
+          if (!resDebt.ok) throw new Error("Gagal menyimpan data.");
 
           await fetchData();
           toast({ title: "Tersimpan", description: "Catatan berhasil ditambahkan." });
           setName(""); setAmount(""); setDueDate(""); setDesc(""); setCurrency("IDR");
           setIsFormOpen(false); 
       } catch (e: any) { 
-          alert(`SERVER ERROR: ${e.message}\nBeri tahu ini ke developer.`);
           toast({ title: "Terjadi Kendala", variant: "destructive" }); 
       } finally { 
           setIsSubmitting(false); 
       }
   };
 
+  // 🚀 SINGLE REQUEST API - SUPER CEPAT & AMAN DARI VERCEL LIMIT
   const handlePay = async () => {
       if (checkPaywall() || !selectedDebt) return;
       
@@ -158,65 +139,28 @@ export default function Debts() {
       if (nominal <= 0) { toast({title: "Nominal tidak valid", variant: "destructive"}); return; }
       
       setIsPaying(true);
-      toast({ title: "Memproses...", description: "Harap tunggu, sistem sedang menghubungi Vercel." });
+      toast({ title: "Memproses...", description: "Menyinkronkan data..." });
 
       try {
-          const isPiutang = selectedDebt.type === 'piutang';
-          const curr = selectedDebt.name.split('|')[1] || 'IDR';
-          const rate = curr === 'IDR' ? 1 : (activeRates[curr] || 1);
-          const idrNominal = nominal * rate;
-
-          const res1 = await fetch(`/api/debts/${selectedDebt.id}/pay`, { 
+          // Hanya 1 Request ke Server!
+          const res = await fetch(`/api/debts/${selectedDebt.id}/pay`, { 
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ amount: nominal }) 
+              body: JSON.stringify({ amount: nominal, isWriteOff: false }) 
           });
-          if (!res1.ok) throw new Error(`Gagal bayar: Status ${res1.status}`);
 
-          if (curr !== 'IDR') {
-              toast({ title: "Menyesuaikan Valas...", description: "Harap tunggu..." });
-              await sleep(1000); // Tarik napas 1 detik
-
-              const res2 = await fetch("/api/transactions", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ 
-                      type: isPiutang ? 'expense' : 'income', 
-                      amount: nominal, 
-                      category: 'Penyesuaian Sistem', 
-                      description: `[Offset Kas] ${selectedDebt.name}`, 
-                      date: new Date().toISOString() 
-                  })
-              });
-              if (!res2.ok) throw new Error(`Gagal Offset: Status ${res2.status}`);
-
-              toast({ title: "Mengamankan Pembukuan...", description: "Hampir selesai..." });
-              await sleep(1000); // Tarik napas 1 detik
-
-              const res3 = await fetch("/api/transactions", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({ 
-                      type: isPiutang ? 'income' : 'expense', 
-                      amount: idrNominal, 
-                      category: isPiutang ? 'Pembayaran Piutang' : 'Pembayaran Hutang', 
-                      description: `[Bayar Valas] ${selectedDebt.name}`, 
-                      date: new Date().toISOString() 
-                  })
-              });
-              if (!res3.ok) throw new Error(`Gagal rekap kas: Status ${res3.status}`);
-          }
+          if (!res.ok) throw new Error("Gagal");
           
           await fetchData(); 
           toast({ title: "Berhasil!", description: "Tagihan diperbarui." }); 
-          setPayAmount(""); 
-          setSelectedDebt(null);
-          setPayModalOpen(false); 
+          setPayAmount(""); setSelectedDebt(null); setPayModalOpen(false); 
       } catch (e: any) { 
-          alert(`SERVER ERROR: ${e.message}\nSistem Vercel Anda mungkin kelebihan beban.`);
           toast({ title: "Gagal memproses", variant: "destructive" }); 
       } finally { 
           setIsPaying(false); 
       }
   };
 
+  // 🚀 SINGLE REQUEST API - BEBAS BUG WRITE OFF
   const handleWriteOff = async (debtToProcess: DebtItem) => {
       if (checkPaywall() || !debtToProcess) return;
       
@@ -229,57 +173,23 @@ export default function Debts() {
       
       setSelectedDebt(debtToProcess); 
       setIsPaying(true);
-      toast({ title: "Menganulir Data...", description: "Mohon bersabar, menghubungi server." });
+      toast({ title: "Menganulir Data...", description: "Mohon bersabar..." });
 
       try {
-          const curr = debtToProcess.name.split('|')[1] || 'IDR';
-          const rate = curr === 'IDR' ? 1 : (activeRates[curr] || 1);
-          const idrNominal = debtToProcess.amount * rate;
-
-          const res1 = await fetch(`/api/debts/${debtToProcess.id}/pay`, { 
+          // Hanya 1 Request ke Server, sisanya server yang ngurus KAS-nya!
+          const res = await fetch(`/api/debts/${debtToProcess.id}/pay`, { 
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ amount: debtToProcess.amount }) 
+              body: JSON.stringify({ amount: debtToProcess.amount, isWriteOff: true }) 
           });
-          if (!res1.ok) throw new Error(`Gagal hapus tagihan: Status ${res1.status}`);
 
-          toast({ title: "Kalkulasi Kerugian...", description: "Harap tunggu 1-2 detik..." });
-          await sleep(1000); // Tarik napas 1 detik
-
-          const res2 = await fetch("/api/transactions", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ 
-                  type: isPiutang ? 'expense' : 'income', 
-                  amount: debtToProcess.amount, 
-                  category: 'Penyesuaian Sistem', 
-                  description: `[Offset Kas] Anulir ${debtToProcess.name}`, 
-                  date: new Date().toISOString() 
-              })
-          });
-          if (!res2.ok) throw new Error(`Gagal offset sistem: Status ${res2.status}`);
-
-          toast({ title: "Finishing Laporan...", description: "Hampir selesai..." });
-          await sleep(1000); // Tarik napas 1 detik
-
-          const res3 = await fetch("/api/transactions", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ 
-                  type: isPiutang ? 'expense' : 'income', 
-                  amount: idrNominal, 
-                  category: isPiutang ? 'Penghapusan Piutang' : 'Pemutihan Hutang', 
-                  description: `[WRITE_OFF] ${debtToProcess.name}`, 
-                  date: new Date().toISOString() 
-              })
-          });
-          if (!res3.ok) throw new Error(`Gagal lapor kerugian: Status ${res3.status}`);
+          if (!res.ok) throw new Error("Gagal");
           
           await fetchData(); 
           toast({ title: "Selesai!", description: "Tercatat di Laporan PDF Anda." });
       } catch (e: any) { 
-          alert(`SERVER ERROR: ${e.message}\nServer Vercel gagal merespons tepat waktu.`);
           toast({ title: "Gagal memproses", variant: "destructive" }); 
       } finally { 
-          setIsPaying(false); 
-          setSelectedDebt(null); 
+          setIsPaying(false); setSelectedDebt(null); 
       }
   };
 

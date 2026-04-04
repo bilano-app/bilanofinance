@@ -578,7 +578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 DEBTS ROUTES
+  // 🚀 DEBTS ROUTES (UPDATE 100% BEBAS BUG FREEZE / TABRAKAN)
   // ====================================================================
   app.get("/api/debts", async (req, res) => { 
       const user = await getUser(req); 
@@ -607,15 +607,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(d); 
   });
 
+  // 🚀 PERBAIKAN FATAL: SINGLE REQUEST API UNTUK BAYAR & WRITE-OFF
   app.post("/api/debts/:id/pay", async (req, res) => {
-      const user = await getUser(req);
-      const id = parseInt(req.params.id);
-      const { amount } = req.body; 
-      
-      const debts = await storage.getDebts(user!.id);
-      const debt = debts.find(d => d.id === id);
-      
-      if (debt && !debt.isPaid) {
+      try {
+          const user = await getUser(req);
+          const id = parseInt(req.params.id);
+          const { amount, isWriteOff } = req.body; 
+          
+          const debts = await storage.getDebts(user!.id);
+          const debt = debts.find(d => d.id === id);
+          
+          if (!debt || debt.isPaid) {
+              return res.status(400).json({ error: "Tagihan tidak valid atau sudah lunas." });
+          }
+
           const payAmount = (amount !== undefined && amount > 0) ? Math.min(amount, debt.amount) : debt.amount;
           let newBalance = user!.cashBalance;
           
@@ -623,16 +628,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
           const payAmountIDR = payAmount * rate;
           
-          if (debt.type === 'piutang') { 
-              newBalance += payAmountIDR; 
-              await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]}`, date: new Date() } as any); 
-          } else { 
-              newBalance -= payAmountIDR; 
-              await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
+          // 🚀 JIKA INI ADALAH WRITE-OFF (IKHLASKAN / PUTIHKAN)
+          if (isWriteOff) {
+              const txType = debt.type === 'piutang' ? 'expense' : 'income';
+              const txCat = debt.type === 'piutang' ? 'Penghapusan Piutang' : 'Pemutihan Hutang';
+              
+              await storage.createTransaction(user!.id, { 
+                  userId: user!.id, 
+                  type: txType, 
+                  amount: payAmountIDR, 
+                  category: txCat, 
+                  description: `[WRITE_OFF] ${debt.name}`, 
+                  date: new Date() 
+              } as any);
+              // Saldo KAS tidak diubah sama sekali!
+
+          // 🚀 LOGIKA BAYAR NORMAL
+          } else {
+              if (debt.type === 'piutang') { 
+                  newBalance += payAmountIDR; 
+                  await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]}`, date: new Date() } as any); 
+              } else { 
+                  newBalance -= payAmountIDR; 
+                  await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
+              }
+              // Update saldo kas karena ada uang fisik bergerak
+              await storage.updateUserBalance(user!.id, newBalance);
           }
           
-          await storage.updateUserBalance(user!.id, newBalance);
-          
+          // Urus sisa cicilan
           const remaining = debt.amount - payAmount;
           if (remaining > 0) {
               await storage.createDebt(user!.id, {
@@ -646,8 +670,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           await storage.markDebtPaid(id); 
+          res.json({ success: true });
+
+      } catch (error) {
+          console.error("Error pay debt:", error);
+          res.status(500).json({ error: "Gagal memproses tagihan." });
       }
-      res.json({ success: true });
   });
 
   app.delete("/api/debts/:id", async (req, res) => { 
