@@ -564,7 +564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 DEBTS ROUTES (MENGGUNAKAN LIVE RATE YANG AKURAT)
+  // 🚀 DEBTS ROUTES 
   // ====================================================================
   app.get("/api/debts", async (req, res) => { 
       const user = await getUser(req); 
@@ -578,7 +578,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const d = await storage.createDebt(user!.id, req.body as any); 
           
           if (!isFromTransaction) {
-              // 🚀 CEK KURS LIVE SEBELUM KALKULASI!
               const now = Date.now();
               if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) { 
                   await fetchLiveRates(); 
@@ -624,6 +623,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // 🚀 FITUR BARU: PULIHKAN TAGIHAN (RESTORE / UNDO)
+  app.post("/api/debts/:id/restore", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          const id = parseInt(req.params.id);
+
+          const debts = await storage.getDebts(user!.id);
+          const debt = debts.find(d => d.id === id);
+
+          if (!debt || !debt.isPaid) {
+              return res.status(400).json({ error: "Tagihan ini tidak dapat dipulihkan karena belum lunas." });
+          }
+
+          // 1. Ubah status menjadi belum lunas
+          await db.execute(sql`UPDATE debts SET is_paid = false WHERE id = ${id}`);
+
+          // 2. Cari semua transaksi yang berkaitan dengan pelunasan ini
+          const debtNameOnly = debt.name.split('|')[0];
+          const curr = debt.name.split('|')[1] || 'IDR';
+
+          const txs = await storage.getTransactions(user!.id);
+          const payTxs = txs.filter(t => 
+              t.description.includes(`Lunas/Cicilan dari ${debtNameOnly}`) ||
+              t.description.includes(`Lunas/Cicilan ke ${debtNameOnly}`) ||
+              t.description.includes(`[WRITE_OFF] ${debt.name}`) ||
+              t.description.includes(`Lunas dari ${debtNameOnly} (Diperbaiki`)
+          );
+
+          let cashOffset = 0;
+
+          // 3. Hapus transaksinya dan kalkulasi uang yang harus dikembalikan
+          for (const t of payTxs) {
+              // Jika ini transaksi IDR lama yang nyasar ke kas
+              if (t.type === 'debt_receive' && (t.category === 'Piutang Dibayar' || t.category.includes('Diperbaiki'))) cashOffset -= t.amount;
+              if (t.type === 'debt_pay' && t.category === 'Bayar Hutang') cashOffset += t.amount;
+              
+              await storage.deleteTransaction(t.id);
+          }
+
+          // 4. Tarik kembali Saldo IDR yang nyasar
+          if (cashOffset !== 0) {
+              await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + cashOffset));
+          }
+
+          // 5. Tarik kembali Saldo Valas (jika ini Valas dan sudah pakai sistem baru)
+          const hasValasTx = payTxs.some(t => t.category.includes('Valas'));
+          if (curr !== 'IDR' && hasValasTx) {
+              const existingForex = await storage.getForexByCurrency(user!.id, curr);
+              let currentForexAmount = existingForex ? existingForex.amount : 0;
+              
+              if (debt.type === 'piutang') {
+                  currentForexAmount -= debt.amount; // Tadi ditambah, sekarang tarik balik
+                  if (currentForexAmount < 0) currentForexAmount = 0;
+              } else {
+                  currentForexAmount += debt.amount; // Tadi dipotong, sekarang kembalikan
+              }
+
+              if (existingForex) {
+                  await storage.updateForexAsset(existingForex.id, currentForexAmount);
+              } else if (currentForexAmount > 0) {
+                  await storage.createForexAsset(user!.id, { currency: curr, amount: currentForexAmount } as any);
+              }
+          }
+
+          res.json({ success: true, message: "Tagihan berhasil dipulihkan." });
+      } catch (error: any) {
+          console.error("Restore error:", error);
+          res.status(500).json({ error: error.message || "Gagal memulihkan tagihan." });
+      }
+  });
+
   app.post("/api/debts/:id/pay", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -632,7 +702,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (!id || isNaN(id)) return res.status(400).json({ error: "ID Tagihan tidak terbaca oleh server." });
 
-          // 🚀 AMBIL KURS LIVE TERBARU SEBELUM MENGHITUNG VALAS!
           const now = Date.now();
           if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 3600000) { 
               await fetchLiveRates(); 
@@ -674,7 +743,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                   await storage.updateUserBalance(user!.id, newBalance);
               } else {
-                  // BAYAR ATAU TERIMA VALAS AKAN MASUK KE DOMPET VALAS
                   const existingForex = await storage.getForexByCurrency(user!.id, curr);
                   let currentForexAmount = existingForex ? existingForex.amount : 0;
 
@@ -1242,53 +1310,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.json({ success: true });
       } catch (error) {
           res.status(500).json({ error: "Gagal mengirimkan email balasan." });
-      }
-  });
-
-  // ====================================================================
-  // 🚀 SCRIPT HOTFIX: PENYEMBUH DATA VALAS YANG NYASAR
-  // ====================================================================
-  app.post("/api/admin/fix-valas-nyasar", async (req, res) => {
-      try {
-          const user = await getUser(req);
-          const { debtName, valasAmount, currency } = req.body;
-
-          // 1. Cari transaksi yang nyasar di database
-          const txs = await storage.getTransactions(user!.id);
-          const badTx = txs.find(t => 
-              t.type === 'debt_receive' && 
-              t.category === 'Piutang Dibayar' &&
-              t.description.toLowerCase().includes(debtName.toLowerCase())
-          );
-
-          if (!badTx) return res.status(404).json({ error: "Transaksi dengan nama tersebut tidak ditemukan." });
-
-          // 2. Tarik balik Saldo Rupiah yang salah masuk (TIDAK dicatat sebagai pengeluaran)
-          let newBalance = Math.round(user!.cashBalance - badTx.amount);
-          await storage.updateUserBalance(user!.id, newBalance);
-
-          // 3. Masukkan jumlah aslinya ke Dompet Valas
-          const existingForex = await storage.getForexByCurrency(user!.id, currency);
-          let currentForexAmount = existingForex ? existingForex.amount : 0;
-          currentForexAmount += valasAmount;
-
-          if (existingForex) {
-              await storage.updateForexAsset(existingForex.id, currentForexAmount);
-          } else {
-              await storage.createForexAsset(user!.id, { currency, amount: currentForexAmount } as any);
-          }
-
-          // 4. Ubah riwayat agar laporannya bersih (pakai raw SQL agar aman)
-          await db.execute(sql`
-              UPDATE transactions
-              SET category = 'Piutang Valas Dibayar',
-                  description = ${`Lunas dari ${debtName} (Diperbaiki otomatis ke Dompet ${currency})`}
-              WHERE id = ${badTx.id}
-          `);
-
-          res.json({ success: true, message: "Bedah data sukses! Saldo IDR ditarik & Valas masuk." });
-      } catch(e:any) {
-          res.status(500).json({ error: e.message });
       }
   });
 
