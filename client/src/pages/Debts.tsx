@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { 
     Users, ArrowUpRight, ArrowDownLeft, Calendar, 
-    CheckCircle2, Plus, HandCoins, AlertCircle, X, Loader2, ArrowRight, HeartCrack
+    CheckCircle2, Plus, HandCoins, AlertCircle, X, Loader2, ArrowRight, HeartCrack, RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
@@ -207,6 +207,34 @@ export default function Debts() {
       }
   };
 
+  // 🚀 FITUR BARU: TOMBOL PULIHKAN (RESTORE)
+  const handleRestore = async (debtId: number) => {
+      if (checkPaywall()) return;
+      if (!confirm("Pulihkan tagihan ini? Saldo dan transaksi akan dikembalikan seperti semula.")) return;
+
+      setIsPaying(true); 
+      toast({ title: "Memulihkan...", description: "Menarik uang kembali..." });
+
+      try {
+          const res = await fetch(`/api/debts/${debtId}/restore`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail }
+          });
+
+          if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || `Server Error ${res.status}`);
+          }
+
+          await fetchData();
+          toast({ title: "Berhasil!", description: "Tagihan berhasil dipulihkan." });
+      } catch (e: any) {
+          toast({ title: "Gagal Memulihkan", description: e.message, variant: "destructive" });
+      } finally {
+          setIsPaying(false);
+      }
+  };
+
   const filteredItems = items.filter((i: DebtItem) => i.type === activeTab);
   
   const totalAmountIDR = filteredItems.filter((i: DebtItem) => !i.isPaid).reduce((acc: number, item: DebtItem) => {
@@ -381,7 +409,7 @@ export default function Debts() {
                             </div>
                             
                             <div className="flex flex-col gap-2">
-                                {!item.isPaid && (
+                                {!item.isPaid ? (
                                     <>
                                         <button onClick={() => { setSelectedDebt(item); setPayModalOpen(true); }} disabled={isPaying} className={`p-3 rounded-[16px] text-white shadow-md active:scale-95 transition-transform flex flex-col items-center justify-center ${activeTab === 'hutang' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
                                             {isProcessing ? <Loader2 className="w-5 h-5 mb-0.5 animate-spin"/> : <CheckCircle2 className="w-5 h-5 mb-0.5"/>}
@@ -393,6 +421,10 @@ export default function Debts() {
                                             <span className="text-[8px] font-extrabold uppercase tracking-wider">{activeTab === 'piutang' ? 'Ikhlas' : 'Putihkan'}</span>
                                         </button>
                                     </>
+                                ) : (
+                                    <button onClick={() => handleRestore(item.id)} disabled={isPaying} className="px-3 py-2 bg-slate-200 text-slate-600 hover:bg-indigo-100 hover:text-indigo-600 rounded-[12px] text-[10px] font-extrabold uppercase tracking-widest flex items-center justify-center gap-1 transition-colors">
+                                        <RefreshCw className="w-3.5 h-3.5"/> Pulihkan
+                                    </button>
                                 )}
                             </div>
                         </div>
