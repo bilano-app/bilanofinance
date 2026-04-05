@@ -39,7 +39,7 @@ try {
 }
 
 // ====================================================================
-// 🚀 AI INTEGRATION
+// 🚀 AI INTEGRATION (CHATBOT)
 // ====================================================================
 async function askSmartAI(systemPrompt: string, userMessage: string) {
     try {
@@ -1377,15 +1377,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
           if (!apiKey) return res.status(500).json({ error: "Sistem AI belum dikonfigurasi di server." });
 
-          // 🚀 FIX: ATURAN SINTAKS GOOGLE REST API YANG SANGAT KETAT
+          // 🚀 FIX: MENGGUNAKAN STANDAR "SNAKE_CASE" UNTUK REST API GOOGLE
           const imageParts = images.map((base64Str: string) => {
               const base64Data = base64Str.replace(/^data:image\/\w+;base64,/, "");
               const mimeTypeMatch = base64Str.match(/^data:(.*?);base64,/);
               const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : "image/jpeg";
               
               return {
-                  inlineData: {
-                      mimeType: mimeType,
+                  inline_data: {
+                      mime_type: mimeType,
                       data: base64Data
                   }
               };
@@ -1428,7 +1428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   ],
                   generationConfig: {
                       temperature: 0.1, 
-                      responseMimeType: "application/json", 
+                      response_mime_type: "application/json", 
                   }
               })
           });
@@ -1452,7 +1452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.json({ success: true, data: parsedResult });
 
       } catch (error: any) {
-          console.error("Vision AI Error:", error);
+          console.error("AI Scan Error:", error);
           res.status(500).json({ error: error.message || "Gagal memproses gambar." });
       }
   });
