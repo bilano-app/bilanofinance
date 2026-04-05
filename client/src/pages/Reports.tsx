@@ -215,8 +215,8 @@ export default function Reports() {
   };
 
   const generatePDF = async (targetMonth?: number, targetYear?: number) => {
-    const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-    const isTrialExpired = userEmail ? localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true" : false;
+    const userEmailFromStorage = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+    const isTrialExpired = userEmailFromStorage ? localStorage.getItem(`bilano_trial_expired_${userEmailFromStorage}`) === "true" : false;
 
     if (!userProfile?.isPro && isTrialExpired) {
         window.dispatchEvent(new Event('trigger-paywall-lock')); 
@@ -718,12 +718,16 @@ export default function Reports() {
             return { label: d.label, value: override ? parseFloat(override) : d.asset };
         });
         
+        const pdfUserEmail = data.user?.email || localStorage.getItem("bilano_email") || "";
+        
         const chartCash = paddedData.map(d => {
             const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, '');
             let override = localStorage.getItem(`override_cash_${cleanLabel}`);
             
-            // SUNTIKAN PERMANEN KHUSUS BULAN MARET 2026 AGAR MUNCUL DI APK SELAMANYA
-            if (cleanLabel === 'Mar26' || cleanLabel === 'Mar2026') {
+            // SUNTIKAN PERMANEN HANYA UNTUK AKUN BOS ADRIEN
+            const isAdrienAccount = pdfUserEmail === 'adrienfandra14@gmail.com' || pdfUserEmail === 'adrienahza@gmail.com' || pdfUserEmail === 'bilanotech@gmail.com';
+            
+            if (isAdrienAccount && (cleanLabel === 'Mar26' || cleanLabel === 'Mar2026')) {
                 override = '15100000'; // 15.1M
             }
             
