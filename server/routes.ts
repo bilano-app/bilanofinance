@@ -1362,7 +1362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 AI VISION: SMART RECEIPT SCANNER (MULTI-IMAGE)
+  // 🚀 AI VISION: SMART RECEIPT SCANNER DENGAN TRACER ERROR MURNI
   // ====================================================================
   app.post("/api/vision/scan", async (req, res) => {
       try {
@@ -1377,7 +1377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
           if (!apiKey) return res.status(500).json({ error: "Sistem AI belum dikonfigurasi di server." });
 
-          // 🚀 FIX: MENGGUNAKAN STANDAR "SNAKE_CASE" UNTUK REST API GOOGLE
+          // 🚀 FIX: ATURAN SINTAKS GOOGLE REST API MURNI (SNAKE_CASE)
           const imageParts = images.map((base64Str: string) => {
               const base64Data = base64Str.replace(/^data:image\/\w+;base64,/, "");
               const mimeTypeMatch = base64Str.match(/^data:(.*?);base64,/);
@@ -1433,9 +1433,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               })
           });
 
+          // 🚀 INI ADALAH PELACAK ERROR MURNI (TRACER) YANG AKAN MEMBERITAHU KITA LETAK SALAHNYA
           if (!response.ok) {
               const errText = await response.text();
-              throw new Error(`Koneksi ditolak server pusat AI. (Batas request/format salah)`);
+              console.error("\n============================================");
+              console.error("🚨 SISTEM AI MENOLAK REQUEST. INI ALASANNYA:");
+              console.error(errText);
+              console.error("============================================\n");
+              
+              // Lemparkan detail aslinya ke frontend (layar HP Anda) agar Anda bisa melihatnya!
+              throw new Error(`Detail Error AI: ${errText.substring(0, 200)}...`);
           }
 
           const aiData = await response.json();
