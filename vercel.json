@@ -23,6 +23,15 @@
       "destination": "/index.html"
     }
   ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=1, stale-while-revalidate" },
+        { "key": "Connection", "value": "keep-alive" }
+      ]
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/reminder",

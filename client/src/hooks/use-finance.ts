@@ -14,45 +14,80 @@ const getHeaders = () => {
 
 const CACHE_TIME = 1000 * 60; // 1 Menit
 
+// ============================================================================
+// 🚀 JURUS SUPER REQUEST (ANTI VERCEL COLD START)
+// ============================================================================
+let globalFetchPromise: Promise<any> | null = null;
+let globalFetchTime = 0;
+
+const fetchSuperData = async () => {
+    const now = Date.now();
+    // Jika ada request dalam 3 detik terakhir, gabung ke request yang sama!
+    // Ini mencegah 6 request menembak server Vercel secara brutal saat awal buka aplikasi.
+    if (globalFetchPromise && (now - globalFetchTime < 3000)) {
+        return globalFetchPromise;
+    }
+
+    globalFetchTime = now;
+    globalFetchPromise = (async () => {
+        const headers = getHeaders();
+        
+        // 1 Tembakan cerdas memborong 90% data aplikasi dari server!
+        const [resReports, resTarget] = await Promise.all([
+            fetch("/api/reports/data", { headers }),
+            fetch("/api/target", { headers })
+        ]);
+
+        if (!resReports.ok) throw new Error("Gagal membangunkan server Vercel.");
+
+        const reportsData = await resReports.json();
+        const targetData = resTarget.ok ? await resTarget.json() : null;
+
+        return {
+            user: reportsData.user,
+            transactions: reportsData.transactions,
+            investments: reportsData.investments,
+            debts: reportsData.debts,
+            forexAssets: reportsData.forexAssets,
+            subscriptions: reportsData.subscriptions,
+            target: targetData
+        };
+    })();
+
+    return globalFetchPromise;
+};
+
 // 1. USER
 export function useUser() {
   const email = localStorage.getItem("bilano_email") || "";
   return useQuery({
-    queryKey: ["/api/user", email],
+    queryKey: ["user", email],
     queryFn: async () => {
-      const res = await fetch("/api/user", {
-        headers: { "x-user-email": email }
-      });
-      if (!res.ok) throw new Error("Gagal mengambil data user");
-      
-      const data = await res.json();
+      const allData = await fetchSuperData();
+      const data = allData.user;
 
-      // =======================================================
       // VIP KETAT & ANTI BOCOR: HANYA EMAIL INI YANG JADI PRO
-      // =======================================================
       const vipEmails = [
           "adrienfandra14@gmail.com",
-          "bilanotech@gmail.com" // Tambahkan email VVIP lain di sini
+          "bilanotech@gmail.com" 
       ]; 
       
       if (data) {
-          // Jika dia VIP (atau jika dari database dia memang bayar)
           if (vipEmails.includes(email) || data.isPro) {
               data.isPro = true;
               data.plan = "pro";
-              localStorage.setItem("bilano_pro", "true"); // Stempel PRO
-          } 
-          // Jika BUKAN VIP (Akun Biasa)
-          else {
+              localStorage.setItem("bilano_pro", "true"); 
+          } else {
               data.isPro = false;
               data.plan = "free";
-              localStorage.removeItem("bilano_pro"); // CABUT STEMPEL PRO DARI BROWSER!
+              localStorage.removeItem("bilano_pro"); 
           }
       }
-      // =======================================================
-
       return data;
-    }
+    },
+    // Auto-Retry cerdas jika server Vercel butuh waktu pemanasan
+    retry: 3,
+    retryDelay: 1500,
   });
 }
 
@@ -61,10 +96,12 @@ export function useTransactions() {
   return useQuery<Transaction[]>({
     queryKey: ["transactions"],
     queryFn: async () => {
-      const res = await fetch("/api/transactions", { headers: getHeaders() });
-      return res.json();
+      const allData = await fetchSuperData();
+      return allData.transactions;
     },
     staleTime: CACHE_TIME,
+    retry: 3,
+    retryDelay: 1500,
   });
 }
 
@@ -92,10 +129,11 @@ export function useInvestments() {
   return useQuery<Investment[]>({
     queryKey: ["investments"],
     queryFn: async () => {
-      const res = await fetch("/api/investments", { headers: getHeaders() });
-      return res.json();
+      const allData = await fetchSuperData();
+      return allData.investments;
     },
     staleTime: CACHE_TIME,
+    retry: 3,
   });
 }
 
@@ -142,11 +180,11 @@ export function useTarget() {
   return useQuery<Target | null>({
     queryKey: ["target"],
     queryFn: async () => {
-      const res = await fetch("/api/target", { headers: getHeaders() });
-      const data = await res.json();
-      return data || null; 
+      const allData = await fetchSuperData();
+      return allData.target;
     },
     staleTime: CACHE_TIME,
+    retry: 3,
   });
 }
 
@@ -178,6 +216,7 @@ export function useCategories() {
       return res.json();
     },
     staleTime: Infinity,
+    retry: 3,
   });
 }
 
@@ -185,10 +224,11 @@ export function useForexAssets() {
     return useQuery<ForexAsset[]>({
         queryKey: ["forex"],
         queryFn: async () => {
-            const res = await fetch("/api/forex", { headers: getHeaders() });
-            return res.json();
+            const allData = await fetchSuperData();
+            return allData.forexAssets;
         },
         staleTime: CACHE_TIME,
+        retry: 3,
     });
 }
 
@@ -196,10 +236,11 @@ export function useDebts() {
     return useQuery<Debt[]>({
         queryKey: ["debts"],
         queryFn: async () => {
-            const res = await fetch("/api/debts", { headers: getHeaders() });
-            return res.json();
+            const allData = await fetchSuperData();
+            return allData.debts;
         },
         staleTime: CACHE_TIME,
+        retry: 3,
     });
 }
 
@@ -207,22 +248,23 @@ export function useSubscriptions() {
     return useQuery<Subscription[]>({
         queryKey: ["subscriptions"],
         queryFn: async () => {
-            const res = await fetch("/api/subscriptions", { headers: getHeaders() });
-            return res.json();
+            const allData = await fetchSuperData();
+            return allData.subscriptions;
         },
         staleTime: CACHE_TIME,
+        retry: 3,
     });
 }
 
-// --- BARU: HOOK UNTUK LAPORAN ---
+// --- HOOK UNTUK LAPORAN ---
 export function useReportsData() {
     return useQuery({
         queryKey: ["reports"],
         queryFn: async () => {
-            const res = await fetch("/api/reports/data", { headers: getHeaders() });
-            if (!res.ok) throw new Error("Gagal ambil data laporan");
-            return res.json();
+            const allData = await fetchSuperData();
+            return allData;
         },
         staleTime: CACHE_TIME,
+        retry: 3,
     });
 }
