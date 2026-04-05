@@ -1362,12 +1362,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 VISION AI: SMART RECEIPT SCANNER (MULTI-IMAGE)
+  // 🚀 AI VISION: SMART RECEIPT SCANNER (MULTI-IMAGE)
   // ====================================================================
   app.post("/api/vision/scan", async (req, res) => {
       try {
           const user = await getUser(req);
-          if (!user) return res.status(401).json({ error: "Unauthorized" });
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
           const { images } = req.body; 
           if (!images || !Array.isArray(images) || images.length === 0) {
@@ -1375,9 +1375,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
-          if (!apiKey) return res.status(500).json({ error: "API Key AI belum disetting." });
+          if (!apiKey) return res.status(500).json({ error: "Sistem AI belum dikonfigurasi di server." });
 
-          // Format gambar untuk AI API
+          // 🚀 FIX: ATURAN SINTAKS GOOGLE REST API YANG SANGAT KETAT
           const imageParts = images.map((base64Str: string) => {
               const base64Data = base64Str.replace(/^data:image\/\w+;base64,/, "");
               const mimeTypeMatch = base64Str.match(/^data:(.*?);base64,/);
@@ -1392,7 +1392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           const systemPrompt = `
-          Kamu adalah BILANO Vision AI, seorang akuntan jenius.
+          Kamu adalah Asisten Finansial BILANO yang cerdas.
           Tugasmu adalah membaca struk belanja/transfer dari gambar yang diberikan.
           
           PERATURAN MUTLAK:
@@ -1427,26 +1427,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       }
                   ],
                   generationConfig: {
-                      temperature: 0.1, // Suhu rendah agar akurat
-                      responseMimeType: "application/json", // Format yang benar untuk REST API Google
+                      temperature: 0.1, 
+                      responseMimeType: "application/json", 
                   }
               })
           });
 
           if (!response.ok) {
               const errText = await response.text();
-              throw new Error(`Sistem AI Error: ${errText.substring(0, 100)}`);
+              throw new Error(`Koneksi ditolak server pusat AI. (Batas request/format salah)`);
           }
 
           const aiData = await response.json();
           const resultText = aiData.candidates[0].content.parts[0].text;
           
-          // Parse JSON dari AI
           let parsedResult;
           try {
               parsedResult = JSON.parse(resultText);
           } catch (e) {
-              // Fallback pembersihan jika AI masih nakal kasih markdown
               const cleanedText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
               parsedResult = JSON.parse(cleanedText);
           }

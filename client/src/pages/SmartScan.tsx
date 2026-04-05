@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input, Card } from "@/components/UIComponents";
 import { 
     Mic, ImagePlus, Check, X, 
-    Globe, AlertTriangle, RefreshCw, Loader2, HandCoins, Wallet, Sparkles
+    Globe, AlertTriangle, RefreshCw, Loader2, HandCoins, Wallet
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
@@ -15,7 +15,7 @@ export default function SmartScan() {
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState("");
     const [isScanning, setIsScanning] = useState(false);
-    const [scanStatus, setScanStatus] = useState("Sistem AI Sedang Membaca...");
+    const [scanStatus, setScanStatus] = useState("Menyiapkan Sistem...");
     
     const [imagePreviews, setImagePreviews] = useState<string[]>([]);
     const [liveRates, setLiveRates] = useState<Record<string, number>>({});
@@ -193,7 +193,6 @@ export default function SmartScan() {
     };
     const stopListening = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
 
-    // 🚀 FITUR BARU: AUTO COMPRESS & BACA GAMBAR KE AI
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (isLocked) { window.dispatchEvent(new Event('trigger-paywall-lock')); return; }
 
@@ -201,7 +200,7 @@ export default function SmartScan() {
         if (files.length === 0) return;
 
         setIsScanning(true);
-        setScanStatus(`Memproses ${files.length} gambar...`);
+        setScanStatus("Menyiapkan dokumen...");
 
         try {
             const base64Images: string[] = [];
@@ -210,15 +209,15 @@ export default function SmartScan() {
             for (const file of files) {
                 previews.push(URL.createObjectURL(file));
                 
-                // Mencegah Limit Payload Server dengan mengecilkan ukuran foto secara langsung
+                // 🚀 SUPER COMPRESSION: 800px dan Kualitas 50% untuk mencegah Error 500 (Express Limit 100kb)
                 const compressedBase64 = await new Promise<string>((resolve) => {
                     const img = new Image();
                     img.onload = () => {
                         const canvas = document.createElement("canvas");
                         let width = img.width;
                         let height = img.height;
-                        const MAX_WIDTH = 1200;
-                        const MAX_HEIGHT = 1200;
+                        const MAX_WIDTH = 800;
+                        const MAX_HEIGHT = 800;
 
                         if (width > height) {
                             if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
@@ -230,8 +229,7 @@ export default function SmartScan() {
                         canvas.height = height;
                         const ctx = canvas.getContext("2d");
                         ctx?.drawImage(img, 0, 0, width, height);
-                        // Kualitas 60% agar ukurannya super ringan (kisaran 100-200kb saja)
-                        resolve(canvas.toDataURL("image/jpeg", 0.6));
+                        resolve(canvas.toDataURL("image/jpeg", 0.5));
                     };
                     img.src = URL.createObjectURL(file);
                 });
@@ -240,23 +238,22 @@ export default function SmartScan() {
             }
 
             setImagePreviews(previews);
-            setScanStatus("Sistem AI sedang meneliti struk...");
+            setScanStatus("Sistem sedang memproses struk Anda...");
 
-            // Mengirim gambar yang sudah ringan ke backend Vercel
             const response = await fetch("/api/vision/scan", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", ...getAuthHeaders() },
                 body: JSON.stringify({ images: base64Images })
             });
 
+            const resData = await response.json().catch(() => ({}));
+
             if (!response.ok) {
-                throw new Error("Server AI Sedang Sibuk.");
+                throw new Error(resData.error || "Gagal menghubungi Server. Gambar mungkin masih terlalu besar.");
             }
 
-            const resData = await response.json();
             const aiData = resData.data; 
 
-            // Mengisi otomatis Form berdasarkan hasil AI
             setDetectedType('expense'); 
             setPaymentMode('cash');
             
@@ -272,14 +269,14 @@ export default function SmartScan() {
 
             setAmount(aiData.totalAmount ? formatNum(aiData.totalAmount.toString()) : "");
             setCategory(aiData.category || "Belanja");
-            setDesc(aiData.description || `Scan otomatis dari ${files.length} struk`);
+            setDesc(aiData.description || `Hasil pindai otomatis.`);
 
             toast({ title: "Scan Berhasil", description: "Data otomatis terisi." });
             setShowResultForm(true);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast({ title: "Scan Gagal", description: "Coba gunakan foto yang lebih jelas.", variant: "destructive" });
+            toast({ title: "Scan Gagal", description: error.message, variant: "destructive" });
         } finally {
             setIsScanning(false);
             if (fileInputRef.current) fileInputRef.current.value = ""; 
@@ -481,18 +478,17 @@ export default function SmartScan() {
                                 <div className="h-px bg-slate-200 w-12"></div>
                             </div>
                             <button onClick={() => fileInputRef.current?.click()} className="w-full py-6 bg-white border-2 border-dashed border-indigo-200 rounded-3xl flex flex-col items-center justify-center gap-3 hover:bg-indigo-50/30 active:scale-[0.98] transition-all group relative overflow-hidden">
-                                <div className="absolute top-2 right-4 flex items-center gap-1 opacity-50"><Sparkles className="w-4 h-4 text-indigo-400"/><span className="text-[10px] font-bold text-indigo-400">Smart Scan AI</span></div>
                                 <div className="bg-indigo-50 text-indigo-600 p-4 rounded-full group-hover:scale-110 transition-transform shadow-sm"><ImagePlus className="w-6 h-6"/></div>
                                 <div>
-                                    <span className="font-bold text-slate-700 block text-sm mb-0.5">Scan Bukti / Struk (Bisa Banyak)</span>
-                                    <span className="text-[10px] text-slate-400">Otomatis jumlahkan & tebak valas</span>
+                                    <span className="font-bold text-slate-700 block text-sm mb-0.5">Scan Bukti / Struk</span>
+                                    <span className="text-[10px] text-slate-400">Otomatis baca nominal & valas</span>
                                 </div>
                             </button>
                         </div>
 
                         {isScanning && (
                             <div className="fixed inset-0 z-[60] bg-slate-900/90 flex flex-col items-center justify-center text-white backdrop-blur-md p-6 text-center">
-                                <Sparkles className="w-12 h-12 text-indigo-400 animate-pulse mb-4"/>
+                                <Loader2 className="w-12 h-12 text-indigo-400 animate-spin mb-4"/>
                                 <p className="font-bold text-xl mb-1">{scanStatus}</p>
                                 <p className="text-xs text-slate-400 mb-6">Membaca karakter dan merekap total angka...</p>
                                 
