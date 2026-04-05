@@ -39,14 +39,14 @@ try {
 }
 
 // ====================================================================
-// 🚀 AI GEMINI INTEGRATION
+// 🚀 AI INTEGRATION
 // ====================================================================
 async function askSmartAI(systemPrompt: string, userMessage: string) {
     try {
         const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
         
         if (!apiKey || apiKey.includes("KUNCI_SUDAH_DIAMANKAN")) {
-            return "⚠️ API Key Gemini belum terpasang dengan benar di .env atau Vercel.";
+            return "⚠️ API Key AI belum terpasang dengan benar di .env atau Vercel.";
         }
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -60,12 +60,12 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
 
         if (!response.ok) {
             const errData = await response.text();
-            return `⚠️ Koneksi ditolak Google. Alasan: ${errData.substring(0, 150)}...`; 
+            return `⚠️ Koneksi ditolak server pusat AI. Alasan: ${errData.substring(0, 150)}...`; 
         }
 
         const data = await response.json();
         if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-             return "⚠️ Pesan ditahan oleh filter keamanan Google. Coba tanyakan dengan bahasa lain.";
+             return "⚠️ Pesan ditahan oleh filter keamanan. Coba tanyakan dengan bahasa lain.";
         }
         
         return data.candidates[0].content.parts[0].text;
@@ -438,7 +438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           newBalance -= Math.round(parsed.data.amount); 
       }
       
-      if (newBalance !== user!.cashBalance) {
+      if (newBalance !== Math.round(user!.cashBalance)) {
           await storage.updateUserBalance(user!.id, newBalance); 
       }
       res.json(tx); 
@@ -1361,32 +1361,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-// ====================================================================
-  // 🚀 GEMINI VISION AI: SMART RECEIPT SCANNER (MULTI-IMAGE)
+  // ====================================================================
+  // 🚀 VISION AI: SMART RECEIPT SCANNER (MULTI-IMAGE)
   // ====================================================================
   app.post("/api/vision/scan", async (req, res) => {
       try {
           const user = await getUser(req);
           if (!user) return res.status(401).json({ error: "Unauthorized" });
 
-          const { images } = req.body; // Array of base64 strings
+          const { images } = req.body; 
           if (!images || !Array.isArray(images) || images.length === 0) {
               return res.status(400).json({ error: "Tidak ada gambar yang diunggah." });
           }
 
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
-          if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum disetting." });
+          if (!apiKey) return res.status(500).json({ error: "API Key AI belum disetting." });
 
-          // Format gambar untuk Gemini API
+          // Format gambar untuk AI API
           const imageParts = images.map((base64Str: string) => {
-              // Hapus prefix data:image/...;base64,
               const base64Data = base64Str.replace(/^data:image\/\w+;base64,/, "");
-              // Deteksi mime type dasar
-              const mimeType = base64Str.substring(5, base64Str.indexOf(";"));
+              const mimeTypeMatch = base64Str.match(/^data:(.*?);base64,/);
+              const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : "image/jpeg";
               
               return {
-                  inline_data: {
-                      mime_type: mimeType || "image/jpeg",
+                  inlineData: {
+                      mimeType: mimeType,
                       data: base64Data
                   }
               };
@@ -1429,25 +1428,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   ],
                   generationConfig: {
                       temperature: 0.1, // Suhu rendah agar akurat
-                      response_mime_type: "application/json", // Paksa output JSON
+                      responseMimeType: "application/json", // Format yang benar untuk REST API Google
                   }
               })
           });
 
           if (!response.ok) {
               const errText = await response.text();
-              throw new Error(`Gemini API Error: ${errText}`);
+              throw new Error(`Sistem AI Error: ${errText.substring(0, 100)}`);
           }
 
-          const geminiData = await response.json();
-          const resultText = geminiData.candidates[0].content.parts[0].text;
+          const aiData = await response.json();
+          const resultText = aiData.candidates[0].content.parts[0].text;
           
-          // Parse JSON dari Gemini
+          // Parse JSON dari AI
           let parsedResult;
           try {
               parsedResult = JSON.parse(resultText);
           } catch (e) {
-              // Fallback pembersihan jika Gemini masih nakal kasih markdown
+              // Fallback pembersihan jika AI masih nakal kasih markdown
               const cleanedText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
               parsedResult = JSON.parse(cleanedText);
           }

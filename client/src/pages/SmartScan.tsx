@@ -15,7 +15,7 @@ export default function SmartScan() {
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState("");
     const [isScanning, setIsScanning] = useState(false);
-    const [scanStatus, setScanStatus] = useState("Menyiapkan AI...");
+    const [scanStatus, setScanStatus] = useState("Sistem AI Sedang Membaca...");
     
     const [imagePreviews, setImagePreviews] = useState<string[]>([]);
     const [liveRates, setLiveRates] = useState<Record<string, number>>({});
@@ -100,7 +100,6 @@ export default function SmartScan() {
 
     const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
 
-    // LAMA: Logika Mic
     const processTextLogic = (text: string) => {
         const lower = text.toLowerCase();
         
@@ -194,7 +193,7 @@ export default function SmartScan() {
     };
     const stopListening = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
 
-    // 🚀 NEW: LOGIKA GEMINI VISION AI UNTUK MULTI-IMAGE
+    // 🚀 FITUR BARU: AUTO COMPRESS & BACA GAMBAR KE AI
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (isLocked) { window.dispatchEvent(new Event('trigger-paywall-lock')); return; }
 
@@ -208,21 +207,42 @@ export default function SmartScan() {
             const base64Images: string[] = [];
             const previews: string[] = [];
 
-            // Konversi semua file ke base64
             for (const file of files) {
                 previews.push(URL.createObjectURL(file));
-                const reader = new FileReader();
-                const base64Promise = new Promise<string>((resolve) => {
-                    reader.onloadend = () => resolve(reader.result as string);
+                
+                // Mencegah Limit Payload Server dengan mengecilkan ukuran foto secara langsung
+                const compressedBase64 = await new Promise<string>((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement("canvas");
+                        let width = img.width;
+                        let height = img.height;
+                        const MAX_WIDTH = 1200;
+                        const MAX_HEIGHT = 1200;
+
+                        if (width > height) {
+                            if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                        } else {
+                            if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext("2d");
+                        ctx?.drawImage(img, 0, 0, width, height);
+                        // Kualitas 60% agar ukurannya super ringan (kisaran 100-200kb saja)
+                        resolve(canvas.toDataURL("image/jpeg", 0.6));
+                    };
+                    img.src = URL.createObjectURL(file);
                 });
-                reader.readAsDataURL(file);
-                base64Images.push(await base64Promise);
+
+                base64Images.push(compressedBase64);
             }
 
             setImagePreviews(previews);
-            setScanStatus("Gemini AI sedang membaca...");
+            setScanStatus("Sistem AI sedang meneliti struk...");
 
-            // Kirim ke server
+            // Mengirim gambar yang sudah ringan ke backend Vercel
             const response = await fetch("/api/vision/scan", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", ...getAuthHeaders() },
@@ -230,14 +250,14 @@ export default function SmartScan() {
             });
 
             if (!response.ok) {
-                throw new Error("Gagal menghubungi AI.");
+                throw new Error("Server AI Sedang Sibuk.");
             }
 
             const resData = await response.json();
-            const aiData = resData.data; // JSON hasil ekstraksi
+            const aiData = resData.data; 
 
-            // Autofill Form
-            setDetectedType('expense'); // Struk biasanya pengeluaran
+            // Mengisi otomatis Form berdasarkan hasil AI
+            setDetectedType('expense'); 
             setPaymentMode('cash');
             
             const currCode = (aiData.currency || "IDR").toUpperCase();
@@ -252,17 +272,17 @@ export default function SmartScan() {
 
             setAmount(aiData.totalAmount ? formatNum(aiData.totalAmount.toString()) : "");
             setCategory(aiData.category || "Belanja");
-            setDesc(aiData.description || `Scan dari ${files.length} struk`);
+            setDesc(aiData.description || `Scan otomatis dari ${files.length} struk`);
 
-            toast({ title: "Keajaiban Gemini!", description: "Data berhasil diekstrak." });
+            toast({ title: "Scan Berhasil", description: "Data otomatis terisi." });
             setShowResultForm(true);
 
         } catch (error) {
             console.error(error);
-            toast({ title: "AI Gagal", description: "Gambar terlalu buram atau server sibuk.", variant: "destructive" });
+            toast({ title: "Scan Gagal", description: "Coba gunakan foto yang lebih jelas.", variant: "destructive" });
         } finally {
             setIsScanning(false);
-            if (fileInputRef.current) fileInputRef.current.value = ""; // Reset input
+            if (fileInputRef.current) fileInputRef.current.value = ""; 
         }
     };
 
@@ -436,7 +456,6 @@ export default function SmartScan() {
                     </div>
                 )}
 
-                {/* 🚀 Atribut multiple di sini agar bisa pilih banyak gambar */}
                 <input type="file" multiple ref={fileInputRef} accept="image/*" className="hidden" onChange={handleFileChange}/>
 
                 {!showResultForm && (
@@ -462,7 +481,7 @@ export default function SmartScan() {
                                 <div className="h-px bg-slate-200 w-12"></div>
                             </div>
                             <button onClick={() => fileInputRef.current?.click()} className="w-full py-6 bg-white border-2 border-dashed border-indigo-200 rounded-3xl flex flex-col items-center justify-center gap-3 hover:bg-indigo-50/30 active:scale-[0.98] transition-all group relative overflow-hidden">
-                                <div className="absolute top-2 right-4 flex items-center gap-1 opacity-50"><Sparkles className="w-4 h-4 text-amber-500"/><span className="text-[10px] font-bold text-amber-600">Powered by Gemini AI</span></div>
+                                <div className="absolute top-2 right-4 flex items-center gap-1 opacity-50"><Sparkles className="w-4 h-4 text-indigo-400"/><span className="text-[10px] font-bold text-indigo-400">Smart Scan AI</span></div>
                                 <div className="bg-indigo-50 text-indigo-600 p-4 rounded-full group-hover:scale-110 transition-transform shadow-sm"><ImagePlus className="w-6 h-6"/></div>
                                 <div>
                                     <span className="font-bold text-slate-700 block text-sm mb-0.5">Scan Bukti / Struk (Bisa Banyak)</span>
@@ -473,9 +492,9 @@ export default function SmartScan() {
 
                         {isScanning && (
                             <div className="fixed inset-0 z-[60] bg-slate-900/90 flex flex-col items-center justify-center text-white backdrop-blur-md p-6 text-center">
-                                <Sparkles className="w-12 h-12 text-amber-400 animate-pulse mb-4"/>
+                                <Sparkles className="w-12 h-12 text-indigo-400 animate-pulse mb-4"/>
                                 <p className="font-bold text-xl mb-1">{scanStatus}</p>
-                                <p className="text-xs text-slate-400 mb-6">Gemini sedang bekerja membaca struk Anda...</p>
+                                <p className="text-xs text-slate-400 mb-6">Membaca karakter dan merekap total angka...</p>
                                 
                                 <div className="flex gap-2 overflow-x-auto max-w-full pb-4">
                                     {imagePreviews.map((src, i) => (
