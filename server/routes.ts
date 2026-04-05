@@ -1361,6 +1361,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+// ====================================================================
+  // 🚀 GEMINI VISION AI: SMART RECEIPT SCANNER (MULTI-IMAGE)
+  // ====================================================================
+  app.post("/api/vision/scan", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+          const { images } = req.body; // Array of base64 strings
+          if (!images || !Array.isArray(images) || images.length === 0) {
+              return res.status(400).json({ error: "Tidak ada gambar yang diunggah." });
+          }
+
+          const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
+          if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum disetting." });
+
+          // Format gambar untuk Gemini API
+          const imageParts = images.map((base64Str: string) => {
+              // Hapus prefix data:image/...;base64,
+              const base64Data = base64Str.replace(/^data:image\/\w+;base64,/, "");
+              // Deteksi mime type dasar
+              const mimeType = base64Str.substring(5, base64Str.indexOf(";"));
+              
+              return {
+                  inline_data: {
+                      mime_type: mimeType || "image/jpeg",
+                      data: base64Data
+                  }
+              };
+          });
+
+          const systemPrompt = `
+          Kamu adalah BILANO Vision AI, seorang akuntan jenius.
+          Tugasmu adalah membaca struk belanja/transfer dari gambar yang diberikan.
+          
+          PERATURAN MUTLAK:
+          1. Cari "TOTAL" atau "GRAND TOTAL" atau jumlah akhir yang harus dibayar. (Abaikan subtotal, diskon, atau uang kembalian).
+          2. Deteksi MATA UANG. Jika ada simbol $, USD, RM, dll, catat kode ISO-nya (USD, MYR, SGD, EUR, dll). Jika Rp atau tidak ada keterangan, asumsikan "IDR".
+          3. Tentukan KATEGORI pengeluaran berdasarkan nama toko/item (contoh: Makan/Minum, Transport, Belanja, Tagihan Bulanan, Lainnya).
+          4. Buat RINGKASAN pendek dari mana struk ini berasal.
+
+          JIKA ADA LEBIH DARI SATU GAMBAR:
+          Jumlahkan total semuanya (asumsikan mata uangnya sama untuk semua gambar yang diupload bersamaan).
+          
+          OUTPUT WAJIB DALAM FORMAT JSON SEPERTI INI (TANPA MARKDOWN, HANYA JSON MURNI):
+          {
+            "totalAmount": 150000,
+            "currency": "IDR",
+            "category": "Makan/Minum",
+            "description": "Makan di Resto A (Struk 1: 50.000, Struk 2: 100.000)"
+          }
+          `;
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                  contents: [
+                      {
+                          role: "user",
+                          parts: [
+                              { text: systemPrompt },
+                              ...imageParts
+                          ]
+                      }
+                  ],
+                  generationConfig: {
+                      temperature: 0.1, // Suhu rendah agar akurat
+                      response_mime_type: "application/json", // Paksa output JSON
+                  }
+              })
+          });
+
+          if (!response.ok) {
+              const errText = await response.text();
+              throw new Error(`Gemini API Error: ${errText}`);
+          }
+
+          const geminiData = await response.json();
+          const resultText = geminiData.candidates[0].content.parts[0].text;
+          
+          // Parse JSON dari Gemini
+          let parsedResult;
+          try {
+              parsedResult = JSON.parse(resultText);
+          } catch (e) {
+              // Fallback pembersihan jika Gemini masih nakal kasih markdown
+              const cleanedText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
+              parsedResult = JSON.parse(cleanedText);
+          }
+
+          res.json({ success: true, data: parsedResult });
+
+      } catch (error: any) {
+          console.error("Vision AI Error:", error);
+          res.status(500).json({ error: error.message || "Gagal memproses gambar." });
+      }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

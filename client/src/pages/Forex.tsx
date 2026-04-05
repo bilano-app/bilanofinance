@@ -80,6 +80,16 @@ export default function Forex() {
   };
   const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
 
+  // 🚀 FITUR BARU: Tarik data User untuk mengecek saldo Kas Rupiah
+  const { data: user } = useQuery({
+      queryKey: ['userProfile', currentUserEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/user`, { headers: { "x-user-email": currentUserEmail } });
+          return res.json();
+      },
+      enabled: !!currentUserEmail
+  });
+
   const { data: rates = {}, isLoading: isRatesLoading, refetch: refetchRates } = useQuery({
       queryKey: ['forexRates', currentUserEmail],
       queryFn: async () => {
@@ -188,7 +198,6 @@ export default function Forex() {
       }
   };
 
-  // 🚀 FIX: MENGHAPUS PERINTAH GANDA (DOBEL TRANSAKSI) SAAT PERTUKARAN VALAS
   const handleExchange = async () => {
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));
@@ -198,6 +207,29 @@ export default function Forex() {
       const qty = parseNum(amountExchange);
       const rate = parseNum(rateExchange);
       if (!qty || !rate) { toast({ title: "Error", description: "Isi jumlah dan kurs.", variant: "destructive" }); return; }
+
+      // 🚀 FITUR BARU: SMART WARNING SEBELUM TRANSAKSI (Mencegah Saldo Berantakan)
+      if (exchangeMode === 'buy') {
+          const totalCost = qty * rate;
+          if ((user?.cashBalance || 0) < totalCost) {
+              toast({ 
+                  title: "⚠️ Saldo Rupiah Tidak Cukup", 
+                  description: `Butuh Rp ${totalCost.toLocaleString('id-ID')} tapi Kas Tunai Anda hanya Rp ${(user?.cashBalance || 0).toLocaleString('id-ID')}.`, 
+                  variant: "destructive" 
+              });
+              return; // Tahan transaksi agar tidak masuk ke server
+          }
+      } else {
+          const existingAsset = assets.find((a: any) => a.currency === selectedCurr.code);
+          if (!existingAsset || existingAsset.amount < qty) {
+              toast({ 
+                  title: "⚠️ Saldo Valas Tidak Cukup", 
+                  description: `Anda hanya memiliki ${existingAsset?.amount || 0} ${selectedCurr.code}. Tidak cukup untuk dijual.`, 
+                  variant: "destructive" 
+              });
+              return; // Tahan transaksi agar tidak masuk ke server
+          }
+      }
 
       setIsSubmitting(true);
       try {
@@ -212,16 +244,16 @@ export default function Forex() {
               })
           });
           
-          if (!resForex.ok) { toast({ title: "Gagal", description: "Cek saldo valas Anda.", variant: "destructive" }); return; }
+          if (!resForex.ok) { 
+              toast({ title: "Gagal", description: "Transaksi gagal diproses oleh server.", variant: "destructive" }); 
+              return; 
+          }
 
-          // KODE PENYEBAB DOBEL TELAH DIHAPUS DI SINI. 
-          // Server sudah otomatis mencatat "forex_buy" / "forex_sell" di backend tanpa butuh request kedua.
-
-          toast({ title: "Sukses", description: "Transaksi pertukaran berhasil diproses." });
+          toast({ title: "Sukses", description: "Transaksi pertukaran valas berhasil." });
           setAmountExchange(""); setRateExchange(""); 
           fetchData(); 
       } catch (e) { 
-          toast({ title: "Error", variant: "destructive" }); 
+          toast({ title: "Error", description: "Gangguan koneksi.", variant: "destructive" }); 
       } finally {
           setIsSubmitting(false);
       }
@@ -241,6 +273,19 @@ export default function Forex() {
           return;
       }
 
+      // 🚀 FITUR BARU: SMART WARNING SEBELUM PENGELUARAN VALAS
+      if (mutationMode === 'out' && paymentMode === 'cash') {
+          const existingAsset = assets.find((a: any) => a.currency === selectedCurr.code);
+          if (!existingAsset || existingAsset.amount < qty) {
+              toast({ 
+                  title: "⚠️ Saldo Valas Tidak Cukup", 
+                  description: `Anda hanya memiliki ${existingAsset?.amount || 0} ${selectedCurr.code}. Tidak cukup untuk dikeluarkan.`, 
+                  variant: "destructive" 
+              });
+              return; // Tahan transaksi
+          }
+      }
+
       const note = noteMutation.trim() || (mutationMode === 'in' ? "Pemasukan Valas" : "Pengeluaran Valas");
       setIsSubmitting(true);
 
@@ -257,12 +302,11 @@ export default function Forex() {
               });
 
               if (res.ok) {
-                  const data = await res.json();
                   toast({ title: "Tercatat!", description: `Saldo Valas Tunai Diperbarui.` });
                   setAmountMutation(""); setNoteMutation(""); setDebtName(""); setDueDate("");
                   fetchData();
               } else {
-                  toast({ title: "Gagal", description: "Gagal menyimpan atau saldo Rupiah kurang.", variant: "destructive" });
+                  toast({ title: "Gagal", description: "Gagal memproses transaksi.", variant: "destructive" });
               }
           } else {
               const rate = getSafeRate(selectedCurr.code);

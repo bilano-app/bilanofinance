@@ -3,11 +3,10 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input, Card } from "@/components/UIComponents";
 import { 
     Mic, ImagePlus, Check, X, 
-    Globe, AlertTriangle, RefreshCw, Loader2, HandCoins, Wallet
+    Globe, AlertTriangle, RefreshCw, Loader2, HandCoins, Wallet, Sparkles
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
-import Tesseract from 'tesseract.js';
 
 export default function SmartScan() {
     const { toast } = useToast();
@@ -16,8 +15,9 @@ export default function SmartScan() {
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState("");
     const [isScanning, setIsScanning] = useState(false);
-    const [scanProgress, setScanProgress] = useState(0); 
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [scanStatus, setScanStatus] = useState("Menyiapkan AI...");
+    
+    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
     const [liveRates, setLiveRates] = useState<Record<string, number>>({});
     
     const [targetData, setTargetData] = useState<any>(null);
@@ -50,7 +50,6 @@ export default function SmartScan() {
     
     const getAuthHeaders = () => ({ "x-user-email": currentUserEmail });
 
-    // 🚀 SMART FORMATTER (TITIK UNTUK RIBUAN, KOMA UNTUK DESIMAL)
     const formatNum = (val: string) => {
         if (!val) return "";
         let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
@@ -59,47 +58,6 @@ export default function SmartScan() {
         return parts.slice(0, 2).join(",");
     };
     const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
-
-    useEffect(() => {
-        const checkSharedImage = async () => {
-            try {
-                const cache = await caches.open('bilano-shared-image');
-                const response = await cache.match('/shared-image');
-                
-                if (response) {
-                    if (isLocked) {
-                        window.dispatchEvent(new Event('trigger-paywall-lock'));
-                        return;
-                    }
-
-                    const blob = await response.blob();
-                    const file = new File([blob], "shared-receipt.jpg", { type: blob.type });
-                    
-                    await cache.delete('/shared-image');
-
-                    setImagePreview(URL.createObjectURL(file));
-                    setIsScanning(true);
-                    setScanProgress(10);
-                    
-                    const result = await Tesseract.recognize(file, 'eng', { 
-                        logger: m => { if (m.status === 'recognizing text') setScanProgress(Math.floor(m.progress * 100)); }
-                    });
-                    
-                    setScanProgress(100);
-                    setTimeout(() => { 
-                        processTextLogic(result.data.text); 
-                        setIsScanning(false); 
-                        toast({ title: "Berhasil", description: "Struk dari menu Share berhasil dibaca!" }); 
-                    }, 500);
-                }
-            } catch (e) {
-                console.error("Gagal membaca gambar dari share target", e);
-                setIsScanning(false);
-            }
-        };
-        
-        checkSharedImage();
-    }, [isLocked]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -142,6 +100,7 @@ export default function SmartScan() {
 
     const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
 
+    // LAMA: Logika Mic
     const processTextLogic = (text: string) => {
         const lower = text.toLowerCase();
         
@@ -207,11 +166,9 @@ export default function SmartScan() {
         setDetectedType(newType);
         setIsForex(newIsForex);
         setCurrency(newCurrency);
-        
-        // 🚀 Terapkan Formatter disini
         setAmount(newAmount > 0 ? formatNum(newAmount.toString().replace(".", ",")) : ""); 
         setCategory(newCategory);
-        setDesc(isScanning ? "Hasil Scan Struk/Transfer" : transcript || text);
+        setDesc(transcript || text);
         if (newIsForex && liveRates[newCurrency]) setRate(formatNum(Math.floor(liveRates[newCurrency]).toString()));
 
         setShowResultForm(true);
@@ -237,19 +194,75 @@ export default function SmartScan() {
     };
     const stopListening = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
 
+    // 🚀 NEW: LOGIKA GEMINI VISION AI UNTUK MULTI-IMAGE
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (isLocked) { window.dispatchEvent(new Event('trigger-paywall-lock')); return; }
 
-        const file = e.target.files?.[0];
-        if (file) {
-            setImagePreview(URL.createObjectURL(file));
-            setIsScanning(true);
-            setScanProgress(10);
-            try {
-                const result = await Tesseract.recognize(file, 'eng', { logger: m => { if (m.status === 'recognizing text') setScanProgress(Math.floor(m.progress * 100)); }});
-                setScanProgress(100);
-                setTimeout(() => { processTextLogic(result.data.text); setIsScanning(false); toast({ title: "Selesai", description: "Data dibaca." }); }, 500);
-            } catch (err) { setIsScanning(false); setShowResultForm(true); }
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        setIsScanning(true);
+        setScanStatus(`Memproses ${files.length} gambar...`);
+
+        try {
+            const base64Images: string[] = [];
+            const previews: string[] = [];
+
+            // Konversi semua file ke base64
+            for (const file of files) {
+                previews.push(URL.createObjectURL(file));
+                const reader = new FileReader();
+                const base64Promise = new Promise<string>((resolve) => {
+                    reader.onloadend = () => resolve(reader.result as string);
+                });
+                reader.readAsDataURL(file);
+                base64Images.push(await base64Promise);
+            }
+
+            setImagePreviews(previews);
+            setScanStatus("Gemini AI sedang membaca...");
+
+            // Kirim ke server
+            const response = await fetch("/api/vision/scan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                body: JSON.stringify({ images: base64Images })
+            });
+
+            if (!response.ok) {
+                throw new Error("Gagal menghubungi AI.");
+            }
+
+            const resData = await response.json();
+            const aiData = resData.data; // JSON hasil ekstraksi
+
+            // Autofill Form
+            setDetectedType('expense'); // Struk biasanya pengeluaran
+            setPaymentMode('cash');
+            
+            const currCode = (aiData.currency || "IDR").toUpperCase();
+            if (currCode !== "IDR") {
+                setIsForex(true);
+                setCurrency(currCode);
+                if (liveRates[currCode]) setRate(formatNum(Math.floor(liveRates[currCode]).toString()));
+            } else {
+                setIsForex(false);
+                setCurrency("IDR");
+            }
+
+            setAmount(aiData.totalAmount ? formatNum(aiData.totalAmount.toString()) : "");
+            setCategory(aiData.category || "Belanja");
+            setDesc(aiData.description || `Scan dari ${files.length} struk`);
+
+            toast({ title: "Keajaiban Gemini!", description: "Data berhasil diekstrak." });
+            setShowResultForm(true);
+
+        } catch (error) {
+            console.error(error);
+            toast({ title: "AI Gagal", description: "Gambar terlalu buram atau server sibuk.", variant: "destructive" });
+        } finally {
+            setIsScanning(false);
+            if (fileInputRef.current) fileInputRef.current.value = ""; // Reset input
         }
     };
 
@@ -423,7 +436,8 @@ export default function SmartScan() {
                     </div>
                 )}
 
-                <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={handleFileChange}/>
+                {/* 🚀 Atribut multiple di sini agar bisa pilih banyak gambar */}
+                <input type="file" multiple ref={fileInputRef} accept="image/*" className="hidden" onChange={handleFileChange}/>
 
                 {!showResultForm && (
                     <div className="space-y-8 animate-in fade-in">
@@ -447,20 +461,27 @@ export default function SmartScan() {
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ATAU</span>
                                 <div className="h-px bg-slate-200 w-12"></div>
                             </div>
-                            <button onClick={() => fileInputRef.current?.click()} className="w-full py-6 bg-white border-2 border-dashed border-indigo-200 rounded-3xl flex flex-col items-center justify-center gap-3 hover:bg-indigo-50/30 active:scale-[0.98] transition-all group">
+                            <button onClick={() => fileInputRef.current?.click()} className="w-full py-6 bg-white border-2 border-dashed border-indigo-200 rounded-3xl flex flex-col items-center justify-center gap-3 hover:bg-indigo-50/30 active:scale-[0.98] transition-all group relative overflow-hidden">
+                                <div className="absolute top-2 right-4 flex items-center gap-1 opacity-50"><Sparkles className="w-4 h-4 text-amber-500"/><span className="text-[10px] font-bold text-amber-600">Powered by Gemini AI</span></div>
                                 <div className="bg-indigo-50 text-indigo-600 p-4 rounded-full group-hover:scale-110 transition-transform shadow-sm"><ImagePlus className="w-6 h-6"/></div>
                                 <div>
-                                    <span className="font-bold text-slate-700 block text-sm mb-0.5">Scan Bukti / Struk</span>
-                                    <span className="text-[10px] text-slate-400">Otomatis baca nominal & valas</span>
+                                    <span className="font-bold text-slate-700 block text-sm mb-0.5">Scan Bukti / Struk (Bisa Banyak)</span>
+                                    <span className="text-[10px] text-slate-400">Otomatis jumlahkan & tebak valas</span>
                                 </div>
                             </button>
                         </div>
 
                         {isScanning && (
                             <div className="fixed inset-0 z-[60] bg-slate-900/90 flex flex-col items-center justify-center text-white backdrop-blur-md p-6 text-center">
-                                <div className="w-full max-w-[200px] h-2 bg-slate-700 rounded-full overflow-hidden mb-4"><div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${scanProgress}%` }}></div></div>
-                                <p className="font-bold text-xl mb-1">{scanProgress < 100 ? "Membaca..." : "Menyaring Data..."}</p>
-                                {imagePreview && <img src={imagePreview} className="w-32 h-32 object-cover rounded-xl border-2 border-white/20 mt-4 mx-auto"/>}
+                                <Sparkles className="w-12 h-12 text-amber-400 animate-pulse mb-4"/>
+                                <p className="font-bold text-xl mb-1">{scanStatus}</p>
+                                <p className="text-xs text-slate-400 mb-6">Gemini sedang bekerja membaca struk Anda...</p>
+                                
+                                <div className="flex gap-2 overflow-x-auto max-w-full pb-4">
+                                    {imagePreviews.map((src, i) => (
+                                        <img key={i} src={src} className="w-20 h-20 object-cover rounded-xl border-2 border-white/20 flex-shrink-0 opacity-50 animate-pulse" />
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -477,7 +498,7 @@ export default function SmartScan() {
                                     ))}
                                 </div>
                             </div>
-                            <button onClick={() => setShowResultForm(false)} className="bg-slate-100 p-2 rounded-full h-fit hover:bg-rose-100 hover:text-rose-500"><X className="w-5 h-5"/></button>
+                            <button onClick={() => {setShowResultForm(false); setImagePreviews([]);}} className="bg-slate-100 p-2 rounded-full h-fit hover:bg-rose-100 hover:text-rose-500"><X className="w-5 h-5"/></button>
                         </div>
 
                         <div className="space-y-4">
@@ -507,12 +528,10 @@ export default function SmartScan() {
                                             {Object.keys(liveRates).length > 0 ? Object.keys(liveRates).map(c => <option key={c} value={c}>{c}</option>) : <option>USD</option>}
                                         </select>
                                     </div>
-                                    {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
                                     <div><label className="text-[10px] font-bold text-blue-700 uppercase mb-1 block">Kurs Live</label><Input type="text" inputMode="decimal" value={rate} onChange={e => setRate(formatNum(e.target.value))} className="h-10 text-xs bg-white border-blue-200"/></div>
                                 </div>
                             )}
 
-                            {/* 🚀 FORM INPUT TEXT DENGAN FORMAT NUMERIK OTOMATIS */}
                             <div><label className="text-xs font-bold text-slate-500 block mb-1">Nominal {isForex ? currency : '(IDR)'}</label><Input type="text" inputMode="decimal" value={amount} onChange={e => setAmount(formatNum(e.target.value))} className="text-2xl font-bold text-slate-800 bg-slate-50 border-slate-200 h-12" placeholder="0"/></div>
 
                             {(detectedType === 'debt' || detectedType === 'receivable' || paymentMode === 'pending') && (
@@ -528,7 +547,7 @@ export default function SmartScan() {
                                 <div><label className="text-xs font-bold text-slate-500 block mb-1">Kategori / Topik</label><Input value={category} onChange={e => setCategory(e.target.value)} className="h-12"/></div>
                             )}
                             
-                            <div><label className="text-xs font-bold text-slate-500 block mb-1">Catatan</label><textarea value={desc} onChange={e => setDesc(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-sm h-20 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"></textarea></div>
+                            <div><label className="text-xs font-bold text-slate-500 block mb-1">Catatan (Rincian Struk)</label><textarea value={desc} onChange={e => setDesc(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-sm h-32 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"></textarea></div>
                         </div>
 
                         <Button 
