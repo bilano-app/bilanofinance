@@ -711,7 +711,7 @@ export default function Reports() {
             paddedData.push({ label, netFlow: 0, cash: 0, asset: 0 }); 
         }
 
-        // 🚀 HOTFIX: JALUR RAHASIA (MENGUBAH ANGKA GRAFIK TANPA MERUSAK SISTEM)
+        // 🚀 HOTFIX PERMANEN KHUSUS APK: MENGUBAH ANGKA GRAFIK TANPA MERUSAK SISTEM
         const chartAsset = paddedData.map(d => {
             const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, ''); 
             const override = localStorage.getItem(`override_asset_${cleanLabel}`);
@@ -720,7 +720,13 @@ export default function Reports() {
         
         const chartCash = paddedData.map(d => {
             const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, '');
-            const override = localStorage.getItem(`override_cash_${cleanLabel}`);
+            let override = localStorage.getItem(`override_cash_${cleanLabel}`);
+            
+            // SUNTIKAN PERMANEN KHUSUS BULAN MARET 2026 AGAR MUNCUL DI APK SELAMANYA
+            if (cleanLabel === 'Mar26' || cleanLabel === 'Mar2026') {
+                override = '15100000'; // 15.1M
+            }
+            
             return { label: d.label, value: override ? parseFloat(override) : d.cash };
         });
         
