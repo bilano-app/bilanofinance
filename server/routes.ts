@@ -76,6 +76,19 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
+  // ====================================================================
+  // 🛡️ HOTFIX FATAL: SATPAM ANTI-BOCOR (MEMATIKAN CACHE VERCEL LINTAS AKUN)
+  // ====================================================================
+  app.use("/api", (req, res, next) => {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("Surrogate-Control", "no-store");
+      res.setHeader("Vary", "x-user-email"); // Paksaan agar Vercel tahu beda email = beda data!
+      next();
+  });
+  // ====================================================================
+
   try { await db.execute(sql`ALTER TABLE users ADD COLUMN onesignal_id TEXT;`); } catch (e) { }
   try { await db.execute(sql`ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT NOW();`); } catch (e) {}
   
@@ -668,7 +681,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 FITUR: PULIHKAN TAGIHAN (RESTORE PINTAR ANTI-NGACO)
   app.post("/api/debts/:id/restore", async (req, res) => {
       try {
           const user = await getUser(req);
