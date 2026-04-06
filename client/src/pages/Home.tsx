@@ -13,7 +13,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, ArrowRight, Lightbulb,
-  Bot, CheckCircle2, HelpCircle, Notebook
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake // <-- IMPORT ICON AMAL
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -366,7 +366,7 @@ export default function Home() {
       setShowPermissionPrompt(false);
   };
 
-  // 🚀 FIX 1: SALDO KAS HOME MURNI HANYA RUPIAH
+  // 🚀 SALDO KAS HOME MURNI HANYA RUPIAH
   const cashRupiah = (user?.cashBalance || 0); 
   const totalBalance = cashRupiah;
 
@@ -411,7 +411,6 @@ export default function Home() {
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
-  // 🚀 FIX 2: FILTER EKSTREM ANTI-ILUSI VALAS
   const baseIncomeTxs = thisMonthTx.filter(t => 
       (t.type === 'income' || t.type === 'piutang_record') && 
       !t.description?.includes('[Offset') && 
@@ -440,6 +439,7 @@ export default function Home() {
       t.category !== 'Tukar Valas' &&
       t.category !== 'Investasi Valas' && 
       t.category !== 'Cairkan Valas' &&
+      t.category !== 'Amal' && // 🚀 KECUALIKAN AMAL DARI PENGELUARAN BIASA
       !(t.category || '').includes('Bayar Hutang') &&
       !(t.category || '').includes('Beri Pinjaman')
   );
@@ -882,6 +882,9 @@ export default function Home() {
 
                 <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
+                        {/* 🚀 IKON AMAL DITAMBAHKAN SEBELUM CICILAN */}
+                        <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-emerald-500" label="Amal" />
+                        
                         <MenuIconBox 
                             onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} 
                             icon={CreditCard} bg="bg-slate-800" label="Cicilan" badge="SEGERA" 

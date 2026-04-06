@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
-import { Download, FileText, Globe, Wallet, FileBarChart, Loader2, Target, Briefcase, HandCoins, Archive } from "lucide-react";
+import { Download, FileText, Globe, Wallet, FileBarChart, Loader2, Briefcase, HandCoins, Archive, HeartHandshake } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -363,7 +363,9 @@ export default function Reports() {
         });
 
         const totalIncome = currentMonthTx.filter((t:any) => t.type === 'income').reduce((acc:number, t:any) => acc + t.amount, 0);
-        const totalExpense = currentMonthTx.filter((t:any) => t.type === 'expense').reduce((acc:number, t:any) => acc + t.amount, 0);
+        
+        // 🚀 PENGELUARAN MURNI DI PDF (TANPA AMAL)
+        const totalExpense = currentMonthTx.filter((t:any) => t.type === 'expense' && t.category !== 'Amal').reduce((acc:number, t:any) => acc + t.amount, 0);
 
         const investTransactions = allTxs.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
         
@@ -536,13 +538,42 @@ export default function Reports() {
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
+        // 🚀 TABEL KHUSUS AMAL (DIPISAH DARI PENGELUARAN)
+        const currentMonthAmal = currentMonthTx.filter((t:any) => t.category === 'Amal');
+        
+        if (currentMonthAmal.length > 0) {
+            checkPageBreak(40);
+            doc.setTextColor(50, 50, 50);
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Catatan Amal & Sedekah (Bulan ${currentMonthName} ${currentYearNum})`, 14, currentY);
+
+            const amalRows = currentMonthAmal.map((t: any) => [
+              new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+              "Kebaikan",
+              t.description || "Amal / Sedekah",
+              formatRp(t.amount)
+            ]);
+
+            autoTable(doc, {
+              startY: currentY + 5,
+              head: [['Tanggal', 'Tipe', 'Tujuan / Catatan', 'Nominal']],
+              body: amalRows,
+              theme: 'grid',
+              headStyles: { fillColor: [16, 185, 129] }, // Warna Emerald/Hijau khusus amal
+              columnStyles: { 1: { halign: 'center', fontStyle: 'bold', textColor: [16, 185, 129] }, 3: { halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] } },
+            });
+            currentY = (doc as any).lastAutoTable.finalY + 15;
+        }
+
         checkPageBreak(40);
         doc.setTextColor(50, 50, 50);
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.text(`Riwayat Transaksi Arus Kas Murni (Bulan ${currentMonthName} ${currentYearNum})`, 14, currentY);
 
-        const txRows = currentMonthTx.map((t: any) => [
+        // 🚀 TABEL PENGELUARAN MURNI (TANPA AMAL)
+        const txRows = currentMonthTx.filter((t:any) => t.category !== 'Amal').map((t: any) => [
           new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
           t.type === 'income' ? 'Masuk' : 'Keluar',
           t.category,
@@ -554,7 +585,7 @@ export default function Reports() {
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
             doc.setTextColor(150, 150, 150);
-            doc.text("Tidak ada catatan pengeluaran/pemasukan di bulan ini.", 14, currentY + 10);
+            doc.text("Tidak ada catatan pengeluaran/pemasukan murni di bulan ini.", 14, currentY + 10);
             currentY += 20;
         } else {
             autoTable(doc, {
@@ -711,7 +742,6 @@ export default function Reports() {
             paddedData.push({ label, netFlow: 0, cash: 0, asset: 0 }); 
         }
 
-        // 🚀 HOTFIX PERMANEN KHUSUS APK: MENGUBAH ANGKA GRAFIK TANPA MERUSAK SISTEM
         const chartAsset = paddedData.map(d => {
             const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, ''); 
             const override = localStorage.getItem(`override_asset_${cleanLabel}`);
@@ -724,11 +754,10 @@ export default function Reports() {
             const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, '');
             let override = localStorage.getItem(`override_cash_${cleanLabel}`);
             
-            // SUNTIKAN PERMANEN HANYA UNTUK AKUN BOS ADRIEN
             const isAdrienAccount = pdfUserEmail === 'adrienfandra14@gmail.com' || pdfUserEmail === 'adrienahza@gmail.com' || pdfUserEmail === 'bilanotech@gmail.com';
             
             if (isAdrienAccount && (cleanLabel === 'Mar26' || cleanLabel === 'Mar2026')) {
-                override = '15100000'; // 15.1M
+                override = '15100000'; 
             }
             
             return { label: d.label, value: override ? parseFloat(override) : d.cash };
@@ -779,7 +808,7 @@ export default function Reports() {
 
   return (
     <MobileLayout title="Pusat Laporan" showBack>
-      <div className="space-y-6 pt-4 pb-20 px-2">
+      <div className="space-y-6 pt-4 pb-20 px-2 animate-in fade-in">
         
         <div className="bg-gradient-to-br from-violet-600 to-indigo-600 p-8 rounded-[32px] text-white shadow-xl shadow-indigo-200 text-center relative overflow-hidden">
             <div className="relative z-10">
@@ -855,6 +884,16 @@ export default function Reports() {
                     <div className="flex-1">
                         <h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan Terpadu</h4>
                         <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap total Kas, Investasi, Valas, dan Hutang/Piutang.</p>
+                    </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+                        <HeartHandshake className="w-5 h-5"/>
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="font-extrabold text-slate-800 text-sm">Riwayat Amal & Kebaikan</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Data sedekah yang terpisah dari budget pengeluaran rutin.</p>
                     </div>
                 </div>
 

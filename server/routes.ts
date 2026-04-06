@@ -362,6 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // 🚀 UPDATE: SYSTEM PROMPT AI SUDAH MENGENAL FITUR AMAL
   app.post("/api/chat/ask", async (req, res) => {
       const user = await getUser(req);
       if (!user) return res.status(401).json({ reply: "Sesi berakhir. Login dulu ya." });
@@ -385,6 +386,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const listValas = forexAssets.map(f => `${f.amount} ${f.currency}`).join(', ') || '0';
       const listSubs = subscriptions.filter(s => s.isActive).map(s => `${s.name} (${s.cost})`).join(', ') || 'Tidak ada';
 
+      // Kalkulasi Sedekah / Amal Bulan Ini
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      const totalAmalBulanIni = transactions.filter(t => 
+          t.category === 'Amal' && 
+          new Date(t.date).getMonth() === currentMonth &&
+          new Date(t.date).getFullYear() === currentYear
+      ).reduce((acc, t) => acc + t.amount, 0);
+
       const systemPrompt = `
       Kamu adalah BILANO Intelligence, asisten konsultan keuangan tingkat elit.
       INFO MUTLAK PEMBUATMU (Adrien Fandra):
@@ -402,6 +412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       DATA KEUANGAN PENGGUNA SAAT INI (MUTLAK):
       - Saldo Kas IDR: Rp ${saldoTunai.toLocaleString('id-ID')}
+      - Total Amal/Sedekah Bulan Ini: Rp ${totalAmalBulanIni.toLocaleString('id-ID')} (Ini uang yang dikeluarkan untuk kebaikan, tidak memotong sisa limit budget bulanan)
       - Aset Investasi: Rp ${totalInvestasi.toLocaleString('id-ID')}
       - Sisa Limit Pengeluaran Bulan Ini: ${sisaBudget}
       - Hutang Pribadi (Kewajiban Valas & IDR): ${listHutang}
@@ -508,9 +519,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               } catch(e) {}
           }
           else if (txToDelete.type === 'forex_sell') {
-              newBalance -= amt; // Tarik kembali Rupiah yang masuk
+              newBalance -= amt; 
               try {
-                  // Dan tarik kembali (tambahkan) saldo valas yang terlanjur terhapus
                   const desc = txToDelete.description || "";
                   const match = desc.match(/Jual\s+([0-9.]+)\s+([A-Z]{3})/i);
                   if (match) {
@@ -1377,7 +1387,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
           if (!apiKey) return res.status(500).json({ error: "Sistem AI belum dikonfigurasi di server." });
 
-          // 🚀 FIX: ATURAN SINTAKS GOOGLE REST API MURNI (SNAKE_CASE)
           const imageParts = images.map((base64Str: string) => {
               const base64Data = base64Str.replace(/^data:image\/\w+;base64,/, "");
               const mimeTypeMatch = base64Str.match(/^data:(.*?);base64,/);
@@ -1433,7 +1442,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               })
           });
 
-          // 🚀 INI ADALAH PELACAK ERROR MURNI (TRACER) YANG AKAN MEMBERITAHU KITA LETAK SALAHNYA
           if (!response.ok) {
               const errText = await response.text();
               console.error("\n============================================");
@@ -1441,7 +1449,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.error(errText);
               console.error("============================================\n");
               
-              // Lemparkan detail aslinya ke frontend (layar HP Anda) agar Anda bisa melihatnya!
               throw new Error(`Detail Error AI: ${errText.substring(0, 200)}...`);
           }
 

@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 import { 
   Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, 
   ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2, Lock, Crown, 
-  ShieldCheck, Sparkles, ChevronRight, X, CreditCard, Briefcase, TrendingUp, Trash2 
+  ShieldCheck, Sparkles, ChevronRight, X, CreditCard, Briefcase, TrendingUp, Trash2, HeartHandshake 
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -201,6 +201,9 @@ export default function Performance() {
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
+  // 🚀 KALKULASI AMAL BULAN INI
+  const totalAmal = thisMonthTx.filter(t => t.category === 'Amal').reduce((acc, t) => acc + t.amount, 0);
+
   // 🚀 FIX: FILTER SANGAT KETAT ANTI VALAS
   const baseIncomeTxs = thisMonthTx.filter(t => 
       (t.type === 'income' || t.type === 'piutang_record') && 
@@ -218,6 +221,7 @@ export default function Performance() {
       !(t.category || '').includes('Dapat Pinjaman')
   );
   
+  // 🚀 PENGECUALIAN AMAL AGAR TIDAK MENGURANGI BUDGET
   const baseExpenseTxs = thisMonthTx.filter(t => 
       (t.type === 'expense' || t.type === 'hutang_record') && 
       !(t.category || '').toLowerCase().includes('invest') && 
@@ -231,7 +235,8 @@ export default function Performance() {
       t.category !== 'Investasi Valas' && 
       t.category !== 'Cairkan Valas' &&
       !(t.category || '').includes('Bayar Hutang') &&
-      !(t.category || '').includes('Beri Pinjaman')
+      !(t.category || '').includes('Beri Pinjaman') &&
+      t.category !== 'Amal' // <-- FILTER AMAL
   );
 
   const virtualPLTxs: any[] = [];
@@ -388,6 +393,24 @@ export default function Performance() {
             )}
             <div className="absolute right-0 top-0 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
             <div className="absolute left-0 bottom-0 w-32 h-32 bg-emerald-400/20 rounded-tr-full blur-2xl pointer-events-none"></div>
+        </div>
+
+        {/* ==================================================== */}
+        {/* KARTU PRESTASI AMAL KHUSUS (HIJAU / EMERALD)         */}
+        {/* ==================================================== */}
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[32px] p-6 flex items-center justify-between shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
+            <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl group-hover:bg-emerald-300/50 transition-colors pointer-events-none"></div>
+            <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-1">
+                    <HeartHandshake className="w-5 h-5 text-emerald-600"/>
+                    <h3 className="font-extrabold text-emerald-900 text-sm">Amal & Sedekah (Bulan Ini)</h3>
+                </div>
+                <p className="text-[10px] font-medium text-emerald-700 mb-2">Pahala yang mengalir tanpa memotong budget bulanan</p>
+                <p className="text-2xl font-black text-emerald-600 tracking-tight">{formatRp(totalAmal)}</p>
+            </div>
+            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md relative z-10 shrink-0">
+                <Sparkles className="w-6 h-6 text-amber-400"/>
+            </div>
         </div>
 
         {target ? (

@@ -36,8 +36,6 @@ window.fetch = async (input, init = {}) => {
 
   const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
   
-  // 🛡️ FIX: Hanya rute ini yang boleh lolos saat akun terkunci. 
-  // Rute '/api/transactions' dan '/api/debts' DIHAPUS agar user tidak bisa nyolong nambah data!
   const isAllowedRoute = url.includes('/api/auth') || 
                          url.includes('/api/user/onesignal') || 
                          url.includes('/api/payment');
@@ -91,6 +89,7 @@ import SmartScan from "@/pages/SmartScan";
 import AdminPremium from "@/pages/AdminPremium";
 import Help from "@/pages/Help";
 import Guide from "@/pages/Guide";
+import Amal from "@/pages/Amal"; // <-- IMPORT AMAL DI SINI
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -107,7 +106,6 @@ function Router() {
     }
   }, [setLocation]);
 
-  // SILENT REFETCH: Refresh data gaib saat app dibuka ulang
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -123,7 +121,6 @@ function Router() {
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
 
-  // 🛡️ SISTEM SWEEPING KEAMANAN (ANTI HACKER / ANTI TOMBOL BACK)
   useEffect(() => {
       const vipEmails = [
           "adrienfandra14@gmail.com", 
@@ -132,18 +129,14 @@ function Router() {
       
       if (!currentUserEmail) return;
 
-      // 1. Validasi Sultan / VIP Asli
       if (vipEmails.includes(currentUserEmail) || user?.isPro) {
           localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           localStorage.setItem("bilano_trial_expired", "false");
           localStorage.setItem("bilano_pro", "true");
       } 
-      // 2. Jika Database bilang TIDAK PRO, basmi semua stiker PRO palsu di HP!
       else if (user && !user.isPro) {
-          localStorage.removeItem("bilano_pro"); // HANCURKAN BYPASS LOKAL
+          localStorage.removeItem("bilano_pro"); 
           
-          // 🛡️ FIX: Jika user tidak punya tanggal daftar (user lama), lempar ke masa lalu (2024)! 
-          // Ini membunuh bug "Mesin Waktu" yang bikin trial abadi.
           const startTime = new Date(user.createdAt || "2024-01-01").getTime();
           const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
           const TRIAL_DURATION_DAYS = 3;
@@ -156,7 +149,7 @@ function Router() {
               localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           }
       }
-  }, [user, currentUserEmail, location]); // 🔥 KUNCI UTAMA: Dengan memasukkan 'location', setiap kali Bos pencet tombol "Back", Satpam akan langsung melakukan Sweeping!
+  }, [user, currentUserEmail, location]); 
 
   useNotifications();
 
@@ -239,6 +232,7 @@ function Router() {
         <Route path="/admin-premium" component={AdminPremium} />
         <Route path="/help" component={Help} />
         <Route path="/guide" component={Guide} />
+        <Route path="/amal" component={Amal} /> {/* <-- ROUTE AMAL DITAMBAHKAN */}
         <Route component={NotFound} />
       </Switch>
 
