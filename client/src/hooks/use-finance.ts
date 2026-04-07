@@ -256,6 +256,31 @@ export function useSubscriptions() {
     });
 }
 
+// 🚀 HOOK UNDO BARU
+export function useUndoTransaction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/transactions/undo", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "x-user-email": localStorage.getItem("bilano_email") || "guest" 
+        },
+      });
+      if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Gagal membatalkan transaksi");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      // Memaksa seluruh aplikasi mengambil data baru dari server
+      queryClient.invalidateQueries(); 
+    },
+  });
+}
+
 // --- HOOK UNTUK LAPORAN ---
 export function useReportsData() {
     return useQuery({

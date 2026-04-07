@@ -23,6 +23,7 @@ export interface IStorage {
   updateUserOneSignalId(userId: number, onesignalId: string): Promise<User>;
 
   getTransactions(userId: number): Promise<Transaction[]>;
+  getLatestTransaction(userId: number): Promise<Transaction | undefined>; // 🚀 FITUR UNDO: Cari transaksi terakhir
   createTransaction(userId: number, transaction: InsertTransaction): Promise<Transaction>;
   deleteTransaction(id: number): Promise<void>;
 
@@ -125,6 +126,15 @@ export class DatabaseStorage implements IStorage {
 
   async getTransactions(userId: number): Promise<Transaction[]> {
     return await db.select().from(transactions).where(eq(transactions.userId, userId)).orderBy(desc(transactions.date));
+  }
+
+  // 🚀 LOGIKA UNDO: Mencari 1 transaksi paling terbaru (berdasarkan ID agar akurat dari urutan input)
+  async getLatestTransaction(userId: number): Promise<Transaction | undefined> {
+    const [tx] = await db.select().from(transactions)
+        .where(eq(transactions.userId, userId))
+        .orderBy(desc(transactions.id))
+        .limit(1);
+    return tx;
   }
   
   async createTransaction(userId: number, tx: InsertTransaction): Promise<Transaction> {

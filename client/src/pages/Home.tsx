@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   useUser, useTransactions, useTarget, 
-  useForexAssets, useSubscriptions 
+  useForexAssets, useSubscriptions, useUndoTransaction 
 } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { MobileLayout } from "@/components/Layout";
@@ -13,7 +13,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, ArrowRight, Lightbulb,
-  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake // <-- IMPORT ICON AMAL
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -54,6 +54,7 @@ export default function Home() {
   const { data: forexAssets, isLoading: isFxLoading } = useForexAssets(); 
   const { data: target, isLoading: isTargetLoading } = useTarget(); 
   const { data: subscriptions, isLoading: isSubLoading, refetch: refetchSubs } = useSubscriptions();
+  const undoTx = useUndoTransaction(); 
 
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -182,6 +183,17 @@ export default function Home() {
       const newVal = !isPrivacyMode;
       setIsPrivacyMode(newVal);
       localStorage.setItem("bilano_privacy", newVal.toString());
+  };
+
+  // 🚀 FUNGSI UNDO TRANSAKSI
+  const handleUndo = async () => {
+      if (!confirm("Ingin membatalkan transaksi paling terakhir? Saldo Kas, Valas, dan Investasi akan diputar balik otomatis.")) return;
+      try {
+          await undoTx.mutateAsync();
+          toast({ title: "Berhasil!", description: "Transaksi terakhir telah dibatalkan." });
+      } catch (e: any) {
+          toast({ title: "Gagal Undo", description: e.message, variant: "destructive" });
+      }
   };
 
   const userEmail = rawEmail || "Pengguna";
@@ -366,7 +378,6 @@ export default function Home() {
       setShowPermissionPrompt(false);
   };
 
-  // 🚀 SALDO KAS HOME MURNI HANYA RUPIAH
   const cashRupiah = (user?.cashBalance || 0); 
   const totalBalance = cashRupiah;
 
@@ -439,7 +450,6 @@ export default function Home() {
       t.category !== 'Tukar Valas' &&
       t.category !== 'Investasi Valas' && 
       t.category !== 'Cairkan Valas' &&
-      t.category !== 'Amal' && // 🚀 KECUALIKAN AMAL DARI PENGELUARAN BIASA
       !(t.category || '').includes('Bayar Hutang') &&
       !(t.category || '').includes('Beri Pinjaman')
   );
@@ -769,26 +779,38 @@ export default function Home() {
                 </div>
             </div>
 
-            <div className="relative">
+            <div className="flex items-center gap-2">
+                {/* 🚀 TOMBOL UNDO: Letaknya di sebelah kiri titik tiga */}
                 <button 
-                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                    onClick={handleUndo}
+                    disabled={undoTx.isPending}
+                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all"
+                    title="Batalkan Transaksi Terakhir"
                 >
-                    <MoreVertical className="w-5 h-5"/>
+                    {undoTx.isPending ? <Loader2 className="w-5 h-5 animate-spin"/> : <Undo2 className="w-5 h-5"/>}
                 </button>
 
-                {isMenuOpen && (
-                    <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
-                        <Link href="/profile">
-                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400"/> Edit Profil</button>
-                        </Link>
-                        <Link href="/security">
-                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400"/> Keamanan</button>
-                        </Link>
-                        <div className="h-px bg-slate-100 my-1 mx-2"></div>
-                        <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500"/> Keluar</button>
-                    </div>
-                )}
+                <div className="relative">
+                    <button 
+                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                    >
+                        <MoreVertical className="w-5 h-5"/>
+                    </button>
+
+                    {isMenuOpen && (
+                        <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
+                            <Link href="/profile">
+                                <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400"/> Edit Profil</button>
+                            </Link>
+                            <Link href="/security">
+                                <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400"/> Keamanan</button>
+                            </Link>
+                            <div className="h-px bg-slate-100 my-1 mx-2"></div>
+                            <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500"/> Keluar</button>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
 
@@ -882,7 +904,6 @@ export default function Home() {
 
                 <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
-                        {/* 🚀 IKON AMAL DITAMBAHKAN SEBELUM CICILAN */}
                         <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-emerald-500" label="Amal" />
                         
                         <MenuIconBox 

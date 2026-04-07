@@ -212,6 +212,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  app.post("/api/transactions/undo", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          const lastTx = await storage.getLatestTransaction(user!.id);
+          if (!lastTx) return res.status(404).json({ error: "Tidak ada transaksi untuk dibatalkan." });
+
+          let newBalance = Math.round(user!.cashBalance);
+          const amt = Math.round(lastTx.amount);
+
+          // 1. REVERSE SALDO KAS UTAMA
+          if (lastTx.type === 'income') newBalance -= amt;
+          else if (lastTx.type === 'expense') newBalance += amt;
+          else if (lastTx.type === 'invest_buy') newBalance += amt;
+          else if (lastTx.type === 'invest_sell') newBalance -= amt;
+          else if (lastTx.type === 'forex_buy') newBalance += amt;
+          else if (lastTx.type === 'forex_sell') newBalance -= amt;
+          else if (lastTx.type === 'debt_borrow' || lastTx.type === 'piutang_record') newBalance -= amt;
+          else if (lastTx.type === 'debt_lend' || lastTx.type === 'hutang_record') newBalance += amt;
+          else if (lastTx.type === 'debt_receive') newBalance -= amt;
+          else if (lastTx.type === 'debt_pay') newBalance += amt;
+
+          // 2. REVERSE VALAS (Jika Transaksi Berhubungan Dengan Valas)
+          if (lastTx.type === 'forex_buy' || lastTx.type === 'forex_sell') {
+              const desc = lastTx.description || "";
+              const match = desc.match(/(Beli|Jual)\s+([0-9.]+)\s+([A-Z]{3})/i);
+              if (match) {
+                  const qty = parseFloat(match[2]);
+                  const curr = match[3].toUpperCase();
+                  const existing = await storage.getForexByCurrency(user!.id, curr);
+                  if (existing) {
+                      // Putar balik jumlah valasnya
+                      const reverseQty = (lastTx.type === 'forex_buy') ? (existing.amount - qty) : (existing.amount + qty);
+                      await storage.updateForexAsset(existing.id, Math.max(0, reverseQty));
+                  }
+              }
+          }
+
+          // 3. REVERSE INVESTASI / SAHAM
+          if (lastTx.type === 'invest_buy') {
+              const desc = lastTx.description || "";
+              const match = desc.match(/([0-9.]+)\s+lot\/unit\s+([A-Z0-9]+)/i);
+              if (match) {
+                  const qty = parseFloat(match[1]);
+                  const symbol = match[2].toUpperCase();
+                  const inv = await storage.getInvestmentBySymbol(user!.id, symbol);
+                  if (inv) {
+                      const newQty = inv.quantity - qty;
+                      if (newQty <= 0) await storage.deleteInvestment(inv.id);
+                      else await storage.updateInvestment(inv.id, newQty, inv.avgPrice);
+                  }
+              }
+          }
+
+          // Simpan Saldo yang Sudah Dikembalikan
+          await storage.updateUserBalance(user!.id, newBalance);
+          // Musnahkan data transaksinya
+          await storage.deleteTransaction(lastTx.id);
+
+          res.json({ success: true, message: `Berhasil membatalkan: ${lastTx.category}` });
+      } catch (e: any) { 
+          res.status(500).json({ error: e.message }); 
+      }
+  });
+
   app.post("/api/auth/send-otp-reset", async (req, res) => {
       if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
       
