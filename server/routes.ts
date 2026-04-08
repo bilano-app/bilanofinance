@@ -89,21 +89,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   // ====================================================================
 
-  try { await db.execute(sql`ALTER TABLE users ADD COLUMN onesignal_id TEXT;`); } catch (e) { }
-  try { await db.execute(sql`ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT NOW();`); } catch (e) {}
-  
-  try { 
-      await db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (
-          id VARCHAR(255) PRIMARY KEY, 
-          user_id INTEGER, 
-          email TEXT, 
-          name TEXT, 
-          subject TEXT, 
-          message TEXT, 
-          status TEXT, 
-          date TIMESTAMP DEFAULT NOW()
-      );`); 
-  } catch (e) { console.error("Info: Tabel tiket sudah ada."); }
+  // 🚀 SUNTIKAN NOS: JALANKAN DDL DI LATAR BELAKANG (NON-BLOCKING)
+  // Tanpa kata "await", server tidak akan menunggu proses ini selesai sehingga Sign Up instan!
+  db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onesignal_id TEXT;`).catch(() => {});
+  db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`).catch(() => {});
+  db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (
+      id VARCHAR(255) PRIMARY KEY, 
+      user_id INTEGER, email TEXT, name TEXT, subject TEXT, message TEXT, status TEXT, date TIMESTAMP DEFAULT NOW()
+  );`).catch(() => {});
+  db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (
+      email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW()
+  );`).catch(() => {});
 
   const DEFAULT_RATES: Record<string, number> = {
       "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -132,18 +128,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { }
       return false;
   };
-
-  try {
-      await db.execute(sql`
-          CREATE TABLE IF NOT EXISTS otp_sessions (
-              email VARCHAR(255) PRIMARY KEY,
-              code VARCHAR(10),
-              created_at TIMESTAMP DEFAULT NOW()
-          )
-      `);
-  } catch (e) {
-      console.error("Gagal memastikan tabel OTP:", e);
-  }
 
   app.post("/api/auth/check-email", async (req, res) => {
       if (!firebaseAdminInitialized) return res.status(200).json({ adminReady: false, exists: true }); 
@@ -221,7 +205,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let newBalance = Math.round(user!.cashBalance);
           const amt = Math.round(lastTx.amount);
 
-          // 1. REVERSE SALDO KAS UTAMA
           if (lastTx.type === 'income') newBalance -= amt;
           else if (lastTx.type === 'expense') newBalance += amt;
           else if (lastTx.type === 'invest_buy') newBalance += amt;
@@ -233,7 +216,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           else if (lastTx.type === 'debt_receive') newBalance -= amt;
           else if (lastTx.type === 'debt_pay') newBalance += amt;
 
-          // 2. REVERSE VALAS (Jika Transaksi Berhubungan Dengan Valas)
           if (lastTx.type === 'forex_buy' || lastTx.type === 'forex_sell') {
               const desc = lastTx.description || "";
               const match = desc.match(/(Beli|Jual)\s+([0-9.]+)\s+([A-Z]{3})/i);
@@ -242,14 +224,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const curr = match[3].toUpperCase();
                   const existing = await storage.getForexByCurrency(user!.id, curr);
                   if (existing) {
-                      // Putar balik jumlah valasnya
                       const reverseQty = (lastTx.type === 'forex_buy') ? (existing.amount - qty) : (existing.amount + qty);
                       await storage.updateForexAsset(existing.id, Math.max(0, reverseQty));
                   }
               }
           }
 
-          // 3. REVERSE INVESTASI / SAHAM
           if (lastTx.type === 'invest_buy') {
               const desc = lastTx.description || "";
               const match = desc.match(/([0-9.]+)\s+lot\/unit\s+([A-Z0-9]+)/i);
@@ -265,9 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           }
 
-          // Simpan Saldo yang Sudah Dikembalikan
           await storage.updateUserBalance(user!.id, newBalance);
-          // Musnahkan data transaksinya
           await storage.deleteTransaction(lastTx.id);
 
           res.json({ success: true, message: `Berhasil membatalkan: ${lastTx.category}` });
@@ -439,7 +417,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 UPDATE: SYSTEM PROMPT AI SUDAH MENGENAL FITUR AMAL
   app.post("/api/chat/ask", async (req, res) => {
       const user = await getUser(req);
       if (!user) return res.status(401).json({ reply: "Sesi berakhir. Login dulu ya." });
@@ -463,7 +440,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const listValas = forexAssets.map(f => `${f.amount} ${f.currency}`).join(', ') || '0';
       const listSubs = subscriptions.filter(s => s.isActive).map(s => `${s.name} (${s.cost})`).join(', ') || 'Tidak ada';
 
-      // Kalkulasi Sedekah / Amal Bulan Ini
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       const totalAmalBulanIni = transactions.filter(t => 
@@ -504,9 +480,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ reply });
   });
 
-  // ====================================================================
-  // 🚀 TRANSACTIONS ROUTES
-  // ====================================================================
   app.get("/api/transactions", async (req, res) => { 
       const user = await getUser(req); 
       res.json(await storage.getTransactions(user!.id)); 
@@ -629,9 +602,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // ====================================================================
-  // 🚀 FOREX ROUTES
-  // ====================================================================
   app.get("/api/forex", async (req, res) => { 
       const user = await getUser(req); 
       res.json(await storage.getForexAssets(user!.id)); 
@@ -685,9 +655,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, newBalance: currentAmount });
   });
 
-  // ====================================================================
-  // 🚀 DEBTS ROUTES 
-  // ====================================================================
   app.get("/api/debts", async (req, res) => { 
       const user = await getUser(req); 
       res.json(await storage.getDebts(user!.id)); 
@@ -904,9 +871,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({success:true}); 
   });
 
-  // ====================================================================
-  // 🚀 TARGET ROUTES
-  // ====================================================================
   app.get("/api/target", async (req, res) => { 
       const user = await getUser(req); 
       res.json(await storage.getTarget(user!.id) || {}); 
@@ -977,9 +941,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(target); 
   });
   
-  // ====================================================================
-  // 🚀 INVESTMENTS ROUTES
-  // ====================================================================
   app.get("/api/investments", async (req, res) => { 
       const user = await getUser(req); 
       res.json(await storage.getInvestments(user!.id)); 
@@ -1044,9 +1005,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // ====================================================================
-  // 🚀 REPORTS & CATEGORIES
-  // ====================================================================
   app.get("/api/reports/data", async (req, res) => { 
       const user = await getUser(req); 
       const [tx, inv, debt, fx, sub] = await Promise.all([ 
@@ -1075,9 +1033,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({success:true}); 
   });
 
-  // ====================================================================
-  // 🚀 SUBSCRIPTIONS
-  // ====================================================================
   app.get("/api/subscriptions", async (req, res) => { 
       const user = await getUser(req); 
       res.json(await storage.getSubscriptions(user!.id)); 
@@ -1100,9 +1055,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true }); 
   });
 
-  // ====================================================================
-  // 🚀 USER PROFILE
-  // ====================================================================
   app.get("/api/user", async (req, res) => { 
       const user = await getUser(req); 
       res.json(user); 
@@ -1114,9 +1066,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({success:true}); 
   });
 
-  // ====================================================================
-  // 🚀 MIDTRANS PAYMENT
-  // ====================================================================
   app.post("/api/payment/midtrans/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -1171,9 +1120,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // ====================================================================
-  // 🚀 CRON JOBS
-  // ====================================================================
   app.get('/api/cron/reminder', async (req, res) => {
       try {
           const ONE_SIGNAL_APP_ID = "b45b3256-b290-4a98-b5fa-afa0501a6b1c";
@@ -1288,9 +1234,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // ====================================================================
-  // 🚀 ADMIN ROUTES & HELP CENTER
-  // ====================================================================
   const isAdminValid = (email: string) => {
       if (!email) return false;
       return ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(email.toLowerCase());
@@ -1428,13 +1371,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 SCRIPT HOTFIX: KOREKSI SALDO KAS TANPA JEJAK TRANSAKSI
   app.post("/api/admin/silent-correction", async (req, res) => {
       try {
           const user = await getUser(req);
           const { deductAmount } = req.body; 
 
-          // HANYA update saldo user, TIDAK ADA pencatatan transaksi sama sekali
           let newBalance = Math.round(user!.cashBalance - deductAmount);
           await storage.updateUserBalance(user!.id, newBalance);
 
@@ -1447,9 +1388,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // ====================================================================
-  // 🚀 AI VISION: SMART RECEIPT SCANNER DENGAN TRACER ERROR MURNI
-  // ====================================================================
   app.post("/api/vision/scan", async (req, res) => {
       try {
           const user = await getUser(req);

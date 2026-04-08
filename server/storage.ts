@@ -23,7 +23,7 @@ export interface IStorage {
   updateUserOneSignalId(userId: number, onesignalId: string): Promise<User>;
 
   getTransactions(userId: number): Promise<Transaction[]>;
-  getLatestTransaction(userId: number): Promise<Transaction | undefined>; // 🚀 FITUR UNDO: Cari transaksi terakhir
+  getLatestTransaction(userId: number): Promise<Transaction | undefined>; 
   createTransaction(userId: number, transaction: InsertTransaction): Promise<Transaction>;
   deleteTransaction(id: number): Promise<void>;
 
@@ -57,7 +57,6 @@ export interface IStorage {
   toggleSubscriptionStatus(id: number, isActive: boolean): Promise<Subscription>;
   deleteSubscription(id: number): Promise<void>;
   
-  // 🚀 OPTIMASI JALUR CEPAT (MEMBUNUH N+1 QUERY)
   getAllActiveDebts(): Promise<Debt[]>;
   getAllActiveSubscriptions(): Promise<Subscription[]>;
   processAllDueSubscriptions(): Promise<void>;
@@ -124,11 +123,15 @@ export class DatabaseStorage implements IStorage {
       return user;
   }
 
+  // 🚀 OPTIMASI LIMITASI: Mengambil maksimal 1500 transaksi agar RAM Server Vercel tidak jebol!
   async getTransactions(userId: number): Promise<Transaction[]> {
-    return await db.select().from(transactions).where(eq(transactions.userId, userId)).orderBy(desc(transactions.date));
+    return await db.select()
+        .from(transactions)
+        .where(eq(transactions.userId, userId))
+        .orderBy(desc(transactions.date))
+        .limit(1500); 
   }
 
-  // 🚀 LOGIKA UNDO: Mencari 1 transaksi paling terbaru (berdasarkan ID agar akurat dari urutan input)
   async getLatestTransaction(userId: number): Promise<Transaction | undefined> {
     const [tx] = await db.select().from(transactions)
         .where(eq(transactions.userId, userId))
@@ -260,7 +263,6 @@ export class DatabaseStorage implements IStorage {
       await db.delete(debts).where(eq(debts.id, id));
   }
 
-  // 🚀 OPTIMASI SULTAN: Ambil data langganan jadi 10x lebih cepat
   async getSubscriptions(userId: number): Promise<Subscription[]> {
       return await db.select().from(subscriptions).where(eq(subscriptions.userId, userId));
   }
@@ -282,7 +284,6 @@ export class DatabaseStorage implements IStorage {
       await db.delete(subscriptions).where(eq(subscriptions.id, id));
   }
 
-  // 🚀 OPTIMASI MASAL: Tarik semua hutang & langganan SEKALIGUS
   async getAllActiveDebts(): Promise<Debt[]> {
       return await db.select().from(debts).where(eq(debts.isPaid, false));
   }
@@ -291,7 +292,6 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(subscriptions).where(eq(subscriptions.isActive, true));
   }
 
-  // 🚀 PROSES OTOMATIS: Dijalankan di background oleh Cron, bukan oleh User
   async processAllDueSubscriptions(): Promise<void> {
       const today = new Date(); today.setHours(0,0,0,0);
       const activeSubs = await this.getAllActiveSubscriptions();

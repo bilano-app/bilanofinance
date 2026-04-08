@@ -25,7 +25,6 @@ export default function Amal() {
   const [tempPct, setTempPct] = useState("");
   const [isRetroactive, setIsRetroactive] = useState(false);
   
-  // State untuk Pop-up Kelebihan Amal
   const [excessData, setExcessData] = useState<{amount: number, excess: number, desc: string} | null>(null);
 
   useEffect(() => {
@@ -74,12 +73,12 @@ export default function Amal() {
   // =======================================================
   // LOGIKA FIFO & PEMISAHAN AMAL EKSTRA
   // =======================================================
+  // 🚀 UPDATE: Pengecualian Valas Dihapus! Pemasukan dari Pencairan Valas akan ikut dihitung.
   const pureIncomes = (transactions || []).filter(t => 
       t.type === 'income' && 
       !t.description?.includes('[Offset') && !t.description?.includes('[WRITE_OFF]') && 
       !t.description?.includes('[Catat Awal]') && t.category !== 'Penyesuaian Sistem' && 
-      t.category !== 'Pemutihan Hutang' && t.category !== 'Cairkan Valas' &&
-      t.category !== 'Investasi Valas' && t.category !== 'Tukar Valas'
+      t.category !== 'Pemutihan Hutang'
   ).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()); 
 
   const amalTxs = (transactions || []).filter(t => t.category === 'Amal').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -87,14 +86,16 @@ export default function Amal() {
   // Hitung Amal yang MEMOTONG ANGGARAN (Abaikan yang Extra Ikhlas)
   let totalAmalPaid = amalTxs.reduce((acc, t) => {
       let val = t.amount;
-      const match = t.description?.match(/\[Ekstra:\s*(\d+)\]/);
+      // 🚀 UPDATE REGEX LEBIH KUAT (Menangkap angka dengan titik/koma)
+      const match = t.description?.match(/\[Ekstra:\s*([0-9.,]+)\]/i);
       if (match) {
-          val -= parseInt(match[1]); // Kurangi bagian ekstra agar tidak makan jatah masa depan
+          const extraAmt = parseFloat(match[1].replace(/[^0-9.-]+/g, ""));
+          val -= isNaN(extraAmt) ? 0 : extraAmt;
       }
       return acc + val;
   }, 0);
 
-  const totalKebaikan = amalTxs.reduce((acc, t) => acc + t.amount, 0); // Total riil keseluruhan
+  const totalKebaikan = amalTxs.reduce((acc, t) => acc + t.amount, 0); 
 
   const allocationDetails: any[] = [];
   let totalSisaAnggaran = 0;
@@ -122,10 +123,10 @@ export default function Amal() {
   });
 
   allocationDetails.reverse();
+  
+  // 🚀 SISA DARI TOTAL AMAL YANG BELUM TERPAKAI = DEPOSIT AMAL
+  const sisaDepositAmal = Math.max(0, totalAmalPaid);
 
-  // =======================================================
-  // HANDLING KLIK SIMPAN (CEK KELEBIHAN DULU)
-  // =======================================================
   const checkAndSaveAmal = () => {
       if (isLocked) { window.dispatchEvent(new Event('trigger-paywall-lock')); return; }
       
@@ -136,10 +137,8 @@ export default function Amal() {
       const excess = finalAmount - totalSisaAnggaran;
       
       if (excess > 0) {
-          // Munculkan Pop-up Kelebihan
           setExcessData({ amount: finalAmount, excess, desc: desc || "Amal / Sedekah" });
       } else {
-          // Langsung eksekusi normal
           executeSaveAmal(finalAmount, desc || "Amal / Sedekah", false, 0);
       }
   };
@@ -199,6 +198,20 @@ export default function Amal() {
                         <PieChart className="w-3 h-3"/><span>Alokasi saat ini: <b>{amalPct}%</b> dari pemasukan</span>
                     </div>
                 </div>
+
+                {/* 🚀 INDIKATOR DEPOSIT AMAL: Muncul jujur jika masih ada pulsa amal */}
+                {sisaDepositAmal > 0 && (
+                    <div className="mt-4 bg-emerald-800/30 border border-emerald-400/30 rounded-xl p-3 text-left flex items-start gap-2 animate-in slide-in-from-bottom-2">
+                        <Info className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5"/>
+                        <div>
+                            <p className="text-[10px] text-emerald-100 font-bold uppercase tracking-wider mb-0.5">Deposit Amal Aktif</p>
+                            <p className="text-sm font-black text-emerald-300">{formatCurrency(sisaDepositAmal).split(',')[0]}</p>
+                            <p className="text-[9px] text-emerald-100/70 leading-relaxed mt-1">
+                                Ini adalah kelebihan sedekah masa lalu Anda. Deposit ini akan <b>otomatis mencoret (melunasi)</b> kewajiban amal dari pemasukan baru Anda di masa depan sampai habis.
+                            </p>
+                        </div>
+                    </div>
+                )}
             </div>
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-400/20 rounded-tr-full blur-2xl pointer-events-none"></div>
