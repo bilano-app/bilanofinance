@@ -6,13 +6,12 @@ import { formatCurrency } from "@/lib/utils";
 import { 
   Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, 
   ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2, Lock, Crown, 
-  ShieldCheck, Sparkles, ChevronRight, X, CreditCard, Briefcase, TrendingUp, Trash2, HeartHandshake 
+  ShieldCheck, ChevronRight, X, CreditCard, Briefcase, TrendingUp, Trash2, HeartHandshake 
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
-// 🚀 FIX: KURS CADANGAN (FALLBACK) AGAR TARGET TIDAK JANTUNGAN SAAT LOADING
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
     "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
@@ -201,10 +200,8 @@ export default function Performance() {
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
-  // 🚀 KALKULASI AMAL BULAN INI
   const totalAmal = thisMonthTx.filter(t => t.category === 'Amal').reduce((acc, t) => acc + t.amount, 0);
 
-  // 🚀 FIX: FILTER SANGAT KETAT ANTI VALAS
   const baseIncomeTxs = thisMonthTx.filter(t => 
       (t.type === 'income' || t.type === 'piutang_record') && 
       !t.description?.includes('[Offset') && 
@@ -221,7 +218,6 @@ export default function Performance() {
       !(t.category || '').includes('Dapat Pinjaman')
   );
   
-  // 🚀 PENGECUALIAN AMAL AGAR TIDAK MENGURANGI BUDGET
   const baseExpenseTxs = thisMonthTx.filter(t => 
       (t.type === 'expense' || t.type === 'hutang_record') && 
       !(t.category || '').toLowerCase().includes('invest') && 
@@ -236,7 +232,7 @@ export default function Performance() {
       t.category !== 'Cairkan Valas' &&
       !(t.category || '').includes('Bayar Hutang') &&
       !(t.category || '').includes('Beri Pinjaman') &&
-      t.category !== 'Amal' // <-- FILTER AMAL
+      t.category !== 'Amal' 
   );
 
   const virtualPLTxs: any[] = [];
@@ -265,9 +261,14 @@ export default function Performance() {
 
   const monthlyIncome = allIncomeTxs.reduce((acc, t) => acc + t.amount, 0); 
   const monthlyExpense = allExpenseTxs.reduce((acc, t) => acc + t.amount, 0); 
-      
-  const monthlyNet = monthlyIncome - monthlyExpense;
   
+  const pureExpenses = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0);
+  const monthlyBudget = target?.monthlyBudget || 0;
+  const isOverBudgetStrict = monthlyBudget > 0 && pureExpenses > monthlyBudget;
+  const remainingBudget = Math.max(0, monthlyBudget - pureExpenses);
+  const budgetPercentage = monthlyBudget > 0 ? Math.min(100, (pureExpenses / monthlyBudget) * 100) : 0;
+    
+  const monthlyNet = monthlyIncome - monthlyExpense;
   const isSafe = monthlyNet >= savingRequired; 
   const isOverBudget = expenseLimit > 0 && monthlyExpense > expenseLimit;
 
@@ -337,7 +338,54 @@ export default function Performance() {
             </div>
         )}
 
-        <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-800 text-white p-7 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden">
+        {/* BUDGET CARD (DIATAS NET WORTH SEKARANG) */}
+        <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[32px] p-6 text-white shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <div className="flex items-center justify-between mb-6 relative z-10">
+                <div className="flex items-center gap-2">
+                    <Target className="w-5 h-5 text-indigo-300"/>
+                    <h3 className="font-bold text-sm">Limit Pengeluaran Bulan Ini</h3>
+                </div>
+                {isOverBudgetStrict && <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-md animate-pulse shadow-md">OVERBUDGET</span>}
+            </div>
+
+            <div className="mb-6 relative z-10">
+                <p className="text-[11px] text-indigo-200 mb-1 font-medium">Pengeluaran Tercatat (Non-Amal)</p>
+                <div className="flex items-end gap-2">
+                    <h2 className="text-3xl font-black tracking-tight">{formatCurrency(pureExpenses).split(',')[0]}</h2>
+                    <span className="text-sm text-indigo-300 mb-1 font-bold">/ {formatCurrency(monthlyBudget).split(',')[0]}</span>
+                </div>
+            </div>
+
+            <div className="relative z-10">
+                <div className="flex justify-between text-[10px] font-bold mb-2 text-indigo-200">
+                    <span>Terpakai: {budgetPercentage.toFixed(1)}%</span>
+                    <span>Sisa: {formatCurrency(remainingBudget).split(',')[0]}</span>
+                </div>
+                <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700 shadow-inner">
+                    <div 
+                        className={`h-full rounded-full transition-all duration-1000 ${isOverBudgetStrict ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-[0_0_10px_rgba(52,211,153,0.5)]'}`}
+                        style={{ width: `${budgetPercentage}%` }}
+                    ></div>
+                </div>
+            </div>
+        </div>
+
+        {/* KARTU PRESTASI AMAL KHUSUS (TANPA SPARKLES) */}
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
+            <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl group-hover:bg-emerald-300/50 transition-colors pointer-events-none"></div>
+            <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-1">
+                    <HeartHandshake className="w-5 h-5 text-emerald-600"/>
+                    <h3 className="font-extrabold text-emerald-900 text-sm">Amal & Sedekah (Bulan Ini)</h3>
+                </div>
+                <p className="text-[10px] font-medium text-emerald-700 mb-2">Pahala yang mengalir tanpa memotong budget bulanan</p>
+                <p className="text-2xl font-black text-emerald-600 tracking-tight">{formatRp(totalAmal)}</p>
+            </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-800 text-white p-7 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden mt-4">
             <div className="relative z-10 mb-6">
                 
                 <div className="flex justify-between items-center mb-1">
@@ -393,24 +441,6 @@ export default function Performance() {
             )}
             <div className="absolute right-0 top-0 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
             <div className="absolute left-0 bottom-0 w-32 h-32 bg-emerald-400/20 rounded-tr-full blur-2xl pointer-events-none"></div>
-        </div>
-
-        {/* ==================================================== */}
-        {/* KARTU PRESTASI AMAL KHUSUS (HIJAU / EMERALD)         */}
-        {/* ==================================================== */}
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[32px] p-6 flex items-center justify-between shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
-            <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl group-hover:bg-emerald-300/50 transition-colors pointer-events-none"></div>
-            <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-1">
-                    <HeartHandshake className="w-5 h-5 text-emerald-600"/>
-                    <h3 className="font-extrabold text-emerald-900 text-sm">Amal & Sedekah (Bulan Ini)</h3>
-                </div>
-                <p className="text-[10px] font-medium text-emerald-700 mb-2">Pahala yang mengalir tanpa memotong budget bulanan</p>
-                <p className="text-2xl font-black text-emerald-600 tracking-tight">{formatRp(totalAmal)}</p>
-            </div>
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md relative z-10 shrink-0">
-                <Sparkles className="w-6 h-6 text-amber-400"/>
-            </div>
         </div>
 
         {target ? (
