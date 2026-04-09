@@ -102,7 +102,6 @@ export default function Target() {
         enabled: !!userEmail
     });
     
-    // 🚀 FIX: Fallback otomatis jika API Forex Vercel gagal dimuat (Mencegah React Error #130)
     const safeForexRates = typeof forexRates === 'object' && forexRates !== null ? forexRates : {};
     const availableCurrencies = Object.keys(safeForexRates).length > 0 ? Object.keys(safeForexRates) : FALLBACK_CURRENCIES;
 
@@ -263,7 +262,6 @@ export default function Target() {
                 window.location.href = "/"; 
             } else { 
                 const errText = await res.text();
-                // Menangkap pesan Gateway Timeout 504 Vercel dengan baik
                 if (res.status === 504) {
                     toast({ title: "Server Sibuk (Timeout)", description: "Data berhasil dikirim, tetapi Vercel merespon lambat. Coba refresh aplikasi.", variant: "destructive" });
                     setTimeout(() => window.location.href = "/", 2000);
@@ -380,7 +378,6 @@ export default function Target() {
                                             </div>
                                         )}
                                         <div className="flex gap-2">
-                                            {/* 🚀 FIX REACT ERROR #130: Komponen inline <select> aman */}
                                             <select value={tempForexCurrency} onChange={(e) => setTempForexCurrency(e.target.value)} className="p-3 rounded-[16px] border-transparent bg-slate-50 font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none w-28">
                                                 {availableCurrencies.filter(c => c !== 'IDR').map(curr => <option key={curr} value={curr}>{curr}</option>)}
                                             </select>
@@ -419,6 +416,7 @@ export default function Target() {
                                         <div className="flex flex-col gap-2">
                                             <Input type="text" placeholder="Nama Pihak" value={tempRecvName} onChange={(e) => setTempRecvName(e.target.value)} className="h-12 rounded-[16px] border-slate-100"/>
                                             <div className="flex gap-2">
+                                                {/* 🚀 FIX: Komponen <select> harus di-inline agar tidak crash Error #130 saat dirender ulang */}
                                                 <select value={tempRecvCurrency} onChange={e => setTempRecvCurrency(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
                                                     <option value="IDR">IDR</option>
                                                     {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
@@ -463,10 +461,13 @@ export default function Target() {
                                             </div>
                                             <div className="flex gap-2">
                                                 <Input type="tel" placeholder="Lot/Unit" value={tempInvQty} onChange={(e) => handleNumberChange(setTempInvQty, e.target.value)} className="w-1/3 text-sm h-11 rounded-[16px] border-slate-100"/>
+                                                
+                                                {/* 🚀 FIX: Komponen <select> inline */}
                                                 <select value={tempInvCurrency} onChange={e => setTempInvCurrency(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
                                                     <option value="IDR">IDR</option>
                                                     {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
                                                 </select>
+
                                                 <Input type="tel" placeholder="Harga Beli" value={tempInvPrice} onChange={(e) => handleNumberChange(setTempInvPrice, e.target.value)} className="flex-1 text-sm h-11 rounded-[16px] border-slate-100 font-bold"/>
                                             </div>
                                             <Button onClick={addInvItem} className="w-full bg-indigo-50 text-indigo-700 font-bold h-11 rounded-[16px] hover:bg-indigo-100 text-xs">TAMBAHKAN ASET INI</Button>
@@ -503,10 +504,13 @@ export default function Target() {
                                         <div className="flex flex-col gap-2">
                                             <Input type="text" placeholder="Hutang ke Siapa?" value={tempDebtName} onChange={(e) => setTempDebtName(e.target.value)} className="h-12 rounded-[16px] border-slate-100 text-sm"/>
                                             <div className="flex gap-2">
+                                                
+                                                {/* 🚀 FIX: Komponen <select> inline */}
                                                 <select value={tempDebtCurrency} onChange={e => setTempDebtCurrency(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
                                                     <option value="IDR">IDR</option>
                                                     {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
                                                 </select>
+
                                                 <Input type="tel" placeholder="Nominal" value={tempDebtAmount} onChange={(e) => handleNumberChange(setTempDebtAmount, e.target.value)} className="flex-1 font-bold h-12 rounded-[16px] border-slate-100 text-rose-600"/>
                                                 <button onClick={addDebtItem} className="bg-rose-500 text-white p-3 rounded-[16px] hover:bg-rose-600 shadow-sm"><Plus className="w-5 h-5"/></button>
                                             </div>
