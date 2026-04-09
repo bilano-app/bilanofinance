@@ -316,6 +316,30 @@ export default function Performance() {
 
       <div className={`space-y-6 pt-4 px-1 ${locked ? 'pb-32' : 'pb-24'}`}>
 
+        {isPeriodEnded && (
+            <div className={`p-5 rounded-[24px] text-white shadow-lg animate-in slide-in-from-top-4 ${isTargetAchieved ? 'bg-gradient-to-br from-yellow-400 to-amber-600' : 'bg-gradient-to-br from-rose-500 to-red-600'}`}>
+                {isTargetAchieved ? (
+                    <div className="flex items-center gap-4">
+                        <div className="bg-white/20 p-3 rounded-full"><Trophy className="w-8 h-8 text-white"/></div>
+                        <div>
+                            <h3 className="font-extrabold text-xl">Luar Biasa! 🎉</h3>
+                            <p className="text-xs text-white/90">Target finansialmu tercapai tepat waktu.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div>
+                        <h3 className="font-extrabold text-xl flex items-center gap-2"><AlertCircle className="w-6 h-6"/> Waktu Habis</h3>
+                        <p className="text-xs text-white/90 mt-1 mb-4 leading-relaxed">Target belum sepenuhnya tercapai. Jangan menyerah, atur ulang strategi untuk melanjutkan sisa target.</p>
+                        <Link href="/target">
+                            <button className="bg-white text-rose-600 px-5 py-3 rounded-full text-xs font-extrabold shadow flex items-center justify-center gap-2 w-full active:scale-95 transition-transform">
+                                <RefreshCcw className="w-4 h-4"/> PERPANJANG DURASI STRATEGI
+                            </button>
+                        </Link>
+                    </div>
+                )}
+            </div>
+        )}
+
         {/* ========================================================= */}
         {/* BAGIAN 1: TOTAL KEKAYAAN BERSIH (SELALU TAMPIL) */}
         {/* ========================================================= */}
@@ -373,6 +397,21 @@ export default function Performance() {
             )}
             <div className="absolute right-0 top-0 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
             <div className="absolute left-0 bottom-0 w-32 h-32 bg-emerald-400/20 rounded-tr-full blur-2xl pointer-events-none"></div>
+        </div>
+
+        {/* ========================================================= */}
+        {/* BAGIAN 1.5: AMAL & SEDEKAH (DIPINDAH KE BAWAH NET WORTH) */}
+        {/* ========================================================= */}
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
+            <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl group-hover:bg-emerald-300/50 transition-colors pointer-events-none"></div>
+            <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-1">
+                    <HeartHandshake className="w-5 h-5 text-emerald-600"/>
+                    <h3 className="font-extrabold text-emerald-900 text-sm">Amal & Sedekah (Bulan Ini)</h3>
+                </div>
+                <p className="text-[10px] font-medium text-emerald-700 mb-2">Pahala yang mengalir tanpa memotong budget bulanan</p>
+                <p className="text-2xl font-black text-emerald-600 tracking-tight">{formatRp(totalAmal)}</p>
+            </div>
         </div>
 
         {/* ========================================================= */}
@@ -513,22 +552,7 @@ export default function Performance() {
         )}
 
         {/* ========================================================= */}
-        {/* BAGIAN 4: AMAL & SEDEKAH (SELALU TAMPIL) */}
-        {/* ========================================================= */}
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
-            <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl group-hover:bg-emerald-300/50 transition-colors pointer-events-none"></div>
-            <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-1">
-                    <HeartHandshake className="w-5 h-5 text-emerald-600"/>
-                    <h3 className="font-extrabold text-emerald-900 text-sm">Amal & Sedekah (Bulan Ini)</h3>
-                </div>
-                <p className="text-[10px] font-medium text-emerald-700 mb-2">Pahala yang mengalir tanpa memotong budget bulanan</p>
-                <p className="text-2xl font-black text-emerald-600 tracking-tight">{formatRp(totalAmal)}</p>
-            </div>
-        </div>
-
-        {/* ========================================================= */}
-        {/* BAGIAN 5: DIAGNOSA TARGET & BUDGET (TAMPIL JIKA ADA TARGET) */}
+        {/* BAGIAN 4: DIAGNOSA TARGET & BUDGET (TAMPIL JIKA ADA TARGET) */}
         {/* ========================================================= */}
         {hasValidTarget ? (
             <div className="grid grid-cols-1 gap-5">

@@ -895,17 +895,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } = req.body; 
       
       const target = await storage.setTarget(user!.id, targetData as any); 
+
+      // 🚀 SUNTIKAN NOS: JALANKAN SEMUA QUERY SECARA BERSAMAAN (PARALEL)
+      // Ini akan memangkas waktu dari 10 detik menjadi cuma 1 detik, mencegah Error 504 Timeout!
+      const promises = [];
       
       if (addCurrentCash !== undefined && addCurrentCash > 0) {
-          await storage.updateUserBalance(user!.id, Math.round(addCurrentCash)); 
+          promises.push(storage.updateUserBalance(user!.id, Math.round(addCurrentCash))); 
       }
       
       if (initialForexList && Array.isArray(initialForexList)) {
           for (const item of initialForexList) {
               if (item.amount > 0) {
-                  const existing = await storage.getForexByCurrency(user!.id, item.currency);
-                  if (existing) await storage.updateForexAsset(existing.id, item.amount);
-                  else await storage.createForexAsset(user!.id, { currency: item.currency, amount: item.amount } as any);
+                  promises.push((async () => {
+                      const existing = await storage.getForexByCurrency(user!.id, item.currency);
+                      if (existing) return storage.updateForexAsset(existing.id, item.amount);
+                      return storage.createForexAsset(user!.id, { currency: item.currency, amount: item.amount } as any);
+                  })());
               }
           }
       }
@@ -913,7 +919,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (initialDebts && Array.isArray(initialDebts)) {
           for (const item of initialDebts) {
               if (item.amount > 0 && item.name) {
-                  await storage.createDebt(user!.id, { userId: user!.id, type: 'hutang', name: item.name, amount: item.amount } as any);
+                  promises.push(storage.createDebt(user!.id, { userId: user!.id, type: 'hutang', name: item.name, amount: item.amount } as any));
               }
           }
       }
@@ -921,7 +927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (initialReceivables && Array.isArray(initialReceivables)) {
           for (const item of initialReceivables) {
               if (item.amount > 0 && item.name) {
-                  await storage.createDebt(user!.id, { userId: user!.id, type: 'piutang', name: item.name, amount: item.amount } as any);
+                  promises.push(storage.createDebt(user!.id, { userId: user!.id, type: 'piutang', name: item.name, amount: item.amount } as any));
               }
           }
       }
@@ -929,16 +935,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (initialInvestments && Array.isArray(initialInvestments)) {
           for (const item of initialInvestments) {
               if (item.quantity > 0 && item.symbol && item.price > 0) {
-                  await storage.createInvestment(user!.id, { 
+                  promises.push(storage.createInvestment(user!.id, { 
                       userId: user!.id,
                       symbol: item.symbol.toUpperCase(), 
                       quantity: item.quantity, 
                       avgPrice: item.price, 
                       type: (item.type || 'saham').toLowerCase() 
-                  } as any);
+                  } as any));
               }
           }
       }
+
+      // Tunggu semua proses paralel selesai seketika
+      await Promise.all(promises);
 
       res.json(target); 
   });
@@ -1489,4 +1498,3 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   return httpServer;
-}

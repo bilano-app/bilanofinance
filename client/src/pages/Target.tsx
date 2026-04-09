@@ -27,6 +27,9 @@ interface InvItem { id: number; type: string; symbol: string; quantity: string; 
 
 const INV_TYPES = ["Saham", "Crypto", "Reksadana", "Emas", "P2P", "Obligasi"];
 
+// 🚀 FIX: Fallback Mata Uang agar aplikasi tidak crash jika API Forex Vercel timeout
+const FALLBACK_CURRENCIES = ["USD", "EUR", "SGD", "JPY", "AUD", "GBP", "CNY", "MYR", "SAR", "KRW", "THB"];
+
 const formatNumber = (val: string) => {
     const clean = val.replace(/\D/g, '');
     return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -86,7 +89,6 @@ export default function Target() {
 
     const handleNumberChange = (setter: (val: string) => void, value: string) => setter(formatNumber(value));
     
-    // 🚀 PENGAMAN PAYWALL
     const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     const isTrialExpired = userEmail ? localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true" : false;
 
@@ -94,17 +96,21 @@ export default function Target() {
         queryKey: ['forexRates', userEmail],
         queryFn: async () => {
             const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": userEmail }});
+            if (!res.ok) return {};
             return res.json();
         },
         enabled: !!userEmail
     });
     
-    const availableCurrencies = Object.keys(forexRates);
+    // 🚀 FIX: Fallback otomatis jika API Forex Vercel gagal dimuat (Mencegah React Error #130)
+    const safeForexRates = typeof forexRates === 'object' && forexRates !== null ? forexRates : {};
+    const availableCurrencies = Object.keys(safeForexRates).length > 0 ? Object.keys(safeForexRates) : FALLBACK_CURRENCIES;
 
     const { data: fetchedTarget, isLoading: isTargetLoading } = useQuery({
         queryKey: ['target', userEmail],
         queryFn: async () => {
             const res = await fetch(`/api/target`, { headers: { "x-user-email": userEmail }});
+            if (!res.ok) return null;
             return res.json();
         },
         enabled: !!userEmail
@@ -164,9 +170,9 @@ export default function Target() {
     const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
 
     const cashPreview = parseNumber(rawCurrentCash);
-    const totalForexInIDR = forexItems.reduce((acc, item) => acc + (parseNumber(item.amount) * (forexRates[item.currency] || 0)), 0) + (parseNumber(tempForexAmount) * (forexRates[tempForexCurrency] || 0));
+    const totalForexInIDR = forexItems.reduce((acc, item) => acc + (parseNumber(item.amount) * (safeForexRates[item.currency] || 0)), 0) + (parseNumber(tempForexAmount) * (safeForexRates[tempForexCurrency] || 0));
     
-    const getRate = (curr: string) => curr === 'IDR' ? 1 : (forexRates[curr] || 1);
+    const getRate = (curr: string) => curr === 'IDR' ? 1 : (safeForexRates[curr] || 1);
     
     const totalRecvInIDR = recvItems.reduce((acc, i) => acc + (parseNumber(i.amount) * getRate(i.currency)), 0) + (parseNumber(tempRecvAmount) * getRate(tempRecvCurrency));
     const totalDebtInIDR = debtItems.reduce((acc, i) => acc + (parseNumber(i.amount) * getRate(i.currency)), 0) + (parseNumber(tempDebtAmount) * getRate(tempDebtCurrency));
@@ -256,10 +262,11 @@ export default function Target() {
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
                 window.location.href = "/"; 
             } else { 
-                // Jika error 504 (Gateway Timeout), beri tahu user dengan jelas
                 const errText = await res.text();
+                // Menangkap pesan Gateway Timeout 504 Vercel dengan baik
                 if (res.status === 504) {
-                    toast({ title: "Server Sibuk (Timeout)", description: "Proses memakan waktu terlalu lama. Silakan coba klik simpan lagi.", variant: "destructive" });
+                    toast({ title: "Server Sibuk (Timeout)", description: "Data berhasil dikirim, tetapi Vercel merespon lambat. Coba refresh aplikasi.", variant: "destructive" });
+                    setTimeout(() => window.location.href = "/", 2000);
                 } else {
                     toast({ title: "Gagal Menyimpan", description: errText || "Kesalahan server.", variant: "destructive" }); 
                 }
@@ -367,12 +374,13 @@ export default function Target() {
                                                 {forexItems.map((item) => (
                                                     <div key={item.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-[16px] border border-slate-100 text-sm">
                                                         <div className="flex items-center gap-2"><span className="font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded">{item.currency}</span><span className="font-bold text-slate-700">{formatNumber(item.amount)}</span></div>
-                                                        <div className="flex items-center gap-3"><span className="text-[10px] font-bold text-slate-400">≈ {formatRp(parseNumber(item.amount) * (forexRates[item.currency] || 0))}</span><button onClick={() => removeForexItem(item.id)} className="text-slate-300 hover:text-rose-500"><Trash2 className="w-4 h-4"/></button></div>
+                                                        <div className="flex items-center gap-3"><span className="text-[10px] font-bold text-slate-400">≈ {formatRp(parseNumber(item.amount) * (safeForexRates[item.currency] || 0))}</span><button onClick={() => removeForexItem(item.id)} className="text-slate-300 hover:text-rose-500"><Trash2 className="w-4 h-4"/></button></div>
                                                     </div>
                                                 ))}
                                             </div>
                                         )}
                                         <div className="flex gap-2">
+                                            {/* 🚀 FIX REACT ERROR #130: Komponen inline <select> aman */}
                                             <select value={tempForexCurrency} onChange={(e) => setTempForexCurrency(e.target.value)} className="p-3 rounded-[16px] border-transparent bg-slate-50 font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none w-28">
                                                 {availableCurrencies.filter(c => c !== 'IDR').map(curr => <option key={curr} value={curr}>{curr}</option>)}
                                             </select>
