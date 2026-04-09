@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, bigint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -11,11 +11,11 @@ export const users = pgTable("users", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   profilePicture: text("profile_picture"),
-  cashBalance: integer("cash_balance").default(0).notNull(),
+  // 🚀 UPGRADE KE BIGINT
+  cashBalance: bigint("cash_balance", { mode: "number" }).default(0).notNull(),
   isPro: boolean("is_pro").default(false),
   proValidUntil: timestamp("pro_valid_until"), 
   onesignalId: text("onesignal_id"), 
-  // 🚀 FIX: Tambahkan pencatat waktu permanen di Server!
   createdAt: timestamp("created_at").defaultNow(), 
 });
 
@@ -24,7 +24,8 @@ export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   type: text("type").notNull(), 
-  amount: integer("amount").notNull(),
+  // 🚀 UPGRADE KE BIGINT
+  amount: bigint("amount", { mode: "number" }).notNull(),
   category: text("category").notNull(),
   description: text("description"),
   date: timestamp("date").notNull().defaultNow(),
@@ -44,9 +45,11 @@ export const investments = pgTable("investments", {
 export const targets = pgTable("targets", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  targetAmount: integer("target_amount").default(0).notNull(),
+  // 🚀 UPGRADE KE BIGINT
+  targetAmount: bigint("target_amount", { mode: "number" }).default(0).notNull(),
   durationMonths: integer("duration_months").default(12).notNull(),
-  monthlyBudget: integer("monthly_budget").default(0).notNull(),
+  // 🚀 UPGRADE KE BIGINT
+  monthlyBudget: bigint("monthly_budget", { mode: "number" }).default(0).notNull(),
   budgetType: text("budget_type").default('static'),
   startMonth: integer("start_month").default(1),
   startYear: integer("start_year").default(2026),
@@ -57,7 +60,8 @@ export const debts = pgTable("debts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   name: text("name").notNull(),
-  amount: integer("amount").notNull(),
+  // 🚀 UPGRADE KE BIGINT
+  amount: bigint("amount", { mode: "number" }).notNull(),
   type: text("type").notNull(),
   dueDate: timestamp("due_date"),
   isPaid: boolean("is_paid").default(false),
@@ -68,7 +72,8 @@ export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   name: text("name").notNull(),
-  cost: integer("cost").notNull(),
+  // 🚀 UPGRADE KE BIGINT
+  cost: bigint("cost", { mode: "number" }).notNull(),
   cycle: text("cycle").default('bulanan'),
   nextBilling: timestamp("next_billing"),
   isActive: boolean("is_active").default(true),

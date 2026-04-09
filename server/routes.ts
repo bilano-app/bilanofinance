@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
 import admin from "firebase-admin"; 
-import nodemailer from "nodemailer"; // 🚀 IMPORT NODEMAILER
+import nodemailer from "nodemailer";
 
 // ====================================================================
 // 🚀 PARSER JSON SUPER TANGGUH UNTUK VERCEL ENV
@@ -44,7 +44,7 @@ try {
 // ====================================================================
 const createTransporter = () => {
     return nodemailer.createTransport({
-        service: 'gmail', // Asumsi EMAIL_USER Anda adalah Gmail
+        service: 'gmail', 
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS
@@ -52,9 +52,6 @@ const createTransporter = () => {
     });
 };
 
-// ====================================================================
-// 🚀 AI INTEGRATION (CHATBOT)
-// ====================================================================
 async function askSmartAI(systemPrompt: string, userMessage: string) {
     try {
         const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
@@ -90,9 +87,6 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
-  // ====================================================================
-  // 🛡️ HOTFIX FATAL: SATPAM ANTI-BOCOR (MEMATIKAN CACHE VERCEL LINTAS AKUN)
-  // ====================================================================
   app.use("/api", (req, res, next) => {
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.setHeader("Pragma", "no-cache");
@@ -102,7 +96,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next();
   });
 
-  // 🚀 NON-BLOCKING DDL (Anti Timeout saat Cold Start)
   db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onesignal_id TEXT;`).catch(() => {});
   db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`).catch(() => {});
   db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (
@@ -141,6 +134,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return false;
   };
 
+  // ====================================================================
+  // 🚀 LINK RAHASIA UNTUK UPGRADE DATABASE KE KAPASITAS SULTAN (BIGINT)
+  // ====================================================================
+  app.get("/api/admin/upgrade-db", async (req, res) => {
+      try {
+          await db.execute(sql`ALTER TABLE users ALTER COLUMN cash_balance TYPE BIGINT;`);
+          await db.execute(sql`ALTER TABLE transactions ALTER COLUMN amount TYPE BIGINT;`);
+          await db.execute(sql`ALTER TABLE targets ALTER COLUMN target_amount TYPE BIGINT;`);
+          await db.execute(sql`ALTER TABLE targets ALTER COLUMN monthly_budget TYPE BIGINT;`);
+          await db.execute(sql`ALTER TABLE debts ALTER COLUMN amount TYPE BIGINT;`);
+          await db.execute(sql`ALTER TABLE subscriptions ALTER COLUMN cost TYPE BIGINT;`);
+          
+          res.json({ 
+              success: true, 
+              message: "🎉 DATABASE BERHASIL DIUPGRADE KE KAPASITAS SULTAN (BIGINT)! BILANO KINI BISA MENAMPUNG TRILIUNAN RUPIAH!" 
+          });
+      } catch (e: any) {
+          res.status(500).json({ error: "Gagal Update DB: " + e.message });
+      }
+  });
+
   app.post("/api/auth/check-email", async (req, res) => {
       if (!firebaseAdminInitialized) return res.status(200).json({ adminReady: false, exists: true }); 
       try {
@@ -155,9 +169,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // ====================================================================
-  // 🚀 ENDPOINT KIRIM OTP 100% REAL (MENGGUNAKAN NODEMAILER & GMAIL SMTP)
-  // ====================================================================
   app.post("/api/auth/send-otp", async (req, res) => {
       const { email } = req.body;
       let otp = "";
@@ -192,7 +203,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const transporter = createTransporter();
           
-          // Kirim email REAL via SMTP
           await transporter.sendMail({
               from: `"BILANO Official" <${process.env.EMAIL_USER}>`,
               to: email,
@@ -895,9 +905,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } = req.body; 
       
       const target = await storage.setTarget(user!.id, targetData as any); 
-
-      // 🚀 SUNTIKAN NOS: JALANKAN SEMUA QUERY SECARA BERSAMAAN (PARALEL)
-      // Ini akan memangkas waktu dari 10 detik menjadi cuma 1 detik, mencegah Error 504 Timeout!
+      
       const promises = [];
       
       if (addCurrentCash !== undefined && addCurrentCash > 0) {
@@ -946,7 +954,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
       }
 
-      // Tunggu semua proses paralel selesai seketika
       await Promise.all(promises);
 
       res.json(target); 
@@ -1468,13 +1475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           if (!response.ok) {
-              const errText = await response.text();
-              console.error("\n============================================");
-              console.error("🚨 SISTEM AI MENOLAK REQUEST. INI ALASANNYA:");
-              console.error(errText);
-              console.error("============================================\n");
-              
-              throw new Error(`Detail Error AI: ${errText.substring(0, 200)}...`);
+              throw new Error("Detail Error AI: Timeout");
           }
 
           const aiData = await response.json();
@@ -1491,10 +1492,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.json({ success: true, data: parsedResult });
 
       } catch (error: any) {
-          console.error("AI Scan Error:", error);
           res.status(500).json({ error: error.message || "Gagal memproses gambar." });
       }
   });
 
   const httpServer = createServer(app);
   return httpServer;
+}
