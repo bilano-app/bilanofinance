@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
 import admin from "firebase-admin"; 
+import nodemailer from "nodemailer"; // 🚀 IMPORT NODEMAILER
 
 // ====================================================================
 // 🚀 PARSER JSON SUPER TANGGUH UNTUK VERCEL ENV
@@ -37,6 +38,19 @@ try {
 } catch (error) {
     console.error("❌ Gagal inisialisasi Firebase Admin:", error);
 }
+
+// ====================================================================
+// 🚀 SETUP NODEMAILER (PENGIRIM EMAIL 100% REAL)
+// ====================================================================
+const createTransporter = () => {
+    return nodemailer.createTransport({
+        service: 'gmail', // Asumsi EMAIL_USER Anda adalah Gmail
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+        }
+    });
+};
 
 // ====================================================================
 // 🚀 AI INTEGRATION (CHATBOT)
@@ -84,13 +98,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
       res.setHeader("Surrogate-Control", "no-store");
-      res.setHeader("Vary", "x-user-email"); // Paksaan agar Vercel tahu beda email = beda data!
+      res.setHeader("Vary", "x-user-email"); 
       next();
   });
-  // ====================================================================
 
-  // 🚀 SUNTIKAN NOS: JALANKAN DDL DI LATAR BELAKANG (NON-BLOCKING)
-  // Tanpa kata "await", server tidak akan menunggu proses ini selesai sehingga Sign Up instan!
+  // 🚀 NON-BLOCKING DDL (Anti Timeout saat Cold Start)
   db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onesignal_id TEXT;`).catch(() => {});
   db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`).catch(() => {});
   db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (
@@ -143,6 +155,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // ====================================================================
+  // 🚀 ENDPOINT KIRIM OTP 100% REAL (MENGGUNAKAN NODEMAILER & GMAIL SMTP)
+  // ====================================================================
   app.post("/api/auth/send-otp", async (req, res) => {
       const { email } = req.body;
       let otp = "";
@@ -171,28 +186,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const htmlContent = `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #4f46e5;">Selamat Datang di BILANO!</h2><p style="color: #4b5563;">Gunakan kode OTP berikut untuk memverifikasi email Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`;
 
-          const resendKey = process.env.RESEND_API_KEY;
-          if (!resendKey) return res.status(500).json({ error: "API Key Resend belum dipasang di Vercel." });
+          if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+              return res.status(500).json({ error: "Kredensial EMAIL_USER / EMAIL_PASS belum diatur di Vercel." });
+          }
 
-          const emailRes = await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${resendKey}`
-              },
-              body: JSON.stringify({
-                  from: "BILANO OTP <onboarding@resend.dev>",
-                  to: [email],
-                  subject: "Kode Verifikasi BILANO",
-                  html: htmlContent
-              })
+          const transporter = createTransporter();
+          
+          // Kirim email REAL via SMTP
+          await transporter.sendMail({
+              from: `"BILANO Official" <${process.env.EMAIL_USER}>`,
+              to: email,
+              subject: "Kode Verifikasi BILANO",
+              html: htmlContent
           });
 
-          if (!emailRes.ok) throw new Error("Resend API Error");
-
           res.json({ success: true, message: "OTP Terkirim Cepat!" }); 
-      } catch (error) {
-          res.status(500).json({ error: "Gagal mengirim OTP. Pastikan email terdaftar di Resend." });
+      } catch (error: any) {
+          console.error("Nodemailer Error:", error);
+          res.status(500).json({ error: "Gagal mengirim OTP. Pastikan App Password Gmail sudah benar." });
+      }
+  });
+
+  app.post("/api/auth/send-otp-reset", async (req, res) => {
+      if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
+      
+      const { email } = req.body;
+      try {
+          await admin.auth().getUserByEmail(email);
+      } catch (e) {
+          return res.status(404).json({ error: "Email ini belum terdaftar di aplikasi kami." });
+      }
+
+      let otp = "";
+      try {
+          const existing = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`);
+          const rows = Array.isArray(existing) ? existing : (existing as any).rows || [];
+          
+          if (rows.length > 0) {
+              const createdAt = new Date(rows[0].created_at).getTime();
+              if (Date.now() - createdAt < 300000) otp = rows[0].code;
+          }
+
+          if (!otp) {
+              otp = Math.floor(100000 + Math.random() * 900000).toString(); 
+              await db.execute(sql`
+                  INSERT INTO otp_sessions (email, code, created_at)
+                  VALUES (LOWER(TRIM(${email})), ${otp}, NOW())
+                  ON CONFLICT (email)
+                  DO UPDATE SET code = ${otp}, created_at = NOW()
+              `);
+          }
+
+          const htmlContent = `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #e11d48;">Reset Password Anda</h2><p style="color: #4b5563;">Gunakan kode OTP rahasia berikut untuk membuat password baru Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`;
+
+          if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+              return res.status(500).json({ error: "Kredensial EMAIL_USER / EMAIL_PASS belum diatur." });
+          }
+
+          const transporter = createTransporter();
+          
+          await transporter.sendMail({
+              from: `"BILANO Security" <${process.env.EMAIL_USER}>`,
+              to: email,
+              subject: "Reset Password BILANO",
+              html: htmlContent
+          });
+
+          res.json({ success: true, message: "OTP Reset Terkirim" }); 
+      } catch (error: any) {
+          console.error("Nodemailer Reset Error:", error);
+          res.status(500).json({ error: "Gagal mengirim email OTP." });
       }
   });
 
@@ -251,67 +314,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.json({ success: true, message: `Berhasil membatalkan: ${lastTx.category}` });
       } catch (e: any) { 
           res.status(500).json({ error: e.message }); 
-      }
-  });
-
-  app.post("/api/auth/send-otp-reset", async (req, res) => {
-      if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
-      
-      const { email } = req.body;
-      try {
-          await admin.auth().getUserByEmail(email);
-      } catch (e) {
-          return res.status(404).json({ error: "Email ini belum terdaftar di aplikasi kami." });
-      }
-
-      let otp = "";
-      
-      try {
-          const existing = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`);
-          const rows = Array.isArray(existing) ? existing : (existing as any).rows || [];
-          
-          if (rows.length > 0) {
-              const createdAt = new Date(rows[0].created_at).getTime();
-              const now = Date.now();
-              if (now - createdAt < 300000) {
-                  otp = rows[0].code;
-              }
-          }
-
-          if (!otp) {
-              otp = Math.floor(100000 + Math.random() * 900000).toString(); 
-              await db.execute(sql`
-                  INSERT INTO otp_sessions (email, code, created_at)
-                  VALUES (LOWER(TRIM(${email})), ${otp}, NOW())
-                  ON CONFLICT (email)
-                  DO UPDATE SET code = ${otp}, created_at = NOW()
-              `);
-          }
-
-          const htmlContent = `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #e11d48;">Reset Password Anda</h2><p style="color: #4b5563;">Gunakan kode OTP rahasia berikut untuk membuat password baru Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`;
-
-          const resendKey = process.env.RESEND_API_KEY;
-          if (!resendKey) return res.status(500).json({ error: "API Key Resend belum dipasang." });
-
-          const emailRes = await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${resendKey}`
-              },
-              body: JSON.stringify({
-                  from: "BILANO Security <onboarding@resend.dev>",
-                  to: [email],
-                  subject: "Reset Password BILANO",
-                  html: htmlContent
-              })
-          });
-
-          if (!emailRes.ok) throw new Error("Gagal Kirim Resend");
-
-          res.json({ success: true, message: "OTP Reset Terkirim" }); 
-      } catch (error) {
-          res.status(500).json({ error: "Gagal mengirim email OTP." });
       }
   });
 

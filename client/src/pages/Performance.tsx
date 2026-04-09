@@ -6,13 +6,12 @@ import { formatCurrency } from "@/lib/utils";
 import { 
   Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, 
   ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2, Lock, Crown, 
-  ShieldCheck, Sparkles, ChevronRight, X, CreditCard, Briefcase, TrendingUp, Trash2, HeartHandshake 
+  ShieldCheck, ChevronRight, X, CreditCard, Briefcase, TrendingUp, Trash2, HeartHandshake 
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
-// 🚀 FIX: KURS CADANGAN (FALLBACK) AGAR TARGET TIDAK JANTUNGAN SAAT LOADING
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
     "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
@@ -170,6 +169,8 @@ export default function Performance() {
   let isPeriodEnded = false;
   let isTargetAchieved = false;
 
+  const hasValidTarget = target && (target.targetAmount > 0 || target.monthlyBudget > 0);
+
   if (target && target.targetAmount > 0) {
       const targetGoal = target.targetAmount;
       expenseLimit = (target.monthlyBudget || 0);
@@ -201,10 +202,8 @@ export default function Performance() {
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   }) || [];
 
-  // 🚀 KALKULASI AMAL BULAN INI
   const totalAmal = thisMonthTx.filter(t => t.category === 'Amal').reduce((acc, t) => acc + t.amount, 0);
 
-  // 🚀 FIX: FILTER SANGAT KETAT ANTI VALAS
   const baseIncomeTxs = thisMonthTx.filter(t => 
       (t.type === 'income' || t.type === 'piutang_record') && 
       !t.description?.includes('[Offset') && 
@@ -221,7 +220,6 @@ export default function Performance() {
       !(t.category || '').includes('Dapat Pinjaman')
   );
   
-  // 🚀 PENGECUALIAN AMAL AGAR TIDAK MENGURANGI BUDGET
   const baseExpenseTxs = thisMonthTx.filter(t => 
       (t.type === 'expense' || t.type === 'hutang_record') && 
       !(t.category || '').toLowerCase().includes('invest') && 
@@ -234,9 +232,9 @@ export default function Performance() {
       t.category !== 'Tukar Valas' &&
       t.category !== 'Investasi Valas' && 
       t.category !== 'Cairkan Valas' &&
+      t.category !== 'Amal' && 
       !(t.category || '').includes('Bayar Hutang') &&
-      !(t.category || '').includes('Beri Pinjaman') &&
-      t.category !== 'Amal' // <-- FILTER AMAL
+      !(t.category || '').includes('Beri Pinjaman')
   );
 
   const virtualPLTxs: any[] = [];
@@ -265,9 +263,14 @@ export default function Performance() {
 
   const monthlyIncome = allIncomeTxs.reduce((acc, t) => acc + t.amount, 0); 
   const monthlyExpense = allExpenseTxs.reduce((acc, t) => acc + t.amount, 0); 
-      
-  const monthlyNet = monthlyIncome - monthlyExpense;
   
+  const pureExpenses = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0);
+  const monthlyBudget = target?.monthlyBudget || 0;
+  const isOverBudgetStrict = monthlyBudget > 0 && pureExpenses > monthlyBudget;
+  const remainingBudget = Math.max(0, monthlyBudget - pureExpenses);
+  const budgetPercentage = monthlyBudget > 0 ? Math.min(100, (pureExpenses / monthlyBudget) * 100) : 0;
+    
+  const monthlyNet = monthlyIncome - monthlyExpense;
   const isSafe = monthlyNet >= savingRequired; 
   const isOverBudget = expenseLimit > 0 && monthlyExpense > expenseLimit;
 
@@ -313,42 +316,19 @@ export default function Performance() {
 
       <div className={`space-y-6 pt-4 px-1 ${locked ? 'pb-32' : 'pb-24'}`}>
 
-        {isPeriodEnded && (
-            <div className={`p-5 rounded-[24px] text-white shadow-lg animate-in slide-in-from-top-4 ${isTargetAchieved ? 'bg-gradient-to-br from-yellow-400 to-amber-600' : 'bg-gradient-to-br from-rose-500 to-red-600'}`}>
-                {isTargetAchieved ? (
-                    <div className="flex items-center gap-4">
-                        <div className="bg-white/20 p-3 rounded-full"><Trophy className="w-8 h-8 text-white"/></div>
-                        <div>
-                            <h3 className="font-extrabold text-xl">Luar Biasa! 🎉</h3>
-                            <p className="text-xs text-white/90">Target finansialmu tercapai tepat waktu.</p>
-                        </div>
-                    </div>
-                ) : (
-                    <div>
-                        <h3 className="font-extrabold text-xl flex items-center gap-2"><AlertCircle className="w-6 h-6"/> Waktu Habis</h3>
-                        <p className="text-xs text-white/90 mt-1 mb-4 leading-relaxed">Target belum sepenuhnya tercapai. Jangan menyerah, atur ulang strategi untuk melanjutkan sisa target.</p>
-                        <Link href="/target">
-                            <button className="bg-white text-rose-600 px-5 py-3 rounded-full text-xs font-extrabold shadow flex items-center justify-center gap-2 w-full active:scale-95 transition-transform">
-                                <RefreshCcw className="w-4 h-4"/> PERPANJANG DURASI STRATEGI
-                            </button>
-                        </Link>
-                    </div>
-                )}
-            </div>
-        )}
-
+        {/* ========================================================= */}
+        {/* BAGIAN 1: TOTAL KEKAYAAN BERSIH (SELALU TAMPIL) */}
+        {/* ========================================================= */}
         <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-800 text-white p-7 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden">
             <div className="relative z-10 mb-6">
-                
                 <div className="flex justify-between items-center mb-1">
                     <p className="text-[11px] text-blue-200 uppercase tracking-widest font-bold flex items-center gap-2">
                         Total Kekayaan Bersih {locked && <Lock className="w-3 h-3 text-amber-300"/>}
                     </p>
-                    
-                    {target && !locked && (
+                    {!locked && (
                         <Link href="/target">
                             <button className="bg-yellow-400 hover:bg-yellow-500 text-indigo-950 px-3 py-1.5 rounded-full text-[9px] font-extrabold shadow-md transition-all active:scale-95 uppercase tracking-wider whitespace-nowrap">
-                                {target.targetAmount > 0 ? "EDIT TARGET" : "TAMBAH TARGET"}
+                                {hasValidTarget ? "EDIT TARGET" : "TAMBAH TARGET"}
                             </button>
                         </Link>
                     )}
@@ -377,7 +357,7 @@ export default function Performance() {
             </div>
 
             {target && target.targetAmount > 0 && (
-                <div className="relative z-10 bg-black/20 p-4 rounded-[20px] backdrop-blur-sm border border-white/10">
+                <div className="relative z-10 bg-black/20 p-4 rounded-[20px] backdrop-blur-sm border border-white/10 mt-6">
                     <div className="flex justify-between text-[11px] text-blue-100 mb-2 font-bold uppercase tracking-wider">
                         <span>Target Impian</span>
                         <span className={`text-emerald-300 ${locked ? 'blur-[4px] select-none' : ''}`}>{progressPercent.toFixed(1)}%</span>
@@ -395,10 +375,147 @@ export default function Performance() {
             <div className="absolute left-0 bottom-0 w-32 h-32 bg-emerald-400/20 rounded-tr-full blur-2xl pointer-events-none"></div>
         </div>
 
-        {/* ==================================================== */}
-        {/* KARTU PRESTASI AMAL KHUSUS (HIJAU / EMERALD)         */}
-        {/* ==================================================== */}
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[32px] p-6 flex items-center justify-between shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
+        {/* ========================================================= */}
+        {/* BAGIAN 2: REALISASI & CASHFLOW (SELALU TAMPIL) */}
+        {/* ========================================================= */}
+        <div className="p-0 border border-slate-100 shadow-[0_4px_20_rgb(0,0,0,0.03)] bg-white overflow-hidden rounded-[32px] relative">
+            <div className={locked ? 'blur-[5px] pointer-events-none select-none' : ''}>
+                <div className="p-6 border-b border-slate-100">
+                    <div className="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 className="font-extrabold text-slate-800 text-base">Realisasi & Cashflow</h3>
+                            <p className="text-[11px] text-slate-400 font-medium">Klik grafik untuk rincian</p>
+                        </div>
+                        <span className={`text-[11px] font-extrabold px-3 py-1.5 rounded-full border ${monthlyNet >= 0 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                            Net: {monthlyNet > 0 ? '+' : ''}{formatRp(monthlyNet)}
+                        </span>
+                    </div>
+
+                    <div className="flex items-end justify-around h-40 gap-4">
+                        <div 
+                            onClick={() => setExpandedDetail(expandedDetail === 'income' ? null : 'income')}
+                            className={`flex flex-col items-center gap-2 w-full h-full justify-end group cursor-pointer p-2 rounded-[20px] transition-all ${expandedDetail === 'income' ? 'bg-emerald-50 ring-2 ring-emerald-400 ring-offset-2' : 'hover:bg-slate-50'}`}
+                        >
+                            <span className="text-[11px] font-extrabold text-emerald-600 truncate max-w-full px-1">{formatRp(monthlyIncome)}</span>
+                            <div className="w-full bg-emerald-400 rounded-t-xl transition-all duration-1000 shadow-sm" style={{ height: `${Math.max(monthlyIncome/Math.max(monthlyIncome, monthlyExpense, 1)*100, 10)}%` }}></div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mt-1">
+                                <ArrowDownCircle className="w-3.5 h-3.5"/> Masuk
+                                {expandedDetail === 'income' ? <ChevronUp className="w-3 h-3 text-emerald-500"/> : <ChevronDown className="w-3 h-3 opacity-30"/>}
+                            </span>
+                        </div>
+
+                        <div 
+                            onClick={() => setExpandedDetail(expandedDetail === 'expense' ? null : 'expense')}
+                            className={`flex flex-col items-center gap-2 w-full h-full justify-end group cursor-pointer p-2 rounded-[20px] transition-all ${expandedDetail === 'expense' ? 'bg-rose-50 ring-2 ring-rose-400 ring-offset-2' : 'hover:bg-slate-50'}`}
+                        >
+                            <span className="text-[11px] font-extrabold text-rose-600 truncate max-w-full px-1">{formatRp(monthlyExpense)}</span>
+                            <div className="w-full bg-rose-400 rounded-t-xl transition-all duration-1000 shadow-sm" style={{ height: `${Math.max(monthlyExpense/Math.max(monthlyIncome, monthlyExpense, 1)*100, 10)}%` }}></div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mt-1">
+                                <ArrowUpCircle className="w-3.5 h-3.5"/> Keluar
+                                {expandedDetail === 'expense' ? <ChevronUp className="w-3 h-3 text-rose-500"/> : <ChevronDown className="w-3 h-3 opacity-30"/>}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className={`transition-all duration-500 ease-in-out overflow-hidden bg-slate-50/50 ${expandedDetail ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                    <div className="p-5">
+                        <div className="flex justify-between items-center mb-4">
+                            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest">
+                                Riwayat {expandedDetail === 'income' ? 'Pemasukan' : 'Pengeluaran'}
+                            </span>
+                            <button onClick={() => setExpandedDetail(null)} className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Tutup</button>
+                        </div>
+                        
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1 pb-4">
+                            {detailList.length > 0 ? detailList.map((t, idx) => (
+                                <div key={t.id || idx} className="bg-white p-4 rounded-[20px] border border-slate-100 shadow-sm flex justify-between items-center group transition-all">
+                                    <div className="flex-1 mr-2">
+                                        <p className="text-sm font-extrabold text-slate-800">{t.category}</p>
+                                        <p className="text-[11px] text-slate-500 line-clamp-1">{t.description || "Tanpa keterangan"}</p>
+                                    </div>
+                                    <div className="text-right mr-3">
+                                        <p className={`text-sm font-extrabold ${t.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                            {t.type === 'income' ? '+' : '-'}{formatRp(t.amount)}
+                                        </p>
+                                        <p className="text-[10px] text-slate-400 font-medium">{new Date(t.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</p>
+                                    </div>
+                                    
+                                    {t.id && (
+                                        <button 
+                                            onClick={() => handleDeleteTransaction(t.id)} 
+                                            disabled={isDeletingTx}
+                                            className="p-2.5 bg-rose-50 text-rose-500 rounded-[14px] hover:bg-rose-100 transition-colors shrink-0"
+                                            title="Hapus Transaksi Ini"
+                                        >
+                                            {isDeletingTx ? <Loader2 className="w-4 h-4 animate-spin"/> : <Trash2 className="w-4 h-4"/>}
+                                        </button>
+                                    )}
+                                </div>
+                            )) : (
+                                <p className="text-center text-xs text-slate-400 italic py-6 bg-white rounded-[20px] border border-dashed border-slate-200">Belum ada transaksi bulan ini.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {locked && (
+                <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-6">
+                    <Lock className="w-8 h-8 text-indigo-400 mb-3"/>
+                    <p className="font-extrabold text-slate-800 text-base leading-tight">Analisis Cashflow Terkunci</p>
+                    <p className="text-xs text-slate-500 mt-1.5 max-w-[200px]">Upgrade PRO untuk melihat rincian pemasukan & pengeluaran.</p>
+                </div>
+            )}
+        </div>
+
+        {/* ========================================================= */}
+        {/* BAGIAN 3: PERFORMA ASET (SELALU TAMPIL JIKA PRO & ADA ASET) */}
+        {/* ========================================================= */}
+        {!locked && isPro && (totalCuanJual !== 0 || investmentReal > 0) && (
+            <div className="p-6 rounded-[32px] bg-slate-900 text-white shadow-xl border border-slate-700 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
+                <div className="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 className="font-black text-lg flex items-center gap-2"><Briefcase className="w-5 h-5 text-amber-400"/> Performa Aset</h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">ROI & Portfolio Insight</p>
+                    </div>
+                    <div className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-1 rounded-md">PRO</div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">Total ROI (Realisasi)</p>
+                        <p className={`text-xl font-black ${totalCuanJual >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {totalCuanJual >= 0 ? '+' : ''}{roiPercentage.toFixed(2)}%
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-medium">{formatRp(totalCuanJual)} dari modal {formatRp(totalModalTerpakai)}</p>
+                    </div>
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">Porsi Aset & Valas</p>
+                        <p className="text-xl font-black text-blue-400">{assetAlocationRatio.toFixed(1)}%</p>
+                        <p className="text-[10px] text-slate-500 font-medium">dari Kekayaan Bersih</p>
+                    </div>
+                </div>
+
+                <div className="bg-amber-400/10 border border-amber-400/20 p-4 rounded-2xl">
+                    <div className="flex items-center gap-2 mb-1.5 text-amber-400">
+                        <TrendingUp className="w-4 h-4"/>
+                        <span className="text-[11px] font-black uppercase">Analisa Strategi:</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
+                        {roiPercentage > 5 ? "Gaya trading Anda sangat efektif! Lanjutkan konsistensi ini untuk mempercepat kebebasan finansial." : 
+                            roiPercentage < 0 ? "Realisasi cuan sedang negatif. Lakukan evaluasi mendalam pada pemilihan aset atau waktu masuk/keluar pasar." :
+                            "Hasil investasi masih stabil. Fokus pada manajemen risiko dan diversifikasi aset untuk pertumbuhan jangka panjang."}
+                    </p>
+                </div>
+                <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* BAGIAN 4: AMAL & SEDEKAH (SELALU TAMPIL) */}
+        {/* ========================================================= */}
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
             <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl group-hover:bg-emerald-300/50 transition-colors pointer-events-none"></div>
             <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-1">
@@ -410,9 +527,47 @@ export default function Performance() {
             </div>
         </div>
 
-        {target ? (
+        {/* ========================================================= */}
+        {/* BAGIAN 5: DIAGNOSA TARGET & BUDGET (TAMPIL JIKA ADA TARGET) */}
+        {/* ========================================================= */}
+        {hasValidTarget ? (
             <div className="grid grid-cols-1 gap-5">
                 
+                {target.monthlyBudget > 0 && (
+                    <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[32px] p-6 text-white shadow-2xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+                        
+                        <div className="flex items-center justify-between mb-6 relative z-10">
+                            <div className="flex items-center gap-2">
+                                <Target className="w-5 h-5 text-indigo-300"/>
+                                <h3 className="font-bold text-sm">Limit Pengeluaran Bulan Ini</h3>
+                            </div>
+                            {isOverBudgetStrict && <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-md animate-pulse shadow-md">OVERBUDGET</span>}
+                        </div>
+
+                        <div className="mb-6 relative z-10">
+                            <p className="text-[11px] text-indigo-200 mb-1 font-medium">Pengeluaran Tercatat (Non-Amal)</p>
+                            <div className="flex items-end gap-2">
+                                <h2 className="text-3xl font-black tracking-tight">{formatCurrency(pureExpenses).split(',')[0]}</h2>
+                                <span className="text-sm text-indigo-300 mb-1 font-bold">/ {formatCurrency(monthlyBudget).split(',')[0]}</span>
+                            </div>
+                        </div>
+
+                        <div className="relative z-10">
+                            <div className="flex justify-between text-[10px] font-bold mb-2 text-indigo-200">
+                                <span>Terpakai: {budgetPercentage.toFixed(1)}%</span>
+                                <span>Sisa: {formatCurrency(remainingBudget).split(',')[0]}</span>
+                            </div>
+                            <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700 shadow-inner">
+                                <div 
+                                    className={`h-full rounded-full transition-all duration-1000 ${isOverBudgetStrict ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-[0_0_10px_rgba(52,211,153,0.5)]'}`}
+                                    style={{ width: `${budgetPercentage}%` }}
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {target.targetAmount > 0 && (
                     <div className="p-6 rounded-[32px] bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 relative overflow-hidden">
                         
@@ -456,97 +611,6 @@ export default function Performance() {
                     </div>
                 )}
 
-                <div className="p-0 border border-slate-100 shadow-[0_4px_20_rgb(0,0,0,0.03)] bg-white overflow-hidden rounded-[32px] relative">
-                    <div className={locked ? 'blur-[5px] pointer-events-none select-none' : ''}>
-                        <div className="p-6 border-b border-slate-100">
-                            <div className="flex justify-between items-center mb-6">
-                                <div>
-                                    <h3 className="font-extrabold text-slate-800 text-base">Realisasi & Cashflow</h3>
-                                    <p className="text-[11px] text-slate-400 font-medium">Klik grafik untuk rincian</p>
-                                </div>
-                                <span className={`text-[11px] font-extrabold px-3 py-1.5 rounded-full border ${monthlyNet >= 0 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
-                                    Net: {monthlyNet > 0 ? '+' : ''}{formatRp(monthlyNet)}
-                                </span>
-                            </div>
-
-                            <div className="flex items-end justify-around h-40 gap-4">
-                                <div 
-                                    onClick={() => setExpandedDetail(expandedDetail === 'income' ? null : 'income')}
-                                    className={`flex flex-col items-center gap-2 w-full h-full justify-end group cursor-pointer p-2 rounded-[20px] transition-all ${expandedDetail === 'income' ? 'bg-emerald-50 ring-2 ring-emerald-400 ring-offset-2' : 'hover:bg-slate-50'}`}
-                                >
-                                    <span className="text-[11px] font-extrabold text-emerald-600 truncate max-w-full px-1">{formatRp(monthlyIncome)}</span>
-                                    <div className="w-full bg-emerald-400 rounded-t-xl transition-all duration-1000 shadow-sm" style={{ height: `${Math.max(monthlyIncome/Math.max(monthlyIncome, monthlyExpense, 1)*100, 10)}%` }}></div>
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mt-1">
-                                        <ArrowDownCircle className="w-3.5 h-3.5"/> Masuk
-                                        {expandedDetail === 'income' ? <ChevronUp className="w-3 h-3 text-emerald-500"/> : <ChevronDown className="w-3 h-3 opacity-30"/>}
-                                    </span>
-                                </div>
-
-                                <div 
-                                    onClick={() => setExpandedDetail(expandedDetail === 'expense' ? null : 'expense')}
-                                    className={`flex flex-col items-center gap-2 w-full h-full justify-end group cursor-pointer p-2 rounded-[20px] transition-all ${expandedDetail === 'expense' ? 'bg-rose-50 ring-2 ring-rose-400 ring-offset-2' : 'hover:bg-slate-50'}`}
-                                >
-                                    <span className="text-[11px] font-extrabold text-rose-600 truncate max-w-full px-1">{formatRp(monthlyExpense)}</span>
-                                    <div className="w-full bg-rose-400 rounded-t-xl transition-all duration-1000 shadow-sm" style={{ height: `${Math.max(monthlyExpense/Math.max(monthlyIncome, monthlyExpense, 1)*100, 10)}%` }}></div>
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mt-1">
-                                        <ArrowUpCircle className="w-3.5 h-3.5"/> Keluar
-                                        {expandedDetail === 'expense' ? <ChevronUp className="w-3 h-3 text-rose-500"/> : <ChevronDown className="w-3 h-3 opacity-30"/>}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className={`transition-all duration-500 ease-in-out overflow-hidden bg-slate-50/50 ${expandedDetail ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                            <div className="p-5">
-                                <div className="flex justify-between items-center mb-4">
-                                    <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest">
-                                        Riwayat {expandedDetail === 'income' ? 'Pemasukan' : 'Pengeluaran'}
-                                    </span>
-                                    <button onClick={() => setExpandedDetail(null)} className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Tutup</button>
-                                </div>
-                                
-                                <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1 pb-4">
-                                    {detailList.length > 0 ? detailList.map((t, idx) => (
-                                        <div key={t.id || idx} className="bg-white p-4 rounded-[20px] border border-slate-100 shadow-sm flex justify-between items-center group transition-all">
-                                            <div className="flex-1 mr-2">
-                                                <p className="text-sm font-extrabold text-slate-800">{t.category}</p>
-                                                <p className="text-[11px] text-slate-500 line-clamp-1">{t.description || "Tanpa keterangan"}</p>
-                                            </div>
-                                            <div className="text-right mr-3">
-                                                <p className={`text-sm font-extrabold ${t.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                    {t.type === 'income' ? '+' : '-'}{formatRp(t.amount)}
-                                                </p>
-                                                <p className="text-[10px] text-slate-400 font-medium">{new Date(t.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</p>
-                                            </div>
-                                            
-                                            {t.id && (
-                                                <button 
-                                                    onClick={() => handleDeleteTransaction(t.id)} 
-                                                    disabled={isDeletingTx}
-                                                    className="p-2.5 bg-rose-50 text-rose-500 rounded-[14px] hover:bg-rose-100 transition-colors shrink-0"
-                                                    title="Hapus Transaksi Ini"
-                                                >
-                                                    {isDeletingTx ? <Loader2 className="w-4 h-4 animate-spin"/> : <Trash2 className="w-4 h-4"/>}
-                                                </button>
-                                            )}
-                                        </div>
-                                    )) : (
-                                        <p className="text-center text-xs text-slate-400 italic py-6 bg-white rounded-[20px] border border-dashed border-slate-200">Belum ada transaksi bulan ini.</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {locked && (
-                        <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-6">
-                            <Lock className="w-8 h-8 text-indigo-400 mb-3"/>
-                            <p className="font-extrabold text-slate-800 text-base leading-tight">Analisis Cashflow Terkunci</p>
-                            <p className="text-xs text-slate-500 mt-1.5 max-w-[200px]">Upgrade PRO untuk melihat rincian pemasukan & pengeluaran.</p>
-                        </div>
-                    )}
-                </div>
-
                 <div className="space-y-4">
                     {target.targetAmount > 0 && (
                         <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${isSafe ? "border-emerald-100 bg-emerald-50" : "border-orange-100 bg-orange-50"}`}>
@@ -579,83 +643,42 @@ export default function Performance() {
                         </div>
                     )}
 
-                    {!locked && isPro && (totalCuanJual !== 0 || investmentReal > 0) && (
-                        <div className="p-6 rounded-[32px] bg-slate-900 text-white shadow-xl border border-slate-700 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <h3 className="font-black text-lg flex items-center gap-2"><Briefcase className="w-5 h-5 text-amber-400"/> Performa Aset</h3>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">ROI & Portfolio Insight</p>
-                                </div>
-                                <div className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-1 rounded-md">PRO</div>
+                    {target.targetAmount === 0 && expenseLimit > 0 && (
+                        <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${!isOverBudget ? "border-emerald-100 bg-emerald-50" : "border-rose-100 bg-rose-50"}`}>
+                            <div className={locked ? 'blur-[5px] select-none' : ''}>
+                                <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Kontrol Pengeluaran</p>
+                                {!isOverBudget ? (
+                                    <>
+                                        <h3 className="text-xl font-extrabold text-emerald-600 mb-2">PENGELUARAN AMAN 🛡️</h3>
+                                        <p className="text-xs text-emerald-700 font-medium">Kamu masih punya sisa budget {formatRp(expenseLimit - monthlyExpense)} bulan ini.</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h3 className="text-xl font-extrabold text-rose-600 mb-2">AWAS OVERBUDGET 🚨</h3>
+                                        <p className="text-xs text-rose-700 font-medium">Pengeluaran menembus batas! Kelebihan {formatRp(monthlyExpense - expenseLimit)}.</p>
+                                    </>
+                                )}
                             </div>
-
-                            <div className="grid grid-cols-2 gap-4 mb-6">
-                                <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                                    <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">Total ROI (Realisasi)</p>
-                                    <p className={`text-xl font-black ${totalCuanJual >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {totalCuanJual >= 0 ? '+' : ''}{roiPercentage.toFixed(2)}%
-                                    </p>
-                                    <p className="text-[10px] text-slate-500 font-medium">{formatRp(totalCuanJual)} dari modal {formatRp(totalModalTerpakai)}</p>
+                            {locked && (
+                                <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center">
+                                    <Lock className="w-6 h-6 text-indigo-400 mb-1"/>
+                                    <p className="font-extrabold text-slate-800 text-sm">Kontrol Terkunci</p>
                                 </div>
-                                <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                                    <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">Porsi Aset & Valas</p>
-                                    <p className="text-xl font-black text-blue-400">{assetAlocationRatio.toFixed(1)}%</p>
-                                    <p className="text-[10px] text-slate-500 font-medium">dari Kekayaan Bersih</p>
-                                </div>
-                            </div>
-
-                            <div className="bg-amber-400/10 border border-amber-400/20 p-4 rounded-2xl">
-                                <div className="flex items-center gap-2 mb-1.5 text-amber-400">
-                                    <TrendingUp className="w-4 h-4"/>
-                                    <span className="text-[11px] font-black uppercase">Analisa Strategi:</span>
-                                </div>
-                                <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
-                                    {roiPercentage > 5 ? "Gaya trading Anda sangat efektif! Lanjutkan konsistensi ini untuk mempercepat kebebasan finansial." : 
-                                     roiPercentage < 0 ? "Realisasi cuan sedang negatif. Lakukan evaluasi mendalam pada pemilihan aset atau waktu masuk/keluar pasar." :
-                                     "Hasil investasi masih stabil. Fokus pada manajemen risiko dan diversifikasi aset untuk pertumbuhan jangka panjang."}
-                                </p>
-                            </div>
-                            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                            )}
                         </div>
                     )}
                 </div>
-
-                {target.targetAmount === 0 && expenseLimit > 0 && (
-                    <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${!isOverBudget ? "border-emerald-100 bg-emerald-50" : "border-rose-100 bg-rose-50"}`}>
-                        <div className={locked ? 'blur-[5px] select-none' : ''}>
-                            <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Kontrol Pengeluaran</p>
-                            {!isOverBudget ? (
-                                <>
-                                    <h3 className="text-xl font-extrabold text-emerald-600 mb-2">PENGELUARAN AMAN 🛡️</h3>
-                                    <p className="text-xs text-emerald-700 font-medium">Kamu masih punya sisa budget {formatRp(expenseLimit - monthlyExpense)} bulan ini.</p>
-                                </>
-                            ) : (
-                                <>
-                                    <h3 className="text-xl font-extrabold text-rose-600 mb-2">AWAS OVERBUDGET 🚨</h3>
-                                    <p className="text-xs text-rose-700 font-medium">Pengeluaran menembus batas! Kelebihan {formatRp(monthlyExpense - expenseLimit)}.</p>
-                                </>
-                            )}
-                        </div>
-                        {locked && (
-                            <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center">
-                                <Lock className="w-6 h-6 text-indigo-400 mb-1"/>
-                                <p className="font-extrabold text-slate-800 text-sm">Kontrol Terkunci</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-
             </div>
         ) : (
-            <div className="flex flex-col items-center justify-center py-24 text-slate-400 bg-white rounded-[32px] shadow-sm border border-slate-100 mt-4">
-                <div className="bg-slate-50 p-5 rounded-full mb-4">
-                    <AlertCircle className="w-12 h-12 text-slate-300"/>
+            <div className="flex flex-col items-center justify-center py-10 text-slate-400 bg-white rounded-[32px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 mt-2 px-6 text-center animate-in slide-in-from-bottom-4">
+                <div className="bg-indigo-50 p-4 rounded-full mb-3">
+                    <Target className="w-8 h-8 text-indigo-400"/>
                 </div>
-                <p className="font-extrabold text-slate-600 text-base mb-1">Belum ada strategi aktif.</p>
-                <p className="text-xs text-slate-400 mb-6">Atur tujuan finansialmu sekarang.</p>
+                <h3 className="font-extrabold text-slate-800 text-base mb-1">Aktifkan Strategi Finansial</h3>
+                <p className="text-xs text-slate-500 mb-5 leading-relaxed">Pasang target tabungan atau batas pengeluaran untuk membuka fitur analisa lanjutan.</p>
                 <Link href="/target">
-                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-full text-sm font-extrabold shadow-lg shadow-indigo-200 transition-transform active:scale-95">
-                        MULAI SETUP STRATEGI
+                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white w-full py-3.5 rounded-full text-xs font-extrabold shadow-lg shadow-indigo-200 transition-transform active:scale-95">
+                        MULAI SETUP SEKARANG
                     </button>
                 </Link>
             </div>

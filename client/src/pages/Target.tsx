@@ -213,7 +213,6 @@ export default function Target() {
     const handleBudgetAnswer = (answer: boolean) => { if (answer) setStep('budget-setup'); else handleSubmitFinal(false); };
 
     const handleSubmitFinal = async (withBudget: boolean) => {
-        // 🚀 PELATUK PAYWALL ELEGAN
         if (isTrialExpired) {
             window.dispatchEvent(new Event('trigger-paywall-lock'));
             return;
@@ -226,7 +225,7 @@ export default function Target() {
 
         try {
             const payload = {
-                targetAmount: parseNumber(rawTargetAmount),
+                targetAmount: parseNumber(rawTargetAmount) || 0,
                 durationMonths: Number(inputDuration) || 12,
                 monthlyBudget: withBudget ? budgetVal : 0,
                 budgetType: withBudget ? budgetType : 'static',
@@ -257,10 +256,16 @@ export default function Target() {
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
                 window.location.href = "/"; 
             } else { 
-                toast({ title: "Gagal", description: "Terjadi kesalahan pada server saat memproses data.", variant: "destructive" }); 
+                // Jika error 504 (Gateway Timeout), beri tahu user dengan jelas
+                const errText = await res.text();
+                if (res.status === 504) {
+                    toast({ title: "Server Sibuk (Timeout)", description: "Proses memakan waktu terlalu lama. Silakan coba klik simpan lagi.", variant: "destructive" });
+                } else {
+                    toast({ title: "Gagal Menyimpan", description: errText || "Kesalahan server.", variant: "destructive" }); 
+                }
             }
         } catch (e) { 
-            toast({ title: "Error Koneksi", variant: "destructive" }); 
+            toast({ title: "Error Koneksi", description: "Periksa jaringan internet Anda.", variant: "destructive" }); 
         } finally {
             setIsSubmitting(false);
         }
@@ -269,13 +274,6 @@ export default function Target() {
     if (isUserLoading || isTargetLoading || isRatesLoading) {
         return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-indigo-500"/></div>;
     }
-
-    const CurrencySelector = ({ value, onChange }: { value: string, onChange: (val: string) => void }) => (
-        <select value={value} onChange={e => onChange(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
-            <option value="IDR">IDR</option>
-            {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-    );
 
     return (
         <MobileLayout title={isEditMode ? "Edit Strategi & Target" : "Atur Strategi Baru"} showBack>
@@ -413,7 +411,10 @@ export default function Target() {
                                         <div className="flex flex-col gap-2">
                                             <Input type="text" placeholder="Nama Pihak" value={tempRecvName} onChange={(e) => setTempRecvName(e.target.value)} className="h-12 rounded-[16px] border-slate-100"/>
                                             <div className="flex gap-2">
-                                                <CurrencySelector value={tempRecvCurrency} onChange={setTempRecvCurrency} />
+                                                <select value={tempRecvCurrency} onChange={e => setTempRecvCurrency(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
+                                                    <option value="IDR">IDR</option>
+                                                    {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
+                                                </select>
                                                 <Input type="text" placeholder="Nominal" value={tempRecvAmount} onChange={(e) => handleNumberChange(setTempRecvAmount, e.target.value)} className="flex-1 font-bold h-12 rounded-[16px] border-slate-100"/>
                                                 <button onClick={addRecvItem} className="bg-emerald-600 text-white p-3 rounded-[16px] hover:bg-emerald-700 shadow-sm"><Plus className="w-5 h-5"/></button>
                                             </div>
@@ -454,7 +455,10 @@ export default function Target() {
                                             </div>
                                             <div className="flex gap-2">
                                                 <Input type="tel" placeholder="Lot/Unit" value={tempInvQty} onChange={(e) => handleNumberChange(setTempInvQty, e.target.value)} className="w-1/3 text-sm h-11 rounded-[16px] border-slate-100"/>
-                                                <CurrencySelector value={tempInvCurrency} onChange={setTempInvCurrency} />
+                                                <select value={tempInvCurrency} onChange={e => setTempInvCurrency(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
+                                                    <option value="IDR">IDR</option>
+                                                    {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
+                                                </select>
                                                 <Input type="tel" placeholder="Harga Beli" value={tempInvPrice} onChange={(e) => handleNumberChange(setTempInvPrice, e.target.value)} className="flex-1 text-sm h-11 rounded-[16px] border-slate-100 font-bold"/>
                                             </div>
                                             <Button onClick={addInvItem} className="w-full bg-indigo-50 text-indigo-700 font-bold h-11 rounded-[16px] hover:bg-indigo-100 text-xs">TAMBAHKAN ASET INI</Button>
@@ -491,7 +495,10 @@ export default function Target() {
                                         <div className="flex flex-col gap-2">
                                             <Input type="text" placeholder="Hutang ke Siapa?" value={tempDebtName} onChange={(e) => setTempDebtName(e.target.value)} className="h-12 rounded-[16px] border-slate-100 text-sm"/>
                                             <div className="flex gap-2">
-                                                <CurrencySelector value={tempDebtCurrency} onChange={setTempDebtCurrency} />
+                                                <select value={tempDebtCurrency} onChange={e => setTempDebtCurrency(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
+                                                    <option value="IDR">IDR</option>
+                                                    {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
+                                                </select>
                                                 <Input type="tel" placeholder="Nominal" value={tempDebtAmount} onChange={(e) => handleNumberChange(setTempDebtAmount, e.target.value)} className="flex-1 font-bold h-12 rounded-[16px] border-slate-100 text-rose-600"/>
                                                 <button onClick={addDebtItem} className="bg-rose-500 text-white p-3 rounded-[16px] hover:bg-rose-600 shadow-sm"><Plus className="w-5 h-5"/></button>
                                             </div>
