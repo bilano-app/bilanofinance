@@ -96,16 +96,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next();
   });
 
-  db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onesignal_id TEXT;`).catch(() => {});
-  db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`).catch(() => {});
-  db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (
-      id VARCHAR(255) PRIMARY KEY, 
-      user_id INTEGER, email TEXT, name TEXT, subject TEXT, message TEXT, status TEXT, date TIMESTAMP DEFAULT NOW()
-  );`).catch(() => {});
-  db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (
-      email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW()
-  );`).catch(() => {});
-
   const DEFAULT_RATES: Record<string, number> = {
       "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
       "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
@@ -134,9 +124,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return false;
   };
 
-  // ====================================================================
-  // 🚀 LINK RAHASIA UNTUK UPGRADE DATABASE KE KAPASITAS SULTAN (BIGINT)
-  // ====================================================================
   app.get("/api/admin/upgrade-db", async (req, res) => {
       try {
           await db.execute(sql`ALTER TABLE users ALTER COLUMN cash_balance TYPE BIGINT;`);
@@ -378,6 +365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // 🚀 FIX: MENGHINDARI "RACE CONDITION" UNTUK PENGGUNA BARU AGAR LOADING TIDAK LAMA
   const getUser = async (req: any) => {
     const email = req.headers["x-user-email"];
     
@@ -391,7 +379,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     let user = await storage.getUserByUsername(email as string);
     if (!user) {
-        user = await storage.createUser({ username: email as string, password: "123", email: email as string });
+        try {
+            user = await storage.createUser({ username: email as string, password: "123", email: email as string });
+        } catch (err) {
+            // Jika gagal karena berebut dengan request API lain di detik yang sama, ambil ulang datanya
+            user = await storage.getUserByUsername(email as string);
+        }
     }
 
     const vipEmails = [
@@ -399,13 +392,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "bilanotech@gmail.com", 
     ];
 
-    if (vipEmails.includes(user.email || "")) {
+    if (user && vipEmails.includes(user.email || "")) {
         user.isPro = true;
         user.proValidUntil = new Date("2099-12-31").toISOString() as any; 
         return user; 
     }
 
-    if (user.isPro && user.proValidUntil) {
+    if (user && user.isPro && user.proValidUntil) {
         const now = new Date();
         const validUntil = new Date(user.proValidUntil);
         if (now > validUntil) {
@@ -1285,6 +1278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
   });
 
+  // 🚀 UPDATE: SUBMIT TIKET BANTUAN MEMAKAI NODEMAILER
   app.post("/api/help/submit", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -1301,30 +1295,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           try {
-              const resendKey = process.env.RESEND_API_KEY;
-              if (resendKey) {
-                  await fetch("https://api.resend.com/emails", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${resendKey}` },
-                      body: JSON.stringify({
-                          from: "Sistem Bantuan BILANO <onboarding@resend.dev>",
-                          to: [process.env.EMAIL_USER || "adrienfandra14@gmail.com"], 
-                          subject: `[TIKET BARU] ${subject} - dari ${user.email}`,
-                          html: `
-                            <div style="font-family: Arial, sans-serif; padding: 20px;">
-                              <h2 style="color: #4f46e5;">Tiket Bantuan Baru #${ticketId}</h2>
-                              <p><strong>Pengirim:</strong> ${name} (${user.email})</p>
-                              <p><strong>Subjek:</strong> ${subject}</p>
-                              <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin-top: 10px;">
-                                  ${message}
-                              </div>
-                              <p style="margin-top:20px; font-size:12px; color:#666;">Silakan balas dari dashboard Admin Premium.</p>
-                            </div>
-                          `
-                      })
+              if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+                  const transporter = createTransporter();
+                  await transporter.sendMail({
+                      from: `"Sistem Bantuan BILANO" <${process.env.EMAIL_USER}>`,
+                      to: process.env.EMAIL_USER || "adrienfandra14@gmail.com", 
+                      subject: `[TIKET BARU] ${subject} - dari ${user.email}`,
+                      html: `
+                        <div style="font-family: Arial, sans-serif; padding: 20px;">
+                          <h2 style="color: #4f46e5;">Tiket Bantuan Baru #${ticketId}</h2>
+                          <p><strong>Pengirim:</strong> ${name} (${user.email})</p>
+                          <p><strong>Subjek:</strong> ${subject}</p>
+                          <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                              ${message}
+                          </div>
+                          <p style="margin-top:20px; font-size:12px; color:#666;">Silakan balas dari dashboard Admin Premium.</p>
+                        </div>
+                      `
                   });
               }
-          } catch(e) {}
+          } catch(e) {
+              console.error("Gagal mengirim email notifikasi tiket:", e);
+          }
           
           res.json({ success: true, ticketId });
       } catch (error) {
@@ -1345,6 +1337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // 🚀 UPDATE: ADMIN MEMBALAS TIKET MEMAKAI NODEMAILER
   app.post("/api/admin/help/reply", async (req, res) => {
       const emailAdmin = req.headers["x-user-email"] as string;
       if (!isAdminValid(emailAdmin)) return res.status(403).json({ error: "Penyusup Ditolak" });
@@ -1352,30 +1345,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { ticketId, userEmail, subject, replyMessage } = req.body;
       
       try {
-          const resendKey = process.env.RESEND_API_KEY;
-          if (resendKey) {
-              await fetch("https://api.resend.com/emails", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${resendKey}` },
-                  body: JSON.stringify({
-                      from: "Tim Bantuan BILANO <onboarding@resend.dev>",
-                      to: [userEmail],
-                      subject: `Re: [${ticketId}] ${subject}`,
-                      html: `
-                        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 600px; margin: auto;">
-                          <img src="https://bilanofinance-dvbi.vercel.app/Bilano_horiz_rbg.png" width="120" style="margin-bottom: 20px;" />
-                          <h2 style="color: #4f46e5; margin-bottom: 5px;">Balasan Tim Bantuan BILANO</h2>
-                          <p style="color: #6b7280; font-size: 12px; margin-top: 0;">Tiket: ${ticketId}</p>
-                          
-                          <div style="font-size: 14px; color: #1f2937; line-height: 1.6; margin-top: 20px;">
-                              ${replyMessage.replace(/\n/g, '<br/>')}
-                          </div>
-                          
-                          <hr style="border:none; border-top: 1px dashed #e5e7eb; margin: 30px 0;" />
-                          <p style="font-size: 11px; color: #9ca3af; text-align: center;">Pesan ini dikirim otomatis oleh sistem pusat bantuan BILANO. Jika ada pertanyaan, buat tiket baru di aplikasi.</p>
-                        </div>
-                      `
-                  })
+          if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+              const transporter = createTransporter();
+              await transporter.sendMail({
+                  from: `"Tim Bantuan BILANO" <${process.env.EMAIL_USER}>`,
+                  to: userEmail,
+                  subject: `Re: [${ticketId}] ${subject}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 600px; margin: auto;">
+                      <img src="https://bilanofinance-dvbi.vercel.app/Bilano_horiz_rbg.png" width="120" style="margin-bottom: 20px;" />
+                      <h2 style="color: #4f46e5; margin-bottom: 5px;">Balasan Tim Bantuan BILANO</h2>
+                      <p style="color: #6b7280; font-size: 12px; margin-top: 0;">Tiket: ${ticketId}</p>
+                      
+                      <div style="font-size: 14px; color: #1f2937; line-height: 1.6; margin-top: 20px;">
+                          ${replyMessage.replace(/\n/g, '<br/>')}
+                      </div>
+                      
+                      <hr style="border:none; border-top: 1px dashed #e5e7eb; margin: 30px 0;" />
+                      <p style="font-size: 11px; color: #9ca3af; text-align: center;">Pesan ini dikirim otomatis oleh sistem pusat bantuan BILANO. Jika ada pertanyaan, buat tiket baru di aplikasi.</p>
+                    </div>
+                  `
               });
           }
           
