@@ -426,8 +426,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await getUser(req);
       if (!user) return res.status(401).json({ reply: "Sesi berakhir. Login dulu ya." });
       
-      const { message, history } = req.body; // MENERIMA RIWAYAT CHAT DARI FRONTEND
-
       const [transactions, target, investments, debts, forexAssets, subscriptions] = await Promise.all([
           storage.getTransactions(user.id), 
           storage.getTarget(user.id), 
@@ -437,92 +435,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
           storage.getSubscriptions(user.id)
       ]);
 
-      // --- PERHITUNGAN KESELURUHAN (OVERALL) ---
       const saldoTunai = user.cashBalance || 0;
       const totalInvestasi = investments.reduce((acc, inv) => acc + (inv.quantity * inv.avgPrice * (inv.type === 'saham' || (inv.symbol.length === 4 && inv.type !== 'crypto') ? 100 : 1)), 0);
+      const sisaBudget = target && target.monthlyBudget > 0 ? `Rp ${target.monthlyBudget.toLocaleString('id-ID')}` : "Tidak dibatasi";
+
       const activeDebts = debts.filter(d => !d.isPaid);
       const listHutang = activeDebts.filter(d => d.type === 'hutang').map(d => `${d.amount} ${(d.name.split('|')[1] || 'IDR')}`).join(', ') || '0';
       const listPiutang = activeDebts.filter(d => d.type === 'piutang').map(d => `${d.amount} ${(d.name.split('|')[1] || 'IDR')}`).join(', ') || '0';
       const listValas = forexAssets.map(f => `${f.amount} ${f.currency}`).join(', ') || '0';
       const listSubs = subscriptions.filter(s => s.isActive).map(s => `${s.name} (${s.cost})`).join(', ') || 'Tidak ada';
 
-      // --- PERHITUNGAN BULAN INI (THIS MONTH) ---
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
-      
-      const txBulanIni = transactions.filter(t => {
-          const d = new Date(t.date);
-          return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-      });
+      const totalAmalBulanIni = transactions.filter(t => 
+          t.category === 'Amal' && 
+          new Date(t.date).getMonth() === currentMonth &&
+          new Date(t.date).getFullYear() === currentYear
+      ).reduce((acc, t) => acc + t.amount, 0);
 
-      const pengeluaranBulanIni = txBulanIni.filter(t => t.type === 'expense' && t.category !== 'Amal').reduce((acc, t) => acc + t.amount, 0);
-      const totalAmalBulanIni = txBulanIni.filter(t => t.category === 'Amal').reduce((acc, t) => acc + t.amount, 0);
-      
-      let sisaBudget = "Tidak dibatasi";
-      if (target && target.monthlyBudget > 0) {
-          const sisa = target.monthlyBudget - pengeluaranBulanIni;
-          sisaBudget = `Rp ${sisa.toLocaleString('id-ID')}`;
-      }
-
-      // --- SISTEM PROMPT MASTER ---
       const systemPrompt = `
-      Kamu adalah "BILANO Intelligence", asisten konsultan keuangan tingkat elit dan mentor privat di aplikasi BILANO.
-      Pembuatmu adalah Adrien Ahza Dhiafandra.
-      
-      PERATURAN SIKAP & LOGIKA KEUANGAN (MUTLAK):
-      1. INGAT KONTEKS: Kamu menerima riwayat percakapan. Jika pengguna bertanya hal lanjutan (contoh: "Bagaimana caranya?"), jawablah menyambung dengan topik sebelumnya tanpa kebingungan.
-      2. MENTOR PROAKTIF: Jadilah mentor yang peduli dan cerdas. SETIAP KALI selesai memberikan jawaban/analisis, kamu WAJIB mengakhirinya dengan sebuah pertanyaan penawaran bantuan. (Contoh: "Apakah Bos mau saya simulasikan skema pelunasannya?", "Mau saya rincikan bocor alusnya di mana?").
-      3. HUKUM AKUNTANSI BILANO: 
-         - Menghapus/Ikhlas Piutang (Write-off) TIDAK mengurangi Kas likuid, hanya mengurangi Kekayaan Bersih (Net Worth).
-         - Amal/Sedekah dianggap pengeluaran positif, tidak digabungkan dengan limit budget konsumtif.
-      4. PEMISAHAN WAKTU: Perhatikan pertanyaan pengguna! Jika bertanya "bulan ini", gunakan data [BULAN INI]. Jika bertanya secara utuh, gunakan data [KESELURUHAN].
-      
-      --- DATA KEUANGAN PENGGUNA ---
-      [DATA KESELURUHAN (HARTA & KEWAJIBAN TOTAL)]
-      - Saldo Kas Tunai (IDR): Rp ${saldoTunai.toLocaleString('id-ID')}
+      Kamu adalah BILANO Intelligence, asisten konsultan keuangan tingkat elit.
+      INFO MUTLAK PEMBUATMU (Adrien Fandra):
+      1. Adrien Fandra adalah seorang Konten Kreator.
+      2. Adrien Fandra merancang aplikasi BILANO.
+
+      PERATURAN SIKAP & LOGIKA KEUANGAN BILANO:
+      - LANGSUNG KE INTINYA (NO YAPPING). Jangan memberi salam bertele-tele.
+      - FOKUS 100% PADA ANALISIS KEUANGAN. Berikan insight, teguran tajam jika boros, dan strategi pelunasan.
+      - DILARANG KERAS MENJELASKAN CARA PAKAI APLIKASI (kecuali ditanya).
+      - PENTING (HUKUM AKUNTANSI BILANO): Kamu WAJIB BISA membedakan "KAS" dan "KEKAYAAN BERSIH (NET WORTH)". 
+        > KAS = Hanya uang tunai riil likuid (IDR). 
+        > KEKAYAAN BERSIH = Kas + Valas + Investasi + Piutang - Hutang.
+        > Menghapus/mengikhlaskan Piutang (Write-off) TIDAK AKAN MENGURANGI KAS, melainkan HANYA mengurangi Kekayaan Bersih! JANGAN PERNAH MENJAWAB BAHWA MENGHAPUS PIUTANG AKAN MENGURANGI KAS!
+
+      DATA KEUANGAN PENGGUNA SAAT INI (MUTLAK):
+      - Saldo Kas IDR: Rp ${saldoTunai.toLocaleString('id-ID')}
+      - Total Amal/Sedekah Bulan Ini: Rp ${totalAmalBulanIni.toLocaleString('id-ID')} (Ini uang yang dikeluarkan untuk kebaikan, tidak memotong sisa limit budget bulanan)
       - Aset Investasi: Rp ${totalInvestasi.toLocaleString('id-ID')}
-      - Hutang Pribadi (Kewajiban): ${listHutang}
-      - Piutang (Uang di orang lain): ${listPiutang}
-      - Valuta Asing (Valas): ${listValas}
-      - Tagihan Langganan Aktif: ${listSubs}
+      - Sisa Limit Pengeluaran Bulan Ini: ${sisaBudget}
+      - Hutang Pribadi (Kewajiban Valas & IDR): ${listHutang}
+      - Piutang Pribadi (Uang di orang lain): ${listPiutang}
+      - Dompet Valuta Asing: ${listValas}
+      - Tagihan Langganan: ${listSubs}
       
-      [DATA BULAN INI SAJA]
-      - Pengeluaran Konsumtif Bulan Ini: Rp ${pengeluaranBulanIni.toLocaleString('id-ID')}
-      - Total Amal/Sedekah Bulan Ini: Rp ${totalAmalBulanIni.toLocaleString('id-ID')}
-      - Sisa Limit Budget Bulan Ini: ${sisaBudget}
-      
-      Jawab dengan format Markdown yang rapi, berwibawa, langsung ke intinya (No Yapping), dan tutup dengan pertanyaan proaktif!
+      Beri tanggapan sesuai konteks data di atas menggunakan Markdown.
       `;
 
-      // --- MEMFORMAT RIWAYAT CHAT UNTUK GEMINI ---
-      let formattedContents = [];
-      if (history && Array.isArray(history)) {
-          formattedContents = history.map((msg: any) => ({
-              role: msg.sender === 'user' ? "user" : "model",
-              parts: [{ text: msg.text }]
-          }));
-      }
-      
-      // Tambahkan pesan terbaru user
-      formattedContents.push({ role: "user", parts: [{ text: message }] });
-
-      try {
-          const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
-          const response = await fetch(\`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${apiKey}\`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                  system_instruction: { parts: [{ text: systemPrompt }] }, 
-                  contents: formattedContents // KIRIM SEMUA KONTEKS CHAT
-              })
-          });
-
-          if (!response.ok) return res.json({ reply: "⚠️ Maaf, koneksi ke server AI sedang terganggu." });
-          const data = await response.json();
-          res.json({ reply: data.candidates[0].content.parts[0].text });
-      } catch (e) {
-          res.json({ reply: "⚠️ Sistem AI sedang sibuk, mohon coba beberapa saat lagi." });
-      }
+      const reply = await askSmartAI(systemPrompt, req.body.message);
+      res.json({ reply });
   });
 
   app.get("/api/transactions", async (req, res) => { 
