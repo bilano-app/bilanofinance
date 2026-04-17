@@ -4,13 +4,9 @@ import { Card, Button, Input } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, ShieldCheck, RefreshCw, AlertCircle, ArrowLeft, X, CheckCircle2 } from "lucide-react";
 
-// 🚀 UPDATE: MENGHAPUS IMPOR FIREBASE YANG TIDAK TERPAKAI AGAR LOLOS ESLINT VERCEL
-// (Logika Auth Bos sudah ditangani lewat API Backend /api/auth/...)
-
 export default function Auth() {
   localStorage.removeItem("bilano_trial_expired");
 
-  // 🚀 TETAP DIJAGA: SIMPAN STATE KE LOCALSTORAGE AGAR TIDAK HILANG SAAT RELOAD BUKA GMAIL
   const [isLogin, setIsLogin] = useState(() => localStorage.getItem("auth_isLogin") !== "false"); 
   const [step, setStep] = useState<'form' | 'otp'>(() => (localStorage.getItem("auth_step") as 'form'|'otp') || 'form');
   
@@ -30,7 +26,6 @@ export default function Auth() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // Efek untuk sinkronisasi state ke LocalStorage (User Experience)
   useEffect(() => {
     localStorage.setItem("auth_isLogin", isLogin.toString());
     localStorage.setItem("auth_step", step);
@@ -322,7 +317,7 @@ export default function Auth() {
                                       disabled={loading || !otpCode || !newPassword}
                                       className="w-full h-12 bg-rose-600 hover:bg-rose-700 font-bold shadow-md mt-2"
                                   >
-                                      {loading ? <RefreshCw className="w-5 h-5 animate-spin\"/> : "UBAH PASSWORD SAYA"}
+                                      {loading ? <RefreshCw className="w-5 h-5 animate-spin"/> : "UBAH PASSWORD SAYA"}
                                   </Button>
                               </div>
                           </>
