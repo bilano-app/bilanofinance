@@ -60,7 +60,6 @@ async function askSmartAI(systemPrompt: string, userMessage: string, history: an
             return "⚠️ API Key AI belum terpasang dengan benar di .env atau Vercel.";
         }
 
-        // Format history agar AI nyambung (Kontekstual)
         let formattedContents = history.map((msg: any) => ({
             role: msg.sender === 'user' ? "user" : "model",
             parts: [{ text: msg.text }]
@@ -1098,7 +1097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 UPDATE: PAYMENT GATEWAY MAYAR (AUTO-FILL BYPASS)
+  // 🚀 UPDATE: PAYMENT GATEWAY MAYAR (AUTO-FILL BYPASS & ANTI-ASUMSI)
   // ====================================================================
   app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
@@ -1109,11 +1108,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const orderId = `BILANO-PRO-${user.id}-${Date.now()}`;
           const mayarKey = (process.env.MAYAR_API_KEY || "").replace(/['"]/g, "").trim();
 
+          if (!mayarKey) {
+              return res.status(400).json({ error: "MAYAR_API_KEY belum terpasang di Vercel!" });
+          }
+
+          // 🚀 FIX: DILENGKAPI DENGAN DUMMY PHONE NUMBER & DESCRIPTION AGAR TIDAK DITOLAK MAYAR
           const payload = {
               name: "BILANO Premium - 1 Tahun",
               amount: amount,
-              customer_name: user.firstName || "Member",
+              description: "Langganan Penuh BILANO PRO Selama 1 Tahun",
+              customer_name: user.firstName || "Member BILANO",
               customer_email: user.email || "member@bilano.app",
+              customer_phone: "080000000000", 
               reference_id: orderId,
               success_redirect_url: "https://bilanoapp.com/", 
           };
@@ -1127,17 +1133,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
               body: JSON.stringify(payload)
           });
 
-          const data = await mayarRes.json();
-          const redirectUrl = data.data?.link || data.link || (data.data && data.data.url);
-          
-          if (redirectUrl) {
-              res.json({ success: true, redirectUrl, orderId });
-          } else {
-              res.status(400).json({ error: data.message || "Gagal membuat link pembayaran Mayar." });
+          // 🚀 DETEKTIF ANTI-ASUMSI: Baca balasan Mayar sebagai teks mentah dulu!
+          const textData = await mayarRes.text();
+
+          if (!mayarRes.ok) {
+              // Jika Mayar marah, langsung tampilkan omelannya ke HP Bos!
+              return res.status(400).json({ error: `MAYAR ERROR [${mayarRes.status}]: ${textData}` });
+          }
+
+          try {
+              const data = JSON.parse(textData);
+              const redirectUrl = data.data?.link || data.link || (data.data && data.data.url);
+              
+              if (redirectUrl) {
+                  return res.json({ success: true, redirectUrl, orderId });
+              } else {
+                  return res.status(400).json({ error: "Mayar sukses tapi link hilang: " + textData });
+              }
+          } catch (parseErr) {
+              return res.status(500).json({ error: "Format Mayar Aneh: " + textData });
           }
 
       } catch (error: any) {
-          res.status(500).json({ error: "Koneksi ke server Mayar terputus." });
+          res.status(500).json({ error: "SERVER CRASH: " + error.message });
       }
   });
 
