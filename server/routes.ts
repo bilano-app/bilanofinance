@@ -60,6 +60,7 @@ async function askSmartAI(systemPrompt: string, userMessage: string, history: an
             return "⚠️ API Key AI belum terpasang dengan benar di .env atau Vercel.";
         }
 
+        // Format history agar AI nyambung (Kontekstual)
         let formattedContents = history.map((msg: any) => ({
             role: msg.sender === 'user' ? "user" : "model",
             parts: [{ text: msg.text }]
@@ -146,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           res.json({ 
               success: true, 
-              message: "🎉 DATABASE BERHASIL DIUPGRADE KE KAPASITAS SULTAN (BIGINT)! BILANO KINI BISA MENAMPUNG TRILIUNAN RUPIAH!" 
+              message: "🎉 DATABASE BERHASIL DIOPTIMASI!" 
           });
       } catch (e: any) {
           res.status(500).json({ error: "Gagal Update DB: " + e.message });
@@ -435,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await getUser(req);
       if (!user) return res.status(401).json({ reply: "Sesi berakhir. Login dulu ya." });
       
-      const { message, history } = req.body;
+      const { message, history } = req.body; 
 
       const [transactions, target, investments, debts, forexAssets, subscriptions] = await Promise.all([
           storage.getTransactions(user.id), 
@@ -448,8 +449,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const saldoTunai = user.cashBalance || 0;
       const totalInvestasi = investments.reduce((acc, inv) => acc + (inv.quantity * inv.avgPrice * (inv.type === 'saham' || (inv.symbol.length === 4 && inv.type !== 'crypto') ? 100 : 1)), 0);
-      const sisaBudget = target && target.monthlyBudget > 0 ? `Rp ${target.monthlyBudget.toLocaleString('id-ID')}` : "Tidak dibatasi";
-
       const activeDebts = debts.filter(d => !d.isPaid);
       const listHutang = activeDebts.filter(d => d.type === 'hutang').map(d => `${d.amount} ${(d.name.split('|')[1] || 'IDR')}`).join(', ') || '0';
       const listPiutang = activeDebts.filter(d => d.type === 'piutang').map(d => `${d.amount} ${(d.name.split('|')[1] || 'IDR')}`).join(', ') || '0';
@@ -458,41 +457,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
-      const totalAmalBulanIni = transactions.filter(t => 
-          t.category === 'Amal' && 
-          new Date(t.date).getMonth() === currentMonth &&
-          new Date(t.date).getFullYear() === currentYear
-      ).reduce((acc, t) => acc + t.amount, 0);
-      const pengeluaranBulanIni = transactions.filter(t => t.type === 'expense' && t.category !== 'Amal').reduce((acc, t) => acc + t.amount, 0);
+      
+      const txBulanIni = transactions.filter(t => {
+          const d = new Date(t.date);
+          return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      });
+
+      const pengeluaranBulanIni = txBulanIni.filter(t => t.type === 'expense' && t.category !== 'Amal').reduce((acc, t) => acc + t.amount, 0);
+      const totalAmalBulanIni = txBulanIni.filter(t => t.category === 'Amal').reduce((acc, t) => acc + t.amount, 0);
+      
+      let sisaBudget = "Tidak dibatasi";
+      if (target && target.monthlyBudget > 0) {
+          const sisa = target.monthlyBudget - pengeluaranBulanIni;
+          sisaBudget = `Rp ${sisa.toLocaleString('id-ID')}`;
+      }
 
       const systemPrompt = `
-      Kamu adalah BILANO Intelligence, asisten konsultan keuangan tingkat elit.
-      INFO MUTLAK PEMBUATMU:
-      1. Adrien Ahza Dhiafandra adalah seorang Konten Kreator & Brand Strategist.
-      2. Dia merancang aplikasi BILANO.
-
-      PERATURAN SIKAP & LOGIKA KEUANGAN BILANO:
+      Kamu adalah BILANO Intelligence, asisten konsultan keuangan tingkat elit dan mentor privat di aplikasi BILANO.
+      Pembuatmu adalah Adrien Ahza Dhiafandra.
+      
+      PERATURAN SIKAP & LOGIKA KEUANGAN (MUTLAK):
       1. INGAT KONTEKS: Kamu menerima riwayat percakapan. Jika pengguna bertanya hal lanjutan, jawablah menyambung dengan topik sebelumnya tanpa kebingungan.
       2. MENTOR PROAKTIF: Jadilah mentor yang peduli dan cerdas. SETIAP KALI selesai memberikan jawaban/analisis, kamu WAJIB mengakhirinya dengan sebuah pertanyaan penawaran bantuan.
-      3. LANGSUNG KE INTINYA (NO YAPPING). Jangan memberi salam bertele-tele.
-      4. HUKUM AKUNTANSI BILANO: 
+      3. HUKUM AKUNTANSI BILANO: 
          - Menghapus/Ikhlas Piutang (Write-off) TIDAK mengurangi Kas likuid, hanya mengurangi Kekayaan Bersih (Net Worth).
-
-      DATA KEUANGAN PENGGUNA SAAT INI:
-      [DATA KESELURUHAN]
-      - Saldo Kas IDR: Rp ${saldoTunai.toLocaleString('id-ID')}
+         - Amal/Sedekah dianggap pengeluaran positif, tidak digabungkan dengan limit budget konsumtif.
+      4. PEMISAHAN WAKTU: Perhatikan pertanyaan pengguna! Jika bertanya "bulan ini", gunakan data [BULAN INI]. Jika bertanya secara utuh, gunakan data [KESELURUHAN].
+      
+      --- DATA KEUANGAN PENGGUNA ---
+      [DATA KESELURUHAN (HARTA & KEWAJIBAN TOTAL)]
+      - Saldo Kas Tunai (IDR): Rp ${saldoTunai.toLocaleString('id-ID')}
       - Aset Investasi: Rp ${totalInvestasi.toLocaleString('id-ID')}
-      - Hutang Pribadi (Kewajiban Valas & IDR): ${listHutang}
-      - Piutang Pribadi (Uang di orang lain): ${listPiutang}
-      - Dompet Valuta Asing: ${listValas}
-      - Tagihan Langganan: ${listSubs}
+      - Hutang Pribadi (Kewajiban): ${listHutang}
+      - Piutang (Uang di orang lain): ${listPiutang}
+      - Valuta Asing (Valas): ${listValas}
+      - Tagihan Langganan Aktif: ${listSubs}
       
       [DATA BULAN INI SAJA]
       - Pengeluaran Konsumtif Bulan Ini: Rp ${pengeluaranBulanIni.toLocaleString('id-ID')}
       - Total Amal/Sedekah Bulan Ini: Rp ${totalAmalBulanIni.toLocaleString('id-ID')}
-      - Sisa Limit Pengeluaran Bulan Ini: ${sisaBudget}
+      - Sisa Limit Budget Bulan Ini: ${sisaBudget}
       
-      Beri tanggapan sesuai konteks data di atas menggunakan Markdown yang rapi.
+      Jawab dengan format Markdown yang rapi, berwibawa, langsung ke intinya (No Yapping), dan tutup dengan pertanyaan proaktif!
       `;
 
       const reply = await askSmartAI(systemPrompt, message, history);
@@ -1101,17 +1107,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const amount = 99000; 
           const orderId = `BILANO-PRO-${user.id}-${Date.now()}`;
-          
-          const mayarKey = process.env.MAYAR_API_KEY || ""; 
+          const mayarKey = (process.env.MAYAR_API_KEY || "").replace(/['"]/g, "").trim();
 
           const payload = {
               name: "BILANO Premium - 1 Tahun",
-              description: "Akses fitur penuh tanpa batas.",
               amount: amount,
               customer_name: user.firstName || "Member",
               customer_email: user.email || "member@bilano.app",
               reference_id: orderId,
-              success_redirect_url: "https://bilanoapp.com/success", // Bisa diubah ke URL asli domain Bos nanti
+              success_redirect_url: "https://bilanoapp.com/", 
           };
 
           const mayarRes = await fetch("https://api.mayar.id/v1/payment/create", {
@@ -1124,17 +1128,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           const data = await mayarRes.json();
+          const redirectUrl = data.data?.link || data.link || (data.data && data.data.url);
           
-          if (mayarRes.ok && data.data && data.data.link) {
-              res.json({ success: true, redirectUrl: data.data.link, orderId });
+          if (redirectUrl) {
+              res.json({ success: true, redirectUrl, orderId });
           } else {
-              // Menangani struktur respons alternatif dari Mayar
-              const fallbackLink = data.link || (data.data && data.data.url) || null;
-              if (fallbackLink) {
-                 res.json({ success: true, redirectUrl: fallbackLink, orderId });
-              } else {
-                 res.status(400).json({ error: data.message || "Gagal membuat link pembayaran Mayar." });
-              }
+              res.status(400).json({ error: data.message || "Gagal membuat link pembayaran Mayar." });
           }
 
       } catch (error: any) {
@@ -1142,32 +1141,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // ====================================================================
-  // 🚀 UPDATE: WEBHOOK MAYAR (AUTO-UPGRADE AKUN)
-  // ====================================================================
+  // 🚀 UPDATE: WEBHOOK MAYAR (VERSI ANTI-CRASH / BULLETPROOF)
   app.post("/api/payment/mayar/webhook", async (req, res) => {
       try {
-          const payload = req.body;
-          
-          // Mendeteksi status dari berbagai format webhook Mayar
-          const status = payload.status || payload.data?.status;
-          const refId = payload.reference_id || payload.external_id || payload.data?.reference_id || payload.data?.external_id;
+          const payload = req.body || {}; 
+          console.log("MAYAR WEBHOOK DATA:", JSON.stringify(payload));
 
-          // Jika status dinyatakan berhasil / lunas
+          const status = (payload.status || payload.data?.status || "").toUpperCase();
+          const refId = payload.reference_id || payload.external_id || payload.data?.reference_id || payload.data?.external_id || "";
+
           if (status === 'SUCCESS' || status === 'PAID' || status === 'SETTLED') {
-              if (refId) {
+              if (refId && refId.startsWith('BILANO-PRO-')) {
                   const parts = refId.split('-');
-                  if (parts.length >= 3 && parts[0] === 'BILANO') {
-                      const userId = parseInt(parts[2]);
-                      const validUntil = new Date();
-                      validUntil.setFullYear(validUntil.getFullYear() + 1); // Aktif 1 Tahun
-                      await storage.updateUserProStatus(userId, true, validUntil);
-                  }
+                  const userId = parseInt(parts[2]);
+                  const validUntil = new Date();
+                  validUntil.setFullYear(validUntil.getFullYear() + 1);
+                  await storage.updateUserProStatus(userId, true, validUntil);
+                  console.log(`✅ USER ${userId} BERHASIL UPGRADE KE PRO!`);
               }
           }
           res.status(200).json({ success: true });
       } catch (error) {
-          res.status(500).json({ error: "Webhook Gagal diproses" });
+          console.error("❌ WEBHOOK ERROR:", error);
+          res.status(200).json({ success: false, message: "Handled" }); 
       }
   });
 
