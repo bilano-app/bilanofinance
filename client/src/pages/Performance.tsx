@@ -27,25 +27,37 @@ export default function Performance() {
   const locked = !isUserLoading && !isPro && isTrialExpired;
 
   const [paywallModalOpen, setPaywallModalOpen] = useState(false);
-  const [iframeUrl, setIframeUrl] = useState("");
   const [isCharging, setIsCharging] = useState(false);
   const [isDeletingTx, setIsDeletingTx] = useState(false);
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
+  // 🚀 UPDATE: MENGGUNAKAN MAYAR PAYMENT GATEWAY (AUTO-FILL)
   const handleLanjutBayar = async () => {
       if (!currentUserEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
       setIsCharging(true);
       try {
-          const res = await fetch("/api/payment/midtrans/charge", { method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail } });
+          const res = await fetch("/api/payment/mayar/charge", { 
+              method: "POST", 
+              headers: { 
+                  "Content-Type": "application/json", 
+                  "x-user-email": currentUserEmail // Kunci Auto-Fill
+              } 
+          });
           const data = await res.json();
+          
           if (res.ok && data.redirectUrl) {
-              setIframeUrl(data.redirectUrl); setPaywallModalOpen(false);
-          } else { toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); }
-      } catch (error) { toast({ title: "Error koneksi", variant: "destructive" }); } finally { setIsCharging(false); }
+              // Langsung redirect ke halaman Mayar!
+              window.location.href = data.redirectUrl;
+          } else { 
+              toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); 
+              setIsCharging(false);
+          }
+      } catch (error) { 
+          toast({ title: "Error koneksi", variant: "destructive" }); 
+          setIsCharging(false); 
+      } 
   };
-
-  const handleCloseIframe = () => { setIframeUrl(""); toast({ title: "Mengecek Pembayaran...", description: "Status akun sedang diperbarui." }); setTimeout(() => window.location.reload(), 1500); };
 
   const handleDeleteTransaction = async (id: number) => {
       if (!confirm("Hapus transaksi ini? Saldo Kas Anda akan otomatis disesuaikan/dinormalkan kembali.")) return;
@@ -303,16 +315,6 @@ export default function Performance() {
 
   return (
     <MobileLayout title="Analisa Performa" showBack>
-      
-      {iframeUrl && (
-          <div className="fixed inset-0 z-[999999] bg-slate-50 flex flex-col animate-in slide-in-from-bottom duration-300">
-              <div className="h-14 bg-slate-900 flex items-center justify-between px-4 text-white shadow-md z-10 shrink-0">
-                  <div className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-emerald-400"/><span className="font-bold text-sm tracking-wide">Kasir Pembayaran Aman</span></div>
-                  <button onClick={handleCloseIframe} className="p-1.5 bg-white/10 hover:bg-rose-500 rounded-full transition-colors active:scale-95"><X className="w-5 h-5"/></button>
-              </div>
-              <div className="flex-1 w-full bg-slate-50 relative"><div className="absolute inset-0 flex items-center justify-center -z-10"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin"/></div><iframe src={iframeUrl} className="w-full h-full border-none relative z-10 bg-transparent" allow="payment" title="Midtrans Checkout"/></div>
-          </div>
-      )}
 
       <div className={`space-y-6 pt-4 px-1 ${locked ? 'pb-32' : 'pb-24'}`}>
 

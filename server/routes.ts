@@ -52,7 +52,7 @@ const createTransporter = () => {
     });
 };
 
-async function askSmartAI(systemPrompt: string, userMessage: string) {
+async function askSmartAI(systemPrompt: string, userMessage: string, history: any[] = []) {
     try {
         const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
         
@@ -60,12 +60,19 @@ async function askSmartAI(systemPrompt: string, userMessage: string) {
             return "⚠️ API Key AI belum terpasang dengan benar di .env atau Vercel.";
         }
 
+        let formattedContents = history.map((msg: any) => ({
+            role: msg.sender === 'user' ? "user" : "model",
+            parts: [{ text: msg.text }]
+        }));
+        
+        formattedContents.push({ role: "user", parts: [{ text: userMessage }] });
+
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 system_instruction: { parts: [{ text: systemPrompt }] }, 
-                contents: [{ role: "user", parts: [{ text: userMessage }] }]
+                contents: formattedContents
             })
         });
 
@@ -126,12 +133,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/upgrade-db", async (req, res) => {
       try {
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onesignal_id TEXT;`);
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`);
           await db.execute(sql`ALTER TABLE users ALTER COLUMN cash_balance TYPE BIGINT;`);
           await db.execute(sql`ALTER TABLE transactions ALTER COLUMN amount TYPE BIGINT;`);
           await db.execute(sql`ALTER TABLE targets ALTER COLUMN target_amount TYPE BIGINT;`);
           await db.execute(sql`ALTER TABLE targets ALTER COLUMN monthly_budget TYPE BIGINT;`);
           await db.execute(sql`ALTER TABLE debts ALTER COLUMN amount TYPE BIGINT;`);
           await db.execute(sql`ALTER TABLE subscriptions ALTER COLUMN cost TYPE BIGINT;`);
+          await db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (id VARCHAR(255) PRIMARY KEY, user_id INTEGER, email TEXT, name TEXT, subject TEXT, message TEXT, status TEXT, date TIMESTAMP DEFAULT NOW());`);
+          await db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
           
           res.json({ 
               success: true, 
@@ -365,7 +376,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 FIX: MENGHINDARI "RACE CONDITION" UNTUK PENGGUNA BARU AGAR LOADING TIDAK LAMA
   const getUser = async (req: any) => {
     const email = req.headers["x-user-email"];
     
@@ -382,7 +392,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
             user = await storage.createUser({ username: email as string, password: "123", email: email as string });
         } catch (err) {
-            // Jika gagal karena berebut dengan request API lain di detik yang sama, ambil ulang datanya
             user = await storage.getUserByUsername(email as string);
         }
     }
@@ -426,6 +435,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await getUser(req);
       if (!user) return res.status(401).json({ reply: "Sesi berakhir. Login dulu ya." });
       
+      const { message, history } = req.body;
+
       const [transactions, target, investments, debts, forexAssets, subscriptions] = await Promise.all([
           storage.getTransactions(user.id), 
           storage.getTarget(user.id), 
@@ -452,36 +463,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           new Date(t.date).getMonth() === currentMonth &&
           new Date(t.date).getFullYear() === currentYear
       ).reduce((acc, t) => acc + t.amount, 0);
+      const pengeluaranBulanIni = transactions.filter(t => t.type === 'expense' && t.category !== 'Amal').reduce((acc, t) => acc + t.amount, 0);
 
       const systemPrompt = `
       Kamu adalah BILANO Intelligence, asisten konsultan keuangan tingkat elit.
-      INFO MUTLAK PEMBUATMU (Adrien Fandra):
-      1. Adrien Fandra adalah seorang Konten Kreator.
-      2. Adrien Fandra merancang aplikasi BILANO.
+      INFO MUTLAK PEMBUATMU:
+      1. Adrien Ahza Dhiafandra adalah seorang Konten Kreator & Brand Strategist.
+      2. Dia merancang aplikasi BILANO.
 
       PERATURAN SIKAP & LOGIKA KEUANGAN BILANO:
-      - LANGSUNG KE INTINYA (NO YAPPING). Jangan memberi salam bertele-tele.
-      - FOKUS 100% PADA ANALISIS KEUANGAN. Berikan insight, teguran tajam jika boros, dan strategi pelunasan.
-      - DILARANG KERAS MENJELASKAN CARA PAKAI APLIKASI (kecuali ditanya).
-      - PENTING (HUKUM AKUNTANSI BILANO): Kamu WAJIB BISA membedakan "KAS" dan "KEKAYAAN BERSIH (NET WORTH)". 
-        > KAS = Hanya uang tunai riil likuid (IDR). 
-        > KEKAYAAN BERSIH = Kas + Valas + Investasi + Piutang - Hutang.
-        > Menghapus/mengikhlaskan Piutang (Write-off) TIDAK AKAN MENGURANGI KAS, melainkan HANYA mengurangi Kekayaan Bersih! JANGAN PERNAH MENJAWAB BAHWA MENGHAPUS PIUTANG AKAN MENGURANGI KAS!
+      1. INGAT KONTEKS: Kamu menerima riwayat percakapan. Jika pengguna bertanya hal lanjutan, jawablah menyambung dengan topik sebelumnya tanpa kebingungan.
+      2. MENTOR PROAKTIF: Jadilah mentor yang peduli dan cerdas. SETIAP KALI selesai memberikan jawaban/analisis, kamu WAJIB mengakhirinya dengan sebuah pertanyaan penawaran bantuan.
+      3. LANGSUNG KE INTINYA (NO YAPPING). Jangan memberi salam bertele-tele.
+      4. HUKUM AKUNTANSI BILANO: 
+         - Menghapus/Ikhlas Piutang (Write-off) TIDAK mengurangi Kas likuid, hanya mengurangi Kekayaan Bersih (Net Worth).
 
-      DATA KEUANGAN PENGGUNA SAAT INI (MUTLAK):
+      DATA KEUANGAN PENGGUNA SAAT INI:
+      [DATA KESELURUHAN]
       - Saldo Kas IDR: Rp ${saldoTunai.toLocaleString('id-ID')}
-      - Total Amal/Sedekah Bulan Ini: Rp ${totalAmalBulanIni.toLocaleString('id-ID')} (Ini uang yang dikeluarkan untuk kebaikan, tidak memotong sisa limit budget bulanan)
       - Aset Investasi: Rp ${totalInvestasi.toLocaleString('id-ID')}
-      - Sisa Limit Pengeluaran Bulan Ini: ${sisaBudget}
       - Hutang Pribadi (Kewajiban Valas & IDR): ${listHutang}
       - Piutang Pribadi (Uang di orang lain): ${listPiutang}
       - Dompet Valuta Asing: ${listValas}
       - Tagihan Langganan: ${listSubs}
       
-      Beri tanggapan sesuai konteks data di atas menggunakan Markdown.
+      [DATA BULAN INI SAJA]
+      - Pengeluaran Konsumtif Bulan Ini: Rp ${pengeluaranBulanIni.toLocaleString('id-ID')}
+      - Total Amal/Sedekah Bulan Ini: Rp ${totalAmalBulanIni.toLocaleString('id-ID')}
+      - Sisa Limit Pengeluaran Bulan Ini: ${sisaBudget}
+      
+      Beri tanggapan sesuai konteks data di atas menggunakan Markdown yang rapi.
       `;
 
-      const reply = await askSmartAI(systemPrompt, req.body.message);
+      const reply = await askSmartAI(systemPrompt, message, history);
       res.json({ reply });
   });
 
@@ -1077,57 +1091,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({success:true}); 
   });
 
-  app.post("/api/payment/midtrans/charge", async (req, res) => {
+  // ====================================================================
+  // 🚀 UPDATE: PAYMENT GATEWAY MAYAR (AUTO-FILL BYPASS)
+  // ====================================================================
+  app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
           const user = await getUser(req);
-          if (!user) return res.status(401).json({ error: "User tidak valid." });
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
           const amount = 99000; 
           const orderId = `BILANO-PRO-${user.id}-${Date.now()}`;
           
-          const serverKey = process.env.MIDTRANS_SERVER_KEY || ""; 
-          const authString = Buffer.from(serverKey + ":").toString('base64');
+          const mayarKey = process.env.MAYAR_API_KEY || ""; 
 
           const payload = {
-              transaction_details: { order_id: orderId, gross_amount: amount },
-              customer_details: { first_name: user.firstName || "Member", email: user.email || "member@bilano.app" }
+              name: "BILANO Premium - 1 Tahun",
+              description: "Akses fitur penuh tanpa batas.",
+              amount: amount,
+              customer_name: user.firstName || "Member",
+              customer_email: user.email || "member@bilano.app",
+              reference_id: orderId,
+              success_redirect_url: "https://bilanoapp.com/success", // Bisa diubah ke URL asli domain Bos nanti
           };
 
-          const midtransRes = await fetch("https://app.midtrans.com/snap/v1/transactions", {
+          const mayarRes = await fetch("https://api.mayar.id/v1/payment/create", {
               method: "POST",
-              headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": `Basic ${authString}` },
+              headers: { 
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${mayarKey}` 
+              },
               body: JSON.stringify(payload)
           });
 
-          const data = await midtransRes.json();
+          const data = await mayarRes.json();
           
-          if (midtransRes.ok && data.redirect_url) {
-              res.json({ success: true, redirectUrl: data.redirect_url, orderId });
+          if (mayarRes.ok && data.data && data.data.link) {
+              res.json({ success: true, redirectUrl: data.data.link, orderId });
           } else {
-              res.status(400).json({ error: data.error_messages ? data.error_messages[0] : "Gagal memproses pembayaran." });
+              // Menangani struktur respons alternatif dari Mayar
+              const fallbackLink = data.link || (data.data && data.data.url) || null;
+              if (fallbackLink) {
+                 res.json({ success: true, redirectUrl: fallbackLink, orderId });
+              } else {
+                 res.status(400).json({ error: data.message || "Gagal membuat link pembayaran Mayar." });
+              }
           }
 
       } catch (error: any) {
-          res.status(500).json({ error: "Koneksi ke Midtrans terputus." });
+          res.status(500).json({ error: "Koneksi ke server Mayar terputus." });
       }
   });
 
-  app.post("/api/payment/midtrans/webhook", async (req, res) => {
+  // ====================================================================
+  // 🚀 UPDATE: WEBHOOK MAYAR (AUTO-UPGRADE AKUN)
+  // ====================================================================
+  app.post("/api/payment/mayar/webhook", async (req, res) => {
       try {
-          const data = req.body;
-          if (data.transaction_status === 'capture' || data.transaction_status === 'settlement') {
-              const orderId = data.order_id; 
-              const parts = orderId.split('-');
-              if (parts.length >= 3) {
-                  const userId = parseInt(parts[2]);
-                  const validUntil = new Date();
-                  validUntil.setDate(validUntil.getDate() + 365);
-                  await storage.updateUserProStatus(userId, true, validUntil);
+          const payload = req.body;
+          
+          // Mendeteksi status dari berbagai format webhook Mayar
+          const status = payload.status || payload.data?.status;
+          const refId = payload.reference_id || payload.external_id || payload.data?.reference_id || payload.data?.external_id;
+
+          // Jika status dinyatakan berhasil / lunas
+          if (status === 'SUCCESS' || status === 'PAID' || status === 'SETTLED') {
+              if (refId) {
+                  const parts = refId.split('-');
+                  if (parts.length >= 3 && parts[0] === 'BILANO') {
+                      const userId = parseInt(parts[2]);
+                      const validUntil = new Date();
+                      validUntil.setFullYear(validUntil.getFullYear() + 1); // Aktif 1 Tahun
+                      await storage.updateUserProStatus(userId, true, validUntil);
+                  }
               }
           }
           res.status(200).json({ success: true });
       } catch (error) {
-          res.status(500).json({ error: "Webhook Gagal" });
+          res.status(500).json({ error: "Webhook Gagal diproses" });
       }
   });
 
@@ -1278,7 +1318,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
   });
 
-  // 🚀 UPDATE: SUBMIT TIKET BANTUAN MEMAKAI NODEMAILER
   app.post("/api/help/submit", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -1337,7 +1376,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 UPDATE: ADMIN MEMBALAS TIKET MEMAKAI NODEMAILER
   app.post("/api/admin/help/reply", async (req, res) => {
       const emailAdmin = req.headers["x-user-email"] as string;
       if (!isAdminValid(emailAdmin)) return res.status(403).json({ error: "Penyusup Ditolak" });
