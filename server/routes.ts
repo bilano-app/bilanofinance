@@ -1097,7 +1097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 UPDATE: PAYMENT GATEWAY MAYAR (AUTO-FILL BYPASS & ANTI-ASUMSI)
+  // 🚀 UPDATE: PAYMENT GATEWAY MAYAR (AUTO-FILL & TANPA ERROR)
   // ====================================================================
   app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
@@ -1112,14 +1112,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return res.status(400).json({ error: "MAYAR_API_KEY belum terpasang di Vercel!" });
           }
 
-          // 🚀 FIX: DILENGKAPI DENGAN DUMMY PHONE NUMBER & DESCRIPTION AGAR TIDAK DITOLAK MAYAR
+          // 🚀 FIX: Dibuat super minimalis untuk menghindari penolakan dari Mayar
           const payload = {
               name: "BILANO Premium - 1 Tahun",
               amount: amount,
-              description: "Langganan Penuh BILANO PRO Selama 1 Tahun",
               customer_name: user.firstName || "Member BILANO",
               customer_email: user.email || "member@bilano.app",
-              customer_phone: "080000000000", 
               reference_id: orderId,
               success_redirect_url: "https://bilanoapp.com/", 
           };
@@ -1133,11 +1131,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               body: JSON.stringify(payload)
           });
 
-          // 🚀 DETEKTIF ANTI-ASUMSI: Baca balasan Mayar sebagai teks mentah dulu!
           const textData = await mayarRes.text();
 
           if (!mayarRes.ok) {
-              // Jika Mayar marah, langsung tampilkan omelannya ke HP Bos!
               return res.status(400).json({ error: `MAYAR ERROR [${mayarRes.status}]: ${textData}` });
           }
 
@@ -1165,8 +1161,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const payload = req.body || {}; 
           console.log("MAYAR WEBHOOK DATA:", JSON.stringify(payload));
 
-          const status = (payload.status || payload.data?.status || "").toUpperCase();
-          const refId = payload.reference_id || payload.external_id || payload.data?.reference_id || payload.data?.external_id || "";
+          // 🚀 FIX: KONVERSI STRING AMAN (Mencegah TypeError: Cannot read properties of undefined)
+          const status = String(payload?.status || payload?.data?.status || "").toUpperCase();
+          const refId = String(payload?.reference_id || payload?.external_id || payload?.data?.reference_id || payload?.data?.external_id || "");
 
           if (status === 'SUCCESS' || status === 'PAID' || status === 'SETTLED') {
               if (refId && refId.startsWith('BILANO-PRO-')) {
