@@ -1122,7 +1122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               success_redirect_url: "https://bilanoapp.com/", 
           };
 
-          const mayarRes = await fetch("https://api.mayar.id/v1/payment/create", {
+          const mayarRes = await fetch("https://api.mayar.id/hl/v1/payment-link", {
               method: "POST",
               headers: { 
                   "Content-Type": "application/json",
