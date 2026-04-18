@@ -1096,32 +1096,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({success:true}); 
   });
 
-  // 🚀 UPDATE: WEBHOOK MAYAR (MENDETEKSI PEMBAYARAN DARI LINK MANUAL VIA EMAIL)
+  // ====================================================================
+  // 🚀 UPDATE: PAYMENT GATEWAY MAYAR (AUTO-FILL & TANPA ERROR)
+  // ====================================================================
+  app.post("/api/payment/mayar/charge", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const amount = 99000; 
+          const orderId = `BILANO-PRO-${user.id}-${Date.now()}`;
+          const mayarKey = (process.env.MAYAR_API_KEY || "").replace(/['"]/g, "").trim();
+
+          if (!mayarKey) {
+              return res.status(400).json({ error: "MAYAR_API_KEY belum terpasang di Vercel!" });
+          }
+
+          // 🚀 FIX: Dibuat super minimalis untuk menghindari penolakan dari Mayar
+          const payload = {
+              name: "BILANO Premium - 1 Tahun",
+              amount: amount,
+              customer_name: user.firstName || "Member BILANO",
+              customer_email: user.email || "member@bilano.app",
+              reference_id: orderId,
+              success_redirect_url: "https://bilanoapp.com/", 
+          };
+
+          const mayarRes = await fetch("https://api.mayar.id/hl/v1/payment-link", {
+              method: "POST",
+              headers: { 
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${mayarKey}` 
+              },
+              body: JSON.stringify(payload)
+          });
+
+          const textData = await mayarRes.text();
+
+          if (!mayarRes.ok) {
+              return res.status(400).json({ error: `MAYAR ERROR [${mayarRes.status}]: ${textData}` });
+          }
+
+          try {
+              const data = JSON.parse(textData);
+              const redirectUrl = data.data?.link || data.link || (data.data && data.data.url);
+              
+              if (redirectUrl) {
+                  return res.json({ success: true, redirectUrl, orderId });
+              } else {
+                  return res.status(400).json({ error: "Mayar sukses tapi link hilang: " + textData });
+              }
+          } catch (parseErr) {
+              return res.status(500).json({ error: "Format Mayar Aneh: " + textData });
+          }
+
+      } catch (error: any) {
+          res.status(500).json({ error: "SERVER CRASH: " + error.message });
+      }
+  });
+
+  // 🚀 UPDATE: WEBHOOK MAYAR (VERSI ANTI-CRASH / BULLETPROOF)
   app.post("/api/payment/mayar/webhook", async (req, res) => {
       try {
           const payload = req.body || {}; 
           console.log("MAYAR WEBHOOK DATA:", JSON.stringify(payload));
 
+          // 🚀 FIX: KONVERSI STRING AMAN (Mencegah TypeError: Cannot read properties of undefined)
           const status = String(payload?.status || payload?.data?.status || "").toUpperCase();
-          
-          // Mengambil email dari berbagai kemungkinan struktur JSON Mayar
-          const customerEmail = payload?.customer_email || 
-                                payload?.data?.customer_email || 
-                                payload?.customer?.email || 
-                                payload?.data?.customer?.email || "";
+          const refId = String(payload?.reference_id || payload?.external_id || payload?.data?.reference_id || payload?.data?.external_id || "");
 
           if (status === 'SUCCESS' || status === 'PAID' || status === 'SETTLED') {
-              if (customerEmail) {
-                  // Cari user di database berdasarkan email dari Mayar
-                  const targetUser = await storage.getUserByUsername(customerEmail);
-                  if (targetUser) {
-                      const validUntil = new Date();
-                      validUntil.setFullYear(validUntil.getFullYear() + 1);
-                      await storage.updateUserProStatus(targetUser.id, true, validUntil);
-                      console.log(`✅ USER ${customerEmail} BERHASIL UPGRADE KE PRO!`);
-                  } else {
-                      console.log(`⚠️ Pembayaran sukses, tapi email ${customerEmail} tidak ditemukan di database.`);
-                  }
+              if (refId && refId.startsWith('BILANO-PRO-')) {
+                  const parts = refId.split('-');
+                  const userId = parseInt(parts[2]);
+                  const validUntil = new Date();
+                  validUntil.setFullYear(validUntil.getFullYear() + 1);
+                  await storage.updateUserProStatus(userId, true, validUntil);
+                  console.log(`✅ USER ${userId} BERHASIL UPGRADE KE PRO!`);
               }
           }
           res.status(200).json({ success: true });
