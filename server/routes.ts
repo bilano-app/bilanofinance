@@ -8,6 +8,11 @@ import { sql } from "drizzle-orm";
 import admin from "firebase-admin"; 
 import nodemailer from "nodemailer";
 
+window.addEventListener('vite:preloadError', (event) => {
+    event.preventDefault();
+    window.location.reload(); // Langsung paksa refresh ke versi terbaru!
+});
+
 // ====================================================================
 // 🚀 PARSER JSON SUPER TANGGUH UNTUK VERCEL ENV
 // ====================================================================
