@@ -36,13 +36,11 @@ window.fetch = async (input, init = {}) => {
 
   const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
   
-  // 🚀 FIX: PASTIKAN ROUTE PEMBAYARAN MAYAR LOLOS DARI BLOKIRAN
   const isAllowedRoute = url.includes('/api/auth') || 
                          url.includes('/api/user/onesignal') || 
                          url.includes('/api/payment');
 
   if (isWriteAction && !isAllowedRoute && localStorage.getItem('bilano_trial_expired') === 'true') {
-      // 🚀 FIX: Jika diblokir, sistem tidak akan "diam" melainkan memanggil layar kunci (Paywall Lock)
       window.dispatchEvent(new Event('trigger-paywall-lock'));
       return Promise.reject(new Error("TRIAL_EXPIRED_LOCKED")); 
   }
