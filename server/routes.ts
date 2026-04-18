@@ -1096,7 +1096,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({success:true}); 
   });
 
-  // 🚀 UPDATE: WEBHOOK MAYAR (MENDETEKSI PEMBAYARAN DARI LINK MANUAL VIA EMAIL)
+  // ====================================================================
+  // 🚀 UPDATE: PAYMENT GATEWAY MAYAR (INVOICE API - LANGSUNG KE METODE BAYAR)
+  // ====================================================================
+  app.post("/api/payment/mayar/charge", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const mayarKey = (process.env.MAYAR_API_KEY || "").replace(/['"]/g, "").trim();
+
+          if (!mayarKey) {
+              return res.status(400).json({ error: "MAYAR_API_KEY belum terpasang di Vercel!" });
+          }
+
+          // Buat expiredAt besok
+          const expiredDate = new Date();
+          expiredDate.setDate(expiredDate.getDate() + 1);
+
+          // 🚀 MENGGUNAKAN INVOICE API AGAR TIDAK ADA FORM PENGISIAN LAGI
+          const payload = {
+              name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
+              email: user.email || "member@bilano.app",
+              mobile: "081234567890", 
+              redirectUrl: "https://bilanoapp.com/", 
+              description: "Langganan BILANO PRO (1 Tahun)",
+              expiredAt: expiredDate.toISOString(),
+              items: [
+                  {
+                      quantity: 1,
+                      rate: 99000,
+                      description: "Akses BILANO PRO 1 Tahun"
+                  }
+              ],
+              extraData: {
+                  noCustomer: user.id.toString(),
+                  idProd: "BILANO-PRO"
+              }
+          };
+
+          const mayarRes = await fetch("https://api.mayar.id/hl/v1/invoice/create", {
+              method: "POST",
+              headers: { 
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${mayarKey}` 
+              },
+              body: JSON.stringify(payload)
+          });
+
+          const textData = await mayarRes.text();
+
+          if (!mayarRes.ok) {
+              return res.status(400).json({ error: `MAYAR ERROR [${mayarRes.status}]: ${textData}` });
+          }
+
+          try {
+              const data = JSON.parse(textData);
+              const redirectUrl = data.data?.link || data.link || (data.data && data.data.url);
+              
+              if (redirectUrl) {
+                  return res.json({ success: true, redirectUrl });
+              } else {
+                  return res.status(400).json({ error: "Mayar sukses tapi link hilang: " + textData });
+              }
+          } catch (parseErr) {
+              return res.status(500).json({ error: "Format Mayar Aneh: " + textData });
+          }
+
+      } catch (error: any) {
+          res.status(500).json({ error: "SERVER CRASH: " + error.message });
+      }
+  });
+
+  // 🚀 UPDATE: WEBHOOK MAYAR (MENDETEKSI PEMBAYARAN INVOICE)
   app.post("/api/payment/mayar/webhook", async (req, res) => {
       try {
           const payload = req.body || {}; 
@@ -1104,23 +1176,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const status = String(payload?.status || payload?.data?.status || "").toUpperCase();
           
-          // Mengambil email dari berbagai kemungkinan struktur JSON Mayar
-          const customerEmail = payload?.customer_email || 
-                                payload?.data?.customer_email || 
-                                payload?.customer?.email || 
-                                payload?.data?.customer?.email || "";
+          const customerEmail = String(
+              payload?.customer_email || 
+              payload?.data?.customer_email || 
+              payload?.customer?.email || 
+              payload?.data?.customer?.email || 
+              payload?.email || 
+              payload?.data?.email || 
+              ""
+          ).toLowerCase();
 
           if (status === 'SUCCESS' || status === 'PAID' || status === 'SETTLED') {
               if (customerEmail) {
-                  // Cari user di database berdasarkan email dari Mayar
                   const targetUser = await storage.getUserByUsername(customerEmail);
                   if (targetUser) {
                       const validUntil = new Date();
                       validUntil.setFullYear(validUntil.getFullYear() + 1);
                       await storage.updateUserProStatus(targetUser.id, true, validUntil);
                       console.log(`✅ USER ${customerEmail} BERHASIL UPGRADE KE PRO!`);
-                  } else {
-                      console.log(`⚠️ Pembayaran sukses, tapi email ${customerEmail} tidak ditemukan di database.`);
                   }
               }
           }

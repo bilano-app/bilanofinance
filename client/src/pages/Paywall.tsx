@@ -12,7 +12,6 @@ export default function Paywall() {
 
   const [showModal, setShowModal] = useState(false);
   const [showVisionModal, setShowVisionModal] = useState(false);
-  const [iframeUrl, setIframeUrl] = useState("");
 
   const userEmail = localStorage.getItem("bilano_email") || "";
   const trialKey = `bilano_trial_start_${userEmail}`;
@@ -38,55 +37,42 @@ export default function Paywall() {
       setShowModal(true);
   };
 
-  // 🚀 UPDATE: MENGGUNAKAN LINK MANUAL BOS (JENIUS & ANTI-ERROR)
-  const handleLanjutBayar = () => {
+  // 🚀 UPDATE: MENGGUNAKAN INVOICE API (LANGSUNG KE KASIR TANPA FORM)
+  const handleLanjutBayar = async () => {
       setIsProcessing(true);
-      
-      // Buka gembok di penyimpanan lokal sementara
-      localStorage.setItem("bilano_pro", "true");
-      localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
-      localStorage.setItem("bilano_trial_expired", "false");
+      try {
+          const res = await fetch("/api/payment/mayar/charge", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-user-email": userEmail }
+          });
 
-      // Langsung arahkan ke Link Mayar Bos, ditambah email agar Auto-Fill!
-      const mayarLink = `https://adrienfandra.myr.id/pl/langganan-bilano-pro-1-tahun?email=${encodeURIComponent(userEmail)}`;
-      
-      window.location.href = mayarLink;
-  };
+          const data = await res.json();
 
-  const handleCloseIframe = () => {
-      setIframeUrl("");
-      toast({ title: "Mengecek Pembayaran...", description: "Status akun Anda sedang diperbarui." });
-      setTimeout(() => window.location.href = "/", 1000);
+          if (res.ok && data.redirectUrl) {
+              // Buka gembok lokal sementara sambil menunggu konfirmasi webhook
+              localStorage.setItem("bilano_pro", "true");
+              localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
+              localStorage.setItem("bilano_trial_expired", "false");
+
+              // Lempar langsung ke link tagihan (tanpa form isi data)
+              window.location.href = data.redirectUrl; 
+          } else {
+              alert("⚠️ GAGAL MEMBUAT TAGIHAN:\n" + (data.error || "Sistem Mayar Sibuk."));
+          }
+      } catch (error: any) {
+          alert("⚠️ KONEKSI TERPUTUS:\n" + error.message);
+      } finally {
+          setIsProcessing(false);
+      }
   };
 
   return (
     <MobileLayout>
-        {/* KANDANG IFRAME MIDTRANS */}
-        {iframeUrl && (
-            <div className="fixed inset-0 z-[999999] bg-slate-50 flex flex-col animate-in slide-in-from-bottom duration-300">
-                <div className="h-14 bg-slate-900 flex items-center justify-between px-4 text-white shadow-md z-10 shrink-0">
-                    <div className="flex items-center gap-2">
-                        <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                        <span className="font-bold text-sm tracking-wide">Kasir Pembayaran Aman</span>
-                    </div>
-                    <button onClick={handleCloseIframe} className="p-1.5 bg-white/10 hover:bg-rose-500 rounded-full transition-colors active:scale-95">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-                <div className="flex-1 w-full bg-slate-50 relative">
-                    <div className="absolute inset-0 flex items-center justify-center -z-10">
-                        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                    </div>
-                    <iframe src={iframeUrl} className="w-full h-full border-none relative z-10 bg-transparent" allow="payment" title="Midtrans Checkout" />
-                </div>
-            </div>
-        )}
-
         <div className="min-h-screen bg-slate-900 text-white relative overflow-y-auto overflow-x-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute bottom-1/4 left-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-            {hasStartedTrial && !iframeUrl && (
+            {hasStartedTrial && (
                 <button onClick={() => window.location.href = "/"} className="absolute top-6 right-6 z-50 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md border border-white/10 transition-colors shadow-lg">
                     <X className="w-5 h-5 text-white opacity-90" />
                 </button>
@@ -143,6 +129,9 @@ export default function Paywall() {
                     <p className="text-[10px] text-indigo-300 flex items-center gap-1 font-medium">✨ Setara hanya Rp 8.250 / bulan.</p>
                 </div>
 
+                {/* ========================================================= */}
+                {/* 🚀 TOMBOL PEMICU (DIBUAT SANGAT JELAS SEBAGAI TOMBOL KLIK) */}
+                {/* ========================================================= */}
                 <button 
                     onClick={() => setShowVisionModal(true)}
                     className="w-full flex items-center justify-between bg-slate-800 border border-slate-700 hover:border-amber-500/50 p-4 rounded-2xl mb-8 active:scale-95 transition-all text-left shadow-lg group relative overflow-hidden"
@@ -162,6 +151,7 @@ export default function Paywall() {
                         <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-amber-950" />
                     </div>
                 </button>
+                {/* ========================================================= */}
 
                 <div className="w-full relative z-10 animate-in slide-in-from-bottom-8 delay-500">
                     <Button 
@@ -222,6 +212,9 @@ export default function Paywall() {
             </div>
         )}
 
+        {/* ========================================================= */}
+        {/* 🚀 KOTAK KECIL PENJELASAN (CERITA NARATIF PRICE LOCK)     */}
+        {/* ========================================================= */}
         {showVisionModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-5 animate-in fade-in duration-200">
                 <div className="bg-slate-900 w-full max-w-sm rounded-[28px] overflow-hidden shadow-2xl border border-slate-700 relative animate-in zoom-in-95">
