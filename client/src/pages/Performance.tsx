@@ -27,25 +27,33 @@ export default function Performance() {
   const locked = !isUserLoading && !isPro && isTrialExpired;
 
   const [paywallModalOpen, setPaywallModalOpen] = useState(false);
-  const [iframeUrl, setIframeUrl] = useState("");
   const [isCharging, setIsCharging] = useState(false);
   const [isDeletingTx, setIsDeletingTx] = useState(false);
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
+  // 🚀 UPDATE: MENGGUNAKAN MAYAR & WINDOW.OPEN (ANTI KERTAS MAINAN)
   const handleLanjutBayar = async () => {
       if (!currentUserEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
       setIsCharging(true);
       try {
-          const res = await fetch("/api/payment/midtrans/charge", { method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail } });
+          const res = await fetch("/api/payment/mayar/charge", { method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail } });
           const data = await res.json();
           if (res.ok && data.redirectUrl) {
-              setIframeUrl(data.redirectUrl); setPaywallModalOpen(false);
-          } else { toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); }
-      } catch (error) { toast({ title: "Error koneksi", variant: "destructive" }); } finally { setIsCharging(false); }
+              localStorage.setItem("bilano_pro", "true");
+              localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
+              localStorage.setItem("bilano_trial_expired", "false");
+              // BUKA DI TAB BARU (CHROME/SAFARI MURNI) AGAR RESPONSIVE & FULLSCREEN
+              window.open(data.redirectUrl, '_blank'); 
+          } else { 
+              toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); 
+          }
+      } catch (error) { 
+          toast({ title: "Error koneksi", variant: "destructive" }); 
+      } finally { 
+          setIsCharging(false); 
+      }
   };
-
-  const handleCloseIframe = () => { setIframeUrl(""); toast({ title: "Mengecek Pembayaran...", description: "Status akun sedang diperbarui." }); setTimeout(() => window.location.reload(), 1500); };
 
   const handleDeleteTransaction = async (id: number) => {
       if (!confirm("Hapus transaksi ini? Saldo Kas Anda akan otomatis disesuaikan/dinormalkan kembali.")) return;
@@ -106,15 +114,16 @@ export default function Performance() {
       enabled: !!currentUserEmail
   });
 
-  const forexValue = forexAssetsData.reduce((acc: number, asset: any) => {
+  const cashReal = (user?.cashBalance || 0); 
+  
+  // 🛡️ SABUK PENGAMAN (ARRAY.ISARRAY) AGAR TIDAK NGEBLANK
+  const forexValue = Array.isArray(forexAssetsData) ? forexAssetsData.reduce((acc: number, asset: any) => {
       const curr = asset.currency;
       const rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
       return acc + (asset.amount * rate);
-  }, 0);
+  }, 0) : 0;
 
-  const cashReal = (user?.cashBalance || 0); 
-  
-  const investmentReal = investments?.reduce((acc, inv) => {
+  const investmentReal = Array.isArray(investments) ? investments.reduce((acc, inv) => {
       const [sym, curr] = (inv.symbol || "").split('|');
       const actualCurr = curr || 'IDR';
       const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_RATES[actualCurr] || 15000);
@@ -123,24 +132,26 @@ export default function Performance() {
       const m = (isSaham && actualCurr === 'IDR') ? 100 : 1;
       
       return acc + (inv.quantity * inv.avgPrice * m * rate);
-  }, 0) || 0;
+  }, 0) : 0;
 
   let piutangReal = 0;
   let hutangReal = 0;
   
-  debtsData.forEach((d: any) => {
-      if (d.isPaid) return;
-      const [, curr] = (d.name || "").split('|');
-      const actualCurr = curr || 'IDR';
-      const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_RATES[actualCurr] || 15000);
-      
-      if (d.type === 'piutang') piutangReal += (d.amount * rate);
-      else if (d.type === 'hutang') hutangReal += (d.amount * rate);
-  });
+  if (Array.isArray(debtsData)) {
+      debtsData.forEach((d: any) => {
+          if (d.isPaid) return;
+          const [, curr] = (d.name || "").split('|');
+          const actualCurr = curr || 'IDR';
+          const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_RATES[actualCurr] || 15000);
+          
+          if (d.type === 'piutang') piutangReal += (d.amount * rate);
+          else if (d.type === 'hutang') hutangReal += (d.amount * rate);
+      });
+  }
 
   const currentWealth = cashReal + investmentReal + forexValue + piutangReal - hutangReal;
 
-  const allTimeTx = transactions || [];
+  const allTimeTx = Array.isArray(transactions) ? transactions : [];
   let totalCuanJual = 0;
   let totalModalTerpakai = 0;
 
@@ -197,10 +208,10 @@ export default function Performance() {
       expenseLimit = target.monthlyBudget;
   }
 
-  const thisMonthTx = transactions?.filter(t => {
+  const thisMonthTx = Array.isArray(transactions) ? transactions.filter(t => {
       const d = new Date(t.date);
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
-  }) || [];
+  }) : [];
 
   const totalAmal = thisMonthTx.filter(t => t.category === 'Amal').reduce((acc, t) => acc + t.amount, 0);
 
@@ -303,17 +314,6 @@ export default function Performance() {
 
   return (
     <MobileLayout title="Analisa Performa" showBack>
-      
-      {iframeUrl && (
-          <div className="fixed inset-0 z-[999999] bg-slate-50 flex flex-col animate-in slide-in-from-bottom duration-300">
-              <div className="h-14 bg-slate-900 flex items-center justify-between px-4 text-white shadow-md z-10 shrink-0">
-                  <div className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-emerald-400"/><span className="font-bold text-sm tracking-wide">Kasir Pembayaran Aman</span></div>
-                  <button onClick={handleCloseIframe} className="p-1.5 bg-white/10 hover:bg-rose-500 rounded-full transition-colors active:scale-95"><X className="w-5 h-5"/></button>
-              </div>
-              <div className="flex-1 w-full bg-slate-50 relative"><div className="absolute inset-0 flex items-center justify-center -z-10"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin"/></div><iframe src={iframeUrl} className="w-full h-full border-none relative z-10 bg-transparent" allow="payment" title="Midtrans Checkout"/></div>
-          </div>
-      )}
-
       <div className={`space-y-6 pt-4 px-1 ${locked ? 'pb-32' : 'pb-24'}`}>
 
         {isPeriodEnded && (
