@@ -18,74 +18,22 @@ const DEFAULT_RATES: Record<string, number> = {
 };
 
 export default function Performance() {
+  // ====================================================================
+  // 1. SEMUA HOOKS & PENGAMBILAN DATA (HARUS DI ATAS)
+  // ====================================================================
   const { data: user, isLoading: isUserLoading } = useUser();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-
-  const isPro = user?.isPro || localStorage.getItem("bilano_pro") === "true";
-  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
-  const locked = !isUserLoading && !isPro && isTrialExpired;
-
-  const [paywallModalOpen, setPaywallModalOpen] = useState(false);
+  
   const [isCharging, setIsCharging] = useState(false);
   const [isDeletingTx, setIsDeletingTx] = useState(false);
+  const [expandedDetail, setExpandedDetail] = useState<'income' | 'expense' | null>(null);
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-
-  // 🚀 UPDATE: MENGGUNAKAN MAYAR & WINDOW.OPEN (ANTI KERTAS MAINAN)
-  const handleLanjutBayar = async () => {
-      if (!currentUserEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
-      setIsCharging(true);
-      try {
-          const res = await fetch("/api/payment/mayar/charge", { method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail } });
-          const data = await res.json();
-          if (res.ok && data.redirectUrl) {
-              localStorage.setItem("bilano_pro", "true");
-              localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
-              localStorage.setItem("bilano_trial_expired", "false");
-              // BUKA DI TAB BARU (CHROME/SAFARI MURNI) AGAR RESPONSIVE & FULLSCREEN
-              window.open(data.redirectUrl, '_blank'); 
-          } else { 
-              toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); 
-          }
-      } catch (error) { 
-          toast({ title: "Error koneksi", variant: "destructive" }); 
-      } finally { 
-          setIsCharging(false); 
-      }
-  };
-
-  const handleDeleteTransaction = async (id: number) => {
-      if (!confirm("Hapus transaksi ini? Saldo Kas Anda akan otomatis disesuaikan/dinormalkan kembali.")) return;
-      setIsDeletingTx(true);
-      toast({ title: "Menghapus...", description: "Menyesuaikan saldo kas Anda." });
-      try {
-          const res = await fetch(`/api/transactions/${id}`, {
-              method: "DELETE",
-              headers: { "x-user-email": currentUserEmail }
-          });
-          if (res.ok) {
-              toast({ title: "Terhapus!", description: "Transaksi hilang, saldo kas telah dinormalkan." });
-              setTimeout(() => window.location.reload(), 800); 
-          } else {
-              toast({ title: "Gagal menghapus", variant: "destructive" });
-          }
-      } catch (e) {
-          toast({ title: "Error server", variant: "destructive" });
-      } finally {
-          setIsDeletingTx(false);
-      }
-  };
 
   const { data: transactions, isLoading: isTxLoading } = useTransactions();
   const { data: target, isLoading: isTargetLoading } = useTarget();
   const { data: investments, isLoading: isInvLoading } = useInvestments(); 
-
-  const now = new Date();
-  const currentMonthIdx = now.getMonth();
-  const currentYear = now.getFullYear();
-
-  const [expandedDetail, setExpandedDetail] = useState<'income' | 'expense' | null>(null);
 
   const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
       queryKey: ['forexRates', currentUserEmail],
@@ -114,9 +62,131 @@ export default function Performance() {
       enabled: !!currentUserEmail
   });
 
+  // ====================================================================
+  // 2. LOGIKA KUNCI & TOMBOL BAYAR
+  // ====================================================================
+  const isPro = user?.isPro || localStorage.getItem("bilano_pro") === "true";
+  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
+  const locked = !isUserLoading && !isPro && isTrialExpired;
+
+  const handleLanjutBayar = async () => {
+      if (!currentUserEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
+      setIsCharging(true);
+      try {
+          const res = await fetch("/api/payment/mayar/charge", { method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail } });
+          const data = await res.json();
+          if (res.ok && data.redirectUrl) {
+              localStorage.setItem("bilano_pro", "true");
+              localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
+              localStorage.setItem("bilano_trial_expired", "false");
+              window.location.href = data.redirectUrl; 
+          } else { 
+              toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); 
+          }
+      } catch (error) { 
+          toast({ title: "Error koneksi", variant: "destructive" }); 
+      } finally { 
+          setIsCharging(false); 
+      }
+  };
+
+  const handleDeleteTransaction = async (id: number) => {
+      if (!confirm("Hapus transaksi ini? Saldo Kas Anda akan otomatis disesuaikan kembali.")) return;
+      setIsDeletingTx(true);
+      toast({ title: "Menghapus...", description: "Menyesuaikan saldo kas Anda." });
+      try {
+          const res = await fetch(`/api/transactions/${id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
+          if (res.ok) {
+              toast({ title: "Terhapus!", description: "Transaksi hilang, saldo kas dinormalkan." });
+              setTimeout(() => window.location.reload(), 800); 
+          } else { toast({ title: "Gagal menghapus", variant: "destructive" }); }
+      } catch (e) { toast({ title: "Error server", variant: "destructive" }); } 
+      finally { setIsDeletingTx(false); }
+  };
+
+  // ====================================================================
+  // 3. TAMPILAN LOADING
+  // ====================================================================
+  if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading || isRatesLoading || isForexLoading || isDebtsLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
+              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin"/>
+                  <span>Memuat Data...</span>
+              </div>
+          </div>
+      );
+  }
+
+  // ====================================================================
+  // 4. 🚨 TAMPILAN TERKUNCI (ANTI CRASH) 🚨
+  // Langsung potong di sini untuk Non-Pro. Semua beban matematika di bawah
+  // TIDAK AKAN dieksekusi, sehingga layar dijamin tidak akan pernah blank!
+  // ====================================================================
+  if (locked) {
+      return (
+          <MobileLayout title="Analisa Performa" showBack>
+              <div className="relative min-h-screen bg-slate-50 overflow-hidden pb-24">
+                  
+                  {/* Efek Blur Bayangan Dashboard di Belakang */}
+                  <div className="p-4 space-y-6 blur-md opacity-40 select-none pointer-events-none mt-2">
+                      <div className="bg-gradient-to-br from-blue-600 to-violet-800 h-48 rounded-[32px] w-full shadow-lg"></div>
+                      <div className="bg-emerald-100 h-28 rounded-[32px] w-full"></div>
+                      <div className="bg-white h-72 rounded-[32px] shadow-sm border border-slate-200 w-full"></div>
+                  </div>
+
+                  {/* Overlay Gembok Paywall */}
+                  <div className="absolute inset-0 z-50 flex flex-col items-center justify-center px-6 text-center">
+                      <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(251,191,36,0.4)] animate-bounce-slow">
+                          <Crown className="w-10 h-10 text-amber-950" />
+                      </div>
+                      
+                      <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Akses Terkunci</h2>
+                      <p className="text-sm text-slate-600 mb-8 max-w-xs leading-relaxed font-medium">
+                          Masa percobaan Anda telah habis. Berlangganan <b className="text-slate-800">BILANO PRO</b> sekarang untuk membuka penuh Analisis Cashflow, ROI Aset, dan Diagnosa Target Finansial.
+                      </p>
+                      
+                      {/* Kartu Harga */}
+                      <div className="w-full max-w-sm bg-white p-5 rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] border border-slate-100 mb-8 relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-300 to-amber-500"></div>
+                          <p className="text-xs text-slate-400 font-extrabold uppercase tracking-widest mb-3 mt-1">Tagihan Langganan</p>
+                          <div className="flex items-end justify-center gap-1.5 mb-2">
+                              <span className="text-4xl font-black text-slate-800 tracking-tight">Rp99.000</span>
+                              <span className="text-sm font-bold text-slate-400 mb-1.5">/ tahun</span>
+                          </div>
+                          <div className="bg-amber-50 text-amber-700 text-[10px] font-extrabold px-3 py-1.5 rounded-full inline-block mt-1">
+                              Garansi Harga Tetap Selamanya
+                          </div>
+                      </div>
+
+                      {/* Tombol Eksekusi */}
+                      <Button 
+                          onClick={handleLanjutBayar} 
+                          disabled={isCharging}
+                          className="w-full max-w-sm h-14 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-full shadow-2xl flex items-center justify-center gap-2 transition-transform active:scale-95"
+                      >
+                          {isCharging ? <Loader2 className="w-5 h-5 animate-spin"/> : "BERLANGGANAN SEKARANG"}
+                      </Button>
+                      
+                      <p className="mt-6 text-[10px] text-slate-400 font-medium flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4 text-emerald-500"/> Pembayaran Aman & Otomatis oleh Mayar
+                      </p>
+                  </div>
+              </div>
+          </MobileLayout>
+      );
+  }
+
+  // ====================================================================
+  // 5. PERHITUNGAN MATEMATIKA (HANYA UNTUK USER PRO & TRIAL AKTIF)
+  // ====================================================================
+  const now = new Date();
+  const currentMonthIdx = now.getMonth();
+  const currentYear = now.getFullYear();
+
   const cashReal = (user?.cashBalance || 0); 
   
-  // 🛡️ SABUK PENGAMAN (ARRAY.ISARRAY) AGAR TIDAK NGEBLANK
   const forexValue = Array.isArray(forexAssetsData) ? forexAssetsData.reduce((acc: number, asset: any) => {
       const curr = asset.currency;
       const rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
@@ -127,10 +197,8 @@ export default function Performance() {
       const [sym, curr] = (inv.symbol || "").split('|');
       const actualCurr = curr || 'IDR';
       const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_RATES[actualCurr] || 15000);
-      
       const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
       const m = (isSaham && actualCurr === 'IDR') ? 100 : 1;
-      
       return acc + (inv.quantity * inv.avgPrice * m * rate);
   }, 0) : 0;
 
@@ -143,15 +211,14 @@ export default function Performance() {
           const [, curr] = (d.name || "").split('|');
           const actualCurr = curr || 'IDR';
           const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_RATES[actualCurr] || 15000);
-          
           if (d.type === 'piutang') piutangReal += (d.amount * rate);
           else if (d.type === 'hutang') hutangReal += (d.amount * rate);
       });
   }
 
   const currentWealth = cashReal + investmentReal + forexValue + piutangReal - hutangReal;
-
   const allTimeTx = Array.isArray(transactions) ? transactions : [];
+  
   let totalCuanJual = 0;
   let totalModalTerpakai = 0;
 
@@ -182,7 +249,7 @@ export default function Performance() {
 
   const hasValidTarget = target && (target.targetAmount > 0 || target.monthlyBudget > 0);
 
-  if (target && target.targetAmount > 0) {
+  if (hasValidTarget && target.targetAmount > 0) {
       const targetGoal = target.targetAmount;
       expenseLimit = (target.monthlyBudget || 0);
 
@@ -204,14 +271,14 @@ export default function Performance() {
           isPeriodEnded = true;
           isTargetAchieved = currentWealth >= targetGoal;
       }
-  } else if (target && target.monthlyBudget > 0) {
+  } else if (hasValidTarget && target.monthlyBudget > 0) {
       expenseLimit = target.monthlyBudget;
   }
 
-  const thisMonthTx = Array.isArray(transactions) ? transactions.filter(t => {
+  const thisMonthTx = allTimeTx.filter(t => {
       const d = new Date(t.date);
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
-  }) : [];
+  });
 
   const totalAmal = thisMonthTx.filter(t => t.category === 'Amal').reduce((acc, t) => acc + t.amount, 0);
 
@@ -300,21 +367,12 @@ export default function Performance() {
       return "text-4xl"; 
   };
 
-  if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading || isRatesLoading || isForexLoading || isDebtsLoading) {
-      return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
-              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
-                  <Loader2 className="w-4 h-4 animate-spin"/>
-                  <span>Memuat Data...</span>
-              </div>
-          </div>
-      );
-  }
-
+  // ====================================================================
+  // 6. RENDER DASHBOARD ASLI (BERSIH DARI KODE BLUR/LOCK)
+  // ====================================================================
   return (
     <MobileLayout title="Analisa Performa" showBack>
-      <div className={`space-y-6 pt-4 px-1 ${locked ? 'pb-32' : 'pb-24'}`}>
+      <div className="space-y-6 pt-4 px-1 pb-24">
 
         {isPeriodEnded && (
             <div className={`p-5 rounded-[24px] text-white shadow-lg animate-in slide-in-from-top-4 ${isTargetAchieved ? 'bg-gradient-to-br from-yellow-400 to-amber-600' : 'bg-gradient-to-br from-rose-500 to-red-600'}`}>
@@ -340,56 +398,51 @@ export default function Performance() {
             </div>
         )}
 
-        {/* ========================================================= */}
-        {/* BAGIAN 1: TOTAL KEKAYAAN BERSIH (SELALU TAMPIL) */}
-        {/* ========================================================= */}
         <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-800 text-white p-7 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden">
             <div className="relative z-10 mb-6">
                 <div className="flex justify-between items-center mb-1">
                     <p className="text-[11px] text-blue-200 uppercase tracking-widest font-bold flex items-center gap-2">
-                        Total Kekayaan Bersih {locked && <Lock className="w-3 h-3 text-amber-300"/>}
+                        Total Kekayaan Bersih
                     </p>
-                    {!locked && (
-                        <Link href="/target">
-                            <button className="bg-yellow-400 hover:bg-yellow-500 text-indigo-950 px-3 py-1.5 rounded-full text-[9px] font-extrabold shadow-md transition-all active:scale-95 uppercase tracking-wider whitespace-nowrap">
-                                {hasValidTarget ? "EDIT TARGET" : "TAMBAH TARGET"}
-                            </button>
-                        </Link>
-                    )}
+                    <Link href="/target">
+                        <button className="bg-yellow-400 hover:bg-yellow-500 text-indigo-950 px-3 py-1.5 rounded-full text-[9px] font-extrabold shadow-md transition-all active:scale-95 uppercase tracking-wider whitespace-nowrap">
+                            {hasValidTarget ? "EDIT TARGET" : "TAMBAH TARGET"}
+                        </button>
+                    </Link>
                 </div>
 
-                <h2 className={`${getBalanceTextSize(displayWealth)} font-extrabold font-display text-white block w-full whitespace-nowrap transition-all duration-300 ${locked ? 'blur-md select-none' : ''}`}>
-                    {locked ? formatRp(125000000) : displayWealth}
+                <h2 className={`${getBalanceTextSize(displayWealth)} font-extrabold font-display text-white block w-full whitespace-nowrap transition-all duration-300`}>
+                    {displayWealth}
                 </h2>
                 
                 <div className="flex flex-wrap gap-2 mt-4 text-[10px] font-bold">
-                    <span className={`bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 ${locked ? 'blur-[4px] select-none' : ''}`}>Tunai: {formatRp(cashReal)}</span>
-                    <span className={`bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 ${locked ? 'blur-[4px] select-none' : ''}`}>Aset: {formatRp(investmentReal + forexValue)}</span>
+                    <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Tunai: {formatRp(cashReal)}</span>
+                    <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Aset: {formatRp(investmentReal + forexValue)}</span>
                     
                     {piutangReal > 0 && (
-                        <span className={`bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-emerald-200 ${locked ? 'blur-[4px] select-none' : ''}`}>
+                        <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-emerald-200">
                             Piutang: {formatRp(piutangReal)}
                         </span>
                     )}
                     
                     {hutangReal > 0 && (
-                        <span className={`bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-rose-200 ${locked ? 'blur-[4px] select-none' : ''}`}>
+                        <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-rose-200">
                             Hutang: {formatRp(hutangReal)}
                         </span>
                     )}
                 </div>
             </div>
 
-            {target && target.targetAmount > 0 && (
+            {hasValidTarget && target.targetAmount > 0 && (
                 <div className="relative z-10 bg-black/20 p-4 rounded-[20px] backdrop-blur-sm border border-white/10 mt-6">
                     <div className="flex justify-between text-[11px] text-blue-100 mb-2 font-bold uppercase tracking-wider">
                         <span>Target Impian</span>
-                        <span className={`text-emerald-300 ${locked ? 'blur-[4px] select-none' : ''}`}>{progressPercent.toFixed(1)}%</span>
+                        <span className="text-emerald-300">{progressPercent.toFixed(1)}%</span>
                     </div>
                     <div className="w-full bg-black/30 h-3 rounded-full overflow-hidden mb-3">
-                        <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-300 transition-all duration-1000 rounded-full" style={{ width: `${locked ? 50 : progressPercent}%` }}></div>
+                        <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-300 transition-all duration-1000 rounded-full" style={{ width: `${progressPercent}%` }}></div>
                     </div>
-                    <div className={`flex justify-between text-xs font-bold text-white ${locked ? 'blur-[4px] select-none' : ''}`}>
+                    <div className="flex justify-between text-xs font-bold text-white">
                         <span>{formatRp(target.targetAmount)}</span>
                         <span className="flex items-center gap-1 opacity-80"><CalendarClock className="w-4 h-4"/> Sisa {monthsRemaining} Bln</span>
                     </div>
@@ -399,9 +452,6 @@ export default function Performance() {
             <div className="absolute left-0 bottom-0 w-32 h-32 bg-emerald-400/20 rounded-tr-full blur-2xl pointer-events-none"></div>
         </div>
 
-        {/* ========================================================= */}
-        {/* BAGIAN 1.5: AMAL & SEDEKAH (DIPINDAH KE BAWAH NET WORTH) */}
-        {/* ========================================================= */}
         <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
             <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl group-hover:bg-emerald-300/50 transition-colors pointer-events-none"></div>
             <div className="relative z-10">
@@ -414,11 +464,8 @@ export default function Performance() {
             </div>
         </div>
 
-        {/* ========================================================= */}
-        {/* BAGIAN 2: REALISASI & CASHFLOW (SELALU TAMPIL) */}
-        {/* ========================================================= */}
         <div className="p-0 border border-slate-100 shadow-[0_4px_20_rgb(0,0,0,0.03)] bg-white overflow-hidden rounded-[32px] relative">
-            <div className={locked ? 'blur-[5px] pointer-events-none select-none' : ''}>
+            <div>
                 <div className="p-6 border-b border-slate-100">
                     <div className="flex justify-between items-center mb-6">
                         <div>
@@ -498,20 +545,9 @@ export default function Performance() {
                     </div>
                 </div>
             </div>
-
-            {locked && (
-                <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-6">
-                    <Lock className="w-8 h-8 text-indigo-400 mb-3"/>
-                    <p className="font-extrabold text-slate-800 text-base leading-tight">Analisis Cashflow Terkunci</p>
-                    <p className="text-xs text-slate-500 mt-1.5 max-w-[200px]">Upgrade PRO untuk melihat rincian pemasukan & pengeluaran.</p>
-                </div>
-            )}
         </div>
 
-        {/* ========================================================= */}
-        {/* BAGIAN 3: PERFORMA ASET (SELALU TAMPIL JIKA PRO & ADA ASET) */}
-        {/* ========================================================= */}
-        {!locked && isPro && (totalCuanJual !== 0 || investmentReal > 0) && (
+        {isPro && (totalCuanJual !== 0 || investmentReal > 0) && (
             <div className="p-6 rounded-[32px] bg-slate-900 text-white shadow-xl border border-slate-700 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
                 <div className="flex justify-between items-start mb-6">
                     <div>
@@ -551,9 +587,6 @@ export default function Performance() {
             </div>
         )}
 
-        {/* ========================================================= */}
-        {/* BAGIAN 4: DIAGNOSA TARGET & BUDGET (TAMPIL JIKA ADA TARGET) */}
-        {/* ========================================================= */}
         {hasValidTarget ? (
             <div className="grid grid-cols-1 gap-5">
                 
@@ -594,8 +627,7 @@ export default function Performance() {
 
                 {target.targetAmount > 0 && (
                     <div className="p-6 rounded-[32px] bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 relative overflow-hidden">
-                        
-                        <div className={locked ? 'blur-[5px] select-none' : ''}>
+                        <div>
                             <h3 className="font-extrabold text-slate-800 flex items-center gap-2 mb-5">
                                 <Target className="w-5 h-5 text-indigo-500"/> Goal Bulan Ini
                             </h3>
@@ -625,20 +657,13 @@ export default function Performance() {
                                 </div>
                             )}
                         </div>
-
-                        {locked && (
-                            <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-4">
-                                <Lock className="w-6 h-6 text-indigo-400 mb-2"/>
-                                <p className="font-extrabold text-slate-800 text-sm">Goal & Budget Terkunci</p>
-                            </div>
-                        )}
                     </div>
                 )}
 
                 <div className="space-y-4">
                     {target.targetAmount > 0 && (
                         <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${isSafe ? "border-emerald-100 bg-emerald-50" : "border-orange-100 bg-orange-50"}`}>
-                            <div className={locked ? 'blur-[5px] select-none' : ''}>
+                            <div>
                                 <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Diagnosa Bulan Ini</p>
                                 {isSafe ? (
                                     <>
@@ -658,18 +683,12 @@ export default function Performance() {
                                     </>
                                 )}
                             </div>
-                            {locked && (
-                                <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center">
-                                    <Lock className="w-6 h-6 text-indigo-400 mb-1"/>
-                                    <p className="font-extrabold text-slate-800 text-sm">Diagnosa Terkunci</p>
-                                </div>
-                            )}
                         </div>
                     )}
 
                     {target.targetAmount === 0 && expenseLimit > 0 && (
                         <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${!isOverBudget ? "border-emerald-100 bg-emerald-50" : "border-rose-100 bg-rose-50"}`}>
-                            <div className={locked ? 'blur-[5px] select-none' : ''}>
+                            <div>
                                 <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Kontrol Pengeluaran</p>
                                 {!isOverBudget ? (
                                     <>
@@ -683,12 +702,6 @@ export default function Performance() {
                                     </>
                                 )}
                             </div>
-                            {locked && (
-                                <div className="absolute inset-0 z-20 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center text-center">
-                                    <Lock className="w-6 h-6 text-indigo-400 mb-1"/>
-                                    <p className="font-extrabold text-slate-800 text-sm">Kontrol Terkunci</p>
-                                </div>
-                            )}
                         </div>
                     )}
                 </div>
@@ -707,51 +720,7 @@ export default function Performance() {
                 </Link>
             </div>
         )}
-
       </div>
-
-      {locked && (
-          <div className="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-slate-50 via-slate-50/95 to-slate-50/0 z-40 animate-in slide-in-from-bottom duration-500">
-              <Card onClick={() => setPaywallModalOpen(true)} className="p-4 rounded-3xl bg-slate-900 shadow-[0_10px_40px_rgba(30,41,59,0.3)] border border-slate-800 flex items-center justify-between cursor-pointer group active:scale-[0.98] transition-all">
-                  <div className="flex items-center gap-3.5">
-                      <div className="bg-amber-400 p-2.5 rounded-full"><Sparkles className="w-5 h-5 text-amber-950"/></div>
-                      <div>
-                          <p className="text-base font-black text-white">Buka Laporan Penuh</p>
-                          <p className="text-xs text-amber-200 font-medium">Lihat detail performa & cashflow.</p>
-                      </div>
-                  </div>
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 group-hover:bg-white/20 transition-colors"><ChevronRight className="w-6 h-6 text-white"/></div>
-              </Card>
-          </div>
-      )}
-
-      {paywallModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-              <Card className="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-200">
-                  <button onClick={() => setPaywallModalOpen(false)} className="absolute top-4 right-4 p-1.5 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors z-10"><X className="w-5 h-5 text-slate-600"/></button>
-                  <div className="p-6">
-                      <div className="w-16 h-16 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_30px_rgba(251,191,36,0.3)]">
-                          <Crown className="w-8 h-8 text-amber-950" />
-                      </div>
-                      
-                      <h3 className="text-xl font-black text-slate-800 mb-1 text-center">BILANO PRO</h3>
-                      <p className="text-[11px] text-slate-500 mb-6 font-medium text-center">Akses semua fitur tanpa batas.</p>
-                      
-                      <div className="bg-slate-50 p-4 rounded-3xl text-left mb-6 space-y-3 shadow-inner">
-                          <div className="flex justify-between items-center"><p className="text-slate-500 text-xs font-medium">Batas Bulan Ini (Trial)</p><span className="text-rose-600 text-[10px] font-extrabold bg-rose-50 px-2 py-0.5 rounded-full">Habis</span></div>
-                          <div className="h-px bg-slate-100 w-full"></div>
-                          <p className="text-slate-600 text-xs font-medium mb-1">Berlangganan BILANO PRO (Tahun)</p>
-                          <div className="flex items-end gap-1.5"><span className="text-4xl font-black text-slate-800 tracking-tight">Rp99k</span><span className="text-slate-400 text-sm mb-1.5 font-medium">/ 1 Tahun</span></div>
-                          <p className="text-[10px] text-slate-400 leading-snug">Sesuai penawaran Price-Lock: Harga perpanjangan tahun depan tetap 99k selamanya.</p>
-                      </div>
-                      
-                      <Button onClick={handleLanjutBayar} disabled={isCharging} className="w-full h-14 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-base flex items-center justify-center gap-2 transition-transform active:scale-[0.98]">
-                          {isCharging ? <Loader2 className="animate-spin w-5 h-5"/> : "LANJUTKAN PEMBAYARAN"}
-                      </Button>
-                  </div>
-              </Card>
-          </div>
-      )}
     </MobileLayout>
   );
 }
