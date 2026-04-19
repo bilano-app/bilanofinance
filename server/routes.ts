@@ -1111,16 +1111,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return res.status(400).json({ error: "MAYAR_API_KEY belum terpasang di Vercel!" });
           }
 
-          // Buat expiredAt besok
           const expiredDate = new Date();
           expiredDate.setDate(expiredDate.getDate() + 1);
 
-          // 🚀 MENGGUNAKAN INVOICE API AGAR TIDAK ADA FORM PENGISIAN LAGI
+          // 🚀 PERBAIKAN: AMBIL URL APLIKASI YANG ASLI SECARA OTOMATIS
+          const appUrl = req.headers.origin || "https://bilanofinance-dvbi.vercel.app";
+
           const payload = {
               name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
               email: user.email || "member@bilano.app",
               mobile: "081234567890", 
-              redirectUrl: "https://bilanoapp.com/", 
+              
+              // 🚀 PERBAIKAN: ARAHKAN KEMBALI KE VERCEL BOS SETELAH BAYAR
+              redirectUrl: `${appUrl}/`, 
+              
               description: "Langganan BILANO PRO (1 Tahun)",
               expiredAt: expiredDate.toISOString(),
               items: [
