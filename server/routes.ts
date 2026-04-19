@@ -1174,6 +1174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 🚀 UPDATE: WEBHOOK MAYAR (MENDETEKSI PEMBAYARAN INVOICE)
+  // 🚀 UPDATE: WEBHOOK MAYAR (ANTI GAGAL - CARI PAKAI ID)
   app.post("/api/payment/mayar/webhook", async (req, res) => {
       try {
           const payload = req.body || {}; 
@@ -1181,6 +1182,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const status = String(payload?.status || payload?.data?.status || "").toUpperCase();
           
+          // 🚀 PELACAK SUPER: Ambil ID User langsung dari extraData (Mustahil Meleset)
+          const userIdStr = payload?.data?.extraData?.noCustomer || payload?.extraData?.noCustomer;
+          const targetUserId = userIdStr ? parseInt(userIdStr, 10) : null;
+
           const customerEmail = String(
               payload?.customer_email || 
               payload?.data?.customer_email || 
@@ -1189,17 +1194,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
               payload?.email || 
               payload?.data?.email || 
               ""
-          ).toLowerCase();
+          );
 
           if (status === 'SUCCESS' || status === 'PAID' || status === 'SETTLED') {
-              if (customerEmail) {
-                  const targetUser = await storage.getUserByUsername(customerEmail);
-                  if (targetUser) {
-                      const validUntil = new Date();
-                      validUntil.setFullYear(validUntil.getFullYear() + 1);
-                      await storage.updateUserProStatus(targetUser.id, true, validUntil);
-                      console.log(`✅ USER ${customerEmail} BERHASIL UPGRADE KE PRO!`);
-                  }
+              let targetUser = null;
+
+              // 1. Pelacak Utama: Menggunakan ID
+              if (targetUserId) {
+                  targetUser = await storage.getUser(targetUserId);
+              }
+              
+              // 2. Pelacak Cadangan: Menggunakan Email asli & huruf kecil
+              if (!targetUser && customerEmail) {
+                  targetUser = await storage.getUserByUsername(customerEmail);
+                  if (!targetUser) targetUser = await storage.getUserByUsername(customerEmail.toLowerCase());
+              }
+
+              if (targetUser) {
+                  const validUntil = new Date();
+                  validUntil.setFullYear(validUntil.getFullYear() + 1);
+                  await storage.updateUserProStatus(targetUser.id, true, validUntil);
+                  console.log(`✅ GEMBOK DIBUKA! USER ${targetUser.email} SEKARANG PRO!`);
+              } else {
+                  console.error(`❌ GAGAL BUKA GEMBOK: User ID ${targetUserId} / Email ${customerEmail} tidak ditemukan di DB!`);
               }
           }
           res.status(200).json({ success: true });
