@@ -55,7 +55,7 @@ export default function Paywall() {
               localStorage.setItem("bilano_trial_expired", "false");
 
               // Lempar langsung ke link tagihan (tanpa form isi data)
-              window.open(data.redirectUrl, '_blank');; 
+              window.open(data.redirectUrl, '_blank'); 
           } else {
               alert("⚠️ GAGAL MEMBUAT TAGIHAN:\n" + (data.error || "Sistem Mayar Sibuk."));
           }
