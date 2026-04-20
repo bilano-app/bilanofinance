@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import { WifiOff, RefreshCw, Lock } from "lucide-react";
+import { WifiOff, RefreshCw, Lock, Download, Smartphone } from "lucide-react"; 
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser } from "./hooks/use-finance"; 
+import { Button } from "@/components/UIComponents"; 
 
 // =========================================================================
 // 🚀 KUNCI MEMORI AGAR ANGKA TIDAK BERKEDIP
@@ -92,6 +93,82 @@ import Help from "@/pages/Help";
 import Guide from "@/pages/Guide";
 import Amal from "@/pages/Amal"; 
 
+// =========================================================================
+// 🚧 SATPAM PWA: INSTALL GATE (Wajib Install, Dilarang Pakai Browser)
+// =========================================================================
+function InstallGate({ children }: { children: React.ReactNode }) {
+  const [isInstalled, setIsInstalled] = useState(() => {
+      if (typeof window !== 'undefined') {
+          return window.matchMedia('(display-mode: standalone)').matches || 
+                 (window.navigator as any).standalone === true;
+      }
+      return true;
+  }); 
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const checkIsStandalone = () => {
+      return window.matchMedia('(display-mode: standalone)').matches || 
+             (window.navigator as any).standalone === true;
+    };
+    
+    setIsInstalled(checkIsStandalone());
+
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) {
+        alert("Tekan tombol Share/Menu di browser Anda, lalu pilih 'Add to Home Screen' / 'Tambahkan ke Layar Utama'.");
+        return;
+    }
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
+
+  // ⚠️ BYPASS UNTUK DEVELOPMENT DI LAPTOP (Hapus / Comment kode if ini kalau mau tes ketat di laptop)
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      return <>{children}</>;
+  }
+
+  if (isInstalled) {
+    return <>{children}</>;
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-center z-[999999] fixed inset-0">
+        <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-[32px] flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(99,102,241,0.4)] animate-bounce-slow">
+            <Smartphone className="w-12 h-12 text-white" />
+        </div>
+        
+        <h1 className="text-3xl font-black text-white mb-3">Install BILANO</h1>
+        <p className="text-slate-400 text-sm mb-10 max-w-xs leading-relaxed">
+            Demi keamanan dan performa maksimal, BILANO hanya dapat digunakan sebagai Aplikasi. Silakan install ke HP Anda sekarang.
+        </p>
+
+        <Button 
+            onClick={handleInstallClick}
+            className="w-full max-w-sm h-14 bg-amber-400 hover:bg-amber-500 text-amber-950 font-black rounded-full shadow-lg"
+        >
+            <Download className="w-5 h-5 mr-2" />
+            INSTALL APLIKASI SEKARANG
+        </Button>
+    </div>
+  );
+}
+
+// =========================================================================
+// ROUTER UTAMA
+// =========================================================================
 function Router() {
   const [location, setLocation] = useLocation();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -268,11 +345,16 @@ function Router() {
   );
 }
 
+// =========================================================================
+// APP UTAMA (BUNGKUS ROUTER DENGAN INSTALL GATE)
+// =========================================================================
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
+      <InstallGate>
+        <Router />
+        <Toaster />
+      </InstallGate>
     </QueryClientProvider>
   );
 }
