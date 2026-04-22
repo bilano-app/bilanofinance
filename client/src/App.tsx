@@ -99,17 +99,29 @@ import Amal from "@/pages/Amal";
 function InstallGate({ children }: { children: React.ReactNode }) {
   const [isInstalled, setIsInstalled] = useState(() => {
       if (typeof window !== 'undefined') {
-          return window.matchMedia('(display-mode: standalone)').matches || 
-                 (window.navigator as any).standalone === true;
+          // 1. Deteksi PWA Murni
+          const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                        (window.navigator as any).standalone === true;
+          
+          // 2. Deteksi APK (WebView) Android & iOS
+          const ua = navigator.userAgent || '';
+          const isAndroidAPK = ua.includes('wv') || (ua.includes('Android') && ua.includes('Version/'));
+          const isIOSAPK = /(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(ua);
+
+          return isPWA || isAndroidAPK || isIOSAPK;
       }
       return true;
   }); 
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
     const checkIsStandalone = () => {
-      return window.matchMedia('(display-mode: standalone)').matches || 
-             (window.navigator as any).standalone === true;
+          const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                        (window.navigator as any).standalone === true;
+          const ua = navigator.userAgent || '';
+          const isAndroidAPK = ua.includes('wv') || (ua.includes('Android') && ua.includes('Version/'));
+          const isIOSAPK = /(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(ua);
+
+          return isPWA || isAndroidAPK || isIOSAPK;
     };
     
     setIsInstalled(checkIsStandalone());
