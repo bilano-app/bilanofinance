@@ -298,6 +298,7 @@ export default function Reports() {
             ? new Date(targetYear, targetMonth, 1) 
             : new Date();
             
+        // 🚀 BENTENG WAKTU UTAMA: Menentukan detik terakhir dari bulan yang dipilih
         const reportDateEnd = new Date(nowForReport.getFullYear(), nowForReport.getMonth() + 1, 0, 23, 59, 59);
         const now = new Date();
 
@@ -331,6 +332,10 @@ export default function Reports() {
                         archiveInvest += buyVal;
                     }
 
+                    // 🚀 PERBAIKAN: Menarik kembali (Undo) transaksi Valas di masa lalu
+                    if (t.type === 'forex_buy') archiveForex -= t.amount;
+                    if (t.type === 'forex_sell') archiveForex += t.amount;
+
                     let rawDebtAmount = t.amount;
                     if (t.type.startsWith('debt_') && t.description?.includes('|')) {
                         const curr = t.description.split('|')[1].trim().substring(0,3);
@@ -363,11 +368,13 @@ export default function Reports() {
         });
 
         const totalIncome = currentMonthTx.filter((t:any) => t.type === 'income').reduce((acc:number, t:any) => acc + t.amount, 0);
-        
-        // 🚀 PENGELUARAN MURNI DI PDF (TANPA AMAL)
         const totalExpense = currentMonthTx.filter((t:any) => t.type === 'expense' && t.category !== 'Amal').reduce((acc:number, t:any) => acc + t.amount, 0);
 
-        const investTransactions = allTxs.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell');
+        // 🚀 PERBAIKAN: Mencegah investasi masa depan bocor ke laporan masa lalu
+        const investTransactions = allTxs.filter((t:any) => 
+            (t.type === 'invest_buy' || t.type === 'invest_sell') && 
+            new Date(t.date) <= reportDateEnd
+        );
         
         const writeOffTransactions = allTxs.filter((t:any) => t.category === 'Penghapusan Piutang' && new Date(t.date) <= reportDateEnd);
         const totalWriteOffLoss = writeOffTransactions.reduce((sum: number, t:any) => sum + t.amount, 0);
@@ -504,41 +511,60 @@ export default function Reports() {
             doc.setFont("helvetica", "bold");
             doc.text("Daftar Rincian Hutang & Piutang", 14, currentY);
 
-            const debtRows = data.debts.map((d: any) => {
-                const [displayName, curr] = (d.name || "").split('|');
-                const actualCurr = curr || 'IDR';
-                const rate = getRate(actualCurr); 
-                const valIDR = d.amount * rate;
-                
-                let status = d.isPaid ? 'LUNAS' : 'Belum Lunas';
-                
-                if (d.isPaid && d.description?.includes('[Diikhlaskan]')) {
-                    status = 'DIIKHLASKAN (Rugi)';
-                } else if (d.isPaid && d.description?.includes('[Pemutihan]')) {
-                    status = 'DIPUTIHKAN (Untung)';
-                }
+            const debtRows = data.debts
+                .filter((d: any) => {
+                    // 🚀 PERBAIKAN: Sembunyikan hutang masa depan di laporan masa lalu
+                    if (reportDateEnd >= now) return true;
+                    const debtNameOnly = (d.name || "").split('|')[0];
+                    const txBefore = allTxs.some((t:any) => t.description?.includes(debtNameOnly) && new Date(t.date) <= reportDateEnd);
+                    const txAny = allTxs.some((t:any) => t.description?.includes(debtNameOnly));
+                    return !(txAny && !txBefore);
+                })
+                .map((d: any) => {
+                    const [displayName, curr] = (d.name || "").split('|');
+                    const actualCurr = curr || 'IDR';
+                    const rate = getRate(actualCurr); 
+                    const valIDR = d.amount * rate;
+                    
+                    let status = d.isPaid ? 'LUNAS' : 'Belum Lunas';
+                    
+                    // 🚀 PERBAIKAN: Jika lunas di masa depan, kembalikan statusnya jadi "Belum Lunas" di PDF masa lalu
+                    if (d.isPaid && reportDateEnd < now) {
+                        const lunasTxAfter = allTxs.some((t:any) => 
+                            t.description?.includes(displayName) && 
+                            new Date(t.date) > reportDateEnd &&
+                            (t.type === 'debt_receive' || t.type === 'debt_pay' || t.description?.includes('[WRITE_OFF]') || t.category === 'Pemutihan Hutang')
+                        );
+                        if (lunasTxAfter) status = 'Belum Lunas';
+                        else if (d.description?.includes('[Diikhlaskan]')) status = 'DIIKHLASKAN (Rugi)';
+                        else if (d.description?.includes('[Pemutihan]')) status = 'DIPUTIHKAN (Untung)';
+                    } else if (d.isPaid) {
+                        if (d.description?.includes('[Diikhlaskan]')) status = 'DIIKHLASKAN (Rugi)';
+                        else if (d.description?.includes('[Pemutihan]')) status = 'DIPUTIHKAN (Untung)';
+                    }
 
-                return [
-                    d.type === 'hutang' ? 'HUTANG' : 'PIUTANG',
-                    displayName,
-                    actualCurr !== 'IDR' ? `${actualCurr} ${d.amount.toLocaleString()} (~ ${formatRp(valIDR)})` : formatRp(d.amount),
-                    d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tanpa Tenggat',
-                    status
-                ]
-            });
+                    return [
+                        d.type === 'hutang' ? 'HUTANG' : 'PIUTANG',
+                        displayName,
+                        actualCurr !== 'IDR' ? `${actualCurr} ${d.amount.toLocaleString()} (~ ${formatRp(valIDR)})` : formatRp(d.amount),
+                        d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tanpa Tenggat',
+                        status
+                    ]
+                });
 
-            autoTable(doc, {
-                startY: currentY + 5,
-                head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']],
-                body: debtRows,
-                theme: 'grid',
-                headStyles: { fillColor: [236, 72, 153] }, 
-                columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } },
-            });
-            currentY = (doc as any).lastAutoTable.finalY + 15;
+            if (debtRows.length > 0) {
+                autoTable(doc, {
+                    startY: currentY + 5,
+                    head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']],
+                    body: debtRows,
+                    theme: 'grid',
+                    headStyles: { fillColor: [236, 72, 153] }, 
+                    columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } },
+                });
+                currentY = (doc as any).lastAutoTable.finalY + 15;
+            }
         }
 
-        // 🚀 TABEL KHUSUS AMAL (DIPISAH DARI PENGELUARAN)
         const currentMonthAmal = currentMonthTx.filter((t:any) => t.category === 'Amal');
         
         if (currentMonthAmal.length > 0) {
@@ -560,7 +586,7 @@ export default function Reports() {
               head: [['Tanggal', 'Tipe', 'Tujuan / Catatan', 'Nominal']],
               body: amalRows,
               theme: 'grid',
-              headStyles: { fillColor: [16, 185, 129] }, // Warna Emerald/Hijau khusus amal
+              headStyles: { fillColor: [16, 185, 129] }, 
               columnStyles: { 1: { halign: 'center', fontStyle: 'bold', textColor: [16, 185, 129] }, 3: { halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] } },
             });
             currentY = (doc as any).lastAutoTable.finalY + 15;
@@ -572,7 +598,6 @@ export default function Reports() {
         doc.setFont("helvetica", "bold");
         doc.text(`Riwayat Transaksi Arus Kas Murni (Bulan ${currentMonthName} ${currentYearNum})`, 14, currentY);
 
-        // 🚀 TABEL PENGELUARAN MURNI (TANPA AMAL)
         const txRows = currentMonthTx.filter((t:any) => t.category !== 'Amal').map((t: any) => [
           new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
           t.type === 'income' ? 'Masuk' : 'Keluar',
