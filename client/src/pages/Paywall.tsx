@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
-import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, ShieldCheck, CreditCard, ChevronRight, Lock } from "lucide-react";
+import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, ShieldCheck, CreditCard, ChevronRight, Lock, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Paywall() {
@@ -21,18 +21,12 @@ export default function Paywall() {
   const expiredKey = `bilano_trial_expired_${userEmail}`;
 
   useEffect(() => {
-      if (localStorage.getItem(trialKey)) {
-          setHasStartedTrial(true);
-      }
-      if (localStorage.getItem(expiredKey) === "true") {
-          setIsExpired(true);
-      }
+      if (localStorage.getItem(trialKey)) setHasStartedTrial(true);
+      if (localStorage.getItem(expiredKey) === "true") setIsExpired(true);
   }, [trialKey, expiredKey]);
 
   const handleMulaiCoba = () => {
-      if (!localStorage.getItem(trialKey)) {
-          localStorage.setItem(trialKey, Date.now().toString());
-      }
+      if (!localStorage.getItem(trialKey)) localStorage.setItem(trialKey, Date.now().toString());
       window.location.href = "/";
   };
 
@@ -46,7 +40,7 @@ export default function Paywall() {
           const res = await fetch("/api/payment/mayar/charge", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-email": userEmail },
-              body: JSON.stringify({ plan: selectedPlan }) // 🚀 Kirim paket yang dipilih ke server
+              body: JSON.stringify({ plan: selectedPlan }) 
           });
 
           const data = await res.json();
@@ -58,10 +52,10 @@ export default function Paywall() {
 
               window.open(data.redirectUrl, '_blank'); 
           } else {
-              alert("⚠️ GAGAL MEMBUAT TAGIHAN:\n" + (data.error || "Sistem Mayar Sibuk."));
+              toast({ title: "Gagal memuat kasir", description: data.error || "Sistem Mayar Sibuk.", variant: "destructive" });
           }
       } catch (error: any) {
-          alert("⚠️ KONEKSI TERPUTUS:\n" + error.message);
+          toast({ title: "Koneksi Terputus", description: error.message, variant: "destructive" });
       } finally {
           setIsProcessing(false);
       }
@@ -113,20 +107,15 @@ export default function Paywall() {
                     ))}
                 </div>
 
-                <div className="bg-gradient-to-br from-indigo-600 to-violet-800 p-5 rounded-[24px] border border-indigo-400/30 shadow-2xl relative animate-in zoom-in-95 delay-300 mb-5">
-                    <div className="absolute -top-3 right-4 bg-amber-400 text-amber-950 text-[9px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
-                        Penawaran Spesial
+                {/* 💳 POSTER BENEFIT (TANPA HARGA - MURNI VALUE) */}
+                <div className="bg-gradient-to-br from-indigo-600 to-violet-800 p-6 rounded-[32px] border border-indigo-400/30 shadow-2xl relative animate-in zoom-in-95 delay-300 mb-8 overflow-hidden">
+                    <div className="absolute top-0 right-0 bg-amber-400 text-amber-950 text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-xl shadow-md z-10">BEST VALUE</div>
+                    <div className="relative z-10">
+                        <Zap className="w-10 h-10 text-amber-400 mb-4 fill-amber-400/20" />
+                        <h2 className="text-xl font-black text-white mb-2">Investasi Terbaik <br/> Untuk Masa Depan</h2>
+                        <p className="text-indigo-100 text-xs leading-relaxed opacity-90">Kunci akses Premium hari ini dan dapatkan semua update fitur masa depan tanpa kenaikan harga selamanya.</p>
                     </div>
-                    <p className="text-indigo-200 text-xs font-bold mb-1">Paket Tahunan BILANO PRO</p>
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-bold text-indigo-300 line-through decoration-rose-500 decoration-2">Rp 249.000</span>
-                        <span className="text-[9px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-extrabold animate-pulse tracking-wider">HEMAT 60%</span>
-                    </div>
-                    <div className="flex items-end gap-1 mb-2">
-                        <span className="text-4xl font-extrabold drop-shadow-md text-white">Rp 99.000</span>
-                        <span className="text-xs text-indigo-200 font-medium mb-1.5">/ tahun</span>
-                    </div>
-                    <p className="text-[10px] text-indigo-300 flex items-center gap-1 font-medium">✨ Setara hanya Rp 8.250 / bulan.</p>
+                    <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
                 </div>
 
                 <button 
@@ -160,7 +149,7 @@ export default function Paywall() {
                     
                     {!hasStartedTrial && (
                         <button onClick={handleMulaiCoba} className="w-full mt-4 h-12 text-slate-400 hover:text-white text-xs font-bold rounded-full transition-colors flex items-center justify-center gap-1">
-                            Nanti Saja, Saya Mau Coba Gratis Dulu <ArrowRight className="w-4 h-4"/>
+                            Nanti Saja, Saya Mau Lihat-lihat Dulu <ArrowRight className="w-4 h-4"/>
                         </button>
                     )}
                 </div>
@@ -188,9 +177,8 @@ export default function Paywall() {
                                 </div>
                             </div>
                             <div className="flex items-end gap-1">
-                                <p className="text-2xl font-black text-slate-800">Rp14.900</p>
+                                <p className="text-2xl font-black text-slate-800">Rp 14.900 <span className="text-xs font-bold text-slate-400">/ bulan</span></p>
                             </div>
-                            <p className="text-[11px] text-slate-400 font-medium mt-1">Perpanjangan otomatis setiap bulan.</p>
                         </div>
 
                         {/* PAKET TAHUNAN (TARGET UTAMA) */}
@@ -207,10 +195,7 @@ export default function Paywall() {
                                 </div>
                             </div>
                             <div className="relative z-10">
-                                <p className={`text-3xl font-black tracking-tight ${selectedPlan === 'yearly' ? 'text-white' : 'text-slate-800'}`}>Rp99.000</p>
-                                <div className={`inline-block px-3 py-1.5 rounded-full text-[11px] font-extrabold mt-2 border ${selectedPlan === 'yearly' ? 'bg-amber-400/20 text-amber-300 border-amber-400/30' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                                    🔥 Perhitungan: Rp 8.250 x 12 bulan
-                                </div>
+                                <p className={`text-3xl font-black tracking-tight ${selectedPlan === 'yearly' ? 'text-white' : 'text-slate-800'}`}>Rp 8.250 <span className="text-xs font-bold opacity-60">/ bulan</span></p>
                             </div>
                             {selectedPlan === 'yearly' && <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>}
                         </div>
@@ -234,7 +219,7 @@ export default function Paywall() {
                             <ShieldCheck className="w-5 h-5 text-emerald-500" />
                             <h3 className="font-extrabold text-slate-800 text-lg tracking-tight">Checkout Aman</h3>
                         </div>
-                        <button onClick={() => { setShowModal(false); setShowPlanModal(true); }} className="p-2 bg-slate-100 text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded-full transition-colors text-xs font-bold px-4">
+                        <button onClick={() => { setShowModal(false); setShowPlanModal(true); }} className="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors px-3 py-1.5 rounded-full">
                             Ganti Paket
                         </button>
                     </div>
@@ -244,11 +229,18 @@ export default function Paywall() {
                             <h2 className="text-4xl font-black text-slate-800 tracking-tight">
                                 {selectedPlan === 'yearly' ? 'Rp99.000' : 'Rp14.900'}
                             </h2>
-                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-full mt-3">
-                                <Crown className="w-3.5 h-3.5 text-indigo-600" />
-                                <span className="text-[11px] font-bold text-indigo-700">
-                                    {selectedPlan === 'yearly' ? 'BILANO PRO (1 Tahun)' : 'BILANO PRO (1 Bulan)'}
-                                </span>
+                            {selectedPlan === 'yearly' && (
+                                <div className="text-[11px] font-extrabold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full inline-block mt-2 border border-emerald-100 shadow-sm">
+                                    🔥 Perhitungan: (Rp 8.250 x 12 Bulan)
+                                </div>
+                            )}
+                            <div className="flex items-center justify-center mt-3">
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-full">
+                                    <Crown className="w-3.5 h-3.5 text-indigo-600" />
+                                    <span className="text-[11px] font-bold text-indigo-700">
+                                        {selectedPlan === 'yearly' ? 'BILANO PRO (1 Tahun)' : 'BILANO PRO (1 Bulan)'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                         <div className="space-y-3">
@@ -270,6 +262,7 @@ export default function Paywall() {
             </div>
         )}
 
+        {/* 🚀 KOTAK KECIL PENJELASAN (CERITA NARATIF PRICE LOCK)     */}
         {showVisionModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-5 animate-in fade-in duration-200">
                 <div className="bg-slate-900 w-full max-w-sm rounded-[28px] overflow-hidden shadow-2xl border border-slate-700 relative animate-in zoom-in-95">
@@ -288,8 +281,8 @@ export default function Paywall() {
                         <h3 className="text-xl font-black text-white mb-3 tracking-tight">Garansi Harga Tetap</h3>
                         
                         <p className="text-[13px] text-slate-300 leading-relaxed mb-8">
-                            Aplikasi BILANO akan terus mengadakan update, <b>merilis kumpulan E-Book Premium</b>, serta fitur tambahan lainnya.<br/><br/>
-                            Seiring bertambahnya fitur, harga langganan akan terus <b>NAIK</b> untuk pengguna baru. <span className="text-amber-400 font-bold">NAMUN, khusus Anda yang bergabung hari ini</span>, harga perpanjangan Anda tahun depan dan seterusnya akan <b>DIKUNCI SELAMANYA</b> di angka Rp 99.000.
+                            Aplikasi BILANO akan terus mengadakan update, <b>merilis kumpulan E-Book Premium</b> (mengandung edukasi untuk menghasilkan uang dan mengelola uang), serta fitur tambahan lainnya.<br/><br/>
+                            Seiring bertambahnya fitur, harga langganan akan terus <b>NAIK</b> untuk pengguna baru. <span className="text-amber-400 font-bold">NAMUN, khusus Anda yang bergabung hari ini</span>, harga perpanjangan Anda tahun depan dan seterusnya akan <b>DIKUNCI SELAMANYA</b> di angka Rp 99.000. Anda mendapatkan semua update masa depan tanpa membayar lebih.
                         </p>
                         
                         <Button 

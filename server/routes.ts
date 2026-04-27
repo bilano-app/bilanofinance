@@ -6,6 +6,8 @@ import { insertTransactionSchema, insertTargetSchema } from "../shared/schema.js
 import { z } from "zod";
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
+import { users } from "../shared/schema.js"; // Import users for admin
+import { eq, desc } from "drizzle-orm";
 import admin from "firebase-admin"; 
 import nodemailer from "nodemailer";
 
@@ -417,6 +419,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     return user;
+  };
+
+  const isAdminValid = (email: string) => {
+      const vips = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"];
+      return vips.includes(email);
   };
 
   app.post("/api/user/onesignal", async (req, res) => {
@@ -1098,7 +1105,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 UPDATE: PAYMENT GATEWAY MAYAR (DUAL PRICING STRATEGY)
+  // 🚀 API KHUSUS ADMIN PREMIUM (FIX: HALAMAN ADMIN KOSONG)
+  // ====================================================================
+  
+  app.get("/api/admin/users", async (req, res) => {
+      const email = req.headers["x-user-email"] as string;
+      if (!isAdminValid(email)) return res.status(403).json({ error: "Akses Ditolak. Anda bukan admin." });
+
+      try {
+          // Menarik seluruh data pengguna dan diurutkan dari yang terbaru
+          const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
+          res.json(allUsers);
+      } catch (e) {
+          res.status(500).json({ error: "Gagal memuat data pengguna dari database." });
+      }
+  });
+
+  app.patch("/api/admin/users/:id/pro", async (req, res) => {
+      const emailAdmin = req.headers["x-user-email"] as string;
+      if (!isAdminValid(emailAdmin)) return res.status(403).json({ error: "Akses Ditolak." });
+
+      try {
+          const userId = parseInt(req.params.id);
+          const { isPro } = req.body;
+          const validUntil = isPro ? new Date("2099-12-31") : null; // Kasih umur pro abadi kalau via admin
+          
+          await storage.updateUserProStatus(userId, isPro, validUntil);
+          res.json({ success: true, message: "Status PRO berhasil diperbarui." });
+      } catch (e) {
+          res.status(500).json({ error: "Gagal memperbarui status pengguna." });
+      }
+  });
+
+  // ====================================================================
+  // 🚀 PAYMENT GATEWAY MAYAR (DUAL PRICING STRATEGY PANCINGAN)
   // ====================================================================
   app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
@@ -1129,18 +1169,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               email: user.email || "member@bilano.app",
               mobile: "081234567890", 
               redirectUrl: `${appUrl}/`, 
-              description: `Langganan ${planName}`,
+              description: `Akses Penuh ${planName}`,
               expiredAt: expiredDate.toISOString(),
               items: [
                   {
                       quantity: 1,
                       rate: price,
-                      description: `Akses ${planName}`
+                      description: `${planName}`
                   }
               ],
               extraData: {
                   noCustomer: user.id.toString(),
-                  idProd: idProd // 🚀 KODE RAHASIA UNTUK DIBACA OLEH WEBHOOK
+                  idProd: idProd 
               }
           };
 
@@ -1166,10 +1206,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (redirectUrl) {
                   return res.json({ success: true, redirectUrl });
               } else {
-                  return res.status(400).json({ error: "Mayar sukses tapi link hilang: " + textData });
+                  return res.status(400).json({ error: "Mayar sukses tapi link hilang." });
               }
           } catch (parseErr) {
-              return res.status(500).json({ error: "Format Mayar Aneh: " + textData });
+              return res.status(500).json({ error: "Format Mayar Aneh." });
           }
 
       } catch (error: any) {
@@ -1177,17 +1217,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 UPDATE: WEBHOOK MAYAR (MEMBACA KODE RAHASIA BULANAN/TAHUNAN)
+  // 🚀 WEBHOOK MAYAR (MEMBACA KODE RAHASIA BULANAN/TAHUNAN)
   app.post("/api/payment/mayar/webhook", async (req, res) => {
       try {
           const payload = req.body || {}; 
-          console.log("MAYAR WEBHOOK DATA:", JSON.stringify(payload));
-
           const status = String(payload?.status || payload?.data?.status || "").toUpperCase();
           const userIdStr = payload?.data?.extraData?.noCustomer || payload?.extraData?.noCustomer;
           const targetUserId = userIdStr ? parseInt(userIdStr, 10) : null;
           
-          // 🚀 BACA KODE RAHASIA YANG KITA KIRIM TADI
+          // 🚀 BACA KODE RAHASIA PAKET APA YANG DIBELI
           const purchasedPlan = payload?.data?.extraData?.idProd || payload?.extraData?.idProd || "BILANO-PRO-1Y";
 
           const customerEmail = String(
@@ -1218,20 +1256,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   // 🚀 LOGIKA PEMBUKA GEMBOK (1 BULAN vs 1 TAHUN)
                   if (purchasedPlan === "BILANO-PRO-1M") {
                       validUntil.setMonth(validUntil.getMonth() + 1);
-                      console.log(`✅ GEMBOK DIBUKA! USER ${targetUser.email} SEKARANG PRO (1 BULAN)!`);
                   } else {
                       validUntil.setFullYear(validUntil.getFullYear() + 1);
-                      console.log(`✅ GEMBOK DIBUKA! USER ${targetUser.email} SEKARANG PRO (1 TAHUN)!`);
                   }
 
                   await storage.updateUserProStatus(targetUser.id, true, validUntil);
-              } else {
-                  console.error(`❌ GAGAL BUKA GEMBOK: User ID ${targetUserId} / Email ${customerEmail} tidak ditemukan di DB!`);
               }
           }
           res.status(200).json({ success: true });
       } catch (error) {
-          console.error("❌ WEBHOOK ERROR:", error);
           res.status(200).json({ success: false, message: "Handled" }); 
       }
   });

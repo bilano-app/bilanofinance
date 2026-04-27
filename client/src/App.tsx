@@ -142,6 +142,18 @@ function Router() {
           const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
           const TRIAL_DURATION_DAYS = 3;
 
+          // =========================================================================
+          // 🚀 UPDATE AMAN: REDIREKSI USER BARU KE PAYWALL EFEK KEJUT
+          // =========================================================================
+          const isNewAccount = (Date.now() - startTime) < 15000; // Jika akun baru dibuat < 15 detik
+          const hasRedirected = sessionStorage.getItem("bilano_first_paywall_redirect");
+          
+          if (isNewAccount && !hasRedirected && location !== '/paywall') {
+              sessionStorage.setItem("bilano_first_paywall_redirect", "true");
+              setLocation("/paywall");
+          }
+          // =========================================================================
+
           if (daysPassed >= TRIAL_DURATION_DAYS) {
               localStorage.setItem("bilano_trial_expired", "true");
               localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "true");
@@ -150,7 +162,7 @@ function Router() {
               localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           }
       }
-  }, [user, currentUserEmail, location]); 
+  }, [user, currentUserEmail, location, setLocation]); // 🚀 Pastikan setLocation ikut dilacak dengan aman
 
   useNotifications();
 
