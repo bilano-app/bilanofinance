@@ -10,10 +10,13 @@ export default function Paywall() {
   const [hasStartedTrial, setHasStartedTrial] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
 
+  const [showPlanModal, setShowPlanModal] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showVisionModal, setShowVisionModal] = useState(false);
+  
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
 
-  const userEmail = localStorage.getItem("bilano_email") || "";
+  const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const trialKey = `bilano_trial_start_${userEmail}`;
   const expiredKey = `bilano_trial_expired_${userEmail}`;
 
@@ -33,28 +36,26 @@ export default function Paywall() {
       window.location.href = "/";
   };
 
-  const handleBukaModal = () => {
-      setShowModal(true);
+  const handleBukaPilihanPaket = () => {
+      setShowPlanModal(true);
   };
 
-  // 🚀 UPDATE: MENGGUNAKAN INVOICE API (LANGSUNG KE KASIR TANPA FORM)
   const handleLanjutBayar = async () => {
       setIsProcessing(true);
       try {
           const res = await fetch("/api/payment/mayar/charge", {
               method: "POST",
-              headers: { "Content-Type": "application/json", "x-user-email": userEmail }
+              headers: { "Content-Type": "application/json", "x-user-email": userEmail },
+              body: JSON.stringify({ plan: selectedPlan }) // 🚀 Kirim paket yang dipilih ke server
           });
 
           const data = await res.json();
 
           if (res.ok && data.redirectUrl) {
-              // Buka gembok lokal sementara sambil menunggu konfirmasi webhook
               localStorage.setItem("bilano_pro", "true");
               localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
               localStorage.setItem("bilano_trial_expired", "false");
 
-              // Lempar langsung ke link tagihan (tanpa form isi data)
               window.open(data.redirectUrl, '_blank'); 
           } else {
               alert("⚠️ GAGAL MEMBUAT TAGIHAN:\n" + (data.error || "Sistem Mayar Sibuk."));
@@ -112,7 +113,6 @@ export default function Paywall() {
                     ))}
                 </div>
 
-                {/* 💳 KARTU HARGA */}
                 <div className="bg-gradient-to-br from-indigo-600 to-violet-800 p-5 rounded-[24px] border border-indigo-400/30 shadow-2xl relative animate-in zoom-in-95 delay-300 mb-5">
                     <div className="absolute -top-3 right-4 bg-amber-400 text-amber-950 text-[9px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
                         Penawaran Spesial
@@ -129,9 +129,6 @@ export default function Paywall() {
                     <p className="text-[10px] text-indigo-300 flex items-center gap-1 font-medium">✨ Setara hanya Rp 8.250 / bulan.</p>
                 </div>
 
-                {/* ========================================================= */}
-                {/* 🚀 TOMBOL PEMICU (DIBUAT SANGAT JELAS SEBAGAI TOMBOL KLIK) */}
-                {/* ========================================================= */}
                 <button 
                     onClick={() => setShowVisionModal(true)}
                     className="w-full flex items-center justify-between bg-slate-800 border border-slate-700 hover:border-amber-500/50 p-4 rounded-2xl mb-8 active:scale-95 transition-all text-left shadow-lg group relative overflow-hidden"
@@ -151,11 +148,10 @@ export default function Paywall() {
                         <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-amber-950" />
                     </div>
                 </button>
-                {/* ========================================================= */}
 
                 <div className="w-full relative z-10 animate-in slide-in-from-bottom-8 delay-500">
                     <Button 
-                        onClick={handleBukaModal} 
+                        onClick={handleBukaPilihanPaket} 
                         className={`w-full h-16 text-lg font-extrabold rounded-full active:scale-95 transition-transform flex items-center justify-center gap-2 ${isExpired ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-[0_0_30px_rgba(225,29,72,0.3)]' : 'bg-amber-400 hover:bg-amber-500 text-amber-950 shadow-[0_0_30px_rgba(251,191,36,0.3)]'}`}
                     >
                         <Sparkles className="w-5 h-5"/>
@@ -171,7 +167,65 @@ export default function Paywall() {
             </div>
         </div>
 
-        {/* MODAL KONFIRMASI PEMBAYARAN */}
+        {/* 🚀 MODAL 1: PEMILIHAN PAKET PANCINGAN */}
+        {showPlanModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+                <div className="bg-slate-50 w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 border border-slate-200">
+                    <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-white">
+                        <h3 className="font-black text-slate-800 text-lg tracking-tight">Pilih Paket PRO</h3>
+                        <button onClick={() => setShowPlanModal(false)} className="p-1.5 bg-slate-100 text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded-full transition-colors">
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <div className="p-5 space-y-4">
+                        {/* PAKET BULANAN (DECOY) */}
+                        <div onClick={() => setSelectedPlan('monthly')} className={`p-4 rounded-[20px] border-2 cursor-pointer transition-all ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-indigo-50/50 shadow-md' : 'border-slate-200 bg-white'}`}>
+                            <div className="flex justify-between items-center mb-1">
+                                <h4 className="font-extrabold text-slate-800 text-base">Paket 1 Bulan</h4>
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-indigo-500' : 'border-slate-300'}`}>
+                                    {selectedPlan === 'monthly' && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                                </div>
+                            </div>
+                            <div className="flex items-end gap-1">
+                                <p className="text-2xl font-black text-slate-800">Rp14.900</p>
+                            </div>
+                            <p className="text-[11px] text-slate-400 font-medium mt-1">Perpanjangan otomatis setiap bulan.</p>
+                        </div>
+
+                        {/* PAKET TAHUNAN (TARGET UTAMA) */}
+                        <div onClick={() => setSelectedPlan('yearly')} className={`relative p-5 rounded-[20px] border-2 cursor-pointer transition-all overflow-hidden ${selectedPlan === 'yearly' ? 'border-amber-400 bg-gradient-to-br from-slate-900 to-indigo-950 shadow-xl' : 'border-slate-200 bg-white'}`}>
+                            {selectedPlan === 'yearly' && (
+                                <div className="absolute top-0 right-0 bg-amber-400 text-amber-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl z-10 shadow-sm">
+                                    PALING HEMAT
+                                </div>
+                            )}
+                            <div className="flex justify-between items-center mb-1 relative z-10">
+                                <h4 className={`font-black text-lg ${selectedPlan === 'yearly' ? 'text-amber-400' : 'text-slate-800'}`}>Paket 1 Tahun</h4>
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'yearly' ? 'border-amber-400 bg-amber-400' : 'border-slate-300'}`}>
+                                    {selectedPlan === 'yearly' && <div className="w-2 h-2 bg-amber-900 rounded-full"></div>}
+                                </div>
+                            </div>
+                            <div className="relative z-10">
+                                <p className={`text-3xl font-black tracking-tight ${selectedPlan === 'yearly' ? 'text-white' : 'text-slate-800'}`}>Rp99.000</p>
+                                <div className={`inline-block px-3 py-1.5 rounded-full text-[11px] font-extrabold mt-2 border ${selectedPlan === 'yearly' ? 'bg-amber-400/20 text-amber-300 border-amber-400/30' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                    🔥 Perhitungan: Rp 8.250 x 12 bulan
+                                </div>
+                            </div>
+                            {selectedPlan === 'yearly' && <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>}
+                        </div>
+                    </div>
+
+                    <div className="px-5 pb-5">
+                        <Button onClick={() => { setShowPlanModal(false); setShowModal(true); }} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-black text-sm shadow-lg active:scale-95 transition-transform">
+                            LANJUTKAN PILIHAN
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL 2: KONFIRMASI PEMBAYARAN FINAL */}
         {showModal && (
             <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 sm:zoom-in-95">
@@ -180,17 +234,21 @@ export default function Paywall() {
                             <ShieldCheck className="w-5 h-5 text-emerald-500" />
                             <h3 className="font-extrabold text-slate-800 text-lg tracking-tight">Checkout Aman</h3>
                         </div>
-                        <button onClick={() => setShowModal(false)} className="p-2 bg-slate-100 text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded-full transition-colors">
-                            <X className="w-4 h-4" />
+                        <button onClick={() => { setShowModal(false); setShowPlanModal(true); }} className="p-2 bg-slate-100 text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded-full transition-colors text-xs font-bold px-4">
+                            Ganti Paket
                         </button>
                     </div>
                     <div className="p-6 bg-slate-50/50">
                         <div className="text-center mb-8">
                             <p className="text-sm text-slate-500 font-medium mb-1">Total Tagihan Final</p>
-                            <h2 className="text-4xl font-black text-slate-800 tracking-tight">Rp99.000</h2>
+                            <h2 className="text-4xl font-black text-slate-800 tracking-tight">
+                                {selectedPlan === 'yearly' ? 'Rp99.000' : 'Rp14.900'}
+                            </h2>
                             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-full mt-3">
                                 <Crown className="w-3.5 h-3.5 text-indigo-600" />
-                                <span className="text-[11px] font-bold text-indigo-700">BILANO PRO (1 Tahun)</span>
+                                <span className="text-[11px] font-bold text-indigo-700">
+                                    {selectedPlan === 'yearly' ? 'BILANO PRO (1 Tahun)' : 'BILANO PRO (1 Bulan)'}
+                                </span>
                             </div>
                         </div>
                         <div className="space-y-3">
@@ -212,9 +270,6 @@ export default function Paywall() {
             </div>
         )}
 
-        {/* ========================================================= */}
-        {/* 🚀 KOTAK KECIL PENJELASAN (CERITA NARATIF PRICE LOCK)     */}
-        {/* ========================================================= */}
         {showVisionModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-5 animate-in fade-in duration-200">
                 <div className="bg-slate-900 w-full max-w-sm rounded-[28px] overflow-hidden shadow-2xl border border-slate-700 relative animate-in zoom-in-95">
@@ -233,12 +288,12 @@ export default function Paywall() {
                         <h3 className="text-xl font-black text-white mb-3 tracking-tight">Garansi Harga Tetap</h3>
                         
                         <p className="text-[13px] text-slate-300 leading-relaxed mb-8">
-                            Aplikasi BILANO akan terus mengadakan update, <b>merilis kumpulan E-Book Premium</b> (mengandung edukasi untuk menghasilkan uang dan mengelola uang), serta fitur tambahan lainnya.<br/><br/>
-                            Seiring bertambahnya fitur, harga langganan akan terus <b>NAIK</b> untuk pengguna baru. <span className="text-amber-400 font-bold">NAMUN, khusus Anda yang bergabung hari ini</span>, harga perpanjangan Anda tahun depan dan seterusnya akan <b>DIKUNCI SELAMANYA</b> di angka Rp 99.000. Anda mendapatkan semua update masa depan tanpa membayar lebih.
+                            Aplikasi BILANO akan terus mengadakan update, <b>merilis kumpulan E-Book Premium</b>, serta fitur tambahan lainnya.<br/><br/>
+                            Seiring bertambahnya fitur, harga langganan akan terus <b>NAIK</b> untuk pengguna baru. <span className="text-amber-400 font-bold">NAMUN, khusus Anda yang bergabung hari ini</span>, harga perpanjangan Anda tahun depan dan seterusnya akan <b>DIKUNCI SELAMANYA</b> di angka Rp 99.000.
                         </p>
                         
                         <Button 
-                            onClick={() => { setShowVisionModal(false); setShowModal(true); }} 
+                            onClick={() => { setShowVisionModal(false); setShowPlanModal(true); }} 
                             className="w-full py-4 rounded-full bg-amber-400 hover:bg-amber-500 text-amber-950 font-extrabold text-sm transition-all active:scale-95 shadow-[0_0_20px_rgba(251,191,36,0.2)]"
                         >
                             SAYA MENGERTI

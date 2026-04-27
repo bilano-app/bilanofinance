@@ -1098,7 +1098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ====================================================================
-  // 🚀 UPDATE: PAYMENT GATEWAY MAYAR (INVOICE API - LANGSUNG KE METODE BAYAR)
+  // 🚀 UPDATE: PAYMENT GATEWAY MAYAR (DUAL PRICING STRATEGY)
   // ====================================================================
   app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
@@ -1111,32 +1111,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return res.status(400).json({ error: "MAYAR_API_KEY belum terpasang di Vercel!" });
           }
 
+          // 🚀 TANGKAP PILIHAN PAKET DARI APLIKASI
+          const { plan } = req.body; 
+          const isMonthly = plan === 'monthly';
+
+          const price = isMonthly ? 14900 : 99000;
+          const planName = isMonthly ? "BILANO PRO (1 Bulan)" : "BILANO PRO (1 Tahun)";
+          const idProd = isMonthly ? "BILANO-PRO-1M" : "BILANO-PRO-1Y";
+
           const expiredDate = new Date();
           expiredDate.setDate(expiredDate.getDate() + 1);
 
-          // 🚀 PERBAIKAN: AMBIL URL APLIKASI YANG ASLI SECARA OTOMATIS
           const appUrl = req.headers.origin || "https://bilanofinance-dvbi.vercel.app";
 
           const payload = {
               name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
               email: user.email || "member@bilano.app",
               mobile: "081234567890", 
-              
-              // 🚀 PERBAIKAN: ARAHKAN KEMBALI KE VERCEL BOS SETELAH BAYAR
               redirectUrl: `${appUrl}/`, 
-              
-              description: "Langganan BILANO PRO (1 Tahun)",
+              description: `Langganan ${planName}`,
               expiredAt: expiredDate.toISOString(),
               items: [
                   {
                       quantity: 1,
-                      rate: 99000,
-                      description: "Akses BILANO PRO 1 Tahun"
+                      rate: price,
+                      description: `Akses ${planName}`
                   }
               ],
               extraData: {
                   noCustomer: user.id.toString(),
-                  idProd: "BILANO-PRO"
+                  idProd: idProd // 🚀 KODE RAHASIA UNTUK DIBACA OLEH WEBHOOK
               }
           };
 
@@ -1173,18 +1177,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 UPDATE: WEBHOOK MAYAR (MENDETEKSI PEMBAYARAN INVOICE)
-  // 🚀 UPDATE: WEBHOOK MAYAR (ANTI GAGAL - CARI PAKAI ID)
+  // 🚀 UPDATE: WEBHOOK MAYAR (MEMBACA KODE RAHASIA BULANAN/TAHUNAN)
   app.post("/api/payment/mayar/webhook", async (req, res) => {
       try {
           const payload = req.body || {}; 
           console.log("MAYAR WEBHOOK DATA:", JSON.stringify(payload));
 
           const status = String(payload?.status || payload?.data?.status || "").toUpperCase();
-          
-          // 🚀 PELACAK SUPER: Ambil ID User langsung dari extraData (Mustahil Meleset)
           const userIdStr = payload?.data?.extraData?.noCustomer || payload?.extraData?.noCustomer;
           const targetUserId = userIdStr ? parseInt(userIdStr, 10) : null;
+          
+          // 🚀 BACA KODE RAHASIA YANG KITA KIRIM TADI
+          const purchasedPlan = payload?.data?.extraData?.idProd || payload?.extraData?.idProd || "BILANO-PRO-1Y";
 
           const customerEmail = String(
               payload?.customer_email || 
@@ -1199,12 +1203,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (status === 'SUCCESS' || status === 'PAID' || status === 'SETTLED') {
               let targetUser = null;
 
-              // 1. Pelacak Utama: Menggunakan ID
               if (targetUserId) {
                   targetUser = await storage.getUser(targetUserId);
               }
               
-              // 2. Pelacak Cadangan: Menggunakan Email asli & huruf kecil
               if (!targetUser && customerEmail) {
                   targetUser = await storage.getUserByUsername(customerEmail);
                   if (!targetUser) targetUser = await storage.getUserByUsername(customerEmail.toLowerCase());
@@ -1212,9 +1214,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               if (targetUser) {
                   const validUntil = new Date();
-                  validUntil.setFullYear(validUntil.getFullYear() + 1);
+                  
+                  // 🚀 LOGIKA PEMBUKA GEMBOK (1 BULAN vs 1 TAHUN)
+                  if (purchasedPlan === "BILANO-PRO-1M") {
+                      validUntil.setMonth(validUntil.getMonth() + 1);
+                      console.log(`✅ GEMBOK DIBUKA! USER ${targetUser.email} SEKARANG PRO (1 BULAN)!`);
+                  } else {
+                      validUntil.setFullYear(validUntil.getFullYear() + 1);
+                      console.log(`✅ GEMBOK DIBUKA! USER ${targetUser.email} SEKARANG PRO (1 TAHUN)!`);
+                  }
+
                   await storage.updateUserProStatus(targetUser.id, true, validUntil);
-                  console.log(`✅ GEMBOK DIBUKA! USER ${targetUser.email} SEKARANG PRO!`);
               } else {
                   console.error(`❌ GAGAL BUKA GEMBOK: User ID ${targetUserId} / Email ${customerEmail} tidak ditemukan di DB!`);
               }
