@@ -6,7 +6,7 @@ import { insertTransactionSchema, insertTargetSchema } from "../shared/schema.js
 import { z } from "zod";
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
-import { users } from "../shared/schema.js"; // Import users for admin
+import { users } from "../shared/schema.js"; 
 import { eq, desc } from "drizzle-orm";
 import admin from "firebase-admin"; 
 import nodemailer from "nodemailer";
@@ -43,7 +43,7 @@ try {
 }
 
 // ====================================================================
-// 🚀 SETUP NODEMAILER (PENGIRIM EMAIL 100% REAL)
+// 🚀 SETUP NODEMAILER
 // ====================================================================
 const createTransporter = () => {
     return nodemailer.createTransport({
@@ -147,10 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (id VARCHAR(255) PRIMARY KEY, user_id INTEGER, email TEXT, name TEXT, subject TEXT, message TEXT, status TEXT, date TIMESTAMP DEFAULT NOW());`);
           await db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
           
-          res.json({ 
-              success: true, 
-              message: "🎉 DATABASE BERHASIL DIOPTIMASI!" 
-          });
+          res.json({ success: true, message: "🎉 DATABASE BERHASIL DIOPTIMASI!" });
       } catch (e: any) {
           res.status(500).json({ error: "Gagal Update DB: " + e.message });
       }
@@ -827,6 +824,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!debt) return res.status(404).json({ error: "Tagihan ini sudah tidak ada di database." });
           if (debt.isPaid) return res.status(400).json({ error: "Tagihan ini sudah berstatus lunas sebelumnya." });
 
+          // 🚀 LOGIKA PELACAK AMAL CAIR
+          const txs = await storage.getTransactions(user!.id);
+          const isIncomePiutang = txs.some(t => t.type === 'income' && t.description?.includes(`Belum Dibayar - ${debt.name.split('|')[0]}`));
+          const cairPostfix = isIncomePiutang ? " [Pemasukan Cair]" : "";
+
           const payAmount = (amount !== undefined && amount > 0) ? Math.min(amount, debt.amount) : debt.amount;
           let newBalance = Math.round(user!.cashBalance);
           
@@ -850,7 +852,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (curr === 'IDR') {
                   if (debt.type === 'piutang') { 
                       newBalance += payAmountIDR; 
-                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]}`, date: new Date() } as any); 
+                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]}${cairPostfix}`, date: new Date() } as any); 
                   } else { 
                       newBalance -= payAmountIDR; 
                       await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
@@ -862,7 +864,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                   if (debt.type === 'piutang') { 
                       currentForexAmount += payAmount; 
-                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Valas Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]} (Masuk ke Dompet Valas)`, date: new Date() } as any); 
+                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Valas Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]} (Masuk ke Dompet Valas)${cairPostfix}`, date: new Date() } as any); 
                   } else { 
                       currentForexAmount -= payAmount; 
                       if (currentForexAmount < 0) currentForexAmount = 0;
@@ -1103,17 +1105,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); 
       res.json({success:true}); 
   });
-
-  // ====================================================================
-  // 🚀 API KHUSUS ADMIN PREMIUM (FIX: HALAMAN ADMIN KOSONG)
-  // ====================================================================
   
   app.get("/api/admin/users", async (req, res) => {
       const email = req.headers["x-user-email"] as string;
       if (!isAdminValid(email)) return res.status(403).json({ error: "Akses Ditolak. Anda bukan admin." });
 
       try {
-          // Menarik seluruh data pengguna dan diurutkan dari yang terbaru
           const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
           res.json(allUsers);
       } catch (e) {
@@ -1128,7 +1125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
           const userId = parseInt(req.params.id);
           const { isPro } = req.body;
-          const validUntil = isPro ? new Date("2099-12-31") : null; // Kasih umur pro abadi kalau via admin
+          const validUntil = isPro ? new Date("2099-12-31") : null; 
           
           await storage.updateUserProStatus(userId, isPro, validUntil);
           res.json({ success: true, message: "Status PRO berhasil diperbarui." });
@@ -1137,9 +1134,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // ====================================================================
-  // 🚀 PAYMENT GATEWAY MAYAR (DUAL PRICING STRATEGY PANCINGAN)
-  // ====================================================================
   app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -1151,7 +1145,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return res.status(400).json({ error: "MAYAR_API_KEY belum terpasang di Vercel!" });
           }
 
-          // 🚀 TANGKAP PILIHAN PAKET DARI APLIKASI
           const { plan } = req.body; 
           const isMonthly = plan === 'monthly';
 
@@ -1217,7 +1210,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 WEBHOOK MAYAR (MEMBACA KODE RAHASIA BULANAN/TAHUNAN)
   app.post("/api/payment/mayar/webhook", async (req, res) => {
       try {
           const payload = req.body || {}; 
@@ -1225,7 +1217,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const userIdStr = payload?.data?.extraData?.noCustomer || payload?.extraData?.noCustomer;
           const targetUserId = userIdStr ? parseInt(userIdStr, 10) : null;
           
-          // 🚀 BACA KODE RAHASIA PAKET APA YANG DIBELI
           const purchasedPlan = payload?.data?.extraData?.idProd || payload?.extraData?.idProd || "BILANO-PRO-1Y";
 
           const customerEmail = String(
@@ -1253,7 +1244,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (targetUser) {
                   const validUntil = new Date();
                   
-                  // 🚀 LOGIKA PEMBUKA GEMBOK (1 BULAN vs 1 TAHUN)
                   if (purchasedPlan === "BILANO-PRO-1M") {
                       validUntil.setMonth(validUntil.getMonth() + 1);
                   } else {
