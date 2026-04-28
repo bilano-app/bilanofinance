@@ -276,16 +276,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let newBalance = Math.round(user!.cashBalance);
           const amt = Math.round(lastTx.amount);
 
-          if (lastTx.type === 'income') newBalance -= amt;
-          else if (lastTx.type === 'expense') newBalance += amt;
-          else if (lastTx.type === 'invest_buy') newBalance += amt;
+          const isValas = lastTx.category?.includes('Valas');
+
+          if (!isValas) {
+              if (lastTx.type === 'income') newBalance -= amt;
+              else if (lastTx.type === 'expense') newBalance += amt;
+              else if (lastTx.type === 'debt_borrow' || lastTx.type === 'piutang_record') newBalance -= amt;
+              else if (lastTx.type === 'debt_lend' || lastTx.type === 'hutang_record') newBalance += amt;
+              else if (lastTx.type === 'debt_receive') newBalance -= amt;
+              else if (lastTx.type === 'debt_pay') newBalance += amt;
+          }
+
+          if (lastTx.type === 'invest_buy') newBalance += amt;
           else if (lastTx.type === 'invest_sell') newBalance -= amt;
           else if (lastTx.type === 'forex_buy') newBalance += amt;
           else if (lastTx.type === 'forex_sell') newBalance -= amt;
-          else if (lastTx.type === 'debt_borrow' || lastTx.type === 'piutang_record') newBalance -= amt;
-          else if (lastTx.type === 'debt_lend' || lastTx.type === 'hutang_record') newBalance += amt;
-          else if (lastTx.type === 'debt_receive') newBalance -= amt;
-          else if (lastTx.type === 'debt_pay') newBalance += amt;
 
           if (lastTx.type === 'forex_buy' || lastTx.type === 'forex_sell') {
               const desc = lastTx.description || "";
@@ -522,10 +527,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tx = await storage.createTransaction(user!.id, { ...parsed.data, userId: user!.id } as any); 
       let newBalance = Math.round(user!.cashBalance); 
       
-      if (parsed.data.type === 'income') {
-          newBalance += Math.round(parsed.data.amount); 
-      } else if (parsed.data.type === 'expense') {
-          newBalance -= Math.round(parsed.data.amount); 
+      // MENCEGAH TRANSAKSI VALAS MEMOTONG SALDO KAS RUPIAH
+      const isValas = parsed.data.category?.includes('Valas');
+
+      if (!isValas) {
+          if (parsed.data.type === 'income') {
+              newBalance += Math.round(parsed.data.amount); 
+          } else if (parsed.data.type === 'expense') {
+              newBalance -= Math.round(parsed.data.amount); 
+          }
       }
       
       if (newBalance !== Math.round(user!.cashBalance)) {
@@ -576,9 +586,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let newBalance = Math.round(user!.cashBalance);
           const amt = Math.round(txToDelete.amount);
           
-          if (txToDelete.type === 'income') newBalance -= amt;
-          else if (txToDelete.type === 'expense') newBalance += amt;
-          else if (txToDelete.type === 'invest_buy') newBalance += amt; 
+          const isValas = txToDelete.category?.includes('Valas');
+
+          if (!isValas) {
+              if (txToDelete.type === 'income') newBalance -= amt;
+              else if (txToDelete.type === 'expense') newBalance += amt;
+              else if (txToDelete.type === 'debt_borrow') newBalance -= amt;
+              else if (txToDelete.type === 'debt_lend') newBalance += amt;
+              else if (txToDelete.type === 'debt_receive') newBalance -= amt;
+              else if (txToDelete.type === 'debt_pay') newBalance += amt;
+          }
+
+          if (txToDelete.type === 'invest_buy') newBalance += amt; 
           else if (txToDelete.type === 'invest_sell') newBalance -= amt; 
           else if (txToDelete.type === 'forex_buy') {
               newBalance += amt;
@@ -614,10 +633,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
               } catch(e) {}
           }
-          else if (txToDelete.type === 'debt_borrow') newBalance -= amt;
-          else if (txToDelete.type === 'debt_lend') newBalance += amt;
-          else if (txToDelete.type === 'debt_receive') newBalance -= amt;
-          else if (txToDelete.type === 'debt_pay') newBalance += amt;
 
           if (newBalance !== Math.round(user!.cashBalance)) {
               await storage.updateUserBalance(user!.id, newBalance);
@@ -650,7 +665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/forex/transaction", async (req, res) => {
       const user = await getUser(req);
-      const { type, currency, amount } = req.body;
+      const { type, currency, amount, description } = req.body;
       const existing = await storage.getForexByCurrency(user!.id, currency);
       let currentAmount = existing ? existing.amount : 0;
       
@@ -666,16 +681,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const amountIDR = Math.round(amount * rate);
       let newCashBalance = Math.round(user!.cashBalance);
 
-      if (isIncome) {
-          if (newCashBalance < amountIDR) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk beli Valas."});
-          currentAmount += amount;
-          newCashBalance -= amountIDR;
-          await storage.createTransaction(user!.id, { userId: user!.id, type:'forex_buy', amount:amountIDR, category:'Tukar Valas', description:`Beli ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, date:new Date()} as any);
+      if (description) {
+          // MODE MUTASI (Uang Masuk/Keluar Langsung, tanpa potong IDR)
+          if (isIncome) {
+              currentAmount += amount;
+              await storage.createTransaction(user!.id, { userId: user!.id, type:'income', amount:amountIDR, category:`Pemasukan Valas`, description:`${description}`, date:new Date()} as any);
+          } else {
+              currentAmount -= amount;
+              if (currentAmount < 0) currentAmount = 0;
+              await storage.createTransaction(user!.id, { userId: user!.id, type:'expense', amount:amountIDR, category:`Pengeluaran Valas`, description:`${description}`, date:new Date()} as any);
+          }
       } else {
-          currentAmount -= amount;
-          if (currentAmount < 0) currentAmount = 0;
-          newCashBalance += amountIDR;
-          await storage.createTransaction(user!.id, { userId: user!.id, type:'forex_sell', amount:amountIDR, category:'Cairkan Valas', description:`Jual ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, date:new Date()} as any);
+          // MODE TUKAR/EXCHANGE (Murni Transaksi Pembelian/Penjualan dengan Rupiah)
+          if (isIncome) {
+              if (newCashBalance < amountIDR) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk beli Valas."});
+              currentAmount += amount;
+              newCashBalance -= amountIDR;
+              await storage.createTransaction(user!.id, { userId: user!.id, type:'forex_buy', amount:amountIDR, category:'Tukar Valas', description:`Beli ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, date:new Date()} as any);
+          } else {
+              currentAmount -= amount;
+              if (currentAmount < 0) currentAmount = 0;
+              newCashBalance += amountIDR;
+              await storage.createTransaction(user!.id, { userId: user!.id, type:'forex_sell', amount:amountIDR, category:'Cairkan Valas', description:`Jual ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, date:new Date()} as any);
+          }
       }
 
       await storage.updateUserBalance(user!.id, newCashBalance);
@@ -707,15 +735,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const amountIDR = Math.round(amount * rate); 
               
               let txType = '', txCat = '';
-              if(type === 'hutang') { txType = 'debt_borrow'; txCat = 'Dapat Pinjaman'; } 
-              else { txType = 'debt_lend'; txCat = 'Beri Pinjaman'; }
-              
               if (curr === 'IDR') {
+                  if(type === 'hutang') { txType = 'debt_borrow'; txCat = 'Dapat Pinjaman'; } 
+                  else { txType = 'debt_lend'; txCat = 'Beri Pinjaman'; }
+                  
                   let newBalance = Math.round(user!.cashBalance);
                   if(type === 'hutang') { newBalance += amountIDR; } 
                   else { newBalance -= amountIDR; }
                   await storage.updateUserBalance(user!.id, newBalance);
               } else {
+                  if(type === 'hutang') { txType = 'debt_borrow'; txCat = 'Dapat Pinjaman Valas'; } 
+                  else { txType = 'debt_lend'; txCat = 'Beri Pinjaman Valas'; }
+
                   const existingForex = await storage.getForexByCurrency(user!.id, curr);
                   let currentForexAmount = existingForex ? existingForex.amount : 0;
                   
@@ -824,9 +855,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!debt) return res.status(404).json({ error: "Tagihan ini sudah tidak ada di database." });
           if (debt.isPaid) return res.status(400).json({ error: "Tagihan ini sudah berstatus lunas sebelumnya." });
 
-          // 🚀 LOGIKA PELACAK AMAL CAIR
+          // 🚀 LOGIKA PELACAK AMAL CAIR (DIKEMBANGKAN LEBIH AKURAT)
           const txs = await storage.getTransactions(user!.id);
-          const isIncomePiutang = txs.some(t => t.type === 'income' && t.description?.includes(`Belum Dibayar - ${debt.name.split('|')[0]}`));
+          const debtNameOnly = debt.name.split('|')[0];
+          const isIncomePiutang = txs.some(t => t.type === 'income' && t.description?.toLowerCase().includes(debtNameOnly.toLowerCase()));
           const cairPostfix = isIncomePiutang ? " [Pemasukan Cair]" : "";
 
           const payAmount = (amount !== undefined && amount > 0) ? Math.min(amount, debt.amount) : debt.amount;
