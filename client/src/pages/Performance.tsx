@@ -18,9 +18,6 @@ const DEFAULT_RATES: Record<string, number> = {
 };
 
 export default function Performance() {
-  // ====================================================================
-  // 1. SEMUA HOOKS & PENGAMBILAN DATA (HARUS DI ATAS)
-  // ====================================================================
   const { data: user, isLoading: isUserLoading } = useUser();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -28,6 +25,9 @@ export default function Performance() {
   const [isCharging, setIsCharging] = useState(false);
   const [isDeletingTx, setIsDeletingTx] = useState(false);
   const [expandedDetail, setExpandedDetail] = useState<'income' | 'expense' | null>(null);
+  
+  // 🚀 KUNCI PERBAIKAN: State untuk menyimpan pilihan paket
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
@@ -62,18 +62,20 @@ export default function Performance() {
       enabled: !!currentUserEmail
   });
 
-  // ====================================================================
-  // 2. LOGIKA KUNCI & TOMBOL BAYAR
-  // ====================================================================
   const isPro = user?.isPro || localStorage.getItem("bilano_pro") === "true";
   const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
   const locked = !isUserLoading && !isPro && isTrialExpired;
 
+  // 🚀 KUNCI PERBAIKAN: Mengirimkan plan yang dipilih ke backend
   const handleLanjutBayar = async () => {
       if (!currentUserEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
       setIsCharging(true);
       try {
-          const res = await fetch("/api/payment/mayar/charge", { method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail } });
+          const res = await fetch("/api/payment/mayar/charge", { 
+              method: "POST", 
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ plan: selectedPlan }) // Menambahkan pilihan plan
+          });
           const data = await res.json();
           if (res.ok && data.redirectUrl) {
               localStorage.setItem("bilano_pro", "true");
@@ -104,9 +106,6 @@ export default function Performance() {
       finally { setIsDeletingTx(false); }
   };
 
-  // ====================================================================
-  // 3. TAMPILAN LOADING
-  // ====================================================================
   if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading || isRatesLoading || isForexLoading || isDebtsLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
@@ -119,57 +118,79 @@ export default function Performance() {
       );
   }
 
-  // ====================================================================
-  // 4. 🚨 TAMPILAN TERKUNCI (ANTI CRASH) 🚨
-  // Langsung potong di sini untuk Non-Pro. Semua beban matematika di bawah
-  // TIDAK AKAN dieksekusi, sehingga layar dijamin tidak akan pernah blank!
-  // ====================================================================
+  // 🚨 TAMPILAN TERKUNCI (ANTI CRASH) 🚨
   if (locked) {
       return (
           <MobileLayout title="Analisa Performa" showBack>
-              <div className="relative min-h-screen bg-slate-50 overflow-hidden pb-24">
+              <div className="relative min-h-screen bg-slate-50 overflow-hidden pb-24 overflow-y-auto">
                   
-                  {/* Efek Blur Bayangan Dashboard di Belakang */}
                   <div className="p-4 space-y-6 blur-md opacity-40 select-none pointer-events-none mt-2">
                       <div className="bg-gradient-to-br from-blue-600 to-violet-800 h-48 rounded-[32px] w-full shadow-lg"></div>
                       <div className="bg-emerald-100 h-28 rounded-[32px] w-full"></div>
                       <div className="bg-white h-72 rounded-[32px] shadow-sm border border-slate-200 w-full"></div>
                   </div>
 
-                  {/* Overlay Gembok Paywall */}
-                  <div className="absolute inset-0 z-50 flex flex-col items-center justify-center px-6 text-center">
-                      <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(251,191,36,0.4)] animate-bounce-slow">
+                  <div className="absolute inset-0 z-50 flex flex-col items-center justify-center px-4 text-center">
+                      <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(251,191,36,0.4)] animate-bounce-slow mt-8">
                           <Crown className="w-10 h-10 text-amber-950" />
                       </div>
                       
                       <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Akses Terkunci</h2>
-                      <p className="text-sm text-slate-600 mb-8 max-w-xs leading-relaxed font-medium">
+                      <p className="text-sm text-slate-600 mb-6 max-w-xs leading-relaxed font-medium">
                           Masa percobaan Anda telah habis. Berlangganan <b className="text-slate-800">BILANO PRO</b> sekarang untuk membuka penuh Analisis Cashflow, ROI Aset, dan Diagnosa Target Finansial.
                       </p>
                       
-                      {/* Kartu Harga */}
-                      <div className="w-full max-w-sm bg-white p-5 rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] border border-slate-100 mb-8 relative overflow-hidden">
-                          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-300 to-amber-500"></div>
-                          <p className="text-xs text-slate-400 font-extrabold uppercase tracking-widest mb-3 mt-1">Tagihan Langganan</p>
-                          <div className="flex items-end justify-center gap-1.5 mb-2">
-                              <span className="text-4xl font-black text-slate-800 tracking-tight">Rp99.000</span>
-                              <span className="text-sm font-bold text-slate-400 mb-1.5">/ tahun</span>
+                      {/* 🚀 KUNCI PERBAIKAN: Pilihan 2 Paket Langganan di Layar Gembok */}
+                      <div className="w-full max-w-sm space-y-3 mb-6 animate-in zoom-in-95">
+                          {/* PAKET TAHUNAN (TARGET UTAMA) */}
+                          <div 
+                              onClick={() => setSelectedPlan('yearly')} 
+                              className={`relative p-5 rounded-[20px] border-2 cursor-pointer transition-all overflow-hidden ${selectedPlan === 'yearly' ? 'border-amber-400 bg-gradient-to-br from-slate-900 to-indigo-950 shadow-xl' : 'border-slate-200 bg-white'}`}
+                          >
+                              {selectedPlan === 'yearly' && (
+                                  <div className="absolute top-0 right-0 bg-amber-400 text-amber-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl z-10 shadow-sm">
+                                      PALING HEMAT
+                                  </div>
+                              )}
+                              <div className="flex justify-between items-center mb-1 relative z-10">
+                                  <h4 className={`font-black text-lg ${selectedPlan === 'yearly' ? 'text-amber-400' : 'text-slate-800'}`}>Paket 1 Tahun</h4>
+                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'yearly' ? 'border-amber-400 bg-amber-400' : 'border-slate-300'}`}>
+                                      {selectedPlan === 'yearly' && <div className="w-2 h-2 bg-amber-900 rounded-full"></div>}
+                                  </div>
+                              </div>
+                              <div className="relative z-10 text-left">
+                                  <p className={`text-3xl font-black tracking-tight ${selectedPlan === 'yearly' ? 'text-white' : 'text-slate-800'}`}>Rp 8.250 <span className="text-xs font-bold opacity-60">/ bulan</span></p>
+                                  {selectedPlan === 'yearly' && <p className="text-[10px] text-emerald-400 mt-1 font-bold">Total tagihan Rp 99.000/tahun</p>}
+                              </div>
+                              {selectedPlan === 'yearly' && <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>}
                           </div>
-                          <div className="bg-amber-50 text-amber-700 text-[10px] font-extrabold px-3 py-1.5 rounded-full inline-block mt-1">
-                              Garansi Harga Tetap Selamanya
+
+                          {/* PAKET BULANAN (DECOY) */}
+                          <div 
+                              onClick={() => setSelectedPlan('monthly')} 
+                              className={`p-4 rounded-[20px] border-2 cursor-pointer transition-all text-left ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-indigo-50/50 shadow-md' : 'border-slate-200 bg-white'}`}
+                          >
+                              <div className="flex justify-between items-center mb-1">
+                                  <h4 className="font-extrabold text-slate-800 text-base">Paket 1 Bulan</h4>
+                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-indigo-500' : 'border-slate-300'}`}>
+                                      {selectedPlan === 'monthly' && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                                  </div>
+                              </div>
+                              <div className="flex items-end gap-1">
+                                  <p className="text-2xl font-black text-slate-800">Rp 14.900 <span className="text-xs font-bold text-slate-400">/ bulan</span></p>
+                              </div>
                           </div>
                       </div>
 
-                      {/* Tombol Eksekusi */}
                       <Button 
                           onClick={handleLanjutBayar} 
                           disabled={isCharging}
                           className="w-full max-w-sm h-14 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-full shadow-2xl flex items-center justify-center gap-2 transition-transform active:scale-95"
                       >
-                          {isCharging ? <Loader2 className="w-5 h-5 animate-spin"/> : "BERLANGGANAN SEKARANG"}
+                          {isCharging ? <Loader2 className="w-5 h-5 animate-spin"/> : "LANJUTKAN PEMBAYARAN"}
                       </Button>
                       
-                      <p className="mt-6 text-[10px] text-slate-400 font-medium flex items-center gap-1.5">
+                      <p className="mt-4 text-[10px] text-slate-400 font-medium flex items-center gap-1.5 pb-8">
                           <ShieldCheck className="w-4 h-4 text-emerald-500"/> Pembayaran Aman & Otomatis oleh Mayar
                       </p>
                   </div>
@@ -178,9 +199,6 @@ export default function Performance() {
       );
   }
 
-  // ====================================================================
-  // 5. PERHITUNGAN MATEMATIKA (HANYA UNTUK USER PRO & TRIAL AKTIF)
-  // ====================================================================
   const now = new Date();
   const currentMonthIdx = now.getMonth();
   const currentYear = now.getFullYear();
@@ -367,9 +385,6 @@ export default function Performance() {
       return "text-4xl"; 
   };
 
-  // ====================================================================
-  // 6. RENDER DASHBOARD ASLI (BERSIH DARI KODE BLUR/LOCK)
-  // ====================================================================
   return (
     <MobileLayout title="Analisa Performa" showBack>
       <div className="space-y-6 pt-4 px-1 pb-24">
