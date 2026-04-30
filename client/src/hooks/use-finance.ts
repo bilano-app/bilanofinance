@@ -22,8 +22,6 @@ let globalFetchTime = 0;
 
 const fetchSuperData = async () => {
     const now = Date.now();
-    // Jika ada request dalam 3 detik terakhir, gabung ke request yang sama!
-    // Ini mencegah 6 request menembak server Vercel secara brutal saat awal buka aplikasi.
     if (globalFetchPromise && (now - globalFetchTime < 3000)) {
         return globalFetchPromise;
     }
@@ -32,7 +30,6 @@ const fetchSuperData = async () => {
     globalFetchPromise = (async () => {
         const headers = getHeaders();
         
-        // 1 Tembakan cerdas memborong 90% data aplikasi dari server!
         const [resReports, resTarget] = await Promise.all([
             fetch("/api/reports/data", { headers }),
             fetch("/api/target", { headers })
@@ -66,18 +63,35 @@ export function useUser() {
       const allData = await fetchSuperData();
       const data = allData.user;
 
-      // VIP KETAT & ANTI BOCOR: HANYA EMAIL INI YANG JADI PRO
       const vipEmails = [
           "adrienfandra14@gmail.com",
           "bilanotech@gmail.com" 
       ]; 
       
       if (data) {
-          if (vipEmails.includes(email) || data.isPro) {
+          let isReallyPro = false;
+          
+          if (vipEmails.includes(email)) {
+              isReallyPro = true;
+          } else if (data.isPro) {
+              // 🚀 KUNCI PERBAIKAN: Validasi Tanggal Kedaluwarsa Paket (1 Bulan / 1 Tahun)
+              if (data.proValidUntil) {
+                  const validUntilTime = new Date(data.proValidUntil).getTime();
+                  if (Date.now() <= validUntilTime) {
+                      isReallyPro = true; // Waktu paket masih aktif
+                  }
+              } else {
+                  // Jika di-set manual tanpa tanggal oleh admin
+                  isReallyPro = true;
+              }
+          }
+
+          if (isReallyPro) {
               data.isPro = true;
               data.plan = "pro";
               localStorage.setItem("bilano_pro", "true"); 
           } else {
+              // 🚀 JIKA KEDALUWARSA / NON-PREMIUM, CABUT AKSESNYA SAAT ITU JUGA!
               data.isPro = false;
               data.plan = "free";
               localStorage.removeItem("bilano_pro"); 
@@ -85,7 +99,6 @@ export function useUser() {
       }
       return data;
     },
-    // Auto-Retry cerdas jika server Vercel butuh waktu pemanasan
     retry: 3,
     retryDelay: 1500,
   });
@@ -275,7 +288,6 @@ export function useUndoTransaction() {
       return res.json();
     },
     onSuccess: () => {
-      // Memaksa seluruh aplikasi mengambil data baru dari server
       queryClient.invalidateQueries(); 
     },
   });

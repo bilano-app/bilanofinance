@@ -20,7 +20,7 @@ queryClient.setDefaultOptions({
 });
 
 // =========================================================================
-// 🛡️ SATPAM API: BLOKIR SEMUA TRANSAKSI JIKA TRIAL HABIS
+// 🛡️ SATPAM API: BLOKIR SEMUA TRANSAKSI JIKA TRIAL HABIS / NON PREMIUM
 // =========================================================================
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
@@ -40,7 +40,11 @@ window.fetch = async (input, init = {}) => {
                          url.includes('/api/user/onesignal') || 
                          url.includes('/api/payment');
 
-  if (isWriteAction && !isAllowedRoute && localStorage.getItem('bilano_trial_expired') === 'true') {
+  const isTrialExpired = localStorage.getItem('bilano_trial_expired') === 'true';
+  const isPro = localStorage.getItem('bilano_pro') === 'true';
+
+  // 🚀 KUNCI PERBAIKAN: JIKA BUKAN PRO DAN TRIAL HABIS, TENDANG!
+  if (isWriteAction && !isAllowedRoute && isTrialExpired && !isPro) {
       window.dispatchEvent(new Event('trigger-paywall-lock'));
       return Promise.reject(new Error("TRIAL_EXPIRED_LOCKED")); 
   }
@@ -133,26 +137,20 @@ function Router() {
       if (vipEmails.includes(currentUserEmail) || user?.isPro) {
           localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           localStorage.setItem("bilano_trial_expired", "false");
-          localStorage.setItem("bilano_pro", "true");
+          // Pengaturan localstorage "bilano_pro" ditangani oleh useUser agar akurat
       } 
       else if (user && !user.isPro) {
-          localStorage.removeItem("bilano_pro"); 
-          
           const startTime = new Date(user.createdAt || "2024-01-01").getTime();
           const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
           const TRIAL_DURATION_DAYS = 3;
 
-          // =========================================================================
-          // 🚀 UPDATE AMAN: REDIREKSI USER BARU KE PAYWALL EFEK KEJUT
-          // =========================================================================
-          const isNewAccount = (Date.now() - startTime) < 15000; // Jika akun baru dibuat < 15 detik
+          const isNewAccount = (Date.now() - startTime) < 15000; 
           const hasRedirected = sessionStorage.getItem("bilano_first_paywall_redirect");
           
           if (isNewAccount && !hasRedirected && location !== '/paywall') {
               sessionStorage.setItem("bilano_first_paywall_redirect", "true");
               setLocation("/paywall");
           }
-          // =========================================================================
 
           if (daysPassed >= TRIAL_DURATION_DAYS) {
               localStorage.setItem("bilano_trial_expired", "true");
@@ -162,7 +160,7 @@ function Router() {
               localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           }
       }
-  }, [user, currentUserEmail, location, setLocation]); // 🚀 Pastikan setLocation ikut dilacak dengan aman
+  }, [user, currentUserEmail, location, setLocation]);
 
   useNotifications();
 
@@ -266,11 +264,12 @@ function Router() {
                     >
                         BERLANGGANAN SEKARANG
                     </button>
+                    {/* 🚀 KUNCI PERBAIKAN: Tombol tutup akan menendang pengguna ke Beranda! */}
                     <button 
-                        onClick={() => setShowPaywallAlert(false)} 
+                        onClick={() => { setShowPaywallAlert(false); setLocation('/'); }} 
                         className="w-full py-3.5 rounded-full bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
                     >
-                        TUTUP
+                        TUTUP & KEMBALI
                     </button>
                 </div>
             </div>
