@@ -56,7 +56,11 @@ export default function Amal() {
           localStorage.setItem(`bilano_amal_dict_${userEmail}`, JSON.stringify({}));
       } else {
           const newDict = { ...amalDict };
-          const incomes = transactions?.filter(t => t.type === 'income') || [];
+          // 🚀 FIX: Masukkan juga piutang yang sudah cair ke memori persentase
+          const incomes = transactions?.filter(t => 
+              t.type === 'income' || 
+              (t.type === 'debt_receive' && t.description?.includes('[Pemasukan Cair]'))
+          ) || [];
           incomes.forEach(inc => {
               if (newDict[inc.id] === undefined) newDict[inc.id] = amalPct;
           });
@@ -70,10 +74,7 @@ export default function Amal() {
       toast({ title: "Berhasil", description: `Persentase diubah menjadi ${newPct}%` });
   };
 
-  // =======================================================
-  // LOGIKA FIFO & PEMISAHAN AMAL EKSTRA
-  // =======================================================
-  // 🚀 UPDATE CASH BASIS: Abaikan Piutang Pendapatan yang Belum Cair, Akui yang Sudah Cair.
+  // 🚀 UPDATE CASH BASIS: Tangkap 'debt_receive' yang berlabel [Pemasukan Cair]
   const pureIncomes = (transactions || []).filter(t => 
       (
           (t.type === 'income' && !t.description?.includes('Belum Dibayar')) || 
@@ -120,7 +121,13 @@ export default function Amal() {
       }
 
       totalSisaAnggaran += remainingForThis;
-      allocationDetails.push({ ...inc, pctUsed: pctToUse, allocatedAmount, remainingForThis, status });
+      
+      // 🚀 Bersihkan teks [Pemasukan Cair] agar UI tetap rapi
+      const displayDesc = inc.type === 'debt_receive' 
+          ? `Pencairan: ${inc.description?.replace('[Pemasukan Cair]', '').trim()}` 
+          : (inc.description || inc.category);
+
+      allocationDetails.push({ ...inc, displayDesc, pctUsed: pctToUse, allocatedAmount, remainingForThis, status });
   });
 
   allocationDetails.reverse();
@@ -254,7 +261,7 @@ export default function Amal() {
                 {allocationDetails.length > 0 ? allocationDetails.map((inc, i) => (
                     <div key={inc.id || i} className={`p-4 bg-white rounded-[16px] mb-1.5 border border-slate-50 shadow-sm transition-opacity ${inc.status === 'Lunas' ? 'opacity-60 bg-slate-50/50' : ''}`}>
                         <div className="flex justify-between items-start mb-2">
-                            <span className={`text-xs font-bold w-2/3 line-clamp-1 ${inc.status === 'Lunas' ? 'line-through text-slate-400' : 'text-slate-700'}`}>{inc.description || inc.category}</span>
+                            <span className={`text-xs font-bold w-2/3 line-clamp-1 ${inc.status === 'Lunas' ? 'line-through text-slate-400' : 'text-slate-700'}`}>{inc.displayDesc}</span>
                             <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">{new Date(inc.date).toLocaleDateString('id-ID', {day:'numeric', month:'short'})}</span>
                         </div>
                         <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-2">

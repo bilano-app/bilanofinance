@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ArrowLeft, PlusCircle, X, Loader2, Info, Sparkles, AlertTriangle, Lock, Crown, CheckCircle2 } from "lucide-react"; 
-import { TrendingUp, Building2, LineChart, Briefcase, Gem, Landmark, ScrollText, Coins } from "lucide-react";
 import { Button, Input } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
 import { useUser, useInvestments } from "@/hooks/use-finance";
@@ -20,7 +19,6 @@ export default function Investment() {
   const [txType, setTxType] = useState<'BUY' | 'SELL'>('BUY');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🚀 STATE BARU: UNTUK POP-UP VIP PRO
   const [proFeatureModal, setProFeatureModal] = useState<{title: string, desc: string} | null>(null);
 
   const { data: user, isLoading: isUserLoading } = useUser();
@@ -58,15 +56,16 @@ export default function Investment() {
 
   const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
 
-  const assetConfig: Record<AssetType, { label: string, unit: string, icon: any, color: string, bg: string, headerBg: string }> = {
-      saham: { label: 'Saham', unit: 'Lot/Lembar', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-100', headerBg: 'bg-emerald-500' },
-      crypto: { label: 'Crypto', unit: 'Koin', icon: Coins, color: 'text-orange-500', bg: 'bg-orange-100', headerBg: 'bg-orange-500' },
-      reksadana: { label: 'Reksadana', unit: 'Unit', icon: LineChart, color: 'text-blue-500', bg: 'bg-blue-100', headerBg: 'bg-blue-500' },
-      obligasi: { label: 'Obligasi', unit: 'Lembar', icon: ScrollText, color: 'text-indigo-500', bg: 'bg-indigo-100', headerBg: 'bg-indigo-500' },
-      p2p: { label: 'P2P Lending', unit: 'Akun / Lot', icon: Landmark, color: 'text-purple-500', bg: 'bg-purple-100', headerBg: 'bg-purple-500' },
-      emas: { label: 'Emas & Logam', unit: 'Gram', icon: Gem, color: 'text-yellow-600', bg: 'bg-yellow-100', headerBg: 'bg-yellow-500' },
-      properti: { label: 'Properti', unit: 'Unit Properti', icon: Building2, color: 'text-cyan-600', bg: 'bg-cyan-100', headerBg: 'bg-cyan-500' },
-      koleksi: { label: 'Koleksi', unit: 'Item', icon: Briefcase, color: 'text-rose-600', bg: 'bg-rose-100', headerBg: 'bg-rose-500' },
+  // 🚀 PERBAIKAN: MENGGUNAKAN IKON GAMBAR EXTERNAL HD DARI WEB
+  const assetConfig: Record<AssetType, { label: string, unit: string, imgUrl: string, bg: string, headerBg: string }> = {
+      saham: { label: 'Saham', unit: 'Lot/Lembar', imgUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135688.png', bg: 'bg-emerald-50 hover:bg-emerald-100', headerBg: 'bg-emerald-500' },
+      crypto: { label: 'Crypto', unit: 'Koin', imgUrl: 'https://cdn-icons-png.flaticon.com/512/1215/1215068.png', bg: 'bg-orange-50 hover:bg-orange-100', headerBg: 'bg-orange-500' },
+      reksadana: { label: 'Reksadana', unit: 'Unit', imgUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135728.png', bg: 'bg-blue-50 hover:bg-blue-100', headerBg: 'bg-blue-500' },
+      obligasi: { label: 'Obligasi', unit: 'Lembar', imgUrl: 'https://cdn-icons-png.flaticon.com/512/2850/2850383.png', bg: 'bg-indigo-50 hover:bg-indigo-100', headerBg: 'bg-indigo-500' },
+      p2p: { label: 'P2P Lending', unit: 'Akun / Lot', imgUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135706.png', bg: 'bg-purple-50 hover:bg-purple-100', headerBg: 'bg-purple-500' },
+      emas: { label: 'Emas & Logam', unit: 'Gram', imgUrl: 'https://cdn-icons-png.flaticon.com/512/1162/1162483.png', bg: 'bg-yellow-50 hover:bg-yellow-100', headerBg: 'bg-yellow-500' },
+      properti: { label: 'Properti', unit: 'Unit Properti', imgUrl: 'https://cdn-icons-png.flaticon.com/512/2190/2190870.png', bg: 'bg-cyan-50 hover:bg-cyan-100', headerBg: 'bg-cyan-500' },
+      koleksi: { label: 'Koleksi', unit: 'Item', imgUrl: 'https://cdn-icons-png.flaticon.com/512/1424/1424169.png', bg: 'bg-rose-50 hover:bg-rose-100', headerBg: 'bg-rose-500' },
   };
 
   const aggregatedPortfolio = Object.values(portfolioRaw.reduce((acc, p: any) => {
@@ -275,7 +274,6 @@ export default function Investment() {
   return (
     <MobileLayout title="Investasi & Portfolio" showBack={true}>
        
-       {/* 🚀 POP UP EKSKLUSIF UNTUK USER PRO DI HALAMAN INVESTASI */}
        {proFeatureModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-indigo-500/30">
@@ -333,12 +331,13 @@ export default function Investment() {
                         <div 
                             key={key} 
                             onClick={() => { setActiveCategory(key); setViewState('detail'); setDetailTab('transaksi'); }} 
-                            className="bg-white rounded-[24px] p-5 cursor-pointer shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 flex flex-col items-center gap-3 text-center hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] active:scale-95 transition-all"
+                            className="bg-white rounded-[24px] p-5 cursor-pointer shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 flex flex-col items-center gap-3 text-center hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] active:scale-95 transition-all relative overflow-hidden"
                         >
-                              <div className={`w-14 h-14 rounded-full flex items-center justify-center ${cfg.bg} ${cfg.color}`}>
-                                  <cfg.icon className="w-6 h-6"/>
+                              {/* 🚀 PERBAIKAN: IKON EXTERNAL */}
+                              <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors shadow-sm relative z-10 ${cfg.bg}`}>
+                                  <img src={cfg.imgUrl} className="w-8 h-8 object-contain drop-shadow-sm" alt={cfg.label} />
                               </div>
-                              <div>
+                              <div className="relative z-10">
                                   <h3 className="font-extrabold text-slate-800 text-sm">{cfg.label}</h3>
                                   <p className="text-[10px] font-medium text-slate-400 mt-0.5">Kelola Portfolio</p>
                               </div>
@@ -351,19 +350,18 @@ export default function Investment() {
        ) : (
           <div className="animate-in slide-in-from-right duration-300 px-1">
              <div className={`mb-6 rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden ${activeCategory ? assetConfig[activeCategory].headerBg : 'bg-slate-800'}`}>
-                   <div className="relative z-10">
-                       <div className="flex items-center gap-2 mb-2 text-white/80">
-                           {activeCategory && (() => {
-                               const Icon = assetConfig[activeCategory].icon;
-                               return <Icon className="w-5 h-5"/>
-                           })()}
-                           <span className="text-[11px] uppercase font-bold tracking-widest">Portfolio {activeCategory}</span>
+                   <div className="relative z-10 flex items-center gap-4">
+                       {activeCategory && (
+                           <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30 shrink-0">
+                               <img src={assetConfig[activeCategory].imgUrl} className="w-7 h-7 object-contain drop-shadow-sm" alt={activeCategory} />
+                           </div>
+                       )}
+                       <div>
+                           <div className="text-[11px] uppercase font-bold tracking-widest text-white/80 mb-0.5">Portfolio {activeCategory}</div>
+                           <h2 className={`${getBalanceTextSize(displayCategoryValue, "text-3xl")} font-extrabold tracking-tight whitespace-nowrap transition-all duration-300`}>
+                               {displayCategoryValue}
+                           </h2>
                        </div>
-                       
-                       <h2 className={`${getBalanceTextSize(displayCategoryValue, "text-3xl")} font-extrabold tracking-tight whitespace-nowrap transition-all duration-300`}>
-                           {displayCategoryValue}
-                       </h2>
-                       
                    </div>
                    <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/10 rounded-tl-full pointer-events-none"></div>
              </div>
@@ -377,7 +375,6 @@ export default function Investment() {
                 </button>
                 <button
                     onClick={() => {
-                        // 🚀 FIX: PRO USER AKAN MENDAPATKAN POP UP VIP!
                         if (isUserPro) {
                             setProFeatureModal({ 
                                 title: `Smart Screener ${assetConfig[activeCategory as AssetType].label}`, 
@@ -401,7 +398,6 @@ export default function Investment() {
                 </div>
             )}
 
-            {/* 🚀 PERBAIKAN TEKS "GARANSI HARGA TETAP" UNTUK USER GRATIS */}
             {detailTab === 'analisa' && activeCategory && (
                 <div className="animate-in fade-in slide-in-from-right-4 duration-300 mb-6">
                     <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[32px] p-6 shadow-2xl relative overflow-hidden border-2 border-amber-300/30 text-center">
@@ -454,7 +450,7 @@ export default function Investment() {
                    return (
                      <div key={p.id} className="bg-white p-5 rounded-[24px] border border-slate-100 flex justify-between items-center shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-md transition-shadow">
                         <div className="flex items-center gap-4">
-                           <div className={`w-12 h-12 rounded-full flex items-center justify-center font-extrabold text-sm ${activeCategory ? assetConfig[activeCategory].bg : 'bg-slate-100'} ${activeCategory ? assetConfig[activeCategory].color : 'text-slate-600'}`}>
+                           <div className={`w-12 h-12 rounded-full flex items-center justify-center font-extrabold text-sm ${activeCategory ? assetConfig[activeCategory].bg.split(' ')[0] : 'bg-slate-100'} ${activeCategory ? assetConfig[activeCategory].color : 'text-slate-600'}`}>
                               {displaySymbol.substring(0,2)}
                            </div>
                            <div>

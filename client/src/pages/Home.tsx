@@ -8,11 +8,10 @@ import { formatCurrency } from "@/lib/utils";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
-  ArrowUpCircle, ArrowDownCircle, 
   TrendingUp, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
-  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard, ArrowRight, Lightbulb,
+  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
   Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
@@ -42,11 +41,6 @@ const FINANCIAL_TIPS = [
     "Pendapatan pasif (Passive Income) adalah kunci menuju kebebasan finansial sejati.",
     "Catat setiap rupiah yang keluar. Kesadaran adalah langkah pertama menuju kendali finansial penuh."
 ];
-
-const DEFAULT_RATES: Record<string, number> = {
-    "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
-    "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
-};
 
 export default function Home() {
   const { data: user, isLoading: isUserLoading } = useUser();
@@ -98,15 +92,6 @@ export default function Home() {
       }
   }, [user, rawEmail]);
 
-  const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
-      queryKey: ['forexRates', rawEmail],
-      queryFn: async () => {
-          const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": rawEmail } });
-          return res.json();
-      },
-      enabled: !!rawEmail
-  });
-
   useEffect(() => {
       setIsPrivacyMode(localStorage.getItem("bilano_privacy") === "true");
       const savedPin = localStorage.getItem("bilano_app_pin");
@@ -118,7 +103,7 @@ export default function Home() {
       if (!hasPrompted) setShowPermissionPrompt(true);
   }, []);
 
-  const isAnyDataLoading = isUserLoading || isTargetLoading || isRatesLoading || isTxLoading || isFxLoading || isSubLoading;
+  const isAnyDataLoading = isUserLoading || isTargetLoading || isTxLoading || isFxLoading || isSubLoading;
 
   useEffect(() => {
       let timerLongLoad: any;
@@ -185,7 +170,6 @@ export default function Home() {
       localStorage.setItem("bilano_privacy", newVal.toString());
   };
 
-  // 🚀 FUNGSI UNDO TRANSAKSI
   const handleUndo = async () => {
       if (!confirm("Ingin membatalkan transaksi paling terakhir? Saldo Kas, Valas, dan Investasi akan diputar balik otomatis.")) return;
       try {
@@ -434,7 +418,6 @@ export default function Home() {
       t.category !== 'Investasi Valas' && 
       t.category !== 'Tukar Valas' &&
       t.category !== 'Jual Aset' &&
-      !(t.category || '').includes('Piutang Dibayar') &&
       !(t.category || '').includes('Dapat Pinjaman')
   );
   
@@ -780,7 +763,6 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-2">
-                {/* 🚀 TOMBOL UNDO: Letaknya di sebelah kiri titik tiga */}
                 <button 
                     onClick={handleUndo}
                     disabled={undoTx.isPending}
@@ -855,26 +837,33 @@ export default function Home() {
            <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
         </div>
 
+        {/* 🚀 PERBAIKAN IKON PEMASUKAN/PENGELUARAN (NON-AI LOOK) */}
         <div className="grid grid-cols-2 gap-4 px-1">
            <Link href="/income">
-               <div className="bg-white p-4 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col justify-between h-28 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)]">
-                    <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center mb-2 group-hover:bg-emerald-100 transition-colors">
-                        <ArrowDownCircle className="w-5 h-5 text-emerald-500" />
+               <div className="bg-white p-4 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col justify-between h-[120px] active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
+                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135706.png" className="w-24 h-24" alt="income bg" />
                     </div>
-                    <div>
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mb-2 group-hover:bg-emerald-100 transition-colors shadow-sm relative z-10">
+                        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135706.png" className="w-6 h-6 object-contain" alt="Income" />
+                    </div>
+                    <div className="relative z-10">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pemasukan</p>
-                        <p className="text-base font-extrabold text-slate-800 leading-tight">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
+                        <p className="text-base font-extrabold text-slate-800 leading-tight mt-0.5">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
                     </div>
                </div>
            </Link>
            <Link href="/expense">
-               <div className="bg-white p-4 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col justify-between h-28 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)]">
-                    <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center mb-2 group-hover:bg-rose-100 transition-colors">
-                        <ArrowUpCircle className="w-5 h-5 text-rose-500" />
+               <div className="bg-white p-4 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col justify-between h-[120px] active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
+                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135702.png" className="w-24 h-24" alt="expense bg" />
                     </div>
-                    <div>
+                    <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center mb-2 group-hover:bg-rose-100 transition-colors shadow-sm relative z-10">
+                        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135702.png" className="w-6 h-6 object-contain" alt="Expense" />
+                    </div>
+                    <div className="relative z-10">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pengeluaran</p>
-                        <p className="text-base font-extrabold text-slate-800 leading-tight">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
+                        <p className="text-base font-extrabold text-slate-800 leading-tight mt-0.5">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
                     </div>
                </div>
            </Link>
