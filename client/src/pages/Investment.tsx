@@ -1,8 +1,5 @@
 import { useState } from "react";
-import { 
-  ArrowLeft, PlusCircle, X, Loader2, Info, Sparkles, AlertTriangle, Lock, Crown, CheckCircle2,
-  TrendingUp, Bitcoin, PieChart, Landmark, Users, Gem, Building2, Briefcase
-} from "lucide-react"; 
+import { ArrowLeft, PlusCircle, X, Loader2, Info, Sparkles, AlertTriangle, Lock, Crown, CheckCircle2 } from "lucide-react"; 
 import { Button, Input } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
 import { useUser, useInvestments } from "@/hooks/use-finance";
@@ -59,16 +56,16 @@ export default function Investment() {
 
   const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
 
-  // 🚀 PERBAIKAN: KEMBALI KE SVG VEKTOR (TIDAK KARTUN)
-  const assetConfig: Record<AssetType, { label: string, unit: string, icon: any, bg: string, headerBg: string, color: string }> = {
-      saham: { label: 'Saham', unit: 'Lot/Lembar', icon: TrendingUp, bg: 'bg-emerald-50 hover:bg-emerald-100', headerBg: 'bg-emerald-500', color: 'text-emerald-600' },
-      crypto: { label: 'Crypto', unit: 'Koin', icon: Bitcoin, bg: 'bg-orange-50 hover:bg-orange-100', headerBg: 'bg-orange-500', color: 'text-orange-500' },
-      reksadana: { label: 'Reksadana', unit: 'Unit', icon: PieChart, bg: 'bg-blue-50 hover:bg-blue-100', headerBg: 'bg-blue-500', color: 'text-blue-500' },
-      obligasi: { label: 'Obligasi', unit: 'Lembar', icon: Landmark, bg: 'bg-indigo-50 hover:bg-indigo-100', headerBg: 'bg-indigo-500', color: 'text-indigo-500' },
-      p2p: { label: 'P2P Lending', unit: 'Akun / Lot', icon: Users, bg: 'bg-purple-50 hover:bg-purple-100', headerBg: 'bg-purple-500', color: 'text-purple-500' },
-      emas: { label: 'Emas & Logam', unit: 'Gram', icon: Gem, bg: 'bg-yellow-50 hover:bg-yellow-100', headerBg: 'bg-yellow-500', color: 'text-yellow-600' },
-      properti: { label: 'Properti', unit: 'Unit Properti', icon: Building2, bg: 'bg-cyan-50 hover:bg-cyan-100', headerBg: 'bg-cyan-500', color: 'text-cyan-600' },
-      koleksi: { label: 'Koleksi', unit: 'Item', icon: Briefcase, bg: 'bg-rose-50 hover:bg-rose-100', headerBg: 'bg-rose-500', color: 'text-rose-600' },
+  // 🚀 PERBAIKAN: EKSTERNAL VEKTOR ICONIFY (BUKAN KARTUN!)
+  const assetConfig: Record<AssetType, { label: string, unit: string, imgUrl: string, bg: string, headerBg: string, color: string }> = {
+      saham: { label: 'Saham', unit: 'Lot/Lembar', imgUrl: 'https://api.iconify.design/solar/chart-square-bold.svg?color=%23059669', bg: 'bg-emerald-50 hover:bg-emerald-100', headerBg: 'bg-emerald-500', color: 'text-emerald-600' },
+      crypto: { label: 'Crypto', unit: 'Koin', imgUrl: 'https://api.iconify.design/ic/round-currency-bitcoin.svg?color=%23f97316', bg: 'bg-orange-50 hover:bg-orange-100', headerBg: 'bg-orange-500', color: 'text-orange-500' },
+      reksadana: { label: 'Reksadana', unit: 'Unit', imgUrl: 'https://api.iconify.design/solar/pie-chart-3-bold.svg?color=%233b82f6', bg: 'bg-blue-50 hover:bg-blue-100', headerBg: 'bg-blue-500', color: 'text-blue-500' },
+      obligasi: { label: 'Obligasi', unit: 'Lembar', imgUrl: 'https://api.iconify.design/solar/document-text-bold.svg?color=%236366f1', bg: 'bg-indigo-50 hover:bg-indigo-100', headerBg: 'bg-indigo-500', color: 'text-indigo-500' },
+      p2p: { label: 'P2P Lending', unit: 'Akun / Lot', imgUrl: 'https://api.iconify.design/solar/users-group-two-rounded-bold.svg?color=%23a855f7', bg: 'bg-purple-50 hover:bg-purple-100', headerBg: 'bg-purple-500', color: 'text-purple-500' },
+      emas: { label: 'Emas & Logam', unit: 'Gram', imgUrl: 'https://api.iconify.design/game-icons/gold-bar.svg?color=%23d97706', bg: 'bg-yellow-50 hover:bg-yellow-100', headerBg: 'bg-yellow-500', color: 'text-yellow-600' },
+      properti: { label: 'Properti', unit: 'Unit Properti', imgUrl: 'https://api.iconify.design/solar/buildings-bold.svg?color=%230891b2', bg: 'bg-cyan-50 hover:bg-cyan-100', headerBg: 'bg-cyan-500', color: 'text-cyan-600' },
+      koleksi: { label: 'Koleksi', unit: 'Item', imgUrl: 'https://api.iconify.design/solar/crown-star-bold.svg?color=%23e11d48', bg: 'bg-rose-50 hover:bg-rose-100', headerBg: 'bg-rose-500', color: 'text-rose-600' },
   };
 
   const aggregatedPortfolio = Object.values(portfolioRaw.reduce((acc, p: any) => {
@@ -336,8 +333,8 @@ export default function Investment() {
                             onClick={() => { setActiveCategory(key); setViewState('detail'); setDetailTab('transaksi'); }} 
                             className="bg-white rounded-[24px] p-5 cursor-pointer shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 flex flex-col items-center gap-3 text-center hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] active:scale-95 transition-all relative overflow-hidden"
                         >
-                              <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors shadow-sm relative z-10 ${cfg.bg} ${cfg.color}`}>
-                                  <cfg.icon className="w-6 h-6" />
+                              <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors shadow-sm relative z-10 ${cfg.bg}`}>
+                                  <img src={cfg.imgUrl} className="w-7 h-7 object-contain drop-shadow-sm" alt={cfg.label} />
                               </div>
                               <div className="relative z-10">
                                   <h3 className="font-extrabold text-slate-800 text-sm">{cfg.label}</h3>
@@ -353,14 +350,11 @@ export default function Investment() {
           <div className="animate-in slide-in-from-right duration-300 px-1">
              <div className={`mb-6 rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden ${activeCategory ? assetConfig[activeCategory].headerBg : 'bg-slate-800'}`}>
                    <div className="relative z-10 flex items-center gap-4">
-                       {activeCategory && (() => {
-                           const Icon = assetConfig[activeCategory].icon;
-                           return (
-                               <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30 shrink-0">
-                                   <Icon className="w-6 h-6 text-white"/>
-                               </div>
-                           );
-                       })()}
+                       {activeCategory && (
+                           <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30 shrink-0">
+                               <img src={assetConfig[activeCategory].imgUrl} className="w-6 h-6 object-contain drop-shadow-sm invert" alt={activeCategory} />
+                           </div>
+                       )}
                        <div>
                            <div className="text-[11px] uppercase font-bold tracking-widest text-white/80 mb-0.5">Portfolio {activeCategory}</div>
                            <h2 className={`${getBalanceTextSize(displayCategoryValue, "text-3xl")} font-extrabold tracking-tight whitespace-nowrap transition-all duration-300`}>

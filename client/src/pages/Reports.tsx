@@ -92,7 +92,6 @@ export default function Reports() {
           iterDate.setMonth(iterDate.getMonth() + 1);
       }
       
-      // 🚀 FITUR BARU: Generate Arsip Tahunan jika tahun sudah berganti
       for (let y = firstDate.getFullYear(); y < now.getFullYear(); y++) {
           archives.push({
               isYearly: true,
@@ -303,7 +302,10 @@ export default function Reports() {
         }, 0);
         
         let totalForexIDR = 0;
-        const forexRows = data.forexAssets.map((f: any) => {
+        const forexRows = data.forexAssets
+            // 🚀 FIX: Sembunyikan valas yang sudah kosong saldonya
+            .filter((f: any) => f.amount > 0) 
+            .map((f: any) => {
             const rate = getRate(f.currency); 
             const idrVal = f.amount * rate;
             totalForexIDR += idrVal;
@@ -319,10 +321,14 @@ export default function Reports() {
             ? new Date(targetYear, targetMonth, 1) 
             : new Date();
             
-        // 🚀 BENTENG WAKTU UTAMA: Jika Tahunan, ambil sampai 31 Desember. Jika bulanan, ambil akhir bulan.
         const reportDateEnd = isYearly 
             ? new Date(safeTargetYear, 11, 31, 23, 59, 59) 
             : new Date(safeTargetYear, nowForReport.getMonth() + 1, 0, 23, 59, 59);
+
+        // 🚀 BENTENG AWAL BULAN: Untuk menyeleksi hutang yang sudah lunas sebelum laporan ini
+        const reportDateStart = isYearly 
+            ? new Date(safeTargetYear, 0, 1, 0, 0, 0) 
+            : new Date(safeTargetYear, nowForReport.getMonth(), 1, 0, 0, 0);
 
         let archiveCash = user.cashBalance;
         let archiveInvest = totalInvest;
@@ -375,7 +381,6 @@ export default function Reports() {
         const archiveNetWorth = archiveCash + archiveInvest + archiveForex + archivePiutang - archiveDebt;
         const periodName = isYearly ? `Tahun ${safeTargetYear}` : `Bulan ${nowForReport.toLocaleDateString('id-ID', { month: 'long' })} ${safeTargetYear}`;
 
-        // 🚀 PENYARINGAN WAKTU YANG KETAT (Tidak bawa bulan lama ke bulan baru)
         const isTargetInPeriod = (d: Date) => {
             if (isYearly) {
                 return d.getFullYear() === safeTargetYear;
@@ -536,19 +541,27 @@ export default function Reports() {
         }
 
         if (data.debts && data.debts.length > 0) {
-            checkPageBreak(40);
-            doc.setTextColor(50, 50, 50);
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
-            doc.text("Daftar Rincian Hutang & Piutang Berjalan", 14, currentY);
-
+            
+            // 🚀 FIX: Hapus hutang yang sudah lunas di bulan sebelumnya
             const debtRows = data.debts
                 .filter((d: any) => {
-                    if (reportDateEnd >= now) return true;
                     const debtNameOnly = (d.name || "").split('|')[0];
-                    const txBefore = allTxs.some((t:any) => t.description?.includes(debtNameOnly) && new Date(t.date) <= reportDateEnd);
-                    const txAny = allTxs.some((t:any) => t.description?.includes(debtNameOnly));
-                    return !(txAny && !txBefore);
+                    const relatedTxs = allTxs.filter((t:any) => t.description?.includes(debtNameOnly));
+                    
+                    if (relatedTxs.length > 0) {
+                        const firstTxTime = Math.min(...relatedTxs.map((t:any) => new Date(t.date).getTime()));
+                        const lastTxTime = Math.max(...relatedTxs.map((t:any) => new Date(t.date).getTime()));
+
+                        // Jangan tampilkan hutang yang dibuat setelah periode laporan
+                        if (firstTxTime > reportDateEnd.getTime()) return false;
+
+                        // Jika hutang sudah lunas, dan transaksi pelunasan terakhirnya terjadi SEBELUM periode laporan dimulai -> Sembunyikan
+                        if (d.isPaid && lastTxTime < reportDateStart.getTime()) return false;
+                    } else {
+                        // Jika tidak ada riwayat transaksi tapi hutangnya status Lunas (Data manual lama) -> Sembunyikan
+                        if (d.isPaid) return false;
+                    }
+                    return true;
                 })
                 .map((d: any) => {
                     const [displayName, curr] = (d.name || "").split('|');
@@ -582,6 +595,12 @@ export default function Reports() {
                 });
 
             if (debtRows.length > 0) {
+                checkPageBreak(40);
+                doc.setTextColor(50, 50, 50);
+                doc.setFontSize(11);
+                doc.setFont("helvetica", "bold");
+                doc.text("Daftar Rincian Hutang & Piutang Berjalan", 14, currentY);
+
                 autoTable(doc, {
                     startY: currentY + 5,
                     head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']],
