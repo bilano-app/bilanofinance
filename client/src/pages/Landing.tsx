@@ -1,15 +1,13 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
 import { 
-  ShieldCheck, ChevronDown, Star, LayoutDashboard, ChevronRight, Download, Instagram 
+  ShieldCheck, ChevronDown, Star, LayoutDashboard, ChevronRight, ArrowRight, Instagram 
 } from "lucide-react";
 
-export default function Landing() {
-  const [, setLocation] = useLocation();
+export default function Home() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // =======================================================
-  // 🚀 MESIN TEKS DINAMIS
+  // 🚀 MESIN TEKS DINAMIS (HEADLINE BRUTAL & JOS)
   // =======================================================
   const headlines = [
     { top: "Gaji Naik Terus,", bottom: "Tapi Net Worth Stagnan?" },
@@ -32,14 +30,14 @@ export default function Landing() {
   }, []);
 
   // =======================================================
-  // 🚀 DATA NARASI MULTI-TARGET
+  // 🚀 DATA NARASI MULTI-TARGET (VISUAL EMOSIONAL & REALITA)
   // =======================================================
   const narratives = [
     {
       badge: "Untuk Mahasiswa & Fresh Graduate",
       title: "Lulus S1 = Pengangguran Tanpa Tabungan?",
       desc: "Realita kerja brutal. Tanpa 'Dana Darurat Pasca-Kampus', Anda tak punya biaya untuk bertahan hidup saat mencari kerja. BILANO memandu Anda men-set target 'Dana Lulus' sejak awal, sementara Konsultan AI akan merem pengeluaran nongkrong Anda secara rasional.",
-      img: "/pelamar-kerja.jpg" 
+      img: "https://images.unsplash.com/photo-1517732306149-e8f829eb588a?q=80&w=800&auto=format&fit=crop"
     },
     {
       badge: "Untuk Pekerja & Profesional",
@@ -56,35 +54,15 @@ export default function Landing() {
   ];
 
   // =======================================================
-  // 🚀 LOGIKA PWA INSTALLER NATIVE
+  // 🚀 LOGIKA REDIRECT KE WEB APP ASLI
   // =======================================================
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
-  useEffect(() => {
-    const handler = (e: any) => {
-      e.preventDefault(); 
-      setDeferredPrompt(e); 
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const handlePwaInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        console.log('BILANO sedang diinstall...');
-      }
-      setDeferredPrompt(null);
-    } else {
-      alert("PEMBERITAHUAN:\n\nSistem perangkat Anda memblokir popup otomatis. Silakan buka menu browser (titik tiga atau ikon Share) lalu pilih 'Install App' atau 'Tambahkan ke Layar Utama' (Add to Home Screen) untuk memasang BILANO.");
-    }
+  const handleOpenApp = () => {
+    window.location.href = "https://bilanofinance-dvbi.vercel.app/";
   };
 
   const faqs = [
     { q: "Mengapa aplikasi ini tidak ada di Play Store?", a: "BILANO menggunakan teknologi masa depan berbasis PWA (Progressive Web App). Anda tidak perlu mengunduh file APK yang berat atau menunggu update dari Play Store. Aplikasi langsung terhubung, lebih cepat, dan sangat hemat memori HP." },
-    { q: "Apakah data keuangan saya aman di sini?", a: "Sangat aman. BILANO berfungsi sebagai jurnal cerdas pribadi. Kami menggunakan enkripsi penuh dan TIDAK terhubung langsung ke rekening asli Anda untuk mencegah risiko peretasan saldo." },
+    { q: "Apakah data keuangan saya aman di sini?", a: "Sangat aman. BILANO berfungsi sebagai jurnal cerdas pribadi. Kami menggunakan enkripsi browser penuh dan TIDAK terhubung langsung ke rekening asli Anda untuk mencegah risiko peretasan saldo." },
     { q: "Apakah aplikasi ini benar-benar gratis?", a: "Ya! Jurnal pencatatan arus kas dan fitur dasar gratis selamanya. Anda hanya perlu upgrade jika ingin membuka Asisten AI, Portofolio Valas, dan akses ke Pustaka E-book Finansial." }
   ];
 
@@ -97,16 +75,22 @@ export default function Landing() {
 
       <div className="w-full max-w-[480px] lg:max-w-[1100px] flex flex-col relative z-10 flex-1">
         
-        {/* 🚀 HEADER (OPSI WEB DIHAPUS) */}
+        {/* 🚀 HEADER */}
         <header className="px-5 lg:px-10 pt-6 pb-2 animate-in slide-in-from-top-4 fade-in duration-500 w-full lg:pt-10">
-          <div className="bg-white rounded-[20px] p-3.5 lg:p-4 flex items-center justify-center shadow-lg shadow-black/20 border border-slate-100 w-full max-w-7xl mx-auto">
+          <div className="bg-white rounded-[20px] p-3.5 lg:p-4 flex items-center justify-between shadow-lg shadow-black/20 border border-slate-100 w-full max-w-7xl mx-auto">
             <img src="/Bilano_horiz_rbg.png" alt="Bilano Logo" className="h-8 md:h-10 object-contain" />
+            <div className="flex gap-2">
+              <span className="bg-amber-50 text-amber-800 text-[10px] md:text-xs font-black px-3 py-1.5 md:py-2 rounded-xl md:rounded-2xl uppercase tracking-widest border border-amber-200">
+                Finance App
+              </span>
+            </div>
           </div>
         </header>
 
         {/* 🚀 MAIN CONTENT */}
         <main className="px-6 lg:px-10 pt-6 pb-12 flex flex-col gap-16 lg:gap-24 w-full items-center">
           
+          {/* 🔥 1. HERO SECTION */}
           <section className="flex flex-col gap-5 w-full text-left lg:text-center animate-in slide-in-from-bottom-6 fade-in duration-700 delay-100 fill-mode-both items-start lg:items-center max-w-5xl">
             <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 px-4 py-2 rounded-full w-fit shadow-inner">
               <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
@@ -121,7 +105,7 @@ export default function Landing() {
             </h2>
           </section>
 
-          {/* 🔥 STORYTELLING SLIDER */}
+          {/* 🔥 2. STORYTELLING SLIDER */}
           <section className="animate-in slide-in-from-bottom-8 fade-in duration-700 delay-200 fill-mode-both w-full max-w-7xl">
              <div className="flex items-center justify-between mb-4 pr-4 lg:mb-6">
                <h3 className="text-lg lg:text-xl font-black text-white flex items-center gap-2">
@@ -155,16 +139,50 @@ export default function Landing() {
              </div>
           </section>
 
-          {/* 🔥 LANGKAH INSTALL & FAQ */}
+          {/* 🔥 3. KARTU BENEFIT */}
+          <section className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-6 animate-in slide-in-from-bottom-8 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
+            <FeatureCard imgUrl="https://img.icons8.com/color/96/artificial-intelligence.png" title="Konsultasi AI" desc="Strategi cerdas pelunasan hutang." />
+            <FeatureCard imgUrl="https://img.icons8.com/color/96/barcode-scanner.png" title="Smart Scanner" desc="Foto struk, saldo auto-potong." />
+            <FeatureCard imgUrl="https://img.icons8.com/color/96/business-report.png" title="Laporan PDF" desc="Cetak neraca akurasi tinggi." />
+            <FeatureCard imgUrl="https://img.icons8.com/color/96/bullish.png" title="Multi Aset" desc="Pantau Valas, Crypto, & Saham." />
+            <FeatureCard imgUrl="https://img.icons8.com/color/96/e-learning.png" title="Pustaka Finansial" desc="E-book panduan kekayaan (Segera)." />
+            <FeatureCard imgUrl="https://img.icons8.com/color/96/multiple-devices.png" title="Akses Universal" desc="PWA: Ringan di semua perangkat." />
+          </section>
+
+          {/* 🔥 4. UI SCREENSHOT GALLERY */}
+          <section className="animate-in slide-in-from-bottom-10 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
+            <div className="mb-4 lg:mb-6 lg:text-center max-w-lg lg:mx-auto">
+              <h3 className="text-lg lg:text-xl font-black text-white flex items-center gap-2 lg:justify-center">
+                  <LayoutDashboard className="w-5 h-5 text-amber-400"/> Intip Dalamnya BILANO
+              </h3>
+              <p className="text-slate-400 text-sm mt-1 lg:text-base">Geser untuk melihat UI Poster Premium kami.</p>
+            </div>
+            
+            <div className="flex overflow-x-auto gap-5 pb-6 snap-x snap-mandatory -mx-6 px-6 lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] lg:justify-center">
+                {[
+                  { img: "Home.jpeg", title: "Dasbor Utama" },
+                  { img: "ChatAI.jpeg", title: "Asisten AI Cerdas" },
+                  { img: "Scan.jpeg", title: "Scan Struk Otomatis" },
+                  { img: "Performa.jpeg", title: "Analisa Performa" },
+                  { img: "Valas.jpeg", title: "Portofolio Valas" }
+                ].map((item, i) => (
+                  <div key={i} className="snap-center shrink-0 w-[75%] lg:w-[220px] aspect-[9/16] bg-[#040814] rounded-[24px] overflow-hidden border-[4px] border-white/10 shadow-2xl relative group">
+                    <img src={`/${item.img}`} alt={item.title} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = 'https://placehold.co/400x700/121c3a/475569?text=Poster+UI' }} />
+                  </div>
+                ))}
+            </div>
+          </section>
+
+          {/* 🔥 5. LANGKAH INSTALL & FAQ */}
           <div className="flex flex-col lg:flex-row gap-10 lg:gap-16 w-full max-w-7xl">
             <section className="bg-[#121c3a]/50 backdrop-blur-xl border border-white/5 rounded-[28px] p-6 text-white shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both lg:p-8 flex-1">
               <h3 className="text-lg font-black mb-5 text-amber-400 flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5"/> Cara Cepat Pasang
+                <ShieldCheck className="w-5 h-5"/> Cara Cepat Install
               </h3>
               <div className="space-y-5 lg:space-y-6">
-                  <Step num="1" text="Tekan tombol INSTALL SEKARANG yang berwarna kuning di halaman ini." />
-                  <Step num="2" text="Sistem akan langsung menampilkan jendela konfirmasi instalasi aplikasi." />
-                  <Step num="3" text="Selesai! Ikon BILANO akan muncul di HP Anda layaknya aplikasi asli, tanpa memakan memori." />
+                  <Step num="1" text="Klik tombol BUKA APLIKASI SEKARANG di halaman ini." />
+                  <Step num="2" text="Anda akan langsung diarahkan ke Web App BILANO yang aman." />
+                  <Step num="3" text="Di dalam Web App, buka menu browser Anda (titik tiga di pojok) lalu pilih opsi 'Install App' atau 'Tambahkan ke Layar Utama'." />
               </div>
             </section>
 
@@ -188,38 +206,65 @@ export default function Landing() {
             </section>
           </div>
 
-          {/* 🔥 TOMBOL INSTALL DESKTOP (OPSI WEB DIHAPUS) */}
-          <div className="hidden lg:flex w-full flex-col items-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-500 fill-mode-both">
+          {/* 🔥 6. TOMBOL BUKA APLIKASI DESKTOP */}
+          <div className="hidden lg:block w-full flex justify-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-500 fill-mode-both">
             <button
-              onClick={handlePwaInstall}
-              className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
+              onClick={handleOpenApp}
+              className="w-full max-w-[420px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
             >
-              <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
-              INSTALL SEKARANG
+              BUKA APLIKASI SEKARANG
+              <ArrowRight strokeWidth={3} className="w-6 h-6 animate-pulse" />
             </button>
           </div>
 
         </main>
 
-        {/* 🟡 STICKY TOMBOL HP (OPSI WEB DIHAPUS) */}
+        {/* 🟡 STICKY TOMBOL HP */}
         <div className="lg:hidden sticky bottom-6 px-6 z-50 animate-in slide-in-from-bottom-12 fade-in duration-700 delay-700 fill-mode-both">
           <button
-            onClick={handlePwaInstall}
+            onClick={handleOpenApp}
             className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] tracking-wide py-4 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
           >
-            <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
-            INSTALL SEKARANG
+            BUKA APLIKASI SEKARANG
+            <ArrowRight strokeWidth={3} className="w-5 h-5 animate-pulse" />
           </button>
         </div>
 
         <footer className="mt-auto pb-10 pt-10 text-center relative z-10 border-t border-white/5 w-full">
             <img src="/Bilano_horiz_rbg.png" alt="Bilano" className="h-5 mx-auto mb-4 opacity-50 grayscale mix-blend-screen" />
+            
+            <div className="flex justify-center items-center gap-5 md:gap-6 mb-5">
+              <a href="https://www.instagram.com/adrienisthier/" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 md:gap-2 text-[11px] md:text-xs font-bold text-slate-400 hover:text-rose-400 transition-colors uppercase tracking-widest">
+                <Instagram className="w-4 h-4 md:w-4 md:h-4" /> Instagram
+              </a>
+              <span className="text-slate-600 text-[10px]">●</span>
+              <a href="/privacy" className="text-[11px] md:text-xs font-bold text-slate-400 hover:text-amber-400 transition-colors uppercase tracking-widest">
+                Privasi
+              </a>
+              <span className="text-slate-600 text-[10px]">●</span>
+              <a href="/contact" className="text-[11px] md:text-xs font-bold text-slate-400 hover:text-amber-400 transition-colors uppercase tracking-widest">
+                Bantuan
+              </a>
+            </div>
+
             <p className="text-[10px] md:text-xs text-slate-600 mt-1 font-medium">© {new Date().getFullYear()} Bilano Official</p>
         </footer>
 
       </div>
     </div>
   );
+}
+
+function FeatureCard({ imgUrl, title, desc }: any) {
+  return (
+    <div className="bg-[#121c3a]/80 backdrop-blur-sm border border-white/5 p-4 md:p-5 lg:p-6 rounded-[24px] shadow-lg hover:bg-[#172447] hover:border-white/10 hover:scale-[1.03] transition-all cursor-pointer flex flex-col">
+      <div className="w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden mb-3 p-2.5">
+        <img src={imgUrl} alt={title} className="w-full h-full object-contain opacity-90 drop-shadow-md" />
+      </div>
+      <h4 className="font-bold text-white text-[14px] md:text-base lg:text-lg leading-tight mb-1 drop-shadow-sm">{title}</h4>
+      <p className="text-[11px] md:text-xs lg:text-[13px] text-slate-400 font-medium leading-snug">{desc}</p>
+    </div>
+  )
 }
 
 function Step({ num, text }: { num: string, text: string }) {
