@@ -26,7 +26,6 @@ export default function Performance() {
   const [isDeletingTx, setIsDeletingTx] = useState(false);
   const [expandedDetail, setExpandedDetail] = useState<'income' | 'expense' | null>(null);
   
-  // 🚀 KUNCI PERBAIKAN: State untuk menyimpan pilihan paket
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
@@ -63,10 +62,10 @@ export default function Performance() {
   });
 
   const isPro = user?.isPro || localStorage.getItem("bilano_pro") === "true";
-  const isTrialExpired = localStorage.getItem("bilano_trial_expired") === "true";
-  const locked = !isUserLoading && !isPro && isTrialExpired;
+  
+  // 🚀 KUNCI PERBAIKAN: Langsung kunci jika BUKAN PRO (Abaikan masa trial 3 hari)
+  const locked = !isUserLoading && !isPro;
 
-  // 🚀 KUNCI PERBAIKAN: Mengirimkan plan yang dipilih ke backend
   const handleLanjutBayar = async () => {
       if (!currentUserEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
       setIsCharging(true);
@@ -74,7 +73,7 @@ export default function Performance() {
           const res = await fetch("/api/payment/mayar/charge", { 
               method: "POST", 
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ plan: selectedPlan }) // Menambahkan pilihan plan
+              body: JSON.stringify({ plan: selectedPlan }) 
           });
           const data = await res.json();
           if (res.ok && data.redirectUrl) {
@@ -118,7 +117,6 @@ export default function Performance() {
       );
   }
 
-  // 🚨 TAMPILAN TERKUNCI (ANTI CRASH) 🚨
   if (locked) {
       return (
           <MobileLayout title="Analisa Performa" showBack>
@@ -137,12 +135,10 @@ export default function Performance() {
                       
                       <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Akses Terkunci</h2>
                       <p className="text-sm text-slate-600 mb-6 max-w-xs leading-relaxed font-medium">
-                          Masa percobaan Anda telah habis. Berlangganan <b className="text-slate-800">BILANO PRO</b> sekarang untuk membuka penuh Analisis Cashflow, ROI Aset, dan Diagnosa Target Finansial.
+                          Fitur ini eksklusif untuk pengguna VIP. Berlangganan <b className="text-slate-800">BILANO PRO</b> sekarang untuk membuka penuh Analisis Cashflow, ROI Aset, dan Diagnosa Target Finansial.
                       </p>
                       
-                      {/* 🚀 KUNCI PERBAIKAN: Pilihan 2 Paket Langganan di Layar Gembok */}
                       <div className="w-full max-w-sm space-y-3 mb-6 animate-in zoom-in-95">
-                          {/* PAKET TAHUNAN (TARGET UTAMA) */}
                           <div 
                               onClick={() => setSelectedPlan('yearly')} 
                               className={`relative p-5 rounded-[20px] border-2 cursor-pointer transition-all overflow-hidden ${selectedPlan === 'yearly' ? 'border-amber-400 bg-gradient-to-br from-slate-900 to-indigo-950 shadow-xl' : 'border-slate-200 bg-white'}`}
@@ -165,7 +161,6 @@ export default function Performance() {
                               {selectedPlan === 'yearly' && <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>}
                           </div>
 
-                          {/* PAKET BULANAN (DECOY) */}
                           <div 
                               onClick={() => setSelectedPlan('monthly')} 
                               className={`p-4 rounded-[20px] border-2 cursor-pointer transition-all text-left ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-indigo-50/50 shadow-md' : 'border-slate-200 bg-white'}`}

@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useUser } from "@/hooks/use-finance"; 
+import { useLocation } from "wouter";
 
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -14,6 +15,7 @@ const DEFAULT_RATES: Record<string, number> = {
 
 export default function Reports() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const { data: userProfile } = useUser(); 
   const [data, setData] = useState<any>(null);
   const [forexRates, setForexRates] = useState<any>({});
@@ -233,11 +235,13 @@ export default function Reports() {
   };
 
   const generatePDF = async (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
-    const userEmailFromStorage = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-    const isTrialExpired = userEmailFromStorage ? localStorage.getItem(`bilano_trial_expired_${userEmailFromStorage}`) === "true" : false;
-
-    if (!userProfile?.isPro && isTrialExpired) {
-        window.dispatchEvent(new Event('trigger-paywall-lock')); 
+    
+    // 🚀 KUNCI PERBAIKAN: Langsung tolak kalau bukan PRO! 
+    if (!userProfile?.isPro) {
+        toast({ title: "Fitur Premium 👑", description: "Cetak laporan PDF eksklusif untuk pengguna BILANO PRO. Silakan upgrade!", variant: "destructive" });
+        setTimeout(() => {
+            setLocation('/paywall');
+        }, 1000);
         return;
     }
 
@@ -303,7 +307,6 @@ export default function Reports() {
         
         let totalForexIDR = 0;
         const forexRows = data.forexAssets
-            // 🚀 FIX: Sembunyikan valas yang sudah kosong saldonya
             .filter((f: any) => f.amount > 0) 
             .map((f: any) => {
             const rate = getRate(f.currency); 
@@ -325,7 +328,6 @@ export default function Reports() {
             ? new Date(safeTargetYear, 11, 31, 23, 59, 59) 
             : new Date(safeTargetYear, nowForReport.getMonth() + 1, 0, 23, 59, 59);
 
-        // 🚀 BENTENG AWAL BULAN: Untuk menyeleksi hutang yang sudah lunas sebelum laporan ini
         const reportDateStart = isYearly 
             ? new Date(safeTargetYear, 0, 1, 0, 0, 0) 
             : new Date(safeTargetYear, nowForReport.getMonth(), 1, 0, 0, 0);
@@ -542,7 +544,6 @@ export default function Reports() {
 
         if (data.debts && data.debts.length > 0) {
             
-            // 🚀 FIX: Hapus hutang yang sudah lunas di bulan sebelumnya
             const debtRows = data.debts
                 .filter((d: any) => {
                     const debtNameOnly = (d.name || "").split('|')[0];
@@ -552,13 +553,9 @@ export default function Reports() {
                         const firstTxTime = Math.min(...relatedTxs.map((t:any) => new Date(t.date).getTime()));
                         const lastTxTime = Math.max(...relatedTxs.map((t:any) => new Date(t.date).getTime()));
 
-                        // Jangan tampilkan hutang yang dibuat setelah periode laporan
                         if (firstTxTime > reportDateEnd.getTime()) return false;
-
-                        // Jika hutang sudah lunas, dan transaksi pelunasan terakhirnya terjadi SEBELUM periode laporan dimulai -> Sembunyikan
                         if (d.isPaid && lastTxTime < reportDateStart.getTime()) return false;
                     } else {
-                        // Jika tidak ada riwayat transaksi tapi hutangnya status Lunas (Data manual lama) -> Sembunyikan
                         if (d.isPaid) return false;
                     }
                     return true;
@@ -763,7 +760,6 @@ export default function Reports() {
                         netWorthChange -= t.amount;
                     }
 
-                    // 🚀 FIX BAR CHART: Menghitung Piutang Cair sebagai Uang Masuk Murni
                     if ((t.type === 'income' || t.type === 'expense') && 
                         !['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category)) {
                         if (t.type === 'income') pureIn += t.amount;
