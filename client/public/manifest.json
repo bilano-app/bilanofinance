@@ -3,8 +3,8 @@
   "short_name": "Bilano",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a1128",
-  "theme_color": "#f59e0b",
+  "background_color": "#0ffffff",
+  "theme_color": "#ffffff",
   "description": "Pengelola Keuangan Cerdas dengan Asisten AI.",
   "icons": [
     {
