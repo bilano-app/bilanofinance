@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { ArrowLeft, PlusCircle, X, Loader2, Info, Sparkles, AlertTriangle, Lock, Crown, CheckCircle2 } from "lucide-react"; 
+import { 
+  ArrowLeft, PlusCircle, X, Loader2, Info, Sparkles, AlertTriangle, Lock, Crown, CheckCircle2,
+  TrendingUp, Bitcoin, PieChart, Landmark, Users, Gem, Building2, Briefcase
+} from "lucide-react"; 
 import { Button, Input } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
 import { useUser, useInvestments } from "@/hooks/use-finance";
@@ -56,16 +59,16 @@ export default function Investment() {
 
   const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
 
-  // 🚀 PERBAIKAN: MENGGUNAKAN IKON GAMBAR EXTERNAL HD DARI WEB
-  const assetConfig: Record<AssetType, { label: string, unit: string, imgUrl: string, bg: string, headerBg: string }> = {
-      saham: { label: 'Saham', unit: 'Lot/Lembar', imgUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135688.png', bg: 'bg-emerald-50 hover:bg-emerald-100', headerBg: 'bg-emerald-500' },
-      crypto: { label: 'Crypto', unit: 'Koin', imgUrl: 'https://cdn-icons-png.flaticon.com/512/1215/1215068.png', bg: 'bg-orange-50 hover:bg-orange-100', headerBg: 'bg-orange-500' },
-      reksadana: { label: 'Reksadana', unit: 'Unit', imgUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135728.png', bg: 'bg-blue-50 hover:bg-blue-100', headerBg: 'bg-blue-500' },
-      obligasi: { label: 'Obligasi', unit: 'Lembar', imgUrl: 'https://cdn-icons-png.flaticon.com/512/2850/2850383.png', bg: 'bg-indigo-50 hover:bg-indigo-100', headerBg: 'bg-indigo-500' },
-      p2p: { label: 'P2P Lending', unit: 'Akun / Lot', imgUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135706.png', bg: 'bg-purple-50 hover:bg-purple-100', headerBg: 'bg-purple-500' },
-      emas: { label: 'Emas & Logam', unit: 'Gram', imgUrl: 'https://cdn-icons-png.flaticon.com/512/1162/1162483.png', bg: 'bg-yellow-50 hover:bg-yellow-100', headerBg: 'bg-yellow-500' },
-      properti: { label: 'Properti', unit: 'Unit Properti', imgUrl: 'https://cdn-icons-png.flaticon.com/512/2190/2190870.png', bg: 'bg-cyan-50 hover:bg-cyan-100', headerBg: 'bg-cyan-500' },
-      koleksi: { label: 'Koleksi', unit: 'Item', imgUrl: 'https://cdn-icons-png.flaticon.com/512/1424/1424169.png', bg: 'bg-rose-50 hover:bg-rose-100', headerBg: 'bg-rose-500' },
+  // 🚀 PERBAIKAN: KEMBALI KE SVG VEKTOR (TIDAK KARTUN)
+  const assetConfig: Record<AssetType, { label: string, unit: string, icon: any, bg: string, headerBg: string, color: string }> = {
+      saham: { label: 'Saham', unit: 'Lot/Lembar', icon: TrendingUp, bg: 'bg-emerald-50 hover:bg-emerald-100', headerBg: 'bg-emerald-500', color: 'text-emerald-600' },
+      crypto: { label: 'Crypto', unit: 'Koin', icon: Bitcoin, bg: 'bg-orange-50 hover:bg-orange-100', headerBg: 'bg-orange-500', color: 'text-orange-500' },
+      reksadana: { label: 'Reksadana', unit: 'Unit', icon: PieChart, bg: 'bg-blue-50 hover:bg-blue-100', headerBg: 'bg-blue-500', color: 'text-blue-500' },
+      obligasi: { label: 'Obligasi', unit: 'Lembar', icon: Landmark, bg: 'bg-indigo-50 hover:bg-indigo-100', headerBg: 'bg-indigo-500', color: 'text-indigo-500' },
+      p2p: { label: 'P2P Lending', unit: 'Akun / Lot', icon: Users, bg: 'bg-purple-50 hover:bg-purple-100', headerBg: 'bg-purple-500', color: 'text-purple-500' },
+      emas: { label: 'Emas & Logam', unit: 'Gram', icon: Gem, bg: 'bg-yellow-50 hover:bg-yellow-100', headerBg: 'bg-yellow-500', color: 'text-yellow-600' },
+      properti: { label: 'Properti', unit: 'Unit Properti', icon: Building2, bg: 'bg-cyan-50 hover:bg-cyan-100', headerBg: 'bg-cyan-500', color: 'text-cyan-600' },
+      koleksi: { label: 'Koleksi', unit: 'Item', icon: Briefcase, bg: 'bg-rose-50 hover:bg-rose-100', headerBg: 'bg-rose-500', color: 'text-rose-600' },
   };
 
   const aggregatedPortfolio = Object.values(portfolioRaw.reduce((acc, p: any) => {
@@ -333,9 +336,8 @@ export default function Investment() {
                             onClick={() => { setActiveCategory(key); setViewState('detail'); setDetailTab('transaksi'); }} 
                             className="bg-white rounded-[24px] p-5 cursor-pointer shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 flex flex-col items-center gap-3 text-center hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] active:scale-95 transition-all relative overflow-hidden"
                         >
-                              {/* 🚀 PERBAIKAN: IKON EXTERNAL */}
-                              <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors shadow-sm relative z-10 ${cfg.bg}`}>
-                                  <img src={cfg.imgUrl} className="w-8 h-8 object-contain drop-shadow-sm" alt={cfg.label} />
+                              <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors shadow-sm relative z-10 ${cfg.bg} ${cfg.color}`}>
+                                  <cfg.icon className="w-6 h-6" />
                               </div>
                               <div className="relative z-10">
                                   <h3 className="font-extrabold text-slate-800 text-sm">{cfg.label}</h3>
@@ -351,11 +353,14 @@ export default function Investment() {
           <div className="animate-in slide-in-from-right duration-300 px-1">
              <div className={`mb-6 rounded-[32px] p-6 shadow-lg text-white relative overflow-hidden ${activeCategory ? assetConfig[activeCategory].headerBg : 'bg-slate-800'}`}>
                    <div className="relative z-10 flex items-center gap-4">
-                       {activeCategory && (
-                           <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30 shrink-0">
-                               <img src={assetConfig[activeCategory].imgUrl} className="w-7 h-7 object-contain drop-shadow-sm" alt={activeCategory} />
-                           </div>
-                       )}
+                       {activeCategory && (() => {
+                           const Icon = assetConfig[activeCategory].icon;
+                           return (
+                               <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30 shrink-0">
+                                   <Icon className="w-6 h-6 text-white"/>
+                               </div>
+                           );
+                       })()}
                        <div>
                            <div className="text-[11px] uppercase font-bold tracking-widest text-white/80 mb-0.5">Portfolio {activeCategory}</div>
                            <h2 className={`${getBalanceTextSize(displayCategoryValue, "text-3xl")} font-extrabold tracking-tight whitespace-nowrap transition-all duration-300`}>

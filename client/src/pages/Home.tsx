@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
-  TrendingUp, DollarSign, 
+  ArrowDownCircle, ArrowUpCircle, TrendingUp, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
@@ -837,15 +837,12 @@ export default function Home() {
            <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
         </div>
 
-        {/* 🚀 PERBAIKAN IKON PEMASUKAN/PENGELUARAN (NON-AI LOOK) */}
+        {/* 🚀 KEMBALI MENGGUNAKAN VEKTOR IKON LUCIDE-REACT */}
         <div className="grid grid-cols-2 gap-4 px-1">
            <Link href="/income">
                <div className="bg-white p-4 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col justify-between h-[120px] active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
-                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-                        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135706.png" className="w-24 h-24" alt="income bg" />
-                    </div>
                     <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mb-2 group-hover:bg-emerald-100 transition-colors shadow-sm relative z-10">
-                        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135706.png" className="w-6 h-6 object-contain" alt="Income" />
+                        <ArrowDownCircle className="w-6 h-6 text-emerald-500" />
                     </div>
                     <div className="relative z-10">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pemasukan</p>
@@ -855,11 +852,8 @@ export default function Home() {
            </Link>
            <Link href="/expense">
                <div className="bg-white p-4 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col justify-between h-[120px] active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
-                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-                        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135702.png" className="w-24 h-24" alt="expense bg" />
-                    </div>
                     <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center mb-2 group-hover:bg-rose-100 transition-colors shadow-sm relative z-10">
-                        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135702.png" className="w-6 h-6 object-contain" alt="Expense" />
+                        <ArrowUpCircle className="w-6 h-6 text-rose-500" />
                     </div>
                     <div className="relative z-10">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pengeluaran</p>
