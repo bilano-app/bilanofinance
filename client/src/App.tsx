@@ -76,6 +76,7 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
 import NotFound from "@/pages/not-found";
 import Security from "./pages/Security";
 import Home from "@/pages/Home";
+import Landing from "@/pages/Landing";
 import Target from "@/pages/Target";
 import Income from "@/pages/Income";
 import Expense from "@/pages/Expense";
@@ -223,6 +224,7 @@ function Router() {
   return (
     <>
       <Switch>
+        <Route path="/" component={Landing} />
         <Route path="/" component={Home} />
         <Route path="/target" component={Target} />
         <Route path="/income" component={Income} />
