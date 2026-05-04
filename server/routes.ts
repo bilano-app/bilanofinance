@@ -183,13 +183,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           }
 
+          // 🚀 SOLUSI BUG DATABASE: Ganti logika ON CONFLICT jadi DELETE & INSERT
           if (!otp) {
               otp = Math.floor(100000 + Math.random() * 900000).toString(); 
+              
+              // 1. Sapu bersih sesi OTP lama untuk email ini (bypass error unik)
+              await db.execute(sql`DELETE FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`);
+              
+              // 2. Masukkan sesi OTP yang baru dan segar
               await db.execute(sql`
                   INSERT INTO otp_sessions (email, code, created_at)
                   VALUES (LOWER(TRIM(${email})), ${otp}, NOW())
-                  ON CONFLICT (email)
-                  DO UPDATE SET code = ${otp}, created_at = NOW()
               `);
           }
 
@@ -211,7 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.json({ success: true, message: "OTP Terkirim Cepat!" }); 
       } catch (error: any) {
           console.error("Nodemailer Error:", error);
-          res.status(500).json({ error: "Gagal mengirim OTP. Pastikan App Password Gmail sudah benar." });
+          res.status(500).json({ error: "Gagal menyimpan OTP di Database / Kirim Email. Hubungi Admin." });
       }
   });
 
@@ -235,13 +239,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (Date.now() - createdAt < 300000) otp = rows[0].code;
           }
 
+          // 🚀 SOLUSI BUG DATABASE: Ganti logika ON CONFLICT jadi DELETE & INSERT
           if (!otp) {
               otp = Math.floor(100000 + Math.random() * 900000).toString(); 
+              
+              // 1. Sapu bersih sesi OTP lama untuk email ini (bypass error unik)
+              await db.execute(sql`DELETE FROM otp_sessions WHERE LOWER(TRIM(email)) = LOWER(TRIM(${email}))`);
+              
+              // 2. Masukkan sesi OTP yang baru dan segar
               await db.execute(sql`
                   INSERT INTO otp_sessions (email, code, created_at)
                   VALUES (LOWER(TRIM(${email})), ${otp}, NOW())
-                  ON CONFLICT (email)
-                  DO UPDATE SET code = ${otp}, created_at = NOW()
               `);
           }
 
@@ -263,7 +271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.json({ success: true, message: "OTP Reset Terkirim" }); 
       } catch (error: any) {
           console.error("Nodemailer Reset Error:", error);
-          res.status(500).json({ error: "Gagal mengirim email OTP." });
+          res.status(500).json({ error: "Gagal menyimpan OTP di Database / Kirim Email. Hubungi Admin." });
       }
   });
 
@@ -682,7 +690,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let newCashBalance = Math.round(user!.cashBalance);
 
       if (description) {
-          // MODE MUTASI (Uang Masuk/Keluar Langsung, tanpa potong IDR)
           if (isIncome) {
               currentAmount += amount;
               await storage.createTransaction(user!.id, { userId: user!.id, type:'income', amount:amountIDR, category:`Pemasukan Valas`, description:`${description}`, date:new Date()} as any);
@@ -692,7 +699,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await storage.createTransaction(user!.id, { userId: user!.id, type:'expense', amount:amountIDR, category:`Pengeluaran Valas`, description:`${description}`, date:new Date()} as any);
           }
       } else {
-          // MODE TUKAR/EXCHANGE (Murni Transaksi Pembelian/Penjualan dengan Rupiah)
           if (isIncome) {
               if (newCashBalance < amountIDR) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk beli Valas."});
               currentAmount += amount;
@@ -855,7 +861,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!debt) return res.status(404).json({ error: "Tagihan ini sudah tidak ada di database." });
           if (debt.isPaid) return res.status(400).json({ error: "Tagihan ini sudah berstatus lunas sebelumnya." });
 
-          // 🚀 LOGIKA PELACAK AMAL CAIR (DIKEMBANGKAN LEBIH AKURAT)
           const txs = await storage.getTransactions(user!.id);
           const debtNameOnly = debt.name.split('|')[0];
           const isIncomePiutang = txs.some(t => t.type === 'income' && t.description?.toLowerCase().includes(debtNameOnly.toLowerCase()));

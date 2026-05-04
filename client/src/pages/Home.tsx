@@ -27,7 +27,7 @@ const FINANCIAL_TIPS = [
     "Investasi terbaik yang bisa Anda lakukan adalah investasi pada diri Anda sendiri.",
     "Dana Darurat adalah payung Anda saat badai finansial turun tiba-tiba.",
     "Diversifikasi: Jangan pernah menaruh semua telurmu dalam satu keranjang.",
-    "Hutang konsumtif merampok masa depanmu, hutang produktif membangun masa depanmu.",
+    "Hutang konsum কথোপকথन merampok masa depanmu, hutang produktif membangun masa depanmu.",
     "Kekayaan sejati bukanlah seberapa banyak uang yang dihasilkan, tapi seberapa banyak yang disimpan.",
     "Waktu di pasar saham jauh lebih penting daripada sekadar menebak waktu pasar (Time in the market > Timing the market).",
     "Pemasukan yang besar tanpa manajemen yang baik hanya akan menghasilkan kebangkrutan yang tertunda.",
@@ -837,33 +837,37 @@ export default function Home() {
            <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
         </div>
 
-        {/* 🚀 PERBAIKAN: EKSTERNAL VEKTOR ICONIFY (BUKAN KARTUN!) */}
-        <div className="grid grid-cols-2 gap-4 px-1">
+        {/* 🚀 PERBAIKAN: Layout Menjadi Persegi Panjang Elegan */}
+        <div className="grid grid-cols-2 gap-3 px-1">
            <Link href="/income">
-               <div className="bg-white p-4 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col justify-between h-[120px] active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
-                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-                        <img src="https://api.iconify.design/solar/round-arrow-left-down-bold.svg?color=%2310b981" className="w-24 h-24" alt="income bg" />
+               <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
+                    <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                        <img src="https://api.iconify.design/solar/round-arrow-left-down-bold.svg?color=%2310b981" className="w-16 h-16" alt="income bg" />
                     </div>
-                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mb-2 group-hover:bg-emerald-100 transition-colors shadow-sm relative z-10">
-                        <img src="https://api.iconify.design/solar/round-arrow-left-down-bold.svg?color=%2310b981" className="w-6 h-6" alt="Income" />
+                    <div className="flex items-center gap-2 relative z-10">
+                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors shadow-sm shrink-0">
+                            <img src="https://api.iconify.design/solar/round-arrow-left-down-bold.svg?color=%2310b981" className="w-4 h-4" alt="Income" />
+                        </div>
+                        <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pemasukan</p>
                     </div>
-                    <div className="relative z-10">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pemasukan</p>
-                        <p className="text-base font-extrabold text-slate-800 leading-tight mt-0.5">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
+                    <div className="relative z-10 mt-1">
+                        <p className="text-lg font-black text-slate-800 leading-none truncate">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
                     </div>
                </div>
            </Link>
            <Link href="/expense">
-               <div className="bg-white p-4 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col justify-between h-[120px] active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
-                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-                        <img src="https://api.iconify.design/solar/round-arrow-right-up-bold.svg?color=%23f43f5e" className="w-24 h-24" alt="expense bg" />
+               <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
+                    <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                        <img src="https://api.iconify.design/solar/round-arrow-right-up-bold.svg?color=%23f43f5e" className="w-16 h-16" alt="expense bg" />
                     </div>
-                    <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center mb-2 group-hover:bg-rose-100 transition-colors shadow-sm relative z-10">
-                        <img src="https://api.iconify.design/solar/round-arrow-right-up-bold.svg?color=%23f43f5e" className="w-6 h-6" alt="Expense" />
+                    <div className="flex items-center gap-2 relative z-10">
+                        <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center group-hover:bg-rose-100 transition-colors shadow-sm shrink-0">
+                            <img src="https://api.iconify.design/solar/round-arrow-right-up-bold.svg?color=%23f43f5e" className="w-4 h-4" alt="Expense" />
+                        </div>
+                        <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pengeluaran</p>
                     </div>
-                    <div className="relative z-10">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pengeluaran</p>
-                        <p className="text-base font-extrabold text-slate-800 leading-tight mt-0.5">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
+                    <div className="relative z-10 mt-1">
+                        <p className="text-lg font-black text-slate-800 leading-none truncate">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
                     </div>
                </div>
            </Link>
