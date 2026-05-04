@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { WifiOff, RefreshCw, Lock } from "lucide-react"; 
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser } from "./hooks/use-finance"; 
-import OneSignal from 'react-onesignal'; // 🚀 IMPORT BARU ONESIGNAL
+import OneSignal from 'react-onesignal'; 
 
 // =========================================================================
 // 🚀 KUNCI MEMORI AGAR ANGKA TIDAK BERKEDIP
@@ -143,13 +143,8 @@ function Router() {
           const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
           const TRIAL_DURATION_DAYS = 3;
 
-          const isNewAccount = (Date.now() - startTime) < 15000; 
-          const hasRedirected = sessionStorage.getItem("bilano_first_paywall_redirect");
-          
-          if (isNewAccount && !hasRedirected && location !== '/paywall') {
-              sessionStorage.setItem("bilano_first_paywall_redirect", "true");
-              setLocation("/paywall");
-          }
+          // 🚀 FIX: Kode tendangan paksa ke Paywall untuk user baru telah dihapus dari sini!
+          // Sekarang kita biarkan Home.tsx yang mengatur alurnya secara elegan.
 
           if (daysPassed >= TRIAL_DURATION_DAYS) {
               localStorage.setItem("bilano_trial_expired", "true");
@@ -278,20 +273,17 @@ function Router() {
 }
 
 function App() {
-  
-  // 🚀 INISIALISASI ONESIGNAL PWA
   useEffect(() => {
     const initOneSignal = async () => {
       try {
         await OneSignal.init({
-          appId: "b45b3256-b290-4a98-b5fa-afa0501a6b1c", // ⚠️ GANTI DENGAN APP ID ONESIGNAL BOS
+          appId: "MASUKKAN_APP_ID_ONESIGNAL_DISINI", 
           allowLocalhostAsSecureOrigin: true,
           notifyButton: {
-            enable: false, // Disembunyikan karena kita panggil tombolnya secara manual (custom)
+            enable: false, 
           },
         });
         
-        // Mendaftarkan Email User agar Bos bisa kirim pesan targeted dari Dashboard
         const email = localStorage.getItem("bilano_email");
         if (email) {
             OneSignal.login(email);

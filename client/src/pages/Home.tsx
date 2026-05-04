@@ -18,6 +18,7 @@ import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import OneSignal from 'react-onesignal'; 
 
 const FINANCIAL_TIPS = [
     "Bunga majemuk (Compound Interest) adalah keajaiban dunia kedelapan. - Albert Einstein",
@@ -27,7 +28,7 @@ const FINANCIAL_TIPS = [
     "Investasi terbaik yang bisa Anda lakukan adalah investasi pada diri Anda sendiri.",
     "Dana Darurat adalah payung Anda saat badai finansial turun tiba-tiba.",
     "Diversifikasi: Jangan pernah menaruh semua telurmu dalam satu keranjang.",
-    "Hutang konsum কথোপকথन merampok masa depanmu, hutang produktif membangun masa depanmu.",
+    "Hutang konsumtif merampok masa depanmu, hutang produktif membangun masa depanmu.",
     "Kekayaan sejati bukanlah seberapa banyak uang yang dihasilkan, tapi seberapa banyak yang disimpan.",
     "Waktu di pasar saham jauh lebih penting daripada sekadar menebak waktu pasar (Time in the market > Timing the market).",
     "Pemasukan yang besar tanpa manajemen yang baik hanya akan menghasilkan kebangkrutan yang tertunda.",
@@ -84,10 +85,10 @@ export default function Home() {
   const [showRetryButton, setShowRetryButton] = useState(false);
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
   
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
-          console.warn("⚠️ KTP Tertinggal! Sesi membaca akun Guest. Melakukan reload kilat...");
           window.location.reload();
       }
   }, [user, rawEmail]);
@@ -182,7 +183,6 @@ export default function Home() {
 
   const userEmail = rawEmail || "Pengguna";
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
-  const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
   const handleFomoClick = (title: string, desc: string) => {
       if (isUserPro) {
@@ -198,34 +198,6 @@ export default function Home() {
       const pageIndex = Math.round(scrollLeft / width);
       setActiveMenuPage(pageIndex);
   };
-
-  useEffect(() => {
-      if (!rawEmail) return;
-
-      (window as any).median_onesignal_info = async function(info: any) {
-          const playerId = info?.oneSignalUserId || info?.userId; 
-          if (playerId) {
-              try {
-                  await fetch("/api/user/onesignal", {
-                      method: "POST",
-                      headers: {
-                          "Content-Type": "application/json",
-                          "x-user-email": rawEmail
-                      },
-                      body: JSON.stringify({ onesignalId: playerId })
-                  });
-              } catch (e) {}
-          }
-      };
-
-      const timer = setTimeout(() => {
-          if (typeof window !== 'undefined' && (window as any).median) {
-              (window as any).median.onesignal.info({'callback': 'median_onesignal_info'});
-          }
-      }, 3000);
-
-      return () => clearTimeout(timer);
-  }, [rawEmail]);
 
   useEffect(() => {
       if (isUserPro && rawEmail) {
@@ -326,13 +298,30 @@ export default function Home() {
       }
   }, [isUserPro, user]);
 
+  // =========================================================================
+  // 🚀 KUNCI LOGIKA: Menahan render layar Home jika butuh diarahkan
+  // =========================================================================
+  const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
+  
+  const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
+  const isNewAccount = user && (Date.now() - startTimeAcc) < (15 * 60 * 1000); 
+  const hasRedirected = rawEmail ? localStorage.getItem(`bilano_welcomed_paywall_${rawEmail}`) === "true" : false;
+  
+  // Paywall Redirect HANYA dipicu JIKA target sudah TIDAK kosong
+  const needsPaywallRedirect = !isUserPro && isNewAccount && !hasRedirected && !isTargetEmpty;
+
   useEffect(() => {
-      if (!isUserLoading && !isTargetLoading) {
-          if (target !== undefined && target !== null && typeof target === 'object' && Object.keys(target).length === 0) {
+      if (!isUserLoading && !isTargetLoading && target !== undefined) {
+          if (isTargetEmpty) {
               setLocation("/target");
+          } else if (needsPaywallRedirect) {
+              localStorage.setItem(`bilano_welcomed_paywall_${rawEmail}`, "true");
+              setLocation("/paywall");
           }
       }
-  }, [target, isUserLoading, isTargetLoading, setLocation]);
+  }, [isTargetEmpty, needsPaywallRedirect, isUserLoading, isTargetLoading, setLocation, rawEmail]);
+
+  // =========================================================================
 
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
@@ -343,11 +332,7 @@ export default function Home() {
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
               await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {});
           }
-          
-          if (typeof window !== 'undefined' && (window as any).median) {
-              (window as any).median.onesignal.register();
-          }
-
+          try { await OneSignal.Slidedown.promptPush(); } catch(e) {}
       } catch (e) {
       } finally {
           localStorage.setItem("bilano_permissions_prompted", "true");
@@ -454,32 +439,10 @@ export default function Home() {
   const income = baseIncomeTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'income').reduce((acc, v) => acc + v.amount, 0);
   const expense = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'expense').reduce((acc, v) => acc + v.amount, 0);
   
-  if (isLocked) {
-      return (
-        <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center text-white">
-            <Lock className={`w-12 h-12 mb-4 ${pinError ? 'text-rose-500 animate-bounce' : 'text-indigo-500'}`} />
-            <h2 className="text-xl font-bold mb-2">BILANO Terkunci</h2>
-            <p className="text-sm text-slate-400 mb-8">{pinError ? "PIN Salah. Coba lagi." : "Masukkan PIN Keamanan"}</p>
-            <div className={`flex gap-4 mb-12 ${pinError ? 'animate-pulse' : ''}`}>
-                {[...Array(6)].map((_, i) => (
-                    <div key={i} className={`w-4 h-4 rounded-full transition-colors ${pinInput.length > i ? (pinError ? 'bg-rose-500' : 'bg-indigo-500') : 'bg-slate-700'}`} />
-                ))}
-            </div>
-            <div className="grid grid-cols-3 gap-6 max-w-xs mx-auto">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                    <button key={num} onClick={() => handlePinUnlock(num.toString())} className="w-16 h-16 rounded-full bg-slate-800 text-2xl font-bold hover:bg-slate-700 active:bg-slate-600 transition-colors">{num}</button>
-                ))}
-                <div />
-                <button onClick={() => handlePinUnlock('0')} className="w-16 h-16 rounded-full bg-slate-800 text-2xl font-bold hover:bg-slate-700 active:bg-slate-600 transition-colors">0</button>
-                <button onClick={() => setPinInput(p => p.slice(0, -1))} className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 active:bg-slate-600 transition-colors">
-                    <X className="w-8 h-8"/>
-                </button>
-            </div>
-        </div>
-      );
-  }
-
-  if (isAnyDataLoading || (!user && !isUserLoading)) {
+  // =========================================================================
+  // 🛡️ PENJAGA LAYAR: Render diblokir jika Butuh Redirect atau Masih Loading
+  // =========================================================================
+  if (isAnyDataLoading || (!user && !isUserLoading) || isTargetEmpty || needsPaywallRedirect) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 relative">
               <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
@@ -505,6 +468,31 @@ export default function Home() {
                   </div>
               )}
           </div>
+      );
+  }
+
+  if (isLocked) {
+      return (
+        <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center text-white">
+            <Lock className={`w-12 h-12 mb-4 ${pinError ? 'text-rose-500 animate-bounce' : 'text-indigo-500'}`} />
+            <h2 className="text-xl font-bold mb-2">BILANO Terkunci</h2>
+            <p className="text-sm text-slate-400 mb-8">{pinError ? "PIN Salah. Coba lagi." : "Masukkan PIN Keamanan"}</p>
+            <div className={`flex gap-4 mb-12 ${pinError ? 'animate-pulse' : ''}`}>
+                {[...Array(6)].map((_, i) => (
+                    <div key={i} className={`w-4 h-4 rounded-full transition-colors ${pinInput.length > i ? (pinError ? 'bg-rose-500' : 'bg-indigo-500') : 'bg-slate-700'}`} />
+                ))}
+            </div>
+            <div className="grid grid-cols-3 gap-6 max-w-xs mx-auto">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                    <button key={num} onClick={() => handlePinUnlock(num.toString())} className="w-16 h-16 rounded-full bg-slate-800 text-2xl font-bold hover:bg-slate-700 active:bg-slate-600 transition-colors">{num}</button>
+                ))}
+                <div />
+                <button onClick={() => handlePinUnlock('0')} className="w-16 h-16 rounded-full bg-slate-800 text-2xl font-bold hover:bg-slate-700 active:bg-slate-600 transition-colors">0</button>
+                <button onClick={() => setPinInput(p => p.slice(0, -1))} className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 active:bg-slate-600 transition-colors">
+                    <X className="w-8 h-8"/>
+                </button>
+            </div>
+        </div>
       );
   }
 
@@ -837,7 +825,6 @@ export default function Home() {
            <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
         </div>
 
-        {/* 🚀 PERBAIKAN: Layout Menjadi Persegi Panjang Elegan */}
         <div className="grid grid-cols-2 gap-3 px-1">
            <Link href="/income">
                <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
