@@ -130,7 +130,7 @@ export default function Reports() {
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY);
 
-      const pointGap = chartWidth / 11; 
+      const pointGap = chartWidth / Math.max(1, chartData.length - 1); 
       doc.setDrawColor(lineColor[0], lineColor[1], lineColor[2]);
       doc.setFillColor(lineColor[0], lineColor[1], lineColor[2]); doc.setLineWidth(0.8);
 
@@ -169,7 +169,7 @@ export default function Reports() {
       let range = maxVal - minVal; if (range === 0) range = 1;
 
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
-      const pointGap = chartWidth / 11; 
+      const pointGap = chartWidth / Math.max(1, chartData.length - 1); 
 
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); 
       doc.line(startX, zeroY, startX + chartWidth, zeroY);
@@ -213,7 +213,7 @@ export default function Reports() {
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY); 
 
-      const barGap = 3; const barWidth = (chartWidth / 12) - barGap;
+      const barGap = 3; const barWidth = (chartWidth / Math.max(1, chartData.length)) - barGap;
 
       chartData.forEach((item, i) => {
           const x = startX + (i * (barWidth + barGap)) + barGap / 2;
@@ -236,7 +236,6 @@ export default function Reports() {
 
   const generatePDF = async (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
     
-    // 🚀 KUNCI PERBAIKAN: Langsung tolak kalau bukan PRO! 
     if (!userProfile?.isPro) {
         toast({ title: "Fitur Premium 👑", description: "Cetak laporan PDF eksklusif untuk pengguna BILANO PRO. Silakan upgrade!", variant: "destructive" });
         setTimeout(() => {
@@ -333,54 +332,64 @@ export default function Reports() {
             : new Date(safeTargetYear, nowForReport.getMonth(), 1, 0, 0, 0);
 
         let archiveCash = user.cashBalance;
-        let archiveInvest = totalInvest;
-        let archiveForex = totalForexIDR;
-        let archivePiutang = totalPiutang;
-        let archiveDebt = totalDebt;
+        let archiveInvest = 0;
+        let archiveForex = 0;
+        let archivePiutang = 0;
+        let archiveDebt = 0;
 
         if (reportDateEnd < now) {
             allTxs.forEach((t:any) => {
                 const tDate = new Date(t.date);
                 if (tDate > reportDateEnd) {
-                    
-                    if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
-                        archiveCash -= t.amount; 
-                    } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
-                        archiveCash += t.amount;
+                    const amt = t.amount;
+                    const isValas = t.category?.includes('Valas');
+                    if (!isValas) {
+                        if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) archiveCash -= amt; 
+                        else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) archiveCash += amt;
                     }
-
-                    if (t.type === 'invest_buy') archiveInvest -= t.amount;
-                    if (t.type === 'invest_sell') {
-                        let buyVal = t.amount;
-                        if (t.description?.includes('P/L:')) {
-                            const plString = t.description.split('P/L:')[1];
-                            if (plString) {
-                                const plValue = parseInt(plString.replace(/[^0-9-]/g, ''), 10);
-                                if (!isNaN(plValue)) buyVal -= plValue;
-                            }
-                        }
-                        archiveInvest += buyVal;
-                    }
-
-                    if (t.type === 'forex_buy') archiveForex -= t.amount;
-                    if (t.type === 'forex_sell') archiveForex += t.amount;
-
-                    let rawDebtAmount = t.amount;
-                    if (t.type.startsWith('debt_') && t.description?.includes('|')) {
-                        const curr = t.description.split('|')[1].trim().substring(0,3);
-                        rawDebtAmount = t.amount * getRate(curr);
-                    }
-
-                    if (t.type === 'debt_lend') archivePiutang -= rawDebtAmount; 
-                    if (t.type === 'debt_receive') archivePiutang += rawDebtAmount; 
-
-                    if (t.type === 'debt_borrow') archiveDebt -= rawDebtAmount;
-                    if (t.type === 'debt_pay') archiveDebt += rawDebtAmount;
+                    if (t.type === 'invest_buy' || t.type === 'forex_buy') archiveCash += amt;
+                    if (t.type === 'invest_sell' || t.type === 'forex_sell') archiveCash -= amt;
                 }
             });
+
+            allTxs.forEach((t:any) => {
+                const tDate = new Date(t.date);
+                if (tDate <= reportDateEnd) {
+                    const amt = t.amount;
+                    if (t.type === 'invest_buy') archiveInvest += amt;
+                    if (t.type === 'invest_sell') {
+                        let buyVal = amt;
+                        if (t.description?.includes('P/L:')) {
+                            const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''), 10);
+                            if (!isNaN(pl)) buyVal -= pl;
+                        }
+                        archiveInvest -= buyVal;
+                    }
+                    if (t.type === 'forex_buy') archiveForex += amt;
+                    if (t.type === 'forex_sell') archiveForex -= amt;
+                    
+                    if (t.type === 'debt_lend') archivePiutang += amt;
+                    if (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang') archivePiutang -= amt;
+
+                    if (t.type === 'debt_borrow') archiveDebt += amt;
+                    if (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang') archiveDebt -= amt;
+                }
+            });
+            
+            if (archiveInvest < 0) archiveInvest = 0;
+            if (archiveForex < 0) archiveForex = 0;
+            if (archivePiutang < 0) archivePiutang = 0;
+            if (archiveDebt < 0) archiveDebt = 0;
+
+        } else {
+            archiveInvest = totalInvest;
+            archiveForex = totalForexIDR;
+            archivePiutang = totalPiutang;
+            archiveDebt = totalDebt;
         }
 
         const archiveNetWorth = archiveCash + archiveInvest + archiveForex + archivePiutang - archiveDebt;
+
         const periodName = isYearly ? `Tahun ${safeTargetYear}` : `Bulan ${nowForReport.toLocaleDateString('id-ID', { month: 'long' })} ${safeTargetYear}`;
 
         const isTargetInPeriod = (d: Date) => {
@@ -391,16 +400,17 @@ export default function Reports() {
             }
         };
 
-        const pureTransactions = allTxs.filter((t:any) => 
-            ((t.type === 'income' || t.type === 'expense') && 
-             !['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category)) 
-            || (t.type === 'debt_receive' && t.description?.includes('[Pemasukan Cair]'))
-        );
+        // 🚀 MENGGABUNGKAN SEMUA ARUS KAS (MASUK TERMASUK PIUTANG, KELUAR TERMASUK HUTANG)
+        const pureTransactions = allTxs.filter((t:any) => {
+            const isExcludedCat = ['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category);
+            if (isExcludedCat) return false;
+            return ['income', 'expense', 'debt_receive', 'debt_pay', 'debt_borrow', 'debt_lend'].includes(t.type);
+        });
 
         const currentPeriodTx = pureTransactions.filter((t:any) => isTargetInPeriod(new Date(t.date)));
 
-        const totalIncome = currentPeriodTx.filter((t:any) => t.type === 'income' || t.type === 'debt_receive').reduce((acc:number, t:any) => acc + t.amount, 0);
-        const totalExpense = currentPeriodTx.filter((t:any) => t.type === 'expense' && t.category !== 'Amal').reduce((acc:number, t:any) => acc + t.amount, 0);
+        const totalIncome = currentPeriodTx.filter((t:any) => ['income', 'debt_receive', 'debt_borrow'].includes(t.type)).reduce((acc:number, t:any) => acc + t.amount, 0);
+        const totalExpense = currentPeriodTx.filter((t:any) => ['expense', 'debt_pay', 'debt_lend'].includes(t.type) && t.category !== 'Amal').reduce((acc:number, t:any) => acc + t.amount, 0);
 
         const investTransactions = allTxs.filter((t:any) => 
             (t.type === 'invest_buy' || t.type === 'invest_sell') && 
@@ -487,7 +497,7 @@ export default function Reports() {
         });
         currentY = (doc as any).lastAutoTable.finalY + 15;
 
-        if (forexRows.length > 0) {
+        if (forexRows.length > 0 && reportDateEnd >= now) {
             checkPageBreak(40);
             doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold");
             doc.text("Detail Kepemilikan Valas (Berdasarkan Kurs Live)", 14, currentY);
@@ -643,9 +653,10 @@ export default function Reports() {
         doc.setFont("helvetica", "bold");
         doc.text(`Riwayat Transaksi Arus Kas Murni (${periodName})`, 14, currentY);
 
+        // 🚀 PENAMPILAN TABEL ARUS KAS MURNI DIPERBARUI
         const txRows = currentPeriodTx.filter((t:any) => t.category !== 'Amal').map((t: any) => [
           new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
-          (t.type === 'income' || t.type === 'debt_receive') ? 'Masuk' : 'Keluar',
+          (['income', 'debt_receive', 'debt_borrow'].includes(t.type)) ? 'Masuk' : 'Keluar',
           t.category,
           t.description || "-",
           formatRp(t.amount)
@@ -704,94 +715,89 @@ export default function Reports() {
             graphY += 35;
         }
 
-        let firstTxDate = new Date();
-        if (allTxs && allTxs.length > 0) {
-            const minTime = Math.min(...allTxs.map((t:any) => new Date(t.date).getTime()));
-            firstTxDate = new Date(minTime);
-        }
+        let iterDate = isYearly ? new Date(safeTargetYear, 11, 1) : new Date(nowForReport.getFullYear(), nowForReport.getMonth(), 1);
         
-        const nowGraph = isYearly ? new Date(safeTargetYear, 11, 1) : new Date(nowForReport.getFullYear(), nowForReport.getMonth(), 1);
-        const totalMonthsUsed = (nowGraph.getFullYear() - firstTxDate.getFullYear()) * 12 + nowGraph.getMonth() - firstTxDate.getMonth() + 1;
-
-        let chartStartMonth: Date;
-        if (isYearly) {
-            chartStartMonth = new Date(safeTargetYear, 0, 1);
-        } else if (totalMonthsUsed > 12) {
-            chartStartMonth = new Date(nowGraph.getFullYear(), nowGraph.getMonth() - 11, 1);
-        } else {
-            chartStartMonth = new Date(firstTxDate.getFullYear(), firstTxDate.getMonth(), 1);
-        }
-
+        const chartStartMonth = new Date(iterDate.getFullYear(), iterDate.getMonth() - 11, 1);
         const paddedData = [];
-        let runningCash = archiveCash;
-        let runningAsset = archiveNetWorth; 
-        let iterDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1); 
-        
+
         while (iterDate >= chartStartMonth) {
-            const mIdx = iterDate.getMonth();
-            const yIdx = iterDate.getFullYear();
-            const label = iterDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
-
-            let inCash = 0; let outCash = 0;
-            let pureIn = 0; let pureOut = 0; 
-            let netWorthChange = 0;
+            const endOfMonth = new Date(iterDate.getFullYear(), iterDate.getMonth() + 1, 0, 23, 59, 59);
             
+            let snapCash = user.cashBalance;
+            let snapInvest = 0; let snapForex = 0; let snapPiutang = 0; let snapDebt = 0;
+            let pureIn = 0; let pureOut = 0;
+
+            if (endOfMonth < now) {
+                allTxs.forEach((t:any) => {
+                    const tDate = new Date(t.date);
+                    if (tDate > endOfMonth) {
+                        const amt = t.amount;
+                        const isValas = t.category?.includes('Valas');
+                        if (!isValas) {
+                            if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) snapCash -= amt; 
+                            else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) snapCash += amt;
+                        }
+                        if (t.type === 'invest_buy' || t.type === 'forex_buy') snapCash += amt;
+                        if (t.type === 'invest_sell' || t.type === 'forex_sell') snapCash -= amt;
+                    }
+                });
+            }
+
             allTxs.forEach((t:any) => {
-                const d = new Date(t.date);
-                if(d.getMonth() === mIdx && d.getFullYear() === yIdx && d <= reportDateEnd) {
+                const tDate = new Date(t.date);
+                if (tDate <= endOfMonth) {
+                    const amt = t.amount;
+                    if (t.type === 'invest_buy') snapInvest += amt;
+                    if (t.type === 'invest_sell') {
+                        let buyVal = amt;
+                        if (t.description?.includes('P/L:')) {
+                            const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''), 10);
+                            if (!isNaN(pl)) buyVal -= pl;
+                        }
+                        snapInvest -= buyVal;
+                    }
+                    if (t.type === 'forex_buy') snapForex += amt;
+                    if (t.type === 'forex_sell') snapForex -= amt;
                     
-                    if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
-                        inCash += t.amount;
-                    } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
-                        outCash += t.amount;
-                    }
+                    if (t.type === 'debt_lend') snapPiutang += amt;
+                    if (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang') snapPiutang -= amt;
 
-                    if (t.type === 'income' && !t.description?.includes('Penyesuaian Valas')) {
-                        netWorthChange += t.amount;
-                    } else if (t.type === 'expense' && !t.description?.includes('Penyesuaian Valas')) {
-                        netWorthChange -= t.amount;
-                    } else if (t.type === 'invest_sell' && t.description?.includes('P/L:')) {
-                        const plString = t.description.split('P/L:')[1].replace(/[^0-9-]/g, '');
-                        const pl = parseInt(plString, 10);
-                        if (!isNaN(pl)) netWorthChange += pl;
-                    } else if (t.category === 'Pemutihan Hutang') {
-                        netWorthChange += t.amount;
-                    } else if (t.category === 'Penghapusan Piutang') {
-                        netWorthChange -= t.amount;
-                    }
+                    if (t.type === 'debt_borrow') snapDebt += amt;
+                    if (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang') snapDebt -= amt;
+                }
 
-                    if ((t.type === 'income' || t.type === 'expense') && 
-                        !['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category)) {
-                        if (t.type === 'income') pureIn += t.amount;
-                        if (t.type === 'expense') pureOut += t.amount;
-                    } else if (t.type === 'debt_receive' && t.description?.includes('[Pemasukan Cair]')) {
-                        pureIn += t.amount;
+                // 🚀 PENGHITUNGAN GRAFIK ARUS KAS MURNI DIPERBARUI
+                if (tDate.getMonth() === iterDate.getMonth() && tDate.getFullYear() === iterDate.getFullYear()) {
+                    const isExcludedCat = ['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category);
+                    
+                    if (!isExcludedCat) {
+                        if (['income', 'debt_receive', 'debt_borrow'].includes(t.type)) {
+                            pureIn += t.amount;
+                        } else if (['expense', 'debt_pay', 'debt_lend'].includes(t.type)) {
+                            pureOut += t.amount;
+                        }
                     }
                 }
             });
-            
-            const pureNetFlow = pureIn - pureOut; 
-            
-            if (iterDate <= nowGraph) {
-                paddedData.unshift({ 
-                    label, 
-                    netFlow: pureNetFlow, 
-                    cash: Math.max(0, runningCash), 
-                    asset: Math.max(0, runningAsset) 
-                });
-            }
-            
-            runningCash -= (inCash - outCash);
-            runningAsset -= netWorthChange; 
-            
-            iterDate.setMonth(iterDate.getMonth() - 1);
-        }
 
-        let futureDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1);
-        while (paddedData.length < 12) {
-            futureDate.setMonth(futureDate.getMonth() + 1);
-            const label = futureDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
-            paddedData.push({ label, netFlow: 0, cash: 0, asset: 0 }); 
+            if (snapInvest < 0) snapInvest = 0; if (snapForex < 0) snapForex = 0;
+            if (snapPiutang < 0) snapPiutang = 0; if (snapDebt < 0) snapDebt = 0;
+
+            let snapNetWorth = snapCash + snapInvest + snapForex + snapPiutang - snapDebt;
+
+            if (endOfMonth >= now) {
+                snapNetWorth = user.cashBalance + totalInvest + totalForexIDR + totalPiutang - totalDebt;
+            }
+
+            const label = iterDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
+            paddedData.unshift({ 
+                label, 
+                netFlow: pureIn - pureOut, 
+                cash: Math.max(0, snapCash), 
+                asset: Math.max(0, snapNetWorth) 
+            });
+
+            iterDate.setMonth(iterDate.getMonth() - 1);
         }
 
         const chartAsset = paddedData.map(d => {
@@ -807,10 +813,7 @@ export default function Reports() {
             let override = localStorage.getItem(`override_cash_${cleanLabel}`);
             
             const isAdrienAccount = pdfUserEmail === 'adrienfandra14@gmail.com' || pdfUserEmail === 'adrienahza@gmail.com' || pdfUserEmail === 'bilanotech@gmail.com';
-            
-            if (isAdrienAccount && (cleanLabel === 'Mar26' || cleanLabel === 'Mar2026')) {
-                override = '15100000'; 
-            }
+            if (isAdrienAccount && (cleanLabel === 'Mar26' || cleanLabel === 'Mar2026')) override = '15100000'; 
             
             return { label: d.label, value: override ? parseFloat(override) : d.cash };
         });
