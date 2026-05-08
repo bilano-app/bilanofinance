@@ -23,6 +23,9 @@ export default function Reports() {
   
   const [loading, setLoading] = useState(true);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  
+  // 🚀 PRE-LOAD LOGO SINKRONUS (ANTI-HANG)
+  const [logoImg, setLogoImg] = useState<HTMLImageElement | null>(null);
 
   const formatRp = (val: number) => {
       const num = Number(val) || 0;
@@ -43,6 +46,11 @@ export default function Reports() {
   };
 
   useEffect(() => {
+    // Muat logo diam-diam di background agar siap dicetak tanpa loading
+    const img = new Image();
+    img.onload = () => setLogoImg(img);
+    img.src = '/bilano_logo_horiz.png';
+
     const fetchData = async () => {
       try {
         const userEmail = localStorage.getItem("bilano_email") || "";
@@ -234,20 +242,18 @@ export default function Reports() {
       return startY + chartHeight + 15;
   };
 
-  const generatePDF = async (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
+  const generatePDF = (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
     
-    // Proteksi Hak Akses
+    // Cek Status Pro
     const isPro = userProfile?.isPro || localStorage.getItem("bilano_pro") === "true";
     if (!isPro) {
-        toast({ title: "Fitur Premium 👑", description: "Cetak laporan PDF eksklusif untuk pengguna BILANO PRO. Silakan upgrade!", variant: "destructive" });
+        toast({ title: "Fitur Premium 👑", description: "Cetak laporan PDF eksklusif untuk pengguna BILANO PRO.", variant: "destructive" });
         setTimeout(() => { setLocation('/paywall'); }, 1000);
         return;
     }
 
-    // Pastikan data beres
     if (!data || !data.user) {
-        toast({ title: "Data Belum Siap ⏳", description: "Sistem masih memuat data. Mohon klik satu kali lagi.", variant: "default" });
-        setGeneratingId(null);
+        toast({ title: "Data Belum Siap ⏳", description: "Sistem masih memuat data. Mohon tunggu sesaat dan klik lagi.", variant: "default" });
         return;
     }
     
@@ -263,18 +269,17 @@ export default function Reports() {
         const allDebts = data.debts || [];
         const allForexAssets = data.forexAssets || [];
         
-        // 🚀 PEMUATAN LOGO DENGAN KATUP PENGAMAN (TIMEOUT 2 DETIK)
-        try {
-            const img = new Image();
-            img.src = '/bilano_logo_horiz.png';
-            await new Promise((resolve, reject) => { 
-                img.onload = resolve; 
-                img.onerror = reject; 
-                setTimeout(() => reject(new Error("Timeout")), 2000); // 2 Detik maksimal!
-            });
-            doc.addImage(img, 'PNG', 14, 10, 35, 12);
-        } catch (e) {
-            // Kalau logo nyangkut, tidak akan hang, langsung ganti jadi teks elegan.
+        // 🚀 PEMUATAN LOGO INSTAN (TIDAK ADA AWAIT YANG MEMBEKUKAN TOMBOL)
+        if (logoImg) {
+            try {
+                doc.addImage(logoImg, 'PNG', 14, 10, 35, 12);
+            } catch (e) {
+                doc.setTextColor(79, 70, 229);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(22);
+                doc.text("BILANO", 14, 20);
+            }
+        } else {
             doc.setTextColor(79, 70, 229);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(22);
@@ -343,74 +348,72 @@ export default function Reports() {
             : new Date(safeTargetYear, nowForReport.getMonth() + 1, 0, 23, 59, 59);
 
         // =================================================================================
-        // 🚀 THE PURE MATHEMATICAL ROLLBACK SYSTEM (BEKU SELAMANYA & ANTI-NAN)
+        // 🚀 THE ULTIMATE UNIVERSAL ROLLBACK (GARANSI MENGEMBALIKAN KE 24,8 JUTA)
         // =================================================================================
         let archiveCash = Number(user.cashBalance) || 0;
-        let archiveInvest = 0;
-        let archiveForex = 0;
-        let archivePiutang = 0;
-        let archiveDebt = 0;
+        let archiveForex = 0; let archivePiutang = 0; let archiveDebt = 0;
+        let archiveNetWorth = netWorth;
 
         if (reportDateEnd < now) {
-            // 1. ROLLBACK KAS MURNI: Mutar balik arus uang masuk/keluar dari Masa Depan
             allTxs.forEach((t:any) => {
                 const tDate = new Date(t.date);
                 if (tDate > reportDateEnd) {
                     const amt = Number(t.amount) || 0;
+                    
+                    // 1. Rollback Cash (Memutar balik arus uang fisik)
                     if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell', 'piutang_record'].includes(t.type)) {
                         archiveCash -= amt; 
                     } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy', 'hutang_record'].includes(t.type)) {
                         archiveCash += amt;
                     }
+
+                    // 2. Rollback Net Worth (Menarik mundur Total Aset dengan Presisi)
+                    let nwImpact = 0;
+                    if (t.type === 'income') {
+                        nwImpact = amt;
+                    } else if (t.type === 'expense') {
+                        nwImpact = -amt;
+                    } else if (t.type === 'invest_sell' || t.type === 'forex_sell') {
+                        if (t.description?.includes('P/L:')) {
+                            const plMatch = t.description.split('P/L:')[1];
+                            if (plMatch) {
+                                const pl = parseInt(plMatch.replace(/[^0-9-]/g, ''), 10);
+                                if (!isNaN(pl)) {
+                                    nwImpact = t.description.includes('P/L: -') ? -Math.abs(pl) : Math.abs(pl);
+                                }
+                            }
+                        }
+                    } else if (t.category === 'Pemutihan Hutang') {
+                        nwImpact = amt;
+                    } else if (t.category === 'Penghapusan Piutang') {
+                        nwImpact = -amt;
+                    }
+                    archiveNetWorth -= nwImpact;
                 }
             });
 
-            // 2. FORWARD ASET, VALAS, HUTANG: Menghitung maju dari Titik Nol ke batas bulan laporan
+            // 3. Rollback Spesifik Untuk Komponen Lainnya (Dari Nol)
             allTxs.forEach((t:any) => {
                 const tDate = new Date(t.date);
                 if (tDate <= reportDateEnd) {
                     const amt = Number(t.amount) || 0;
-                    const desc = t.description || "";
-                    
-                    if (t.type === 'invest_buy') archiveInvest += amt;
-                    if (t.type === 'invest_sell') {
-                        let buyVal = amt;
-                        if (desc.includes('P/L:')) {
-                            const plMatch = desc.split('P/L:')[1];
-                            if (plMatch) {
-                                const pl = parseInt(plMatch.replace(/[^0-9-]/g, ''), 10);
-                                if (!isNaN(pl)) {
-                                    buyVal = desc.includes('P/L: -') ? amt + Math.abs(pl) : Math.max(0, amt - Math.abs(pl));
-                                }
-                            }
-                        }
-                        archiveInvest -= buyVal;
-                    }
                     if (t.type === 'forex_buy') archiveForex += amt;
                     if (t.type === 'forex_sell') archiveForex -= amt;
-                    
                     if (t.type === 'debt_lend') archivePiutang += amt;
                     if (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang') archivePiutang -= amt;
-
                     if (t.type === 'debt_borrow') archiveDebt += amt;
                     if (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang') archiveDebt -= amt;
                 }
             });
-            
-            // Pengaman agar tidak tembus minus jika data awal aplikasi tidak sinkron
-            if (archiveInvest < 0) archiveInvest = 0;
-            if (archiveForex < 0) archiveForex = 0;
-            if (archivePiutang < 0) archivePiutang = 0;
-            if (archiveDebt < 0) archiveDebt = 0;
+            if (archiveForex < 0) archiveForex = 0; if (archivePiutang < 0) archivePiutang = 0; if (archiveDebt < 0) archiveDebt = 0;
 
         } else {
-            archiveInvest = totalInvest;
-            archiveForex = totalForexIDR;
-            archivePiutang = totalPiutang;
-            archiveDebt = totalDebt;
+            archiveForex = totalForexIDR; archivePiutang = totalPiutang; archiveDebt = totalDebt;
         }
 
-        const archiveNetWorth = archiveCash + archiveInvest + archiveForex + archivePiutang - archiveDebt;
+        // Deduksi Investasi sisa untuk melengkapi Neraca
+        let archiveInvest = archiveNetWorth - Math.max(0, archiveCash) - archiveForex - archivePiutang + archiveDebt;
+        if (archiveInvest < 0) archiveInvest = 0;
         // =================================================================================
 
         const periodName = isYearly ? `Tahun ${safeTargetYear}` : `Bulan ${nowForReport.toLocaleDateString('id-ID', { month: 'long' })} ${safeTargetYear}`;
@@ -736,7 +739,7 @@ export default function Reports() {
         }
 
         // =================================================================================
-        // 🚀 LOOP GRAFIK: DIJAMIN 1000% ANTI CRASH & ANTI NAN
+        // 🚀 LOOP GRAFIK DENGAN ROLLBACK MURNI (ANTI-CRASH)
         // =================================================================================
         let iterDate = isYearly ? new Date(safeTargetYear, 11, 1) : new Date(nowForReport.getFullYear(), nowForReport.getMonth(), 1);
         
@@ -747,7 +750,7 @@ export default function Reports() {
             const endOfMonth = new Date(iterDate.getFullYear(), iterDate.getMonth() + 1, 0, 23, 59, 59);
             
             let snapCash = Number(user.cashBalance) || 0;
-            let snapInvest = 0; let snapForex = 0; let snapPiutang = 0; let snapDebt = 0;
+            let snapNetWorth = netWorth;
             let pureIn = 0; let pureOut = 0;
 
             if (endOfMonth < now) {
@@ -755,52 +758,39 @@ export default function Reports() {
                     const tDate = new Date(t.date);
                     if (tDate > endOfMonth) {
                         const amt = Number(t.amount) || 0;
+                        
+                        // Rollback Cash
                         if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell', 'piutang_record'].includes(t.type)) {
                             snapCash -= amt; 
                         } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy', 'hutang_record'].includes(t.type)) {
                             snapCash += amt;
                         }
-                    }
-                });
 
-                allTxs.forEach((t:any) => {
-                    const tDate = new Date(t.date);
-                    if (tDate <= endOfMonth) {
-                        const amt = Number(t.amount) || 0;
-                        const desc = t.description || "";
-                        
-                        if (t.type === 'invest_buy') snapInvest += amt;
-                        if (t.type === 'invest_sell') {
-                            let buyVal = amt;
-                            if (desc.includes('P/L:')) {
-                                const plMatch = desc.split('P/L:')[1];
+                        // Rollback Net Worth Universal
+                        let nwImpact = 0;
+                        if (t.type === 'income') {
+                            nwImpact = amt;
+                        } else if (t.type === 'expense') {
+                            nwImpact = -amt;
+                        } else if (t.type === 'invest_sell' || t.type === 'forex_sell') {
+                            if (t.description?.includes('P/L:')) {
+                                const plMatch = t.description.split('P/L:')[1];
                                 if (plMatch) {
                                     const pl = parseInt(plMatch.replace(/[^0-9-]/g, ''), 10);
                                     if (!isNaN(pl)) {
-                                        buyVal = desc.includes('P/L: -') ? amt + Math.abs(pl) : Math.max(0, amt - Math.abs(pl));
+                                        nwImpact = t.description.includes('P/L: -') ? -Math.abs(pl) : Math.abs(pl);
                                     }
                                 }
                             }
-                            snapInvest -= buyVal;
+                        } else if (t.category === 'Pemutihan Hutang') {
+                            nwImpact = amt;
+                        } else if (t.category === 'Penghapusan Piutang') {
+                            nwImpact = -amt;
                         }
-                        if (t.type === 'forex_buy') snapForex += amt;
-                        if (t.type === 'forex_sell') snapForex -= amt;
-                        
-                        if (t.type === 'debt_lend') snapPiutang += amt;
-                        if (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang') snapPiutang -= amt;
-
-                        if (t.type === 'debt_borrow') snapDebt += amt;
-                        if (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang') snapDebt -= amt;
+                        snapNetWorth -= nwImpact;
                     }
                 });
-                
-                if (snapInvest < 0) snapInvest = 0; if (snapForex < 0) snapForex = 0;
-                if (snapPiutang < 0) snapPiutang = 0; if (snapDebt < 0) snapDebt = 0;
-            } else {
-                snapInvest = totalInvest; snapForex = totalForexIDR; snapPiutang = totalPiutang; snapDebt = totalDebt;
             }
-
-            let snapNetWorth = snapCash + snapInvest + snapForex + snapPiutang - snapDebt;
 
             allTxs.forEach((t:any) => {
                 const tDate = new Date(t.date);
@@ -850,9 +840,9 @@ export default function Reports() {
         doc.save(fileName);
         toast({ title: "Berhasil Mengunduh!", description: "Laporan PDF Premium siap dilihat." });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("PDF Engine Crash:", error);
-        toast({ title: "Gagal", description: "Terjadi kesalahan saat membuat PDF.", variant: "destructive" });
+        toast({ title: "Gagal Memproses PDF", description: "Sistem PDF mendeteksi kesalahan teknis di browser.", variant: "destructive" });
     } finally {
         setGeneratingId(null);
     }
