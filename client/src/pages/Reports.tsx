@@ -236,15 +236,21 @@ export default function Reports() {
 
   const generatePDF = async (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
     
-    if (!userProfile?.isPro) {
+    // 🚀 ANTI-GHOST BLOCKING: Cek status PRO dari User Data ATAU Local Storage
+    const isPro = userProfile?.isPro || localStorage.getItem("bilano_pro") === "true";
+    
+    if (!isPro) {
         toast({ title: "Fitur Premium 👑", description: "Cetak laporan PDF eksklusif untuk pengguna BILANO PRO. Silakan upgrade!", variant: "destructive" });
-        setTimeout(() => {
-            setLocation('/paywall');
-        }, 1000);
+        setTimeout(() => { setLocation('/paywall'); }, 1000);
         return;
     }
 
-    if (!data) return;
+    // 🚀 PELINDUNG DATA NULL: Memastikan mesin PDF tidak jalan kalau data server belum tuntas
+    if (!data || !data.user) {
+        toast({ title: "Data Sedang Disiapkan ⏳", description: "Sinkronisasi server belum selesai, coba klik tombolnya sekali lagi.", variant: "default" });
+        setGeneratingId(null);
+        return;
+    }
     
     const processId = targetMonth !== undefined ? `archive_${targetMonth}_${targetYear}_${isYearly}` : 'current';
     setGeneratingId(processId);
@@ -252,7 +258,12 @@ export default function Reports() {
     try {
         const doc = new jsPDF('p', 'mm', 'a4');
         const user = data.user;
+        
+        // Proteksi semua Array agar tidak Undefined
         const allTxs = data.transactions || [];
+        const allInvestments = data.investments || [];
+        const allDebts = data.debts || [];
+        const allForexAssets = data.forexAssets || [];
         
         try {
             const img = new Image();
@@ -270,7 +281,7 @@ export default function Reports() {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}`, 196, 14, { align: 'right' });
-        doc.text(`Dicetak Oleh: ${user.firstName} ${user.lastName || ''}`, 196, 19, { align: 'right' });
+        doc.text(`Dicetak Oleh: ${user.firstName || 'Pengguna'} ${user.lastName || ''}`, 196, 19, { align: 'right' });
 
         doc.setDrawColor(226, 232, 240);
         doc.setLineWidth(0.5);
@@ -284,37 +295,37 @@ export default function Reports() {
         doc.setFontSize(14);
         doc.text(isYearly ? "ANNUAL WEALTH MANAGEMENT REPORT" : "WEALTH MANAGEMENT REPORT", 20, 41);
 
-        const totalInvest = data.investments.reduce((acc: number, inv: any) => {
+        const totalInvest = allInvestments.reduce((acc: number, inv: any) => {
             const [sym, curr] = (inv.symbol || "").split('|');
             const rate = getRate(curr); 
             const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
             const m = (isSaham && (!curr || curr === 'IDR')) ? 100 : 1;
-            return acc + (inv.quantity * inv.avgPrice * m * rate);
+            return acc + ((Number(inv.quantity) || 0) * (Number(inv.avgPrice) || 0) * m * rate);
         }, 0);
         
-        const totalDebt = data.debts.filter((d:any) => d.type === 'hutang' && !d.isPaid).reduce((acc: number, d: any) => {
+        const totalDebt = allDebts.filter((d:any) => d.type === 'hutang' && !d.isPaid).reduce((acc: number, d: any) => {
             const [, curr] = (d.name || "").split('|');
             const rate = getRate(curr); 
-            return acc + (d.amount * rate);
+            return acc + ((Number(d.amount) || 0) * rate);
         }, 0);
         
-        const totalPiutang = data.debts.filter((d:any) => d.type === 'piutang' && !d.isPaid).reduce((acc: number, d: any) => {
+        const totalPiutang = allDebts.filter((d:any) => d.type === 'piutang' && !d.isPaid).reduce((acc: number, d: any) => {
             const [, curr] = (d.name || "").split('|');
             const rate = getRate(curr); 
-            return acc + (d.amount * rate);
+            return acc + ((Number(d.amount) || 0) * rate);
         }, 0);
         
         let totalForexIDR = 0;
-        const forexRows = data.forexAssets
-            .filter((f: any) => f.amount > 0) 
+        const forexRows = allForexAssets
+            .filter((f: any) => (Number(f.amount) || 0) > 0) 
             .map((f: any) => {
             const rate = getRate(f.currency); 
-            const idrVal = f.amount * rate;
+            const idrVal = (Number(f.amount) || 0) * rate;
             totalForexIDR += idrVal;
-            return [f.currency, f.amount.toLocaleString(), formatRp(rate), formatRp(idrVal)];
+            return [f.currency, (Number(f.amount) || 0).toLocaleString(), formatRp(rate), formatRp(idrVal)];
         });
 
-        const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
+        const totalAsset = Number(user.cashBalance || 0) + totalInvest + totalForexIDR + totalPiutang;
         const netWorth = totalAsset - totalDebt;
 
         const now = new Date();
@@ -328,7 +339,7 @@ export default function Reports() {
             : new Date(safeTargetYear, nowForReport.getMonth() + 1, 0, 23, 59, 59);
 
         // =================================================================================
-        // 🚀 THE ULTIMATE FREEZE SYSTEM (MURNI & ANTI CRASH PDF)
+        // 🚀 THE PURE MATHEMATICAL ROLLBACK SYSTEM (BEKU SELAMANYA & ANTI-NAN)
         // =================================================================================
         let archiveCash = Number(user.cashBalance) || 0;
         let archiveInvest = 0;
@@ -337,7 +348,7 @@ export default function Reports() {
         let archiveDebt = 0;
 
         if (reportDateEnd < now) {
-            // 1. ROLLBACK KAS SECARA TUNGGAL DAN SEMPURNA
+            // 1. ROLLBACK KAS MURNI: Mutar balik arus uang masuk/keluar dari Masa Depan
             allTxs.forEach((t:any) => {
                 const tDate = new Date(t.date);
                 if (tDate > reportDateEnd) {
@@ -350,8 +361,8 @@ export default function Reports() {
                 }
             });
 
-            // 2. ASET, VALAS, HUTANG DIHITUNG MAJU DARI NOL (FORWARD)
-            // Ini membuat Aset Masa Lalu 100% Kebal Fluktuasi Kurs Masa Depan
+            // 2. FORWARD ASET, VALAS, HUTANG: Menghitung maju dari Titik Nol ke batas bulan laporan
+            // Ini membuat Aset masa lalu 100% Kebal Fluktuasi Kurs Masa Depan
             allTxs.forEach((t:any) => {
                 const tDate = new Date(t.date);
                 if (tDate <= reportDateEnd) {
@@ -366,7 +377,7 @@ export default function Reports() {
                             if (plMatch) {
                                 const pl = parseInt(plMatch.replace(/[^0-9-]/g, ''), 10);
                                 if (!isNaN(pl)) {
-                                    buyVal = desc.includes('P/L: -') ? amt + Math.abs(pl) : amt - Math.abs(pl);
+                                    buyVal = desc.includes('P/L: -') ? amt + Math.abs(pl) : Math.max(0, amt - Math.abs(pl));
                                 }
                             }
                         }
@@ -383,6 +394,7 @@ export default function Reports() {
                 }
             });
             
+            // Pengaman agar tidak tembus minus jika data awal aplikasi tidak sinkron
             if (archiveInvest < 0) archiveInvest = 0;
             if (archiveForex < 0) archiveForex = 0;
             if (archivePiutang < 0) archivePiutang = 0;
@@ -395,7 +407,6 @@ export default function Reports() {
             archiveDebt = totalDebt;
         }
 
-        // AMAN: Tidak akan pernah output NaN
         const archiveNetWorth = archiveCash + archiveInvest + archiveForex + archivePiutang - archiveDebt;
         // =================================================================================
 
@@ -560,9 +571,9 @@ export default function Reports() {
             currentY += 15;
         }
 
-        if (data.debts && data.debts.length > 0) {
+        if (allDebts.length > 0) {
             
-            const debtRows = data.debts
+            const debtRows = allDebts
                 .filter((d: any) => {
                     const debtNameOnly = (d.name || "").split('|')[0];
                     const relatedTxs = allTxs.filter((t:any) => (t.description || "").includes(debtNameOnly));
@@ -723,7 +734,7 @@ export default function Reports() {
         }
 
         // =================================================================================
-        // 🚀 LOOP GRAFIK (ANTI-NAN & ANTI-CRASH)
+        // 🚀 LOOP GRAFIK (ANTI-CRASH & MURNI BEBAS EFEK KURS)
         // =================================================================================
         let iterDate = isYearly ? new Date(safeTargetYear, 11, 1) : new Date(nowForReport.getFullYear(), nowForReport.getMonth(), 1);
         
@@ -764,7 +775,7 @@ export default function Reports() {
                                 if (plMatch) {
                                     const pl = parseInt(plMatch.replace(/[^0-9-]/g, ''), 10);
                                     if (!isNaN(pl)) {
-                                        buyVal = desc.includes('P/L: -') ? amt + Math.abs(pl) : amt - Math.abs(pl);
+                                        buyVal = desc.includes('P/L: -') ? amt + Math.abs(pl) : Math.max(0, amt - Math.abs(pl));
                                     }
                                 }
                             }
@@ -838,6 +849,7 @@ export default function Reports() {
         toast({ title: "Berhasil Mengunduh!", description: "Laporan PDF Premium siap dilihat." });
 
     } catch (error) {
+        console.error("PDF Engine Crash:", error);
         toast({ title: "Gagal", description: "Terjadi kesalahan saat membuat PDF.", variant: "destructive" });
     } finally {
         setGeneratingId(null);
