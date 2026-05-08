@@ -327,68 +327,59 @@ export default function Reports() {
             ? new Date(safeTargetYear, 11, 31, 23, 59, 59) 
             : new Date(safeTargetYear, nowForReport.getMonth() + 1, 0, 23, 59, 59);
 
-        const reportDateStart = isYearly 
-            ? new Date(safeTargetYear, 0, 1, 0, 0, 0) 
-            : new Date(safeTargetYear, nowForReport.getMonth(), 1, 0, 0, 0);
-
+        // =================================================================================
+        // 🚀 PURE MATHEMATICAL ROLLBACK SYSTEM (BERSIH DARI HARDCODE)
+        // =================================================================================
         let archiveCash = user.cashBalance;
-        let archiveInvest = 0;
-        let archiveForex = 0;
-        let archivePiutang = 0;
-        let archiveDebt = 0;
+        let archiveForex = totalForexIDR;
+        let archivePiutang = totalPiutang;
+        let archiveDebt = totalDebt;
+        let archiveNetWorth = netWorth;
 
         if (reportDateEnd < now) {
             allTxs.forEach((t:any) => {
                 const tDate = new Date(t.date);
                 if (tDate > reportDateEnd) {
                     const amt = t.amount;
-                    const isValas = t.category?.includes('Valas');
-                    if (!isValas) {
-                        if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) archiveCash -= amt; 
-                        else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) archiveCash += amt;
-                    }
-                    if (t.type === 'invest_buy' || t.type === 'forex_buy') archiveCash += amt;
-                    if (t.type === 'invest_sell' || t.type === 'forex_sell') archiveCash -= amt;
-                }
-            });
-
-            allTxs.forEach((t:any) => {
-                const tDate = new Date(t.date);
-                if (tDate <= reportDateEnd) {
-                    const amt = t.amount;
-                    if (t.type === 'invest_buy') archiveInvest += amt;
-                    if (t.type === 'invest_sell') {
-                        let buyVal = amt;
-                        if (t.description?.includes('P/L:')) {
-                            const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''), 10);
-                            if (!isNaN(pl)) buyVal -= pl;
-                        }
-                        archiveInvest -= buyVal;
-                    }
-                    if (t.type === 'forex_buy') archiveForex += amt;
-                    if (t.type === 'forex_sell') archiveForex -= amt;
                     
-                    if (t.type === 'debt_lend') archivePiutang += amt;
-                    if (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang') archivePiutang -= amt;
+                    // 1. Rollback Cash (Memutar balik arus uang fisik)
+                    if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell', 'piutang_record'].includes(t.type)) {
+                        archiveCash -= amt; 
+                    } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy', 'hutang_record'].includes(t.type)) {
+                        archiveCash += amt;
+                    }
 
-                    if (t.type === 'debt_borrow') archiveDebt += amt;
-                    if (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang') archiveDebt -= amt;
+                    // 2. Rollback Valas, Piutang, Hutang
+                    if (t.type === 'forex_buy') archiveForex -= amt;
+                    if (t.type === 'forex_sell') archiveForex += amt;
+                    if (t.type === 'debt_lend') archivePiutang -= amt;
+                    if (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang') archivePiutang += amt;
+                    if (t.type === 'debt_borrow') archiveDebt -= amt;
+                    if (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang') archiveDebt += amt;
+
+                    // 3. Rollback Net Worth (Paling krusial untuk grafik dan tabel utama)
+                    let nwImpact = 0;
+                    if (t.type === 'income' || t.type === 'piutang_record') nwImpact = amt;
+                    else if (t.type === 'expense' || t.type === 'hutang_record') nwImpact = -amt;
+                    else if (t.type === 'invest_sell' && t.description?.includes('P/L:')) {
+                        const plStr = t.description.split('P/L:')[1].replace(/[^0-9-]/g, '');
+                        const pl = parseInt(plStr, 10);
+                        if (!isNaN(pl)) {
+                            nwImpact = t.description.includes('P/L: -') ? -Math.abs(pl) : Math.abs(pl);
+                        }
+                    }
+                    else if (t.category === 'Pemutihan Hutang') nwImpact = amt;
+                    else if (t.category === 'Penghapusan Piutang') nwImpact = -amt;
+
+                    archiveNetWorth -= nwImpact;
                 }
             });
-            
-            if (archiveInvest < 0) archiveInvest = 0;
-            if (archiveForex < 0) archiveForex = 0;
-            if (archivePiutang < 0) archivePiutang = 0;
-            if (archiveDebt < 0) archiveDebt = 0;
-
-        } else {
-            archiveInvest = totalInvest;
-            archiveForex = totalForexIDR;
-            archivePiutang = totalPiutang;
-            archiveDebt = totalDebt;
         }
-
-        const archiveNetWorth = archiveCash + archiveInvest + archiveForex + archivePiutang - archiveDebt;
+        
+        // Deduksi aset investasi sisa untuk menyeimbangkan Neraca (karena fluktuasi kurs live telah dikunci di dalam NetWorth)
+        let archiveInvest = archiveNetWorth - archiveCash - archiveForex - archivePiutang + archiveDebt;
+        if (archiveInvest < 0) archiveInvest = 0;
+        // =================================================================================
 
         const periodName = isYearly ? `Tahun ${safeTargetYear}` : `Bulan ${nowForReport.toLocaleDateString('id-ID', { month: 'long' })} ${safeTargetYear}`;
 
@@ -400,7 +391,6 @@ export default function Reports() {
             }
         };
 
-        // 🚀 MENGGABUNGKAN SEMUA ARUS KAS (MASUK TERMASUK PIUTANG, KELUAR TERMASUK HUTANG)
         const pureTransactions = allTxs.filter((t:any) => {
             const isExcludedCat = ['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category);
             if (isExcludedCat) return false;
@@ -653,7 +643,6 @@ export default function Reports() {
         doc.setFont("helvetica", "bold");
         doc.text(`Riwayat Transaksi Arus Kas Murni (${periodName})`, 14, currentY);
 
-        // 🚀 PENAMPILAN TABEL ARUS KAS MURNI DIPERBARUI
         const txRows = currentPeriodTx.filter((t:any) => t.category !== 'Amal').map((t: any) => [
           new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
           (['income', 'debt_receive', 'debt_borrow'].includes(t.type)) ? 'Masuk' : 'Keluar',
@@ -715,16 +704,22 @@ export default function Reports() {
             graphY += 35;
         }
 
+        // =================================================================================
+        // 🚀 LOOP GRAFIK DENGAN MATEMATIKA MURNI (TANPA OVERRIDE)
+        // =================================================================================
         let iterDate = isYearly ? new Date(safeTargetYear, 11, 1) : new Date(nowForReport.getFullYear(), nowForReport.getMonth(), 1);
         
         const chartStartMonth = new Date(iterDate.getFullYear(), iterDate.getMonth() - 11, 1);
         const paddedData = [];
 
+        let currentCash = user.cashBalance;
+        let currentNetWorth = netWorth;
+
         while (iterDate >= chartStartMonth) {
             const endOfMonth = new Date(iterDate.getFullYear(), iterDate.getMonth() + 1, 0, 23, 59, 59);
             
-            let snapCash = user.cashBalance;
-            let snapInvest = 0; let snapForex = 0; let snapPiutang = 0; let snapDebt = 0;
+            let snapCash = currentCash;
+            let snapNetWorth = currentNetWorth;
             let pureIn = 0; let pureOut = 0;
 
             if (endOfMonth < now) {
@@ -732,41 +727,35 @@ export default function Reports() {
                     const tDate = new Date(t.date);
                     if (tDate > endOfMonth) {
                         const amt = t.amount;
-                        const isValas = t.category?.includes('Valas');
-                        if (!isValas) {
-                            if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) snapCash -= amt; 
-                            else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) snapCash += amt;
+                        
+                        // Rollback Cash
+                        if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell', 'piutang_record'].includes(t.type)) {
+                            snapCash -= amt; 
+                        } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy', 'hutang_record'].includes(t.type)) {
+                            snapCash += amt;
                         }
-                        if (t.type === 'invest_buy' || t.type === 'forex_buy') snapCash += amt;
-                        if (t.type === 'invest_sell' || t.type === 'forex_sell') snapCash -= amt;
+
+                        // Rollback Net Worth
+                        let nwImpact = 0;
+                        if (t.type === 'income' || t.type === 'piutang_record') nwImpact = amt;
+                        else if (t.type === 'expense' || t.type === 'hutang_record') nwImpact = -amt;
+                        else if (t.type === 'invest_sell' && t.description?.includes('P/L:')) {
+                            const plStr = t.description.split('P/L:')[1].replace(/[^0-9-]/g, '');
+                            const pl = parseInt(plStr, 10);
+                            if (!isNaN(pl)) {
+                                nwImpact = t.description.includes('P/L: -') ? -Math.abs(pl) : Math.abs(pl);
+                            }
+                        }
+                        else if (t.category === 'Pemutihan Hutang') nwImpact = amt;
+                        else if (t.category === 'Penghapusan Piutang') nwImpact = -amt;
+
+                        snapNetWorth -= nwImpact;
                     }
                 });
             }
 
             allTxs.forEach((t:any) => {
                 const tDate = new Date(t.date);
-                if (tDate <= endOfMonth) {
-                    const amt = t.amount;
-                    if (t.type === 'invest_buy') snapInvest += amt;
-                    if (t.type === 'invest_sell') {
-                        let buyVal = amt;
-                        if (t.description?.includes('P/L:')) {
-                            const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''), 10);
-                            if (!isNaN(pl)) buyVal -= pl;
-                        }
-                        snapInvest -= buyVal;
-                    }
-                    if (t.type === 'forex_buy') snapForex += amt;
-                    if (t.type === 'forex_sell') snapForex -= amt;
-                    
-                    if (t.type === 'debt_lend') snapPiutang += amt;
-                    if (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang') snapPiutang -= amt;
-
-                    if (t.type === 'debt_borrow') snapDebt += amt;
-                    if (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang') snapDebt -= amt;
-                }
-
-                // 🚀 PENGHITUNGAN GRAFIK ARUS KAS MURNI DIPERBARUI
                 if (tDate.getMonth() === iterDate.getMonth() && tDate.getFullYear() === iterDate.getFullYear()) {
                     const isExcludedCat = ['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category);
                     
@@ -780,44 +769,19 @@ export default function Reports() {
                 }
             });
 
-            if (snapInvest < 0) snapInvest = 0; if (snapForex < 0) snapForex = 0;
-            if (snapPiutang < 0) snapPiutang = 0; if (snapDebt < 0) snapDebt = 0;
-
-            let snapNetWorth = snapCash + snapInvest + snapForex + snapPiutang - snapDebt;
-
-            if (endOfMonth >= now) {
-                snapNetWorth = user.cashBalance + totalInvest + totalForexIDR + totalPiutang - totalDebt;
-            }
-
             const label = iterDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
             paddedData.unshift({ 
                 label, 
                 netFlow: pureIn - pureOut, 
                 cash: Math.max(0, snapCash), 
-                asset: Math.max(0, snapNetWorth) 
+                asset: snapNetWorth 
             });
 
             iterDate.setMonth(iterDate.getMonth() - 1);
         }
 
-        const chartAsset = paddedData.map(d => {
-            const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, ''); 
-            const override = localStorage.getItem(`override_asset_${cleanLabel}`);
-            return { label: d.label, value: override ? parseFloat(override) : d.asset };
-        });
-        
-        const pdfUserEmail = data.user?.email || localStorage.getItem("bilano_email") || "";
-        
-        const chartCash = paddedData.map(d => {
-            const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, '');
-            let override = localStorage.getItem(`override_cash_${cleanLabel}`);
-            
-            const isAdrienAccount = pdfUserEmail === 'adrienfandra14@gmail.com' || pdfUserEmail === 'adrienahza@gmail.com' || pdfUserEmail === 'bilanotech@gmail.com';
-            if (isAdrienAccount && (cleanLabel === 'Mar26' || cleanLabel === 'Mar2026')) override = '15100000'; 
-            
-            return { label: d.label, value: override ? parseFloat(override) : d.cash };
-        });
-        
+        const chartAsset = paddedData.map(d => ({ label: d.label, value: d.asset }));
+        const chartCash = paddedData.map(d => ({ label: d.label, value: d.cash }));
         const chartNetFlow = paddedData.map(d => ({ label: d.label, value: d.netFlow }));
 
         graphY = drawLineChart(doc, "1. Grafik Kekayaan Bersih (Line Chart) - Akumulasi", chartAsset, graphY, [79, 70, 229]);
