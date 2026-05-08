@@ -236,18 +236,17 @@ export default function Reports() {
 
   const generatePDF = async (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
     
-    // 🚀 ANTI-GHOST BLOCKING: Cek status PRO dari User Data ATAU Local Storage
+    // Proteksi Hak Akses
     const isPro = userProfile?.isPro || localStorage.getItem("bilano_pro") === "true";
-    
     if (!isPro) {
         toast({ title: "Fitur Premium 👑", description: "Cetak laporan PDF eksklusif untuk pengguna BILANO PRO. Silakan upgrade!", variant: "destructive" });
         setTimeout(() => { setLocation('/paywall'); }, 1000);
         return;
     }
 
-    // 🚀 PELINDUNG DATA NULL: Memastikan mesin PDF tidak jalan kalau data server belum tuntas
+    // Pastikan data beres
     if (!data || !data.user) {
-        toast({ title: "Data Sedang Disiapkan ⏳", description: "Sinkronisasi server belum selesai, coba klik tombolnya sekali lagi.", variant: "default" });
+        toast({ title: "Data Belum Siap ⏳", description: "Sistem masih memuat data. Mohon klik satu kali lagi.", variant: "default" });
         setGeneratingId(null);
         return;
     }
@@ -257,24 +256,29 @@ export default function Reports() {
 
     try {
         const doc = new jsPDF('p', 'mm', 'a4');
-        const user = data.user;
+        const user = data.user || {};
         
-        // Proteksi semua Array agar tidak Undefined
         const allTxs = data.transactions || [];
         const allInvestments = data.investments || [];
         const allDebts = data.debts || [];
         const allForexAssets = data.forexAssets || [];
         
+        // 🚀 PEMUATAN LOGO DENGAN KATUP PENGAMAN (TIMEOUT 2 DETIK)
         try {
             const img = new Image();
             img.src = '/bilano_logo_horiz.png';
-            await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
+            await new Promise((resolve, reject) => { 
+                img.onload = resolve; 
+                img.onerror = reject; 
+                setTimeout(() => reject(new Error("Timeout")), 2000); // 2 Detik maksimal!
+            });
             doc.addImage(img, 'PNG', 14, 10, 35, 12);
         } catch (e) {
+            // Kalau logo nyangkut, tidak akan hang, langsung ganti jadi teks elegan.
             doc.setTextColor(79, 70, 229);
             doc.setFont("helvetica", "bold");
-            doc.setFontSize(18);
-            doc.text("BILANO", 14, 18);
+            doc.setFontSize(22);
+            doc.text("BILANO", 14, 20);
         }
 
         doc.setTextColor(100, 100, 100);
@@ -362,7 +366,6 @@ export default function Reports() {
             });
 
             // 2. FORWARD ASET, VALAS, HUTANG: Menghitung maju dari Titik Nol ke batas bulan laporan
-            // Ini membuat Aset masa lalu 100% Kebal Fluktuasi Kurs Masa Depan
             allTxs.forEach((t:any) => {
                 const tDate = new Date(t.date);
                 if (tDate <= reportDateEnd) {
@@ -572,7 +575,6 @@ export default function Reports() {
         }
 
         if (allDebts.length > 0) {
-            
             const debtRows = allDebts
                 .filter((d: any) => {
                     const debtNameOnly = (d.name || "").split('|')[0];
@@ -734,7 +736,7 @@ export default function Reports() {
         }
 
         // =================================================================================
-        // 🚀 LOOP GRAFIK (ANTI-CRASH & MURNI BEBAS EFEK KURS)
+        // 🚀 LOOP GRAFIK: DIJAMIN 1000% ANTI CRASH & ANTI NAN
         // =================================================================================
         let iterDate = isYearly ? new Date(safeTargetYear, 11, 1) : new Date(nowForReport.getFullYear(), nowForReport.getMonth(), 1);
         
