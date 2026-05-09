@@ -365,14 +365,19 @@ export default function Reports() {
                 .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
             txsAfter.forEach((t: any) => {
-                // ── Kas ──────────────────────────────────────────────────────────
-                if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
-                    archiveCash -= t.amount;
-                } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
-                    archiveCash += t.amount;
-                }
+                // ── Kas (rewind: balik setiap transaksi yang menggerakkan kas) ──────────
+                if (t.type === 'income')       archiveCash -= t.amount;
+                if (t.type === 'expense')      archiveCash += t.amount;
+                if (t.type === 'invest_buy')   archiveCash += t.amount;
+                if (t.type === 'invest_sell')  archiveCash -= t.amount;
+                if (t.type === 'forex_buy')    archiveCash += t.amount;
+                if (t.type === 'forex_sell')   archiveCash -= t.amount;
+                if (t.type === 'debt_lend')    archiveCash += t.amount;
+                if (t.type === 'debt_receive') archiveCash -= t.amount;
+                if (t.type === 'debt_borrow')  archiveCash -= t.amount;
+                if (t.type === 'debt_pay')     archiveCash += t.amount;
 
-                // ── Investasi (cost-basis) ────────────────────────────────────────
+                // ── Investasi (cost-basis) ──────────────────────────────────
                 if (t.type === 'invest_buy') {
                     archiveInvest -= t.amount;
                 }
@@ -389,7 +394,7 @@ export default function Reports() {
                     archiveInvest += costBasis;
                 }
 
-                // ── Forex ─────────────────────────────────────────────────────────
+                // ── Forex ─────────────────────────────────────────────────────
                 if (t.type === 'forex_buy')  archiveForex -= t.amount;
                 if (t.type === 'forex_sell') archiveForex += t.amount;
 
@@ -397,7 +402,9 @@ export default function Reports() {
                 let rawDebtAmount = t.amount;
                 if (t.type.startsWith('debt_') && t.description?.includes('|')) {
                     const curr = t.description.split('|')[1].trim().substring(0, 3);
-                    rawDebtAmount = t.amount * getRate(curr);
+                    if (['USD','EUR','SGD','JPY','AUD','GBP','CNY','MYR','SAR','KRW','THB'].includes(curr)) {
+                        rawDebtAmount = t.amount * getRate(curr);
+                    }
                 }
 
                 if (t.type === 'debt_lend')    archivePiutang -= rawDebtAmount;
@@ -405,17 +412,13 @@ export default function Reports() {
                 if (t.type === 'debt_borrow')  archiveDebt    -= rawDebtAmount;
                 if (t.type === 'debt_pay')     archiveDebt    += rawDebtAmount;
 
-                // ── Koreksi piutang/hutang yang diikhlaskan/diputihkan setelah periode ──
+                // ── Koreksi write-off/pemutihan yang terjadi setelah periode ──────────
                 if (t.category === 'Penghapusan Piutang') archivePiutang += t.amount;
                 if (t.category === 'Pemutihan Hutang')    archiveDebt    += t.amount;
             });
 
-            // Pastikan tidak negatif untuk aset
-            archiveCash    = Math.max(0, archiveCash);
-            archiveInvest  = Math.max(0, archiveInvest);
-            archiveForex   = Math.max(0, archiveForex);
-            archivePiutang = Math.max(0, archivePiutang);
-            archiveDebt    = Math.max(0, archiveDebt);
+            // Biarkan nilai bisa negatif - jangan di-clamp ke 0.
+            // Math.max(0,...) menyembunyikan bug dan membuat neraca tidak balance.
         }
 
         const archiveNetWorth = archiveCash + archiveInvest + archiveForex + archivePiutang - archiveDebt;
