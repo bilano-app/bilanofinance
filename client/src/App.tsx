@@ -6,7 +6,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { WifiOff, RefreshCw, Lock } from "lucide-react"; 
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser } from "./hooks/use-finance"; 
-import OneSignal from 'react-onesignal'; 
 
 // =========================================================================
 // 🚀 KUNCI MEMORI AGAR ANGKA TIDAK BERKEDIP
@@ -76,6 +75,7 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
 import NotFound from "@/pages/not-found";
 import Security from "./pages/Security";
 import Home from "@/pages/Home";
+import Landing from "@/pages/Landing"; // 🚀 IMPORT LANDING PAGE (BROSUR WEB)
 import Target from "@/pages/Target";
 import Income from "@/pages/Income";
 import Expense from "@/pages/Expense";
@@ -101,6 +101,10 @@ function Router() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
   const [isSessionRefreshing, setIsSessionRefreshing] = useState(false); 
+
+  // 🚀 MESIN DETEKSI: Apakah dibuka lewat App (Standalone) atau Web (Browser)?
+  const isStandalone = typeof window !== 'undefined' && 
+    (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -143,8 +147,13 @@ function Router() {
           const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
           const TRIAL_DURATION_DAYS = 3;
 
-          // 🚀 FIX: Kode tendangan paksa ke Paywall untuk user baru telah dihapus dari sini!
-          // Sekarang kita biarkan Home.tsx yang mengatur alurnya secara elegan.
+          const isNewAccount = (Date.now() - startTime) < 15000; 
+          const hasRedirected = sessionStorage.getItem("bilano_first_paywall_redirect");
+          
+          if (isNewAccount && !hasRedirected && location !== '/paywall') {
+              sessionStorage.setItem("bilano_first_paywall_redirect", "true");
+              setLocation("/paywall");
+          }
 
           if (daysPassed >= TRIAL_DURATION_DAYS) {
               localStorage.setItem("bilano_trial_expired", "true");
@@ -160,7 +169,9 @@ function Router() {
 
   useEffect(() => {
     const isAuth = localStorage.getItem("bilano_auth");
-    if (!isAuth && location !== "/auth") {
+    
+    // 🛡️ PERBAIKAN SATPAM: Izinkan akses ke "/" tanpa login HANYA JIKA dibuka di browser (bukan standalone).
+    if (!isAuth && location !== "/auth" && (isStandalone || location !== "/")) {
       setLocation("/auth");
     }
 
@@ -177,7 +188,7 @@ function Router() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('trigger-paywall-lock', handleCustomLock);
     };
-  }, [location, setLocation]);
+  }, [location, setLocation, isStandalone]);
 
   if (isSessionRefreshing) {
     return (
@@ -217,7 +228,14 @@ function Router() {
   return (
     <>
       <Switch>
-        <Route path="/" component={Home} />
+        {/* 🚀 RUTE DUA WAJAH: Jika di web muncul Landing, jika di App muncul Home */}
+        <Route path="/">
+          {isStandalone ? <Home /> : <Landing />}
+        </Route>
+        
+        {/* Pastikan Dashboard/Home memiliki jalurnya sendiri saat di dalam web */}
+        <Route path="/dashboard" component={Home} />
+
         <Route path="/target" component={Target} />
         <Route path="/income" component={Income} />
         <Route path="/expense" component={Expense} />
@@ -273,28 +291,6 @@ function Router() {
 }
 
 function App() {
-  useEffect(() => {
-    const initOneSignal = async () => {
-      try {
-        await OneSignal.init({
-          appId: "MASUKKAN_APP_ID_ONESIGNAL_DISINI", 
-          allowLocalhostAsSecureOrigin: true,
-          notifyButton: {
-            enable: false, 
-          },
-        });
-        
-        const email = localStorage.getItem("bilano_email");
-        if (email) {
-            OneSignal.login(email);
-        }
-      } catch (error) {
-        console.error("OneSignal Init Error:", error);
-      }
-    };
-    initOneSignal();
-  }, []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <Router />

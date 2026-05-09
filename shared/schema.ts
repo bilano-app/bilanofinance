@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   profilePicture: text("profile_picture"),
+  // 🚀 UPGRADE KE BIGINT
   cashBalance: bigint("cash_balance", { mode: "number" }).default(0).notNull(),
   isPro: boolean("is_pro").default(false),
   proValidUntil: timestamp("pro_valid_until"), 
@@ -23,6 +24,7 @@ export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   type: text("type").notNull(), 
+  // 🚀 UPGRADE KE BIGINT
   amount: bigint("amount", { mode: "number" }).notNull(),
   category: text("category").notNull(),
   description: text("description"),
@@ -37,7 +39,6 @@ export const investments = pgTable("investments", {
   quantity: real("quantity").notNull(),
   avgPrice: real("avg_price").notNull(),
   type: text("type").default('saham'),
-  // 🚀 TAMBAHAN: Agar tahu kapan saham dibeli
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -45,8 +46,10 @@ export const investments = pgTable("investments", {
 export const targets = pgTable("targets", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  // 🚀 UPGRADE KE BIGINT
   targetAmount: bigint("target_amount", { mode: "number" }).default(0).notNull(),
   durationMonths: integer("duration_months").default(12).notNull(),
+  // 🚀 UPGRADE KE BIGINT
   monthlyBudget: bigint("monthly_budget", { mode: "number" }).default(0).notNull(),
   budgetType: text("budget_type").default('static'),
   startMonth: integer("start_month").default(1),
@@ -58,11 +61,11 @@ export const debts = pgTable("debts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   name: text("name").notNull(),
+  // 🚀 UPGRADE KE BIGINT
   amount: bigint("amount", { mode: "number" }).notNull(),
   type: text("type").notNull(),
   dueDate: timestamp("due_date"),
   isPaid: boolean("is_paid").default(false),
-  // 🚀 TAMBAHAN: Agar tahu kapan hutang/piutang dicatat
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -71,6 +74,7 @@ export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   name: text("name").notNull(),
+  // 🚀 UPGRADE KE BIGINT
   cost: bigint("cost", { mode: "number" }).notNull(),
   cycle: text("cycle").default('bulanan'),
   nextBilling: timestamp("next_billing"),
@@ -93,7 +97,15 @@ export const forexAssets = pgTable("forex_assets", {
   userId: integer("user_id").notNull(),
   currency: text("currency").notNull(), 
   amount: real("amount").notNull(), 
-  // 🚀 TAMBAHAN: Agar tahu kapan valas ini mulai dimiliki
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// --- 9. OTP SESSIONS ---
+export const otpSessions = pgTable("otp_sessions", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  otp: text("otp").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -106,6 +118,7 @@ export const insertDebtSchema = createInsertSchema(debts, { dueDate: z.coerce.da
 export const insertSubscriptionSchema = createInsertSchema(subscriptions, { nextBilling: z.coerce.date() }).omit({ id: true, userId: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, userId: true });
 export const insertForexAssetSchema = createInsertSchema(forexAssets).omit({ id: true, userId: true, createdAt: true });
+export const insertOtpSessionSchema = createInsertSchema(otpSessions).omit({ id: true, createdAt: true });
 
 // Export Types
 export type User = typeof users.$inferSelect;

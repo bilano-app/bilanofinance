@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
-  ShieldCheck, ChevronDown, Star, LayoutDashboard, ChevronRight, Download, Instagram, ArrowRight 
+  ShieldCheck, ChevronDown, Star, LayoutDashboard, ChevronRight, Download, Instagram 
 } from "lucide-react";
 
 export default function Landing() {
@@ -9,7 +9,7 @@ export default function Landing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // =======================================================
-  // 🚀 MESIN TEKS DINAMIS (DARI HOME LAMA)
+  // 🚀 MESIN TEKS DINAMIS
   // =======================================================
   const headlines = [
     { top: "Gaji Naik Terus,", bottom: "Tapi Net Worth Stagnan?" },
@@ -32,31 +32,34 @@ export default function Landing() {
   }, []);
 
   // =======================================================
-  // 🚀 DATA NARASI MULTI-TARGET
+  // 🚀 DATA NARASI MULTI-TARGET (DENGAN GAMBAR PLACEHOLDER)
   // =======================================================
   const narratives = [
     {
       badge: "Untuk Mahasiswa & Fresh Graduate",
       title: "Lulus S1 = Pengangguran Tanpa Tabungan?",
       desc: "Realita kerja brutal. Tanpa 'Dana Darurat Pasca-Kampus', Anda tak punya biaya untuk bertahan hidup saat mencari kerja. BILANO memandu Anda men-set target 'Dana Lulus' sejak awal, sementara Konsultan AI akan merem pengeluaran nongkrong Anda secara rasional.",
-      img: "/pelamar-kerja.jpg" 
+      // 🖼️ Gambar Placeholder: Pelamar kerja muda cemas
+      img: "https://images.unsplash.com/photo-1629904869392-ae2a682d4d01?q=80&w=800&auto=format&fit=crop" 
     },
     {
       badge: "Untuk Pekerja & Profesional",
       title: "Jebakan Self-Reward & Kebocoran Halus",
       desc: "Menabung di awal bulan tapi aset stagnan? Anda mungkin buta terhadap akumulasi pengeluaran kecil (micro-transactions) dan dalih self-reward. BILANO merekam kebocoran ini tanpa ampun, dan AI akan memberikan teguran logis berbasis hitungan kerugian masa depan.",
+      // 🖼️ Gambar Placeholder: Orang stres melihat struk/laptop
       img: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=800&auto=format&fit=crop"
     },
     {
       badge: "Untuk Keluarga & Umum",
       title: "Lubang Hitam Pengeluaran Siluman",
       desc: "Uang belanja sering bocor tanpa jejak ke iuran dadakan atau jajan, memicu argumen keluarga. Jadikan BILANO buku besar (ledger) yang 100% transparan. AI akan memberi peringatan dini jika tren pengeluaran mengancam target krusial seperti Dana Pendidikan Anak.",
+      // 🖼️ Gambar Placeholder: Kalkulator dan uang berantakan
       img: "https://images.unsplash.com/photo-1604594849809-dfedbc827105?q=80&w=800&auto=format&fit=crop"
     }
   ];
 
   // =======================================================
-  // 🚀 LOGIKA PWA INSTALLER NATIVE (ADAPTASI TERBARU)
+  // 🚀 LOGIKA PWA INSTALLER NATIVE
   // =======================================================
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
@@ -100,14 +103,14 @@ export default function Landing() {
         {/* 🚀 HEADER */}
         <header className="px-5 lg:px-10 pt-6 pb-2 animate-in slide-in-from-top-4 fade-in duration-500 w-full lg:pt-10">
           <div className="bg-white rounded-[20px] p-3.5 lg:p-4 flex items-center justify-center shadow-lg shadow-black/20 border border-slate-100 w-full max-w-7xl mx-auto">
-            <img src="/Bilano_horiz_rbg.png" alt="Bilano Logo" className="h-8 md:h-10 object-contain" />
+            {/* Pastikan Logo ini ada di folder public Bos, atau ganti placeholder */}
+            <img src="/Bilano_horiz_rbg.png" alt="Bilano Logo" className="h-8 md:h-10 object-contain" onError={(e) => {e.currentTarget.src="https://placehold.co/200x50/ffffff/0a1128?text=BILANO"}} />
           </div>
         </header>
 
         {/* 🚀 MAIN CONTENT */}
         <main className="px-6 lg:px-10 pt-6 pb-12 flex flex-col gap-16 lg:gap-24 w-full items-center">
           
-          {/* 🔥 1. HERO SECTION */}
           <section className="flex flex-col gap-5 w-full text-left lg:text-center animate-in slide-in-from-bottom-6 fade-in duration-700 delay-100 fill-mode-both items-start lg:items-center max-w-5xl">
             <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 px-4 py-2 rounded-full w-fit shadow-inner">
               <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
@@ -122,7 +125,7 @@ export default function Landing() {
             </h2>
           </section>
 
-          {/* 🔥 2. STORYTELLING SLIDER */}
+          {/* 🔥 STORYTELLING SLIDER */}
           <section className="animate-in slide-in-from-bottom-8 fade-in duration-700 delay-200 fill-mode-both w-full max-w-7xl">
              <div className="flex items-center justify-between mb-4 pr-4 lg:mb-6">
                <h3 className="text-lg lg:text-xl font-black text-white flex items-center gap-2">
@@ -156,7 +159,7 @@ export default function Landing() {
              </div>
           </section>
 
-          {/* 🔥 3. KARTU BENEFIT (DARI HOME LAMA) */}
+          {/* 🔥 FITUR GRID */}
           <section className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-6 animate-in slide-in-from-bottom-8 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
             <FeatureCard imgUrl="https://img.icons8.com/color/96/artificial-intelligence.png" title="Konsultasi AI" desc="Strategi cerdas pelunasan hutang." />
             <FeatureCard imgUrl="https://img.icons8.com/color/96/barcode-scanner.png" title="Smart Scanner" desc="Foto struk, saldo auto-potong." />
@@ -166,7 +169,7 @@ export default function Landing() {
             <FeatureCard imgUrl="https://img.icons8.com/color/96/multiple-devices.png" title="Akses Universal" desc="PWA: Ringan di semua perangkat." />
           </section>
 
-          {/* 🔥 4. UI SCREENSHOT GALLERY (DARI HOME LAMA) */}
+          {/* 🔥 DASHBOARD GALLERY (DENGAN GAMBAR PLACEHOLDER SENADA BRAND) */}
           <section className="animate-in slide-in-from-bottom-10 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
             <div className="mb-4 lg:mb-6 lg:text-center max-w-lg lg:mx-auto">
               <h3 className="text-lg lg:text-xl font-black text-white flex items-center gap-2 lg:justify-center">
@@ -177,20 +180,21 @@ export default function Landing() {
             
             <div className="flex overflow-x-auto gap-5 pb-6 snap-x snap-mandatory -mx-6 px-6 lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] lg:justify-center">
                 {[
-                  { img: "Home.jpeg", title: "Dasbor Utama" },
-                  { img: "ChatAI.jpeg", title: "Asisten AI Cerdas" },
-                  { img: "Scan.jpeg", title: "Scan Struk Otomatis" },
-                  { img: "Performa.jpeg", title: "Analisa Performa" },
-                  { img: "Valas.jpeg", title: "Portofolio Valas" }
+                  // 🖼️ Membuat Placeholder Vertikal (9:16) senada warna Brand Navy & Amber
+                  { img: "https://placehold.co/400x711/0a1128/fcd34d?text=Dasbor+Utama", title: "Dasbor Utama" },
+                  { img: "https://placehold.co/400x711/0a1128/fcd34d?text=Asisten+AI", title: "Asisten AI Cerdas" },
+                  { img: "https://placehold.co/400x711/0a1128/fcd34d?text=Scan+Struk", title: "Scan Struk Otomatis" },
+                  { img: "https://placehold.co/400x711/0a1128/fcd34d?text=Analisa+Performa", title: "Analisa Performa" },
+                  { img: "https://placehold.co/400x711/0a1128/fcd34d?text=Portofolio+Valas", title: "Portofolio Valas" }
                 ].map((item, i) => (
                   <div key={i} className="snap-center shrink-0 w-[75%] lg:w-[220px] aspect-[9/16] bg-[#040814] rounded-[24px] overflow-hidden border-[4px] border-white/10 shadow-2xl relative group">
-                    <img src={`/${item.img}`} alt={item.title} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = 'https://placehold.co/400x700/121c3a/475569?text=Poster+UI' }} />
+                    <img src={item.img} alt={item.title} className="w-full h-full object-cover" />
                   </div>
                 ))}
             </div>
           </section>
 
-          {/* 🔥 5. LANGKAH INSTALL & FAQ */}
+          {/* 🔥 LANGKAH INSTALL & FAQ */}
           <div className="flex flex-col lg:flex-row gap-10 lg:gap-16 w-full max-w-7xl">
             <section className="bg-[#121c3a]/50 backdrop-blur-xl border border-white/5 rounded-[28px] p-6 text-white shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both lg:p-8 flex-1">
               <h3 className="text-lg font-black mb-5 text-amber-400 flex items-center gap-2">
@@ -223,7 +227,7 @@ export default function Landing() {
             </section>
           </div>
 
-          {/* 🔥 6. TOMBOL INSTALL DESKTOP */}
+          {/* 🔥 TOMBOL INSTALL DESKTOP */}
           <div className="hidden lg:flex w-full flex-col items-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-500 fill-mode-both">
             <button
               onClick={handlePwaInstall}
@@ -248,7 +252,7 @@ export default function Landing() {
         </div>
 
         <footer className="mt-auto pb-10 pt-10 text-center relative z-10 border-t border-white/5 w-full">
-            <img src="/Bilano_horiz_rbg.png" alt="Bilano" className="h-5 mx-auto mb-4 opacity-50 grayscale mix-blend-screen" />
+            <img src="/Bilano_horiz_rbg.png" alt="Bilano" className="h-5 mx-auto mb-4 opacity-50 grayscale mix-blend-screen" onError={(e) => {e.currentTarget.src="https://placehold.co/100x30/040814/ffffff?text=BILANO"}} />
             <p className="text-[10px] md:text-xs text-slate-600 mt-1 font-medium">© {new Date().getFullYear()} Bilano Official</p>
         </footer>
 
@@ -257,7 +261,6 @@ export default function Landing() {
   );
 }
 
-// Sub-komponen yang dibutuhkan
 function FeatureCard({ imgUrl, title, desc }: any) {
   return (
     <div className="bg-[#121c3a]/80 backdrop-blur-sm border border-white/5 p-4 md:p-5 lg:p-6 rounded-[24px] shadow-lg hover:bg-[#172447] hover:border-white/10 hover:scale-[1.03] transition-all cursor-pointer flex flex-col">
