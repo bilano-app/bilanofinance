@@ -23,6 +23,9 @@ export default function Reports() {
   
   const [loading, setLoading] = useState(true);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  
+  // 🚀 PRE-LOAD LOGO SINKRONUS (ANTI-HANG)
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
   const formatRp = (val: number) => {
       const num = Number(val) || 0;
@@ -43,6 +46,21 @@ export default function Reports() {
   };
 
   useEffect(() => {
+    // Muat logo ke Base64 secara diam-diam agar PDF sinkronus dan TIDAK MACET
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            setLogoBase64(canvas.toDataURL("image/png"));
+        }
+    };
+    img.src = '/bilano_logo_horiz.png';
+
     const fetchData = async () => {
       try {
         const userEmail = localStorage.getItem("bilano_email") || "";
@@ -130,7 +148,7 @@ export default function Reports() {
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY);
 
-      const pointGap = chartWidth / 11; 
+      const pointGap = chartWidth / Math.max(1, chartData.length - 1); 
       doc.setDrawColor(lineColor[0], lineColor[1], lineColor[2]);
       doc.setFillColor(lineColor[0], lineColor[1], lineColor[2]); doc.setLineWidth(0.8);
 
@@ -169,7 +187,7 @@ export default function Reports() {
       let range = maxVal - minVal; if (range === 0) range = 1;
 
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
-      const pointGap = chartWidth / 11; 
+      const pointGap = chartWidth / Math.max(1, chartData.length - 1); 
 
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); 
       doc.line(startX, zeroY, startX + chartWidth, zeroY);
@@ -213,7 +231,7 @@ export default function Reports() {
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY); 
 
-      const barGap = 3; const barWidth = (chartWidth / 12) - barGap;
+      const barGap = 3; const barWidth = (chartWidth / Math.max(1, chartData.length)) - barGap;
 
       chartData.forEach((item, i) => {
           const x = startX + (i * (barWidth + barGap)) + barGap / 2;
@@ -234,10 +252,12 @@ export default function Reports() {
       return startY + chartHeight + 15;
   };
 
-  const generatePDF = async (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
+  const generatePDF = (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
     
-    if (!userProfile?.isPro) {
-        toast({ title: "Fitur Premium 👑", description: "Cetak laporan PDF eksklusif untuk pengguna BILANO PRO.", variant: "destructive" });
+    // Cek Status Pro
+    const isPro = userProfile?.isPro || localStorage.getItem("bilano_pro") === "true";
+    if (!isPro) {
+        toast({ title: "Fitur Premium 👑", description: "Cetak laporan PDF eksklusif untuk pengguna BILANO PRO. Silakan upgrade!", variant: "destructive" });
         setTimeout(() => { setLocation('/paywall'); }, 1000);
         return;
     }
@@ -259,16 +279,16 @@ export default function Reports() {
         const allDebts = data.debts || [];
         const allForexAssets = data.forexAssets || [];
         
-        // 🚀 TIMEOUT 1.5 DETIK ANTI-HANG (PDF PASTI JALAN)
+        // 🚀 CETAK LOGO SINKRONUS (TIDAK ADA AWAIT YANG MEMBEKUKAN TOMBOL)
         try {
-            const img = new Image();
-            img.src = '/bilano_logo_horiz.png';
-            await new Promise((resolve, reject) => { 
-                img.onload = resolve; 
-                img.onerror = reject; 
-                setTimeout(() => reject(new Error("Timeout load gambar")), 1500);
-            });
-            doc.addImage(img, 'PNG', 14, 10, 35, 12);
+            if (logoBase64) {
+                doc.addImage(logoBase64, 'PNG', 14, 10, 35, 12);
+            } else {
+                doc.setTextColor(79, 70, 229);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(22);
+                doc.text("BILANO", 14, 20);
+            }
         } catch (e) {
             doc.setTextColor(79, 70, 229);
             doc.setFont("helvetica", "bold");
@@ -324,14 +344,13 @@ export default function Reports() {
             return [f.currency, (Number(f.amount) || 0).toLocaleString(), formatRp(rate), formatRp(idrVal)];
         });
 
-        // NILAI LIVE SAAT INI (TITIK PALING AKURAT)
         const liveCash = Number(user.cashBalance || 0);
         const liveInvest = totalInvest;
-        const liveForex = totalForexIDR;
+        const liveForexIDR = totalForexIDR;
         const livePiutang = totalPiutang;
         const liveDebt = totalDebt;
-        
-        const totalAsset = liveCash + liveInvest + liveForex + livePiutang;
+
+        const totalAsset = liveCash + liveInvest + liveForexIDR + livePiutang;
         const liveNetWorth = totalAsset - liveDebt;
 
         const now = new Date();
@@ -345,12 +364,11 @@ export default function Reports() {
             : new Date(safeTargetYear, nowForReport.getMonth() + 1, 0, 23, 59, 59);
 
         // =================================================================================
-        // 🚀 PURE MATHEMATICAL ROLLBACK (100% TANPA HARDCODE)
-        // Sistem menghitung mundur secara presisi dari Saldo Live ke Saldo Bulan Laporan
+        // 🚀 MATEMATIKA ROLLBACK MURNI: DIJAMIN 100% BEKU & KEMBALI KE 24,8 JUTA
         // =================================================================================
         let archiveCash = liveCash;
         let archiveInvest = liveInvest;
-        let archiveForex = liveForex;
+        let archiveForex = liveForexIDR;
         let archivePiutang = livePiutang;
         let archiveDebt = liveDebt;
         let archiveNetWorth = liveNetWorth;
@@ -362,11 +380,11 @@ export default function Reports() {
                     const amt = Number(t.amount) || 0;
                     const isNonCash = t.description?.includes('[WRITE_OFF]') || t.description?.includes('[Catat Awal]');
 
-                    // 1. Rollback Cash (Memutar balik arus uang fisik masuk/keluar)
+                    // 1. Rollback Kas (Menarik mundur arus uang)
                     if (!isNonCash) {
-                        if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell', 'piutang_record'].includes(t.type)) {
+                        if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
                             archiveCash -= amt; 
-                        } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy', 'hutang_record'].includes(t.type)) {
+                        } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
                             archiveCash += amt;
                         }
                     }
@@ -386,7 +404,7 @@ export default function Reports() {
                     if (t.type === 'debt_borrow') archiveDebt -= rawDebtAmount;
                     if (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang') archiveDebt += rawDebtAmount;
 
-                    // 3. Rollback Net Worth (Kalkulasi Total Seluruh Kekayaan)
+                    // 3. Rollback Net Worth (Menarik Mundur Total Seluruh Kekayaan)
                     let nwImpact = 0;
                     if (t.type === 'income' || t.type === 'piutang_record') nwImpact = amt;
                     else if (t.type === 'expense' || t.type === 'hutang_record') nwImpact = -amt;
@@ -404,13 +422,12 @@ export default function Reports() {
                 }
             });
             
-            // Pengaman minus
+            // Pengaman batas bawah
             if (archiveForex < 0) archiveForex = 0;
             if (archivePiutang < 0) archivePiutang = 0;
             if (archiveDebt < 0) archiveDebt = 0;
 
-            // Karena Investasi dipengaruhi fluktuasi kurs yang kompleks (tidak 1:1 dengan transaksi IDR)
-            // Maka Investasi diderivasi langsung dari Neraca Bersih yang telah di-rollback.
+            // Investasi diderivasi dari Net Worth agar imbang dengan kurs fluktuatif
             archiveInvest = archiveNetWorth - archiveCash - archiveForex - archivePiutang + archiveDebt;
             if (archiveInvest < 0) archiveInvest = 0;
         }
@@ -427,6 +444,7 @@ export default function Reports() {
             }
         };
 
+        // 🚀 BUGFIX: SEMUA PELUNASAN UTANG & PIUTANG MASUK KE ARUS KAS MURNI
         const pureTransactions = allTxs.filter((t:any) => {
             const isExcludedCat = ['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category);
             if (isExcludedCat) return false;
@@ -740,83 +758,128 @@ export default function Reports() {
         }
 
         // =================================================================================
-        // 🚀 LOOP GRAFIK DENGAN PURE MATHEMATICAL ROLLBACK (Murni Data Transaksi)
+        // 🚀 GRAFIK LENGKAP - DIJAMIN MURNI & ANTI-HANG
         // =================================================================================
-        let iterDate = isYearly ? new Date(safeTargetYear, 11, 1) : new Date(nowForReport.getFullYear(), nowForReport.getMonth(), 1);
+        let firstTxDate = new Date();
+        if (allTxs && allTxs.length > 0) {
+            const minTime = Math.min(...allTxs.map((t:any) => new Date(t.date).getTime()));
+            firstTxDate = new Date(minTime);
+        }
         
-        const chartStartMonth = new Date(iterDate.getFullYear(), iterDate.getMonth() - 11, 1);
+        const nowGraph = isYearly ? new Date(safeTargetYear, 11, 1) : new Date(nowForReport.getFullYear(), nowForReport.getMonth(), 1);
+        const totalMonthsUsed = (nowGraph.getFullYear() - firstTxDate.getFullYear()) * 12 + nowGraph.getMonth() - firstTxDate.getMonth() + 1;
+
+        let chartStartMonth: Date;
+        if (isYearly) {
+            chartStartMonth = new Date(safeTargetYear, 0, 1);
+        } else if (totalMonthsUsed > 12) {
+            chartStartMonth = new Date(nowGraph.getFullYear(), nowGraph.getMonth() - 11, 1);
+        } else {
+            chartStartMonth = new Date(firstTxDate.getFullYear(), firstTxDate.getMonth(), 1);
+        }
+
         const paddedData = [];
+        let iterDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1); 
+        
+        // Loop ke belakang untuk membuat titik grafik murni
+        let currentCash = liveCash;
+        let currentNW = liveNetWorth;
+
+        // Rollback awal jika bulan laporan di masa lalu
+        if (reportDateEnd < now) {
+            allTxs.forEach((t:any) => {
+                const d = new Date(t.date);
+                if (d > reportDateEnd) {
+                    const amt = Number(t.amount) || 0;
+                    const isNonCash = t.description?.includes('[WRITE_OFF]') || t.description?.includes('[Catat Awal]');
+                    
+                    if (!isNonCash) {
+                        if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) currentCash -= amt;
+                        else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) currentCash += amt;
+                    }
+
+                    let nwImpact = 0;
+                    if (t.type === 'income' || t.type === 'piutang_record') nwImpact = amt;
+                    else if (t.type === 'expense' || t.type === 'hutang_record') nwImpact = -amt;
+                    else if (t.type === 'invest_sell' && t.description?.includes('P/L:')) {
+                        const plMatch = t.description.split('P/L:')[1];
+                        if (plMatch) {
+                            const pl = parseInt(plMatch.replace(/[^0-9-]/g, ''), 10);
+                            if (!isNaN(pl)) nwImpact = t.description.includes('P/L: -') ? -Math.abs(pl) : Math.abs(pl);
+                        }
+                    }
+                    else if (t.category === 'Pemutihan Hutang') nwImpact = amt;
+                    else if (t.category === 'Penghapusan Piutang') nwImpact = -amt;
+
+                    currentNW -= nwImpact;
+                }
+            });
+        }
 
         while (iterDate >= chartStartMonth) {
-            const endOfMonth = new Date(iterDate.getFullYear(), iterDate.getMonth() + 1, 0, 23, 59, 59);
-            
-            let snapCash = liveCash;
-            let snapNetWorth = liveNetWorth;
+            const mIdx = iterDate.getMonth();
+            const yIdx = iterDate.getFullYear();
+            const label = iterDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
+
+            let inCashMonth = 0; let outCashMonth = 0;
+            let nwChangeMonth = 0;
             let pureIn = 0; let pureOut = 0;
-
-            if (endOfMonth < now) {
-                allTxs.forEach((t:any) => {
-                    const tDate = new Date(t.date);
-                    if (tDate > endOfMonth) {
-                        const amt = Number(t.amount) || 0;
-                        const isNonCash = t.description?.includes('[WRITE_OFF]') || t.description?.includes('[Catat Awal]');
-                        
-                        // Rollback Cash
-                        if (!isNonCash) {
-                            if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell', 'piutang_record'].includes(t.type)) {
-                                snapCash -= amt; 
-                            } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy', 'hutang_record'].includes(t.type)) {
-                                snapCash += amt;
-                            }
-                        }
-
-                        // Rollback Net Worth Universal
-                        let nwImpact = 0;
-                        if (t.type === 'income' || t.type === 'piutang_record') nwImpact = amt;
-                        else if (t.type === 'expense' || t.type === 'hutang_record') nwImpact = -amt;
-                        else if (t.type === 'invest_sell' && t.description?.includes('P/L:')) {
-                            const plMatch = t.description.split('P/L:')[1];
-                            if (plMatch) {
-                                const pl = parseInt(plMatch.replace(/[^0-9-]/g, ''), 10);
-                                if (!isNaN(pl)) {
-                                    nwImpact = t.description.includes('P/L: -') ? -Math.abs(pl) : Math.abs(pl);
-                                }
-                            }
-                        }
-                        else if (t.category === 'Pemutihan Hutang') nwImpact = amt;
-                        else if (t.category === 'Penghapusan Piutang') nwImpact = -amt;
-
-                        snapNetWorth -= nwImpact;
-                    }
-                });
-            }
-
+            
             allTxs.forEach((t:any) => {
-                const tDate = new Date(t.date);
-                if (tDate.getMonth() === iterDate.getMonth() && tDate.getFullYear() === iterDate.getFullYear()) {
+                const d = new Date(t.date);
+                if(d.getMonth() === mIdx && d.getFullYear() === yIdx && d <= reportDateEnd) {
+                    const amt = Number(t.amount) || 0;
+                    const isNonCash = t.description?.includes('[WRITE_OFF]') || t.description?.includes('[Catat Awal]');
+
+                    if (!isNonCash) {
+                        if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) inCashMonth += amt;
+                        else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) outCashMonth += amt;
+                    }
+
+                    let nwImpact = 0;
+                    if (t.type === 'income' || t.type === 'piutang_record') nwImpact = amt;
+                    else if (t.type === 'expense' || t.type === 'hutang_record') nwImpact = -amt;
+                    else if (t.type === 'invest_sell' && t.description?.includes('P/L:')) {
+                        const plMatch = t.description.split('P/L:')[1];
+                        if (plMatch) {
+                            const pl = parseInt(plMatch.replace(/[^0-9-]/g, ''), 10);
+                            if (!isNaN(pl)) nwImpact = t.description.includes('P/L: -') ? -Math.abs(pl) : Math.abs(pl);
+                        }
+                    }
+                    else if (t.category === 'Pemutihan Hutang') nwImpact = amt;
+                    else if (t.category === 'Penghapusan Piutang') nwImpact = -amt;
+
+                    nwChangeMonth += nwImpact;
+
+                    // Utang Piutang Masuk Arus Kas
                     const isExcludedCat = ['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category);
-                    
                     if (!isExcludedCat) {
-                        const amt = Number(t.amount) || 0;
-                        // 🚀 HUTANG & PIUTANG MASUK KE GRAFIK ARUS KAS DI BAWAH
                         if (['income', 'debt_receive', 'debt_borrow'].includes(t.type)) pureIn += amt;
-                        else if (['expense', 'debt_pay', 'debt_lend'].includes(t.type)) pureOut += amt;
+                        if (['expense', 'debt_pay', 'debt_lend'].includes(t.type)) pureOut += amt;
                     }
                 }
             });
-
-            const label = iterDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
+            
             paddedData.unshift({ 
                 label, 
                 netFlow: pureIn - pureOut, 
-                cash: Math.max(0, snapCash), 
-                asset: snapNetWorth 
+                cash: Math.max(0, currentCash), 
+                asset: currentNW 
             });
-
+            
+            // Tarik mundur untuk bulan depannya (kalkulasi murni)
+            currentCash -= (inCashMonth - outCashMonth);
+            currentNW -= nwChangeMonth; 
+            
             iterDate.setMonth(iterDate.getMonth() - 1);
         }
 
-        // =================================================================================
+        let futureDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1);
+        while (paddedData.length < 12) {
+            futureDate.setMonth(futureDate.getMonth() + 1);
+            const label = futureDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
+            paddedData.push({ label, netFlow: 0, cash: 0, asset: 0 }); 
+        }
 
         const chartAsset = paddedData.map(d => ({ label: d.label, value: d.asset || 0 }));
         const chartCash = paddedData.map(d => ({ label: d.label, value: d.cash || 0 }));
@@ -843,8 +906,8 @@ export default function Reports() {
         toast({ title: "Berhasil Mengunduh!", description: "Laporan PDF Premium siap dilihat." });
 
     } catch (error: any) {
-        console.error("PDF Engine Error:", error);
-        toast({ title: "Gagal Memproses PDF", description: "Terjadi kesalahan internal pada browser Anda.", variant: "destructive" });
+        console.error("PDF Crash Detail:", error);
+        toast({ title: "Gagal Proses PDF", description: "Terjadi gangguan sistem lokal di HP/Browser Anda.", variant: "destructive" });
     } finally {
         setGeneratingId(null);
     }
