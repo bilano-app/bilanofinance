@@ -169,7 +169,7 @@ export default function Landing() {
             <FeatureCard imgUrl="https://img.icons8.com/color/96/multiple-devices.png" title="Akses Universal" desc="PWA: Ringan di semua perangkat." />
           </section>
 
-          {/* 🔥 DASHBOARD GALLERY (DENGAN GAMBAR PLACEHOLDER SENADA BRAND) */}
+          {/* 🔥 DASHBOARD GALLERY (DENGAN GAMBAR ILUSTRASI PREMIUM) */}
           <section className="animate-in slide-in-from-bottom-10 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
             <div className="mb-4 lg:mb-6 lg:text-center max-w-lg lg:mx-auto">
               <h3 className="text-lg lg:text-xl font-black text-white flex items-center gap-2 lg:justify-center">
@@ -180,15 +180,31 @@ export default function Landing() {
             
             <div className="flex overflow-x-auto gap-5 pb-6 snap-x snap-mandatory -mx-6 px-6 lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] lg:justify-center">
                 {[
-                  // 🖼️ Membuat Placeholder Vertikal (9:16) senada warna Brand Navy & Amber
-                  { img: "https://placehold.co/400x711/0a1128/fcd34d?text=Dasbor+Utama", title: "Dasbor Utama" },
-                  { img: "https://placehold.co/400x711/0a1128/fcd34d?text=Asisten+AI", title: "Asisten AI Cerdas" },
-                  { img: "https://placehold.co/400x711/0a1128/fcd34d?text=Scan+Struk", title: "Scan Struk Otomatis" },
-                  { img: "https://placehold.co/400x711/0a1128/fcd34d?text=Analisa+Performa", title: "Analisa Performa" },
-                  { img: "https://placehold.co/400x711/0a1128/fcd34d?text=Portofolio+Valas", title: "Portofolio Valas" }
+                  { 
+                    img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=600&auto=format&fit=crop", 
+                    title: "Dasbor Utama" 
+                  },
+                  { 
+                    img: "https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=600&auto=format&fit=crop", 
+                    title: "Asisten AI Cerdas" 
+                  },
+                  { 
+                    img: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?q=80&w=600&auto=format&fit=crop", 
+                    title: "Scan Struk Otomatis" 
+                  },
+                  { 
+                    img: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=600&auto=format&fit=crop", 
+                    title: "Analisa Performa" 
+                  },
+                  { 
+                    img: "https://images.unsplash.com/photo-1605165566807-508fb529cf3e?q=80&w=600&auto=format&fit=crop", 
+                    title: "Portofolio Valas" 
+                  }
                 ].map((item, i) => (
                   <div key={i} className="snap-center shrink-0 w-[75%] lg:w-[220px] aspect-[9/16] bg-[#040814] rounded-[24px] overflow-hidden border-[4px] border-white/10 shadow-2xl relative group">
-                    <img src={item.img} alt={item.title} className="w-full h-full object-cover" />
+                    <img src={item.img} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-80 group-hover:opacity-100" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#040814] via-transparent to-transparent opacity-90"></div>
+                    <h4 className="absolute bottom-4 left-4 right-4 text-white font-bold text-sm text-center drop-shadow-md z-10">{item.title}</h4>
                   </div>
                 ))}
             </div>
