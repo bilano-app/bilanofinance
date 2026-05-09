@@ -9,7 +9,7 @@ export default function Landing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // =======================================================
-  // 🚀 MESIN TEKS DINAMIS (DARI HOME LAMA)
+  // 🚀 MESIN TEKS DINAMIS
   // =======================================================
   const headlines = [
     { top: "Gaji Naik Terus,", bottom: "Tapi Net Worth Stagnan?" },
@@ -32,13 +32,14 @@ export default function Landing() {
   }, []);
 
   // =======================================================
-  // 🚀 DATA NARASI MULTI-TARGET
+  // 🚀 DATA NARASI MULTI-TARGET (SEMUA LOKAL)
   // =======================================================
   const narratives = [
     {
       badge: "Untuk Mahasiswa & Fresh Graduate",
       title: "Lulus S1 = Pengangguran Tanpa Tabungan?",
       desc: "Realita kerja brutal. Tanpa 'Dana Darurat Pasca-Kampus', Anda tak punya biaya untuk bertahan hidup saat mencari kerja. BILANO memandu Anda men-set target 'Dana Lulus' sejak awal, sementara Konsultan AI akan merem pengeluaran nongkrong Anda secara rasional.",
+      // 🖼️ SEKARANG MENGGUNAKAN FILE LOKAL (Pastikan file ini ada di folder public)
       img: "/pelamar-kerja.jpg" 
     },
     {
@@ -56,7 +57,7 @@ export default function Landing() {
   ];
 
   // =======================================================
-  // 🚀 LOGIKA PWA INSTALLER NATIVE (ADAPTASI TERBARU)
+  // 🚀 LOGIKA PWA INSTALLER NATIVE
   // =======================================================
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
@@ -83,7 +84,7 @@ export default function Landing() {
   };
 
   const faqs = [
-    { q: "Mengapa aplikasi ini tidak ada di Play Store?", a: "BILANO menggunakan teknologi masa depan berbasis PWA (Progressive Web App). Anda tidak perlu mengunduh file APK yang berat atau menunggu update dari Play Store. Aplikasi langsung terhubung, lebih cepat, dan sangat hemat memori HP." },
+    { q: "Mengapa aplikasi ini tidak ada di Play Store?", a: "BILANO menggunakan teknologi masa depan berbasis PWA (Progressive Web App). Anda tidak perlu mengunduh file APK yang berat or menunggu update dari Play Store. Aplikasi langsung terhubung, lebih cepat, dan sangat hemat memori HP." },
     { q: "Apakah data keuangan saya aman di sini?", a: "Sangat aman. BILANO berfungsi sebagai jurnal cerdas pribadi. Kami menggunakan enkripsi penuh dan TIDAK terhubung langsung ke rekening asli Anda untuk mencegah risiko peretasan saldo." },
     { q: "Apakah aplikasi ini benar-benar gratis?", a: "Ya! Jurnal pencatatan arus kas dan fitur dasar gratis selamanya. Anda hanya perlu upgrade jika ingin membuka Asisten AI, Portofolio Valas, dan akses ke Pustaka E-book Finansial." }
   ];
@@ -156,7 +157,7 @@ export default function Landing() {
              </div>
           </section>
 
-          {/* 🔥 3. KARTU BENEFIT (DARI HOME LAMA) */}
+          {/* 🔥 3. KARTU BENEFIT */}
           <section className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-6 animate-in slide-in-from-bottom-8 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
             <FeatureCard imgUrl="https://img.icons8.com/color/96/artificial-intelligence.png" title="Konsultasi AI" desc="Strategi cerdas pelunasan hutang." />
             <FeatureCard imgUrl="https://img.icons8.com/color/96/barcode-scanner.png" title="Smart Scanner" desc="Foto struk, saldo auto-potong." />
@@ -166,7 +167,7 @@ export default function Landing() {
             <FeatureCard imgUrl="https://img.icons8.com/color/96/multiple-devices.png" title="Akses Universal" desc="PWA: Ringan di semua perangkat." />
           </section>
 
-          {/* 🔥 4. UI SCREENSHOT GALLERY (DARI HOME LAMA) */}
+          {/* 🔥 4. UI SCREENSHOT GALLERY (MENJAGA FILE .JPEG BOS) */}
           <section className="animate-in slide-in-from-bottom-10 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
             <div className="mb-4 lg:mb-6 lg:text-center max-w-lg lg:mx-auto">
               <h3 className="text-lg lg:text-xl font-black text-white flex items-center gap-2 lg:justify-center">
@@ -257,7 +258,7 @@ export default function Landing() {
   );
 }
 
-// Sub-komponen yang dibutuhkan
+// Sub-komponen yang dibutuhkan (TETAP SAMA)
 function FeatureCard({ imgUrl, title, desc }: any) {
   return (
     <div className="bg-[#121c3a]/80 backdrop-blur-sm border border-white/5 p-4 md:p-5 lg:p-6 rounded-[24px] shadow-lg hover:bg-[#172447] hover:border-white/10 hover:scale-[1.03] transition-all cursor-pointer flex flex-col">
