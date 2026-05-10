@@ -80,7 +80,6 @@ export default function Forex() {
   };
   const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
 
-  // 🚀 FITUR BARU: Tarik data User untuk mengecek saldo Kas Rupiah
   const { data: user } = useQuery({
       queryKey: ['userProfile', currentUserEmail],
       queryFn: async () => {
@@ -208,7 +207,6 @@ export default function Forex() {
       const rate = parseNum(rateExchange);
       if (!qty || !rate) { toast({ title: "Error", description: "Isi jumlah dan kurs.", variant: "destructive" }); return; }
 
-      // 🚀 FITUR BARU: SMART WARNING SEBELUM TRANSAKSI (Mencegah Saldo Berantakan)
       if (exchangeMode === 'buy') {
           const totalCost = qty * rate;
           if ((user?.cashBalance || 0) < totalCost) {
@@ -217,7 +215,7 @@ export default function Forex() {
                   description: `Butuh Rp ${totalCost.toLocaleString('id-ID')} tapi Kas Tunai Anda hanya Rp ${(user?.cashBalance || 0).toLocaleString('id-ID')}.`, 
                   variant: "destructive" 
               });
-              return; // Tahan transaksi agar tidak masuk ke server
+              return; 
           }
       } else {
           const existingAsset = assets.find((a: any) => a.currency === selectedCurr.code);
@@ -227,7 +225,7 @@ export default function Forex() {
                   description: `Anda hanya memiliki ${existingAsset?.amount || 0} ${selectedCurr.code}. Tidak cukup untuk dijual.`, 
                   variant: "destructive" 
               });
-              return; // Tahan transaksi agar tidak masuk ke server
+              return; 
           }
       }
 
@@ -273,24 +271,25 @@ export default function Forex() {
           return;
       }
 
-      // 🚀 FITUR BARU: SMART WARNING SEBELUM PENGELUARAN VALAS
-      if (mutationMode === 'out' && paymentMode === 'cash') {
+      // Validasi Khusus Jika Mengeluarkan Uang (Beri Pinjaman / Pengeluaran Tunai)
+      if (mutationMode === 'out') {
           const existingAsset = assets.find((a: any) => a.currency === selectedCurr.code);
           if (!existingAsset || existingAsset.amount < qty) {
               toast({ 
                   title: "⚠️ Saldo Valas Tidak Cukup", 
-                  description: `Anda hanya memiliki ${existingAsset?.amount || 0} ${selectedCurr.code}. Tidak cukup untuk dikeluarkan.`, 
+                  description: `Anda hanya memiliki ${existingAsset?.amount || 0} ${selectedCurr.code}. Tidak bisa dikeluarkan/dipinjamkan.`, 
                   variant: "destructive" 
               });
-              return; // Tahan transaksi
+              return; 
           }
       }
 
-      const note = noteMutation.trim() || (mutationMode === 'in' ? "Pemasukan Valas" : "Pengeluaran Valas");
+      const note = noteMutation.trim() || (mutationMode === 'in' ? "Valas Masuk" : "Valas Keluar");
       setIsSubmitting(true);
 
       try {
           if (paymentMode === 'cash') {
+              // Transaksi Tunai Biasa
               const res = await fetch("/api/forex/transaction", {
                   method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
                   body: JSON.stringify({ 
@@ -309,33 +308,24 @@ export default function Forex() {
                   toast({ title: "Gagal", description: "Gagal memproses transaksi.", variant: "destructive" });
               }
           } else {
-              const rate = getSafeRate(selectedCurr.code);
-              const idrEquivalent = qty * rate;
+              // 🚀 OPERASI PINJAM MEMINJAM VALAS (SINKRON KE DEBTS.TSX)
+              // Jika Uang Masuk = Kita Dapat Pinjaman = HUTANG
+              // Jika Uang Keluar = Kita Beri Pinjaman = PIUTANG
+              const debtType = mutationMode === 'in' ? 'hutang' : 'piutang';
 
               await fetch("/api/debts", {
                   method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
                   body: JSON.stringify({
-                      type: mutationMode === 'in' ? 'piutang' : 'hutang',
+                      type: debtType,
                       name: `${debtName}|${selectedCurr.code}`,
                       amount: qty,
                       dueDate: dueDate,
-                      description: `[${mutationMode === 'in' ? 'Piutang' : 'Hutang'} Valas] ${note}`,
-                      isFromTransaction: true
+                      description: `[${debtType.toUpperCase()} VALAS] ${note}`,
+                      isFromTransaction: false // 🔥 KUNCI RAHASIA: Ini membuat routes.ts otomatis motong saldo valas dan bikin log transaksi!
                   })
               });
 
-              await fetch("/api/transactions", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({
-                      type: mutationMode === 'in' ? 'income' : 'expense',
-                      amount: idrEquivalent,
-                      category: mutationMode === 'in' ? `Piutang Valas (${selectedCurr.code})` : `Hutang Valas (${selectedCurr.code})`,
-                      description: `Belum Dibayar - ${debtName}`,
-                      date: new Date().toISOString()
-                  })
-              });
-
-              toast({ title: "Tercatat!", description: `${mutationMode === 'in' ? 'Piutang' : 'Hutang'} Valas berhasil disimpan ke daftar Tagihan.` });
+              toast({ title: "Tercatat!", description: `${debtType === 'piutang' ? 'Piutang' : 'Hutang'} Valas berhasil disimpan ke daftar Tagihan.` });
               setAmountMutation(""); setNoteMutation(""); setDebtName(""); setDueDate("");
               fetchData();
           }
@@ -527,18 +517,20 @@ export default function Forex() {
                                 <Wallet className="w-3.5 h-3.5"/> TUNAI (Cash)
                             </button>
                             <button onClick={() => setPaymentMode('debt')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${paymentMode === 'debt' ? 'bg-amber-100 text-amber-700 shadow-sm' : 'text-slate-400'}`}>
-                                <HandCoins className="w-3.5 h-3.5"/> {mutationMode === 'in' ? 'PIUTANG' : 'HUTANG'}
+                                <HandCoins className="w-3.5 h-3.5"/> {mutationMode === 'in' ? 'DAPAT PINJAMAN' : 'BERI PINJAMAN'}
                             </button>
                         </div>
 
                         {paymentMode === 'debt' && (
                             <div className="animate-in fade-in slide-in-from-top-2 bg-amber-50 p-4 rounded-2xl border border-amber-100 space-y-4 shadow-inner">
                                 <div>
-                                    <label className="text-[10px] uppercase tracking-widest font-bold text-amber-600 block mb-1.5">{mutationMode === 'in' ? 'Ditagih Ke Siapa?' : 'Ngutang Ke Siapa?'}</label>
-                                    <Input placeholder="Nama Klien / Toko" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-12 text-sm bg-white border-amber-200 focus:border-amber-400 rounded-xl"/>
+                                    <label className="text-[10px] uppercase tracking-widest font-bold text-amber-600 block mb-1.5">
+                                        {mutationMode === 'in' ? 'Pinjam Dari Siapa?' : 'Dipinjam Oleh Siapa?'}
+                                    </label>
+                                    <Input placeholder="Nama Teman / Klien" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-12 text-sm bg-white border-amber-200 focus:border-amber-400 rounded-xl"/>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] uppercase tracking-widest font-bold text-amber-600 block mb-1.5">Tenggat Waktu (Wajib)</label>
+                                    <label className="text-[10px] uppercase tracking-widest font-bold text-amber-600 block mb-1.5">Tenggat Waktu Pelunasan</label>
                                     <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-12 text-sm bg-white border-amber-200 focus:border-amber-400 rounded-xl"/>
                                 </div>
                             </div>
