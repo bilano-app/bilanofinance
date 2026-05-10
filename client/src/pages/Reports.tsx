@@ -24,7 +24,6 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   
-  // PRE-LOAD LOGO BACKGROUND (Agar PDF bisa dicetak Instan tanpa memicu blokir popup browser)
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
   const formatRp = (val: number) => {
@@ -46,7 +45,6 @@ export default function Reports() {
   };
 
   useEffect(() => {
-    // Memuat logo secara diam-diam saat halaman dibuka (Solusi Anti-Blokir PDF)
     try {
         const img = new Image();
         img.crossOrigin = "Anonymous";
@@ -97,7 +95,7 @@ export default function Reports() {
       } else if (data.transactions && data.transactions.length > 0) {
           const minTime = Math.min(...data.transactions.map((t:any) => new Date(t.date).getTime()));
           firstDate = new Date(minTime);
-      } 
+      }
 
       const archives = [];
       const now = new Date();
@@ -117,7 +115,7 @@ export default function Reports() {
       for (let y = firstDate.getFullYear(); y < now.getFullYear(); y++) {
           archives.push({
               isYearly: true,
-              month: 11, // Desember
+              month: 11,
               year: y,
               label: `Tahunan ${y}`
           });
@@ -254,7 +252,6 @@ export default function Reports() {
       return startY + chartHeight + 15;
   };
 
-  // 🚀 FUNGSI INI SEKARANG 100% SINKRONUS (TIDAK ADA ASYNC/AWAIT). Browser TIDAK AKAN memblokir pop-up lagi!
   const generatePDF = (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
     
     const isPro = userProfile?.isPro || localStorage.getItem("bilano_pro") === "true";
@@ -272,7 +269,7 @@ export default function Reports() {
     const processId = targetMonth !== undefined ? `archive_${targetMonth}_${targetYear}_${isYearly}` : 'current';
     setGeneratingId(processId);
 
-    // Mengeksekusi pembuatan PDF tanpa timer agar tidak diblokir browser sebagai spam
+    // KITA JALANKAN TANPA AWAIT / SETTIMEOUT AGAR TIDAK DIBLOKIR BROWSER
     try {
         const doc = new jsPDF('p', 'mm', 'a4');
         const user = data.user || {};
@@ -282,10 +279,49 @@ export default function Reports() {
         const allDebts = data.debts || [];
         const allForexAssets = data.forexAssets || [];
         
-        // KEBENARAN ABSOLUT: Saldo kas dari database
-        const liveCash = Number(user.cashBalance || 0); 
+        // 🚀 MENDETEKSI TANGGAL MULAI APP
+        let appStartDate = new Date();
+        if (user.createdAt) {
+            appStartDate = new Date(user.createdAt);
+        } else if (allTxs && allTxs.length > 0) {
+            const minTime = Math.min(...allTxs.map((t:any) => new Date(t.date).getTime()));
+            appStartDate = new Date(minTime);
+        }
         
-        // 🚀 CETAK LOGO INSTAN DARI BASE64
+        // 🚀 INTELEJEN TANGGAL ASET (Jika createdAt kosong, lacak dari transaksi pertama)
+        const getAssetStartDate = (asset: any, type: 'debt'|'forex'|'invest') => {
+            let firstDate = asset.createdAt ? new Date(asset.createdAt).getTime() : Date.now();
+            allTxs.forEach((t:any) => {
+                const txTime = new Date(t.date).getTime();
+                if (type === 'debt') {
+                    const displayName = (asset.name || "").split('|')[0];
+                    if ((t.description || "").includes(displayName) && txTime < firstDate) firstDate = txTime;
+                } else if (type === 'forex') {
+                    if (((t.category || "").includes(asset.currency) || (t.description || "").includes(asset.currency)) && txTime < firstDate) firstDate = txTime;
+                } else if (type === 'invest') {
+                    const sym = (asset.symbol || "").split('|')[0];
+                    if ((t.description || "").includes(sym) && txTime < firstDate) firstDate = txTime;
+                }
+            });
+            // Jika tanggal lahir aset ternyata LEBIH TUA dari tanggal pendaftaran user, ratakan dengan tanggal pendaftaran
+            if (firstDate < appStartDate.getTime()) firstDate = appStartDate.getTime();
+            return new Date(firstDate);
+        };
+        
+        // 🚀 DETEKTOR SALDO AWAL (BASE CASH) PADA SAAT USER DAFTAR
+        let totalNetCashTx = 0;
+        allTxs.forEach((t:any) => {
+            const isNonCash = t.description?.includes('[WRITE_OFF]') || t.description?.includes('[Catat Awal]') || t.category === 'Pemutihan Hutang' || t.category === 'Penghapusan Piutang';
+            if (!isNonCash) {
+                if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell', 'piutang_record'].includes(t.type)) totalNetCashTx += (Number(t.amount) || 0);
+                else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy', 'hutang_record'].includes(t.type)) totalNetCashTx -= (Number(t.amount) || 0);
+            }
+        });
+        const liveCash = Number(user.cashBalance || 0);
+        // Base Cash = Saldo Murni sebelum ada transaksi apa pun (Modal Awal)
+        const baseCash = Math.max(0, liveCash - totalNetCashTx); 
+
+        // 🚀 CETAK LOGO
         try {
             if (logoBase64) {
                 doc.addImage(logoBase64, 'PNG', 14, 10, 35, 12);
@@ -296,9 +332,7 @@ export default function Reports() {
             doc.setTextColor(79, 70, 229); doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("BILANO", 14, 20);
         }
 
-        doc.setTextColor(100, 100, 100);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
         doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}`, 196, 14, { align: 'right' });
         doc.text(`Dicetak Oleh: ${user.firstName || 'Pengguna'} ${user.lastName || ''}`, 196, 19, { align: 'right' });
 
@@ -322,85 +356,97 @@ export default function Reports() {
             : new Date(safeTargetYear, nowForReport.getMonth(), 1, 0, 0, 0);
 
         // =================================================================================
-        // 🚀 THE ULTIMATE FIX: HYBRID CALCULATION DENGAN TANGGAL MUTLAK
+        // 🚀 ALGORITMA SNAPSHOT MASA DEPAN (Hitung Maju dari Modal Awal)
         // =================================================================================
         const getSnapshotAt = (targetDate: Date) => {
-            
-            // 1. ROLLBACK KAS MURNI: Mundur dari Saldo Live Hari Ini 
-            // Pelunasan Piutang (debt_receive) 100% terekam akurat menambah/mengurangi kas!
-            let snapCash = liveCash; 
-            allTxs.filter((t:any) => new Date(t.date) > targetDate).forEach((t:any) => {
-                const amt = Number(t.amount) || 0;
-                const isNonCash = t.description?.includes('[WRITE_OFF]') || t.description?.includes('[Catat Awal]');
+            // 1. KAS BERJALAN
+            let snapCash = baseCash; 
+            allTxs.filter((t:any) => new Date(t.date) <= targetDate).forEach((t:any) => {
+                const isNonCash = t.description?.includes('[WRITE_OFF]') || t.description?.includes('[Catat Awal]') || t.category === 'Pemutihan Hutang' || t.category === 'Penghapusan Piutang';
                 if (!isNonCash) {
-                    // Jika di masa depan ada Uang Masuk, kita Kurangi dari Live Cash (karena di masa lalu belum masuk)
-                    if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell', 'piutang_record'].includes(t.type)) {
-                        snapCash -= amt; 
-                    } 
-                    // Jika di masa depan ada Uang Keluar, kita Tambahkan ke Live Cash (karena di masa lalu masih utuh)
-                    else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy', 'hutang_record'].includes(t.type)) {
-                        snapCash += amt;
-                    }
+                    if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell', 'piutang_record'].includes(t.type)) snapCash += (Number(t.amount) || 0);
+                    else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy', 'hutang_record'].includes(t.type)) snapCash -= (Number(t.amount) || 0);
                 }
             });
+            snapCash = Math.max(0, snapCash);
 
-            // 2. FORWARD ASET: Dibangun dari Nol sampai Target Date (Membunuh Ghost Asset dengan createdAt)
+            // 2. PIUTANG & HUTANG BERJALAN
             let snapPiutang = 0; let snapDebt = 0;
             allDebts.forEach((d:any) => {
-                const created = d.createdAt ? new Date(d.createdAt) : new Date(0);
-                if (created <= targetDate) { // 🔥 JIKA ASET DIBUAT SETELAH TARGET DATE, NILAINYA 0!
-                    let currentVal = d.isPaid ? 0 : Number(d.amount);
+                const startDate = getAssetStartDate(d, 'debt');
+                if (startDate <= targetDate) { 
+                    const rate = getRate((d.name || "").split('|')[1] || 'IDR');
                     const displayName = (d.name || "").split('|')[0];
+                    let totalInitialVal = Number(d.amount) * rate; 
                     
-                    // Kita cari tau apa yang terjadi pada hutang/piutang ini SETELAH target date
-                    allTxs.filter((t:any) => new Date(t.date) > targetDate).forEach((t:any) => {
+                    let paidAmount = 0;
+                    allTxs.filter((t:any) => new Date(t.date) <= targetDate).forEach((t:any) => {
                         if ((t.description || "").includes(displayName)) {
                             const amt = Number(t.amount) || 0;
-                            if (d.type === 'hutang') {
-                                if (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang') currentVal += amt; // Sudah dibayar di masa depan, berarti di masa lalu hutangnya masih ada
-                                if (t.type === 'debt_borrow') currentVal -= amt; 
-                            }
-                            if (d.type === 'piutang') {
-                                if (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang') currentVal += amt; // Sudah dilunasi di masa depan, berarti di masa lalu piutangnya masih ada
-                                if (t.type === 'debt_lend') currentVal -= amt;
-                            }
+                            if (d.type === 'hutang' && (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang')) paidAmount += amt;
+                            if (d.type === 'piutang' && (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang')) paidAmount += amt;
                         }
                     });
-                    if (d.type === 'hutang') snapDebt += Math.max(0, currentVal) * getRate((d.name || "").split('|')[1] || 'IDR');
-                    if (d.type === 'piutang') snapPiutang += Math.max(0, currentVal) * getRate((d.name || "").split('|')[1] || 'IDR');
+                    
+                    const remaining = Math.max(0, totalInitialVal - paidAmount);
+                    if (d.type === 'hutang') snapDebt += remaining;
+                    if (d.type === 'piutang') snapPiutang += remaining;
                 }
             });
 
+            // 3. VALAS BERJALAN
             let snapForex = 0;
             allForexAssets.forEach((f:any) => {
-                const created = f.createdAt ? new Date(f.createdAt) : new Date(0);
-                if (created <= targetDate) { // 🔥 GHOST ASSET VALAS TERBLOKIR DI SINI
-                    let currentVal = Number(f.amount) || 0;
-                    snapForex += currentVal * getRate(f.currency);
+                const startDate = getAssetStartDate(f, 'forex');
+                if (startDate <= targetDate) {
+                    let qty = 0; let hasTx = false;
+                    allTxs.filter((t:any) => new Date(t.date) <= targetDate).forEach((t:any) => {
+                        if ((t.category || "").includes(f.currency) || (t.description || "").includes(f.currency)) {
+                            hasTx = true;
+                            if (t.type === 'forex_buy') qty += (Number(t.amount) || 0);
+                            if (t.type === 'forex_sell') qty -= (Number(t.amount) || 0);
+                        }
+                    });
+                    if (!hasTx) qty = Number(f.amount) || 0;
+                    snapForex += Math.max(0, qty * getRate(f.currency));
                 }
             });
 
+            // 4. INVESTASI BERJALAN
             let snapInvest = 0;
             allInvestments.forEach((inv:any) => {
-                const created = inv.createdAt ? new Date(inv.createdAt) : new Date(0);
-                if (created <= targetDate) { // 🔥 GHOST ASSET INVESTASI TERBLOKIR DI SINI
+                const startDate = getAssetStartDate(inv, 'invest');
+                if (startDate <= targetDate) { 
                     const [sym, curr] = (inv.symbol || "").split('|');
                     const rate = getRate(curr); 
                     const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
                     const m = (isSaham && (!curr || curr === 'IDR')) ? 100 : 1;
                     
-                    let currentVal = (Number(inv.quantity) || 0) * (Number(inv.avgPrice) || 0) * m * rate;
-                    snapInvest += currentVal;
+                    let costBasis = 0; let hasTx = false;
+                    allTxs.filter((t:any) => new Date(t.date) <= targetDate).forEach((t:any) => {
+                        if ((t.description || "").includes(sym)) {
+                            hasTx = true;
+                            const amt = Number(t.amount) || 0;
+                            if (t.type === 'invest_buy') costBasis += amt;
+                            if (t.type === 'invest_sell') {
+                                let c = amt;
+                                if (t.description?.includes('P/L:')) {
+                                    const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''), 10);
+                                    if (!isNaN(pl)) c = t.description.includes('P/L: -') ? amt + Math.abs(pl) : Math.max(0, amt - Math.abs(pl));
+                                }
+                                costBasis -= c;
+                            }
+                        }
+                    });
+                    
+                    if (!hasTx) costBasis = (Number(inv.quantity) || 0) * (Number(inv.avgPrice) || 0) * m * rate;
+                    snapInvest += Math.max(0, costBasis);
                 }
             });
 
             return {
-                cash: Math.max(0, snapCash),
-                invest: snapInvest,
-                forex: snapForex,
-                piutang: snapPiutang,
-                debt: snapDebt,
-                netWorth: Math.max(0, snapCash) + snapInvest + snapForex + snapPiutang - snapDebt
+                cash: snapCash, invest: snapInvest, forex: snapForex, piutang: snapPiutang, debt: snapDebt,
+                netWorth: snapCash + snapInvest + snapForex + snapPiutang - snapDebt
             };
         };
         // =================================================================================
@@ -423,7 +469,6 @@ export default function Reports() {
         const pureTransactions = allTxs.filter((t:any) => {
             const isExcludedCat = ['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category);
             if (isExcludedCat) return false;
-            // 🚀 PERBAIKAN ARUS KAS: debt_receive (pelunasan piutang) masuk akurat ke Pemasukan!
             return ['income', 'expense', 'debt_receive', 'debt_pay', 'debt_borrow', 'debt_lend'].includes(t.type);
         });
 
@@ -492,17 +537,25 @@ export default function Reports() {
         });
         currentY = (doc as any).lastAutoTable.finalY + 15;
 
-        // Memblokir Valas Hantu dari Tabel PDF
+        // 🚀 TABEL VALAS MASA LALU (Anti-Ghost)
         const forexRows = allForexAssets
-            .filter((f: any) => {
-                const created = f.createdAt ? new Date(f.createdAt) : new Date(0);
-                return created <= reportDateEnd && (Number(f.amount) || 0) > 0;
-            })
+            .filter((f: any) => getAssetStartDate(f, 'forex') <= reportDateEnd)
             .map((f: any) => {
+                let qty = 0; let hasTx = false;
+                allTxs.filter((t:any) => new Date(t.date) <= reportDateEnd).forEach((t:any) => {
+                    if ((t.category || "").includes(f.currency) || (t.description || "").includes(f.currency)) {
+                        hasTx = true;
+                        if (t.type === 'forex_buy') qty += (Number(t.amount) || 0);
+                        if (t.type === 'forex_sell') qty -= (Number(t.amount) || 0);
+                    }
+                });
+                if (!hasTx) qty = Number(f.amount) || 0;
+                if (qty <= 0) return null;
+                
                 const rate = getRate(f.currency); 
-                const idrVal = (Number(f.amount) || 0) * rate;
-                return [f.currency, (Number(f.amount) || 0).toLocaleString(), formatRp(rate), formatRp(idrVal)];
-            });
+                const idrVal = qty * rate;
+                return [f.currency, qty.toLocaleString(), formatRp(rate), formatRp(idrVal)];
+            }).filter(Boolean);
 
         if (forexRows.length > 0) {
             checkPageBreak(40);
@@ -512,21 +565,41 @@ export default function Reports() {
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
-        // Memblokir Investasi Hantu dari Tabel PDF
+        // 🚀 TABEL INVESTASI MASA LALU (Anti-Ghost)
         const invRows = allInvestments
-            .filter((inv: any) => {
-                const created = inv.createdAt ? new Date(inv.createdAt) : new Date(0);
-                return created <= reportDateEnd;
-            })
+            .filter((inv: any) => getAssetStartDate(inv, 'invest') <= reportDateEnd)
             .map((inv: any) => {
                 const sym = (inv.symbol || "").split('|')[0];
+                const rate = getRate((inv.symbol || "").split('|')[1] || 'IDR'); 
+                const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
+                const m = (isSaham && !(inv.symbol || "").split('|')[1]) ? 100 : 1;
+                
+                let costBasis = 0; let hasTx = false;
+                allTxs.filter((t:any) => new Date(t.date) <= reportDateEnd).forEach((t:any) => {
+                    if ((t.description || "").includes(sym)) {
+                        hasTx = true;
+                        const amt = Number(t.amount) || 0;
+                        if (t.type === 'invest_buy') costBasis += amt;
+                        if (t.type === 'invest_sell') {
+                            let c = amt;
+                            if (t.description?.includes('P/L:')) {
+                                const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''), 10);
+                                if (!isNaN(pl)) c = t.description.includes('P/L: -') ? amt + Math.abs(pl) : Math.max(0, amt - Math.abs(pl));
+                            }
+                            costBasis -= c;
+                        }
+                    }
+                });
+                if (!hasTx) costBasis = (Number(inv.quantity) || 0) * (Number(inv.avgPrice) || 0) * m * rate;
+                if (costBasis <= 0) return null;
+                
                 return [
-                    inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : "-",
-                    'Pembelian Aset',
+                    getAssetStartDate(inv, 'invest').toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+                    'Kepemilikan Aset',
                     sym, 
-                    formatRp(Number(inv.quantity * inv.avgPrice) || 0)
+                    formatRp(costBasis)
                 ];
-            });
+            }).filter(Boolean);
 
         if (invRows.length > 0) {
             checkPageBreak(40);
@@ -535,36 +608,42 @@ export default function Reports() {
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
 
-        // Memblokir Hutang Hantu dari Tabel PDF
+        // 🚀 TABEL HUTANG/PIUTANG MASA LALU (Anti-Ghost)
         const debtRows = allDebts
-            .filter((d: any) => {
-                const created = d.createdAt ? new Date(d.createdAt) : new Date(0);
-                if (created > reportDateEnd) return false;
-                
-                const debtNameOnly = (d.name || "").split('|')[0];
-                const relatedTxs = allTxs.filter((t:any) => (t.description || "").includes(debtNameOnly));
-                if (relatedTxs.length > 0) {
-                    const lastTxTime = Math.max(...relatedTxs.map((t:any) => new Date(t.date).getTime()));
-                    if (d.isPaid && lastTxTime < reportDateStart.getTime()) return false;
-                } else {
-                    if (d.isPaid) return false;
-                }
-                return true;
-            })
+            .filter((d: any) => getAssetStartDate(d, 'debt') <= reportDateEnd)
             .map((d: any) => {
-                const [displayName, curr] = (d.name || "").split('|');
-                const actualCurr = curr || 'IDR';
+                const displayName = (d.name || "").split('|')[0];
+                const actualCurr = (d.name || "").split('|')[1] || 'IDR';
                 const rate = getRate(actualCurr); 
-                const valIDR = (Number(d.amount) || 0) * rate;
-                let status = d.isPaid ? 'LUNAS' : 'Belum Lunas';
+                const originalVal = Number(d.amount) * rate;
+                
+                let paidAmount = 0;
+                allTxs.filter((t:any) => new Date(t.date) <= reportDateEnd).forEach((t:any) => {
+                    if ((t.description || "").includes(displayName)) {
+                        const amt = Number(t.amount) || 0;
+                        if (d.type === 'hutang' && (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang')) paidAmount += amt;
+                        if (d.type === 'piutang' && (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang')) paidAmount += amt;
+                    }
+                });
+                
+                const remaining = Math.max(0, originalVal - paidAmount);
+                if (remaining <= 0 && d.isPaid) {
+                    let lastTxTime = 0;
+                    allTxs.filter((t:any) => new Date(t.date) <= reportDateEnd && (t.description||"").includes(displayName)).forEach(t => {
+                        if (new Date(t.date).getTime() > lastTxTime) lastTxTime = new Date(t.date).getTime();
+                    });
+                    if (lastTxTime <= reportDateEnd.getTime()) return null; // Sudah lunas sebelum bulan ini berakhir, sembunyikan!
+                }
+
+                let status = remaining <= 0 ? 'LUNAS' : 'Belum Lunas';
                 return [
                     d.type === 'hutang' ? 'HUTANG' : 'PIUTANG',
                     displayName,
-                    actualCurr !== 'IDR' ? `${actualCurr} ${Number(d.amount || 0).toLocaleString()} (~ ${formatRp(valIDR)})` : formatRp(Number(d.amount) || 0),
+                    actualCurr !== 'IDR' ? `${actualCurr} (Sisa: ${formatRp(remaining)})` : formatRp(remaining),
                     d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tanpa Tenggat',
                     status
                 ]
-            });
+            }).filter(Boolean);
 
         if (debtRows.length > 0) {
             checkPageBreak(40);
@@ -620,24 +699,13 @@ export default function Reports() {
             graphY += 35;
         }
 
-        // 🚀 TITIK AWAL GRAFIK: MUTLAK DARI TANGGAL USER DAFTAR
-        let chartStartMonth = new Date();
-        if (user.createdAt) {
-            chartStartMonth = new Date(user.createdAt);
-        } else if (allTxs && allTxs.length > 0) {
-            const minTime = Math.min(...allTxs.map((t:any) => new Date(t.date).getTime()));
-            chartStartMonth = new Date(minTime);
-        }
-        
-        // Memastikan dimulai dari tanggal 1 di bulan pendaftaran tersebut
-        chartStartMonth = new Date(chartStartMonth.getFullYear(), chartStartMonth.getMonth(), 1);
-        
+        // 🚀 LOOP GRAFIK (MEMULAI TEPAT DARI BULAN PENDAFTARAN)
+        let chartStartMonth = new Date(appStartDate.getFullYear(), appStartDate.getMonth(), 1);
         const nowGraph = isYearly ? new Date(safeTargetYear, 11, 1) : new Date(nowForReport.getFullYear(), nowForReport.getMonth(), 1);
 
         const paddedData = [];
         let iterDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1); 
         
-        // Loop ke belakang untuk membentuk titik grafik dari bulan pendaftaran
         while (iterDate >= chartStartMonth) {
             const mIdx = iterDate.getMonth();
             const yIdx = iterDate.getFullYear();
@@ -652,7 +720,7 @@ export default function Reports() {
                 if(d.getMonth() === mIdx && d.getFullYear() === yIdx) {
                     const isExcludedCat = ['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category);
                     if (!isExcludedCat) {
-                        // 🚀 PERBAIKAN ARUS KAS BULANAN (GRAFIK BAR)
+                        // 🚀 PEMASUKAN/PENGELUARAN (MENGHITUNG PELUNASAN PIUTANG DAN HUTANG SECARA AKURAT)
                         if (['income', 'debt_receive', 'debt_borrow'].includes(t.type)) pureIn += (Number(t.amount) || 0);
                         if (['expense', 'debt_pay', 'debt_lend'].includes(t.type)) pureOut += (Number(t.amount) || 0);
                     }
@@ -667,11 +735,10 @@ export default function Reports() {
                     asset: snap.netWorth 
                 });
             }
-            
             iterDate.setMonth(iterDate.getMonth() - 1);
         }
 
-        // Isi sisa chart ke depan agar genap 12 bulan (jika kurang)
+        // Isi grafis sisa hingga 12 bulan (jika perlu)
         let futureDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1);
         while (paddedData.length < 12) {
             futureDate.setMonth(futureDate.getMonth() + 1);
@@ -679,7 +746,6 @@ export default function Reports() {
             paddedData.push({ label, netFlow: 0, cash: 0, asset: 0 }); 
         }
 
-        // KITA HAPUS SEMUA CHEAT/OVERRIDE MANUAL! INI MATEMATIKA MURNI!
         const chartAsset = paddedData.map(d => ({ label: d.label, value: d.asset || 0 }));
         const chartCash = paddedData.map(d => ({ label: d.label, value: d.cash || 0 }));
         const chartNetFlow = paddedData.map(d => ({ label: d.label, value: d.netFlow || 0 }));
@@ -700,10 +766,10 @@ export default function Reports() {
 
         const fileName = isYearly ? `Laporan_Tahunan_BILANO_${safeTargetYear}.pdf` : `Laporan_Keuangan_BILANO_${nowForReport.toLocaleDateString('id-ID', { month: 'long' })}_${safeTargetYear}.pdf`;
         
-        // DOWNLOAD DIEKSEKUSI TANPA ASYNC ATAU TIMEOUT
+        // PDF LANGSUNG TERSIMPAN TANPA DELAY
         doc.save(fileName);
         toast({ title: "Berhasil Mengunduh!", description: "Laporan PDF Premium siap dilihat." });
-        setGeneratingId(null); // Reset tombol setelah selesai
+        setGeneratingId(null); 
 
     } catch (error: any) {
         console.error("PDF Engine Fatal Error:", error);
