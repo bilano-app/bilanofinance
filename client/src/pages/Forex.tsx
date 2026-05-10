@@ -271,13 +271,13 @@ export default function Forex() {
           return;
       }
 
-      // Validasi Khusus Jika Mengeluarkan Uang (Beri Pinjaman / Pengeluaran Tunai)
-      if (mutationMode === 'out') {
+      // Validasi Khusus HANYA JIKA MENGGUNAKAN UANG KAS (TUNAI)
+      if (mutationMode === 'out' && paymentMode === 'cash') {
           const existingAsset = assets.find((a: any) => a.currency === selectedCurr.code);
           if (!existingAsset || existingAsset.amount < qty) {
               toast({ 
                   title: "⚠️ Saldo Valas Tidak Cukup", 
-                  description: `Anda hanya memiliki ${existingAsset?.amount || 0} ${selectedCurr.code}. Tidak bisa dikeluarkan/dipinjamkan.`, 
+                  description: `Anda hanya memiliki ${existingAsset?.amount || 0} ${selectedCurr.code}. Tidak bisa dikeluarkan.`, 
                   variant: "destructive" 
               });
               return; 
@@ -289,7 +289,7 @@ export default function Forex() {
 
       try {
           if (paymentMode === 'cash') {
-              // Transaksi Tunai Biasa
+              // Transaksi Tunai Biasa (Mempengaruhi Saldo)
               const res = await fetch("/api/forex/transaction", {
                   method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
                   body: JSON.stringify({ 
@@ -308,10 +308,10 @@ export default function Forex() {
                   toast({ title: "Gagal", description: "Gagal memproses transaksi.", variant: "destructive" });
               }
           } else {
-              // 🚀 OPERASI PINJAM MEMINJAM VALAS (SINKRON KE DEBTS.TSX)
-              // Jika Uang Masuk = Kita Dapat Pinjaman = HUTANG
-              // Jika Uang Keluar = Kita Beri Pinjaman = PIUTANG
-              const debtType = mutationMode === 'in' ? 'hutang' : 'piutang';
+              // 🚀 OPERASI PENCATATAN TERTUNDA (SINKRON KE DEBTS.TSX TANPA MENGUBAH SALDO)
+              // Pemasukan Valas Tertunda = PIUTANG
+              // Pengeluaran Valas Tertunda = HUTANG
+              const debtType = mutationMode === 'in' ? 'piutang' : 'hutang';
 
               await fetch("/api/debts", {
                   method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
@@ -321,7 +321,7 @@ export default function Forex() {
                       amount: qty,
                       dueDate: dueDate,
                       description: `[${debtType.toUpperCase()} VALAS] ${note}`,
-                      isFromTransaction: false // 🔥 KUNCI RAHASIA: Ini membuat routes.ts otomatis motong saldo valas dan bikin log transaksi!
+                      isFromTransaction: true // 🔥 KUNCI RAHASIA: Memaksa server hanya menyimpan nota piutang/hutang tanpa memotong kas/valas!
                   })
               });
 
@@ -517,7 +517,7 @@ export default function Forex() {
                                 <Wallet className="w-3.5 h-3.5"/> TUNAI (Cash)
                             </button>
                             <button onClick={() => setPaymentMode('debt')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${paymentMode === 'debt' ? 'bg-amber-100 text-amber-700 shadow-sm' : 'text-slate-400'}`}>
-                                <HandCoins className="w-3.5 h-3.5"/> {mutationMode === 'in' ? 'DAPAT PINJAMAN' : 'BERI PINJAMAN'}
+                                <HandCoins className="w-3.5 h-3.5"/> {mutationMode === 'in' ? 'PIUTANG' : 'HUTANG'}
                             </button>
                         </div>
 
@@ -525,7 +525,7 @@ export default function Forex() {
                             <div className="animate-in fade-in slide-in-from-top-2 bg-amber-50 p-4 rounded-2xl border border-amber-100 space-y-4 shadow-inner">
                                 <div>
                                     <label className="text-[10px] uppercase tracking-widest font-bold text-amber-600 block mb-1.5">
-                                        {mutationMode === 'in' ? 'Pinjam Dari Siapa?' : 'Dipinjam Oleh Siapa?'}
+                                        {mutationMode === 'in' ? 'Ditagih Ke Siapa?' : 'Ngutang Ke Siapa?'}
                                     </label>
                                     <Input placeholder="Nama Teman / Klien" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-12 text-sm bg-white border-amber-200 focus:border-amber-400 rounded-xl"/>
                                 </div>

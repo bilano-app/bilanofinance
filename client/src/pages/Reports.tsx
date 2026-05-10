@@ -312,7 +312,14 @@ export default function Reports() {
             const rate = getRate(f.currency); 
             const idrVal = f.amount * rate;
             totalForexIDR += idrVal;
-            return [f.currency, f.amount.toLocaleString(), formatRp(rate), formatRp(idrVal)];
+            // Cari tanggal pertama kali currency ini dibeli dari transaksi
+            const firstForexTx = allTxs
+                .filter((t: any) => t.type === 'forex_buy' && t.description?.includes(f.currency))
+                .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+            const forexDate = firstForexTx
+                ? new Date(firstForexTx.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+                : (f.createdAt ? new Date(f.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-');
+            return [forexDate, f.currency, f.amount.toLocaleString(), formatRp(rate), formatRp(idrVal)];
         });
 
         const totalAsset = user.cashBalance + totalInvest + totalForexIDR + totalPiutang;
@@ -332,36 +339,23 @@ export default function Reports() {
             ? new Date(safeTargetYear, 0, 1, 0, 0, 0) 
             : new Date(safeTargetYear, nowForReport.getMonth(), 1, 0, 0, 0);
 
-
-        let archiveCash    = user.cashBalance;
-        let archiveInvest  = totalInvest;
-        let archiveForex   = totalForexIDR;
+        let archiveCash = user.cashBalance;
+        let archiveInvest = totalInvest;
+        let archiveForex = totalForexIDR;
         let archivePiutang = totalPiutang;
-        let archiveDebt    = totalDebt;
+        let archiveDebt = totalDebt;
 
         if (reportDateEnd < now) {
             allTxs.forEach((t:any) => {
                 const tDate = new Date(t.date);
                 if (tDate > reportDateEnd) {
+                    
+                    if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
+                        archiveCash -= t.amount; 
+                    } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
+                        archiveCash += t.amount;
+                    }
 
-                    // Deteksi apakah transaksi debt ini dalam mata uang asing (valas).
-                    // Sesuai routes.ts: debt valas → uang ke/dari forex wallet, BUKAN kas.
-                    // Debt IDR biasa → uang ke/dari kas.
-                    const isValasDebt = t.category?.includes('Valas');
-
-                    // ── KAS ──────────────────────────────────────────────────────────
-                    if (t.type === 'income')                          archiveCash -= t.amount;
-                    if (t.type === 'expense')                         archiveCash += t.amount;
-                    if (t.type === 'invest_buy')                      archiveCash += t.amount;
-                    if (t.type === 'invest_sell')                     archiveCash -= t.amount;
-                    if (t.type === 'forex_buy')                       archiveCash += t.amount;
-                    if (t.type === 'forex_sell')                      archiveCash -= t.amount;
-                    if (t.type === 'debt_borrow'  && !isValasDebt)   archiveCash -= t.amount;
-                    if (t.type === 'debt_lend'    && !isValasDebt)   archiveCash += t.amount;
-                    if (t.type === 'debt_receive' && !isValasDebt)   archiveCash += t.amount;
-                    if (t.type === 'debt_pay'     && !isValasDebt)   archiveCash -= t.amount;
-
-                    // ── INVESTASI (cost-basis) ────────────────────────────────────
                     if (t.type === 'invest_buy') archiveInvest -= t.amount;
                     if (t.type === 'invest_sell') {
                         let buyVal = t.amount;
@@ -375,25 +369,20 @@ export default function Reports() {
                         archiveInvest += buyVal;
                     }
 
-                    // ── FOREX ─────────────────────────────────────────────────────
-                    // forex_buy/sell langsung menggerakkan forex wallet.
-                    // Debt valas juga menggerakkan forex wallet (bukan kas).
-                    // t.amount sudah dalam IDR (dikonversi di backend saat pencatatan).
-                    if (t.type === 'forex_buy')                       archiveForex -= t.amount;
-                    if (t.type === 'forex_sell')                      archiveForex += t.amount;
-                    if (t.type === 'debt_lend'    && isValasDebt)    archiveForex += t.amount;
-                    if (t.type === 'debt_receive' && isValasDebt)    archiveForex -= t.amount;
-                    if (t.type === 'debt_borrow'  && isValasDebt)    archiveForex -= t.amount;
-                    if (t.type === 'debt_pay'     && isValasDebt)    archiveForex += t.amount;
+                    if (t.type === 'forex_buy') archiveForex -= t.amount;
+                    if (t.type === 'forex_sell') archiveForex += t.amount;
 
-                    // ── PIUTANG & HUTANG ──────────────────────────────────────────
-                    // t.amount untuk debt transactions SUDAH dalam IDR
-                    // (dikonversi pakai rate saat transaksi di backend, baris 741 routes.ts).
-                    // JANGAN konversi ulang di sini — sudah pernah menyebabkan double-convert.
-                    if (t.type === 'debt_lend')    archivePiutang -= t.amount;
-                    if (t.type === 'debt_receive') archivePiutang += t.amount;
-                    if (t.type === 'debt_borrow')  archiveDebt    -= t.amount;
-                    if (t.type === 'debt_pay')     archiveDebt    += t.amount;
+                    let rawDebtAmount = t.amount;
+                    if (t.type.startsWith('debt_') && t.description?.includes('|')) {
+                        const curr = t.description.split('|')[1].trim().substring(0,3);
+                        rawDebtAmount = t.amount * getRate(curr);
+                    }
+
+                    if (t.type === 'debt_lend') archivePiutang -= rawDebtAmount; 
+                    if (t.type === 'debt_receive') archivePiutang += rawDebtAmount; 
+
+                    if (t.type === 'debt_borrow') archiveDebt -= rawDebtAmount;
+                    if (t.type === 'debt_pay') archiveDebt += rawDebtAmount;
                 }
             });
         }
@@ -512,11 +501,11 @@ export default function Reports() {
             
             autoTable(doc, {
                 startY: currentY + 5,
-                head: [['Mata Uang', 'Jumlah Kepemilikan', 'Kurs Saat Ini', 'Estimasi Nilai IDR']],
+                head: [['Tgl. Dimiliki', 'Mata Uang', 'Jumlah Kepemilikan', 'Kurs Saat Ini', 'Estimasi Nilai IDR']],
                 body: forexRows,
                 theme: 'striped',
                 headStyles: { fillColor: [14, 165, 233] }, 
-                columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' } },
+                columnStyles: { 0: { halign: 'center', fontSize: 8 }, 1: { halign: 'center' }, 2: { halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right', fontStyle: 'bold' } },
             });
             currentY = (doc as any).lastAutoTable.finalY + 15;
         }
@@ -600,9 +589,17 @@ export default function Reports() {
                         else if (d.description?.includes('[Pemutihan]')) status = 'DIPUTIHKAN (Untung)';
                     }
 
+                    // Tanggal dicatat: cari dari transaksi debt pertama yg berhubungan
+                    const debtFirstTx = allTxs
+                        .filter((t: any) => (t.type === 'debt_lend' || t.type === 'debt_borrow') && t.description?.includes(displayName))
+                        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+                    const debtCreatedDate = debtFirstTx
+                        ? new Date(debtFirstTx.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : (d.createdAt ? new Date(d.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-');
                     return [
                         d.type === 'hutang' ? 'HUTANG' : 'PIUTANG',
                         displayName,
+                        debtCreatedDate,
                         actualCurr !== 'IDR' ? `${actualCurr} ${d.amount.toLocaleString()} (~ ${formatRp(valIDR)})` : formatRp(d.amount),
                         d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tanpa Tenggat',
                         status
@@ -618,11 +615,11 @@ export default function Reports() {
 
                 autoTable(doc, {
                     startY: currentY + 5,
-                    head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']],
+                    head: [['Kategori', 'Nama Pihak', 'Tgl. Dicatat', 'Total Nominal', 'Tenggat Waktu', 'Status']],
                     body: debtRows,
                     theme: 'grid',
                     headStyles: { fillColor: [236, 72, 153] }, 
-                    columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } },
+                    columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'center', fontSize: 8 }, 3: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' }, 5: { halign: 'center' } },
                 });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
@@ -758,11 +755,19 @@ export default function Reports() {
                 const d = new Date(t.date);
                 if(d.getMonth() === mIdx && d.getFullYear() === yIdx && d <= reportDateEnd) {
                     
-                    if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
-                        inCash += t.amount;
-                    } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
-                        outCash += t.amount;
-                    }
+                    // Kas hanya termasuk transaksi yang benar-benar menggerakkan saldo kas tunai.
+                    // Debt valas → forex wallet, BUKAN kas (konsisten dengan rewind block).
+                    const isValasDebtChart = t.category?.includes('Valas');
+                    if (t.type === 'income')                                   inCash += t.amount;
+                    if (t.type === 'invest_sell')                              inCash += t.amount;
+                    if (t.type === 'forex_sell')                               inCash += t.amount;
+                    if (t.type === 'debt_borrow'  && !isValasDebtChart)       inCash += t.amount;
+                    if (t.type === 'debt_receive' && !isValasDebtChart)       inCash += t.amount;
+                    if (t.type === 'expense')                                  outCash += t.amount;
+                    if (t.type === 'invest_buy')                               outCash += t.amount;
+                    if (t.type === 'forex_buy')                                outCash += t.amount;
+                    if (t.type === 'debt_lend'    && !isValasDebtChart)       outCash += t.amount;
+                    if (t.type === 'debt_pay'     && !isValasDebtChart)       outCash += t.amount;
 
                     if (t.type === 'income' && !t.description?.includes('Penyesuaian Valas')) {
                         netWorthChange += t.amount;
