@@ -40,7 +40,7 @@ export default function Landing() {
       title: "Lulus S1 = Pengangguran Tanpa Tabungan?",
       desc: "Realita kerja brutal. Tanpa 'Dana Darurat Pasca-Kampus', Anda tak punya biaya untuk bertahan hidup saat mencari kerja. BILANO memandu Anda men-set target 'Dana Lulus' sejak awal, sementara Konsultan AI akan merem pengeluaran nongkrong Anda secara rasional.",
       // 🖼️ SEKARANG MENGGUNAKAN FILE LOKAL (Pastikan file ini ada di folder public)
-      img: "/pelamar-kerja.jpg" 
+      img: "https://images.unsplash.com/photo-1629904869392-ae2a682d4d01?q=80&w=800&auto=format&fit=crop"
     },
     {
       badge: "Untuk Pekerja & Profesional",
