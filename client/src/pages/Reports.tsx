@@ -305,9 +305,8 @@ export default function Reports() {
             return acc + (d.amount * rate);
         }, 0);
         
-        // Forex: hitung dari data live (akan di-override untuk laporan arsip setelah reportDateEnd tersedia)
         let totalForexIDR = 0;
-        let forexRows: any[] = data.forexAssets
+        const forexRows = data.forexAssets
             .filter((f: any) => f.amount > 0) 
             .map((f: any) => {
             const rate = getRate(f.currency); 
@@ -333,23 +332,32 @@ export default function Reports() {
             ? new Date(safeTargetYear, 0, 1, 0, 0, 0) 
             : new Date(safeTargetYear, nowForReport.getMonth(), 1, 0, 0, 0);
 
-        let archiveCash = user.cashBalance;
-        let archiveInvest = totalInvest;
-        let archiveForex = totalForexIDR;
+        const currentPiutang = totalPiutang;
+        const currentDebt    = totalDebt;
+
+        let archiveCash    = user.cashBalance;
+        let archiveInvest  = totalInvest;
+        let archiveForex   = totalForexIDR;
         let archivePiutang = totalPiutang;
-        let archiveDebt = totalDebt;
+        let archiveDebt    = totalDebt;
 
         if (reportDateEnd < now) {
             allTxs.forEach((t:any) => {
                 const tDate = new Date(t.date);
                 if (tDate > reportDateEnd) {
-                    
-                    if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) {
-                        archiveCash -= t.amount; 
-                    } else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) {
-                        archiveCash += t.amount;
-                    }
 
+                    // ── KAS: hanya transaksi yang langsung menggerakkan kas (BUKAN debt) ──
+                    // Debt transactions sengaja TIDAK di-rewind di sini untuk menghindari
+                    // inkonsistensi currency conversion. Efek debt ke kas akan diturunkan
+                    // dari delta piutang/hutang setelah loop (balance sheet approach).
+                    if (t.type === 'income')      archiveCash -= t.amount;
+                    if (t.type === 'expense')     archiveCash += t.amount;
+                    if (t.type === 'invest_buy')  archiveCash += t.amount;
+                    if (t.type === 'invest_sell') archiveCash -= t.amount;
+                    if (t.type === 'forex_buy')   archiveCash += t.amount;
+                    if (t.type === 'forex_sell')  archiveCash -= t.amount;
+
+                    // ── INVESTASI (cost-basis) ────────────────────────────────────────────
                     if (t.type === 'invest_buy') archiveInvest -= t.amount;
                     if (t.type === 'invest_sell') {
                         let buyVal = t.amount;
@@ -363,62 +371,33 @@ export default function Reports() {
                         archiveInvest += buyVal;
                     }
 
-                    if (t.type === 'forex_buy') archiveForex -= t.amount;
+                    // ── FOREX ─────────────────────────────────────────────────────────────
+                    if (t.type === 'forex_buy')  archiveForex -= t.amount;
                     if (t.type === 'forex_sell') archiveForex += t.amount;
 
+                    // ── PIUTANG & HUTANG ─────────────────────────────────────────────────
+                    // Gunakan rawDebtAmount (IDR) secara konsisten untuk piutang/hutang.
                     let rawDebtAmount = t.amount;
                     if (t.type.startsWith('debt_') && t.description?.includes('|')) {
                         const curr = t.description.split('|')[1].trim().substring(0,3);
-                        rawDebtAmount = t.amount * getRate(curr);
+                        if (['USD','EUR','SGD','JPY','AUD','GBP','CNY','MYR','SAR','KRW','THB'].includes(curr)) {
+                            rawDebtAmount = t.amount * getRate(curr);
+                        }
                     }
 
-                    if (t.type === 'debt_lend') archivePiutang -= rawDebtAmount; 
-                    if (t.type === 'debt_receive') archivePiutang += rawDebtAmount; 
-
-                    if (t.type === 'debt_borrow') archiveDebt -= rawDebtAmount;
-                    if (t.type === 'debt_pay') archiveDebt += rawDebtAmount;
+                    if (t.type === 'debt_lend')    archivePiutang -= rawDebtAmount;
+                    if (t.type === 'debt_receive') archivePiutang += rawDebtAmount;
+                    if (t.type === 'debt_borrow')  archiveDebt -= rawDebtAmount;
+                    if (t.type === 'debt_pay')     archiveDebt += rawDebtAmount;
                 }
             });
-        }
 
-
-        // ── PERBAIKAN FOREX & PIUTANG ARSIP ─────────────────────────────────────────
-        // Masalah: data.forexAssets & data.debts tidak memiliki tanggal pencatatan,
-        // sehingga ikut muncul di semua laporan arsip (bahkan sebelum aset itu ada).
-        // Solusi: untuk arsip, rekonstruksi nilai dari transaksi bertanggal.
-        if (reportDateEnd < now) {
-
-            // ── FOREX: rekonstruksi dari transaksi forex s/d reportDateEnd ────────
-            // Hitung net IDR per mata uang dari transaksi yang tercatat sebelum/saat periode
-            const forexCurrencyNet: Record<string, number> = {};
-            allTxs
-                .filter((t: any) => (t.type === 'forex_buy' || t.type === 'forex_sell') && new Date(t.date) <= reportDateEnd)
-                .forEach((t: any) => {
-                    // Coba parse mata uang dari description (format: 'USD 55.07 @ Rp ...' dll)
-                    const desc = t.description || '';
-                    const m = desc.match(/\b([A-Z]{3})\b/);
-                    const curr = (m && m[1] !== 'IDR' && DEFAULT_RATES[m[1]] !== undefined) ? m[1] : null;
-                    if (!curr) return;
-                    if (!forexCurrencyNet[curr]) forexCurrencyNet[curr] = 0;
-                    forexCurrencyNet[curr] += t.type === 'forex_buy' ? t.amount : -t.amount;
-                });
-
-            // Rebuild forexRows dan totalForexIDR hanya untuk mata uang yang dimiliki saat periode
-            totalForexIDR = 0;
-            forexRows = data.forexAssets
-                .filter((f: any) => f.amount > 0 && (forexCurrencyNet[f.currency] || 0) > 0)
-                .map((f: any) => {
-                    const rate = getRate(f.currency);
-                    const idrVal = f.amount * rate;
-                    totalForexIDR += idrVal;
-                    return [f.currency, f.amount.toLocaleString(), formatRp(rate), formatRp(idrVal)];
-                });
-            // Override archiveForex dengan nilai yang sudah direkonstruksi
-            archiveForex = totalForexIDR;
-
-            // ── PIUTANG DISPLAY: perbaiki status piutang di tabel display ────────
-            // (archivePiutang neraca sudah di-rewind di blok sebelumnya)
-            // Tidak ada perubahan nilai neraca di sini, hanya forexRows dan archiveForex yang dikoreksi.
+            // ── TURUNKAN KAS DARI DELTA PIUTANG/HUTANG (balance sheet approach) ───────
+            // Persamaan: Kas = Kas_live - ΔPiutang + ΔHutang
+            // Ketika piutang di masa lalu lebih besar → lebih banyak uang terpakai untuk meminjamkan → kas lebih kecil
+            // Ketika hutang di masa lalu lebih besar → lebih banyak uang diterima dari pinjaman → kas lebih besar
+            archiveCash -= (archivePiutang - currentPiutang);
+            archiveCash += (archiveDebt    - currentDebt);
         }
 
         const archiveNetWorth = archiveCash + archiveInvest + archiveForex + archivePiutang - archiveDebt;
