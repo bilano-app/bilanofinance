@@ -63,8 +63,13 @@ export default function Performance() {
 
   const isPro = user?.isPro || localStorage.getItem("bilano_pro") === "true";
   
-  // 🚀 KUNCI PERBAIKAN: Langsung kunci jika BUKAN PRO (Abaikan masa trial 3 hari)
-  const locked = !isUserLoading && !isPro;
+  // 🚀 KUNCI PERBAIKAN: Menghitung umur akun untuk masa trial 3 hari
+  const startTime = new Date(user?.createdAt || Date.now()).getTime();
+  const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
+  const isTrialExpired = daysPassed >= 3;
+
+  // Hanya Kunci jika BUKAN PRO dan MASA TRIAL SUDAH HABIS
+  const locked = !isUserLoading && !isPro && isTrialExpired;
 
   const handleLanjutBayar = async () => {
       if (!currentUserEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
@@ -133,9 +138,9 @@ export default function Performance() {
                           <Crown className="w-10 h-10 text-amber-950" />
                       </div>
                       
-                      <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Akses Terkunci</h2>
+                      <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Masa Coba Habis</h2>
                       <p className="text-sm text-slate-600 mb-6 max-w-xs leading-relaxed font-medium">
-                          Fitur ini eksklusif untuk pengguna VIP. Berlangganan <b className="text-slate-800">BILANO PRO</b> sekarang untuk membuka penuh Analisis Cashflow, ROI Aset, dan Diagnosa Target Finansial.
+                          Masa coba gratis 3 hari telah berakhir. Berlangganan <b className="text-slate-800">BILANO PRO</b> sekarang untuk membuka kembali Analisis Cashflow, ROI Aset, dan Diagnosa Target Finansial.
                       </p>
                       
                       <div className="w-full max-w-sm space-y-3 mb-6 animate-in zoom-in-95">
