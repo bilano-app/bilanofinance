@@ -26,8 +26,6 @@ interface DebtRecvItem { id: number; name: string; amount: string; currency: str
 interface InvItem { id: number; type: string; symbol: string; quantity: string; price: string; currency: string; }
 
 const INV_TYPES = ["Saham", "Crypto", "Reksadana", "Emas", "P2P", "Obligasi"];
-
-// 🚀 FIX: Fallback Mata Uang agar aplikasi tidak crash jika API Forex Vercel timeout
 const FALLBACK_CURRENCIES = ["USD", "EUR", "SGD", "JPY", "AUD", "GBP", "CNY", "MYR", "SAR", "KRW", "THB"];
 
 const formatNumber = (val: string) => {
@@ -259,7 +257,14 @@ export default function Target() {
 
             if (res.ok) {
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
-                window.location.href = "/paywall"; 
+                
+                // 🚀 FIX: Jika pendaftaran baru, arahkan ke Paywall. Jika cuma edit, kembalikan ke Home.
+                if (isEditMode) {
+                    window.location.href = "/"; 
+                } else {
+                    window.location.href = "/paywall"; 
+                }
+
             } else { 
                 const errText = await res.text();
                 if (res.status === 504) {
@@ -416,7 +421,6 @@ export default function Target() {
                                         <div className="flex flex-col gap-2">
                                             <Input type="text" placeholder="Nama Pihak" value={tempRecvName} onChange={(e) => setTempRecvName(e.target.value)} className="h-12 rounded-[16px] border-slate-100"/>
                                             <div className="flex gap-2">
-                                                {/* 🚀 FIX: Komponen <select> harus di-inline agar tidak crash Error #130 saat dirender ulang */}
                                                 <select value={tempRecvCurrency} onChange={e => setTempRecvCurrency(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
                                                     <option value="IDR">IDR</option>
                                                     {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
@@ -462,7 +466,6 @@ export default function Target() {
                                             <div className="flex gap-2">
                                                 <Input type="tel" placeholder="Lot/Unit" value={tempInvQty} onChange={(e) => handleNumberChange(setTempInvQty, e.target.value)} className="w-1/3 text-sm h-11 rounded-[16px] border-slate-100"/>
                                                 
-                                                {/* 🚀 FIX: Komponen <select> inline */}
                                                 <select value={tempInvCurrency} onChange={e => setTempInvCurrency(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
                                                     <option value="IDR">IDR</option>
                                                     {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
@@ -505,7 +508,6 @@ export default function Target() {
                                             <Input type="text" placeholder="Hutang ke Siapa?" value={tempDebtName} onChange={(e) => setTempDebtName(e.target.value)} className="h-12 rounded-[16px] border-slate-100 text-sm"/>
                                             <div className="flex gap-2">
                                                 
-                                                {/* 🚀 FIX: Komponen <select> inline */}
                                                 <select value={tempDebtCurrency} onChange={e => setTempDebtCurrency(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
                                                     <option value="IDR">IDR</option>
                                                     {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}

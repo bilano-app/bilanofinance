@@ -104,7 +104,13 @@ export default function Auth() {
       clearAuthCache(); 
 
       toast({ title: "Berhasil Masuk!", description: `Selamat datang!` });
-      window.location.href = "/target"; 
+      
+      // 🚀 KUNCI PERBAIKAN: Pisahkan alur Login vs Signup
+      if (isLogin) {
+          window.location.href = "/"; // ➔ Pengguna lama langsung ke Home
+      } else {
+          window.location.href = "/target"; // ➔ Pengguna baru wajib isi Target
+      }
   };
 
   const handleAuth = async (e: React.FormEvent) => {
