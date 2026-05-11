@@ -14,7 +14,6 @@ import {
 export default function Auth() {
   localStorage.removeItem("bilano_trial_expired");
 
-  // 🚀 FIX 1: SIMPAN STATE KE LOCALSTORAGE AGAR TIDAK HILANG SAAT RELOAD BUKA GMAIL
   const [isLogin, setIsLogin] = useState(() => localStorage.getItem("auth_isLogin") !== "false"); 
   const [step, setStep] = useState<'form' | 'otp'>(() => (localStorage.getItem("auth_step") as 'form'|'otp') || 'form');
   
@@ -41,7 +40,6 @@ export default function Auth() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // 🚀 SIMPAN PERUBAHAN KE LOCAL STORAGE
   useEffect(() => {
       localStorage.setItem("auth_isLogin", String(isLogin));
       localStorage.setItem("auth_step", step);
@@ -85,9 +83,10 @@ export default function Auth() {
   const syncUserProfile = async (user: User) => {
       if (!isLogin && firstName) {
           try {
+              const cleanEmail = (user.email || "").trim().toLowerCase();
               await fetch("/api/user/profile", {
                   method: "PATCH",
-                  headers: { "Content-Type": "application/json", "x-user-email": user.email || "" },
+                  headers: { "Content-Type": "application/json", "x-user-email": cleanEmail },
                   body: JSON.stringify({ firstName, lastName })
               });
           } catch (e) {}
@@ -98,10 +97,11 @@ export default function Auth() {
       setLoading(true);
       await syncUserProfile(user); 
 
+      const cleanEmail = (user.email || "").trim().toLowerCase();
       localStorage.setItem("bilano_auth", "true");
-      localStorage.setItem("bilano_email", user.email || "");
+      localStorage.setItem("bilano_email", cleanEmail);
       
-      clearAuthCache(); // Bersihkan memori sementara saat sukses masuk
+      clearAuthCache(); 
 
       toast({ title: "Berhasil Masuk!", description: `Selamat datang!` });
       window.location.href = "/"; 
@@ -111,20 +111,22 @@ export default function Auth() {
     e.preventDefault();
     setAuthError(""); 
     
-    if (!email || !password) return setAuthError("Email dan Password wajib diisi!");
+    // 🚀 THE ULTIMATE SHIELD: Potong spasi dan paksa huruf kecil sebelum diproses!
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail || !password) return setAuthError("Email dan Password wajib diisi!");
     if (!isLogin && (!firstName || !lastName)) return setAuthError("Nama Depan & Belakang wajib diisi!");
 
     setLoading(true);
 
     try {
-        // 🚀 FIX 4: CEK EMAIL APAKAH SUDAH TERDAFTAR (UNTUK LOGIN & DAFTAR)
         let emailExists = false;
         let adminReady = false;
 
         try {
             const checkRes = await fetch("/api/auth/check-email", {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email })
+                body: JSON.stringify({ email: cleanEmail })
             });
             if (checkRes.ok) {
                 const checkData = await checkRes.json();
@@ -140,23 +142,24 @@ export default function Auth() {
                 setLoading(false);
                 return;
             }
-            const cred = await signInWithEmailAndPassword(auth, email, password);
+            const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
             await handleSuccess(cred.user);
         } else {
-            // JIKA MENCOBA DAFTAR TAPI EMAIL SUDAH ADA, TOLAK & ARAHKAN LOGIN
             if (adminReady && emailExists) {
                 setAuthError("Email sudah terdaftar! Silakan pilih menu Masuk.");
                 setTimeout(() => { setIsLogin(true); setAuthError(""); }, 2000);
                 setLoading(false);
                 return;
             }
-            await requestOtp();
+            await requestOtp(cleanEmail);
         }
     } catch (error: any) {
         if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
             setAuthError("Password salah. Silakan coba lagi.");
         } else if (error.code === 'auth/user-not-found') {
             setAuthError("Akun belum terdaftar. Silakan ke tab Daftar.");
+        } else if (error.code === 'auth/invalid-email') {
+            setAuthError("Format email tidak valid. Pastikan tidak ada spasi.");
         } else if (error.code === 'auth/too-many-requests') {
             setAuthError("Terlalu banyak mencoba. Silakan tunggu sebentar.");
         } else {
@@ -166,11 +169,11 @@ export default function Auth() {
     } 
   };
 
-  const requestOtp = async () => {
+  const requestOtp = async (cleanEmail: string) => {
       try {
           const res = await fetch("/api/auth/send-otp", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email })
+              body: JSON.stringify({ email: cleanEmail })
           });
           
           const textData = await res.text();
@@ -188,7 +191,8 @@ export default function Auth() {
               setResendCooldown(60); 
               toast({ title: "Cek Email", description: data.message || "Kode OTP telah terkirim!" });
           } else {
-              setAuthError(data.error || "Gagal kirim kode.");
+              // 🚀 Menampilkan error asli dari server jika Nodemailer gagal
+              setAuthError(data.error || "Gagal kirim kode OTP.");
           }
       } catch (error: any) {
           setAuthError("Koneksi ke server terputus.");
@@ -201,24 +205,29 @@ export default function Auth() {
       if(otpCode.length < 6) return;
       setLoading(true);
       setAuthError(""); 
+      
+      const cleanEmail = email.trim().toLowerCase();
 
       try {
           const res = await fetch("/api/auth/verify-otp", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email, code: otpCode })
+              body: JSON.stringify({ email: cleanEmail, code: otpCode })
           });
+          
           if (!res.ok) {
               setAuthError("Kode OTP Salah atau Kadaluarsa.");
               setLoading(false);
               return;
           }
 
-          const cred = await createUserWithEmailAndPassword(auth, email, password);
+          const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
           await handleSuccess(cred.user);
 
       } catch (error: any) {
           if (error.code === 'auth/email-already-in-use') {
               setAuthError("Akun ini sudah berhasil dibuat! Silakan kembali dan pilih 'Masuk'.");
+          } else if (error.code === 'auth/invalid-email') {
+              setAuthError("Format email tidak valid. Pastikan tidak ada spasi.");
           } else {
               setAuthError(error.message || "Gagal verifikasi pendaftaran.");
           }
@@ -228,13 +237,15 @@ export default function Auth() {
 
   const handleSendOtpReset = async () => {
       setForgotError("");
-      if (!forgotEmail) return setForgotError("Isi email Anda terlebih dahulu!");
+      const cleanForgotEmail = forgotEmail.trim().toLowerCase();
+      if (!cleanForgotEmail) return setForgotError("Isi email Anda terlebih dahulu!");
+      
       setLoading(true);
       
       try {
           const res = await fetch("/api/auth/send-otp-reset", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email: forgotEmail })
+              body: JSON.stringify({ email: cleanForgotEmail })
           });
 
           const textData = await res.text();
@@ -265,12 +276,13 @@ export default function Auth() {
       if (forgotOtp.length < 6) return setForgotError("Kode OTP harus 6 digit.");
       if (newPassword.length < 6) return setForgotError("Password baru minimal 6 karakter.");
       
+      const cleanForgotEmail = forgotEmail.trim().toLowerCase();
       setLoading(true);
       
       try {
           const res = await fetch("/api/auth/reset-password", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email: forgotEmail, code: forgotOtp, newPassword })
+              body: JSON.stringify({ email: cleanForgotEmail, code: forgotOtp, newPassword })
           });
           
           const textData = await res.text();
@@ -303,7 +315,7 @@ export default function Auth() {
                     <ShieldCheck className="w-8 h-8 text-indigo-600" />
                 </div>
                 <h2 className="text-xl font-bold text-slate-800">Verifikasi Email</h2>
-                <p className="text-slate-500 text-sm mb-6">Kode 6 digit dikirim ke <br/><strong>{email}</strong></p>
+                <p className="text-slate-500 text-sm mb-6">Kode 6 digit dikirim ke <br/><strong>{email.trim().toLowerCase()}</strong></p>
                 
                 <div className="relative mb-2">
                     <Input 
@@ -327,7 +339,7 @@ export default function Auth() {
                 
                 <div className="mt-6">
                     <p className="text-xs text-slate-400 mb-2">Tidak menerima kode?</p>
-                    <button onClick={() => { if(resendCooldown === 0) { setLoading(true); requestOtp().catch(() => setLoading(false)); } }} disabled={resendCooldown > 0 || loading} className={`text-xs font-bold px-4 py-2 rounded-full transition-all ${resendCooldown > 0 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}>
+                    <button onClick={() => { if(resendCooldown === 0) { setLoading(true); requestOtp(email.trim().toLowerCase()).catch(() => setLoading(false)); } }} disabled={resendCooldown > 0 || loading} className={`text-xs font-bold px-4 py-2 rounded-full transition-all ${resendCooldown > 0 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}>
                         {resendCooldown > 0 ? `Tunggu ${resendCooldown} detik` : "KIRIM ULANG KODE"}
                     </button>
                 </div>
@@ -359,7 +371,11 @@ export default function Auth() {
                   )}
                   <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-500 ml-1">Email</label>
-                      <div className="relative"><Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/><Input type="email" placeholder="nama@email.com" className="pl-10 h-12" value={email} onChange={(e) => setEmail(e.target.value)}/></div>
+                      <div className="relative">
+                          <Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
+                          {/* 🚀 THE SHIELD: HAPUS SPASI SECARA REAL-TIME SAAT DIKETIK */}
+                          <Input type="email" placeholder="nama@email.com" className="pl-10 h-12" value={email} onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}/>
+                      </div>
                   </div>
                   <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-500 ml-1">Password</label>
@@ -426,7 +442,7 @@ export default function Auth() {
                                           placeholder="Masukkan email Anda..." 
                                           className="pl-10 h-12 border-slate-200" 
                                           value={forgotEmail} 
-                                          onChange={(e) => { setForgotEmail(e.target.value); setForgotError(""); }}
+                                          onChange={(e) => { setForgotEmail(e.target.value.trim().toLowerCase()); setForgotError(""); }}
                                       />
                                   </div>
                                   
@@ -495,7 +511,7 @@ export default function Auth() {
                           </div>
                           <h3 className="text-lg font-extrabold text-slate-800 mb-2">Sukses Bos!</h3>
                           <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                              Password untuk akun <strong>{forgotEmail}</strong> telah berhasil diperbarui. Silakan login kembali.
+                              Password untuk akun <strong>{forgotEmail.trim().toLowerCase()}</strong> telah berhasil diperbarui. Silakan login kembali.
                           </p>
                           <Button onClick={() => setShowForgotModal(false)} className="w-full h-12 bg-indigo-600 text-white hover:bg-indigo-700 font-bold shadow-md">
                               TUTUP & LOGIN

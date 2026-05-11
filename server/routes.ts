@@ -158,10 +158,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // Ganti bagian ini di server/routes.ts untuk memastikan Firebase Admin menerima email bersih
   app.post("/api/auth/check-email", async (req, res) => {
       if (!firebaseAdminInitialized) return res.status(200).json({ adminReady: false, exists: true }); 
+    
+    // 🚀 DIBERSIHKAN DULU SEBELUM MASUK KE FIREBASE
+      const cleanEmail = (req.body.email || "").trim().toLowerCase();
+    
       try {
-          await admin.auth().getUserByEmail(req.body.email);
+          await admin.auth().getUserByEmail(cleanEmail);
           res.json({ adminReady: true, exists: true }); 
       } catch (e: any) {
           if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-email') {
