@@ -71,14 +71,18 @@ export default function Forex() {
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
-  const formatNum = (val: string) => {
+  // 🚀 PENYELAMAT DESIMAL: Pemisah antara Rupiah (Bulat) dan Valas (Desimal)
+  const formatIdr = (val: string) => {
       if (!val) return "";
       let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
       const parts = raw.split(",");
       parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
       return parts.slice(0, 2).join(",");
   };
-  const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
+  const parseIdr = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
+  
+  // Membiarkan Titik/Koma tetap hidup di Valas
+  const parseValas = (val: string) => parseFloat(val.replace(/,/g, ".")) || 0;
 
   const { data: user } = useQuery({
       queryKey: ['userProfile', currentUserEmail],
@@ -203,8 +207,8 @@ export default function Forex() {
           return;
       }
 
-      const qty = parseNum(amountExchange);
-      const rate = parseNum(rateExchange);
+      const qty = parseValas(amountExchange);
+      const rate = parseIdr(rateExchange);
       if (!qty || !rate) { toast({ title: "Error", description: "Isi jumlah dan kurs.", variant: "destructive" }); return; }
 
       if (exchangeMode === 'buy') {
@@ -263,7 +267,7 @@ export default function Forex() {
           return;
       }
 
-      const qty = parseNum(amountMutation);
+      const qty = parseValas(amountMutation);
       if (!qty) { toast({ title: "Error", description: "Isi nominal.", variant: "destructive" }); return; }
       
       if (paymentMode === 'debt' && (!debtName || !dueDate)) {
@@ -271,7 +275,6 @@ export default function Forex() {
           return;
       }
 
-      // Validasi Khusus HANYA JIKA MENGGUNAKAN UANG KAS (TUNAI)
       if (mutationMode === 'out' && paymentMode === 'cash') {
           const existingAsset = assets.find((a: any) => a.currency === selectedCurr.code);
           if (!existingAsset || existingAsset.amount < qty) {
@@ -289,7 +292,6 @@ export default function Forex() {
 
       try {
           if (paymentMode === 'cash') {
-              // Transaksi Tunai Biasa (Mempengaruhi Saldo)
               const res = await fetch("/api/forex/transaction", {
                   method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
                   body: JSON.stringify({ 
@@ -308,9 +310,6 @@ export default function Forex() {
                   toast({ title: "Gagal", description: "Gagal memproses transaksi.", variant: "destructive" });
               }
           } else {
-              // 🚀 OPERASI PENCATATAN TERTUNDA (SINKRON KE DEBTS.TSX TANPA MENGUBAH SALDO)
-              // Pemasukan Valas Tertunda = PIUTANG
-              // Pengeluaran Valas Tertunda = HUTANG
               const debtType = mutationMode === 'in' ? 'piutang' : 'hutang';
 
               await fetch("/api/debts", {
@@ -321,7 +320,7 @@ export default function Forex() {
                       amount: qty,
                       dueDate: dueDate,
                       description: `[${debtType.toUpperCase()} VALAS] ${note}`,
-                      isFromTransaction: true // 🔥 KUNCI RAHASIA: Memaksa server hanya menyimpan nota piutang/hutang tanpa memotong kas/valas!
+                      isFromTransaction: true 
                   })
               });
 
@@ -358,7 +357,6 @@ export default function Forex() {
                   <Loader2 className="w-4 h-4 animate-spin"/>
                   <span>Memuat Valas...</span>
               </div>
-              <p className="text-[10px] font-medium text-slate-400 mt-2 text-center animate-pulse">Menarik data pertukaran uang asing terbaru...</p>
           </div>
       );
   }
@@ -538,7 +536,8 @@ export default function Forex() {
 
                         <div>
                             <label className="text-xs font-bold text-slate-500 mb-1 block">Nominal ({selectedCurr.code})</label>
-                            <Input type="text" inputMode="decimal" placeholder="Contoh: 100" className="h-14 text-xl font-bold rounded-xl" value={amountMutation} onChange={(e) => setAmountMutation(formatNum(e.target.value))}/>
+                            {/* 🚀 MENGIZINKAN NATIVE KETIK TITIK / KOMA UNTUK VALAS */}
+                            <Input type="text" inputMode="decimal" placeholder="Contoh: 10.5" className="h-14 text-xl font-bold rounded-xl" value={amountMutation} onChange={(e) => setAmountMutation(e.target.value.replace(/[^0-9.,]/g, ''))}/>
                         </div>
                         
                         <div>
@@ -560,13 +559,20 @@ export default function Forex() {
                         </div>
                         
                         <div className="grid grid-cols-2 gap-4">
-                            <div><label className="text-xs font-bold text-slate-500 mb-1 block">Jml ({selectedCurr.code})</label><Input type="text" inputMode="decimal" placeholder="100" className="h-12 text-lg font-bold" value={amountExchange} onChange={(e) => setAmountExchange(formatNum(e.target.value))}/></div>
-                            <div><label className="text-xs font-bold text-slate-500 mb-1 block">Kurs Deal (Rp)</label><Input type="text" inputMode="decimal" placeholder={isTrialExpired ? "✨" : formatNum(Math.round(getSafeRate(selectedCurr.code)).toString())} className="h-12 text-lg font-bold" value={rateExchange} onChange={(e) => setRateExchange(formatNum(e.target.value))}/></div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 mb-1 block">Jml ({selectedCurr.code})</label>
+                                {/* 🚀 MENGIZINKAN KOMA VALAS */}
+                                <Input type="text" inputMode="decimal" placeholder="10.5" className="h-12 text-lg font-bold" value={amountExchange} onChange={(e) => setAmountExchange(e.target.value.replace(/[^0-9.,]/g, ''))}/>
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 mb-1 block">Kurs Deal (Rp)</label>
+                                <Input type="text" inputMode="decimal" placeholder={isTrialExpired ? "✨" : formatIdr(Math.round(getSafeRate(selectedCurr.code)).toString())} className="h-12 text-lg font-bold" value={rateExchange} onChange={(e) => setRateExchange(formatIdr(e.target.value))}/>
+                            </div>
                         </div>
                         
                         <div className={`p-3 rounded-xl border text-center ${exchangeMode === 'buy' ? 'bg-purple-50 border-purple-100' : 'bg-orange-50 border-orange-100'}`}>
                             <p className={`text-xs mb-1 ${exchangeMode === 'buy' ? 'text-purple-600' : 'text-orange-600'}`}>Total Rupiah</p>
-                            <p className="text-xl font-extrabold text-slate-800">{amountExchange && rateExchange ? formatRp(parseNum(amountExchange) * parseNum(rateExchange)) : "Rp 0"}</p>
+                            <p className="text-xl font-extrabold text-slate-800">{amountExchange && rateExchange ? formatRp(parseValas(amountExchange) * parseIdr(rateExchange)) : "Rp 0"}</p>
                         </div>
                         
                         <Button disabled={isSubmitting} onClick={handleExchange} className={`w-full h-12 font-bold ${exchangeMode === 'buy' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-orange-500 hover:bg-orange-600'}`}>

@@ -43,14 +43,20 @@ export default function Debts() {
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
-  const formatNum = (val: string) => {
+  // 🚀 PEMISAH RUPIAH & VALAS AGAR KOMA TIDAK HILANG
+  const formatNum = (val: string, isForeign: boolean = false) => {
       if (!val) return "";
+      if (isForeign) return val.replace(/[^0-9.,]/g, '');
       let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
       const parts = raw.split(",");
       parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
       return parts.slice(0, 2).join(",");
   };
-  const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
+
+  const parseNum = (val: string, isForeign: boolean = false) => {
+      if (isForeign) return parseFloat(val.replace(/,/g, ".")) || 0;
+      return parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
+  };
 
   const { data: items = [], isLoading: isDebtsLoading, refetch: refetchDebts } = useQuery({
       queryKey: ['debts', currentUserEmail],
@@ -99,7 +105,9 @@ export default function Debts() {
 
   const handleAdd = async () => {
       if (checkPaywall()) return;
-      const nominal = parseNum(amount);
+      const isForeign = currency !== 'IDR';
+      const nominal = parseNum(amount, isForeign);
+
       if (!name || !nominal || nominal <= 0) { 
           toast({ title: "Form Tidak Lengkap!", variant: "destructive" }); 
           return; 
@@ -138,7 +146,9 @@ export default function Debts() {
           return;
       }
 
-      const nominal = parseNum(payAmount) || selectedDebt.amount; 
+      const isPayForeign = selectedDebt.name.split('|')[1] !== 'IDR' && selectedDebt.name.split('|')[1] !== undefined;
+      const nominal = parseNum(payAmount, isPayForeign) || selectedDebt.amount; 
+
       if (nominal > selectedDebt.amount) { toast({title: "Nominal Berlebih", variant: "destructive"}); return; }
       if (nominal <= 0) { toast({title: "Nominal tidak valid", variant: "destructive"}); return; }
       
@@ -207,7 +217,6 @@ export default function Debts() {
       }
   };
 
-  // 🚀 FITUR BARU: TOMBOL PULIHKAN (RESTORE)
   const handleRestore = async (debtId: number) => {
       if (checkPaywall()) return;
       if (!confirm("Pulihkan tagihan ini? Saldo dan transaksi akan dikembalikan seperti semula.")) return;
@@ -254,8 +263,10 @@ export default function Debts() {
   };
 
   let modalSisaTagihanUI = "Rp 0";
+  let isPayForeign = false;
   if (selectedDebt) {
       const curr = selectedDebt.name.split('|')[1] || 'IDR';
+      isPayForeign = curr !== 'IDR';
       const rate = curr === 'IDR' ? 1 : (activeRates[curr] || 1);
       const idrNominal = selectedDebt.amount * rate;
       modalSisaTagihanUI = curr !== 'IDR' ? `${curr} ${selectedDebt.amount.toLocaleString('id-ID')} (≈ ${formatRp(idrNominal)})` : formatRp(selectedDebt.amount);
@@ -275,7 +286,8 @@ export default function Debts() {
                     
                     <p className="text-xs text-slate-500 mb-4">Sisa Tagihan: <span className="font-bold text-rose-600">{modalSisaTagihanUI}</span></p>
                     
-                    <Input disabled={isPaying} type="text" inputMode="decimal" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(formatNum(e.target.value))} className="h-14 font-bold text-lg mb-4"/>
+                    {/* 🚀 FORM BAYAR MENDUKUNG VALAS DESIMAL */}
+                    <Input disabled={isPaying} type="text" inputMode="decimal" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(formatNum(e.target.value, isPayForeign))} className="h-14 font-bold text-lg mb-4"/>
                     
                     <Button onClick={handlePay} disabled={isPaying} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg transition-transform active:scale-95">
                         {isPaying ? <Loader2 className="w-5 h-5 animate-spin"/> : "KONFIRMASI PEMBAYARAN"}
@@ -338,7 +350,8 @@ export default function Debts() {
                             <option value="IDR">IDR</option>
                             {availableCurrencies.filter(c => c !== 'IDR').map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        <Input disabled={isSubmitting} type="text" inputMode="decimal" placeholder="Nominal" value={amount} onChange={e => setAmount(formatNum(e.target.value))} className="flex-1 h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg"/>
+                        {/* 🚀 FORM CATAT HUTANG BARU MENDUKUNG VALAS DESIMAL */}
+                        <Input disabled={isSubmitting} type="text" inputMode="decimal" placeholder="Nominal" value={amount} onChange={e => setAmount(formatNum(e.target.value, currency !== 'IDR'))} className="flex-1 h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg"/>
                     </div>
                     
                     <div className="space-y-1">
