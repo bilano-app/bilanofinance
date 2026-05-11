@@ -104,7 +104,7 @@ export default function Auth() {
       clearAuthCache(); 
 
       toast({ title: "Berhasil Masuk!", description: `Selamat datang!` });
-      window.location.href = "/"; 
+      window.location.href = "/target"; 
   };
 
   const handleAuth = async (e: React.FormEvent) => {
