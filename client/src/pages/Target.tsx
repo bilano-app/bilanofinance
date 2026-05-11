@@ -259,7 +259,7 @@ export default function Target() {
 
             if (res.ok) {
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
-                window.location.href = "/"; 
+                window.location.href = "/paywall"; 
             } else { 
                 const errText = await res.text();
                 if (res.status === 504) {
