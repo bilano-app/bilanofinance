@@ -25,11 +25,7 @@ export default function Reports() {
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
-  const formatRp = (val: number) => {
-      const num = Number(val) || 0;
-      return "Rp " + Math.round(num).toLocaleString("id-ID");
-  };
-
+  const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
   const formatRpPendek = (val: number) => {
       const num = Math.abs(Number(val) || 0);
       const sign = val < 0 ? "-" : "";
@@ -38,10 +34,7 @@ export default function Reports() {
       return sign + num.toString();
   };
 
-  const getRate = (curr: string) => {
-      if (!curr || curr === 'IDR') return 1;
-      return forexRates[curr] || DEFAULT_RATES[curr] || 15000;
-  };
+  const getRate = (curr: string) => forexRates[curr] || DEFAULT_RATES[curr] || 15000;
 
   useEffect(() => {
     try {
@@ -49,13 +42,9 @@ export default function Reports() {
         img.crossOrigin = "Anonymous";
         img.onload = () => {
             const canvas = document.createElement("canvas");
-            canvas.width = img.width;
-            canvas.height = img.height;
+            canvas.width = img.width; canvas.height = img.height;
             const ctx = canvas.getContext("2d");
-            if (ctx) {
-                ctx.drawImage(img, 0, 0);
-                setLogoBase64(canvas.toDataURL("image/png"));
-            }
+            if (ctx) { ctx.drawImage(img, 0, 0); setLogoBase64(canvas.toDataURL("image/png")); }
         };
         img.src = '/bilano_logo_horiz.png';
     } catch (e) {}
@@ -63,11 +52,7 @@ export default function Reports() {
     const fetchData = async () => {
       try {
         const userEmail = localStorage.getItem("bilano_email") || "";
-        const fetchOpts = { 
-            headers: { "x-user-email": userEmail },
-            cache: "no-store" as RequestCache
-        };
-
+        const fetchOpts = { headers: { "x-user-email": userEmail }, cache: "no-store" as RequestCache };
         const timestamp = Date.now();
         const [resData, resRates, resTarget] = await Promise.all([
             fetch(`/api/reports/data?t=${timestamp}`, fetchOpts),
@@ -78,13 +63,10 @@ export default function Reports() {
         if (resData.ok) {
             const dbData = await resData.json();
             setData(dbData);
-            
-            // 🚀 JALANKAN MESIN PEMBEKU ARSIP (AUTO-ARCHIVER) DI LATAR BELAKANG
-            runAutoArchiver(dbData, userEmail);
+            runAutoArchiver(dbData, userEmail); // 🔥 Jalankan Mesin Pembeku Arsip
         }
         if (resRates.ok) setForexRates(await resRates.json());
         if (resTarget.ok) setTargetData(await resTarget.json());
-
       } catch (e) { console.error(e); } 
       finally { setLoading(false); }
     };
@@ -92,7 +74,7 @@ export default function Reports() {
   }, []);
 
   // =======================================================================================
-  // 🚀 ENGINE PEMBEKU DATA (FROZEN GENERATOR)
+  // 🚀 ENGINE PEMBEKU DATA (FROZEN GENERATOR) - 100% SINKRON DENGAN PERFORMANCE.TSX
   // =======================================================================================
   const generateFrozenData = (targetMonth: number, targetYear: number, isYearly: boolean, dbData: any) => {
       const user = dbData.user || {};
@@ -114,25 +96,13 @@ export default function Reports() {
           }
       });
 
-      const getAssetStartDate = (asset: any, type: 'debt'|'forex'|'invest') => {
-          let firstDate = asset.createdAt ? new Date(asset.createdAt).getTime() : new Date().getTime();
-          allTxs.forEach((t:any) => {
-              const txTime = new Date(t.date).getTime();
-              if (type === 'debt' && (t.description || "").includes((asset.name || "").split('|')[0]) && txTime < firstDate) firstDate = txTime;
-              else if (type === 'forex' && ((t.category || "").includes(asset.currency) || (t.description || "").includes(asset.currency)) && txTime < firstDate) firstDate = txTime;
-              else if (type === 'invest' && (t.description || "").includes((asset.symbol || "").split('|')[0]) && txTime < firstDate) firstDate = txTime;
-          });
-          if (firstDate < appStartDate.getTime()) firstDate = appStartDate.getTime();
-          return new Date(firstDate);
-      };
-
       const liveCash = Number(user.cashBalance || 0);
       const safeTargetYear = targetYear;
       const reportDateEnd = isYearly 
             ? new Date(safeTargetYear, 11, 31, 23, 59, 59) 
             : new Date(safeTargetYear, targetMonth + 1, 0, 23, 59, 59);
-      const nowGraph = isYearly ? new Date(safeTargetYear, 11, 1) : new Date(safeTargetYear, targetMonth, 1);
 
+      // 🚀 THE PURE ROLLBACK ALGORITHM (SINKRON 100% DENGAN LOGIKA APLIKASI)
       const getSnapshotAt = (targetDate: Date) => {
           let snapCash = liveCash; 
           allTxs.filter((t:any) => new Date(t.date) > targetDate).forEach((t:any) => {
@@ -145,38 +115,51 @@ export default function Reports() {
           });
 
           let snapPiutang = 0; let snapDebt = 0;
-          allDebts.forEach((d:any) => {
-              if (getAssetStartDate(d, 'debt') <= targetDate) { 
-                  const rate = getRate((d.name || "").split('|')[1] || 'IDR');
-                  const displayName = (d.name || "").split('|')[0];
-                  const originalVal = Number(d.amount) * rate; 
-                  let paidUntilTarget = 0;
-                  allTxs.filter((t:any) => new Date(t.date) <= targetDate).forEach((t:any) => {
-                      if ((t.description || "").includes(displayName)) {
-                          if (d.type === 'hutang' && (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang')) paidUntilTarget += (Number(t.amount) || 0);
-                          if (d.type === 'piutang' && (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang')) paidUntilTarget += (Number(t.amount) || 0);
+          const uniqueDebts = new Set(allDebts.map((d:any) => d.name));
+          uniqueDebts.forEach((name: string) => {
+              const relatedDebts = allDebts.filter((d:any) => d.name === name);
+              const earliestDbDate = new Date(Math.min(...relatedDebts.map((d:any) => new Date(d.createdAt||Date.now()).getTime())));
+              let firstTxDate = Date.now();
+              allTxs.forEach((t:any) => {
+                  if (t.description?.includes(name.split('|')[0]) && new Date(t.date).getTime() < firstTxDate) firstTxDate = new Date(t.date).getTime();
+              });
+              const startDate = new Date(Math.min(earliestDbDate.getTime(), firstTxDate, appStartDate.getTime()));
+              
+              if (startDate <= targetDate) {
+                  const isHutang = relatedDebts[0].type === 'hutang';
+                  let liveAmt = relatedDebts.filter((d:any) => !d.isPaid).reduce((acc:number, d:any) => acc + d.amount, 0) * getRate(name.split('|')[1]||'IDR');
+                  
+                  allTxs.filter((t:any) => new Date(t.date) > targetDate && (t.description||'').includes(name.split('|')[0])).forEach((t:any) => {
+                      const amt = Number(t.amount) || 0;
+                      if (isHutang) {
+                          if (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang') liveAmt += amt;
+                          if (t.type === 'debt_borrow' || t.type === 'hutang_record') liveAmt -= amt;
+                      } else {
+                          if (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang') liveAmt += amt;
+                          if (t.type === 'debt_lend' || t.type === 'piutang_record') liveAmt -= amt;
                       }
                   });
-                  const remaining = Math.max(0, originalVal - paidUntilTarget);
-                  if (d.type === 'hutang') snapDebt += remaining;
-                  if (d.type === 'piutang') snapPiutang += remaining;
+                  if (isHutang) snapDebt += Math.max(0, liveAmt);
+                  else snapPiutang += Math.max(0, liveAmt);
               }
           });
 
           let snapForex = 0;
-          allForexAssets.forEach((f:any) => {
-              if (getAssetStartDate(f, 'forex') <= targetDate) { 
-                  let qtyAtTarget = 0; let hasTx = false;
-                  allTxs.filter((t:any) => new Date(t.date) <= targetDate).forEach((t:any) => {
-                      if ((t.category || "").includes(f.currency) || (t.description || "").includes(f.currency)) {
-                          hasTx = true;
-                          const txQty = (Number(t.amount) || 0) / getRate(f.currency); 
-                          if (t.type === 'forex_buy') qtyAtTarget += txQty;
-                          if (t.type === 'forex_sell') qtyAtTarget -= txQty;
-                      }
+          const uniqueForex = new Set(allForexAssets.map((f:any) => f.currency));
+          uniqueForex.forEach((curr: string) => {
+              const relatedFx = allForexAssets.find((f:any) => f.currency === curr);
+              let firstDate = relatedFx ? new Date(relatedFx.createdAt||Date.now()).getTime() : Date.now();
+              allTxs.forEach((t:any) => { if ((t.category||'').includes(curr) || (t.description||'').includes(curr)) if(new Date(t.date).getTime() < firstDate) firstDate = new Date(t.date).getTime(); });
+              const startDate = new Date(Math.min(firstDate, appStartDate.getTime()));
+              
+              if (startDate <= targetDate) {
+                  let liveAmt = (relatedFx?.amount || 0) * getRate(curr);
+                  allTxs.filter((t:any) => new Date(t.date) > targetDate && ((t.category||'').includes(curr) || (t.description||'').includes(curr))).forEach((t:any) => {
+                      const amt = Number(t.amount) || 0;
+                      if (t.type === 'forex_sell') liveAmt += amt;
+                      if (t.type === 'forex_buy') liveAmt -= amt;
                   });
-                  if (!hasTx) qtyAtTarget = Number(f.amount) || 0; 
-                  snapForex += Math.max(0, qtyAtTarget * getRate(f.currency));
+                  snapForex += Math.max(0, liveAmt);
               }
           });
 
@@ -184,31 +167,30 @@ export default function Reports() {
           Array.from(allUniqueSymbols).forEach((symbolRaw: string) => {
               const sym = symbolRaw.split('|')[0];
               const rate = getRate(symbolRaw.split('|')[1] || 'IDR'); 
-              let costBasisAtTarget = 0; let hasTx = false;
-              allTxs.filter((t:any) => new Date(t.date) <= targetDate).forEach((t:any) => {
-                  if ((t.description || "").includes(sym)) {
-                      hasTx = true;
-                      const amt = Number(t.amount) || 0;
-                      if (t.type === 'invest_buy') costBasisAtTarget += amt;
-                      if (t.type === 'invest_sell') {
-                          let c = amt;
-                          if (t.description?.includes('P/L:')) {
-                              const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''), 10);
-                              if (!isNaN(pl)) c = t.description.includes('P/L: -') ? amt + Math.abs(pl) : Math.max(0, amt - Math.abs(pl));
-                          }
-                          costBasisAtTarget -= c;
-                      }
-                  }
-              });
-              if (!hasTx) {
-                  const dbInv = allInvestments.find((i:any) => i.symbol === symbolRaw);
-                  if (dbInv && new Date(dbInv.createdAt || 0) <= targetDate) {
+              const dbInv = allInvestments.find((i:any) => i.symbol === symbolRaw);
+              let firstDate = dbInv ? new Date(dbInv.createdAt||Date.now()).getTime() : Date.now();
+              allTxs.forEach((t:any) => { if ((t.description||'').includes(sym) && new Date(t.date).getTime() < firstDate) firstDate = new Date(t.date).getTime(); });
+              const startDate = new Date(Math.min(firstDate, appStartDate.getTime()));
+
+              if (startDate <= targetDate) {
+                  let liveAmt = 0;
+                  if (dbInv) {
                       const isSaham = dbInv.type === 'saham' || (!dbInv.type && sym.length === 4 && dbInv.type !== 'crypto');
                       const m = (isSaham && !(dbInv.symbol || "").split('|')[1]) ? 100 : 1;
-                      costBasisAtTarget = (Number(dbInv.quantity) || 0) * (Number(dbInv.avgPrice) || 0) * m * rate;
+                      liveAmt = (Number(dbInv.quantity) || 0) * (Number(dbInv.avgPrice) || 0) * m * rate;
                   }
+                  
+                  allTxs.filter((t:any) => new Date(t.date) > targetDate && (t.description||'').includes(sym)).forEach((t:any) => {
+                      const amt = Number(t.amount) || 0;
+                      if (t.type === 'invest_sell') {
+                          let pl = 0;
+                          if (t.description?.includes('P/L:')) pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, '')) || 0;
+                          liveAmt += (amt - pl);
+                      }
+                      if (t.type === 'invest_buy') liveAmt -= amt;
+                  });
+                  snapInvest += Math.max(0, liveAmt);
               }
-              snapInvest += Math.max(0, costBasisAtTarget);
           });
 
           return { cash: Math.max(0, snapCash), invest: snapInvest, forex: snapForex, piutang: snapPiutang, debt: snapDebt, netWorth: Math.max(0, snapCash) + snapInvest + snapForex + snapPiutang - snapDebt };
@@ -217,139 +199,97 @@ export default function Reports() {
       const archiveSnap = getSnapshotAt(reportDateEnd);
       const isTargetInPeriod = (d: Date) => isYearly ? d.getFullYear() === safeTargetYear : d.getMonth() === targetMonth && d.getFullYear() === safeTargetYear;
       
-      const pureTransactions = allTxs.filter((t:any) => !['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category) && ['income', 'expense', 'debt_receive', 'debt_pay', 'debt_borrow', 'debt_lend'].includes(t.type));
-      const currentPeriodTx = pureTransactions.filter((t:any) => isTargetInPeriod(new Date(t.date)));
+      const thisPeriodTxs = allTxs.filter((t:any) => isTargetInPeriod(new Date(t.date)));
 
-      const totalIncome = currentPeriodTx.filter((t:any) => ['income', 'debt_receive', 'debt_borrow'].includes(t.type)).reduce((acc:number, t:any) => acc + (Number(t.amount) || 0), 0);
-      const totalExpense = currentPeriodTx.filter((t:any) => ['expense', 'debt_pay', 'debt_lend'].includes(t.type) && t.category !== 'Amal').reduce((acc:number, t:any) => acc + (Number(t.amount) || 0), 0);
+      // MURNI ARUS KAS: Menyertakan pelunasan sesuai instruksi eksplisit untuk Bar Chart PDF
+      const pureTransactions = thisPeriodTxs.filter((t:any) => !['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category) && ['income', 'expense', 'debt_receive', 'debt_pay', 'debt_borrow', 'debt_lend'].includes(t.type));
       
-      const investTransactions = allTxs.filter((t:any) => (t.type === 'invest_buy' || t.type === 'invest_sell') && isTargetInPeriod(new Date(t.date)));
+      const totalIncome = pureTransactions.filter((t:any) => ['income', 'debt_receive', 'debt_borrow'].includes(t.type)).reduce((acc:number, t:any) => acc + (Number(t.amount) || 0), 0);
+      const totalExpense = pureTransactions.filter((t:any) => ['expense', 'debt_pay', 'debt_lend'].includes(t.type) && t.category !== 'Amal').reduce((acc:number, t:any) => acc + (Number(t.amount) || 0), 0);
+      
       const writeOffTransactions = allTxs.filter((t:any) => t.category === 'Penghapusan Piutang' && new Date(t.date) <= reportDateEnd);
       const totalWriteOffLoss = writeOffTransactions.reduce((sum: number, t:any) => sum + (Number(t.amount) || 0), 0);
       const pemutihanTransactions = allTxs.filter((t:any) => t.category === 'Pemutihan Hutang' && new Date(t.date) <= reportDateEnd);
       const totalPemutihanGain = pemutihanTransactions.reduce((sum: number, t:any) => sum + (Number(t.amount) || 0), 0);
 
-      const forexRows = allForexAssets.map((f: any) => {
-          if (getAssetStartDate(f, 'forex') > reportDateEnd) return null; 
-          let qtyAtTarget = 0; let hasTx = false;
-          allTxs.filter((t:any) => new Date(t.date) <= reportDateEnd).forEach((t:any) => {
-              if ((t.category || "").includes(f.currency) || (t.description || "").includes(f.currency)) {
-                  hasTx = true;
-                  const txQty = (Number(t.amount) || 0) / getRate(f.currency); 
-                  if (t.type === 'forex_buy') qtyAtTarget += txQty;
-                  if (t.type === 'forex_sell') qtyAtTarget -= txQty;
-              }
+      // ================= TABEL-TABEL ASET MASA LALU =================
+      const forexRows = Array.from(new Set(allForexAssets.map((f:any) => f.currency))).map((curr: any) => {
+          const relatedFx = allForexAssets.find((f:any) => f.currency === curr);
+          let firstDate = relatedFx ? new Date(relatedFx.createdAt||Date.now()).getTime() : Date.now();
+          allTxs.forEach((t:any) => { if ((t.category||'').includes(curr) || (t.description||'').includes(curr)) if(new Date(t.date).getTime() < firstDate) firstDate = new Date(t.date).getTime(); });
+          if (firstDate > reportDateEnd.getTime()) return null; 
+
+          let liveAmt = (relatedFx?.amount || 0);
+          allTxs.filter((t:any) => new Date(t.date) > reportDateEnd && ((t.category||'').includes(curr) || (t.description||'').includes(curr))).forEach((t:any) => {
+              const txQty = (Number(t.amount) || 0) / getRate(curr);
+              if (t.type === 'forex_sell') liveAmt += txQty;
+              if (t.type === 'forex_buy') liveAmt -= txQty;
           });
-          if (!hasTx) qtyAtTarget = Number(f.amount) || 0;
-          if (qtyAtTarget <= 0.001) return null; 
-          const rate = getRate(f.currency);
-          return [f.currency, qtyAtTarget.toLocaleString('id-ID', {maximumFractionDigits: 2}), rate, qtyAtTarget * rate];
+          if (liveAmt <= 0.001) return null; 
+          const rate = getRate(curr);
+          return [curr, liveAmt.toLocaleString('id-ID', {maximumFractionDigits: 2}), rate, liveAmt * rate];
       }).filter(Boolean);
 
       const invRows = Array.from(allUniqueSymbols).map((symbolRaw: string) => {
           const sym = symbolRaw.split('|')[0];
           const rate = getRate(symbolRaw.split('|')[1] || 'IDR');
-          let costBasisAtTarget = 0; let hasTx = false; let firstDate = new Date().getTime();
+          const dbInv = allInvestments.find((i:any) => i.symbol === symbolRaw);
+          let firstDate = dbInv ? new Date(dbInv.createdAt||Date.now()).getTime() : Date.now();
+          allTxs.forEach((t:any) => { if ((t.description||'').includes(sym) && new Date(t.date).getTime() < firstDate) firstDate = new Date(t.date).getTime(); });
+          if (firstDate > reportDateEnd.getTime()) return null;
 
-          allTxs.filter((t:any) => new Date(t.date) <= reportDateEnd).forEach((t:any) => {
-              if ((t.description || "").includes(sym)) {
-                  hasTx = true;
-                  const txTime = new Date(t.date).getTime();
-                  if (txTime < firstDate) firstDate = txTime;
-                  const amt = Number(t.amount) || 0;
-                  if (t.type === 'invest_buy') costBasisAtTarget += amt;
-                  if (t.type === 'invest_sell') {
-                      let c = amt;
-                      if (t.description?.includes('P/L:')) {
-                          const pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''), 10);
-                          if (!isNaN(pl)) c = t.description.includes('P/L: -') ? amt + Math.abs(pl) : Math.max(0, amt - Math.abs(pl));
-                      }
-                      costBasisAtTarget -= c;
-                  }
-              }
-          });
-          if (!hasTx) {
-              const dbInv = allInvestments.find((i:any) => i.symbol === symbolRaw);
-              if (dbInv && new Date(dbInv.createdAt || 0) <= reportDateEnd) {
-                  const m = (dbInv.type === 'saham' || (!dbInv.type && sym.length === 4 && dbInv.type !== 'crypto') && !(dbInv.symbol || "").split('|')[1]) ? 100 : 1;
-                  costBasisAtTarget = (Number(dbInv.quantity)||0) * (Number(dbInv.avgPrice)||0) * m * rate;
-                  firstDate = new Date(dbInv.createdAt || 0).getTime();
-              }
+          let liveAmt = 0;
+          if (dbInv) {
+              const isSaham = dbInv.type === 'saham' || (!dbInv.type && sym.length === 4 && dbInv.type !== 'crypto');
+              const m = (isSaham && !(dbInv.symbol || "").split('|')[1]) ? 100 : 1;
+              liveAmt = (Number(dbInv.quantity) || 0) * (Number(dbInv.avgPrice) || 0) * m * rate;
           }
-          if (costBasisAtTarget <= 0 || firstDate > reportDateEnd.getTime()) return null; 
-          return [new Date(firstDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), 'Kepemilikan Aset', sym, costBasisAtTarget];
+          allTxs.filter((t:any) => new Date(t.date) > reportDateEnd && (t.description||'').includes(sym)).forEach((t:any) => {
+              const amt = Number(t.amount) || 0;
+              if (t.type === 'invest_sell') {
+                  let pl = 0;
+                  if (t.description?.includes('P/L:')) pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, '')) || 0;
+                  liveAmt += (amt - pl);
+              }
+              if (t.type === 'invest_buy') liveAmt -= amt;
+          });
+          if (liveAmt <= 0) return null; 
+          return [new Date(firstDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), 'Kepemilikan Aset', sym, liveAmt];
       }).filter(Boolean);
 
-      const debtRows = allDebts.map((d: any) => {
-          if (getAssetStartDate(d, 'debt') > reportDateEnd) return null; 
-          const displayName = (d.name || "").split('|')[0];
-          const actualCurr = (d.name || "").split('|')[1] || 'IDR';
+      const debtRows = Array.from(new Set(allDebts.map((d:any) => d.name))).map((name: any) => {
+          const relatedDebts = allDebts.filter((d:any) => d.name === name);
+          let firstDate = new Date(Math.min(...relatedDebts.map((d:any) => new Date(d.createdAt||Date.now()).getTime()))).getTime();
+          allTxs.forEach((t:any) => { if ((t.description||'').includes(name.split('|')[0]) && new Date(t.date).getTime() < firstDate) firstDate = new Date(t.date).getTime(); });
+          if (firstDate > reportDateEnd.getTime()) return null;
+
+          const isHutang = relatedDebts[0].type === 'hutang';
+          const actualCurr = name.split('|')[1] || 'IDR';
           const rate = getRate(actualCurr); 
-          const originalVal = Number(d.amount) * rate;
-          let paidUntilTarget = 0;
-          allTxs.filter((t:any) => new Date(t.date) <= reportDateEnd).forEach((t:any) => {
-              if ((t.description || "").includes(displayName)) {
-                  const amt = Number(t.amount) || 0;
-                  if (d.type === 'hutang' && (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang')) paidUntilTarget += amt;
-                  if (d.type === 'piutang' && (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang')) paidUntilTarget += amt;
+          
+          let liveAmt = relatedDebts.filter((d:any) => !d.isPaid).reduce((acc:number, d:any) => acc + d.amount, 0) * rate;
+          allTxs.filter((t:any) => new Date(t.date) > reportDateEnd && (t.description||'').includes(name.split('|')[0])).forEach((t:any) => {
+              const amt = Number(t.amount) || 0;
+              if (isHutang) {
+                  if (t.type === 'debt_pay' || t.category === 'Pemutihan Hutang') liveAmt += amt;
+                  if (t.type === 'debt_borrow' || t.type === 'hutang_record') liveAmt -= amt;
+              } else {
+                  if (t.type === 'debt_receive' || t.category === 'Penghapusan Piutang') liveAmt += amt;
+                  if (t.type === 'debt_lend' || t.type === 'piutang_record') liveAmt -= amt;
               }
           });
-          const remainingAtTarget = Math.max(0, originalVal - paidUntilTarget);
-          if (remainingAtTarget <= 0) return null;
-          return [d.type === 'hutang' ? 'HUTANG' : 'PIUTANG', displayName, actualCurr, remainingAtTarget, d.dueDate];
+          if (liveAmt <= 0) return null;
+          return [isHutang ? 'HUTANG' : 'PIUTANG', name.split('|')[0], actualCurr, liveAmt, relatedDebts[0].dueDate];
       }).filter(Boolean);
 
-      const amalRows = currentPeriodTx.filter((t:any) => t.category === 'Amal').map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), "Kebaikan", t.description || "Amal / Sedekah", t.amount ]);
-      const txRows = currentPeriodTx.filter((t:any) => t.category !== 'Amal').map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), (['income', 'debt_receive', 'debt_borrow'].includes(t.type)) ? 'Masuk' : 'Keluar', t.category || "-", t.description || "-", t.amount ]);
-      const invTxRows = investTransactions.map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), t.type === 'invest_buy' ? 'Beli Aset' : 'Jual Aset', t.description, t.amount ]);
-
-      let chartStartMonth = new Date(appStartDate.getFullYear(), appStartDate.getMonth(), 1);
-      const paddedData = [];
-      let iterDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1); 
-      
-      while (iterDate >= chartStartMonth) {
-          const mIdx = iterDate.getMonth(); const yIdx = iterDate.getFullYear();
-          const endOfMonth = new Date(yIdx, mIdx + 1, 0, 23, 59, 59);
-          const label = iterDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
-          
-          const archiveKey = `bilano_frozen_report_${user.email}_M_${mIdx}_${yIdx}`;
-          const frozenStr = localStorage.getItem(archiveKey);
-          
-          if (frozenStr) {
-              const frozen = JSON.parse(frozenStr);
-              const netFlow = (frozen.totalIncome || 0) - (frozen.totalExpense || 0);
-              if (iterDate <= nowGraph) {
-                  paddedData.unshift({ label, netFlow: netFlow, cash: frozen.archiveCash, asset: frozen.archiveNetWorth });
-              }
-          } else {
-              const snap = getSnapshotAt(endOfMonth);
-              let pureIn = 0; let pureOut = 0; 
-              allTxs.forEach((t:any) => {
-                  const d = new Date(t.date);
-                  if(d.getMonth() === mIdx && d.getFullYear() === yIdx) {
-                      const isNonCash = t.description?.includes('[WRITE_OFF]') || t.description?.includes('[Catat Awal]');
-                      if (!isNonCash) {
-                          if (['income', 'debt_receive', 'debt_borrow'].includes(t.type)) pureIn += (Number(t.amount) || 0);
-                          if (['expense', 'debt_pay', 'debt_lend'].includes(t.type)) pureOut += (Number(t.amount) || 0);
-                      }
-                  }
-              });
-              if (iterDate <= nowGraph) paddedData.unshift({ label, netFlow: pureIn - pureOut, cash: snap.cash, asset: snap.netWorth });
-          }
-          iterDate.setMonth(iterDate.getMonth() - 1);
-      }
-
-      let futureDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1);
-      while (paddedData.length < 12) {
-          futureDate.setMonth(futureDate.getMonth() + 1);
-          paddedData.push({ label: futureDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'}), netFlow: 0, cash: 0, asset: 0 }); 
-      }
+      const amalRows = thisPeriodTxs.filter((t:any) => t.category === 'Amal').map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), "Kebaikan", t.description || "Amal / Sedekah", t.amount ]);
+      const txRows = thisPeriodTxs.filter((t:any) => t.category !== 'Amal' && !t.category.includes('Invest')).map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), (['income', 'debt_receive', 'debt_borrow'].includes(t.type)) ? 'Masuk' : 'Keluar', t.category || "-", t.description || "-", t.amount ]);
+      const invTxRows = thisPeriodTxs.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), t.type === 'invest_buy' ? 'Beli Aset' : 'Jual Aset', t.description, t.amount ]);
 
       return {
           archiveCash: archiveSnap.cash, archiveInvest: archiveSnap.invest, archiveForex: archiveSnap.forex, archivePiutang: archiveSnap.piutang, archiveDebt: archiveSnap.debt, archiveNetWorth: archiveSnap.netWorth,
           totalIncome, totalExpense, totalWriteOffLoss, totalPemutihanGain,
-          forexRows, invRows, debtRows, amalRows, txRows, invTxRows,
-          chartData: paddedData
+          forexRows, invRows, debtRows, amalRows, txRows, invTxRows
       };
   };
 
@@ -388,14 +328,9 @@ export default function Reports() {
 
   const getArchiveMonths = () => {
       if (!data) return [];
-      
       let firstDate = new Date();
-      if (data.transactions && data.transactions.length > 0) {
-          const minTime = Math.min(...data.transactions.map((t:any) => new Date(t.date).getTime()));
-          firstDate = new Date(minTime);
-      } else if (userProfile && userProfile.createdAt) {
-          firstDate = new Date(userProfile.createdAt);
-      }
+      if (userProfile && userProfile.createdAt) firstDate = new Date(userProfile.createdAt);
+      else if (data.transactions && data.transactions.length > 0) firstDate = new Date(Math.min(...data.transactions.map((t:any) => new Date(t.date).getTime())));
 
       const archives = [];
       const now = new Date();
@@ -404,69 +339,45 @@ export default function Reports() {
 
       while (iterDate < currentMonthStart) {
           archives.push({
-              isYearly: false,
-              month: iterDate.getMonth(),
-              year: iterDate.getFullYear(),
+              isYearly: false, month: iterDate.getMonth(), year: iterDate.getFullYear(),
               label: iterDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
           });
           iterDate.setMonth(iterDate.getMonth() + 1);
       }
       
-      for (let y = firstDate.getFullYear(); y < now.getFullYear(); y++) {
-          archives.push({
-              isYearly: true,
-              month: 11, 
-              year: y,
-              label: `Tahunan ${y}`
-          });
-      }
-
+      for (let y = firstDate.getFullYear(); y < now.getFullYear(); y++) archives.push({ isYearly: true, month: 11, year: y, label: `Tahunan ${y}` });
       archives.sort((a, b) => {
           if (a.year !== b.year) return a.year - b.year;
           if (a.isYearly && !b.isYearly) return 1; 
           if (!a.isYearly && b.isYearly) return -1;
           return a.month - b.month;
       });
-
       return archives.reverse(); 
   };
 
   const drawLineChart = (doc: jsPDF, title: string, chartData: any[], startY: number, lineColor: number[]) => {
       const chartHeight = 35; const chartWidth = 170; const startX = 20;
-
-      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold");
-      doc.text(title, startX, startY - 3);
+      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold"); doc.text(title, startX, startY - 3);
 
       let maxVal = Math.max(...chartData.map(d => d.value), 0);
       let minVal = Math.min(...chartData.map(d => d.value), 0);
-      
       if (maxVal > 0) maxVal = maxVal * 1.3; 
       if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
-      
       let range = maxVal - minVal; if (range === 0) range = 1;
 
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY);
 
-      const pointGap = chartWidth / 11; 
-      doc.setDrawColor(lineColor[0], lineColor[1], lineColor[2]);
-      doc.setFillColor(lineColor[0], lineColor[1], lineColor[2]); doc.setLineWidth(0.8);
+      const pointGap = chartWidth / Math.max(1, chartData.length - 1); 
+      doc.setDrawColor(lineColor[0], lineColor[1], lineColor[2]); doc.setFillColor(lineColor[0], lineColor[1], lineColor[2]); doc.setLineWidth(0.8);
 
       let prevX = -1, prevY = -1;
-
       chartData.forEach((item, i) => {
-          const x = startX + (i * pointGap);
-          const valH = ((item.value - minVal) / range) * chartHeight;
-          const y = startY + chartHeight - valH;
-
+          const x = startX + (i * pointGap); const valH = ((item.value - minVal) / range) * chartHeight; const y = startY + chartHeight - valH;
           if (prevX !== -1) doc.line(prevX, prevY, x, y); 
           doc.circle(x, y, 1.2, 'FD');
-
-          doc.setFontSize(5); doc.setTextColor(lineColor[0], lineColor[1], lineColor[2]); doc.setFont("helvetica", "bold");
-          doc.text(formatRpPendek(item.value), x, y - 2.5, { align: 'center' });
-
-          doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal");
-          doc.text(item.label, x, startY + chartHeight + 6, { align: 'center' });
+          doc.setFontSize(5); doc.setTextColor(lineColor[0], lineColor[1], lineColor[2]); doc.setFont("helvetica", "bold"); doc.text(formatRpPendek(item.value), x, y - 2.5, { align: 'center' });
+          doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal"); doc.text(item.label, x, startY + chartHeight + 6, { align: 'center' });
           prevX = x; prevY = y;
       });
       return startY + chartHeight + 15;
@@ -474,80 +385,51 @@ export default function Reports() {
 
   const drawLollipopChart = (doc: jsPDF, title: string, chartData: any[], startY: number, color: number[]) => {
       const chartHeight = 35; const chartWidth = 170; const startX = 20;
-
-      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold");
-      doc.text(title, startX, startY - 3);
+      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold"); doc.text(title, startX, startY - 3);
 
       let maxVal = Math.max(...chartData.map(d => d.value), 0);
       let minVal = Math.min(...chartData.map(d => d.value), 0);
-      
       if (maxVal > 0) maxVal = maxVal * 1.3; 
       if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
-      
       let range = maxVal - minVal; if (range === 0) range = 1;
 
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
-      const pointGap = chartWidth / 11; 
+      const pointGap = chartWidth / Math.max(1, chartData.length - 1); 
 
-      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); 
-      doc.line(startX, zeroY, startX + chartWidth, zeroY);
+      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY);
 
       chartData.forEach((item, i) => {
-          const x = startX + (i * pointGap);
-          const valH = ((item.value - minVal) / range) * chartHeight;
-          const y = startY + chartHeight - valH;
-
-          doc.setDrawColor(color[0], color[1], color[2]); 
-          doc.setLineWidth(1.2); 
-          doc.line(x, zeroY, x, y); 
-          
-          doc.setFillColor(color[0], color[1], color[2]);
-          doc.circle(x, y, 1.8, 'FD'); 
-
-          doc.setFontSize(5); doc.setTextColor(color[0], color[1], color[2]); doc.setFont("helvetica", "bold");
-          const textY = item.value >= 0 ? y - 3 : y + 4;
-          doc.text(formatRpPendek(item.value), x, textY, { align: 'center' });
-
-          doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal");
-          doc.text(item.label, x, startY + chartHeight + 6, { align: 'center' });
+          const x = startX + (i * pointGap); const valH = ((item.value - minVal) / range) * chartHeight; const y = startY + chartHeight - valH;
+          doc.setDrawColor(color[0], color[1], color[2]); doc.setLineWidth(1.2); doc.line(x, zeroY, x, y); 
+          doc.setFillColor(color[0], color[1], color[2]); doc.circle(x, y, 1.8, 'FD'); 
+          doc.setFontSize(5); doc.setTextColor(color[0], color[1], color[2]); doc.setFont("helvetica", "bold"); doc.text(formatRpPendek(item.value), x, item.value >= 0 ? y - 3 : y + 4, { align: 'center' });
+          doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal"); doc.text(item.label, x, startY + chartHeight + 6, { align: 'center' });
       });
       return startY + chartHeight + 15;
   };
 
   const drawBarChart = (doc: jsPDF, title: string, chartData: any[], startY: number, barColor: number[]) => {
       const chartHeight = 35; const chartWidth = 170; const startX = 20;
-      
-      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold");
-      doc.text(title, startX, startY - 3);
+      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold"); doc.text(title, startX, startY - 3);
 
       let maxVal = Math.max(...chartData.map(d => d.value), 0);
       let minVal = Math.min(...chartData.map(d => d.value), 0);
-      
       if (maxVal > 0) maxVal = maxVal * 1.3; 
       if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
-      
       let range = maxVal - minVal; if (range === 0) range = 1;
 
       const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
       doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY); 
 
-      const barGap = 3; const barWidth = (chartWidth / 12) - barGap;
+      const barGap = 3; const barWidth = (chartWidth / Math.max(1, chartData.length)) - barGap;
 
       chartData.forEach((item, i) => {
-          const x = startX + (i * (barWidth + barGap)) + barGap / 2;
-          const valH = (Math.abs(item.value) / range) * chartHeight;
-          const barY = item.value >= 0 ? zeroY - valH : zeroY;
-
+          const x = startX + (i * (barWidth + barGap)) + barGap / 2; const valH = (Math.abs(item.value) / range) * chartHeight; const barY = item.value >= 0 ? zeroY - valH : zeroY;
           if (title.includes("Arus Kas")) doc.setFillColor(item.value >= 0 ? 16 : 244, item.value >= 0 ? 185 : 63, item.value >= 0 ? 129 : 94);
           else doc.setFillColor(barColor[0], barColor[1], barColor[2]);
           doc.rect(x, barY, barWidth, valH, 'F');
-
-          doc.setFontSize(5); doc.setTextColor(80, 80, 80); doc.setFont("helvetica", "bold");
-          const textY = item.value >= 0 ? barY - 2 : barY + valH + 3;
-          doc.text(formatRpPendek(item.value), x + (barWidth / 2), textY, { align: 'center' });
-
-          doc.setFontSize(6); doc.setFont("helvetica", "normal"); doc.setTextColor(100, 100, 100);
-          doc.text(item.label, x + (barWidth / 2), startY + chartHeight + 6, { align: 'center' });
+          doc.setFontSize(5); doc.setTextColor(80, 80, 80); doc.setFont("helvetica", "bold"); doc.text(formatRpPendek(item.value), x + (barWidth / 2), item.value >= 0 ? barY - 2 : barY + valH + 3, { align: 'center' });
+          doc.setFontSize(6); doc.setFont("helvetica", "normal"); doc.setTextColor(100, 100, 100); doc.text(item.label, x + (barWidth / 2), startY + chartHeight + 6, { align: 'center' });
       });
       return startY + chartHeight + 15;
   };
@@ -555,14 +437,12 @@ export default function Reports() {
   const generatePDF = async (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
     
     if (!userProfile?.isPro && localStorage.getItem("bilano_pro") !== "true") {
-        toast({ title: "Fitur Premium 👑", description: "Cetak laporan PDF eksklusif untuk pengguna BILANO PRO. Silakan upgrade!", variant: "destructive" });
-        setTimeout(() => { setLocation('/paywall'); }, 1000);
-        return;
+        toast({ title: "Fitur Premium 👑", description: "Cetak laporan PDF eksklusif untuk pengguna BILANO PRO.", variant: "destructive" });
+        setTimeout(() => { setLocation('/paywall'); }, 1000); return;
     }
 
     if (!data || !data.user) {
-        toast({ title: "Data Belum Siap ⏳", description: "Sistem masih memuat data. Mohon tunggu sesaat dan klik lagi.", variant: "default" });
-        return;
+        toast({ title: "Data Belum Siap ⏳", description: "Sistem masih memuat data.", variant: "default" }); return;
     }
     
     const processId = targetMonth !== undefined ? `archive_${targetMonth}_${targetYear}_${isYearly}` : 'current';
@@ -571,17 +451,12 @@ export default function Reports() {
     setTimeout(() => {
         try {
             const doc = new jsPDF('p', 'mm', 'a4');
-            const user = data.user;
+            const user = data.user || {};
             
             const now = new Date();
             const safeTargetYear = targetYear !== undefined ? targetYear : now.getFullYear();
-            const nowForReport = (targetMonth !== undefined && targetYear !== undefined) 
-                ? new Date(targetYear, targetMonth, 1) 
-                : new Date();
-                
-            const reportDateEnd = isYearly 
-                ? new Date(safeTargetYear, 11, 31, 23, 59, 59) 
-                : new Date(safeTargetYear, nowForReport.getMonth() + 1, 0, 23, 59, 59);
+            const nowForReport = (targetMonth !== undefined && targetYear !== undefined) ? new Date(targetYear, targetMonth, 1) : new Date();
+            const reportDateEnd = isYearly ? new Date(safeTargetYear, 11, 31, 23, 59, 59) : new Date(safeTargetYear, nowForReport.getMonth() + 1, 0, 23, 59, 59);
             
             const isPastPeriod = reportDateEnd < now;
             const archiveKey = `bilano_frozen_report_${user.email}_${isYearly ? 'Y' : 'M'}_${targetMonth}_${safeTargetYear}`;
@@ -592,6 +467,49 @@ export default function Reports() {
                 toast({ title: "Membuka Arsip Terkunci", description: "Menampilkan Laporan Offline Permanen..." });
             } else {
                 snapData = generateFrozenData(nowForReport.getMonth(), safeTargetYear, isYearly, data);
+            }
+
+            // ====================================================================================
+            // 🚀 MENGUMPULKAN DATA GRAFIK DARI ARSIP BEKU (AGAR 100% SINKRON)
+            // ====================================================================================
+            let appStartDate = new Date();
+            if (user.createdAt) appStartDate = new Date(user.createdAt);
+            else if (data.transactions && data.transactions.length > 0) appStartDate = new Date(Math.min(...data.transactions.map((t:any) => new Date(t.date).getTime())));
+            
+            let chartStartMonth = new Date(appStartDate.getFullYear(), appStartDate.getMonth(), 1);
+            const nowGraph = isYearly ? new Date(safeTargetYear, 11, 1) : new Date(safeTargetYear, nowForReport.getMonth(), 1);
+            const paddedData = [];
+            let iterDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1); 
+            
+            while (iterDate >= chartStartMonth) {
+                const mIdx = iterDate.getMonth(); const yIdx = iterDate.getFullYear();
+                const label = iterDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'});
+                
+                const pastArchiveKey = `bilano_frozen_report_${user.email}_M_${mIdx}_${yIdx}`;
+                const frozenStr = localStorage.getItem(pastArchiveKey);
+                
+                if (frozenStr) {
+                    // JIKA ADA ARSIP BEKU, TARIK ANGKA MUTLAKNYA (100% SINKRON)
+                    const frozen = JSON.parse(frozenStr);
+                    const netFlow = (frozen.totalIncome || 0) - (frozen.totalExpense || 0);
+                    if (iterDate <= nowGraph) {
+                        paddedData.unshift({ label, netFlow: netFlow, cash: frozen.archiveCash, asset: frozen.archiveNetWorth });
+                    }
+                } else {
+                    // JIKA BULAN BERJALAN ATAU BELUM DIBEKUKAN, HITUNG LIVE!
+                    const endOfMonth = new Date(yIdx, mIdx + 1, 0, 23, 59, 59);
+                    const liveSnap = generateFrozenData(mIdx, yIdx, false, data);
+                    if (iterDate <= nowGraph) {
+                        paddedData.unshift({ label, netFlow: (liveSnap.totalIncome - liveSnap.totalExpense), cash: liveSnap.archiveCash, asset: liveSnap.archiveNetWorth });
+                    }
+                }
+                iterDate.setMonth(iterDate.getMonth() - 1);
+            }
+
+            let futureDate = new Date(nowGraph.getFullYear(), nowGraph.getMonth(), 1);
+            while (paddedData.length < 12) {
+                futureDate.setMonth(futureDate.getMonth() + 1);
+                paddedData.push({ label: futureDate.toLocaleDateString('id-ID', {month:'short', year:'2-digit'}), netFlow: 0, cash: 0, asset: 0 }); 
             }
 
             const periodName = isYearly ? `Tahun ${safeTargetYear}` : `Bulan ${nowForReport.toLocaleDateString('id-ID', { month: 'long' })} ${safeTargetYear}`;
@@ -605,7 +523,7 @@ export default function Reports() {
 
             doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
             doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}`, 196, 14, { align: 'right' });
-            doc.text(`Dicetak Oleh: ${user.firstName} ${user.lastName || ''}`, 196, 19, { align: 'right' });
+            doc.text(`Dicetak Oleh: ${user.firstName || 'Pengguna'} ${user.lastName || ''}`, 196, 19, { align: 'right' });
 
             doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.5); doc.line(14, 26, 196, 26);
             doc.setFillColor(79, 70, 229); doc.rect(14, 32, 182, 14, 'F');
@@ -632,11 +550,8 @@ export default function Reports() {
                 doc.text(`Target Impian: ${formatRp(targetData.targetAmount)}`, 14, currentY + 6);
                 doc.text(`Terkumpul saat ini: ${formatRp(snapData.archiveNetWorth)} (${progress.toFixed(1)}%)`, 14, currentY + 11);
                 
-                if (sisa > 0) {
-                    doc.setTextColor(244, 63, 94); doc.text(`Kekurangan: ${formatRp(sisa)}`, 14, currentY + 16);
-                } else {
-                    doc.setTextColor(16, 185, 129); doc.setFont("helvetica", "bold"); doc.text(`Tercapai! Anda berhasil mencapai target.`, 14, currentY + 16);
-                }
+                if (sisa > 0) { doc.setTextColor(244, 63, 94); doc.text(`Kekurangan: ${formatRp(sisa)}`, 14, currentY + 16); } 
+                else { doc.setTextColor(16, 185, 129); doc.setFont("helvetica", "bold"); doc.text(`Tercapai! Anda berhasil mencapai target.`, 14, currentY + 16); }
 
                 doc.setFillColor(226, 232, 240); doc.roundedRect(14, currentY + 20, 182, 4, 2, 2, 'F');
                 if (progress > 0) { doc.setFillColor(16, 185, 129); doc.roundedRect(14, currentY + 20, (progress / 100) * 182, 4, 2, 2, 'F'); }
@@ -654,10 +569,7 @@ export default function Reports() {
                 ["Piutang Aktif (Uang di Pihak Lain)", formatRp(snapData.archivePiutang)],
                 ["Hutang (Kewajiban)", `(${formatRp(snapData.archiveDebt)})`]
               ],
-              theme: 'grid',
-              headStyles: { fillColor: [79, 70, 229], fontSize: 10 }, 
-              columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
-              alternateRowStyles: { fillColor: [248, 250, 252] },
+              theme: 'grid', headStyles: { fillColor: [79, 70, 229], fontSize: 10 }, columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }, alternateRowStyles: { fillColor: [248, 250, 252] },
             });
             currentY = (doc as any).lastAutoTable.finalY + 15;
 
@@ -726,8 +638,8 @@ export default function Reports() {
                 graphY += 35;
             }
 
-            // 🚀 MENGEMBALIKAN FITUR OVERRIDE/CHEAT SESUAI KODE ASLI
-            const chartAsset = (snapData.chartData || []).map((d:any) => {
+            // 🚀 MENGEMBALIKAN FITUR OVERRIDE/CHEAT SESUAI KODE ASLI 
+            const chartAsset = paddedData.map((d:any) => {
                 const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, ''); 
                 const override = localStorage.getItem(`override_asset_${cleanLabel}`);
                 return { label: d.label, value: override ? parseFloat(override) : d.asset };
@@ -735,20 +647,16 @@ export default function Reports() {
             
             const pdfUserEmail = data.user?.email || localStorage.getItem("bilano_email") || "";
             
-            const chartCash = (snapData.chartData || []).map((d:any) => {
+            const chartCash = paddedData.map((d:any) => {
                 const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, '');
                 let override = localStorage.getItem(`override_cash_${cleanLabel}`);
-                
                 const isAdrienAccount = pdfUserEmail === 'adrienfandra14@gmail.com' || pdfUserEmail === 'adrienahza@gmail.com' || pdfUserEmail === 'bilanotech@gmail.com';
-                
-                if (isAdrienAccount && (cleanLabel === 'Mar26' || cleanLabel === 'Mar2026')) {
-                    override = '15100000'; 
-                }
+                if (isAdrienAccount && (cleanLabel === 'Mar26' || cleanLabel === 'Mar2026')) override = '15100000'; 
                 
                 return { label: d.label, value: override ? parseFloat(override) : d.cash };
             });
             
-            const chartNetFlow = (snapData.chartData || []).map((d:any) => ({ label: d.label, value: d.netFlow || 0 }));
+            const chartNetFlow = paddedData.map((d:any) => ({ label: d.label, value: d.netFlow || 0 }));
 
             graphY = drawLineChart(doc, "1. Grafik Kekayaan Bersih (Line Chart) - Akumulasi", chartAsset, graphY, [79, 70, 229]); graphY += 10;
             graphY = drawLollipopChart(doc, "2. Grafik Kas Tunai (Lollipop Chart) - Akumulasi", chartCash, graphY, [14, 165, 233]); graphY += 10;
@@ -790,23 +698,13 @@ export default function Reports() {
   return (
     <MobileLayout title="Pusat Laporan" showBack>
       <div className="space-y-6 pt-4 pb-20 px-2 animate-in fade-in">
-        
         <div className="bg-gradient-to-br from-violet-600 to-indigo-600 p-8 rounded-[32px] text-white shadow-xl shadow-indigo-200 text-center relative overflow-hidden">
             <div className="relative z-10">
-                <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 backdrop-blur-sm border border-white/20">
-                    <FileBarChart className="w-8 h-8 text-white"/>
-                </div>
+                <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 backdrop-blur-sm border border-white/20"><FileBarChart className="w-8 h-8 text-white"/></div>
                 <h2 className="text-2xl font-extrabold mb-2">Cetak Laporan Bulan Ini</h2>
-                <p className="text-indigo-100 text-xs mb-8 px-4 leading-relaxed opacity-90 font-medium">
-                    Download laporan PDF profesional lengkap dengan neraca, arus kas, hutang, dan riwayat investasi terkini.
-                </p>
-                <Button 
-                    onClick={() => generatePDF()} 
-                    disabled={generatingId !== null}
-                    className="w-full bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold shadow-xl border-none h-14 rounded-full text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                >
-                    {generatingId === 'current' ? <Loader2 className="w-5 h-5 animate-spin"/> : <Download className="w-5 h-5"/>}
-                    {generatingId === 'current' ? "MEMPROSES PDF..." : "DOWNLOAD PDF SEKARANG"}
+                <p className="text-indigo-100 text-xs mb-8 px-4 leading-relaxed font-medium">Download laporan PDF profesional lengkap dengan neraca, arus kas, hutang, dan riwayat investasi terkini.</p>
+                <Button onClick={() => generatePDF()} disabled={generatingId !== null} className="w-full bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold shadow-xl border-none h-14 rounded-full text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                    {generatingId === 'current' ? <Loader2 className="w-5 h-5 animate-spin"/> : <Download className="w-5 h-5"/>} {generatingId === 'current' ? "MEMPROSES PDF..." : "DOWNLOAD PDF SEKARANG"}
                 </Button>
             </div>
             <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
@@ -814,11 +712,7 @@ export default function Reports() {
         </div>
 
         <div className="bg-white rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100">
-            <div className="flex items-center gap-2 mb-6">
-                <Archive className="w-5 h-5 text-indigo-500"/>
-                <h3 className="font-extrabold text-slate-800 text-lg">Arsip & Laporan Tahunan</h3>
-            </div>
-            
+            <div className="flex items-center gap-2 mb-6"><Archive className="w-5 h-5 text-indigo-500"/><h3 className="font-extrabold text-slate-800 text-lg">Arsip & Laporan Tahunan</h3></div>
             <div className="space-y-0">
                 {archiveList.map((arc, i) => (
                     <div key={i} className={`flex flex-col sm:flex-row sm:items-center justify-between py-5 border-b border-slate-100 last:border-0 gap-4 ${arc.isYearly ? 'bg-indigo-50/50 -mx-6 px-6 border-indigo-100' : ''}`}>
@@ -826,100 +720,51 @@ export default function Reports() {
                             <h4 className={`font-bold text-sm ${arc.isYearly ? 'text-indigo-700' : 'text-slate-800'}`}>Laporan Keuangan {arc.label}</h4>
                             <p className="text-[11px] text-slate-400 mt-1 font-medium">PDF Document - {arc.year}</p>
                         </div>
-                        <button 
-                            onClick={() => generatePDF(arc.month, arc.year, arc.isYearly)} 
-                            disabled={generatingId !== null}
-                            className={`flex items-center justify-center gap-2 font-bold text-xs px-5 py-2.5 rounded-full transition-colors ${
-                                generatingId === `archive_${arc.month}_${arc.year}_${arc.isYearly}` 
-                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                                : (arc.isYearly ? 'bg-indigo-600 text-white shadow-md hover:bg-indigo-700 active:scale-95' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white active:scale-95')
-                            }`}
-                        >
-                            {generatingId === `archive_${arc.month}_${arc.year}_${arc.isYearly}` ? <Loader2 className="w-4 h-4 animate-spin"/> : <Download className="w-4 h-4"/>}
-                            Download
+                        <button onClick={() => generatePDF(arc.month, arc.year, arc.isYearly)} disabled={generatingId !== null} className={`flex items-center justify-center gap-2 font-bold text-xs px-5 py-2.5 rounded-full transition-colors ${generatingId === `archive_${arc.month}_${arc.year}_${arc.isYearly}` ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : (arc.isYearly ? 'bg-indigo-600 text-white shadow-md hover:bg-indigo-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white')}`}>
+                            {generatingId === `archive_${arc.month}_${arc.year}_${arc.isYearly}` ? <Loader2 className="w-4 h-4 animate-spin"/> : <Download className="w-4 h-4"/>} Download
                         </button>
                     </div>
                 ))}
-
                 {archiveList.length === 0 && (
-                    <div className="text-center py-8">
-                        <div className="bg-slate-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <Archive className="w-5 h-5 text-slate-300"/>
-                        </div>
-                        <p className="text-sm text-slate-400 font-medium">Belum ada arsip laporan bulan lalu.</p>
-                        <p className="text-[10px] text-slate-400 mt-1">Laporan bulan ini akan otomatis masuk ke arsip pada awal bulan depan.</p>
-                    </div>
+                    <div className="text-center py-8"><div className="bg-slate-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"><Archive className="w-5 h-5 text-slate-300"/></div><p className="text-sm text-slate-400 font-medium">Belum ada arsip laporan bulan lalu.</p></div>
                 )}
             </div>
         </div>
 
         <div>
-            <h3 className="font-extrabold text-slate-800 mb-4 text-sm flex items-center gap-2 px-2">
-                <FileText className="w-5 h-5 text-indigo-500"/> Apa saja yang ada di dalam PDF?
-            </h3>
+            <h3 className="font-extrabold text-slate-800 mb-4 text-sm flex items-center gap-2 px-2"><FileText className="w-5 h-5 text-indigo-500"/> Apa saja yang ada di dalam PDF?</h3>
             <div className="space-y-3">
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
-                        <Wallet className="w-5 h-5"/>
-                    </div>
-                    <div className="flex-1">
-                        <h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan Terpadu</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap total Kas, Investasi, Valas, dan Hutang/Piutang.</p>
-                    </div>
+                    <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform"><Wallet className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan Terpadu</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap total Kas, Investasi, Valas, dan Hutang/Piutang.</p></div>
                 </div>
 
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
-                        <HeartHandshake className="w-5 h-5"/>
-                    </div>
-                    <div className="flex-1">
-                        <h4 className="font-extrabold text-slate-800 text-sm">Riwayat Amal & Kebaikan</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Data sedekah yang terpisah dari budget pengeluaran rutin.</p>
-                    </div>
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform"><HeartHandshake className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Riwayat Amal & Kebaikan</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Data sedekah yang terpisah dari budget pengeluaran rutin.</p></div>
                 </div>
 
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
-                        <FileText className="w-5 h-5"/>
-                    </div>
-                    <div className="flex-1">
-                        <h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Bulan/Tahun Laporan)</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional pada periode terkait.</p>
-                    </div>
+                    <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform"><FileText className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Bulan/Tahun Laporan)</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional pada periode terkait.</p></div>
                 </div>
 
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
-                        <Briefcase className="w-5 h-5"/>
-                    </div>
-                    <div className="flex-1">
-                        <h4 className="font-extrabold text-slate-800 text-sm">Riwayat Mutasi Investasi</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Data harga beli aset, total nominal, serta kalkulasi P/L.</p>
-                    </div>
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform"><Briefcase className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Riwayat Mutasi Investasi</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Data harga beli aset, total nominal, serta kalkulasi P/L.</p></div>
                 </div>
 
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform">
-                        <HandCoins className="w-5 h-5"/>
-                    </div>
-                    <div className="flex-1">
-                        <h4 className="font-extrabold text-slate-800 text-sm">Detail Hutang & Piutang</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Daftar pihak terkait, total nominal, dan jatuh temponya.</p>
-                    </div>
+                    <div className="w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform"><HandCoins className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Detail Hutang & Piutang</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Daftar pihak terkait, total nominal, dan jatuh temponya.</p></div>
                 </div>
 
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-cyan-50 flex items-center justify-center text-cyan-600 group-hover:scale-110 transition-transform">
-                        <Globe className="w-5 h-5"/>
-                    </div>
-                    <div className="flex-1">
-                        <h4 className="font-extrabold text-slate-800 text-sm">Estimasi Valas Live</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">Tabel aset mata uang asing dikali kurs pertukaran hari ini.</p>
-                    </div>
+                    <div className="w-12 h-12 rounded-full bg-cyan-50 flex items-center justify-center text-cyan-600 group-hover:scale-110 transition-transform"><Globe className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Estimasi Valas Live</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Tabel aset mata uang asing dikali kurs pertukaran hari ini.</p></div>
                 </div>
             </div>
         </div>
-
       </div>
     </MobileLayout>
   );
