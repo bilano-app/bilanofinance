@@ -120,7 +120,6 @@ export default function Forex() {
       }
   };
 
-  // 🚀 PURE GOOGLE SCRAPER (TANPA YAHOO FALLBACK)
   const fetchLiveMarketData = async () => {
       setIsLiveLoading(true);
       try {
@@ -203,7 +202,6 @@ export default function Forex() {
       setChartCurr(currencyCode);
       setLoadingChart(true);
       
-      // Memberi waktu sejenak agar iframe TradingView bisa dirender tanpa ngelag
       setTimeout(() => {
           setLoadingChart(false);
       }, 800);
@@ -420,33 +418,26 @@ export default function Forex() {
                         <button onClick={() => setChartCurr(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X className="w-5 h-5 text-slate-500"/></button>
                     </div>
                     
-                    <div className="w-full bg-white rounded-xl border border-slate-200 mb-5 shadow-inner overflow-hidden relative" style={{ height: '280px' }}>
+                    <div className="w-full bg-white rounded-xl border border-slate-200 mb-5 shadow-inner overflow-hidden relative" style={{ height: '320px' }}>
                         {loadingChart ? (
                             <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 animate-pulse bg-slate-50">
                                 <Activity className="w-8 h-8 mx-auto mb-2 animate-spin"/>
                                 <p className="text-xs font-bold">Menghubungkan ke Bursa...</p>
                             </div>
                         ) : (
-                            // 🚀 THE MAGIC: WIDGET TRADINGVIEW ASLI (Otentik 100%, Anti-Yahoo!)
+                            // 🚀 THE MAGIC: WIDGET TRADINGVIEW SEPENUHNYA INTERAKTIF
                             <iframe 
                                 src={`https://s.tradingview.com/widgetembed/?symbol=FX_IDC%3A${chartCurr}IDR&interval=D&theme=light&style=3&hide_top_toolbar=true&hide_legend=true&save_image=false`} 
                                 width="100%" 
                                 height="100%" 
                                 frameBorder="0" 
                                 allowFullScreen
-                                style={{ pointerEvents: 'none' }} // Mencegah user terlempar ke situs luar
+                                // KUNCI INTERAKSI: Gembok "pointerEvents: none" SAYA HAPUS!
                             ></iframe>
                         )}
                     </div>
 
-                    <div className="flex items-center justify-between bg-indigo-50 p-3 rounded-xl mb-4 border border-indigo-100">
-                        <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-widest flex items-center gap-1">
-                            Harga Saat Ini <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse ml-1"></span>
-                        </span>
-                        <span className="font-extrabold text-indigo-600 text-lg">Rp {Math.round(getSafeRate(chartCurr)).toLocaleString('id-ID')}</span>
-                    </div>
-
-                    <Button onClick={() => { setChartCurr(null); setSelectedCurr(CURRENCY_LIST.find(c => c.code === chartCurr) || CURRENCY_LIST[0]); setActiveTab('exchange'); }} className="w-full bg-slate-900 hover:bg-slate-800 h-14 text-sm font-extrabold rounded-full shadow-lg">
+                    <Button onClick={() => { setChartCurr(null); setSelectedCurr(CURRENCY_LIST.find(c => c.code === chartCurr) || CURRENCY_LIST[0]); setActiveTab('exchange'); }} className="w-full bg-slate-900 hover:bg-slate-800 h-14 text-sm font-extrabold rounded-full shadow-lg mt-2">
                         TRANSAKSI {chartCurr} SEKARANG
                     </Button>
                 </div>
