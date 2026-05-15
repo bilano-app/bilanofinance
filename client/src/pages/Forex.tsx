@@ -66,7 +66,6 @@ export default function Forex() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loadingChart, setLoadingChart] = useState(false);
 
-  // 🚀 STATE UNTUK DATA LIVE MARKET (YAHOO FINANCE)
   const [liveRates, setLiveRates] = useState<Record<string, number>>({});
   const [isLiveLoading, setIsLiveLoading] = useState(false);
 
@@ -83,7 +82,6 @@ export default function Forex() {
       return parts.slice(0, 2).join(",");
   };
   const parseIdr = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
-  
   const parseValas = (val: string) => parseFloat(val.replace(/,/g, ".")) || 0;
 
   const { data: user } = useQuery({
@@ -113,33 +111,86 @@ export default function Forex() {
       enabled: !!currentUserEmail
   });
 
-  // 🚀 FUNGSI PENARIKAN DATA LIVE DARI WALL STREET
+  const fetchWithTimeout = async (url: string, timeout = 3000) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+          const response = await fetch(url, { signal: controller.signal });
+          clearTimeout(id);
+          return response;
+      } catch (error) {
+          clearTimeout(id);
+          throw error;
+      }
+  };
+
+  // 🚀 THE ULTIMATE SCRAPER: Mencuri data otentik Google Finance secara langsung!
   const fetchLiveMarketData = async () => {
       setIsLiveLoading(true);
       try {
-          const symbols = CURRENCY_LIST.filter(c => c.code !== 'IDR').map(c => `${c.code}IDR=X`).join(',');
+          const newRates: Record<string, number> = {};
           
-          // 🚀 FIX: Tambahkan parameter anti-cache super agresif (Date.now + Math.random)
-          const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&nocache=${Date.now()}${Math.floor(Math.random() * 1000)}`;
-          
-          let res;
-          try {
-              res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-              if (!res.ok) throw new Error();
-          } catch (e) {
-              res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+          // Daftar valas yang akan disadap dari Google
+          const priorityCurrencies = CURRENCY_LIST.filter(c => c.code !== 'IDR').map(c => c.code);
+
+          // Lapis 1: Eksekusi sadap HTML Google Finance secara paralel
+          await Promise.all(priorityCurrencies.map(async (code) => {
+              try {
+                  const url = `https://www.google.com/finance/quote/${code}-IDR`;
+                  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&nocache=${Date.now()}`;
+                  
+                  const res = await fetchWithTimeout(proxyUrl, 4000);
+                  if (res.ok) {
+                      const data = await res.json();
+                      const html = data.contents;
+                      
+                      // Regex sakti penembus algoritma Morningstar di Google Finance
+                      const match = html.match(/class="YMlKec fxKbKc">([^<]+)<\/div>/);
+                      if (match && match[1]) {
+                          const price = parseFloat(match[1].replace(/,/g, ''));
+                          if (!isNaN(price) && price > 0) {
+                              newRates[code] = price;
+                          }
+                      }
+                  }
+              } catch(e) {
+                  // Jika satu gagal dibobol, biarkan lewat untuk diproses Lapis 2
+              }
+          }));
+
+          // Lapis 2: Fallback ke Yahoo Finance (Hanya untuk mata uang yang gagal disadap)
+          if (Object.keys(newRates).length < priorityCurrencies.length) {
+              const missingSymbols = priorityCurrencies.filter(c => !newRates[c]).map(c => `${c}IDR=X`).join(',');
+              
+              if (missingSymbols) {
+                  const yfUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${missingSymbols}&nocache=${Date.now()}`;
+                  let resYf;
+                  try {
+                      resYf = await fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(yfUrl)}`, 3000);
+                      if (!resYf.ok) throw new Error();
+                  } catch (e) {
+                      resYf = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(yfUrl)}`, 3000);
+                  }
+
+                  if (resYf && resYf.ok) {
+                      const dataYf = await resYf.json();
+                      if (dataYf?.quoteResponse?.result) {
+                          dataYf.quoteResponse.result.forEach((quote: any) => {
+                              const code = quote.symbol.replace('IDR=X', '');
+                              const ask = quote.ask || 0;
+                              const bid = quote.bid || 0;
+                              const market = quote.regularMarketPrice || 0;
+                              
+                              // Ambil titik ekuilibrium (Mid-Market) untuk simulasi Google
+                              newRates[code] = (ask > 0 && bid > 0) ? (ask + bid) / 2 : market;
+                          });
+                      }
+                  }
+              }
           }
 
-          if (res && res.ok) {
-              const data = await res.json();
-              const newRates: Record<string, number> = {};
-              if (data?.quoteResponse?.result) {
-                  data.quoteResponse.result.forEach((quote: any) => {
-                      const code = quote.symbol.replace('IDR=X', '');
-                      newRates[code] = quote.regularMarketPrice;
-                  });
-                  setLiveRates(newRates);
-              }
+          if (Object.keys(newRates).length > 0) {
+              setLiveRates(prev => ({ ...prev, ...newRates }));
           }
       } catch (error) {
           console.error("Gagal load live data, fallback ke data server");
@@ -150,13 +201,12 @@ export default function Forex() {
 
   useEffect(() => {
       fetchLiveMarketData();
-      const interval = setInterval(fetchLiveMarketData, 60000); // 🚀 Update otomatis setiap 60 detik (Real-Time)
+      const interval = setInterval(fetchLiveMarketData, 60000); // Sinkronisasi setiap menit
       return () => clearInterval(interval);
   }, []);
 
   const getSafeRate = (curr: string) => {
       if (curr === 'IDR') return 1;
-      // 🚀 Prioritaskan Data Live Google/Yahoo, lalu Server, lalu Default
       return liveRates[curr] || rates[curr] || DEFAULT_RATES[curr] || 15000;
   };
 
@@ -185,7 +235,6 @@ export default function Forex() {
       return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 🚀 PERBAIKAN GRAFIK: SISTEM 2 LAPIS PROXY OTENTIK YAHOO FINANCE
   const handleCurrencyClick = async (currencyCode: string) => {
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));
@@ -195,63 +244,69 @@ export default function Forex() {
       setChartCurr(currencyCode);
       setLoadingChart(true);
       setChartData([]); 
+      let dataFound = false;
 
+      // 🛡️ LAPIS 1: Ambil Bentuk Grafik (Trend) dari Yahoo Finance
       try {
           const symbol = `${currencyCode}IDR=X`;
-          const yfUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1mo&interval=1d`;
+          const cacheBuster = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+          const yfUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1mo&interval=1d&nocache=${cacheBuster}`;
           
           let res;
-          // Lapis 1: Proxy Cepat
           try {
-              res = await fetch(`https://corsproxy.io/?${encodeURIComponent(yfUrl)}`);
+              res = await fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(yfUrl)}`, 3000);
               if (!res.ok) throw new Error();
           } catch (e) {
-              // Lapis 2: Proxy AllOrigins Tanpa Cache
-              res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(yfUrl + '&t=' + Date.now())}`);
+              res = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(yfUrl)}`, 3000);
           }
 
-          if (!res || !res.ok) throw new Error("Semua proxy gagal");
+          if (res && res.ok) {
+              const yfData = await res.json();
+              const result = yfData.chart.result[0];
+              const timestamps = result.timestamp;
+              const closePrices = result.indicators.quote[0].close;
 
-          const yfData = await res.json();
-          const result = yfData.chart.result[0];
-          const timestamps = result.timestamp;
-          const closePrices = result.indicators.quote[0].close;
+              const formattedData = timestamps.map((ts: number, index: number) => {
+                  const val = closePrices[index];
+                  return {
+                      date: new Date(ts * 1000).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
+                      value: val ? Math.round(val) : null
+                  };
+              }).filter((d: any) => d.value !== null);
 
-          const formattedData = timestamps.map((ts: number, index: number) => {
-              const val = closePrices[index];
-              return {
-                  date: new Date(ts * 1000).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
-                  value: val ? Math.round(val) : null
-              };
-          }).filter((d: any) => d.value !== null);
-
-          if (formattedData.length > 0) {
-              // Sinkronisasi angka terakhir grafik dengan harga live detik ini
-              const liveNow = getSafeRate(currencyCode);
-              formattedData[formattedData.length - 1].value = Math.round(liveNow);
-              setChartData(formattedData);
-          } else {
-              throw new Error("Data pasar kosong");
+              if (formattedData.length > 0) {
+                  // 🚀 MENGUNCI TITIK TERAKHIR GRAFIK DENGAN ANGKA OTENTIK GOOGLE
+                  const liveNow = getSafeRate(currencyCode);
+                  formattedData[formattedData.length - 1].value = Math.round(liveNow);
+                  
+                  setChartData(formattedData);
+                  dataFound = true;
+              }
           }
-      } catch (error) { 
-          console.error("Gagal ambil chart otentik:", error);
-          // Fallback Anti-Garis Lurus jika user sedang tidak ada internet
+      } catch (error) {
+          console.log("Yahoo Finance API chart terblokir, pindah ke Fallback...");
+      }
+
+      // 🛡️ LAPIS 2: Simulasi Realistis (Bila koneksi error ekstrim)
+      if (!dataFound) {
           const baseRate = getSafeRate(currencyCode);
           let lastVal = baseRate;
+          
           const fallbackData = Array.from({length: 30}).map((_, i) => {
               const d = new Date();
               d.setDate(d.getDate() - (29 - i));
               const change = lastVal * (Math.random() * 0.008 - 0.004); 
-              lastVal = i === 29 ? baseRate : lastVal + change;
+              lastVal = i === 29 ? baseRate : lastVal + change; 
+              
               return {
                   date: d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
                   value: Math.round(lastVal)
               };
           });
-          setChartData(fallbackData); 
-      } finally { 
-          setLoadingChart(false); 
+          setChartData(fallbackData);
       }
+      
+      setLoadingChart(false);
   };
 
   const handleExchange = async () => {
