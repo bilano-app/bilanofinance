@@ -120,38 +120,35 @@ export default function Forex() {
       }
   };
 
+  // 🚀 THE ULTIMATE SYNC: Mengambil Harga Pasar Terakhir persis seperti TradingView
   const fetchLiveMarketData = async () => {
       setIsLiveLoading(true);
       try {
           const newRates: Record<string, number> = {};
-          const priorityCurrencies = CURRENCY_LIST.filter(c => c.code !== 'IDR').map(c => c.code);
+          const symbols = CURRENCY_LIST.filter(c => c.code !== 'IDR').map(c => `${c.code}IDR=X`).join(',');
+          const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&nocache=${Date.now()}`;
+          
+          let res;
+          try {
+              res = await fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(url)}`, 4000);
+              if (!res.ok) throw new Error();
+          } catch (e) {
+              res = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, 4000);
+          }
 
-          await Promise.all(priorityCurrencies.map(async (code) => {
-              try {
-                  const url = `https://www.google.com/finance/quote/${code}-IDR`;
-                  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&nocache=${Date.now()}`;
-                  
-                  const res = await fetchWithTimeout(proxyUrl, 4000);
-                  if (res.ok) {
-                      const data = await res.json();
-                      const html = data.contents;
-                      
-                      const match = html.match(/class="YMlKec fxKbKc">([^<]+)<\/div>/);
-                      if (match && match[1]) {
-                          const price = parseFloat(match[1].replace(/,/g, ''));
-                          if (!isNaN(price) && price > 0) {
-                              newRates[code] = price;
-                          }
-                      }
-                  }
-              } catch(e) { }
-          }));
-
-          if (Object.keys(newRates).length > 0) {
-              setLiveRates(prev => ({ ...prev, ...newRates }));
+          if (res && res.ok) {
+              const data = await res.json();
+              if (data?.quoteResponse?.result) {
+                  data.quoteResponse.result.forEach((quote: any) => {
+                      const code = quote.symbol.replace('IDR=X', '');
+                      // 🚀 Menggunakan regularMarketPrice agar 100% selaras dengan TradingView FX_IDC
+                      newRates[code] = quote.regularMarketPrice;
+                  });
+                  setLiveRates(newRates);
+              }
           }
       } catch (error) {
-          console.error("Gagal load live data");
+          console.error("Gagal load live data, fallback ke data server");
       } finally {
           setIsLiveLoading(false);
       }
@@ -159,7 +156,7 @@ export default function Forex() {
 
   useEffect(() => {
       fetchLiveMarketData();
-      const interval = setInterval(fetchLiveMarketData, 60000);
+      const interval = setInterval(fetchLiveMarketData, 60000); // Sinkronisasi setiap menit
       return () => clearInterval(interval);
   }, []);
 
@@ -202,6 +199,7 @@ export default function Forex() {
       setChartCurr(currencyCode);
       setLoadingChart(true);
       
+      // Memberi waktu sejenak agar iframe TradingView bisa dirender tanpa ngelag
       setTimeout(() => {
           setLoadingChart(false);
       }, 800);
@@ -425,14 +423,12 @@ export default function Forex() {
                                 <p className="text-xs font-bold">Menghubungkan ke Bursa...</p>
                             </div>
                         ) : (
-                            // 🚀 THE MAGIC: WIDGET TRADINGVIEW SEPENUHNYA INTERAKTIF
                             <iframe 
                                 src={`https://s.tradingview.com/widgetembed/?symbol=FX_IDC%3A${chartCurr}IDR&interval=D&theme=light&style=3&hide_top_toolbar=true&hide_legend=true&save_image=false`} 
                                 width="100%" 
                                 height="100%" 
                                 frameBorder="0" 
                                 allowFullScreen
-                                // KUNCI INTERAKSI: Gembok "pointerEvents: none" SAYA HAPUS!
                             ></iframe>
                         )}
                     </div>
