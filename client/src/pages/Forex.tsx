@@ -7,9 +7,6 @@ import {
     TrendingUp, X, Activity, StickyNote, Plus, Check, Loader2, HandCoins
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { 
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
-} from "recharts";
 import { useQuery } from "@tanstack/react-query";
 
 const CURRENCY_LIST = [
@@ -63,7 +60,6 @@ export default function Forex() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [chartCurr, setChartCurr] = useState<string | null>(null); 
-  const [chartData, setChartData] = useState<any[]>([]);
   const [loadingChart, setLoadingChart] = useState(false);
 
   const [liveRates, setLiveRates] = useState<Record<string, number>>({});
@@ -124,16 +120,13 @@ export default function Forex() {
       }
   };
 
-  // 🚀 THE ULTIMATE SCRAPER: Mencuri data otentik Google Finance secara langsung!
+  // 🚀 PURE GOOGLE SCRAPER (TANPA YAHOO FALLBACK)
   const fetchLiveMarketData = async () => {
       setIsLiveLoading(true);
       try {
           const newRates: Record<string, number> = {};
-          
-          // Daftar valas yang akan disadap dari Google
           const priorityCurrencies = CURRENCY_LIST.filter(c => c.code !== 'IDR').map(c => c.code);
 
-          // Lapis 1: Eksekusi sadap HTML Google Finance secara paralel
           await Promise.all(priorityCurrencies.map(async (code) => {
               try {
                   const url = `https://www.google.com/finance/quote/${code}-IDR`;
@@ -144,7 +137,6 @@ export default function Forex() {
                       const data = await res.json();
                       const html = data.contents;
                       
-                      // Regex sakti penembus algoritma Morningstar di Google Finance
                       const match = html.match(/class="YMlKec fxKbKc">([^<]+)<\/div>/);
                       if (match && match[1]) {
                           const price = parseFloat(match[1].replace(/,/g, ''));
@@ -153,47 +145,14 @@ export default function Forex() {
                           }
                       }
                   }
-              } catch(e) {
-                  // Jika satu gagal dibobol, biarkan lewat untuk diproses Lapis 2
-              }
+              } catch(e) { }
           }));
-
-          // Lapis 2: Fallback ke Yahoo Finance (Hanya untuk mata uang yang gagal disadap)
-          if (Object.keys(newRates).length < priorityCurrencies.length) {
-              const missingSymbols = priorityCurrencies.filter(c => !newRates[c]).map(c => `${c}IDR=X`).join(',');
-              
-              if (missingSymbols) {
-                  const yfUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${missingSymbols}&nocache=${Date.now()}`;
-                  let resYf;
-                  try {
-                      resYf = await fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(yfUrl)}`, 3000);
-                      if (!resYf.ok) throw new Error();
-                  } catch (e) {
-                      resYf = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(yfUrl)}`, 3000);
-                  }
-
-                  if (resYf && resYf.ok) {
-                      const dataYf = await resYf.json();
-                      if (dataYf?.quoteResponse?.result) {
-                          dataYf.quoteResponse.result.forEach((quote: any) => {
-                              const code = quote.symbol.replace('IDR=X', '');
-                              const ask = quote.ask || 0;
-                              const bid = quote.bid || 0;
-                              const market = quote.regularMarketPrice || 0;
-                              
-                              // Ambil titik ekuilibrium (Mid-Market) untuk simulasi Google
-                              newRates[code] = (ask > 0 && bid > 0) ? (ask + bid) / 2 : market;
-                          });
-                      }
-                  }
-              }
-          }
 
           if (Object.keys(newRates).length > 0) {
               setLiveRates(prev => ({ ...prev, ...newRates }));
           }
       } catch (error) {
-          console.error("Gagal load live data, fallback ke data server");
+          console.error("Gagal load live data");
       } finally {
           setIsLiveLoading(false);
       }
@@ -201,7 +160,7 @@ export default function Forex() {
 
   useEffect(() => {
       fetchLiveMarketData();
-      const interval = setInterval(fetchLiveMarketData, 60000); // Sinkronisasi setiap menit
+      const interval = setInterval(fetchLiveMarketData, 60000);
       return () => clearInterval(interval);
   }, []);
 
@@ -243,70 +202,11 @@ export default function Forex() {
 
       setChartCurr(currencyCode);
       setLoadingChart(true);
-      setChartData([]); 
-      let dataFound = false;
-
-      // 🛡️ LAPIS 1: Ambil Bentuk Grafik (Trend) dari Yahoo Finance
-      try {
-          const symbol = `${currencyCode}IDR=X`;
-          const cacheBuster = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-          const yfUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1mo&interval=1d&nocache=${cacheBuster}`;
-          
-          let res;
-          try {
-              res = await fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(yfUrl)}`, 3000);
-              if (!res.ok) throw new Error();
-          } catch (e) {
-              res = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(yfUrl)}`, 3000);
-          }
-
-          if (res && res.ok) {
-              const yfData = await res.json();
-              const result = yfData.chart.result[0];
-              const timestamps = result.timestamp;
-              const closePrices = result.indicators.quote[0].close;
-
-              const formattedData = timestamps.map((ts: number, index: number) => {
-                  const val = closePrices[index];
-                  return {
-                      date: new Date(ts * 1000).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
-                      value: val ? Math.round(val) : null
-                  };
-              }).filter((d: any) => d.value !== null);
-
-              if (formattedData.length > 0) {
-                  // 🚀 MENGUNCI TITIK TERAKHIR GRAFIK DENGAN ANGKA OTENTIK GOOGLE
-                  const liveNow = getSafeRate(currencyCode);
-                  formattedData[formattedData.length - 1].value = Math.round(liveNow);
-                  
-                  setChartData(formattedData);
-                  dataFound = true;
-              }
-          }
-      } catch (error) {
-          console.log("Yahoo Finance API chart terblokir, pindah ke Fallback...");
-      }
-
-      // 🛡️ LAPIS 2: Simulasi Realistis (Bila koneksi error ekstrim)
-      if (!dataFound) {
-          const baseRate = getSafeRate(currencyCode);
-          let lastVal = baseRate;
-          
-          const fallbackData = Array.from({length: 30}).map((_, i) => {
-              const d = new Date();
-              d.setDate(d.getDate() - (29 - i));
-              const change = lastVal * (Math.random() * 0.008 - 0.004); 
-              lastVal = i === 29 ? baseRate : lastVal + change; 
-              
-              return {
-                  date: d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
-                  value: Math.round(lastVal)
-              };
-          });
-          setChartData(fallbackData);
-      }
       
-      setLoadingChart(false);
+      // Memberi waktu sejenak agar iframe TradingView bisa dirender tanpa ngelag
+      setTimeout(() => {
+          setLoadingChart(false);
+      }, 800);
   };
 
   const handleExchange = async () => {
@@ -515,48 +415,27 @@ export default function Forex() {
                     <div className="flex justify-between items-center mb-5">
                         <div>
                             <h3 className="font-bold text-xl text-slate-800 flex items-center gap-2">{chartCurr} / IDR</h3>
-                            <p className="text-xs text-slate-500">Tren Nilai Tukar 30 Hari Terakhir</p>
+                            <p className="text-xs text-slate-500">Live Chart by TradingView</p>
                         </div>
                         <button onClick={() => setChartCurr(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X className="w-5 h-5 text-slate-500"/></button>
                     </div>
                     
-                    <div className="w-full bg-white rounded-xl border border-slate-200 p-3 mb-5 shadow-inner" style={{ height: '260px' }}>
+                    <div className="w-full bg-white rounded-xl border border-slate-200 mb-5 shadow-inner overflow-hidden relative" style={{ height: '280px' }}>
                         {loadingChart ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 animate-pulse">
+                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 animate-pulse bg-slate-50">
                                 <Activity className="w-8 h-8 mx-auto mb-2 animate-spin"/>
-                                <p className="text-xs font-bold">Mengambil data pasar...</p>
+                                <p className="text-xs font-bold">Menghubungkan ke Bursa...</p>
                             </div>
-                        ) : chartData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
-                                    <XAxis 
-                                        dataKey="date" 
-                                        axisLine={false} 
-                                        tickLine={false} 
-                                        tick={{ fontSize: 9, fill: '#94a3b8' }} 
-                                        minTickGap={20}
-                                    />
-                                    <YAxis 
-                                        domain={['auto', 'auto']} 
-                                        axisLine={false} 
-                                        tickLine={false} 
-                                        tick={{ fontSize: 9, fill: '#94a3b8' }}
-                                        tickFormatter={(val) => `Rp ${(val/1000).toFixed(1)}k`}
-                                        orientation="right"
-                                    />
-                                    <Tooltip 
-                                        contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '12px', fontWeight: 'bold' }} 
-                                        formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Kurs']}
-                                        labelStyle={{ color: '#64748b', marginBottom: '4px', fontSize: '10px' }}
-                                    />
-                                    <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={3} fill="#10b981" fillOpacity={0.15} activeDot={{ r: 6, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} />
-                                </AreaChart>
-                            </ResponsiveContainer>
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-400">
-                                <p className="text-xs font-bold">Gagal memuat grafik.</p>
-                            </div>
+                            // 🚀 THE MAGIC: WIDGET TRADINGVIEW ASLI (Otentik 100%, Anti-Yahoo!)
+                            <iframe 
+                                src={`https://s.tradingview.com/widgetembed/?symbol=FX_IDC%3A${chartCurr}IDR&interval=D&theme=light&style=3&hide_top_toolbar=true&hide_legend=true&save_image=false`} 
+                                width="100%" 
+                                height="100%" 
+                                frameBorder="0" 
+                                allowFullScreen
+                                style={{ pointerEvents: 'none' }} // Mencegah user terlempar ke situs luar
+                            ></iframe>
                         )}
                     </div>
 
