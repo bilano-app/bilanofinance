@@ -118,14 +118,16 @@ export default function Forex() {
       setIsLiveLoading(true);
       try {
           const symbols = CURRENCY_LIST.filter(c => c.code !== 'IDR').map(c => `${c.code}IDR=X`).join(',');
-          const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
+          
+          // 🚀 FIX: Tambahkan parameter anti-cache super agresif (Date.now + Math.random)
+          const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&nocache=${Date.now()}${Math.floor(Math.random() * 1000)}`;
           
           let res;
           try {
               res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
               if (!res.ok) throw new Error();
           } catch (e) {
-              res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url + '&t=' + Date.now())}`);
+              res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
           }
 
           if (res && res.ok) {
