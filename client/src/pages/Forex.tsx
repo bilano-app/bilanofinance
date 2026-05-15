@@ -152,6 +152,7 @@ export default function Forex() {
       }
   };
 
+  // 🚀 PERBAIKAN GRAFIK: YAHOO FINANCE OTENTIK (NO ZIGZAG)
   const handleCurrencyClick = async (currencyCode: string) => {
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));
@@ -162,40 +163,55 @@ export default function Forex() {
       setLoadingChart(true);
       setChartData([]); 
 
-      const baseRate = getSafeRate(currencyCode);
-      
-      const safeMockData = Array.from({length: 30}).map((_, i) => {
-          const d = new Date();
-          d.setDate(d.getDate() - (29 - i));
-          return {
-              date: d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
-              value: Math.round(baseRate * (1 + (Math.random() * 0.015 - 0.0075)))
-          };
-      });
-      safeMockData[safeMockData.length - 1].value = Math.round(baseRate);
-
       try {
-          const endDate = new Date().toISOString().split('T')[0];
-          const startDateObj = new Date();
-          startDateObj.setDate(startDateObj.getDate() - 30);
-          const startDate = startDateObj.toISOString().split('T')[0];
+          // 🚀 1. MENGGUNAKAN YAHOO FINANCE API (Setara Google/Morningstar)
+          const symbol = `${currencyCode}IDR=X`;
+          const yfUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1mo&interval=1d`;
+          
+          // 🚀 2. MENGGUNAKAN ALLORIGINS PROXY 
+          // (Diambil langsung dari HP user, SERVER VERCEL BEBANNYA 0%)
+          const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(yfUrl)}`;
 
-          const res = await fetchWithTimeout(`https://api.frankfurter.app/${startDate}..${endDate}?from=${currencyCode}&to=IDR`, 2500);
+          // Gunakan fetchWithTimeout agar tidak loading terus menerus jika proxy lambat
+          const res = await fetchWithTimeout(proxyUrl, 5000);
+          if (!res.ok) throw new Error("Gagal terhubung ke pasar global");
           
-          if (!res.ok) throw new Error("API Tutup");
+          const proxyData = await res.json();
+          const yfData = JSON.parse(proxyData.contents);
           
-          const data = await res.json();
-          if (data.rates && Object.keys(data.rates).length > 0) {
-              const formattedData = Object.keys(data.rates).map(date => ({
-                  date: new Date(date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
-                  value: data.rates[date].IDR
-              }));
+          const result = yfData.chart.result[0];
+          const timestamps = result.timestamp;
+          const closePrices = result.indicators.quote[0].close;
+
+          // 🚀 3. FORMAT DATA UNTUK GRAFIK RECHARTS
+          const formattedData = timestamps.map((ts: number, index: number) => {
+              const val = closePrices[index];
+              return {
+                  date: new Date(ts * 1000).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
+                  value: val ? Math.round(val) : null
+              };
+          }).filter((d: any) => d.value !== null);
+
+          if (formattedData.length > 0) {
               setChartData(formattedData);
           } else {
-              throw new Error("Data rates kosong");
+              throw new Error("Data pasar kosong");
           }
       } catch (error) { 
-          setChartData(safeMockData); 
+          console.error("Gagal ambil chart:", error);
+          
+          // 🛡️ FALLBACK ELEGAN: Jika internet user buruk, 
+          // tampilkan garis lurus sesuai kurs saat ini, BUKAN zigzag aneh!
+          const baseRate = getSafeRate(currencyCode);
+          const fallbackData = Array.from({length: 30}).map((_, i) => {
+              const d = new Date();
+              d.setDate(d.getDate() - (29 - i));
+              return {
+                  date: d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
+                  value: Math.round(baseRate) 
+              };
+          });
+          setChartData(fallbackData); 
       } finally { 
           setLoadingChart(false); 
       }
