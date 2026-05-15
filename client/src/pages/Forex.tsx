@@ -120,7 +120,6 @@ export default function Forex() {
       }
   };
 
-  // 🚀 THE ULTIMATE SYNC: Mengambil Harga Pasar Terakhir persis seperti TradingView
   const fetchLiveMarketData = async () => {
       setIsLiveLoading(true);
       try {
@@ -141,7 +140,6 @@ export default function Forex() {
               if (data?.quoteResponse?.result) {
                   data.quoteResponse.result.forEach((quote: any) => {
                       const code = quote.symbol.replace('IDR=X', '');
-                      // 🚀 Menggunakan regularMarketPrice agar 100% selaras dengan TradingView FX_IDC
                       newRates[code] = quote.regularMarketPrice;
                   });
                   setLiveRates(newRates);
@@ -156,7 +154,7 @@ export default function Forex() {
 
   useEffect(() => {
       fetchLiveMarketData();
-      const interval = setInterval(fetchLiveMarketData, 60000); // Sinkronisasi setiap menit
+      const interval = setInterval(fetchLiveMarketData, 60000); 
       return () => clearInterval(interval);
   }, []);
 
@@ -199,7 +197,6 @@ export default function Forex() {
       setChartCurr(currencyCode);
       setLoadingChart(true);
       
-      // Memberi waktu sejenak agar iframe TradingView bisa dirender tanpa ngelag
       setTimeout(() => {
           setLoadingChart(false);
       }, 800);
@@ -389,7 +386,7 @@ export default function Forex() {
         <div>
             <div className="flex justify-between items-end mb-2 px-1">
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                    Live Market Rates {Object.keys(liveRates).length > 0 && <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1"></span>}
+                    Kurs Referensi <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1"></span>
                 </h3>
                 <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-1 rounded">Klik untuk Grafik 📈</span>
             </div>
@@ -408,21 +405,22 @@ export default function Forex() {
         {chartCurr && !isTrialExpired && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
                 <div className="bg-white w-full max-w-md rounded-3xl p-5 shadow-2xl animate-in zoom-in-95 relative">
-                    <div className="flex justify-between items-center mb-5">
+                    <div className="flex justify-between items-center mb-4">
                         <div>
                             <h3 className="font-bold text-xl text-slate-800 flex items-center gap-2">{chartCurr} / IDR</h3>
-                            <p className="text-xs text-slate-500">Live Chart by TradingView</p>
+                            <p className="text-[11px] text-slate-500 font-medium">Live Market Chart by TradingView</p>
                         </div>
                         <button onClick={() => setChartCurr(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X className="w-5 h-5 text-slate-500"/></button>
                     </div>
                     
-                    <div className="w-full bg-white rounded-xl border border-slate-200 mb-5 shadow-inner overflow-hidden relative" style={{ height: '320px' }}>
+                    <div className="w-full bg-white rounded-xl border border-slate-200 mb-4 shadow-inner overflow-hidden relative" style={{ height: '360px' }}>
                         {loadingChart ? (
                             <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 animate-pulse bg-slate-50">
                                 <Activity className="w-8 h-8 mx-auto mb-2 animate-spin"/>
                                 <p className="text-xs font-bold">Menghubungkan ke Bursa...</p>
                             </div>
                         ) : (
+                            // 🚀 THE MAGIC: KOTAK BIRU SAYA HAPUS, BIARKAN TRADINGVIEW JADI RAJANYA!
                             <iframe 
                                 src={`https://s.tradingview.com/widgetembed/?symbol=FX_IDC%3A${chartCurr}IDR&interval=D&theme=light&style=3&hide_top_toolbar=true&hide_legend=true&save_image=false`} 
                                 width="100%" 
@@ -433,7 +431,7 @@ export default function Forex() {
                         )}
                     </div>
 
-                    <Button onClick={() => { setChartCurr(null); setSelectedCurr(CURRENCY_LIST.find(c => c.code === chartCurr) || CURRENCY_LIST[0]); setActiveTab('exchange'); }} className="w-full bg-slate-900 hover:bg-slate-800 h-14 text-sm font-extrabold rounded-full shadow-lg mt-2">
+                    <Button onClick={() => { setChartCurr(null); setSelectedCurr(CURRENCY_LIST.find(c => c.code === chartCurr) || CURRENCY_LIST[0]); setActiveTab('exchange'); }} className="w-full bg-slate-900 hover:bg-slate-800 h-14 text-sm font-extrabold rounded-full shadow-lg">
                         TRANSAKSI {chartCurr} SEKARANG
                     </Button>
                 </div>
