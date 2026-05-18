@@ -32,7 +32,7 @@ export default function Landing() {
   }, []);
 
   // =======================================================
-  // 🚀 DATA NARASI MULTI-TARGET (SEMUA LOKAL)
+  // 🚀 DATA NARASI MULTI-TARGET
   // =======================================================
   const narratives = [
     {
@@ -105,13 +105,13 @@ export default function Landing() {
         </header>
 
         {/* 🚀 MAIN CONTENT */}
-        <main className="px-6 lg:px-10 pt-6 pb-12 flex flex-col gap-16 lg:gap-24 w-full items-center">
+        <main className="px-6 lg:px-10 pt-6 pb-12 flex flex-col gap-12 lg:gap-24 w-full items-center">
           
-          {/* 🔥 1. HERO SECTION (DENGAN FOTO ADRIEN & LABEL MODERN BRUTALISM) */}
-          <section className="w-full flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-4 animate-in slide-in-from-bottom-6 fade-in duration-700 delay-100 fill-mode-both max-w-6xl mx-auto">
+          {/* 🔥 1. HERO SECTION (PERBAIKAN JARAK/GAP & POSISI FOTO) */}
+          <section className="w-full flex flex-col lg:flex-row items-center justify-between gap-2 lg:gap-4 animate-in slide-in-from-bottom-6 fade-in duration-700 delay-100 fill-mode-both max-w-6xl mx-auto">
             
             {/* KIRI: TEKS UTAMA */}
-            <div className="flex-1 flex flex-col gap-5 text-left items-start">
+            <div className="flex-1 flex flex-col gap-4 text-left items-start z-20">
               <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 px-4 py-2 rounded-full w-fit shadow-inner">
                 <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                 <span className="text-amber-400 text-xs font-bold tracking-wide">Akses Eksklusif Khusus Hari Ini</span>
@@ -126,17 +126,18 @@ export default function Landing() {
             </div>
 
             {/* KANAN: FOTO & LABEL BRUTALIST */}
-            <div className="flex-1 relative w-full flex justify-center lg:justify-end mt-6 lg:mt-0">
+            {/* 🚀 PERBAIKAN: Menarik kontainer foto ke atas dengan -mt-8 (mobile) */}
+            <div className="flex-1 relative w-full flex justify-center lg:justify-end -mt-8 lg:mt-0 z-10">
               
-              {/* 🖼️ Foto dengan bayangan lurus ke sisi KANAN */}
+              {/* 🚀 PERBAIKAN: Menarik gambar ke atas lagi untuk mengimbangi ruang transparan di atas kepala */}
               <img 
                 src="/adrienfandra_photos.png" 
                 alt="Adrien Fandra" 
-                className="w-[90%] max-w-[420px] object-contain drop-shadow-[25px_0px_15px_rgba(0,0,0,0.6)] hover:-translate-y-2 transition-transform duration-700 ease-out relative z-10" 
+                className="w-[100%] max-w-[420px] object-contain drop-shadow-[25px_0px_15px_rgba(0,0,0,0.6)] hover:-translate-y-2 transition-transform duration-700 ease-out relative z-10 -mt-[12%] lg:-mt-4" 
               />
               
-              {/* 🏷️ Label Nama Gaya Modern Brutalism (Persis Referensi) */}
-              <div className="absolute bottom-[5%] right-[0%] lg:right-[5%] flex flex-col items-start animate-in zoom-in slide-in-from-bottom-6 fade-in duration-700 delay-500 z-20 hover:scale-105 transition-transform cursor-default">
+              {/* 🏷️ Label Nama Gaya Modern Brutalism */}
+              <div className="absolute bottom-[10%] right-[0%] lg:right-[5%] flex flex-col items-start animate-in zoom-in slide-in-from-bottom-6 fade-in duration-700 delay-500 z-20 hover:scale-105 transition-transform cursor-default">
                 
                 {/* Blok Atas: Background Biru, Teks Putih */}
                 <div className="bg-[#1111aa] text-white px-5 py-2 lg:px-6 lg:py-3 shadow-xl relative z-10 translate-y-1 lg:translate-y-2 -translate-x-3 lg:-translate-x-4 border border-blue-900/50">
@@ -158,7 +159,7 @@ export default function Landing() {
           </section>
 
           {/* 🔥 2. STORYTELLING SLIDER */}
-          <section className="animate-in slide-in-from-bottom-8 fade-in duration-700 delay-200 fill-mode-both w-full max-w-7xl">
+          <section className="animate-in slide-in-from-bottom-8 fade-in duration-700 delay-200 fill-mode-both w-full max-w-7xl mt-4 lg:mt-0">
              <div className="flex items-center justify-between mb-4 pr-4 lg:mb-6">
                <h3 className="text-lg lg:text-xl font-black text-white flex items-center gap-2">
                  Fakta Pahit Finansial
@@ -292,7 +293,7 @@ export default function Landing() {
   );
 }
 
-// Sub-komponen yang dibutuhkan (TETAP SAMA)
+// Sub-komponen yang dibutuhkan
 function FeatureCard({ imgUrl, title, desc }: any) {
   return (
     <div className="bg-[#121c3a]/80 backdrop-blur-sm border border-white/5 p-4 md:p-5 lg:p-6 rounded-[24px] shadow-lg hover:bg-[#172447] hover:border-white/10 hover:scale-[1.03] transition-all cursor-pointer flex flex-col">
