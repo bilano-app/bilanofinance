@@ -9,13 +9,13 @@ export default function Landing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // =======================================================
-  // 🚀 MESIN TEKS DINAMIS
+  // 🚀 MESIN TEKS DINAMIS (DIPERBARUI FOKUS PWA)
   // =======================================================
   const headlines = [
-    { top: "Gaji Naik Terus,", bottom: "Tapi Net Worth Stagnan?" },
-    { top: "Kerja Keras Tiap Hari,", bottom: "Cuma Buat Bayar Paylater?" },
+    { top: "Dua Wajah BILANO,", bottom: "Transformasi Finansial Tanpa Kompromi?" },
+    { top: "Website sebagai Brosur,", bottom: "App sebagai Asisten Pribadi Tanpa Jejak?" },
     { top: "Bocor Halus Transaksi,", bottom: "Menyabotase Masa Depan?" },
-    { top: "Berhenti Nabung Buta,", bottom: "Mulai Tracking Brutal." }
+    { top: "Berhenti Nabung Buta,", bottom: "Mulai Tracking Brutal Bersama AI?" }
   ];
   const [headlineIdx, setHeadlineIdx] = useState(0);
   const [fade, setFade] = useState(true);
@@ -32,15 +32,15 @@ export default function Landing() {
   }, []);
 
   // =======================================================
-  // 🚀 DATA NARASI MULTI-TARGET (SEMUA LOKAL)
+  // 🚀 DATA NARASI MULTI-TARGET (DIPERBARUI LINK)
   // =======================================================
   const narratives = [
     {
       badge: "Untuk Mahasiswa & Fresh Graduate",
       title: "Lulus S1 = Pengangguran Tanpa Tabungan?",
       desc: "Realita kerja brutal. Tanpa 'Dana Darurat Pasca-Kampus', Anda tak punya biaya untuk bertahan hidup saat mencari kerja. BILANO memandu Anda men-set target 'Dana Lulus' sejak awal, sementara Konsultan AI akan merem pengeluaran nongkrong Anda secara rasional.",
-      // 🖼️ SEKARANG MENGGUNAKAN FILE LOKAL (Pastikan file ini ada di folder public)
-      img: "https://images.unsplash.com/photo-1629904869392-ae2a682d4d01?q=80&w=800&auto=format&fit=crop"
+      // 🖼️ Menggunakan link Unsplash Bos agar tidak repot upload lokal
+      img: "https://images.unsplash.com/photo-1629904869392-ae2a682d4d01?q=80&w=800&auto=format&fit=crop" 
     },
     {
       badge: "Untuk Pekerja & Profesional",
@@ -108,19 +108,45 @@ export default function Landing() {
         {/* 🚀 MAIN CONTENT */}
         <main className="px-6 lg:px-10 pt-6 pb-12 flex flex-col gap-16 lg:gap-24 w-full items-center">
           
-          {/* 🔥 1. HERO SECTION */}
-          <section className="flex flex-col gap-5 w-full text-left lg:text-center animate-in slide-in-from-bottom-6 fade-in duration-700 delay-100 fill-mode-both items-start lg:items-center max-w-5xl">
-            <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 px-4 py-2 rounded-full w-fit shadow-inner">
-              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-              <span className="text-amber-400 text-xs font-bold tracking-wide">Akses Eksklusif Khusus Hari Ini</span>
-            </div>
+          {/* 🔥 1. HERO SECTION (DIPERBARUI DENGAN FOTO ADRIEN) */}
+          <section className="w-full max-w-7xl flex flex-col lg:flex-row items-center gap-10 lg:gap-5">
             
-            <h2 className={`w-full text-left lg:text-center text-[2.5rem] lg:text-[4.5rem] lg:min-h-[10rem] leading-[1.1] font-black tracking-tight drop-shadow-md transition-opacity duration-300 ${fade ? 'opacity-100' : 'opacity-0'}`}>
-              <span className="text-white">{headlines[headlineIdx].top}</span> <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-500">
-                {headlines[headlineIdx].bottom}
-              </span>
-            </h2>
+            {/* KOLOM KIRI: TEKS & TOMBOL */}
+            <div className="flex-1 flex flex-col gap-5 text-left lg:text-left animate-in slide-in-from-left-6 fade-in duration-700 delay-100 fill-mode-both items-start lg:items-start max-w-5xl">
+              <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 px-4 py-2 rounded-full w-fit shadow-inner">
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <span className="text-amber-400 text-xs font-bold tracking-wide">Akses Eksklusif Khusus Hari Ini</span>
+              </div>
+              
+              <h2 className={`w-full text-left lg:text-left text-[2.5rem] lg:text-[4.5rem] lg:min-h-[10rem] leading-[1.1] font-black tracking-tight drop-shadow-md transition-opacity duration-300 ${fade ? 'opacity-100' : 'opacity-0'}`}>
+                <span className="text-white">{headlines[headlineIdx].top}</span> <br/>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-500">
+                  {headlines[headlineIdx].bottom}
+                </span>
+              </h2>
+
+              <button
+                onClick={handlePwaInstall}
+                className="w-full max-w-[400px] mt-6 bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
+              >
+                <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
+                INSTALL SEKARANG
+              </button>
+            </div>
+
+            {/* KOLOM KANAN: FOTO ADRIEN & KETERANGAN */}
+            <div className="flex-1 relative animate-in slide-in-from-right-6 fade-in duration-700 delay-200 fill-mode-both">
+              {/* 🖼️ Pastikan file 'adrienfandra_photos.png' ada di folder public Bos */}
+              <img src="/adrienfandra_photos.png" alt="Adrien Fandra - Founder BILANO" className="w-full h-auto object-contain max-h-[70vh] lg:max-h-[85vh] drop-shadow-[0_20px_50px_rgba(6,17,40,0.5)]" />
+              
+              {/* 🏷️ Keterangan Amber di Perut Kanan */}
+              <div className="absolute right-[10%] bottom-[15%] lg:right-[15%] lg:bottom-[20%] text-right bg-gradient-to-l from-white/5 to-transparent p-3 rounded-l-xl backdrop-blur-sm border-l border-amber-400/20">
+                <p className="text-[14px] lg:text-[18px] font-black text-amber-400 leading-none">Adrien Fandra</p>
+                <p className="text-[10px] lg:text-[12px] font-medium text-amber-300 opacity-90 mt-1">Content Creator &</p>
+                <p className="text-[10px] lg:text-[12px] font-medium text-amber-300 opacity-90 leading-none">Founder BILANO</p>
+              </div>
+            </div>
+
           </section>
 
           {/* 🔥 2. STORYTELLING SLIDER */}
@@ -167,7 +193,7 @@ export default function Landing() {
             <FeatureCard imgUrl="https://img.icons8.com/color/96/multiple-devices.png" title="Akses Universal" desc="PWA: Ringan di semua perangkat." />
           </section>
 
-          {/* 🔥 4. UI SCREENSHOT GALLERY (MENJAGA FILE .JPEG BOS) */}
+          {/* 🔥 4. UI SCREENSHOT GALLERY */}
           <section className="animate-in slide-in-from-bottom-10 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
             <div className="mb-4 lg:mb-6 lg:text-center max-w-lg lg:mx-auto">
               <h3 className="text-lg lg:text-xl font-black text-white flex items-center gap-2 lg:justify-center">
@@ -224,20 +250,9 @@ export default function Landing() {
             </section>
           </div>
 
-          {/* 🔥 6. TOMBOL INSTALL DESKTOP */}
-          <div className="hidden lg:flex w-full flex-col items-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-500 fill-mode-both">
-            <button
-              onClick={handlePwaInstall}
-              className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
-            >
-              <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
-              INSTALL SEKARANG
-            </button>
-          </div>
-
         </main>
 
-        {/* 🟡 STICKY TOMBOL HP */}
+        {/* 🟡 STICKY TOMBOL HP (Tetap Ada) */}
         <div className="lg:hidden sticky bottom-6 px-6 z-50 animate-in slide-in-from-bottom-12 fade-in duration-700 delay-700 fill-mode-both">
           <button
             onClick={handlePwaInstall}
@@ -249,7 +264,7 @@ export default function Landing() {
         </div>
 
         <footer className="mt-auto pb-10 pt-10 text-center relative z-10 border-t border-white/5 w-full">
-            <img src="/Bilano_horiz_rbg.png" alt="Bilano" className="h-5 mx-auto mb-4 opacity-50 grayscale mix-blend-screen" />
+            <img src="/Bilano_horiz_rbg.png" alt="Bilano" className="h-5 mx-auto mb-4 opacity-50 grayscale mix-blend-screen grayscale mix-blend-screen" />
             <p className="text-[10px] md:text-xs text-slate-600 mt-1 font-medium">© {new Date().getFullYear()} Bilano Official</p>
         </footer>
 
@@ -258,12 +273,12 @@ export default function Landing() {
   );
 }
 
-// Sub-komponen yang dibutuhkan (TETAP SAMA)
+// Sub-komponen yang dibutuhkan
 function FeatureCard({ imgUrl, title, desc }: any) {
   return (
     <div className="bg-[#121c3a]/80 backdrop-blur-sm border border-white/5 p-4 md:p-5 lg:p-6 rounded-[24px] shadow-lg hover:bg-[#172447] hover:border-white/10 hover:scale-[1.03] transition-all cursor-pointer flex flex-col">
       <div className="w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden mb-3 p-2.5">
-        <img src={imgUrl} alt={title} className="w-full h-full object-contain opacity-90 drop-shadow-md" />
+        <img src={imgUrl} alt={title} className="w-full h-full object-contain opacity-90 drop-shadow-md grayscale mix-blend-screen" />
       </div>
       <h4 className="font-bold text-white text-[14px] md:text-base lg:text-lg leading-tight mb-1 drop-shadow-sm">{title}</h4>
       <p className="text-[11px] md:text-xs lg:text-[13px] text-slate-400 font-medium leading-snug">{desc}</p>
