@@ -39,7 +39,6 @@ export default function Landing() {
       badge: "Untuk Mahasiswa & Fresh Graduate",
       title: "Lulus S1 = Pengangguran Tanpa Tabungan?",
       desc: "Realita kerja brutal. Tanpa 'Dana Darurat Pasca-Kampus', Anda tak punya biaya untuk bertahan hidup saat mencari kerja. BILANO memandu Anda men-set target 'Dana Lulus' sejak awal, sementara Konsultan AI akan merem pengeluaran nongkrong Anda secara rasional.",
-      // 🖼️ SEKARANG MENGGUNAKAN FILE LOKAL (Pastikan file ini ada di folder public)
       img: "https://images.unsplash.com/photo-1629904869392-ae2a682d4d01?q=80&w=800&auto=format&fit=crop"
     },
     {
@@ -108,7 +107,7 @@ export default function Landing() {
         {/* 🚀 MAIN CONTENT */}
         <main className="px-6 lg:px-10 pt-6 pb-12 flex flex-col gap-16 lg:gap-24 w-full items-center">
           
-          {/* 🔥 1. HERO SECTION DENGAN FOTO ADRIEN */}
+          {/* 🔥 1. HERO SECTION (DENGAN FOTO ADRIEN & LABEL MODERN BRUTALISM) */}
           <section className="w-full flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-4 animate-in slide-in-from-bottom-6 fade-in duration-700 delay-100 fill-mode-both max-w-6xl mx-auto">
             
             {/* KIRI: TEKS UTAMA */}
@@ -126,23 +125,33 @@ export default function Landing() {
               </h2>
             </div>
 
-            {/* KANAN: FOTO & LABEL */}
-            <div className="flex-1 relative w-full flex justify-center lg:justify-end">
-              {/* Animasi mengambang (hover:-translate-y-3) & Bayangan tajam di sisi kanan */}
+            {/* KANAN: FOTO & LABEL BRUTALIST */}
+            <div className="flex-1 relative w-full flex justify-center lg:justify-end mt-6 lg:mt-0">
+              
+              {/* 🖼️ Foto dengan bayangan lurus ke sisi KANAN */}
               <img 
                 src="/adrienfandra_photos.png" 
                 alt="Adrien Fandra" 
-                className="w-[85%] max-w-[380px] object-contain drop-shadow-[25px_0px_15px_rgba(0,0,0,0.6)] hover:-translate-y-3 transition-transform duration-700 ease-out" 
+                className="w-[90%] max-w-[420px] object-contain drop-shadow-[25px_0px_15px_rgba(0,0,0,0.6)] hover:-translate-y-2 transition-transform duration-700 ease-out relative z-10" 
               />
               
-              {/* Label nama dengan latar putih, teks biru dan kuning */}
-              <div className="absolute bottom-[10%] right-[0%] lg:right-[5%] bg-white p-4 rounded-[20px] shadow-2xl border border-slate-100 animate-in zoom-in slide-in-from-bottom-6 fade-in duration-700 delay-500">
-                <p className="text-[16px] lg:text-[18px] font-black text-blue-600 leading-none mb-1">
-                  ADRIEN FANDRA
-                </p>
-                <p className="text-[12px] lg:text-[13px] font-bold text-yellow-500 leading-tight">
-                  Content Creator &<br/>Founder BILANO
-                </p>
+              {/* 🏷️ Label Nama Gaya Modern Brutalism (Persis Referensi) */}
+              <div className="absolute bottom-[5%] right-[0%] lg:right-[5%] flex flex-col items-start animate-in zoom-in slide-in-from-bottom-6 fade-in duration-700 delay-500 z-20 hover:scale-105 transition-transform cursor-default">
+                
+                {/* Blok Atas: Background Biru, Teks Putih */}
+                <div className="bg-[#1111aa] text-white px-5 py-2 lg:px-6 lg:py-3 shadow-xl relative z-10 translate-y-1 lg:translate-y-2 -translate-x-3 lg:-translate-x-4 border border-blue-900/50">
+                  <p className="text-[18px] lg:text-[24px] font-black tracking-wide">
+                    Adrien Fandra
+                  </p>
+                </div>
+                
+                {/* Blok Bawah: Background Kuning/Amber, Teks Gelap */}
+                <div className="bg-[#ffcc44] text-[#0a1128] px-5 py-2 lg:px-6 lg:py-3 shadow-2xl relative z-0 border border-amber-500/50">
+                  <p className="text-[13px] lg:text-[16px] font-extrabold tracking-wide">
+                    Content Creator & <br className="lg:hidden" />Founder BILANO
+                  </p>
+                </div>
+
               </div>
             </div>
 
@@ -283,7 +292,7 @@ export default function Landing() {
   );
 }
 
-// Sub-komponen yang dibutuhkan
+// Sub-komponen yang dibutuhkan (TETAP SAMA)
 function FeatureCard({ imgUrl, title, desc }: any) {
   return (
     <div className="bg-[#121c3a]/80 backdrop-blur-sm border border-white/5 p-4 md:p-5 lg:p-6 rounded-[24px] shadow-lg hover:bg-[#172447] hover:border-white/10 hover:scale-[1.03] transition-all cursor-pointer flex flex-col">
