@@ -107,11 +107,11 @@ export default function Landing() {
         {/* 🚀 MAIN CONTENT */}
         <main className="px-6 lg:px-10 pt-6 pb-12 flex flex-col gap-12 lg:gap-24 w-full items-center">
           
-          {/* 🔥 1. HERO SECTION (PERBAIKAN JARAK/GAP & POSISI FOTO) */}
-          <section className="w-full flex flex-col lg:flex-row items-center justify-between gap-2 lg:gap-4 animate-in slide-in-from-bottom-6 fade-in duration-700 delay-100 fill-mode-both max-w-6xl mx-auto">
+          {/* 🔥 1. HERO SECTION (PRESISI PROPORSI MOBILE & DESKTOP) */}
+          <section className="w-full flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-4 animate-in slide-in-from-bottom-6 fade-in duration-700 delay-100 fill-mode-both max-w-6xl mx-auto mt-2">
             
             {/* KIRI: TEKS UTAMA */}
-            <div className="flex-1 flex flex-col gap-4 text-left items-start z-20">
+            <div className="flex-1 flex flex-col gap-4 text-left items-start z-20 w-full">
               <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 px-4 py-2 rounded-full w-fit shadow-inner">
                 <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                 <span className="text-amber-400 text-xs font-bold tracking-wide">Akses Eksklusif Khusus Hari Ini</span>
@@ -126,34 +126,39 @@ export default function Landing() {
             </div>
 
             {/* KANAN: FOTO & LABEL BRUTALIST */}
-            {/* 🚀 PERBAIKAN: Menarik kontainer foto ke atas dengan -mt-8 (mobile) */}
-            <div className="flex-1 relative w-full flex justify-center lg:justify-end -mt-8 lg:mt-0 z-10">
+            <div className="flex-1 relative w-full flex justify-center lg:justify-end z-10 mt-6 lg:mt-0">
               
-              {/* 🚀 PERBAIKAN: Menarik gambar ke atas lagi untuk mengimbangi ruang transparan di atas kepala */}
-              <img 
-                src="/adrienfandra_photos.png" 
-                alt="Adrien Fandra" 
-                className="w-[100%] max-w-[420px] object-contain drop-shadow-[25px_0px_15px_rgba(0,0,0,0.6)] hover:-translate-y-2 transition-transform duration-700 ease-out relative z-10 -mt-[12%] lg:-mt-4" 
-              />
-              
-              {/* 🏷️ Label Nama Gaya Modern Brutalism */}
-              <div className="absolute bottom-[10%] right-[0%] lg:right-[5%] flex flex-col items-start animate-in zoom-in slide-in-from-bottom-6 fade-in duration-700 delay-500 z-20 hover:scale-105 transition-transform cursor-default">
-                
-                {/* Blok Atas: Background Biru, Teks Putih */}
-                <div className="bg-[#1111aa] text-white px-5 py-2 lg:px-6 lg:py-3 shadow-xl relative z-10 translate-y-1 lg:translate-y-2 -translate-x-3 lg:-translate-x-4 border border-blue-900/50">
-                  <p className="text-[18px] lg:text-[24px] font-black tracking-wide">
-                    Adrien Fandra
-                  </p>
-                </div>
-                
-                {/* Blok Bawah: Background Kuning/Amber, Teks Gelap */}
-                <div className="bg-[#ffcc44] text-[#0a1128] px-5 py-2 lg:px-6 lg:py-3 shadow-2xl relative z-0 border border-amber-500/50">
-                  <p className="text-[13px] lg:text-[16px] font-extrabold tracking-wide">
-                    Content Creator & <br className="lg:hidden" />Founder BILANO
-                  </p>
-                </div>
+              <div className="relative inline-block w-full max-w-[420px]">
+                  {/* 🚀 FOTO: Bayangan lembut, tidak dipaksa naik (-mt dihapus) */}
+                  <img 
+                    src="/adrienfandra_photos.png" 
+                    alt="Adrien Fandra" 
+                    className="w-full h-auto object-contain drop-shadow-[20px_0px_20px_rgba(0,0,0,0.5)] hover:-translate-y-2 transition-transform duration-700 ease-out relative z-10" 
+                  />
+                  
+                  {/* 🚀 SMOOTH FADE: Menyamarkan potongan bawah perut agar menyatu dengan background */}
+                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#080d20] to-transparent z-20 pointer-events-none"></div>
+                  
+                  {/* 🏷️ LABEL: Di-scale down (0.75) di HP agar tablet tidak tertutup */}
+                  <div className="absolute bottom-[8%] -right-[2%] lg:right-[5%] flex flex-col items-start animate-in zoom-in slide-in-from-bottom-6 fade-in duration-700 delay-500 z-30 hover:scale-105 transition-transform cursor-default scale-[0.75] origin-bottom-right lg:scale-100">
+                    
+                    {/* Blok Atas: Biru */}
+                    <div className="bg-[#1111aa] text-white px-5 py-2 lg:px-6 lg:py-3 shadow-xl relative z-10 translate-y-1.5 -translate-x-3 border border-blue-900/50">
+                      <p className="text-[20px] lg:text-[24px] font-black tracking-wide">
+                        Adrien Fandra
+                      </p>
+                    </div>
+                    
+                    {/* Blok Bawah: Kuning */}
+                    <div className="bg-[#ffcc44] text-[#0a1128] px-5 py-2.5 lg:px-6 lg:py-3 shadow-2xl relative z-0 border border-amber-500/50">
+                      <p className="text-[14px] lg:text-[16px] font-extrabold tracking-wide">
+                        Content Creator & <br className="lg:hidden" />Founder BILANO
+                      </p>
+                    </div>
 
+                  </div>
               </div>
+
             </div>
 
           </section>
