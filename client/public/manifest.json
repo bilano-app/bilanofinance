@@ -1,7 +1,7 @@
 {
   "name": "Bilano",
   "short_name": "Bilano",
-  "start_url": "/?source=pwa",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
