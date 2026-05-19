@@ -107,40 +107,40 @@ export default function Landing() {
         {/* 🚀 MAIN CONTENT */}
         <main className="px-6 lg:px-10 pt-6 pb-12 flex flex-col gap-12 lg:gap-24 w-full items-center">
           
-          {/* 🔥 1. HERO SECTION (PRESISI PROPORSI MOBILE & DESKTOP) */}
-          <section className="w-full flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-4 animate-in slide-in-from-bottom-6 fade-in duration-700 delay-100 fill-mode-both max-w-6xl mx-auto mt-2">
+          {/* 🔥 1. HERO SECTION (SESUAI ILUSTRASI: TENGAH, RAPAT, BAYANGAN KIRI) */}
+          <section className="w-full flex flex-col lg:flex-row items-center justify-between gap-0 lg:gap-4 animate-in slide-in-from-bottom-6 fade-in duration-700 delay-100 fill-mode-both max-w-6xl mx-auto mt-2 px-2 lg:px-0">
             
-            {/* KIRI: TEKS UTAMA */}
-            <div className="flex-1 flex flex-col gap-4 text-left items-start z-20 w-full">
+            {/* KIRI/ATAS: TEKS UTAMA (RATA TENGAH DI HP) */}
+            <div className="flex-1 flex flex-col gap-3 lg:gap-4 text-center lg:text-left items-center lg:items-start z-20 w-full pt-4 lg:pt-0">
               <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 px-4 py-2 rounded-full w-fit shadow-inner">
                 <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                <span className="text-amber-400 text-xs font-bold tracking-wide">Akses Eksklusif Khusus Hari Ini</span>
+                <span className="text-amber-400 text-[10px] md:text-xs font-bold tracking-wide">Akses Eksklusif Khusus Hari Ini</span>
               </div>
               
-              <h2 className={`w-full text-left text-[2.5rem] lg:text-[4.2rem] lg:min-h-[10rem] leading-[1.1] font-black tracking-tight drop-shadow-md transition-opacity duration-300 ${fade ? 'opacity-100' : 'opacity-0'}`}>
-                <span className="text-white">{headlines[headlineIdx].top}</span> <br/>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-500">
+              <h2 className={`w-full text-center lg:text-left text-[2.7rem] md:text-[3.5rem] lg:text-[4.2rem] leading-[1.05] font-black tracking-tight drop-shadow-md transition-opacity duration-300 px-2 lg:px-0 ${fade ? 'opacity-100' : 'opacity-0'}`}>
+                <span className="text-white block">{headlines[headlineIdx].top}</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-500 block">
                   {headlines[headlineIdx].bottom}
                 </span>
               </h2>
             </div>
 
-            {/* KANAN: FOTO & LABEL BRUTALIST */}
-            <div className="flex-1 relative w-full flex justify-center lg:justify-end z-10 mt-6 lg:mt-0">
+            {/* KANAN/BAWAH: FOTO & LABEL BRUTALIST (DITARIK NAIK MENGHILANGKAN JARAK) */}
+            <div className="flex-1 relative w-full flex justify-center lg:justify-end z-10 -mt-6 md:-mt-8 lg:mt-0">
               
-              <div className="relative inline-block w-full max-w-[420px]">
-                  {/* 🚀 FOTO: Bayangan lembut, tidak dipaksa naik (-mt dihapus) */}
+              <div className="relative inline-flex flex-col items-center w-full max-w-[460px]">
+                  {/* 🚀 FOTO: Bayangan jatuh ke KIRI (-25px X-axis), jarak dirapatkan */}
                   <img 
                     src="/adrienfandra_photos.png" 
                     alt="Adrien Fandra" 
-                    className="w-full h-auto object-contain drop-shadow-[20px_0px_20px_rgba(0,0,0,0.5)] hover:-translate-y-2 transition-transform duration-700 ease-out relative z-10" 
+                    className="w-[95%] h-auto object-contain drop-shadow-[-25px_15px_25px_rgba(0,0,0,0.65)] hover:-translate-y-2 transition-transform duration-700 ease-out relative z-10" 
                   />
                   
-                  {/* 🚀 SMOOTH FADE: Menyamarkan potongan bawah perut agar menyatu dengan background */}
-                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#080d20] to-transparent z-20 pointer-events-none"></div>
+                  {/* 🚀 SMOOTH FADE: Menyamarkan potongan bawah perut agar menyatu natural dengan background */}
+                  <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#080d20] to-transparent z-20 pointer-events-none"></div>
                   
-                  {/* 🏷️ LABEL: Di-scale down (0.75) di HP agar tablet tidak tertutup */}
-                  <div className="absolute bottom-[8%] -right-[2%] lg:right-[5%] flex flex-col items-start animate-in zoom-in slide-in-from-bottom-6 fade-in duration-700 delay-500 z-30 hover:scale-105 transition-transform cursor-default scale-[0.75] origin-bottom-right lg:scale-100">
+                  {/* 🏷️ LABEL: Di-scale down di HP agar proporsional */}
+                  <div className="absolute bottom-[5%] right-[0%] lg:right-[5%] flex flex-col items-start animate-in zoom-in slide-in-from-bottom-6 fade-in duration-700 delay-500 z-30 hover:scale-105 transition-transform cursor-default scale-[0.75] origin-bottom-right lg:scale-100">
                     
                     {/* Blok Atas: Biru */}
                     <div className="bg-[#1111aa] text-white px-5 py-2 lg:px-6 lg:py-3 shadow-xl relative z-10 translate-y-1.5 -translate-x-3 border border-blue-900/50">

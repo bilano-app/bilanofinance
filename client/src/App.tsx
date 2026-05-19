@@ -75,7 +75,7 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
 import NotFound from "@/pages/not-found";
 import Security from "./pages/Security";
 import Home from "@/pages/Home";
-import Landing from "@/pages/Landing"; // 🚀 IMPORT LANDING PAGE (BROSUR WEB)
+import Landing from "@/pages/Landing"; 
 import Target from "@/pages/Target";
 import Income from "@/pages/Income";
 import Expense from "@/pages/Expense";
@@ -102,9 +102,30 @@ function Router() {
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
   const [isSessionRefreshing, setIsSessionRefreshing] = useState(false); 
 
-  // 🚀 MESIN DETEKSI: Apakah dibuka lewat App (Standalone) atau Web (Browser)?
-  const isStandalone = typeof window !== 'undefined' && 
-    (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
+  // =========================================================================
+  // 🚀 MESIN PEMISAH ABSOLUT (APP VS WEB)
+  // =========================================================================
+  const [isAppMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+        const isStandaloneUI = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Cek apakah ada kunci rahasia dari manifest.json (klik dari Ikon HP)
+        const isLaunchedFromIcon = urlParams.get('source') === 'pwa';
+        
+        if (isLaunchedFromIcon) {
+            sessionStorage.setItem('bilano_pwa_session', 'true');
+            // Hapus parameter dari URL agar terlihat rapi kembali ke "/"
+            window.history.replaceState(null, '', '/');
+            return isStandaloneUI;
+        }
+        
+        // Jika tidak ada parameter, cek apakah sebelumnya sudah dalam sesi App
+        const isSessionActive = sessionStorage.getItem('bilano_pwa_session') === 'true';
+        return isStandaloneUI && isSessionActive;
+    }
+    return false;
+  });
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -170,9 +191,16 @@ function Router() {
   useEffect(() => {
     const isAuth = localStorage.getItem("bilano_auth");
     
-    // 🛡️ PERBAIKAN SATPAM: Izinkan akses ke "/" tanpa login HANYA JIKA dibuka di browser (bukan standalone).
-    if (!isAuth && location !== "/auth" && (isStandalone || location !== "/")) {
-      setLocation("/auth");
+    // 🛡️ PERBAIKAN SATPAM: 
+    if (!isAuth && location !== "/auth") {
+      if (isAppMode) {
+        // Jika buka via Ikon Aplikasi -> WAJIB LOGIN
+        setLocation("/auth");
+      } else if (location !== "/") {
+        // Jika buka via Web dan mencoba akses URL dalam (misal /dashboard) -> WAJIB LOGIN
+        setLocation("/auth");
+      }
+      // CATATAN: Jika buka via Web di rute "/", Satpam tidak akan menendang (membiarkan Landing Page terbuka).
     }
 
     const handleOffline = () => setIsOffline(true);
@@ -188,7 +216,7 @@ function Router() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('trigger-paywall-lock', handleCustomLock);
     };
-  }, [location, setLocation, isStandalone]);
+  }, [location, setLocation, isAppMode]);
 
   if (isSessionRefreshing) {
     return (
@@ -228,14 +256,12 @@ function Router() {
   return (
     <>
       <Switch>
-        {/* 🚀 RUTE DUA WAJAH: Jika di web muncul Landing, jika di App muncul Home */}
+        {/* 🚀 RUTE DUA WAJAH YANG SEMPURNA: HANYA MUNCUL APLIKASI JIKA MASUK LEWAT IKON HP */}
         <Route path="/">
-          {isStandalone ? <Home /> : <Landing />}
+          {isAppMode ? <Home /> : <Landing />}
         </Route>
         
-        {/* Pastikan Dashboard/Home memiliki jalurnya sendiri saat di dalam web */}
         <Route path="/dashboard" component={Home} />
-
         <Route path="/target" component={Target} />
         <Route path="/income" component={Income} />
         <Route path="/expense" component={Expense} />

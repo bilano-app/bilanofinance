@@ -1,9 +1,9 @@
 {
   "name": "Bilano",
   "short_name": "Bilano",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "display": "standalone",
-  "background_color": "#0ffffff",
+  "background_color": "#ffffff",
   "theme_color": "#ffffff",
   "description": "Pengelola Keuangan Cerdas dengan Asisten AI.",
   "icons": [
@@ -17,21 +17,5 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ],
-  "share_target": {
-    "action": "/share-target",
-    "method": "POST",
-    "enctype": "multipart/form-data",
-    "params": {
-      "title": "title",
-      "text": "text",
-      "url": "url",
-      "files": [
-        {
-          "name": "image",
-          "accept": ["image/jpeg", "image/png", "image/jpg", "image/webp"]
-        }
-      ]
-    }
-  }
+  ]
 }
