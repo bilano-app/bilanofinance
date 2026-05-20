@@ -14,7 +14,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['BILANO-ICON.png'], 
-      // 🚀 KUNCI PERBAIKAN: Menyuntikkan sw.js agar tidak diabaikan oleh Vite!
+      // 🚀 INJEKSI SW.JS (AGAR NOTIFIKASI PWA JALAN)
       workbox: {
         importScripts: ['/sw.js'], 
         cleanupOutdatedCaches: true,
@@ -48,5 +48,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "client", "src"),
       "@shared": path.resolve(__dirname, "shared"),
     },
+  },
+  // 🚀 KUNCI PERBAIKAN VERCEL: KEMBALIKAN "KOMPAS" YANG SEMPAT TERHAPUS!
+  // KOMPAS 2: Kasih tau Vercel kalau index.html ada di dalam folder client
+  root: path.resolve(__dirname, "client"),
+  // KOMPAS 3: Arahkan hasil build ke tempat yang benar
+  build: {
+    outDir: path.resolve(__dirname, "dist/public"),
+    emptyOutDir: true,
   },
 });

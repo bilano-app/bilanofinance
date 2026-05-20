@@ -258,11 +258,14 @@ export default function Target() {
             if (res.ok) {
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
                 
-                // 🚀 FIX: Jika pendaftaran baru, arahkan ke Paywall. Jika cuma edit, kembalikan ke Home.
-                if (isEditMode) {
-                    window.location.href = "/"; 
-                } else {
+                // 🚀 FIX ALUR TOL SATU ARAH:
+                if (!isEditMode) {
+                    // Pengguna Baru: Cap stempel paywall, lalu lempar langsung ke halaman Mayar/Paywall
+                    localStorage.setItem(`bilano_welcomed_paywall_${userEmail}`, "true");
                     window.location.href = "/paywall"; 
+                } else {
+                    // Pengguna Lama (Cuma edit target): Lempar kembali ke Home
+                    window.location.href = "/"; 
                 }
 
             } else { 
