@@ -69,7 +69,9 @@ export default function Home() {
 
   const [showProWelcome, setShowProWelcome] = useState(false);
   
+  // 🚀 STATE UNTUK BUBBLE CHAT SEQUENTIAL (GANTIAN)
   const [showGuideTooltip, setShowGuideTooltip] = useState(false);
+  const [showProfileTooltip, setShowProfileTooltip] = useState(false);
   
   const [fomoFeature, setFomoFeature] = useState<{title: string, desc: string} | null>(null);
   const [proFeatureModal, setProFeatureModal] = useState<{title: string, desc: string} | null>(null);
@@ -130,15 +132,32 @@ export default function Home() {
       };
   }, [isAnyDataLoading]);
 
+  // =========================================================================
+  // 🚀 LOGIKA SEQUENTIAL TOOLTIP (GUIDE -> PROFIL)
+  // =========================================================================
   useEffect(() => {
       if (rawEmail && !isAnyDataLoading && user) {
-          const tooltipKey = `bilano_guide_tooltip_seen_${rawEmail}`;
-          if (!localStorage.getItem(tooltipKey)) {
-              const timer = setTimeout(() => {
-                  setShowGuideTooltip(true);
-                  localStorage.setItem(tooltipKey, "true");
-              }, 1500);
-              return () => clearTimeout(timer);
+          const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
+          const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
+          
+          // Cek apakah akun ini baru sign up (dibawah 24 jam)
+          const startTimeAcc = new Date(user.createdAt || Date.now()).getTime();
+          const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
+
+          if (isNewUser) {
+              if (!guideSeen) {
+                  // Tahap 1: Tampilkan Guide Tooltip dulu
+                  const timer = setTimeout(() => {
+                      setShowGuideTooltip(true);
+                  }, 1500);
+                  return () => clearTimeout(timer);
+              } else if (guideSeen && !profileSeen && !user.profilePicture) {
+                  // Tahap 2: Jika Guide sudah dilihat/disilang & balik ke Home, tampilkan Profile Tooltip
+                  const timer = setTimeout(() => {
+                      setShowProfileTooltip(true);
+                  }, 1000);
+                  return () => clearTimeout(timer);
+              }
           }
       }
   }, [rawEmail, isAnyDataLoading, user]);
@@ -146,7 +165,24 @@ export default function Home() {
   const dismissGuideTooltip = () => {
       setShowGuideTooltip(false);
       localStorage.setItem(`bilano_guide_tooltip_seen_${rawEmail}`, "true");
+      
+      // Jika disilang, langsung bersiap memunculkan Bubble Profil secara instan
+      const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
+      const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
+      const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
+      
+      if (isNewUser && !profileSeen && !user?.profilePicture) {
+          setTimeout(() => {
+              setShowProfileTooltip(true);
+          }, 600); // Jeda 0.6 detik agar pergantiannya terlihat mulus
+      }
   };
+
+  const dismissProfileTooltip = () => {
+      setShowProfileTooltip(false);
+      localStorage.setItem(`bilano_profile_tooltip_seen_${rawEmail}`, "true");
+  };
+  // =========================================================================
 
   const handlePinUnlock = (num: string) => {
       setPinError(false);
@@ -298,16 +334,12 @@ export default function Home() {
       }
   }, [isUserPro, user]);
 
-  // =========================================================================
-  // 🚀 KUNCI LOGIKA: Menahan render layar Home jika butuh diarahkan
-  // =========================================================================
   const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
   
   const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
   const isNewAccount = user && (Date.now() - startTimeAcc) < (15 * 60 * 1000); 
   const hasRedirected = rawEmail ? localStorage.getItem(`bilano_welcomed_paywall_${rawEmail}`) === "true" : false;
   
-  // Paywall Redirect HANYA dipicu JIKA target sudah TIDAK kosong
   const needsPaywallRedirect = !isUserPro && isNewAccount && !hasRedirected && !isTargetEmpty;
 
   useEffect(() => {
@@ -320,8 +352,6 @@ export default function Home() {
           }
       }
   }, [isTargetEmpty, needsPaywallRedirect, isUserLoading, isTargetLoading, setLocation, rawEmail]);
-
-  // =========================================================================
 
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
@@ -439,9 +469,6 @@ export default function Home() {
   const income = baseIncomeTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'income').reduce((acc, v) => acc + v.amount, 0);
   const expense = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'expense').reduce((acc, v) => acc + v.amount, 0);
   
-  // =========================================================================
-  // 🛡️ PENJAGA LAYAR: Render diblokir jika Butuh Redirect atau Masih Loading
-  // =========================================================================
   if (isAnyDataLoading || (!user && !isUserLoading) || isTargetEmpty || needsPaywallRedirect) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 relative">
@@ -501,6 +528,7 @@ export default function Home() {
 
       <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
           
+          {/* BUBBLE CHAT 1: PANDUAN (GUIDE) */}
           {showGuideTooltip && (
               <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-slate-900 p-4 rounded-[20px] shadow-[6px_6px_0px_#0f172a] animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
                   <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-full hover:bg-slate-100">
@@ -730,7 +758,7 @@ export default function Home() {
       )}
 
       <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between px-2 pt-2">
+        <div className="flex items-center justify-between px-2 pt-2 relative">
             <div className="flex items-center gap-3">
                 <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100">
                     {user?.profilePicture ? (
@@ -749,6 +777,31 @@ export default function Home() {
                     <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight">{greetingName}</h2>
                 </div>
             </div>
+
+            {/* BUBBLE CHAT 2: PASANG FOTO PROFIL */}
+            {showProfileTooltip && (
+                <div className="absolute top-[65px] left-2 w-[260px] bg-white border-2 border-indigo-600 p-4 rounded-[20px] shadow-[6px_6px_0px_#4f46e5] animate-in fade-in zoom-in slide-in-from-left-4 duration-500 z-50">
+                    <div className="absolute -top-[10px] left-[20px] w-0 h-0 border-b-[10px] border-b-indigo-600 border-r-[10px] border-r-transparent border-l-[10px] border-l-transparent"></div>
+                    <div className="absolute -top-[7px] left-[22px] w-0 h-0 border-b-[8px] border-b-white border-r-[8px] border-r-transparent border-l-[8px] border-l-transparent"></div>
+                    
+                    <p className="text-[13px] font-black mb-1.5 text-indigo-900 flex items-center gap-1.5">
+                        📸 Pasang Foto Profil!
+                    </p>
+                    <p className="text-[11px] text-slate-600 leading-relaxed font-bold mb-4">
+                        Biar makin keren, yuk pasang foto profilmu! Tekan ikon avatar di atas untuk mengubahnya.
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <button onClick={dismissProfileTooltip} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-2.5 rounded-xl text-[10px] transition-colors">
+                            Nanti Saja
+                        </button>
+                        <Link href="/profile" className="flex-1">
+                            <button onClick={dismissProfileTooltip} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-[10px] transition-colors shadow-sm">
+                                Pasang Sekarang
+                            </button>
+                        </Link>
+                    </div>
+                </div>
+            )}
 
             <div className="flex items-center gap-2">
                 <button 

@@ -13,7 +13,14 @@ export default defineConfig({
     // Konfigurasi PWA
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['BILANO-ICON.png'], // Pastikan icon ini ada di folder client/public
+      includeAssets: ['BILANO-ICON.png'], 
+      // 🚀 KUNCI PERBAIKAN: Menyuntikkan sw.js agar tidak diabaikan oleh Vite!
+      workbox: {
+        importScripts: ['/sw.js'], 
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true
+      },
       manifest: {
         name: 'BILANO - Financial Tracker',
         short_name: 'BILANO',
@@ -36,18 +43,10 @@ export default defineConfig({
       }
     })
   ],
-  // KOMPAS 1: Arahkan alias @ ke folder client/src
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "client", "src"),
       "@shared": path.resolve(__dirname, "shared"),
     },
-  },
-  // KOMPAS 2: Kasih tau Vercel kalau index.html ada di dalam folder client
-  root: path.resolve(__dirname, "client"),
-  // KOMPAS 3: Arahkan hasil build ke tempat yang benar
-  build: {
-    outDir: path.resolve(__dirname, "dist/public"),
-    emptyOutDir: true,
   },
 });

@@ -880,6 +880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal memperbarui status pengguna." }); }
   });
 
+  // 🚀 PERBAIKAN: MENGGUNAKAN SINGLE PAYMENT CHECKOUT (Bukan Invoice Langsung)
   app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -894,21 +895,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const planName = isMonthly ? "BILANO PRO (1 Bulan)" : "BILANO PRO (1 Tahun)";
           const idProd = isMonthly ? "BILANO-PRO-1M" : "BILANO-PRO-1Y";
 
-          const expiredDate = new Date(); expiredDate.setDate(expiredDate.getDate() + 1);
           const appUrl = req.headers.origin || "https://bilanofinance-dvbi.vercel.app";
 
+          // Payload ini akan mengarahkan user ke halaman Checkout Umum Mayar,
+          // sehingga Mayar akan meminta user mengisi nomor HP mereka sendiri.
           const payload = {
-              name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
-              email: user.email || "member@bilano.app",
-              mobile: "081234567890", 
+              name: planName,
+              amount: price,
+              description: `Berlangganan ${planName}`,
+              customerName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
+              customerEmail: user.email || "member@bilano.app",
+              // 💡 Tidak ada 'customerMobile' atau 'mobile' agar Mayar memintanya di halaman checkout
               redirectUrl: `${appUrl}/`, 
-              description: `Akses Penuh ${planName}`,
-              expiredAt: expiredDate.toISOString(),
-              items: [{ quantity: 1, rate: price, description: `${planName}` }],
               extraData: { noCustomer: user.id.toString(), idProd: idProd }
           };
 
-          const mayarRes = await fetch("https://api.mayar.id/hl/v1/invoice/create", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${mayarKey}` }, body: JSON.stringify(payload) });
+          const mayarRes = await fetch("https://api.mayar.id/hl/v1/payment/create", { 
+              method: "POST", 
+              headers: { 
+                  "Content-Type": "application/json", 
+                  "Authorization": `Bearer ${mayarKey}` 
+              }, 
+              body: JSON.stringify(payload) 
+          });
           const textData = await mayarRes.text();
 
           if (!mayarRes.ok) return res.status(400).json({ error: `MAYAR ERROR [${mayarRes.status}]: ${textData}` });
