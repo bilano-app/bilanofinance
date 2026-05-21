@@ -346,20 +346,39 @@ export default function Home() {
 
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
+      
       try {
+          // Buat fungsi bom waktu maksimal 4 detik
+          const timeout = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error("Timeout dari Browser")), 4000)
+          );
+
+          // 1. Minta Izin Notifikasi (Balap dengan timeout)
           if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-              await Notification.requestPermission();
+              await Promise.race([Notification.requestPermission(), timeout]).catch(() => {});
           }
+
+          // 2. Minta Izin Kamera & Mic (Balap dengan timeout)
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-              await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {});
+              await Promise.race([
+                  navigator.mediaDevices.getUserMedia({ video: true, audio: true }), 
+                  timeout
+              ]).catch(() => {});
           }
-          try { await OneSignal.Slidedown.promptPush(); } catch(e) {}
+
+          // 3. Pancing OneSignal (Jika ada)
+          try { 
+              await Promise.race([OneSignal.Slidedown.promptPush(), timeout]); 
+          } catch(e) {}
+
       } catch (e) {
+          console.warn("Proses perizinan di-bypass karena terlalu lama.");
       } finally {
+          // Apapun yang terjadi, paksakan modal tertutup dan aplikasi berjalan!
           localStorage.setItem("bilano_permissions_prompted", "true");
           setShowPermissionPrompt(false);
           setIsRequestingPerms(false);
-          toast({ title: "Terima Kasih!", description: "Sistem pengingat otomatis telah diaktifkan." });
+          toast({ title: "Siap Digunakan!", description: "Pengaturan telah disesuaikan." });
       }
   };
 
@@ -393,15 +412,18 @@ export default function Home() {
   const handleLogout = async () => {
     try {
         await signOut(auth); 
-        localStorage.removeItem("bilano_auth");
-        localStorage.removeItem("bilano_email");
-        sessionStorage.removeItem("bilano_session_unlocked");
-        localStorage.removeItem("bilano_trial_expired"); 
-        localStorage.removeItem("bilano_pro"); 
         
-        toast({ title: "Berhasil Keluar", description: "Sampai jumpa lagi!" });
-        setLocation("/auth"); 
-    } catch (error) { console.error(error); }
+        // 🚀 SAPU BERSIH TOTAL MEMORI PWA
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        toast({ title: "Sesi Dibersihkan", description: "Berhasil keluar dari aplikasi." });
+        
+        // Gunakan window.location.href untuk MEMAKSA browser me-refresh dan membuang cache state
+        window.location.href = "/auth"; 
+    } catch (error) { 
+        console.error(error); 
+    }
   };
 
   const currentMonthIdx = new Date().getMonth();
