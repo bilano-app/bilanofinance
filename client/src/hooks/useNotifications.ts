@@ -11,51 +11,68 @@ const NOTIF_MESSAGES = [
     "Lagi ngopi santai? Masukin pengeluarannya ke BILANO yuk biar AI bisa nganalisa! ☕"
 ];
 
+// Jam-jam tertentu untuk notifikasi (Format 24 Jam)
+const TARGET_HOURS = [8, 12, 20]; // Pagi, Siang, Malam
+
 export function useNotifications() {
     useEffect(() => {
         const checkAndSendNotification = async () => {
             // Pastikan izin sudah dikasih oleh user
             if ("Notification" in window && Notification.permission === "granted") {
-                const lastNotif = localStorage.getItem("bilano_last_notif");
-                const now = Date.now();
+                const now = new Date();
+                const currentHour = now.getHours();
+                const todayDate = now.toLocaleDateString();
                 
-                // Waktu Jeda: 5 Menit (5 * 60 * 1000)
-                const FIVE_MINUTES = 5 * 60 * 1000; 
+                const lastNotifData = JSON.parse(localStorage.getItem("bilano_notif_log") || "{}");
 
-                // Jika belum pernah dikirim, ATAU sudah lewat 5 menit
-                if (!lastNotif || now - parseInt(lastNotif) >= FIVE_MINUTES) {
+                // Cek apakah jam saat ini adalah jam target DAN belum dikirim hari ini pada jam tersebut
+                if (TARGET_HOURS.includes(currentHour) && lastNotifData[todayDate] !== currentHour) {
                     const randomMsg = NOTIF_MESSAGES[Math.floor(Math.random() * NOTIF_MESSAGES.length)];
 
                     try {
-                        if ('serviceWorker' in navigator) {
-                            // 🚀 FIX: Jangan pakai .ready karena disabotase OneSignal.
+                        let sent = false;
+
+                        // Coba pakai OneSignal SDK jika terdeteksi di global window
+                        if (window.OneSignal && typeof window.OneSignal.showNotification === 'function') {
+                           // Biarkan OneSignal yang handle jika memungkinkan (opsional frontend SDK)
+                           console.log("OneSignal terdeteksi di frontend.");
+                        }
+
+                        if ('serviceWorker' in navigator && !sent) {
                             // Ambil paksa semua Service Worker, dan gunakan yang paling aktif!
                             const registrations = await navigator.serviceWorker.getRegistrations();
                             const activeReg = registrations.find(reg => reg.active) || registrations[0];
 
                             if (activeReg && 'showNotification' in activeReg) {
-                                await activeReg.showNotification("BILANO Finance", {
-                                    body: randomMsg,
-                                    icon: "/BILANO-ICON.png",
-                                    badge: "/BILANO-ICON.png",
-                                    vibrate: [200, 100, 200] 
-                                });
-                                localStorage.setItem("bilano_last_notif", now.toString());
-                            } else {
-                                // 🛡️ FALLBACK: Kalau Service Worker benar-benar mati, pakai notif klasik!
-                                new Notification("BILANO Finance", {
-                                    body: randomMsg,
-                                    icon: "/BILANO-ICON.png"
-                                });
-                                localStorage.setItem("bilano_last_notif", now.toString());
+                                // Dibungkus try-catch spesifik karena OneSignal SW sering melempar error disini
+                                try {
+                                    await activeReg.showNotification("BILANO Finance", {
+                                        body: randomMsg,
+                                        icon: "/BILANO-ICON.png",
+                                        badge: "/BILANO-ICON.png",
+                                        vibrate: [200, 100, 200],
+                                        tag: "bilano-reminder", // Mencegah notif menumpuk
+                                        requireInteraction: true
+                                    });
+                                    sent = true;
+                                } catch (swError) {
+                                    console.warn("Service Worker diblokir (kemungkinan oleh OneSignal), mencoba fallback...", swError);
+                                }
                             }
-                        } else {
+                        }
+
+                        // 🛡️ FALLBACK: Kalau Service Worker benar-benar mati/dibajak, pakai notif klasik!
+                        if (!sent) {
                             new Notification("BILANO Finance", {
                                 body: randomMsg,
-                                icon: "/BILANO-ICON.png"
+                                icon: "/BILANO-ICON.png",
+                                tag: "bilano-reminder"
                             });
-                            localStorage.setItem("bilano_last_notif", now.toString());
                         }
+
+                        // Catat log pengiriman agar tidak spam di jam yang sama
+                        localStorage.setItem("bilano_notif_log", JSON.stringify({ [todayDate]: currentHour }));
+
                     } catch (e) {
                         console.error("Gagal menembak notifikasi PWA:", e);
                     }
@@ -66,8 +83,8 @@ export function useNotifications() {
         // Tunggu 3 detik setelah buka app baru dicek (agar tidak lag)
         const initialTimer = setTimeout(checkAndSendNotification, 3000);
 
-        // Radar mengecek setiap 30 detik
-        const interval = setInterval(checkAndSendNotification, 30000);
+        // Radar mengecek setiap 1 menit (karena kita mengecek berdasarkan Jam, tidak perlu per 30 detik)
+        const interval = setInterval(checkAndSendNotification, 60000);
 
         return () => {
             clearTimeout(initialTimer);

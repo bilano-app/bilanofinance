@@ -47,15 +47,15 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/reminder",
+      "path": "/api/cron/notifications",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/notifications",
       "schedule": "0 5 * * *"
     },
     {
-      "path": "/api/cron/reminder",
-      "schedule": "0 10 * * *"
-    },
-    {
-      "path": "/api/cron/reminder",
+      "path": "/api/cron/notifications",
       "schedule": "0 13 * * *"
     }
   ]

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
 import { users } from "../shared/schema.js"; 
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, isNotNull } from "drizzle-orm";
 import admin from "firebase-admin"; 
 import nodemailer from "nodemailer";
 
@@ -342,6 +342,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (user && onesignalId) await storage.updateUserOneSignalId(user.id, onesignalId);
           res.json({ success: true });
       } catch (e) { res.status(500).json({ error: "Gagal menyimpan ID OneSignal" }); }
+  });
+
+  // 🚀 FITUR BARU: Broadcast Notifikasi OneSignal (Bisa dipanggil via Cron Job Vercel)
+  app.post("/api/cron/notifications", async (req, res) => {
+      try {
+          const restKey = process.env.ONESIGNAL_REST_KEY;
+          const appId = process.env.ONESIGNAL_APP_ID; // Pastikan ini juga diset di Vercel Settings!
+
+          if (!restKey || !appId) return res.status(400).json({ error: "ONESIGNAL_REST_KEY atau ONESIGNAL_APP_ID tidak ditemukan di environment Vercel." });
+
+          const NOTIF_MESSAGES = [
+              "Waktunya ngecek dompet! Ada jajan yang belum dicatat? 🤔",
+              "BILANO kangen nih. Yuk update catatan keuanganmu! 🚀",
+              "Hari ini udah nabung atau malah boncos? Yuk catat dulu! 📊"
+          ];
+          const randomMsg = NOTIF_MESSAGES[Math.floor(Math.random() * NOTIF_MESSAGES.length)];
+
+          const payload = {
+              app_id: appId,
+              included_segments: ["Total Subscriptions"], // Kirim ke semua user yang subscribe
+              headings: { en: "BILANO Finance", id: "BILANO Finance" },
+              contents: { en: randomMsg, id: randomMsg },
+              url: "https://bilanofinance-dvbi.vercel.app/"
+          };
+
+          const response = await fetch("https://onesignal.com/api/v1/notifications", {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Basic ${restKey}`
+              },
+              body: JSON.stringify(payload)
+          });
+
+          const data = await response.json();
+          res.json({ success: true, onesignal_response: data });
+      } catch (error: any) {
+          res.status(500).json({ error: "Gagal memproses Cron Job OneSignal: " + error.message });
+      }
   });
 
   app.post("/api/chat/ask", async (req, res) => {
@@ -880,7 +919,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal memperbarui status pengguna." }); }
   });
 
-  // 🚀 PERBAIKAN: MENGGUNAKAN SINGLE PAYMENT CHECKOUT (Bukan Invoice Langsung)
   app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -897,15 +935,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const appUrl = req.headers.origin || "https://bilanofinance-dvbi.vercel.app";
 
-          // Payload ini akan mengarahkan user ke halaman Checkout Umum Mayar,
-          // sehingga Mayar akan meminta user mengisi nomor HP mereka sendiri.
           const payload = {
               name: planName,
               amount: price,
               description: `Berlangganan ${planName}`,
               customerName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
               customerEmail: user.email || "member@bilano.app",
-              // 💡 Tidak ada 'customerMobile' atau 'mobile' agar Mayar memintanya di halaman checkout
               redirectUrl: `${appUrl}/`, 
               extraData: { noCustomer: user.id.toString(), idProd: idProd }
           };
