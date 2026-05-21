@@ -361,10 +361,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const payload = {
               app_id: appId,
-              included_segments: ["Total Subscriptions"], // Kirim ke semua user yang subscribe
+              // 🚀 UBAH BAGIAN INI: Gunakan "Subscribed Users" untuk mengirim ke SEMUA orang
+              included_segments: ["Subscribed Users"], 
               headings: { en: "BILANO Finance", id: "BILANO Finance" },
               contents: { en: randomMsg, id: randomMsg },
-              url: "https://bilanofinance-dvbi.vercel.app/"
+              url: "https://bilano.app/dashboard" // Sesuaikan dengan domain utamamu
           };
 
           const response = await fetch("https://onesignal.com/api/v1/notifications", {
