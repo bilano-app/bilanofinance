@@ -361,11 +361,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const payload = {
               app_id: appId,
-              // 🚀 UBAH BAGIAN INI: Gunakan "Subscribed Users" untuk mengirim ke SEMUA orang
               included_segments: ["Subscribed Users"], 
               headings: { en: "BILANO Finance", id: "BILANO Finance" },
               contents: { en: randomMsg, id: randomMsg },
-              url: "https://bilano.app/dashboard" // Sesuaikan dengan domain utamamu
+              url: "https://bilano.app/dashboard",
+              // 🚀 TAMBAHKAN BARIS DI BAWAH INI UNTUK LOGO MANDIRI
+              chrome_web_icon: "https://bilano.app/BILANO-ICON.png", // Icon utama (besar)
+              chrome_web_badge: "https://bilano.app/BILANO-ICON.png", // Icon kecil di status bar atas
+              firefox_icon: "https://bilano.app/BILANO-ICON.png"
           };
 
           const response = await fetch("https://onesignal.com/api/v1/notifications", {
