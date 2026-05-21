@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents";
-import { Hourglass, Plus, Trash2, Edit2, ArrowDownToLine, Loader2, X, AlertTriangle, Activity } from "lucide-react";
+import { Hourglass, Plus, Trash2, Edit2, ArrowDownToLine, Loader2, X, AlertTriangle, Crown, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { formatCurrency } from "@/lib/utils";
+import { useUser } from "@/hooks/use-finance";
 
 const FALLBACK_CURRENCIES = ["USD", "EUR", "SGD", "JPY", "AUD", "GBP", "CNY", "MYR", "SAR", "KRW", "THB"];
 
@@ -18,11 +18,22 @@ interface RetainedBalance {
 
 export default function Retained() {
     const { toast } = useToast();
+    const { data: user, isLoading: isUserLoading } = useUser();
+    
     const userEmail = localStorage.getItem("bilano_email") || "";
-    const isTrialExpired = localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true";
+    const isPro = user?.isPro || localStorage.getItem("bilano_pro") === "true";
+    
+    const startTime = new Date(user?.createdAt || Date.now()).getTime();
+    const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
+    const isTrialExpired = daysPassed >= 3;
+
+    // 🚀 KUNCI LOCKOUT: Hanya pengguna aktif (Trial & Pro) yang bisa masuk
+    const isLocked = !isUserLoading && !isPro && isTrialExpired;
 
     const [items, setItems] = useState<RetainedBalance[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isCharging, setIsCharging] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState<RetainedBalance | null>(null);
@@ -41,13 +52,14 @@ export default function Retained() {
             if (!res.ok) return {};
             return res.json();
         },
-        enabled: !!userEmail
+        enabled: !!userEmail && !isLocked
     });
 
     const safeForexRates = typeof forexRates === 'object' && forexRates !== null ? forexRates : {};
     const availableCurrencies = Object.keys(safeForexRates).length > 0 ? Object.keys(safeForexRates) : FALLBACK_CURRENCIES;
 
     const fetchRetained = async () => {
+        if (isLocked) return;
         setIsLoading(true);
         try {
             const res = await fetch("/api/retained", { headers: { "x-user-email": userEmail } });
@@ -63,18 +75,37 @@ export default function Retained() {
     };
 
     useEffect(() => {
-        fetchRetained();
-    }, []);
+        if (!isLocked) fetchRetained();
+    }, [isLocked]);
 
-    const formatNumber = (val: string) => {
-        const clean = val.replace(/[^0-9.,]/g, '');
-        return clean;
+    const handleLanjutBayar = async () => {
+        if (!userEmail) { toast({ title: "Email diperlukan", variant: "destructive" }); return; }
+        setIsCharging(true);
+        try {
+            const res = await fetch("/api/payment/mayar/charge", { 
+                method: "POST", 
+                headers: { "Content-Type": "application/json", "x-user-email": userEmail },
+                body: JSON.stringify({ plan: selectedPlan }) 
+            });
+            const data = await res.json();
+            if (res.ok && data.redirectUrl) {
+                localStorage.setItem("bilano_pro", "true");
+                window.location.href = data.redirectUrl; 
+            } else { 
+                toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); 
+            }
+        } catch (error) { 
+            toast({ title: "Error koneksi", variant: "destructive" }); 
+        } finally { 
+            setIsCharging(false); 
+        }
     };
-    
+
+    const formatNumber = (val: string) => val.replace(/[^0-9.,]/g, '');
     const parseNumber = (val: string) => parseFloat(val.replace(/,/g, '.')) || 0;
     const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
-
     const getRate = (curr: string) => curr === 'IDR' ? 1 : (safeForexRates[curr] || 15000);
+
     const totalRetainedIDR = items.reduce((acc, item) => acc + (item.amount * getRate(item.currency)), 0);
 
     const handleAdd = async () => {
@@ -102,8 +133,7 @@ export default function Retained() {
                 body: JSON.stringify({ amount: parseNumber(tempAmount) })
             });
             toast({ title: "Diperbarui", description: "Jumlah saldo tertahan berhasil diubah." });
-            setShowEditModal(null);
-            setTempAmount("");
+            setShowEditModal(null); setTempAmount("");
             fetchRetained();
         } catch (e) { toast({ title: "Error", variant: "destructive" }); }
         setIsSubmitting(false);
@@ -130,11 +160,9 @@ export default function Retained() {
                 method: "POST", headers: { "Content-Type": "application/json", "x-user-email": userEmail },
                 body: JSON.stringify({ amount: wAmount })
             });
-            
             if (res.ok) {
                 toast({ title: "Pencairan Berhasil!", description: "Dana telah masuk ke Saldo Kas Utama." });
-                setShowWithdrawModal(null);
-                setTempAmount("");
+                setShowWithdrawModal(null); setTempAmount("");
                 fetchRetained();
             } else {
                 toast({ title: "Gagal", description: "Terjadi kesalahan server.", variant: "destructive" });
@@ -143,12 +171,50 @@ export default function Retained() {
         setIsSubmitting(false);
     };
 
-    if (isLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-amber-500"/></div>;
+    // 🚀 TAMPILAN LOCKOUT UNTUK PENGGUNA NON-PREMIUM & EXPIRED
+    if (isLocked) {
+        return (
+            <MobileLayout title="Saldo Tertahan" showBack>
+                <div className="relative min-h-screen bg-slate-50 overflow-hidden pb-24 overflow-y-auto">
+                    <div className="p-4 space-y-6 blur-md opacity-40 select-none pointer-events-none mt-2">
+                        <div className="bg-gradient-to-br from-slate-900 to-indigo-950 h-48 rounded-[32px] w-full shadow-lg"></div>
+                        <div className="bg-white h-72 rounded-[32px] shadow-sm border border-slate-200 w-full"></div>
+                    </div>
+                    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center px-4 text-center">
+                        <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(251,191,36,0.4)] mt-8">
+                            <Crown className="w-10 h-10 text-amber-950" />
+                        </div>
+                        <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Fitur Premium 👑</h2>
+                        <p className="text-sm text-slate-600 mb-6 max-w-xs leading-relaxed font-medium">
+                            Pelacakan Saldo Tertahan (AdSense, AdMob, Platform Freelance) eksklusif untuk pengguna <b className="text-slate-800">BILANO PRO</b>.
+                        </p>
+                        <div className="w-full max-w-sm space-y-3 mb-6">
+                            <div onClick={() => setSelectedPlan('yearly')} className={`relative p-5 rounded-[20px] border-2 cursor-pointer transition-all text-left ${selectedPlan === 'yearly' ? 'border-amber-400 bg-gradient-to-br from-slate-900 to-indigo-950 shadow-xl' : 'border-slate-200 bg-white'}`}>
+                                {selectedPlan === 'yearly' && <div className="absolute top-0 right-0 bg-amber-400 text-amber-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl z-10 shadow-sm">PALING HEMAT</div>}
+                                <div className="flex justify-between items-center mb-1">
+                                    <h4 className={`font-black text-lg ${selectedPlan === 'yearly' ? 'text-amber-400' : 'text-slate-800'}`}>Paket 1 Tahun</h4>
+                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'yearly' ? 'border-amber-400 bg-amber-400' : 'border-slate-300'}`}></div>
+                                </div>
+                                <p className={`text-3xl font-black tracking-tight ${selectedPlan === 'yearly' ? 'text-white' : 'text-slate-800'}`}>Rp 8.250 <span className="text-xs font-bold opacity-60">/ bulan</span></p>
+                            </div>
+                        </div>
+                        <Button onClick={handleLanjutBayar} disabled={isCharging} className="w-full max-w-sm h-14 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-full shadow-2xl flex items-center justify-center gap-2">
+                            {isCharging ? <Loader2 className="w-5 h-5 animate-spin"/> : "BUKA AKSES PREMIUM"}
+                        </Button>
+                        <p className="mt-4 text-[10px] text-slate-400 font-medium flex items-center gap-1.5 pb-8">
+                            <ShieldCheck className="w-4 h-4 text-emerald-500"/> Integrasi Checkout Aman Terverifikasi Mayar
+                        </p>
+                    </div>
+                </div>
+            </MobileLayout>
+        );
+    }
+
+    if (isUserLoading || isLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-amber-500"/></div>;
 
     return (
         <MobileLayout title="Saldo Tertahan" showBack>
             <div className="space-y-6 pt-4 px-2 pb-20">
-                
                 <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl relative overflow-hidden">
                     <div className="relative z-10 flex justify-between items-start">
                         <div>
@@ -156,7 +222,7 @@ export default function Retained() {
                                 <Hourglass className="w-3 h-3"/> Total Tertahan (Estimasi)
                             </p>
                             <h2 className="text-3xl font-bold text-amber-400 whitespace-nowrap transition-all duration-300">
-                                {isTrialExpired ? "✨ Premium" : formatRp(totalRetainedIDR)}
+                                {formatRp(totalRetainedIDR)}
                             </h2>
                         </div>
                     </div>
@@ -181,7 +247,6 @@ export default function Retained() {
                             items.map((item) => {
                                 const idrVal = item.amount * getRate(item.currency);
                                 const lastUpdate = new Date(item.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                                
                                 return (
                                     <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 transition-all hover:shadow-md">
                                         <div className="flex justify-between items-start mb-3">
@@ -191,9 +256,7 @@ export default function Retained() {
                                                 </div>
                                                 <div>
                                                     <div className="font-bold text-slate-800 text-base">{item.source}</div>
-                                                    <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                                                        Diperbarui: {lastUpdate}
-                                                    </div>
+                                                    <div className="text-[10px] text-slate-400">Diperbarui: {lastUpdate}</div>
                                                 </div>
                                             </div>
                                             <div className="text-right">
@@ -202,13 +265,13 @@ export default function Retained() {
                                             </div>
                                         </div>
                                         <div className="flex gap-2 pt-3 border-t border-slate-50">
-                                            <button onClick={() => { setShowEditModal(item); setTempAmount(item.amount.toString()); }} className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-colors">
+                                            <button onClick={() => { setShowEditModal(item); setTempAmount(item.amount.toString()); }} className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1">
                                                 <Edit2 className="w-3 h-3"/> UPDATE
                                             </button>
-                                            <button onClick={() => { setShowWithdrawModal(item); setTempAmount(""); }} className="flex-1 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-colors">
+                                            <button onClick={() => { setShowWithdrawModal(item); setTempAmount(""); }} className="flex-1 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1">
                                                 <ArrowDownToLine className="w-3 h-3"/> TARIK
                                             </button>
-                                            <button onClick={() => handleDelete(item.id)} className="w-10 flex items-center justify-center bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-lg transition-colors">
+                                            <button onClick={() => handleDelete(item.id)} className="w-10 flex items-center justify-center bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-lg">
                                                 <Trash2 className="w-4 h-4"/>
                                             </button>
                                         </div>
@@ -219,90 +282,60 @@ export default function Retained() {
                     </div>
                 </div>
 
-                {/* MODAL TAMBAH */}
+                {/* MODAL MODAL EDIT / TAMBAH / CAIRKAN TETAP SAMA SEPERTI SEBELUMNYA */}
                 {showAddModal && (
                     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
                         <div className="bg-white rounded-[24px] p-6 w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 border-t-8 border-amber-500">
                             <button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
-                            <h3 className="text-lg font-extrabold text-slate-800 mb-4">Tambah Saldo Tertahan</h3>
-                            
+                            <h3 className="text-lg font-extrabold text-slate-800 mb-4">Tambah Saldo</h3>
                             <div className="space-y-4">
-                                <div>
-                                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1 block">Sumber Dana (Cth: AdSense)</label>
-                                    <Input placeholder="Nama Sumber" value={tempSource} onChange={e => setTempSource(e.target.value)} className="h-12 text-sm bg-slate-50 rounded-xl"/>
-                                </div>
+                                <Input placeholder="Nama Sumber (Cth: AdSense)" value={tempSource} onChange={e => setTempSource(e.target.value)} className="h-12 text-sm bg-slate-50 rounded-xl"/>
                                 <div className="flex gap-2">
-                                    <div className="w-1/3">
-                                        <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1 block">Mata Uang</label>
-                                        <select value={tempCurrency} onChange={e => setTempCurrency(e.target.value)} className="w-full h-12 px-3 text-sm font-bold rounded-xl bg-amber-50 text-amber-700 outline-none border border-amber-100">
-                                            <option value="IDR">IDR</option>
-                                            {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="flex-1">
-                                        <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1 block">Nominal</label>
-                                        <Input type="text" inputMode="decimal" placeholder="0" value={tempAmount} onChange={e => setTempAmount(formatNumber(e.target.value))} className="h-12 font-bold text-sm bg-slate-50 rounded-xl"/>
-                                    </div>
+                                    <select value={tempCurrency} onChange={e => setTempCurrency(e.target.value)} className="w-1/3 h-12 px-3 text-sm font-bold rounded-xl bg-amber-50 text-amber-700 outline-none border border-amber-100">
+                                        <option value="IDR">IDR</option>
+                                        {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                    <Input type="text" inputMode="decimal" placeholder="0" value={tempAmount} onChange={e => setTempAmount(formatNumber(e.target.value))} className="flex-1 h-12 font-bold text-sm bg-slate-50 rounded-xl"/>
                                 </div>
-                                <Button disabled={isSubmitting} onClick={handleAdd} className="w-full h-12 bg-amber-500 hover:bg-amber-600 font-bold rounded-full mt-2 shadow-lg shadow-amber-200">
-                                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : "SIMPAN"}
-                                </Button>
+                                <Button disabled={isSubmitting} onClick={handleAdd} className="w-full h-12 bg-amber-500 hover:bg-amber-600 font-bold rounded-full mt-2 shadow-lg">SIMPAN</Button>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* MODAL EDIT */}
                 {showEditModal && (
                     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
                         <div className="bg-white rounded-[24px] p-6 w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 border-t-8 border-blue-500">
                             <button onClick={() => setShowEditModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
                             <h3 className="text-lg font-extrabold text-slate-800 mb-1">Update Saldo</h3>
-                            <p className="text-xs text-slate-500 mb-4">Sesuaikan saldo dari <b className="text-slate-700">{showEditModal.source}</b></p>
-                            
+                            <p className="text-xs text-slate-500 mb-4">Sesuaikan nilai baru dari platform <b className="text-slate-700">{showEditModal.source}</b></p>
                             <div className="space-y-4">
                                 <div className="relative">
                                     <span className="absolute left-4 top-3.5 font-bold text-slate-400">{showEditModal.currency}</span>
                                     <Input type="text" inputMode="decimal" value={tempAmount} onChange={e => setTempAmount(formatNumber(e.target.value))} className="pl-14 h-12 font-bold text-lg bg-slate-50 rounded-xl"/>
                                 </div>
-                                <Button disabled={isSubmitting} onClick={handleEdit} className="w-full h-12 bg-blue-600 hover:bg-blue-700 font-bold rounded-full shadow-lg shadow-blue-200">
-                                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : "PERBARUI"}
-                                </Button>
+                                <Button disabled={isSubmitting} onClick={handleEdit} className="w-full h-12 bg-blue-600 hover:bg-blue-700 font-bold rounded-full">PERBARUI</Button>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* MODAL WITHDRAW */}
                 {showWithdrawModal && (
                     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
                         <div className="bg-white rounded-[24px] p-6 w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 border-t-8 border-emerald-500">
                             <button onClick={() => setShowWithdrawModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
-                            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-3">
-                                <ArrowDownToLine className="w-6 h-6"/>
-                            </div>
                             <h3 className="text-lg font-extrabold text-slate-800 mb-1">Tarik Saldo</h3>
-                            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-                                Berapa {showWithdrawModal.currency} yang ingin Anda tarik dari <b className="text-slate-700">{showWithdrawModal.source}</b> ke Kas Utama?
-                            </p>
-                            
+                            <p className="text-xs text-slate-500 mb-4">Cairkan dana dari <b className="text-slate-700">{showWithdrawModal.source}</b> ke Saldo Kas Utama.</p>
                             <div className="space-y-4">
                                 <div className="relative">
                                     <span className="absolute left-4 top-3.5 font-bold text-slate-400">{showWithdrawModal.currency}</span>
-                                    <Input type="text" inputMode="decimal" placeholder="Maks: ..." value={tempAmount} onChange={e => setTempAmount(formatNumber(e.target.value))} className="pl-14 h-12 font-bold text-lg bg-slate-50 rounded-xl"/>
+                                    <Input type="text" inputMode="decimal" placeholder="Masukkan jumlah penarikan..." value={tempAmount} onChange={e => setTempAmount(formatNumber(e.target.value))} className="pl-14 h-12 font-bold text-lg bg-slate-50 rounded-xl"/>
                                 </div>
-                                <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex items-start gap-2">
-                                    <AlertTriangle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"/>
-                                    <p className="text-[10px] text-emerald-800 font-medium">Uang ini akan ditambahkan ke Saldo Kas Anda dan otomatis terkonversi ke Rupiah.</p>
-                                </div>
-                                <Button disabled={isSubmitting} onClick={handleWithdraw} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 font-bold rounded-full shadow-lg shadow-emerald-200">
-                                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : "CAIRKAN KE KAS"}
-                                </Button>
+                                <Button disabled={isSubmitting} onClick={handleWithdraw} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 font-bold rounded-full">KONFIRMASI PENCAIRAN</Button>
                             </div>
                         </div>
                     </div>
                 )}
-
             </div>
         </MobileLayout>
     );

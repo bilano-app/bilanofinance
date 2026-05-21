@@ -263,8 +263,11 @@ function Router() {
         <Route path="/help" component={Help} />
         <Route path="/guide" component={Guide} />
         <Route path="/amal" component={Amal} /> 
+        
+        {/* 🚀 KUNCI PERBAIKAN: Retained diletakkan di ATAS NotFound! */}
+        <Route path="/retained" component={Retained} /> 
+        
         <Route component={NotFound} />
-        <Route path="/retained" component={Retained} />
       </Switch>
 
       {showPaywallAlert && (
