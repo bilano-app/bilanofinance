@@ -30,11 +30,14 @@ const createTransporter = () => {
     return nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: cleanPassword } });
 };
 
+// 🚀 MESIN PENYEMBUH TABEL OTP (AUTO-HEALER)
 const ensureOtpTable = async () => {
     try {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
+        // Tes apakah kolom 'code' benar-benar ada
         await db.execute(sql`SELECT code FROM otp_sessions LIMIT 1`);
     } catch (e) {
+        // Jika error (kolom code tidak ada), hancurkan tabel lama dan buat yang baru!
         console.log("Mendeteksi tabel OTP yang cacat. Menghancurkan dan membuat ulang...");
         await db.execute(sql`DROP TABLE IF EXISTS otp_sessions`);
         await db.execute(sql`CREATE TABLE otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
@@ -56,11 +59,6 @@ async function askSmartAI(systemPrompt: string, userMessage: string, history: an
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-
-  // 🚀 INJEKSI TABEL SALDO TERTAHAN OTOMATIS
-  try {
-      await db.execute(sql`CREATE TABLE IF NOT EXISTS retained_balances (id SERIAL PRIMARY KEY, user_id INTEGER, source VARCHAR(255), amount DOUBLE PRECISION, currency VARCHAR(10), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`);
-  } catch(e) { console.log("Retained balances table err", e); }
 
   app.use("/api", (req, res, next) => {
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -100,7 +98,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`ALTER TABLE targets ALTER COLUMN monthly_budget TYPE BIGINT;`);
           await db.execute(sql`ALTER TABLE subscriptions ALTER COLUMN cost TYPE BIGINT;`);
           await db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (id VARCHAR(255) PRIMARY KEY, user_id INTEGER, email TEXT, name TEXT, subject TEXT, message TEXT, status TEXT, date TIMESTAMP DEFAULT NOW());`);
-          await db.execute(sql`CREATE TABLE IF NOT EXISTS retained_balances (id SERIAL PRIMARY KEY, user_id INTEGER, source VARCHAR(255), amount DOUBLE PRECISION, currency VARCHAR(10), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW());`);
           
           await ensureOtpTable();
 
@@ -208,21 +205,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const amt = Math.round(lastTx.amount);
 
           const isValas = lastTx.category?.includes('Valas');
-          const isPencairan = lastTx.category === 'Pencairan Saldo'; // Fitur Retained
 
-          if (!isValas && !isPencairan) {
+          if (!isValas) {
               if (lastTx.type === 'income') newBalance -= amt;
               else if (lastTx.type === 'expense') newBalance += amt;
               else if (lastTx.type === 'debt_borrow' || lastTx.type === 'piutang_record') newBalance -= amt;
               else if (lastTx.type === 'debt_lend' || lastTx.type === 'hutang_record') newBalance += amt;
               else if (lastTx.type === 'debt_receive') newBalance -= amt;
               else if (lastTx.type === 'debt_pay') newBalance += amt;
-          }
-          
-          if (isPencairan) {
-              // Note: Untuk Undo pencairan, kita hanya mengurangi kas. Saldo tertahannya biarkan, 
-              // pengguna bisa edit manual di halaman Retained.
-              newBalance -= amt;
           }
 
           if (lastTx.type === 'invest_buy') newBalance += amt;
@@ -381,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       });
 
-      const pengeluaranBulanIni = txBulanIni.filter(t => t.type === 'expense' && t.category !== 'Amal' && t.category !== 'Pencairan Saldo').reduce((acc, t) => acc + t.amount, 0);
+      const pengeluaranBulanIni = txBulanIni.filter(t => t.type === 'expense' && t.category !== 'Amal').reduce((acc, t) => acc + t.amount, 0);
       const totalAmalBulanIni = txBulanIni.filter(t => t.category === 'Amal').reduce((acc, t) => acc + t.amount, 0);
       
       let sisaBudget = "Tidak dibatasi";
@@ -458,9 +448,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`DELETE FROM categories WHERE user_id = ${user.id}`);
           await db.execute(sql`DELETE FROM forex_assets WHERE user_id = ${user.id}`);
           await db.execute(sql`DELETE FROM help_tickets WHERE user_id = ${user.id}`);
-          
-          try { await db.execute(sql`DELETE FROM retained_balances WHERE user_id = ${user.id}`); } catch(e) {}
-
           await db.execute(sql`DELETE FROM users WHERE id = ${user.id}`);
           res.json({ success: true, message: "Seluruh data akun berhasil dimusnahkan." });
       } catch (error) { res.status(500).json({ error: "Gagal memusnahkan data akun." }); }
@@ -479,9 +466,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const amt = Math.round(txToDelete.amount);
           
           const isValas = txToDelete.category?.includes('Valas');
-          const isPencairan = txToDelete.category === 'Pencairan Saldo'; // Retained Fitur
 
-          if (!isValas && !isPencairan) {
+          if (!isValas) {
               if (txToDelete.type === 'income') newBalance -= amt;
               else if (txToDelete.type === 'expense') newBalance += amt;
               else if (txToDelete.type === 'debt_borrow') newBalance -= amt;
@@ -489,8 +475,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               else if (txToDelete.type === 'debt_receive') newBalance -= amt;
               else if (txToDelete.type === 'debt_pay') newBalance += amt;
           }
-
-          if (isPencairan) newBalance -= amt; // Undo the cash increment
 
           if (txToDelete.type === 'invest_buy') newBalance += amt; 
           else if (txToDelete.type === 'invest_sell') newBalance -= amt; 
@@ -896,6 +880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal memperbarui status pengguna." }); }
   });
 
+  // 🚀 PERBAIKAN: MENGGUNAKAN SINGLE PAYMENT CHECKOUT (Bukan Invoice Langsung)
   app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -912,19 +897,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const appUrl = req.headers.origin || "https://bilanofinance-dvbi.vercel.app";
 
+          // Payload ini akan mengarahkan user ke halaman Checkout Umum Mayar,
+          // sehingga Mayar akan meminta user mengisi nomor HP mereka sendiri.
           const payload = {
               name: planName,
               amount: price,
               description: `Berlangganan ${planName}`,
               customerName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
               customerEmail: user.email || "member@bilano.app",
+              // 💡 Tidak ada 'customerMobile' atau 'mobile' agar Mayar memintanya di halaman checkout
               redirectUrl: `${appUrl}/`, 
               extraData: { noCustomer: user.id.toString(), idProd: idProd }
           };
 
           const mayarRes = await fetch("https://api.mayar.id/hl/v1/payment/create", { 
               method: "POST", 
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${mayarKey}` }, 
+              headers: { 
+                  "Content-Type": "application/json", 
+                  "Authorization": `Bearer ${mayarKey}` 
+              }, 
               body: JSON.stringify(payload) 
           });
           const textData = await mayarRes.text();
@@ -1081,86 +1072,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           catch (e) { parsedResult = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); }
           res.json({ success: true, data: parsedResult });
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses gambar." }); }
-  });
-
-  // =====================================================================
-  // 🚀 FITUR SALDO TERTAHAN (RETAINED BALANCES)
-  // =====================================================================
-  app.get("/api/retained", async (req, res) => {
-      try {
-          const user = await getUser(req);
-          const result = await db.execute(sql`SELECT * FROM retained_balances WHERE user_id = ${user!.id} ORDER BY updated_at DESC`);
-          const rows = Array.isArray(result) ? result : (result as any).rows || [];
-          res.json(rows);
-      } catch(e) { res.json([]); }
-  });
-
-  app.post("/api/retained", async (req, res) => {
-      try {
-          const user = await getUser(req);
-          const { source, amount, currency } = req.body;
-          await db.execute(sql`INSERT INTO retained_balances (user_id, source, amount, currency) VALUES (${user!.id}, ${source}, ${amount}, ${currency})`);
-          res.json({success: true});
-      } catch(e:any) { res.status(500).json({error: e.message}); }
-  });
-
-  app.put("/api/retained/:id", async (req, res) => {
-      try {
-          const user = await getUser(req);
-          const { amount } = req.body;
-          await db.execute(sql`UPDATE retained_balances SET amount = ${amount}, updated_at = NOW() WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
-          res.json({success: true});
-      } catch(e:any) { res.status(500).json({error: e.message}); }
-  });
-
-  app.delete("/api/retained/:id", async (req, res) => {
-      try {
-          const user = await getUser(req);
-          await db.execute(sql`DELETE FROM retained_balances WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
-          res.json({success: true});
-      } catch(e:any) { res.status(500).json({error: e.message}); }
-  });
-
-  app.post("/api/retained/:id/withdraw", async (req, res) => {
-      try {
-          const user = await getUser(req);
-          const id = parseInt(req.params.id);
-          const { amount } = req.body; 
-
-          const result = await db.execute(sql`SELECT * FROM retained_balances WHERE id = ${id} AND user_id = ${user!.id}`);
-          const rows = Array.isArray(result) ? result : (result as any).rows || [];
-          if (rows.length === 0) return res.status(404).json({error: "Data tidak ditemukan."});
-
-          const retained = rows[0];
-          if (amount > retained.amount) return res.status(400).json({error: "Jumlah penarikan melebihi saldo tertahan Anda!"});
-
-          const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates();
-          const rate = retained.currency === 'IDR' ? 1 : (cachedRates[retained.currency] || 15000);
-          const amountIDR = Math.round(amount * rate);
-
-          // 1. Kurangi Saldo Tertahan
-          const newRetainedAmount = retained.amount - amount;
-          await db.execute(sql`UPDATE retained_balances SET amount = ${newRetainedAmount}, updated_at = NOW() WHERE id = ${id}`);
-
-          // 2. Tambahkan ke Kas Utama
-          const newCashBalance = Math.round(user!.cashBalance) + amountIDR;
-          await storage.updateUserBalance(user!.id, newCashBalance);
-
-          // 3. Catat di Riwayat Transaksi agar terlihat di Home
-          await storage.createTransaction(user!.id, {
-              userId: user!.id,
-              type: 'income',
-              amount: amountIDR,
-              category: 'Pencairan Saldo',
-              description: `Pencairan dari ${retained.source} (${amount} ${retained.currency})`,
-              date: new Date()
-          } as any);
-
-          res.json({success: true, newCashBalance});
-      } catch (e: any) {
-          res.status(500).json({error: e.message});
-      }
   });
 
   const httpServer = createServer(app);

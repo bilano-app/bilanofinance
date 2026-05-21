@@ -94,8 +94,7 @@ import SmartScan from "@/pages/SmartScan";
 import AdminPremium from "@/pages/AdminPremium";
 import Help from "@/pages/Help";
 import Guide from "@/pages/Guide";
-import Amal from "@/pages/Amal";
-import Retained from "./pages/Retained"; 
+import Amal from "@/pages/Amal"; 
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -263,10 +262,6 @@ function Router() {
         <Route path="/help" component={Help} />
         <Route path="/guide" component={Guide} />
         <Route path="/amal" component={Amal} /> 
-        
-        {/* 🚀 KUNCI PERBAIKAN: Retained diletakkan di ATAS NotFound! */}
-        <Route path="/retained" component={Retained} /> 
-        
         <Route component={NotFound} />
       </Switch>
 
