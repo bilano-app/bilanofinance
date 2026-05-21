@@ -5,30 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover" />
     <title>BILANO - Smart Finance App</title>
 
-    <!-- ========================================== -->
-    <!-- 🚀 KTP PWA & ICON APLIKASI                 -->
-    <!-- ========================================== -->
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/png" href="/BILANO-ICON.png" />
 
-    <!-- ========================================== -->
-    <!-- 🚀 WARNA STATUS BAR NATIVE (IKUTI HP)      -->
-    <!-- ========================================== -->
     <meta name="theme-color" content="#ffffff" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
-    <!-- ========================================== -->
-    <!-- 🚀 OPEN GRAPH (VISUAL MEDIA SOSIAL & SEO)  -->
-    <!-- ========================================== -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://bilano.app/" />
     <meta property="og:title" content="BILANO - Smart Finance App" />
     <meta property="og:description" content="Kendalikan arus kas dan portofolio aset Anda dengan Asisten AI. Pengelola Keuangan Cerdas untuk kebebasan masa depan." />
     <meta property="og:image" content="https://placehold.co/1200x630/0a1128/fcd34d?text=BILANO+App" />
 
-    <!-- ========================================== -->
-    <!-- 🚀 SISTEM CACHE & AUTO-REFRESH (WEB APP)   -->
-    <!-- ========================================== -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
@@ -99,6 +87,20 @@
               }).catch(err => console.error("Gagal lapor database", err));
           }
       }
+    </script>
+
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(function(OneSignal) {
+        OneSignal.init({
+          appId: "b45b3256-b290-4a98-b5fa-afa0501a6b1c", 
+          safari_web_id: "", 
+          notifyButton: {
+            enable: false, 
+          },
+        });
+      });
     </script>
   </head>
   <body>
