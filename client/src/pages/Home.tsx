@@ -12,7 +12,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
-  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb 
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass 
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -69,7 +69,6 @@ export default function Home() {
 
   const [showProWelcome, setShowProWelcome] = useState(false);
   
-  // 🚀 STATE UNTUK BUBBLE CHAT SEQUENTIAL (GANTIAN)
   const [showGuideTooltip, setShowGuideTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
   
@@ -132,27 +131,21 @@ export default function Home() {
       };
   }, [isAnyDataLoading]);
 
-  // =========================================================================
-  // 🚀 LOGIKA SEQUENTIAL TOOLTIP (GUIDE -> PROFIL)
-  // =========================================================================
   useEffect(() => {
       if (rawEmail && !isAnyDataLoading && user) {
           const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
           const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
           
-          // Cek apakah akun ini baru sign up (dibawah 24 jam)
           const startTimeAcc = new Date(user.createdAt || Date.now()).getTime();
           const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
 
           if (isNewUser) {
               if (!guideSeen) {
-                  // Tahap 1: Tampilkan Guide Tooltip dulu
                   const timer = setTimeout(() => {
                       setShowGuideTooltip(true);
                   }, 1500);
                   return () => clearTimeout(timer);
               } else if (guideSeen && !profileSeen && !user.profilePicture) {
-                  // Tahap 2: Jika Guide sudah dilihat/disilang & balik ke Home, tampilkan Profile Tooltip
                   const timer = setTimeout(() => {
                       setShowProfileTooltip(true);
                   }, 1000);
@@ -166,7 +159,6 @@ export default function Home() {
       setShowGuideTooltip(false);
       localStorage.setItem(`bilano_guide_tooltip_seen_${rawEmail}`, "true");
       
-      // Jika disilang, langsung bersiap memunculkan Bubble Profil secara instan
       const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
       const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
       const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
@@ -174,7 +166,7 @@ export default function Home() {
       if (isNewUser && !profileSeen && !user?.profilePicture) {
           setTimeout(() => {
               setShowProfileTooltip(true);
-          }, 600); // Jeda 0.6 detik agar pergantiannya terlihat mulus
+          }, 600); 
       }
   };
 
@@ -182,7 +174,6 @@ export default function Home() {
       setShowProfileTooltip(false);
       localStorage.setItem(`bilano_profile_tooltip_seen_${rawEmail}`, "true");
   };
-  // =========================================================================
 
   const handlePinUnlock = (num: string) => {
       setPinError(false);
@@ -528,7 +519,6 @@ export default function Home() {
 
       <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
           
-          {/* BUBBLE CHAT 1: PANDUAN (GUIDE) */}
           {showGuideTooltip && (
               <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-slate-900 p-4 rounded-[20px] shadow-[6px_6px_0px_#0f172a] animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
                   <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-full hover:bg-slate-100">
@@ -568,19 +558,15 @@ export default function Home() {
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-indigo-500/30">
                   <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
-                  
                   <button onClick={() => setProFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
-                  
                   <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10">
                       <Crown className="w-10 h-10 text-amber-950"/>
                   </div>
-                  
                   <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Akses VIP Terjamin! 👑</h2>
                   <p className="text-sm text-indigo-200 mb-6 leading-relaxed px-2 font-medium">
                       Fitur <b className="text-amber-400">{proFeatureModal.title}</b> saat ini sedang dalam tahap akhir pengembangan oleh tim kami. <br/><br/>
                       Sebagai pengguna <b>PRO</b>, Anda tidak perlu membayar biaya tambahan apapun. Fitur ini akan otomatis terbuka untuk Anda begitu dirilis!
                   </p>
-                  
                   <Button onClick={() => setProFeatureModal(null)} className="w-full h-14 bg-white hover:bg-slate-100 text-indigo-950 rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
                       <CheckCircle2 className="w-5 h-5"/> SAYA MENGERTI
                   </Button>
@@ -778,7 +764,6 @@ export default function Home() {
                 </div>
             </div>
 
-            {/* BUBBLE CHAT 2: PASANG FOTO PROFIL */}
             {showProfileTooltip && (
                 <div className="absolute top-[65px] left-2 w-[260px] bg-white border-2 border-indigo-600 p-4 rounded-[20px] shadow-[6px_6px_0px_#4f46e5] animate-in fade-in zoom-in slide-in-from-left-4 duration-500 z-50">
                     <div className="absolute -top-[10px] left-[20px] w-0 h-0 border-b-[10px] border-b-indigo-600 border-r-[10px] border-r-transparent border-l-[10px] border-l-transparent"></div>
@@ -938,6 +923,9 @@ export default function Home() {
                 <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
                         <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-emerald-500" label="Amal" />
+                        
+                        {/* 🚀 KUNCI PERBAIKAN: TOMBOL SALDO TERTAHAN DITAMBAHKAN DI SINI */}
+                        <MenuIconBox href="/retained" icon={Hourglass} bg="bg-amber-500" label="Tertahan" />
                         
                         <MenuIconBox 
                             onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} 

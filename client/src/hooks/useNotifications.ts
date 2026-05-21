@@ -13,7 +13,7 @@ const NOTIF_MESSAGES = [
 
 export function useNotifications() {
     useEffect(() => {
-        const checkAndSendNotification = () => {
+        const checkAndSendNotification = async () => {
             // Pastikan izin sudah dikasih oleh user
             if ("Notification" in window && Notification.permission === "granted") {
                 const lastNotif = localStorage.getItem("bilano_last_notif");
@@ -27,17 +27,37 @@ export function useNotifications() {
                     const randomMsg = NOTIF_MESSAGES[Math.floor(Math.random() * NOTIF_MESSAGES.length)];
 
                     try {
-                        // Tembak Notifikasi ke Layar!
-                        new Notification("BILANO Finance", {
-                            body: randomMsg,
-                            icon: "/BILANO-ICON.png",
-                            badge: "/BILANO-ICON.png"
-                        });
-                        
-                        // Catat waktu di memori HP
-                        localStorage.setItem("bilano_last_notif", now.toString());
+                        if ('serviceWorker' in navigator) {
+                            // 🚀 FIX: Jangan pakai .ready karena disabotase OneSignal.
+                            // Ambil paksa semua Service Worker, dan gunakan yang paling aktif!
+                            const registrations = await navigator.serviceWorker.getRegistrations();
+                            const activeReg = registrations.find(reg => reg.active) || registrations[0];
+
+                            if (activeReg && 'showNotification' in activeReg) {
+                                await activeReg.showNotification("BILANO Finance", {
+                                    body: randomMsg,
+                                    icon: "/BILANO-ICON.png",
+                                    badge: "/BILANO-ICON.png",
+                                    vibrate: [200, 100, 200] 
+                                });
+                                localStorage.setItem("bilano_last_notif", now.toString());
+                            } else {
+                                // 🛡️ FALLBACK: Kalau Service Worker benar-benar mati, pakai notif klasik!
+                                new Notification("BILANO Finance", {
+                                    body: randomMsg,
+                                    icon: "/BILANO-ICON.png"
+                                });
+                                localStorage.setItem("bilano_last_notif", now.toString());
+                            }
+                        } else {
+                            new Notification("BILANO Finance", {
+                                body: randomMsg,
+                                icon: "/BILANO-ICON.png"
+                            });
+                            localStorage.setItem("bilano_last_notif", now.toString());
+                        }
                     } catch (e) {
-                        console.error("Gagal menembak notifikasi:", e);
+                        console.error("Gagal menembak notifikasi PWA:", e);
                     }
                 }
             }

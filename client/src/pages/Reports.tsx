@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
-import { Download, FileText, Globe, Wallet, FileBarChart, Loader2, Briefcase, HandCoins, Archive, HeartHandshake } from "lucide-react";
+import { Download, FileText, Globe, Wallet, FileBarChart, Loader2, Briefcase, HandCoins, Archive, HeartHandshake, Hourglass } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -54,16 +54,22 @@ export default function Reports() {
         const userEmail = localStorage.getItem("bilano_email") || "";
         const fetchOpts = { headers: { "x-user-email": userEmail }, cache: "no-store" as RequestCache };
         const timestamp = Date.now();
-        const [resData, resRates, resTarget] = await Promise.all([
+        
+        // 🚀 FETCH DATA DITAMBAH ENDPOINT RETAINED
+        const [resData, resRates, resTarget, resRetained] = await Promise.all([
             fetch(`/api/reports/data?t=${timestamp}`, fetchOpts),
             fetch(`/api/forex/rates?t=${timestamp}`, fetchOpts),
-            fetch(`/api/target?t=${timestamp}`, fetchOpts)
+            fetch(`/api/target?t=${timestamp}`, fetchOpts),
+            fetch(`/api/retained?t=${timestamp}`, fetchOpts)
         ]);
 
         if (resData.ok) {
             const dbData = await resData.json();
+            if (resRetained.ok) {
+                dbData.retainedBalances = await resRetained.json();
+            }
             setData(dbData);
-            runAutoArchiver(dbData, userEmail); // 🔥 Jalankan Mesin Pembeku Arsip
+            runAutoArchiver(dbData, userEmail);
         }
         if (resRates.ok) setForexRates(await resRates.json());
         if (resTarget.ok) setTargetData(await resTarget.json());
@@ -73,15 +79,13 @@ export default function Reports() {
     fetchData();
   }, []);
 
-  // =======================================================================================
-  // 🚀 ENGINE PEMBEKU DATA (FROZEN GENERATOR) - 100% SINKRON DENGAN PERFORMANCE.TSX
-  // =======================================================================================
   const generateFrozenData = (targetMonth: number, targetYear: number, isYearly: boolean, dbData: any) => {
       const user = dbData.user || {};
       const allTxs = dbData.transactions || [];
       const allInvestments = dbData.investments || [];
       const allDebts = dbData.debts || [];
       const allForexAssets = dbData.forexAssets || [];
+      const allRetained = dbData.retainedBalances || []; // 🚀 DATA SALDO TERTAHAN
 
       let appStartDate = new Date();
       if (user.createdAt) appStartDate = new Date(user.createdAt);
@@ -102,13 +106,13 @@ export default function Reports() {
             ? new Date(safeTargetYear, 11, 31, 23, 59, 59) 
             : new Date(safeTargetYear, targetMonth + 1, 0, 23, 59, 59);
 
-      // 🚀 THE PURE ROLLBACK ALGORITHM (SINKRON 100% DENGAN LOGIKA APLIKASI)
       const getSnapshotAt = (targetDate: Date) => {
           let snapCash = liveCash; 
           allTxs.filter((t:any) => new Date(t.date) > targetDate).forEach((t:any) => {
               const amt = Number(t.amount) || 0;
               const isNonCash = t.description?.includes('[WRITE_OFF]') || t.description?.includes('[Catat Awal]');
               if (!isNonCash) {
+                  // Pencairan Retained termasuk income, akan di-rollback ke saldo tertahan
                   if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) snapCash -= amt; 
                   else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) snapCash += amt;
               }
@@ -193,7 +197,26 @@ export default function Reports() {
               }
           });
 
-          return { cash: Math.max(0, snapCash), invest: snapInvest, forex: snapForex, piutang: snapPiutang, debt: snapDebt, netWorth: Math.max(0, snapCash) + snapInvest + snapForex + snapPiutang - snapDebt };
+          // 🚀 ALGORITMA ROLLBACK SALDO TERTAHAN (RETAINED BALANCE)
+          let snapRetained = 0;
+          allRetained.forEach((r: any) => {
+              const rDate = new Date(r.createdAt || Date.now());
+              if (rDate <= targetDate) {
+                  const rate = r.currency === 'IDR' ? 1 : getRate(r.currency);
+                  let liveAmtIdr = r.amount * rate;
+                  
+                  // Jika ada pencairan setelah targetDate, uang itu harus dikembalikan ke Saldo Tertahan
+                  allTxs.filter((t:any) => new Date(t.date) > targetDate && t.category === 'Pencairan Saldo' && (t.description||'').includes(r.source)).forEach((t:any) => {
+                      liveAmtIdr += (Number(t.amount) || 0);
+                  });
+                  snapRetained += liveAmtIdr;
+              }
+          });
+
+          return { 
+              cash: Math.max(0, snapCash), invest: snapInvest, forex: snapForex, piutang: snapPiutang, debt: snapDebt, retained: snapRetained,
+              netWorth: Math.max(0, snapCash) + snapInvest + snapForex + snapPiutang + snapRetained - snapDebt 
+          };
       };
 
       const archiveSnap = getSnapshotAt(reportDateEnd);
@@ -201,7 +224,6 @@ export default function Reports() {
       
       const thisPeriodTxs = allTxs.filter((t:any) => isTargetInPeriod(new Date(t.date)));
 
-      // MURNI ARUS KAS: Menyertakan pelunasan sesuai instruksi eksplisit untuk Bar Chart PDF
       const pureTransactions = thisPeriodTxs.filter((t:any) => !['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category) && ['income', 'expense', 'debt_receive', 'debt_pay', 'debt_borrow', 'debt_lend'].includes(t.type));
       
       const totalIncome = pureTransactions.filter((t:any) => ['income', 'debt_receive', 'debt_borrow'].includes(t.type)).reduce((acc:number, t:any) => acc + (Number(t.amount) || 0), 0);
@@ -212,7 +234,7 @@ export default function Reports() {
       const pemutihanTransactions = allTxs.filter((t:any) => t.category === 'Pemutihan Hutang' && new Date(t.date) <= reportDateEnd);
       const totalPemutihanGain = pemutihanTransactions.reduce((sum: number, t:any) => sum + (Number(t.amount) || 0), 0);
 
-      // ================= TABEL-TABEL ASET MASA LALU =================
+      // ================= TABEL-TABEL ASET =================
       const forexRows = Array.from(new Set(allForexAssets.map((f:any) => f.currency))).map((curr: any) => {
           const relatedFx = allForexAssets.find((f:any) => f.currency === curr);
           let firstDate = relatedFx ? new Date(relatedFx.createdAt||Date.now()).getTime() : Date.now();
@@ -282,18 +304,30 @@ export default function Reports() {
           return [isHutang ? 'HUTANG' : 'PIUTANG', name.split('|')[0], actualCurr, liveAmt, relatedDebts[0].dueDate];
       }).filter(Boolean);
 
+      // 🚀 TABEL SALDO TERTAHAN
+      const retainedRows = allRetained.map((r: any) => {
+           const rDate = new Date(r.createdAt || Date.now());
+           if (rDate > reportDateEnd) return null;
+           const rate = r.currency === 'IDR' ? 1 : getRate(r.currency);
+           let liveAmtIdr = r.amount * rate;
+           allTxs.filter((t:any) => new Date(t.date) > reportDateEnd && t.category === 'Pencairan Saldo' && (t.description||'').includes(r.source)).forEach((t:any) => {
+                  liveAmtIdr += (Number(t.amount) || 0);
+           });
+           if (liveAmtIdr <= 0) return null;
+           return [r.source, r.currency !== 'IDR' ? `${r.currency} (≈ ${formatRp(liveAmtIdr)})` : formatRp(liveAmtIdr), rDate.toLocaleDateString('id-ID')];
+      }).filter(Boolean);
+
       const amalRows = thisPeriodTxs.filter((t:any) => t.category === 'Amal').map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), "Kebaikan", t.description || "Amal / Sedekah", t.amount ]);
       const txRows = thisPeriodTxs.filter((t:any) => t.category !== 'Amal' && !t.category.includes('Invest')).map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), (['income', 'debt_receive', 'debt_borrow'].includes(t.type)) ? 'Masuk' : 'Keluar', t.category || "-", t.description || "-", t.amount ]);
       const invTxRows = thisPeriodTxs.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), t.type === 'invest_buy' ? 'Beli Aset' : 'Jual Aset', t.description, t.amount ]);
 
       return {
-          archiveCash: archiveSnap.cash, archiveInvest: archiveSnap.invest, archiveForex: archiveSnap.forex, archivePiutang: archiveSnap.piutang, archiveDebt: archiveSnap.debt, archiveNetWorth: archiveSnap.netWorth,
+          archiveCash: archiveSnap.cash, archiveInvest: archiveSnap.invest, archiveForex: archiveSnap.forex, archivePiutang: archiveSnap.piutang, archiveDebt: archiveSnap.debt, archiveRetained: archiveSnap.retained, archiveNetWorth: archiveSnap.netWorth,
           totalIncome, totalExpense, totalWriteOffLoss, totalPemutihanGain,
-          forexRows, invRows, debtRows, amalRows, txRows, invTxRows
+          forexRows, invRows, debtRows, retainedRows, amalRows, txRows, invTxRows
       };
   };
 
-  // 🚀 MESIN PENCETAK OTOMATIS (AUTO-ARCHIVER)
   const runAutoArchiver = (dbData: any, email: string) => {
       let firstDate = new Date();
       if (dbData.user && dbData.user.createdAt) firstDate = new Date(dbData.user.createdAt);
@@ -469,9 +503,6 @@ export default function Reports() {
                 snapData = generateFrozenData(nowForReport.getMonth(), safeTargetYear, isYearly, data);
             }
 
-            // ====================================================================================
-            // 🚀 MENGUMPULKAN DATA GRAFIK DARI ARSIP BEKU (AGAR 100% SINKRON)
-            // ====================================================================================
             let appStartDate = new Date();
             if (user.createdAt) appStartDate = new Date(user.createdAt);
             else if (data.transactions && data.transactions.length > 0) appStartDate = new Date(Math.min(...data.transactions.map((t:any) => new Date(t.date).getTime())));
@@ -489,15 +520,12 @@ export default function Reports() {
                 const frozenStr = localStorage.getItem(pastArchiveKey);
                 
                 if (frozenStr) {
-                    // JIKA ADA ARSIP BEKU, TARIK ANGKA MUTLAKNYA (100% SINKRON)
                     const frozen = JSON.parse(frozenStr);
                     const netFlow = (frozen.totalIncome || 0) - (frozen.totalExpense || 0);
                     if (iterDate <= nowGraph) {
                         paddedData.unshift({ label, netFlow: netFlow, cash: frozen.archiveCash, asset: frozen.archiveNetWorth });
                     }
                 } else {
-                    // JIKA BULAN BERJALAN ATAU BELUM DIBEKUKAN, HITUNG LIVE!
-                    const endOfMonth = new Date(yIdx, mIdx + 1, 0, 23, 59, 59);
                     const liveSnap = generateFrozenData(mIdx, yIdx, false, data);
                     if (iterDate <= nowGraph) {
                         paddedData.unshift({ label, netFlow: (liveSnap.totalIncome - liveSnap.totalExpense), cash: liveSnap.archiveCash, asset: liveSnap.archiveNetWorth });
@@ -566,12 +594,20 @@ export default function Reports() {
                 ["Saldo Tunai Kas", formatRp(snapData.archiveCash)],
                 ["Aset Investasi (Saham, Crypto, Emas, dll)", formatRp(snapData.archiveInvest)],
                 ["Aset Mata Uang Asing (Valas)", formatRp(snapData.archiveForex)],
+                ["Saldo Tertahan (Platform Pihak Ketiga)", formatRp(snapData.archiveRetained)], // 🚀 SALDO TERTAHAN PDF
                 ["Piutang Aktif (Uang di Pihak Lain)", formatRp(snapData.archivePiutang)],
                 ["Hutang (Kewajiban)", `(${formatRp(snapData.archiveDebt)})`]
               ],
               theme: 'grid', headStyles: { fillColor: [79, 70, 229], fontSize: 10 }, columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }, alternateRowStyles: { fillColor: [248, 250, 252] },
             });
             currentY = (doc as any).lastAutoTable.finalY + 15;
+
+            // 🚀 TABEL DAFTAR SALDO TERTAHAN PDF
+            if (snapData.retainedRows && snapData.retainedRows.length > 0) {
+                checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Daftar Saldo Tertahan (Belum Cair)", 14, currentY);
+                autoTable(doc, { startY: currentY + 5, head: [['Sumber Platform', 'Estimasi Nilai', 'Tercatat Sejak']], body: snapData.retainedRows, theme: 'grid', headStyles: { fillColor: [245, 158, 11] }, columnStyles: { 0: { fontStyle: 'bold' }, 1: { halign: 'right', fontStyle: 'bold' }, 2: { halign: 'center' } } });
+                currentY = (doc as any).lastAutoTable.finalY + 15;
+            }
 
             if (snapData.forexRows && snapData.forexRows.length > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Detail Kepemilikan Valas (Berdasarkan Kurs Live)", 14, currentY);
@@ -638,7 +674,6 @@ export default function Reports() {
                 graphY += 35;
             }
 
-            // 🚀 MENGEMBALIKAN FITUR OVERRIDE/CHEAT SESUAI KODE ASLI 
             const chartAsset = paddedData.map((d:any) => {
                 const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, ''); 
                 const override = localStorage.getItem(`override_asset_${cleanLabel}`);
@@ -736,7 +771,13 @@ export default function Reports() {
             <div className="space-y-3">
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
                     <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform"><Wallet className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan Terpadu</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap total Kas, Investasi, Valas, dan Hutang/Piutang.</p></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan Terpadu</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap total Kas, Investasi, Tertahan, Valas, dan Hutang/Piutang.</p></div>
+                </div>
+
+                {/* 🚀 INDIKATOR SALDO TERTAHAN */}
+                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform"><Hourglass className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Detail Saldo Tertahan</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Daftar uang mengendap (AdSense, Upwork, dll) beserta nominal live-nya.</p></div>
                 </div>
 
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
