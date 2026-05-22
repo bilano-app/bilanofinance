@@ -12,10 +12,11 @@ import { useUser } from "./hooks/use-finance";
 // =========================================================================
 queryClient.setDefaultOptions({
   queries: {
-    refetchOnWindowFocus: false, 
-    refetchOnMount: false,
-    refetchOnReconnect: false, 
-    staleTime: 1000 * 60 * 60, 
+    refetchOnWindowFocus: true, // Biarkan refresh saat user bolak-balik aplikasi
+    refetchOnMount: true,       // WAJIB TRUE agar setelah login data ditarik ulang!
+    refetchOnReconnect: true,
+    staleTime: 1000 * 60 * 5,   // Cukup 5 menit, jangan 1 jam!
+    retry: 1                    // Jangan retry terlalu lama kalau server memang error
   },
 });
 

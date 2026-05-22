@@ -17,8 +17,7 @@ import {
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
-import OneSignal from 'react-onesignal'; 
+// 🚀 PERBAIKAN: react-onesignal dihapus agar tidak bentrok dengan index.html
 
 const FINANCIAL_TIPS = [
     "Bunga majemuk (Compound Interest) adalah keajaiban dunia kedelapan. - Albert Einstein",
@@ -366,10 +365,15 @@ export default function Home() {
               ]).catch(() => {});
           }
 
-          // 3. Pancing OneSignal (Jika ada)
+          // 3. 🚀 PERBAIKAN: Pancing OneSignal memanggil API dari window.OneSignalDeferred
           try { 
-              await Promise.race([OneSignal.Slidedown.promptPush(), timeout]); 
-          } catch(e) {}
+              (window as any).OneSignalDeferred = (window as any).OneSignalDeferred || [];
+              (window as any).OneSignalDeferred.push(function(OneSignal: any) {
+                  OneSignal.Slidedown.promptPush();
+              });
+          } catch(e) {
+              console.error("Gagal pancing OneSignal:", e);
+          }
 
       } catch (e) {
           console.warn("Proses perizinan di-bypass karena terlalu lama.");
@@ -482,7 +486,10 @@ export default function Home() {
   const income = baseIncomeTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'income').reduce((acc, v) => acc + v.amount, 0);
   const expense = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'expense').reduce((acc, v) => acc + v.amount, 0);
   
-  if (isAnyDataLoading || (!user && !isUserLoading) || isTargetEmpty || needsPaywallRedirect) {
+  // 🚀 PERBAIKAN: Pemisahan Logika Loading Trap agar tidak tersangkut di satu layar abadi
+  
+  // 1. Tampilkan Loading murni HANYA jika data benar-benar sedang ditarik
+  if (isAnyDataLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 relative">
               <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
@@ -507,6 +514,42 @@ export default function Home() {
                       </Button>
                   </div>
               )}
+          </div>
+      );
+  }
+
+  // 2. 🛡️ ANTI NYANGKUT: Jika loading selesai tapi USER KOSONG (Sesi Error/Putus)
+  if (!user && !isUserLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 text-center relative z-[999]">
+              <AlertTriangle className="w-16 h-16 text-rose-500 mb-4 animate-bounce" />
+              <h2 className="text-xl font-extrabold text-slate-800 mb-2">Sesi Terputus</h2>
+              <p className="text-sm text-slate-500 mb-8 max-w-xs">Terjadi kendala saat memuat profil Anda dari server. Silakan masuk ulang.</p>
+              <Button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full h-14 px-8 shadow-lg">
+                  LOGOUT & COBA LAGI
+              </Button>
+          </div>
+      );
+  }
+
+  // 3. Jika pengguna baru dan belum punya target
+  if (isTargetEmpty) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
+              <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
+              <h2 className="text-lg font-bold text-slate-800">Mengarahkan...</h2>
+              <p className="text-sm text-slate-500 text-center">Membuka pengaturan profil finansial pertama Anda.</p>
+          </div>
+      );
+  }
+
+  // 4. Jika butuh redirect ke paywall
+  if (needsPaywallRedirect) {
+       return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
+              <Loader2 className="w-10 h-10 animate-spin text-indigo-500 mb-4" />
+              <h2 className="text-lg font-bold text-slate-800">Tunggu Sebentar...</h2>
+              <p className="text-sm text-slate-500 text-center">Menyiapkan penawaran eksklusif BILANO untuk Anda.</p>
           </div>
       );
   }
@@ -945,10 +988,7 @@ export default function Home() {
                 <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
                         <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-emerald-500" label="Amal" />
-                        
-                        {/* 🚀 KUNCI PERBAIKAN: TOMBOL SALDO TERTAHAN DITAMBAHKAN DI SINI */}
                         <MenuIconBox href="/retained" icon={Hourglass} bg="bg-amber-500" label="Tertahan" />
-                        
                         <MenuIconBox 
                             onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} 
                             icon={CreditCard} bg="bg-slate-800" label="Cicilan" badge="SEGERA" 
