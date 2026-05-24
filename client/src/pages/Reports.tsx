@@ -63,7 +63,7 @@ export default function Reports() {
         if (resData.ok) {
             const dbData = await resData.json();
             setData(dbData);
-            runAutoArchiver(dbData, userEmail); // 🔥 Jalankan Mesin Pembeku Arsip
+            runAutoArchiver(dbData, userEmail); 
         }
         if (resRates.ok) setForexRates(await resRates.json());
         if (resTarget.ok) setTargetData(await resTarget.json());
@@ -73,15 +73,13 @@ export default function Reports() {
     fetchData();
   }, []);
 
-  // =======================================================================================
-  // 🚀 ENGINE PEMBEKU DATA (FROZEN GENERATOR) - 100% SINKRON DENGAN PERFORMANCE.TSX
-  // =======================================================================================
   const generateFrozenData = (targetMonth: number, targetYear: number, isYearly: boolean, dbData: any) => {
       const user = dbData.user || {};
       const allTxs = dbData.transactions || [];
       const allInvestments = dbData.investments || [];
       const allDebts = dbData.debts || [];
       const allForexAssets = dbData.forexAssets || [];
+      const allRetained = dbData.retained || []; 
 
       let appStartDate = new Date();
       if (user.createdAt) appStartDate = new Date(user.createdAt);
@@ -102,7 +100,6 @@ export default function Reports() {
             ? new Date(safeTargetYear, 11, 31, 23, 59, 59) 
             : new Date(safeTargetYear, targetMonth + 1, 0, 23, 59, 59);
 
-      // 🚀 THE PURE ROLLBACK ALGORITHM (SINKRON 100% DENGAN LOGIKA APLIKASI)
       const getSnapshotAt = (targetDate: Date) => {
           let snapCash = liveCash; 
           allTxs.filter((t:any) => new Date(t.date) > targetDate).forEach((t:any) => {
@@ -201,7 +198,6 @@ export default function Reports() {
       
       const thisPeriodTxs = allTxs.filter((t:any) => isTargetInPeriod(new Date(t.date)));
 
-      // MURNI ARUS KAS: Menyertakan pelunasan sesuai instruksi eksplisit untuk Bar Chart PDF
       const pureTransactions = thisPeriodTxs.filter((t:any) => !['Penyesuaian Sistem', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas'].includes(t.category) && ['income', 'expense', 'debt_receive', 'debt_pay', 'debt_borrow', 'debt_lend'].includes(t.type));
       
       const totalIncome = pureTransactions.filter((t:any) => ['income', 'debt_receive', 'debt_borrow'].includes(t.type)).reduce((acc:number, t:any) => acc + (Number(t.amount) || 0), 0);
@@ -212,7 +208,12 @@ export default function Reports() {
       const pemutihanTransactions = allTxs.filter((t:any) => t.category === 'Pemutihan Hutang' && new Date(t.date) <= reportDateEnd);
       const totalPemutihanGain = pemutihanTransactions.reduce((sum: number, t:any) => sum + (Number(t.amount) || 0), 0);
 
-      // ================= TABEL-TABEL ASET MASA LALU =================
+      // SALDO TERTAHAN 
+      const snapRetained = allRetained.reduce((acc: number, r:any) => {
+          const rate = r.currency === 'IDR' ? 1 : getRate(r.currency);
+          return acc + (r.amount * rate);
+      }, 0);
+
       const forexRows = Array.from(new Set(allForexAssets.map((f:any) => f.currency))).map((curr: any) => {
           const relatedFx = allForexAssets.find((f:any) => f.currency === curr);
           let firstDate = relatedFx ? new Date(relatedFx.createdAt||Date.now()).getTime() : Date.now();
@@ -287,13 +288,12 @@ export default function Reports() {
       const invTxRows = thisPeriodTxs.filter((t:any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), t.type === 'invest_buy' ? 'Beli Aset' : 'Jual Aset', t.description, t.amount ]);
 
       return {
-          archiveCash: archiveSnap.cash, archiveInvest: archiveSnap.invest, archiveForex: archiveSnap.forex, archivePiutang: archiveSnap.piutang, archiveDebt: archiveSnap.debt, archiveNetWorth: archiveSnap.netWorth,
+          archiveCash: archiveSnap.cash, archiveInvest: archiveSnap.invest, archiveForex: archiveSnap.forex, archivePiutang: archiveSnap.piutang, archiveDebt: archiveSnap.debt, archiveRetained: snapRetained, archiveNetWorth: archiveSnap.netWorth + snapRetained,
           totalIncome, totalExpense, totalWriteOffLoss, totalPemutihanGain,
           forexRows, invRows, debtRows, amalRows, txRows, invTxRows
       };
   };
 
-  // 🚀 MESIN PENCETAK OTOMATIS (AUTO-ARCHIVER)
   const runAutoArchiver = (dbData: any, email: string) => {
       let firstDate = new Date();
       if (dbData.user && dbData.user.createdAt) firstDate = new Date(dbData.user.createdAt);
@@ -309,7 +309,6 @@ export default function Reports() {
           const archiveKey = `bilano_frozen_report_${email}_M_${m}_${y}`;
           
           if (!localStorage.getItem(archiveKey)) {
-              console.log(`[Auto-Archive] Membekukan Laporan Bulan ${m+1}/${y}...`);
               const frozenData = generateFrozenData(m, y, false, dbData);
               localStorage.setItem(archiveKey, JSON.stringify(frozenData));
           }
@@ -319,7 +318,6 @@ export default function Reports() {
       for (let y = firstDate.getFullYear(); y < now.getFullYear(); y++) {
           const archiveKey = `bilano_frozen_report_${email}_Y_${11}_${y}`;
           if (!localStorage.getItem(archiveKey)) {
-              console.log(`[Auto-Archive] Membekukan Laporan Tahun ${y}...`);
               const frozenData = generateFrozenData(11, y, true, dbData);
               localStorage.setItem(archiveKey, JSON.stringify(frozenData));
           }
@@ -469,9 +467,6 @@ export default function Reports() {
                 snapData = generateFrozenData(nowForReport.getMonth(), safeTargetYear, isYearly, data);
             }
 
-            // ====================================================================================
-            // 🚀 MENGUMPULKAN DATA GRAFIK DARI ARSIP BEKU (AGAR 100% SINKRON)
-            // ====================================================================================
             let appStartDate = new Date();
             if (user.createdAt) appStartDate = new Date(user.createdAt);
             else if (data.transactions && data.transactions.length > 0) appStartDate = new Date(Math.min(...data.transactions.map((t:any) => new Date(t.date).getTime())));
@@ -489,14 +484,12 @@ export default function Reports() {
                 const frozenStr = localStorage.getItem(pastArchiveKey);
                 
                 if (frozenStr) {
-                    // JIKA ADA ARSIP BEKU, TARIK ANGKA MUTLAKNYA (100% SINKRON)
                     const frozen = JSON.parse(frozenStr);
                     const netFlow = (frozen.totalIncome || 0) - (frozen.totalExpense || 0);
                     if (iterDate <= nowGraph) {
                         paddedData.unshift({ label, netFlow: netFlow, cash: frozen.archiveCash, asset: frozen.archiveNetWorth });
                     }
                 } else {
-                    // JIKA BULAN BERJALAN ATAU BELUM DIBEKUKAN, HITUNG LIVE!
                     const endOfMonth = new Date(yIdx, mIdx + 1, 0, 23, 59, 59);
                     const liveSnap = generateFrozenData(mIdx, yIdx, false, data);
                     if (iterDate <= nowGraph) {
@@ -566,6 +559,7 @@ export default function Reports() {
                 ["Saldo Tunai Kas", formatRp(snapData.archiveCash)],
                 ["Aset Investasi (Saham, Crypto, Emas, dll)", formatRp(snapData.archiveInvest)],
                 ["Aset Mata Uang Asing (Valas)", formatRp(snapData.archiveForex)],
+                ["Saldo Tertahan (Platform Eksternal)", formatRp(snapData.archiveRetained)],
                 ["Piutang Aktif (Uang di Pihak Lain)", formatRp(snapData.archivePiutang)],
                 ["Hutang (Kewajiban)", `(${formatRp(snapData.archiveDebt)})`]
               ],
@@ -638,7 +632,6 @@ export default function Reports() {
                 graphY += 35;
             }
 
-            // 🚀 MENGEMBALIKAN FITUR OVERRIDE/CHEAT SESUAI KODE ASLI 
             const chartAsset = paddedData.map((d:any) => {
                 const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, ''); 
                 const override = localStorage.getItem(`override_asset_${cleanLabel}`);
@@ -736,7 +729,7 @@ export default function Reports() {
             <div className="space-y-3">
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
                     <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform"><Wallet className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan Terpadu</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap total Kas, Investasi, Valas, dan Hutang/Piutang.</p></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan Terpadu</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap total Kas, Investasi, Valas, Saldo Tertahan dan Hutang/Piutang.</p></div>
                 </div>
 
                 <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">

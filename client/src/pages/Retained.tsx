@@ -101,8 +101,24 @@ export default function Retained() {
         }
     };
 
-    const formatNumber = (val: string) => val.replace(/[^0-9.,]/g, '');
-    const parseNumber = (val: string) => parseFloat(val.replace(/,/g, '.')) || 0;
+    // 🚀 PERBAIKAN PEMBACAAN INPUT UANG ALAMAT INDONESIA
+    const formatNumber = (val: string) => {
+        let cleaned = val.replace(/[^0-9.,]/g, '');
+        // Cegah pengguna memasukkan koma lebih dari satu
+        const parts = cleaned.split(',');
+        if (parts.length > 2) {
+            cleaned = parts[0] + ',' + parts.slice(1).join('');
+        }
+        return cleaned;
+    };
+    
+    const parseNumber = (val: string) => {
+        if (!val) return 0;
+        // Hapus titik ribuan, ubah koma menjadi titik desimal standar
+        const clean = val.replace(/\./g, '').replace(/,/g, '.');
+        return parseFloat(clean) || 0;
+    };
+
     const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
     const getRate = (curr: string) => curr === 'IDR' ? 1 : (safeForexRates[curr] || 15000);
 
@@ -265,7 +281,7 @@ export default function Retained() {
                                             </div>
                                         </div>
                                         <div className="flex gap-2 pt-3 border-t border-slate-50">
-                                            <button onClick={() => { setShowEditModal(item); setTempAmount(item.amount.toString()); }} className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1">
+                                            <button onClick={() => { setShowEditModal(item); setTempAmount(item.amount.toString().replace('.', ',')); }} className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1">
                                                 <Edit2 className="w-3 h-3"/> UPDATE
                                             </button>
                                             <button onClick={() => { setShowWithdrawModal(item); setTempAmount(""); }} className="flex-1 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1">
@@ -282,7 +298,6 @@ export default function Retained() {
                     </div>
                 </div>
 
-                {/* MODAL MODAL EDIT / TAMBAH / CAIRKAN TETAP SAMA SEPERTI SEBELUMNYA */}
                 {showAddModal && (
                     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
                         <div className="bg-white rounded-[24px] p-6 w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 border-t-8 border-amber-500">

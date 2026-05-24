@@ -30,17 +30,26 @@ const createTransporter = () => {
     return nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: cleanPassword } });
 };
 
-// 🚀 MESIN PENYEMBUH TABEL OTP (AUTO-HEALER)
+// 🚀 MESIN PENYEMBUH TABEL OTP & RETAINED
 const ensureOtpTable = async () => {
     try {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
-        // Tes apakah kolom 'code' benar-benar ada
         await db.execute(sql`SELECT code FROM otp_sessions LIMIT 1`);
     } catch (e) {
-        // Jika error (kolom code tidak ada), hancurkan tabel lama dan buat yang baru!
         console.log("Mendeteksi tabel OTP yang cacat. Menghancurkan dan membuat ulang...");
         await db.execute(sql`DROP TABLE IF EXISTS otp_sessions`);
         await db.execute(sql`CREATE TABLE otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
+    }
+};
+
+const ensureRetainedTable = async () => {
+    try {
+        await db.execute(sql`CREATE TABLE IF NOT EXISTS retained_balances (id SERIAL PRIMARY KEY, user_id INTEGER, source VARCHAR(255), amount DOUBLE PRECISION, currency VARCHAR(10), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW());`);
+        await db.execute(sql`SELECT source FROM retained_balances LIMIT 1`);
+    } catch (e) {
+        console.log("Mendeteksi tabel retained yang cacat. Menghancurkan dan membuat ulang...");
+        await db.execute(sql`DROP TABLE IF EXISTS retained_balances`);
+        await db.execute(sql`CREATE TABLE retained_balances (id SERIAL PRIMARY KEY, user_id INTEGER, source VARCHAR(255), amount DOUBLE PRECISION, currency VARCHAR(10), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW());`);
     }
 };
 
@@ -100,6 +109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (id VARCHAR(255) PRIMARY KEY, user_id INTEGER, email TEXT, name TEXT, subject TEXT, message TEXT, status TEXT, date TIMESTAMP DEFAULT NOW());`);
           
           await ensureOtpTable();
+          await ensureRetainedTable();
 
           await db.execute(sql`ALTER TABLE debts ALTER COLUMN amount TYPE DOUBLE PRECISION;`);
           await db.execute(sql`ALTER TABLE forex_assets ALTER COLUMN amount TYPE DOUBLE PRECISION;`);
@@ -344,11 +354,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal menyimpan ID OneSignal" }); }
   });
 
-  // 🚀 FITUR BARU: Broadcast Notifikasi OneSignal (Bisa dipanggil via Cron Job Vercel)
   app.post("/api/cron/notifications", async (req, res) => {
       try {
           const restKey = process.env.ONESIGNAL_REST_KEY;
-          const appId = process.env.ONESIGNAL_APP_ID; // Pastikan ini juga diset di Vercel Settings!
+          const appId = process.env.ONESIGNAL_APP_ID; 
 
           if (!restKey || !appId) return res.status(400).json({ error: "ONESIGNAL_REST_KEY atau ONESIGNAL_APP_ID tidak ditemukan di environment Vercel." });
 
@@ -365,18 +374,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               headings: { en: "BILANO Finance", id: "BILANO Finance" },
               contents: { en: randomMsg, id: randomMsg },
               url: "https://bilano.app/dashboard",
-              // 🚀 TAMBAHKAN BARIS DI BAWAH INI UNTUK LOGO MANDIRI
-              chrome_web_icon: "https://bilano.app/BILANO-ICON.png", // Icon utama (besar)
-              chrome_web_badge: "https://bilano.app/BILANO-ICON.png", // Icon kecil di status bar atas
+              chrome_web_icon: "https://bilano.app/BILANO-ICON.png",
+              chrome_web_badge: "https://bilano.app/BILANO-ICON.png", 
               firefox_icon: "https://bilano.app/BILANO-ICON.png"
           };
 
           const response = await fetch("https://onesignal.com/api/v1/notifications", {
               method: "POST",
-              headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Basic ${restKey}`
-              },
+              headers: { "Content-Type": "application/json", "Authorization": `Basic ${restKey}` },
               body: JSON.stringify(payload)
           });
 
@@ -451,6 +456,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ reply });
   });
 
+  // ==============================================
+  // 🚀 FITUR SALDO TERTAHAN (RETAINED BALANCES)
+  // ==============================================
+  app.get("/api/retained", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          await ensureRetainedTable();
+          const result = await db.execute(sql`SELECT * FROM retained_balances WHERE user_id = ${user!.id} ORDER BY updated_at DESC`);
+          const rows = Array.isArray(result) ? result : (result as any).rows || [];
+          res.json(rows.map((r:any) => ({ id: r.id, userId: r.user_id, source: r.source, amount: r.amount, currency: r.currency, createdAt: r.created_at, updatedAt: r.updated_at })));
+      } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/retained", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          const { source, amount, currency } = req.body;
+          await ensureRetainedTable();
+          await db.execute(sql`INSERT INTO retained_balances (user_id, source, amount, currency, created_at, updated_at) VALUES (${user!.id}, ${source}, ${amount}, ${currency}, NOW(), NOW())`);
+          res.json({ success: true });
+      } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.put("/api/retained/:id", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          const { amount } = req.body;
+          await db.execute(sql`UPDATE retained_balances SET amount = ${amount}, updated_at = NOW() WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
+          res.json({ success: true });
+      } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete("/api/retained/:id", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          await db.execute(sql`DELETE FROM retained_balances WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
+          res.json({ success: true });
+      } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/retained/:id/withdraw", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          const { amount } = req.body;
+          const result = await db.execute(sql`SELECT * FROM retained_balances WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
+          const rows = Array.isArray(result) ? result : (result as any).rows || [];
+          if (rows.length === 0) return res.status(404).json({ error: "Data tidak ditemukan" });
+          
+          const retained = rows[0];
+          if (amount > retained.amount) return res.status(400).json({ error: "Jumlah melebihi saldo" });
+
+          const newAmount = retained.amount - amount;
+          await db.execute(sql`UPDATE retained_balances SET amount = ${newAmount}, updated_at = NOW() WHERE id = ${req.params.id}`);
+
+          const now = Date.now();
+          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
+          const rate = retained.currency === 'IDR' ? 1 : (cachedRates[retained.currency] || 15000);
+          const amountIDR = Math.round(amount * rate);
+
+          const newBalance = Math.round(user!.cashBalance) + amountIDR;
+          await storage.updateUserBalance(user!.id, newBalance);
+
+          await storage.createTransaction(user!.id, { 
+              userId: user!.id, 
+              type: 'income', 
+              amount: amountIDR, 
+              category: 'Pencairan Dana', 
+              description: `Pencairan dari ${retained.source} (${amount} ${retained.currency})`, 
+              date: new Date() 
+          } as any);
+
+          res.json({ success: true, newBalance });
+      } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  // ==============================================
+
   app.get("/api/transactions", async (req, res) => { const user = await getUser(req); res.json(await storage.getTransactions(user!.id)); });
   
   app.post("/api/transactions", async (req, res) => { 
@@ -491,6 +572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`DELETE FROM categories WHERE user_id = ${user.id}`);
           await db.execute(sql`DELETE FROM forex_assets WHERE user_id = ${user.id}`);
           await db.execute(sql`DELETE FROM help_tickets WHERE user_id = ${user.id}`);
+          await db.execute(sql`DELETE FROM retained_balances WHERE user_id = ${user.id}`);
           await db.execute(sql`DELETE FROM users WHERE id = ${user.id}`);
           res.json({ success: true, message: "Seluruh data akun berhasil dimusnahkan." });
       } catch (error) { res.status(500).json({ error: "Gagal memusnahkan data akun." }); }
@@ -886,10 +968,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menjual aset." }); }
   });
 
+  // 🚀 UPDATE REPORTS DATA (Menyertakan retained_balances)
   app.get("/api/reports/data", async (req, res) => { 
       const user = await getUser(req); 
       const [tx, inv, debt, fx, sub] = await Promise.all([ storage.getTransactions(user!.id), storage.getInvestments(user!.id), storage.getDebts(user!.id), storage.getForexAssets(user!.id), storage.getSubscriptions(user!.id) ]); 
-      res.json({ user, transactions: tx, investments: inv, debts: debt, forexAssets: fx, subscriptions: sub }); 
+      
+      await ensureRetainedTable();
+      const retRes = await db.execute(sql`SELECT * FROM retained_balances WHERE user_id = ${user!.id}`);
+      const retRows = Array.isArray(retRes) ? retRes : (retRes as any).rows || [];
+      const retained = retRows.map((r:any) => ({ id: r.id, source: r.source, amount: r.amount, currency: r.currency }));
+
+      res.json({ user, transactions: tx, investments: inv, debts: debt, forexAssets: fx, subscriptions: sub, retained }); 
   });
   
   app.get("/api/categories", async (req, res) => { const user = await getUser(req); res.json(await storage.getCategories(user!.id)); });

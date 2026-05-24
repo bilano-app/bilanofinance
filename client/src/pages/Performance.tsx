@@ -61,14 +61,22 @@ export default function Performance() {
       enabled: !!currentUserEmail
   });
 
+  // 🚀 FETCH SALDO TERTAHAN
+  const { data: retainedData = [], isLoading: isRetainedLoading } = useQuery({
+      queryKey: ['retained', currentUserEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/retained`, { headers: { "x-user-email": currentUserEmail } });
+          return res.json();
+      },
+      enabled: !!currentUserEmail
+  });
+
   const isPro = user?.isPro || localStorage.getItem("bilano_pro") === "true";
   
-  // 🚀 KUNCI PERBAIKAN: Menghitung umur akun untuk masa trial 3 hari
   const startTime = new Date(user?.createdAt || Date.now()).getTime();
   const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
   const isTrialExpired = daysPassed >= 3;
 
-  // Hanya Kunci jika BUKAN PRO dan MASA TRIAL SUDAH HABIS
   const locked = !isUserLoading && !isPro && isTrialExpired;
 
   const handleLanjutBayar = async () => {
@@ -110,7 +118,7 @@ export default function Performance() {
       finally { setIsDeletingTx(false); }
   };
 
-  if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading || isRatesLoading || isForexLoading || isDebtsLoading) {
+  if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading || isRatesLoading || isForexLoading || isDebtsLoading || isRetainedLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
               <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
@@ -220,6 +228,13 @@ export default function Performance() {
       return acc + (inv.quantity * inv.avgPrice * m * rate);
   }, 0) : 0;
 
+  // 🚀 HITUNGAN SALDO TERTAHAN
+  const retainedReal = Array.isArray(retainedData) ? retainedData.reduce((acc: number, r: any) => {
+      const curr = r.currency;
+      const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 15000);
+      return acc + (r.amount * rate);
+  }, 0) : 0;
+
   let piutangReal = 0;
   let hutangReal = 0;
   
@@ -234,7 +249,7 @@ export default function Performance() {
       });
   }
 
-  const currentWealth = cashReal + investmentReal + forexValue + piutangReal - hutangReal;
+  const currentWealth = cashReal + investmentReal + forexValue + retainedReal + piutangReal - hutangReal;
   const allTimeTx = Array.isArray(transactions) ? transactions : [];
   
   let totalCuanJual = 0;
@@ -254,7 +269,7 @@ export default function Performance() {
   });
 
   const roiPercentage = totalModalTerpakai > 0 ? (totalCuanJual / totalModalTerpakai) * 100 : 0;
-  const assetAlocationRatio = currentWealth > 0 ? ((investmentReal + forexValue) / currentWealth) * 100 : 0;
+  const assetAlocationRatio = currentWealth > 0 ? ((investmentReal + forexValue + retainedReal) / currentWealth) * 100 : 0;
 
   let targetIncomeMonth = 0;
   let savingRequired = 0;
@@ -433,6 +448,12 @@ export default function Performance() {
                 <div className="flex flex-wrap gap-2 mt-4 text-[10px] font-bold">
                     <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Tunai: {formatRp(cashReal)}</span>
                     <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Aset: {formatRp(investmentReal + forexValue)}</span>
+                    
+                    {retainedReal > 0 && (
+                        <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-amber-200">
+                            Tertahan: {formatRp(retainedReal)}
+                        </span>
+                    )}
                     
                     {piutangReal > 0 && (
                         <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-emerald-200">
