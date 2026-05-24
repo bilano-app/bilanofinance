@@ -85,8 +85,9 @@ export default function Home() {
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   
-  // 🚀 PERBAIKAN: Hanya mengambil status keaslian PRO langsung dari Database, bukan LocalStorage semata
-  const isUserPro = user?.isPro || false; 
+  // 🚀 PERBAIKAN: Hanya validasi status murni dari Database (user.isPro). 
+  // Paksaan via localStorage("bilano_pro") telah dihapus agar akurat.
+  const isUserPro = user?.isPro === true; 
   
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
@@ -226,7 +227,7 @@ export default function Home() {
       setActiveMenuPage(pageIndex);
   };
 
-  // 🚀 PERBAIKAN POPUP: Hanya muncul setelah webhook menyatakan akun sudah Pro
+  // 🚀 PERBAIKAN: Popup hanya akan muncul jika isUserPro divalidasi TRUE dari Database
   useEffect(() => {
       if (isUserPro && rawEmail) {
           const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;

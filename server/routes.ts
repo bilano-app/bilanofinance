@@ -30,7 +30,6 @@ const createTransporter = () => {
     return nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: cleanPassword } });
 };
 
-// 🚀 MESIN PENYEMBUH TABEL OTP (AUTO-HEALER)
 const ensureOtpTable = async () => {
     try {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
@@ -456,9 +455,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ reply });
   });
 
-  // ==============================================
-  // 🚀 FITUR SALDO TERTAHAN (RETAINED BALANCES)
-  // ==============================================
   app.get("/api/retained", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -530,7 +526,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.json({ success: true, newBalance });
       } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
-  // ==============================================
 
   app.get("/api/transactions", async (req, res) => { const user = await getUser(req); res.json(await storage.getTransactions(user!.id)); });
   
@@ -1011,7 +1006,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal memperbarui status pengguna." }); }
   });
 
-  // 🚀 PERBAIKAN INTEGRASI MAYAR
+  // 🚀 PERBAIKAN INTEGRASI MAYAR (MENGGUNAKAN ENDPOINT INVOICE YANG LEBIH STABIL & RESMI)
   app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -1024,22 +1019,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const isMonthly = plan === 'monthly';
           const price = isMonthly ? 14900 : 99000;
           const planName = isMonthly ? "BILANO PRO (1 Bulan)" : "BILANO PRO (1 Tahun)";
-          const idProd = isMonthly ? "BILANO-PRO-1M" : "BILANO-PRO-1Y";
 
           const appUrl = req.headers.origin || "https://bilanofinance-dvbi.vercel.app";
 
-          // Format Asli Mayar API (camelCase)
+          // Payload untuk `/hl/v1/invoice/create` (Baku sesuai dokumentasi Mayar)
           const payload = {
-              name: planName,
-              amount: price,
+              name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
+              email: user.email || "member@bilano.app",
+              mobile: "080000000000",
               description: `Berlangganan ${planName}`,
-              customerName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
-              customerEmail: user.email || "member@bilano.app",
-              redirectUrl: `${appUrl}/`, 
-              extraData: { noCustomer: user.id.toString(), idProd: idProd }
+              redirectUrl: `${appUrl}/`,
+              expiredAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+              items: [
+                  {
+                      name: planName,
+                      quantity: 1,
+                      price: price
+                  }
+              ]
           };
 
-          const mayarRes = await fetch("https://api.mayar.id/hl/v1/payment/create", { 
+          const mayarRes = await fetch("https://api.mayar.id/hl/v1/invoice/create", { 
               method: "POST", 
               headers: { 
                   "Content-Type": "application/json", 
@@ -1053,35 +1053,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           try {
               const data = JSON.parse(textData);
-              const redirectUrl = data.data?.link || data.link || (data.data && data.data.url);
+              const redirectUrl = data.data?.link || data.link; // Endpoint Invoice memberikan URL di key "link"
               if (redirectUrl) return res.json({ success: true, redirectUrl });
               else return res.status(400).json({ error: "Mayar sukses tapi link hilang." });
           } catch (parseErr) { return res.status(500).json({ error: "Format Mayar Aneh." }); }
       } catch (error: any) { res.status(500).json({ error: "SERVER CRASH: " + error.message }); }
   });
 
-  // 🚀 WEBHOOK MAYAR PENANGKAP PEMBAYARAN SUKSES
+  // 🚀 WEBHOOK MAYAR PENANGKAP PEMBAYARAN SUKSES & SETTING DURASI (1 Bulan / 1 Tahun)
   app.post("/api/payment/mayar/webhook", async (req, res) => {
       try {
           const payload = req.body || {}; 
           const status = String(payload?.status || payload?.data?.status || "").toUpperCase();
           
-          const customField = payload?.data?.custom_field || payload?.custom_field || payload?.data?.extraData || payload?.extraData || {};
-          const userIdStr = customField.noCustomer;
-          const targetUserId = userIdStr ? parseInt(userIdStr, 10) : null;
-          
-          let purchasedPlan = customField.idProd;
-          if (!purchasedPlan) {
-              const amt = payload?.data?.amount || payload?.amount;
-              purchasedPlan = amt == 99000 ? "BILANO-PRO-1Y" : "BILANO-PRO-1M";
-          }
+          // Membaca Nominal Uang Untuk Menentukan Paket (karena custom_field dihilangkan agar payload lebih bersih)
+          const amt = payload?.data?.amount || payload?.amount;
+          const purchasedPlan = amt == 99000 ? "BILANO-PRO-1Y" : "BILANO-PRO-1M";
           
           const customerEmail = String(payload?.customer_email || payload?.data?.customer_email || payload?.customer?.email || payload?.data?.customer?.email || payload?.email || payload?.data?.email || "");
 
           if (status === 'SUCCESS' || status === 'PAID' || status === 'SETTLED') {
               let targetUser = null;
-              if (targetUserId) targetUser = await storage.getUser(targetUserId);
-              if (!targetUser && customerEmail) {
+              if (customerEmail) {
                   targetUser = await storage.getUserByUsername(customerEmail);
                   if (!targetUser) targetUser = await storage.getUserByUsername(customerEmail.toLowerCase());
               }
