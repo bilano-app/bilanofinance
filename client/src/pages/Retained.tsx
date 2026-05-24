@@ -79,26 +79,25 @@ export default function Retained() {
     }, [isLocked]);
 
     const handleLanjutBayar = async () => {
-        if (!userEmail) { toast({ title: "Email diperlukan", variant: "destructive" }); return; }
-        setIsCharging(true);
-        try {
-            const res = await fetch("/api/payment/mayar/charge", { 
-                method: "POST", 
-                headers: { "Content-Type": "application/json", "x-user-email": userEmail },
-                body: JSON.stringify({ plan: selectedPlan }) 
-            });
-            const data = await res.json();
-            if (res.ok && data.redirectUrl) {
-                localStorage.setItem("bilano_pro", "true");
-                window.location.href = data.redirectUrl; 
-            } else { 
-                toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); 
-            }
-        } catch (error) { 
-            toast({ title: "Error koneksi", variant: "destructive" }); 
-        } finally { 
-            setIsCharging(false); 
-        }
+      if (!currentUserEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
+      setIsCharging(true);
+      try {
+          const res = await fetch("/api/payment/mayar/charge", { 
+              method: "POST", 
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ plan: selectedPlan }) 
+          });
+          const data = await res.json();
+          if (res.ok && data.redirectUrl) {
+              window.location.href = data.redirectUrl; 
+          } else { 
+              toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); 
+          }
+      } catch (error) { 
+          toast({ title: "Error koneksi", variant: "destructive" }); 
+      } finally { 
+          setIsCharging(false); 
+      }
     };
 
     // 🚀 PERBAIKAN PEMBACAAN INPUT UANG ALAMAT INDONESIA

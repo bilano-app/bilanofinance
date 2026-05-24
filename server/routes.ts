@@ -1028,15 +1028,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const appUrl = req.headers.origin || "https://bilanofinance-dvbi.vercel.app";
 
-          // Format baku Mayar API (Menggunakan snake_case)
+          // Format Asli Mayar API (camelCase)
           const payload = {
               name: planName,
               amount: price,
               description: `Berlangganan ${planName}`,
-              customer_name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
-              customer_email: user.email || "member@bilano.app",
-              redirect_url: `${appUrl}/`, 
-              custom_field: { noCustomer: user.id.toString(), idProd: idProd }
+              customerName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
+              customerEmail: user.email || "member@bilano.app",
+              redirectUrl: `${appUrl}/`, 
+              extraData: { noCustomer: user.id.toString(), idProd: idProd }
           };
 
           const mayarRes = await fetch("https://api.mayar.id/hl/v1/payment/create", { 
@@ -1060,7 +1060,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: "SERVER CRASH: " + error.message }); }
   });
 
-  // 🚀 PERBAIKAN WEBHOOK MAYAR & PENYESUAIAN DURASI PAKET
+  // 🚀 WEBHOOK MAYAR PENANGKAP PEMBAYARAN SUKSES
   app.post("/api/payment/mayar/webhook", async (req, res) => {
       try {
           const payload = req.body || {}; 
@@ -1085,6 +1085,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   targetUser = await storage.getUserByUsername(customerEmail);
                   if (!targetUser) targetUser = await storage.getUserByUsername(customerEmail.toLowerCase());
               }
+              
               if (targetUser) {
                   const validUntil = new Date();
                   if (purchasedPlan === "BILANO-PRO-1M") validUntil.setMonth(validUntil.getMonth() + 1);

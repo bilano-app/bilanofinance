@@ -85,8 +85,8 @@ export default function Home() {
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   
-  // 🚀 PERBAIKAN: Gunakan status absolut dari user database, abaikan localstorage sementara di Home.tsx
-  const isUserPro = user?.isPro || false;
+  // 🚀 PERBAIKAN: Hanya mengambil status keaslian PRO langsung dari Database, bukan LocalStorage semata
+  const isUserPro = user?.isPro || false; 
   
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
@@ -226,7 +226,7 @@ export default function Home() {
       setActiveMenuPage(pageIndex);
   };
 
-  // 🚀 PERBAIKAN: Popup Welcome Pro tidak akan salah sasaran lagi
+  // 🚀 PERBAIKAN POPUP: Hanya muncul setelah webhook menyatakan akun sudah Pro
   useEffect(() => {
       if (isUserPro && rawEmail) {
           const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;

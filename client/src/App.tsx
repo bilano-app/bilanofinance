@@ -7,9 +7,12 @@ import { WifiOff, RefreshCw, Lock } from "lucide-react";
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser } from "./hooks/use-finance"; 
 
+// =========================================================================
+// 🚀 KUNCI MEMORI AGAR ANGKA TIDAK BERKEDIP
+// =========================================================================
 queryClient.setDefaultOptions({
   queries: {
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: true, 
     refetchOnMount: true,       
     refetchOnReconnect: true,
     staleTime: 1000 * 60 * 5,   
@@ -17,6 +20,9 @@ queryClient.setDefaultOptions({
   },
 });
 
+// =========================================================================
+// 🛡️ SATPAM API: BLOKIR SEMUA TRANSAKSI JIKA TRIAL HABIS / NON PREMIUM
+// =========================================================================
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : (input as Request).url;
@@ -65,6 +71,7 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
     }
     return originalXhrSend.apply(this, args as any);
 };
+// =========================================================================
 
 import NotFound from "@/pages/not-found";
 import Security from "./pages/Security";
@@ -124,7 +131,7 @@ function Router() {
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
 
-  // 🚀 PERBAIKAN: Sync bilano_pro secara presisi dan hati-hati sesuai Database
+  // 🚀 PERBAIKAN: Sinkronisasi PRO yang sangat ketat (mengandalkan DB, bukan UI)
   useEffect(() => {
       const vipEmails = [
           "adrienfandra14@gmail.com", 
@@ -136,11 +143,11 @@ function Router() {
       if (vipEmails.includes(currentUserEmail) || user?.isPro) {
           localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           localStorage.setItem("bilano_trial_expired", "false");
-          localStorage.setItem("bilano_pro", "true"); 
+          localStorage.setItem("bilano_pro", "true"); // Sinkron hanya karena server bilang true
       } 
       else if (user && !user.isPro) {
-          localStorage.setItem("bilano_pro", "false"); 
-          
+          localStorage.setItem("bilano_pro", "false"); // Netralkan kembali
+
           const startTime = new Date(user.createdAt || "2024-01-01").getTime();
           const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
           const TRIAL_DURATION_DAYS = 3;
