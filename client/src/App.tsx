@@ -7,22 +7,16 @@ import { WifiOff, RefreshCw, Lock } from "lucide-react";
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser } from "./hooks/use-finance"; 
 
-// =========================================================================
-// 🚀 KUNCI MEMORI AGAR ANGKA TIDAK BERKEDIP
-// =========================================================================
 queryClient.setDefaultOptions({
   queries: {
-    refetchOnWindowFocus: true, // Biarkan refresh saat user bolak-balik aplikasi
-    refetchOnMount: true,       // WAJIB TRUE agar setelah login data ditarik ulang!
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,       
     refetchOnReconnect: true,
-    staleTime: 1000 * 60 * 5,   // Cukup 5 menit, jangan 1 jam!
-    retry: 1                    // Jangan retry terlalu lama kalau server memang error
+    staleTime: 1000 * 60 * 5,   
+    retry: 1                    
   },
 });
 
-// =========================================================================
-// 🛡️ SATPAM API: BLOKIR SEMUA TRANSAKSI JIKA TRIAL HABIS / NON PREMIUM
-// =========================================================================
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : (input as Request).url;
@@ -71,7 +65,6 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
     }
     return originalXhrSend.apply(this, args as any);
 };
-// =========================================================================
 
 import NotFound from "@/pages/not-found";
 import Security from "./pages/Security";
@@ -104,8 +97,6 @@ function Router() {
   const [showPaywallAlert, setShowPaywallAlert] = useState(false);
   const [isSessionRefreshing, setIsSessionRefreshing] = useState(false); 
 
-  // 🚀 SOLUSI TANPA UNINSTALL: Kita kembali murni gunakan deteksi OS Android!
-  // Jika dibuka di aplikasi, ini pasti true. Jika di browser, ini pasti false.
   const isStandalone = typeof window !== 'undefined' && 
     (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
 
@@ -133,6 +124,7 @@ function Router() {
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
 
+  // 🚀 PERBAIKAN: Sync bilano_pro secara presisi dan hati-hati sesuai Database
   useEffect(() => {
       const vipEmails = [
           "adrienfandra14@gmail.com", 
@@ -144,8 +136,11 @@ function Router() {
       if (vipEmails.includes(currentUserEmail) || user?.isPro) {
           localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           localStorage.setItem("bilano_trial_expired", "false");
+          localStorage.setItem("bilano_pro", "true"); 
       } 
       else if (user && !user.isPro) {
+          localStorage.setItem("bilano_pro", "false"); 
+          
           const startTime = new Date(user.createdAt || "2024-01-01").getTime();
           const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
           const TRIAL_DURATION_DAYS = 3;
@@ -173,16 +168,12 @@ function Router() {
   useEffect(() => {
     const isAuth = localStorage.getItem("bilano_auth");
     
-    // 🛡️ PERBAIKAN SATPAM:
     if (!isAuth && location !== "/auth") {
       if (isStandalone) {
-        // Jika buka via Ikon Aplikasi di HP -> WAJIB LOGIN
         setLocation("/auth");
       } else if (location !== "/") {
-        // Jika buka via Web dan mencoba akses URL dalam (misal /dashboard) -> WAJIB LOGIN
         setLocation("/auth");
       }
-      // Jika buka via Web di rute "/", biarkan Brosur (Landing Page) terbuka untuk umum.
     }
 
     const handleOffline = () => setIsOffline(true);
@@ -238,7 +229,6 @@ function Router() {
   return (
     <>
       <Switch>
-        {/* 🚀 RUTE DUA WAJAH: Kembali mengandalkan deteksi Standalone murni */}
         <Route path="/">
           {isStandalone ? <Home /> : <Landing />}
         </Route>

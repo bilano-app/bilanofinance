@@ -17,7 +17,6 @@ import {
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
-// 🚀 PERBAIKAN: react-onesignal dihapus agar tidak bentrok dengan index.html
 
 const FINANCIAL_TIPS = [
     "Bunga majemuk (Compound Interest) adalah keajaiban dunia kedelapan. - Albert Einstein",
@@ -85,7 +84,9 @@ export default function Home() {
   const [showRetryButton, setShowRetryButton] = useState(false);
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
+  
+  // 🚀 PERBAIKAN: Gunakan status absolut dari user database, abaikan localstorage sementara di Home.tsx
+  const isUserPro = user?.isPro || false;
   
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
@@ -225,6 +226,7 @@ export default function Home() {
       setActiveMenuPage(pageIndex);
   };
 
+  // 🚀 PERBAIKAN: Popup Welcome Pro tidak akan salah sasaran lagi
   useEffect(() => {
       if (isUserPro && rawEmail) {
           const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;
@@ -347,17 +349,14 @@ export default function Home() {
       setIsRequestingPerms(true);
       
       try {
-          // Buat fungsi bom waktu maksimal 4 detik
           const timeout = new Promise((_, reject) => 
               setTimeout(() => reject(new Error("Timeout dari Browser")), 4000)
           );
 
-          // 1. Minta Izin Notifikasi (Balap dengan timeout)
           if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
               await Promise.race([Notification.requestPermission(), timeout]).catch(() => {});
           }
 
-          // 2. Minta Izin Kamera & Mic (Balap dengan timeout)
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
               await Promise.race([
                   navigator.mediaDevices.getUserMedia({ video: true, audio: true }), 
@@ -365,7 +364,6 @@ export default function Home() {
               ]).catch(() => {});
           }
 
-          // 3. 🚀 PERBAIKAN: Pancing OneSignal memanggil API dari window.OneSignalDeferred
           try { 
               (window as any).OneSignalDeferred = (window as any).OneSignalDeferred || [];
               (window as any).OneSignalDeferred.push(function(OneSignal: any) {
@@ -378,7 +376,6 @@ export default function Home() {
       } catch (e) {
           console.warn("Proses perizinan di-bypass karena terlalu lama.");
       } finally {
-          // Apapun yang terjadi, paksakan modal tertutup dan aplikasi berjalan!
           localStorage.setItem("bilano_permissions_prompted", "true");
           setShowPermissionPrompt(false);
           setIsRequestingPerms(false);
@@ -416,14 +413,9 @@ export default function Home() {
   const handleLogout = async () => {
     try {
         await signOut(auth); 
-        
-        // 🚀 SAPU BERSIH TOTAL MEMORI PWA
         localStorage.clear();
         sessionStorage.clear();
-        
         toast({ title: "Sesi Dibersihkan", description: "Berhasil keluar dari aplikasi." });
-        
-        // Gunakan window.location.href untuk MEMAKSA browser me-refresh dan membuang cache state
         window.location.href = "/auth"; 
     } catch (error) { 
         console.error(error); 
@@ -486,9 +478,6 @@ export default function Home() {
   const income = baseIncomeTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'income').reduce((acc, v) => acc + v.amount, 0);
   const expense = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'expense').reduce((acc, v) => acc + v.amount, 0);
   
-  // 🚀 PERBAIKAN: Pemisahan Logika Loading Trap agar tidak tersangkut di satu layar abadi
-  
-  // 1. Tampilkan Loading murni HANYA jika data benar-benar sedang ditarik
   if (isAnyDataLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 relative">
@@ -518,7 +507,6 @@ export default function Home() {
       );
   }
 
-  // 2. 🛡️ ANTI NYANGKUT: Jika loading selesai tapi USER KOSONG (Sesi Error/Putus)
   if (!user && !isUserLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 text-center relative z-[999]">
@@ -532,7 +520,6 @@ export default function Home() {
       );
   }
 
-  // 3. Jika pengguna baru dan belum punya target
   if (isTargetEmpty) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
@@ -543,7 +530,6 @@ export default function Home() {
       );
   }
 
-  // 4. Jika butuh redirect ke paywall
   if (needsPaywallRedirect) {
        return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">

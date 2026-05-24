@@ -34,6 +34,7 @@ export default function Paywall() {
       setShowPlanModal(true);
   };
 
+  // 🚀 PERBAIKAN: Menghapus pengaturan status PRO lokal prematur
   const handleLanjutBayar = async () => {
       setIsProcessing(true);
       try {
@@ -46,11 +47,7 @@ export default function Paywall() {
           const data = await res.json();
 
           if (res.ok && data.redirectUrl) {
-              localStorage.setItem("bilano_pro", "true");
-              localStorage.setItem(`bilano_trial_expired_${userEmail}`, "false");
-              localStorage.setItem("bilano_trial_expired", "false");
-
-              window.open(data.redirectUrl, '_blank'); 
+              window.location.href = data.redirectUrl; 
           } else {
               toast({ title: "Gagal memuat kasir", description: data.error || "Sistem Mayar Sibuk.", variant: "destructive" });
           }
@@ -137,7 +134,6 @@ export default function Paywall() {
                     </div>
 
                     <div className="p-5 space-y-4">
-                        {/* PAKET BULANAN (DECOY) */}
                         <div onClick={() => setSelectedPlan('monthly')} className={`p-4 rounded-[20px] border-2 cursor-pointer transition-all ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-indigo-50/50 shadow-md' : 'border-slate-200 bg-white'}`}>
                             <div className="flex justify-between items-center mb-1">
                                 <h4 className="font-extrabold text-slate-800 text-base">Paket 1 Bulan</h4>
@@ -150,7 +146,6 @@ export default function Paywall() {
                             </div>
                         </div>
 
-                        {/* PAKET TAHUNAN (TARGET UTAMA) */}
                         <div onClick={() => setSelectedPlan('yearly')} className={`relative p-5 rounded-[20px] border-2 cursor-pointer transition-all overflow-hidden ${selectedPlan === 'yearly' ? 'border-amber-400 bg-gradient-to-br from-slate-900 to-indigo-950 shadow-xl' : 'border-slate-200 bg-white'}`}>
                             {selectedPlan === 'yearly' && (
                                 <div className="absolute top-0 right-0 bg-amber-400 text-amber-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl z-10 shadow-sm">
@@ -167,7 +162,6 @@ export default function Paywall() {
                                 <p className={`text-3xl font-black tracking-tight ${selectedPlan === 'yearly' ? 'text-white' : 'text-slate-800'}`}>Rp 8.250 <span className="text-xs font-bold opacity-60">/ bulan</span></p>
                             </div>
 
-                            {/* TOMBOL "KENAPA MENGUNTUNGKAN" MASUK KE SINI */}
                             {selectedPlan === 'yearly' && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); setShowVisionModal(true); }}
@@ -196,7 +190,6 @@ export default function Paywall() {
             </div>
         )}
 
-        {/* MODAL 2: KONFIRMASI PEMBAYARAN FINAL */}
         {showModal && (
             <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 sm:zoom-in-95">
@@ -248,7 +241,6 @@ export default function Paywall() {
             </div>
         )}
 
-        {/* 噫 KOTAK KECIL PENJELASAN (CERITA NARATIF PRICE LOCK)     */}
         {showVisionModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-5 animate-in fade-in duration-200">
                 <div className="bg-slate-900 w-full max-w-sm rounded-[28px] overflow-hidden shadow-2xl border border-slate-700 relative animate-in zoom-in-95">

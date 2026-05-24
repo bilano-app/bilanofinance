@@ -30,7 +30,7 @@ const createTransporter = () => {
     return nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: cleanPassword } });
 };
 
-// 🚀 MESIN PENYEMBUH TABEL OTP & RETAINED
+// 🚀 MESIN PENYEMBUH TABEL OTP (AUTO-HEALER)
 const ensureOtpTable = async () => {
     try {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
@@ -375,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               contents: { en: randomMsg, id: randomMsg },
               url: "https://bilano.app/dashboard",
               chrome_web_icon: "https://bilano.app/BILANO-ICON.png",
-              chrome_web_badge: "https://bilano.app/BILANO-ICON.png", 
+              chrome_web_badge: "https://bilano.app/BILANO-ICON.png",
               firefox_icon: "https://bilano.app/BILANO-ICON.png"
           };
 
@@ -968,7 +968,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menjual aset." }); }
   });
 
-  // 🚀 UPDATE REPORTS DATA (Menyertakan retained_balances)
   app.get("/api/reports/data", async (req, res) => { 
       const user = await getUser(req); 
       const [tx, inv, debt, fx, sub] = await Promise.all([ storage.getTransactions(user!.id), storage.getInvestments(user!.id), storage.getDebts(user!.id), storage.getForexAssets(user!.id), storage.getSubscriptions(user!.id) ]); 
@@ -1012,6 +1011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal memperbarui status pengguna." }); }
   });
 
+  // 🚀 PERBAIKAN INTEGRASI MAYAR
   app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -1028,14 +1028,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const appUrl = req.headers.origin || "https://bilanofinance-dvbi.vercel.app";
 
+          // Format baku Mayar API (Menggunakan snake_case)
           const payload = {
               name: planName,
               amount: price,
               description: `Berlangganan ${planName}`,
-              customerName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
-              customerEmail: user.email || "member@bilano.app",
-              redirectUrl: `${appUrl}/`, 
-              extraData: { noCustomer: user.id.toString(), idProd: idProd }
+              customer_name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
+              customer_email: user.email || "member@bilano.app",
+              redirect_url: `${appUrl}/`, 
+              custom_field: { noCustomer: user.id.toString(), idProd: idProd }
           };
 
           const mayarRes = await fetch("https://api.mayar.id/hl/v1/payment/create", { 
@@ -1059,13 +1060,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: "SERVER CRASH: " + error.message }); }
   });
 
+  // 🚀 PERBAIKAN WEBHOOK MAYAR & PENYESUAIAN DURASI PAKET
   app.post("/api/payment/mayar/webhook", async (req, res) => {
       try {
           const payload = req.body || {}; 
           const status = String(payload?.status || payload?.data?.status || "").toUpperCase();
-          const userIdStr = payload?.data?.extraData?.noCustomer || payload?.extraData?.noCustomer;
+          
+          const customField = payload?.data?.custom_field || payload?.custom_field || payload?.data?.extraData || payload?.extraData || {};
+          const userIdStr = customField.noCustomer;
           const targetUserId = userIdStr ? parseInt(userIdStr, 10) : null;
-          const purchasedPlan = payload?.data?.extraData?.idProd || payload?.extraData?.idProd || "BILANO-PRO-1Y";
+          
+          let purchasedPlan = customField.idProd;
+          if (!purchasedPlan) {
+              const amt = payload?.data?.amount || payload?.amount;
+              purchasedPlan = amt == 99000 ? "BILANO-PRO-1Y" : "BILANO-PRO-1M";
+          }
+          
           const customerEmail = String(payload?.customer_email || payload?.data?.customer_email || payload?.customer?.email || payload?.data?.customer?.email || payload?.email || payload?.data?.email || "");
 
           if (status === 'SUCCESS' || status === 'PAID' || status === 'SETTLED') {

@@ -90,9 +90,6 @@ export default function Performance() {
           });
           const data = await res.json();
           if (res.ok && data.redirectUrl) {
-              localStorage.setItem("bilano_pro", "true");
-              localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
-              localStorage.setItem("bilano_trial_expired", "false");
               window.location.href = data.redirectUrl; 
           } else { 
               toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); 
