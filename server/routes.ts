@@ -30,6 +30,7 @@ const createTransporter = () => {
     return nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: cleanPassword } });
 };
 
+// 🚀 MESIN PENYEMBUH TABEL OTP (AUTO-HEALER)
 const ensureOtpTable = async () => {
     try {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
