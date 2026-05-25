@@ -43,7 +43,6 @@ export default function Debts() {
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
-  // 🚀 PEMISAH RUPIAH & VALAS AGAR KOMA TIDAK HILANG
   const formatNum = (val: string, isForeign: boolean = false) => {
       if (!val) return "";
       if (isForeign) return val.replace(/[^0-9.,]/g, '');
@@ -286,7 +285,6 @@ export default function Debts() {
                     
                     <p className="text-xs text-slate-500 mb-4">Sisa Tagihan: <span className="font-bold text-rose-600">{modalSisaTagihanUI}</span></p>
                     
-                    {/* 🚀 FORM BAYAR MENDUKUNG VALAS DESIMAL */}
                     <Input disabled={isPaying} type="text" inputMode="decimal" placeholder="Nominal Bayar (Kosongkan jika lunas)" value={payAmount} onChange={e => setPayAmount(formatNum(e.target.value, isPayForeign))} className="h-14 font-bold text-lg mb-4"/>
                     
                     <Button onClick={handlePay} disabled={isPaying} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg transition-transform active:scale-95">
@@ -350,7 +348,6 @@ export default function Debts() {
                             <option value="IDR">IDR</option>
                             {availableCurrencies.filter(c => c !== 'IDR').map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
-                        {/* 🚀 FORM CATAT HUTANG BARU MENDUKUNG VALAS DESIMAL */}
                         <Input disabled={isSubmitting} type="text" inputMode="decimal" placeholder="Nominal" value={amount} onChange={e => setAmount(formatNum(e.target.value, currency !== 'IDR'))} className="flex-1 h-14 rounded-[20px] bg-slate-50 border-transparent font-bold text-lg"/>
                     </div>
                     
@@ -390,6 +387,9 @@ export default function Debts() {
                         t.description?.includes(`[WRITE_OFF] ${item.name}`)
                     );
 
+                    // 🚀 Membersihkan tag rahasia dari tampilan UI agar tetap profesional
+                    const cleanDisplayDesc = item.description ? item.description.replace('[PIUTANG_PENDAPATAN]', '').trim() : "";
+
                     return (
                         <div key={item.id} className={`bg-white p-5 rounded-[24px] border shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex justify-between items-center transition-all ${item.isPaid ? 'opacity-60 border-slate-100' : (activeTab === 'piutang' ? 'border-emerald-50' : 'border-rose-50')}`}>
                             <div className="flex-1 mr-4">
@@ -417,7 +417,7 @@ export default function Debts() {
 
                                 <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1 mt-2">
                                     <Calendar className="w-3 h-3"/> Tempo: {item.dueDate ? new Date(item.dueDate).toLocaleDateString('id-ID') : "-"} 
-                                    {item.description && <span className="ml-1 text-slate-400 truncate max-w-[120px]">• {item.description}</span>}
+                                    {cleanDisplayDesc && <span className="ml-1 text-slate-400 truncate max-w-[120px]">• {cleanDisplayDesc}</span>}
                                 </div>
                             </div>
                             

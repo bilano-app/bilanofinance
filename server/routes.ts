@@ -30,7 +30,6 @@ const createTransporter = () => {
     return nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: cleanPassword } });
 };
 
-// 🚀 MESIN PENYEMBUH TABEL OTP & RETAINED (AUTO-HEALER)
 const ensureOtpTable = async () => {
     try {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
@@ -354,7 +353,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal menyimpan ID OneSignal" }); }
   });
 
-  app.post("/api/cron/notifications", async (req, res) => {
+  // 🚀 PERBAIKAN: Menggunakan app.all agar bisa menerima metode GET dari Vercel Cron
+  app.all("/api/cron/notifications", async (req, res) => {
       try {
           const restKey = process.env.ONESIGNAL_REST_KEY;
           const appId = process.env.ONESIGNAL_APP_ID; 
@@ -373,10 +373,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               included_segments: ["Subscribed Users"], 
               headings: { en: "BILANO Finance", id: "BILANO Finance" },
               contents: { en: randomMsg, id: randomMsg },
-              url: "https://bilano.app/dashboard",
-              chrome_web_icon: "https://bilano.app/BILANO-ICON.png",
-              chrome_web_badge: "https://bilano.app/BILANO-ICON.png",
-              firefox_icon: "https://bilano.app/BILANO-ICON.png"
+              url: "https://bilanofinance-dvbi.vercel.app/dashboard",
+              chrome_web_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png",
+              chrome_web_badge: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png",
+              firefox_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png"
           };
 
           const response = await fetch("https://onesignal.com/api/v1/notifications", {
@@ -802,9 +802,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!debt) return res.status(404).json({ error: "Tagihan ini sudah tidak ada di database." });
           if (debt.isPaid) return res.status(400).json({ error: "Tagihan ini sudah berstatus lunas sebelumnya." });
 
-          const txs = await storage.getTransactions(user!.id);
-          const debtNameOnly = debt.name.split('|')[0];
-          const isIncomePiutang = txs.some(t => t.type === 'income' && t.description?.toLowerCase().includes(debtNameOnly.toLowerCase()));
+          // 🚀 PERBAIKAN: Deteksi tag [PIUTANG_PENDAPATAN] dari deskripsi aslinya
+          const isIncomePiutang = debt.description?.includes('[PIUTANG_PENDAPATAN]');
           const cairPostfix = isIncomePiutang ? " [Pemasukan Cair]" : "";
 
           const payAmount = (amount !== undefined && amount > 0) ? Math.min(amount, debt.amount) : debt.amount;
@@ -822,7 +821,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (curr === 'IDR') {
                   if (debt.type === 'piutang') { 
                       newBalance += payAmountIDR; 
-                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]}${cairPostfix}`, date: new Date() } as any); 
+                      // 🚀 Menempelkan tag ke dalam riwayat pelunasan agar terbaca oleh Amal.tsx
+                      const finalDesc = isIncomePiutang 
+                          ? `[PIUTANG_PENDAPATAN] Lunas/Cicilan dari ${debt.name.split('|')[0]}${cairPostfix}`
+                          : `Lunas/Cicilan dari ${debt.name.split('|')[0]}`;
+
+                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Dibayar', description: finalDesc, date: new Date() } as any); 
                   } else { 
                       newBalance -= payAmountIDR; 
                       await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
@@ -834,7 +838,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                   if (debt.type === 'piutang') { 
                       currentForexAmount += payAmount; 
-                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Valas Dibayar', description: `Lunas/Cicilan dari ${debt.name.split('|')[0]} (Masuk ke Dompet Valas)${cairPostfix}`, date: new Date() } as any); 
+                      const finalDesc = isIncomePiutang 
+                          ? `[PIUTANG_PENDAPATAN] Lunas/Cicilan dari ${debt.name.split('|')[0]} (Masuk ke Dompet Valas)${cairPostfix}`
+                          : `Lunas/Cicilan dari ${debt.name.split('|')[0]} (Masuk ke Dompet Valas)`;
+
+                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Valas Dibayar', description: finalDesc, date: new Date() } as any); 
                   } else { 
                       currentForexAmount -= payAmount; 
                       if (currentForexAmount < 0) currentForexAmount = 0;
@@ -1007,9 +1015,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal memperbarui status pengguna." }); }
   });
 
-  // ====================================================================
-  // 🚀 PERBAIKAN FINAL API MAYAR: PAYLOAD DIUBAH SESUAI PESAN ERROR 400
-  // ====================================================================
   app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -1025,7 +1030,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const appUrl = req.headers.origin || "https://bilanofinance-dvbi.vercel.app";
 
-          // Payload disesuaikan PERSIS dengan permintaan error validasi Mayar (description & rate WAJIB ada di dalam array items)
           const payload = {
               name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
               email: user.email || "member@bilano.app",
@@ -1037,10 +1041,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               items: [
                   {
                       name: planName,
-                      description: `Akses fitur eksklusif ${planName}`, // 🚀 Wajib ada (Dari error items[0].description)
+                      description: `Akses fitur eksklusif ${planName}`, 
                       quantity: 1,
                       price: price,
-                      rate: price, // 🚀 Wajib ada (Dari error items[0].rate)
+                      rate: price, 
                       amount: price
                   }
               ]

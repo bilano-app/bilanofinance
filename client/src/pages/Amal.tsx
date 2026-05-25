@@ -56,9 +56,9 @@ export default function Amal() {
           localStorage.setItem(`bilano_amal_dict_${userEmail}`, JSON.stringify({}));
       } else {
           const newDict = { ...amalDict };
-          // 🚀 FIX: Masukkan juga piutang yang sudah cair ke memori persentase
+          // 🚀 Filter retroactive hanya mengecek pemasukan asli & piutang pendapatan
           const incomes = transactions?.filter(t => 
-              t.type === 'income' || 
+              (t.type === 'income' && !t.description?.includes('[PIUTANG_PENDAPATAN]') && !t.description?.includes('Belum Dibayar')) || 
               (t.type === 'debt_receive' && t.description?.includes('[Pemasukan Cair]'))
           ) || [];
           incomes.forEach(inc => {
@@ -74,10 +74,10 @@ export default function Amal() {
       toast({ title: "Berhasil", description: `Persentase diubah menjadi ${newPct}%` });
   };
 
-  // 🚀 UPDATE CASH BASIS: Tangkap 'debt_receive' yang berlabel [Pemasukan Cair]
+  // 🚀 PERBAIKAN FILTER: Menolak piutang pinjaman murni, hanya baca [Pemasukan Cair]
   const pureIncomes = (transactions || []).filter(t => 
       (
-          (t.type === 'income' && !t.description?.includes('Belum Dibayar')) || 
+          (t.type === 'income' && !t.description?.includes('[PIUTANG_PENDAPATAN]') && !t.description?.includes('Belum Dibayar')) || 
           (t.type === 'debt_receive' && t.description?.includes('[Pemasukan Cair]'))
       ) && 
       !t.description?.includes('[Offset') && !t.description?.includes('[WRITE_OFF]') && 
@@ -122,9 +122,9 @@ export default function Amal() {
 
       totalSisaAnggaran += remainingForThis;
       
-      // 🚀 Bersihkan teks [Pemasukan Cair] agar UI tetap rapi
+      // Membersihkan teks UI agar tag [PIUTANG_PENDAPATAN] tidak terlihat
       const displayDesc = inc.type === 'debt_receive' 
-          ? `Pencairan: ${inc.description?.replace('[Pemasukan Cair]', '').trim()}` 
+          ? `Pencairan: ${inc.description?.replace('[PIUTANG_PENDAPATAN]', '').replace('[Pemasukan Cair]', '').trim()}` 
           : (inc.description || inc.category);
 
       allocationDetails.push({ ...inc, displayDesc, pctUsed: pctToUse, allocatedAmount, remainingForThis, status });

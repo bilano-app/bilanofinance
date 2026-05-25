@@ -48,7 +48,6 @@ export default function Income() {
     setIsSubmitting(true);
     try {
       if (paymentMode === 'cash') {
-          // Sekuensial biasa
           await addTransaction.mutateAsync({ 
               amount: cleanAmount, 
               type: "income", 
@@ -57,7 +56,7 @@ export default function Income() {
               date: new Date().toISOString() 
           });
       } else {
-          // Sekuensial untuk mode Piutang demi menghindari contention
+          // 🚀 PERBAIKAN: Menambahkan tag [PIUTANG_PENDAPATAN] secara otomatis
           await fetch("/api/debts", {
               method: "POST", 
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
@@ -66,7 +65,7 @@ export default function Income() {
                   name: `${debtName}|IDR`, 
                   amount: cleanAmount, 
                   dueDate: dueDate,
-                  description: `[Piutang Pemasukan: ${category}] ${description}`,
+                  description: `[PIUTANG_PENDAPATAN] ${description || category}`,
                   isFromTransaction: true
               })
           });
@@ -75,7 +74,7 @@ export default function Income() {
               amount: cleanAmount, 
               type: "piutang_record", 
               category: `Piutang: ${category}`, 
-              description: `Belum Dibayar - ${debtName}`, 
+              description: `[PIUTANG_PENDAPATAN] Belum Dibayar - ${debtName}`, 
               date: new Date().toISOString() 
           });
       }
