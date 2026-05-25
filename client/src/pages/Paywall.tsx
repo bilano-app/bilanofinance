@@ -46,7 +46,6 @@ export default function Paywall() {
           const data = await res.json();
 
           if (res.ok && data.redirectUrl) {
-              // 🚀 Status PRO hanya akan aktif murni dari database (menunggu konfirmasi webhook Bank)
               window.location.href = data.redirectUrl; 
           } else {
               toast({ title: "Gagal memuat kasir", description: data.error || "Sistem Mayar Sibuk.", variant: "destructive" });
@@ -122,6 +121,7 @@ export default function Paywall() {
             </div>
         </div>
 
+        {/* MODAL 1: PEMILIHAN PAKET PANCINGAN */}
         {showPlanModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
                 <div className="bg-slate-50 w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 border border-slate-200">
@@ -189,6 +189,7 @@ export default function Paywall() {
             </div>
         )}
 
+        {/* MODAL 2: KONFIRMASI PEMBAYARAN FINAL */}
         {showModal && (
             <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 sm:zoom-in-95">
