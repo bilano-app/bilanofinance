@@ -30,7 +30,7 @@ const createTransporter = () => {
     return nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: cleanPassword } });
 };
 
-// 🚀 MESIN PENYEMBUH TABEL OTP (AUTO-HEALER)
+// 🚀 MESIN PENYEMBUH TABEL OTP & RETAINED (AUTO-HEALER)
 const ensureOtpTable = async () => {
     try {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
@@ -1007,7 +1007,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal memperbarui status pengguna." }); }
   });
 
-  // 🚀 PERBAIKAN INTEGRASI MAYAR (MENGGUNAKAN ENDPOINT INVOICE YANG LEBIH STABIL & RESMI)
+  // ====================================================================
+  // 🚀 PERBAIKAN FINAL API MAYAR: PAYLOAD DIUBAH SESUAI PESAN ERROR 400
+  // ====================================================================
   app.post("/api/payment/mayar/charge", async (req, res) => {
       try {
           const user = await getUser(req);
@@ -1023,19 +1025,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const appUrl = req.headers.origin || "https://bilanofinance-dvbi.vercel.app";
 
-          // Payload untuk `/hl/v1/invoice/create` (Baku sesuai dokumentasi Mayar)
+          // Payload disesuaikan PERSIS dengan permintaan error validasi Mayar (description & rate WAJIB ada di dalam array items)
           const payload = {
               name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
               email: user.email || "member@bilano.app",
               mobile: "080000000000",
               description: `Berlangganan ${planName}`,
+              amount: price,
               redirectUrl: `${appUrl}/`,
               expiredAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
               items: [
                   {
                       name: planName,
+                      description: `Akses fitur eksklusif ${planName}`, // 🚀 Wajib ada (Dari error items[0].description)
                       quantity: 1,
-                      price: price
+                      price: price,
+                      rate: price, // 🚀 Wajib ada (Dari error items[0].rate)
+                      amount: price
                   }
               ]
           };
@@ -1048,26 +1054,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }, 
               body: JSON.stringify(payload) 
           });
+          
           const textData = await mayarRes.text();
 
-          if (!mayarRes.ok) return res.status(400).json({ error: `MAYAR ERROR [${mayarRes.status}]: ${textData}` });
+          if (!mayarRes.ok) {
+              console.log("Response Mayar Gagal:", textData);
+              return res.status(400).json({ error: `MAYAR ERROR [${mayarRes.status}]: ${textData}` });
+          }
 
           try {
               const data = JSON.parse(textData);
-              const redirectUrl = data.data?.link || data.link; // Endpoint Invoice memberikan URL di key "link"
+              const redirectUrl = data.data?.link || data.link;
               if (redirectUrl) return res.json({ success: true, redirectUrl });
-              else return res.status(400).json({ error: "Mayar sukses tapi link hilang." });
-          } catch (parseErr) { return res.status(500).json({ error: "Format Mayar Aneh." }); }
+              else return res.status(400).json({ error: "Mayar sukses tapi link pembayaran tidak ditemukan." });
+          } catch (parseErr) { return res.status(500).json({ error: "Gagal memproses balasan dari Mayar." }); }
       } catch (error: any) { res.status(500).json({ error: "SERVER CRASH: " + error.message }); }
   });
 
-  // 🚀 WEBHOOK MAYAR PENANGKAP PEMBAYARAN SUKSES & SETTING DURASI (1 Bulan / 1 Tahun)
   app.post("/api/payment/mayar/webhook", async (req, res) => {
       try {
           const payload = req.body || {}; 
           const status = String(payload?.status || payload?.data?.status || "").toUpperCase();
           
-          // Membaca Nominal Uang Untuk Menentukan Paket (karena custom_field dihilangkan agar payload lebih bersih)
           const amt = payload?.data?.amount || payload?.amount;
           const purchasedPlan = amt == 99000 ? "BILANO-PRO-1Y" : "BILANO-PRO-1M";
           
