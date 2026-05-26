@@ -131,7 +131,6 @@ function Router() {
   const { data: user } = useUser();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
 
-  // 🚀 PERBAIKAN: Sinkronisasi PRO yang sangat ketat (mengandalkan DB, bukan UI)
   useEffect(() => {
       const vipEmails = [
           "adrienfandra14@gmail.com", 
@@ -143,10 +142,10 @@ function Router() {
       if (vipEmails.includes(currentUserEmail) || user?.isPro) {
           localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           localStorage.setItem("bilano_trial_expired", "false");
-          localStorage.setItem("bilano_pro", "true"); // Sinkron hanya karena server bilang true
+          localStorage.setItem("bilano_pro", "true"); 
       } 
       else if (user && !user.isPro) {
-          localStorage.setItem("bilano_pro", "false"); // Netralkan kembali
+          localStorage.setItem("bilano_pro", "false"); 
 
           const startTime = new Date(user.createdAt || "2024-01-01").getTime();
           const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
@@ -155,7 +154,8 @@ function Router() {
           const isNewAccount = (Date.now() - startTime) < 15000; 
           const hasRedirected = sessionStorage.getItem("bilano_first_paywall_redirect");
           
-          if (isNewAccount && !hasRedirected && location !== '/paywall') {
+          // 🚀 PERBAIKAN: Penawaran Langganan Otomatis (Paywall) HANYA terjadi di dalam Aplikasi PWA
+          if (isStandalone && isNewAccount && !hasRedirected && location !== '/paywall') {
               sessionStorage.setItem("bilano_first_paywall_redirect", "true");
               setLocation("/paywall");
           }
@@ -168,7 +168,7 @@ function Router() {
               localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
           }
       }
-  }, [user, currentUserEmail, location, setLocation]);
+  }, [user, currentUserEmail, location, setLocation, isStandalone]);
 
   useNotifications();
 

@@ -83,10 +83,11 @@ export default function Home() {
   
   const [showRetryButton, setShowRetryButton] = useState(false);
 
+  // 🚀 MENDETEKSI PWA
+  const isStandalone = typeof window !== 'undefined' && 
+      (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
+
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  
-  // 🚀 PERBAIKAN: Hanya validasi status murni dari Database (user.isPro). 
-  // Paksaan via localStorage("bilano_pro") telah dihapus agar akurat.
   const isUserPro = user?.isPro === true; 
   
   useEffect(() => {
@@ -227,7 +228,6 @@ export default function Home() {
       setActiveMenuPage(pageIndex);
   };
 
-  // 🚀 PERBAIKAN: Popup hanya akan muncul jika isUserPro divalidasi TRUE dari Database
   useEffect(() => {
       if (isUserPro && rawEmail) {
           const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;
@@ -333,7 +333,8 @@ export default function Home() {
   const isNewAccount = user && (Date.now() - startTimeAcc) < (15 * 60 * 1000); 
   const hasRedirected = rawEmail ? localStorage.getItem(`bilano_welcomed_paywall_${rawEmail}`) === "true" : false;
   
-  const needsPaywallRedirect = !isUserPro && isNewAccount && !hasRedirected && !isTargetEmpty;
+  // 🚀 PERBAIKAN: Redirect penawaran bayar HANYA diaktifkan kalau dia buka via PWA
+  const needsPaywallRedirect = isStandalone && !isUserPro && isNewAccount && !hasRedirected && !isTargetEmpty;
 
   useEffect(() => {
       if (!isUserLoading && !isTargetLoading && target !== undefined) {
@@ -874,7 +875,7 @@ export default function Home() {
             </div>
         </div>
 
-        {!isUserPro && trialDaysLeft !== null && (
+        {!isUserPro && trialDaysLeft !== null && isStandalone && (
             <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${trialDaysLeft === 0 ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
                 <div className="flex items-center gap-3">
                     <div className="bg-white/20 p-2 rounded-full">
