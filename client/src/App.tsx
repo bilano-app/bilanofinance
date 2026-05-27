@@ -188,7 +188,12 @@ function Router() {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
 
-    const handleCustomLock = () => setShowPaywallAlert(true);
+    // 🚀 PERBAIKAN: Hanya aktifkan state paywall jika berada di PWA
+    const handleCustomLock = () => {
+      if (isStandalone) {
+        setShowPaywallAlert(true);
+      }
+    };
     window.addEventListener('trigger-paywall-lock', handleCustomLock);
 
     return () => {
@@ -265,7 +270,8 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
 
-      {showPaywallAlert && (
+      {/* 🚀 PERBAIKAN: Tambahkan isStandalone && sebelum showPaywallAlert */}
+      {isStandalone && showPaywallAlert && (
         <div className="fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
             <div className="bg-white rounded-[24px] p-6 max-w-sm w-full shadow-2xl text-center border-t-8 border-rose-500 animate-in zoom-in-95">
                 <div className="w-16 h-16 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
