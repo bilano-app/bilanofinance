@@ -163,40 +163,6 @@ export default function Landing() {
 
           </section>
 
-          {/* 🔥 2. STORYTELLING SLIDER */}
-          <section className="animate-in slide-in-from-bottom-8 fade-in duration-700 delay-200 fill-mode-both w-full max-w-7xl mt-4 lg:mt-0">
-             <div className="flex items-center justify-between mb-4 pr-4 lg:mb-6">
-               <h3 className="text-lg lg:text-xl font-black text-white flex items-center gap-2">
-                 Fakta Pahit Finansial
-               </h3>
-               <div className="flex items-center gap-1 text-xs text-slate-400 font-bold bg-white/5 px-3 py-1 rounded-full">
-                 Geser <ChevronRight className="w-3 h-3" />
-               </div>
-             </div>
-
-             <div className="flex overflow-x-auto gap-4 pb-6 snap-x snap-mandatory -mx-6 px-6 lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] lg:justify-center">
-               {narratives.map((item, i) => (
-                 <div key={i} className="snap-center shrink-0 w-[85%] lg:w-[32%] bg-[#121c3a]/60 backdrop-blur-md border border-white/10 rounded-[28px] overflow-hidden shadow-xl relative group flex flex-col transition-all hover:border-white/20 hover:scale-[1.01]">
-                    <div className="h-[180px] lg:h-[200px] w-full relative overflow-hidden">
-                      <img src={item.img} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60 mix-blend-luminosity group-hover:mix-blend-normal" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#121c3a]/90 to-transparent"></div>
-                      <div className="absolute bottom-4 left-5 right-5 lg:bottom-5 lg:left-6 lg:right-6">
-                        <span className="bg-amber-400 text-[#0a1128] text-[10px] font-black px-2.5 py-1 rounded-lg mb-2 inline-block tracking-widest uppercase">
-                          {item.badge}
-                        </span>
-                        <h4 className="text-white font-bold text-lg lg:text-xl leading-tight drop-shadow-md">{item.title}</h4>
-                      </div>
-                    </div>
-                    <div className="p-5 lg:p-6 flex-1 flex items-start">
-                      <p className="text-[13px] lg:text-[14.5px] text-slate-300 leading-relaxed font-medium">
-                        {item.desc}
-                      </p>
-                    </div>
-                 </div>
-               ))}
-             </div>
-          </section>
-
           {/* 🔥 3. KARTU BENEFIT */}
           <section className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-6 animate-in slide-in-from-bottom-8 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
             <FeatureCard imgUrl="https://img.icons8.com/color/96/artificial-intelligence.png" title="Konsultasi AI" desc="Strategi cerdas pelunasan hutang." />
