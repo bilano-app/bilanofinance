@@ -218,11 +218,11 @@ export default function Landing() {
             
             <div className="flex overflow-x-auto gap-5 pb-6 snap-x snap-mandatory -mx-6 px-6 lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] lg:justify-center">
                 {[
-                  { img: "Home.jpeg", title: "Dasbor Utama" },
-                  { img: "ChatAI.jpeg", title: "Asisten AI Cerdas" },
-                  { img: "Scan.jpeg", title: "Scan Struk Otomatis" },
-                  { img: "Performa.jpeg", title: "Analisa Performa" },
-                  { img: "Valas.jpeg", title: "Portofolio Valas" }
+                  { img: "Home.jpg", title: "Dasbor Utama" },
+                  { img: "ChatAI.jpg", title: "Asisten AI Cerdas" },
+                  { img: "Scan.jpg", title: "Scan Struk Otomatis" },
+                  { img: "Valas.jpg", title: "Portofolio Valas" },
+                  { img: "Performa.jpg", title: "Analisa Performa" }
                 ].map((item, i) => (
                   <div key={i} className="snap-center shrink-0 w-[75%] lg:w-[220px] aspect-[9/16] bg-[#040814] rounded-[24px] overflow-hidden border-[4px] border-white/10 shadow-2xl relative group">
                     <img src={`/${item.img}`} alt={item.title} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = 'https://placehold.co/400x700/121c3a/475569?text=Poster+UI' }} />
