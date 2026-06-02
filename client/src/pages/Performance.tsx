@@ -1,57 +1,26 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
+import { MobileLayout } from "@/components/Layout";
+import { Card, Button } from "@/components/UIComponents";
+import { useUser, useTransactions, useTarget, useInvestments } from "@/hooks/use-finance"; 
+import { formatCurrency } from "@/lib/utils";
 import { 
   Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, 
-  ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2, Lock, Award, 
-  ShieldCheck, ChevronRight, X, CreditCard, Briefcase, TrendingUp, Trash2, Heart 
+  ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2, Lock, Crown, 
+  ShieldCheck, ChevronRight, X, CreditCard, Briefcase, TrendingUp, Trash2, HeartHandshake 
 } from "lucide-react";
-
-// --- MOCK UTILS & DATA ---
-const formatCurrency = (amount: number) => {
-  return "Rp " + amount.toLocaleString('id-ID');
-};
+import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
     "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
 };
 
-// --- MOCK COMPONENTS ---
-const MobileLayout = ({ children, title, showBack }: { children: React.ReactNode, title?: string, showBack?: boolean }) => (
-  <div className="max-w-md mx-auto min-h-screen bg-slate-50 relative pb-20 shadow-2xl overflow-x-hidden border-x border-slate-200">
-    <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 py-3 flex items-center">
-      {showBack && <div className="w-8" />} {/* Placeholder for back button */}
-      <h1 className="flex-1 text-center font-bold text-slate-800 text-sm">{title}</h1>
-      <div className="w-8" />
-    </div>
-    {children}
-  </div>
-);
-
-const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={`bg-white rounded-xl shadow-sm border border-slate-100 ${className}`}>{children}</div>
-);
-
-const Button = ({ children, className, disabled, onClick }: { children: React.ReactNode, className?: string, disabled?: boolean, onClick?: () => void }) => (
-  <button onClick={onClick} disabled={disabled} className={`px-4 py-2 font-medium transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}>
-    {children}
-  </button>
-);
-
-const Link = ({ children, href }: { children: React.ReactNode, href: string }) => (
-  <a href={href} className="contents">{children}</a>
-);
-
-// --- MAIN COMPONENT ---
 export default function Performance() {
-  // --- MOCK STATE & HOOKS ---
-  const [isUserLoading, setIsUserLoading] = useState(false);
-  const [isTxLoading, setIsTxLoading] = useState(false);
-  const [isTargetLoading, setIsTargetLoading] = useState(false);
-  const [isInvLoading, setIsInvLoading] = useState(false);
-  const [isRatesLoading, setIsRatesLoading] = useState(false);
-  const [isForexLoading, setIsForexLoading] = useState(false);
-  const [isDebtsLoading, setIsDebtsLoading] = useState(false);
-  const [isRetainedLoading, setIsRetainedLoading] = useState(false);
+  const { data: user, isLoading: isUserLoading } = useUser();
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
   
   const [isCharging, setIsCharging] = useState(false);
   const [isDeletingTx, setIsDeletingTx] = useState(false);
@@ -59,42 +28,97 @@ export default function Performance() {
   
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
 
-  // MOCK DATA
-  const user = { createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), isPro: true, cashBalance: 5000000 };
-  const transactions = [
-    { id: 1, date: new Date().toISOString(), type: 'income', amount: 10000000, category: 'Gaji', description: 'Gaji Bulanan' },
-    { id: 2, date: new Date().toISOString(), type: 'expense', amount: 2000000, category: 'Makanan', description: 'Belanja Bulanan' },
-    { id: 3, date: new Date().toISOString(), type: 'expense', amount: 150000, category: 'Amal', description: 'Sedekah Jumat' },
-  ];
-  const target = { targetAmount: 100000000, monthlyBudget: 4000000, startMonth: 1, startYear: 2024, durationMonths: 12 };
-  const investments = [{ symbol: 'BBCA|IDR', quantity: 10, avgPrice: 9000, type: 'saham' }];
-  const forexRates = DEFAULT_RATES;
-  const forexAssetsData = [{ currency: 'USD', amount: 100 }];
-  const debtsData = [{ type: 'hutang', amount: 500000, name: 'Hutang Teman|IDR', isPaid: false }];
-  const retainedData = [{ amount: 1000000, currency: 'IDR' }];
-  const currentUserEmail = "user@example.com";
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
-  const isProAccess = user?.isPro || false;
-  const setupCompletedAt = null; 
-  const trialStartTime = setupCompletedAt ? new Date(setupCompletedAt).getTime() : new Date(user?.createdAt || Date.now()).getTime();
-  const daysPassed = (Date.now() - trialStartTime) / (1000 * 60 * 60 * 24);
-  const isTrialExpired = daysPassed >= 14;
-  const locked = !isUserLoading && !isProAccess && isTrialExpired;
+  const { data: transactions, isLoading: isTxLoading } = useTransactions();
+  const { data: target, isLoading: isTargetLoading } = useTarget();
+  const { data: investments, isLoading: isInvLoading } = useInvestments(); 
+
+  const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
+      queryKey: ['forexRates', currentUserEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": currentUserEmail } });
+          return res.json();
+      },
+      enabled: !!currentUserEmail
+  });
+
+  const { data: forexAssetsData = [], isLoading: isForexLoading } = useQuery({
+      queryKey: ['forexAssets', currentUserEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/forex`, { headers: { "x-user-email": currentUserEmail } });
+          return res.json();
+      },
+      enabled: !!currentUserEmail
+  });
+
+  const { data: debtsData = [], isLoading: isDebtsLoading } = useQuery({
+      queryKey: ['debts', currentUserEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/debts`, { headers: { "x-user-email": currentUserEmail } });
+          return res.json();
+      },
+      enabled: !!currentUserEmail
+  });
+
+  // 🚀 FETCH SALDO TERTAHAN
+  const { data: retainedData = [], isLoading: isRetainedLoading } = useQuery({
+      queryKey: ['retained', currentUserEmail],
+      queryFn: async () => {
+          const res = await fetch(`/api/retained`, { headers: { "x-user-email": currentUserEmail } });
+          return res.json();
+      },
+      enabled: !!currentUserEmail
+  });
+
+  const isPro = user?.isPro || localStorage.getItem("bilano_pro") === "true";
+  
+  const startTime = new Date(user?.createdAt || Date.now()).getTime();
+  const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
+  const isTrialExpired = daysPassed >= 3;
+
+  const locked = !isUserLoading && !isPro && isTrialExpired;
 
   const handleLanjutBayar = async () => {
+      if (!currentUserEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
       setIsCharging(true);
-      setTimeout(() => { setIsCharging(false); alert("Membuka kasir pembayaran..."); }, 1000);
+      try {
+          const res = await fetch("/api/payment/mayar/charge", { 
+              method: "POST", 
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ plan: selectedPlan }) 
+          });
+          const data = await res.json();
+          if (res.ok && data.redirectUrl) {
+              window.location.href = data.redirectUrl; 
+          } else { 
+              toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); 
+          }
+      } catch (error) { 
+          toast({ title: "Error koneksi", variant: "destructive" }); 
+      } finally { 
+          setIsCharging(false); 
+      }
   };
 
   const handleDeleteTransaction = async (id: number) => {
-      if (!confirm("Hapus transaksi ini?")) return;
+      if (!confirm("Hapus transaksi ini? Saldo Kas Anda akan otomatis disesuaikan kembali.")) return;
       setIsDeletingTx(true);
-      setTimeout(() => setIsDeletingTx(false), 1000);
+      toast({ title: "Menghapus...", description: "Menyesuaikan saldo kas Anda." });
+      try {
+          const res = await fetch(`/api/transactions/${id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
+          if (res.ok) {
+              toast({ title: "Terhapus!", description: "Transaksi hilang, saldo kas dinormalkan." });
+              setTimeout(() => window.location.reload(), 800); 
+          } else { toast({ title: "Gagal menghapus", variant: "destructive" }); }
+      } catch (e) { toast({ title: "Error server", variant: "destructive" }); } 
+      finally { setIsDeletingTx(false); }
   };
 
   if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading || isRatesLoading || isForexLoading || isDebtsLoading || isRetainedLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
               <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
                   <Loader2 className="w-4 h-4 animate-spin"/>
                   <span>Memuat Data...</span>
@@ -107,22 +131,33 @@ export default function Performance() {
       return (
           <MobileLayout title="Analisa Performa" showBack>
               <div className="relative min-h-screen bg-slate-50 overflow-hidden pb-24 overflow-y-auto">
+                  
                   <div className="p-4 space-y-6 blur-md opacity-40 select-none pointer-events-none mt-2">
                       <div className="bg-gradient-to-br from-blue-600 to-violet-800 h-48 rounded-[32px] w-full shadow-lg"></div>
                       <div className="bg-emerald-100 h-28 rounded-[32px] w-full"></div>
                       <div className="bg-white h-72 rounded-[32px] shadow-sm border border-slate-200 w-full"></div>
                   </div>
+
                   <div className="absolute inset-0 z-50 flex flex-col items-center justify-center px-4 text-center">
                       <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(251,191,36,0.4)] animate-bounce-slow mt-8">
-                          <Award className="w-10 h-10 text-amber-950" />
+                          <Crown className="w-10 h-10 text-amber-950" />
                       </div>
+                      
                       <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Masa Coba Habis</h2>
                       <p className="text-sm text-slate-600 mb-6 max-w-xs leading-relaxed font-medium">
-                          Masa coba gratis 14 hari telah berakhir. Berlangganan <b className="text-slate-800">BILANO PRO</b> sekarang.
+                          Masa coba gratis 3 hari telah berakhir. Berlangganan <b className="text-slate-800">BILANO PRO</b> sekarang untuk membuka kembali Analisis Cashflow, ROI Aset, dan Diagnosa Target Finansial.
                       </p>
+                      
                       <div className="w-full max-w-sm space-y-3 mb-6 animate-in zoom-in-95">
-                          <div onClick={() => setSelectedPlan('yearly')} className={`relative p-5 rounded-[20px] border-2 cursor-pointer transition-all overflow-hidden ${selectedPlan === 'yearly' ? 'border-amber-400 bg-gradient-to-br from-slate-900 to-indigo-950 shadow-xl' : 'border-slate-200 bg-white'}`}>
-                              {selectedPlan === 'yearly' && <div className="absolute top-0 right-0 bg-amber-400 text-amber-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl z-10 shadow-sm">PALING HEMAT</div>}
+                          <div 
+                              onClick={() => setSelectedPlan('yearly')} 
+                              className={`relative p-5 rounded-[20px] border-2 cursor-pointer transition-all overflow-hidden ${selectedPlan === 'yearly' ? 'border-amber-400 bg-gradient-to-br from-slate-900 to-indigo-950 shadow-xl' : 'border-slate-200 bg-white'}`}
+                          >
+                              {selectedPlan === 'yearly' && (
+                                  <div className="absolute top-0 right-0 bg-amber-400 text-amber-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl z-10 shadow-sm">
+                                      PALING HEMAT
+                                  </div>
+                              )}
                               <div className="flex justify-between items-center mb-1 relative z-10">
                                   <h4 className={`font-black text-lg ${selectedPlan === 'yearly' ? 'text-amber-400' : 'text-slate-800'}`}>Paket 1 Tahun</h4>
                                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'yearly' ? 'border-amber-400 bg-amber-400' : 'border-slate-300'}`}>
@@ -133,8 +168,13 @@ export default function Performance() {
                                   <p className={`text-3xl font-black tracking-tight ${selectedPlan === 'yearly' ? 'text-white' : 'text-slate-800'}`}>Rp 8.250 <span className="text-xs font-bold opacity-60">/ bulan</span></p>
                                   {selectedPlan === 'yearly' && <p className="text-[10px] text-emerald-400 mt-1 font-bold">Total tagihan Rp 99.000/tahun</p>}
                               </div>
+                              {selectedPlan === 'yearly' && <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>}
                           </div>
-                          <div onClick={() => setSelectedPlan('monthly')} className={`p-4 rounded-[20px] border-2 cursor-pointer transition-all text-left ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-indigo-50/50 shadow-md' : 'border-slate-200 bg-white'}`}>
+
+                          <div 
+                              onClick={() => setSelectedPlan('monthly')} 
+                              className={`p-4 rounded-[20px] border-2 cursor-pointer transition-all text-left ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-indigo-50/50 shadow-md' : 'border-slate-200 bg-white'}`}
+                          >
                               <div className="flex justify-between items-center mb-1">
                                   <h4 className="font-extrabold text-slate-800 text-base">Paket 1 Bulan</h4>
                                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-indigo-500' : 'border-slate-300'}`}>
@@ -146,9 +186,18 @@ export default function Performance() {
                               </div>
                           </div>
                       </div>
-                      <Button onClick={handleLanjutBayar} disabled={isCharging} className="w-full max-w-sm h-14 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-full shadow-2xl flex items-center justify-center gap-2 transition-transform active:scale-95">
+
+                      <Button 
+                          onClick={handleLanjutBayar} 
+                          disabled={isCharging}
+                          className="w-full max-w-sm h-14 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-full shadow-2xl flex items-center justify-center gap-2 transition-transform active:scale-95"
+                      >
                           {isCharging ? <Loader2 className="w-5 h-5 animate-spin"/> : "LANJUTKAN PEMBAYARAN"}
                       </Button>
+                      
+                      <p className="mt-4 text-[10px] text-slate-400 font-medium flex items-center gap-1.5 pb-8">
+                          <ShieldCheck className="w-4 h-4 text-emerald-500"/> Pembayaran Aman & Otomatis oleh Mayar
+                      </p>
                   </div>
               </div>
           </MobileLayout>
@@ -176,6 +225,7 @@ export default function Performance() {
       return acc + (inv.quantity * inv.avgPrice * m * rate);
   }, 0) : 0;
 
+  // 🚀 HITUNGAN SALDO TERTAHAN
   const retainedReal = Array.isArray(retainedData) ? retainedData.reduce((acc: number, r: any) => {
       const curr = r.currency;
       const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 15000);
@@ -201,6 +251,19 @@ export default function Performance() {
   
   let totalCuanJual = 0;
   let totalModalTerpakai = 0;
+
+  allTimeTx.filter(t => t.type === 'invest_sell').forEach(t => {
+      if (t.description && t.description.includes('P/L:')) {
+          const plString = t.description.split('P/L:')[1];
+          if (plString) {
+              const plValue = parseInt(plString.replace(/[^0-9-]/g, ''), 10);
+              if (!isNaN(plValue)) {
+                  totalCuanJual += plValue;
+                  totalModalTerpakai += (t.amount - plValue); 
+              }
+          }
+      }
+  });
 
   const roiPercentage = totalModalTerpakai > 0 ? (totalCuanJual / totalModalTerpakai) * 100 : 0;
   const assetAlocationRatio = currentWealth > 0 ? ((investmentReal + forexValue + retainedReal) / currentWealth) * 100 : 0;
@@ -249,11 +312,62 @@ export default function Performance() {
 
   const totalAmal = thisMonthTx.filter(t => t.category === 'Amal').reduce((acc, t) => acc + t.amount, 0);
 
-  const baseIncomeTxs = thisMonthTx.filter(t => t.type === 'income' && t.category !== 'Amal');
-  const baseExpenseTxs = thisMonthTx.filter(t => t.type === 'expense' && t.category !== 'Amal');
+  const baseIncomeTxs = thisMonthTx.filter(t => 
+      (t.type === 'income' || t.type === 'piutang_record') && 
+      !t.description?.includes('[Offset') && 
+      !t.description?.includes('[WRITE_OFF]') && 
+      !t.description?.includes('[Catat Awal]') && 
+      !t.description?.includes('[Bayar Valas]') && 
+      t.category !== 'Penyesuaian Sistem' && 
+      t.category !== 'Pemutihan Hutang' &&
+      t.category !== 'Cairkan Valas' &&
+      t.category !== 'Investasi Valas' && 
+      t.category !== 'Tukar Valas' &&
+      t.category !== 'Jual Aset' &&
+      !(t.category || '').includes('Piutang Dibayar') &&
+      !(t.category || '').includes('Dapat Pinjaman')
+  );
+  
+  const baseExpenseTxs = thisMonthTx.filter(t => 
+      (t.type === 'expense' || t.type === 'hutang_record') && 
+      !(t.category || '').toLowerCase().includes('invest') && 
+      !t.description?.includes('[Offset') && 
+      !t.description?.includes('[WRITE_OFF]') && 
+      !t.description?.includes('[Catat Awal]') && 
+      !t.description?.includes('[Bayar Valas]') && 
+      t.category !== 'Penyesuaian Sistem' && 
+      t.category !== 'Penghapusan Piutang' &&
+      t.category !== 'Tukar Valas' &&
+      t.category !== 'Investasi Valas' && 
+      t.category !== 'Cairkan Valas' &&
+      t.category !== 'Amal' && 
+      !(t.category || '').includes('Bayar Hutang') &&
+      !(t.category || '').includes('Beri Pinjaman')
+  );
 
-  const allIncomeTxs = [...baseIncomeTxs];
-  const allExpenseTxs = [...baseExpenseTxs];
+  const virtualPLTxs: any[] = [];
+  thisMonthTx.filter(t => t.type === 'invest_sell').forEach(t => {
+      if (t.description && t.description.includes('P/L:')) {
+          const plString = t.description.split('P/L:')[1];
+          if (plString) {
+              const cleanString = plString.replace(/[^0-9-]/g, '');
+              const plValue = parseInt(cleanString, 10);
+              
+              if (!isNaN(plValue) && plValue !== 0) {
+                  virtualPLTxs.push({
+                      ...t, 
+                      type: plValue > 0 ? 'income' : 'expense',
+                      amount: Math.abs(plValue),
+                      category: plValue > 0 ? 'Profit Investasi' : 'Rugi Investasi',
+                      description: `Realisasi: ${t.description.split('@')[0].trim()}`
+                  });
+              }
+          }
+      }
+  });
+
+  const allIncomeTxs = [...baseIncomeTxs, ...virtualPLTxs.filter(v => v.type === 'income')];
+  const allExpenseTxs = [...baseExpenseTxs, ...virtualPLTxs.filter(v => v.type === 'expense')];
 
   const monthlyIncome = allIncomeTxs.reduce((acc, t) => acc + t.amount, 0); 
   const monthlyExpense = allExpenseTxs.reduce((acc, t) => acc + t.amount, 0); 
@@ -268,7 +382,8 @@ export default function Performance() {
   const isSafe = monthlyNet >= savingRequired; 
   const isOverBudget = expenseLimit > 0 && monthlyExpense > expenseLimit;
 
-  const detailList = (expandedDetail === 'income' ? allIncomeTxs : (expandedDetail === 'expense' ? allExpenseTxs : []));
+  const detailList = (expandedDetail === 'income' ? allIncomeTxs : (expandedDetail === 'expense' ? allExpenseTxs : []))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const formatRp = (val: number) => {
       if (isNaN(val)) return "Rp 0";
@@ -284,10 +399,10 @@ export default function Performance() {
 
   return (
     <MobileLayout title="Analisa Performa" showBack>
-      <div className="space-y-6 pt-4 px-3 pb-24">
+      <div className="space-y-6 pt-4 px-1 pb-24">
 
         {isPeriodEnded && (
-            <div className={`p-5 rounded-[24px] text-white shadow-lg ${isTargetAchieved ? 'bg-gradient-to-br from-yellow-400 to-amber-600' : 'bg-gradient-to-br from-rose-500 to-red-600'}`}>
+            <div className={`p-5 rounded-[24px] text-white shadow-lg animate-in slide-in-from-top-4 ${isTargetAchieved ? 'bg-gradient-to-br from-yellow-400 to-amber-600' : 'bg-gradient-to-br from-rose-500 to-red-600'}`}>
                 {isTargetAchieved ? (
                     <div className="flex items-center gap-4">
                         <div className="bg-white/20 p-3 rounded-full"><Trophy className="w-8 h-8 text-white"/></div>
@@ -374,7 +489,7 @@ export default function Performance() {
             <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl group-hover:bg-emerald-300/50 transition-colors pointer-events-none"></div>
             <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-1">
-                    <Heart className="w-5 h-5 text-emerald-600"/>
+                    <HeartHandshake className="w-5 h-5 text-emerald-600"/>
                     <h3 className="font-extrabold text-emerald-900 text-sm">Amal & Sedekah (Bulan Ini)</h3>
                 </div>
                 <p className="text-[10px] font-medium text-emerald-700 mb-2">Pahala yang mengalir tanpa memotong budget bulanan</p>
@@ -431,7 +546,7 @@ export default function Performance() {
                             <button onClick={() => setExpandedDetail(null)} className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Tutup</button>
                         </div>
                         
-                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 pb-4">
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1 pb-4">
                             {detailList.length > 0 ? detailList.map((t, idx) => (
                                 <div key={t.id || idx} className="bg-white p-4 rounded-[20px] border border-slate-100 shadow-sm flex justify-between items-center group transition-all">
                                     <div className="flex-1 mr-2">
@@ -465,8 +580,8 @@ export default function Performance() {
             </div>
         </div>
 
-        {isProAccess && (totalCuanJual !== 0 || investmentReal > 0) && (
-            <div className="p-6 rounded-[32px] bg-slate-900 text-white shadow-xl border border-slate-700 relative overflow-hidden">
+        {isPro && (totalCuanJual !== 0 || investmentReal > 0) && (
+            <div className="p-6 rounded-[32px] bg-slate-900 text-white shadow-xl border border-slate-700 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
                 <div className="flex justify-between items-start mb-6">
                     <div>
                         <h3 className="font-black text-lg flex items-center gap-2"><Briefcase className="w-5 h-5 text-amber-400"/> Performa Aset</h3>
@@ -504,62 +619,6 @@ export default function Performance() {
                 <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
             </div>
         )}
-
-        {/* ── MILESTONE TRACKER ────────────────────────────────────── */}
-        {(() => {
-            const txCount = transactions?.length || 0;
-            const daysSinceSetup = Math.floor(daysPassed);
-            
-            const milestones = [
-                { label: "Transaksi Pertama", done: txCount >= 1, icon: "✏️", desc: "Catat 1 transaksi" },
-                { label: "Mulai Tracking", done: txCount >= 10, icon: "📊", desc: `${Math.min(txCount, 10)}/10 transaksi` },
-                { label: "1 Minggu Aktif", done: daysSinceSetup >= 7, icon: "🗓️", desc: `${Math.min(daysSinceSetup, 7)}/7 hari` },
-                { label: "AI Strategi Siap", done: daysSinceSetup >= 30 && isProAccess, icon: "🤖", desc: daysSinceSetup >= 30 ? (isProAccess ? "Tersedia!" : "Upgrade PRO") : `${Math.min(daysSinceSetup, 30)}/30 hari` },
-            ];
-
-            const doneCount = milestones.filter(m => m.done).length;
-
-            return (
-                <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 mb-2">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 className="font-black text-slate-800 text-sm">Perjalanan Finansialmu</h3>
-                            <p className="text-[10px] text-slate-400 font-medium mt-0.5">{doneCount} dari {milestones.length} milestone tercapai</p>
-                        </div>
-                        <div className="text-right">
-                            <span className="text-2xl font-black text-indigo-600">{Math.round((doneCount / milestones.length) * 100)}%</span>
-                        </div>
-                    </div>
-                    
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
-                        <div 
-                            className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full transition-all duration-700"
-                            style={{ width: `${(doneCount / milestones.length) * 100}%` }}
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                        {milestones.map((m, i) => (
-                            <div key={i} className={`flex items-center gap-2.5 p-3 rounded-2xl border transition-all ${
-                                m.done 
-                                    ? 'bg-emerald-50 border-emerald-100' 
-                                    : 'bg-slate-50 border-slate-100'
-                            }`}>
-                                <span className={`text-lg ${m.done ? '' : 'grayscale opacity-50'}`}>{m.icon}</span>
-                                <div className="min-w-0">
-                                    <p className={`text-[10px] font-black truncate ${m.done ? 'text-emerald-700' : 'text-slate-500'}`}>
-                                        {m.label}
-                                    </p>
-                                    <p className={`text-[9px] font-medium truncate ${m.done ? 'text-emerald-500' : 'text-slate-400'}`}>
-                                        {m.done ? '✓ Selesai' : m.desc}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        })()}
 
         {hasValidTarget ? (
             <div className="grid grid-cols-1 gap-5">

@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { useUser, useTransactions, useAddTransaction } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
-import { Heart, Loader2, CheckCircle, History, Settings, Info, PieChart, X, AlertTriangle } from "lucide-react";
+import { HeartHandshake, Loader2, CheckCircle2, History, Settings, Info, PieChart, X, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Amal() {
@@ -56,6 +56,7 @@ export default function Amal() {
           localStorage.setItem(`bilano_amal_dict_${userEmail}`, JSON.stringify({}));
       } else {
           const newDict = { ...amalDict };
+          // 🚀 Filter retroactive hanya mengecek pemasukan asli & piutang pendapatan
           const incomes = transactions?.filter(t => 
               (t.type === 'income' && !t.description?.includes('[PIUTANG_PENDAPATAN]') && !t.description?.includes('Belum Dibayar')) || 
               (t.type === 'debt_receive' && t.description?.includes('[Pemasukan Cair]'))
@@ -73,6 +74,7 @@ export default function Amal() {
       toast({ title: "Berhasil", description: `Persentase diubah menjadi ${newPct}%` });
   };
 
+  // 🚀 PERBAIKAN FILTER: Menolak piutang pinjaman murni, hanya baca [Pemasukan Cair]
   const pureIncomes = (transactions || []).filter(t => 
       (
           (t.type === 'income' && !t.description?.includes('[PIUTANG_PENDAPATAN]') && !t.description?.includes('Belum Dibayar')) || 
@@ -120,6 +122,7 @@ export default function Amal() {
 
       totalSisaAnggaran += remainingForThis;
       
+      // Membersihkan teks UI agar tag [PIUTANG_PENDAPATAN] tidak terlihat
       const displayDesc = inc.type === 'debt_receive' 
           ? `Pencairan: ${inc.description?.replace('[PIUTANG_PENDAPATAN]', '').replace('[Pemasukan Cair]', '').trim()}` 
           : (inc.description || inc.category);
@@ -183,7 +186,7 @@ export default function Amal() {
                 <div className="flex justify-between items-start mb-6">
                     <div className="flex items-center gap-2">
                         <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30">
-                            <Heart className="w-5 h-5 text-white" />
+                            <HeartHandshake className="w-5 h-5 text-white" />
                         </div>
                         <div>
                             <p className="text-[10px] font-bold text-emerald-100 uppercase tracking-widest">Total Kebaikan</p>
@@ -222,7 +225,7 @@ export default function Amal() {
 
         <Card className="p-6 rounded-[32px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100">
             <h3 className="font-extrabold text-slate-800 text-base mb-5 flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-emerald-500"/> Catat Amal Baru
+                <CheckCircle2 className="w-5 h-5 text-emerald-500"/> Catat Amal Baru
             </h3>
             <div className="space-y-4">
                 <div>
@@ -266,7 +269,7 @@ export default function Amal() {
                             <span className="text-[11px] font-bold text-slate-700">= {formatCurrency(inc.allocatedAmount).split(',')[0]}</span>
                         </div>
                         <div className="flex justify-between items-center mt-1">
-                            {inc.status === 'Lunas' && <span className="text-[10px] bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-md font-extrabold flex items-center gap-1"><CheckCircle className="w-3 h-3"/> TERCAPAI</span>}
+                            {inc.status === 'Lunas' && <span className="text-[10px] bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-md font-extrabold flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> TERCAPAI</span>}
                             {inc.status === 'Sebagian' && <span className="text-[10px] bg-amber-100 text-amber-600 px-2.5 py-1 rounded-md font-extrabold flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> SISA: {formatCurrency(inc.remainingForThis).split(',')[0]}</span>}
                             {inc.status === 'Belum' && <span className="text-[10px] bg-slate-200 text-slate-500 px-2.5 py-1 rounded-md font-extrabold">BELUM TERCAPAI</span>}
                         </div>
@@ -283,7 +286,7 @@ export default function Amal() {
                 {amalTxs.length > 0 ? amalTxs.map(t => (
                     <div key={t.id} className="bg-white p-4 rounded-[20px] shadow-sm border border-slate-100 flex items-center justify-between group">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600"><Heart className="w-5 h-5"/></div>
+                            <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600"><HeartHandshake className="w-5 h-5"/></div>
                             <div>
                                 <p className="font-bold text-slate-800 text-sm line-clamp-1">{t.description}</p>
                                 <p className="text-[10px] text-slate-400 font-medium">{new Date(t.date).toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})}</p>
@@ -293,7 +296,7 @@ export default function Amal() {
                     </div>
                 )) : (
                     <div className="text-center py-10 bg-slate-50 rounded-[24px] border border-dashed border-slate-200">
-                        <Heart className="w-8 h-8 text-slate-300 mx-auto mb-2"/>
+                        <HeartHandshake className="w-8 h-8 text-slate-300 mx-auto mb-2"/>
                         <p className="text-xs text-slate-400 font-medium">Belum ada catatan amal.</p>
                     </div>
                 )}
@@ -315,7 +318,7 @@ export default function Amal() {
                   <div className="bg-slate-50 border border-slate-100 rounded-[20px] p-4 text-left mb-6 cursor-pointer" onClick={() => setIsRetroactive(!isRetroactive)}>
                       <div className="flex items-start gap-3">
                           <div className={`w-5 h-5 rounded flex-shrink-0 flex items-center justify-center mt-0.5 border ${isRetroactive ? 'bg-emerald-500 border-emerald-500' : 'bg-white border-slate-300'}`}>
-                              {isRetroactive && <CheckCircle className="w-4 h-4 text-white"/>}
+                              {isRetroactive && <CheckCircle2 className="w-4 h-4 text-white"/>}
                           </div>
                           <div>
                               <p className="text-sm font-bold text-slate-800">Ubah Data Masa Lalu</p>

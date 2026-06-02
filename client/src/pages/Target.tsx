@@ -81,10 +81,6 @@ export default function Target() {
     const [newItemAmount, setNewItemAmount] = useState("");
 
     const [isSubmitting, setIsSubmitting] = useState(false); 
-    
-    // Aha Moment State
-    const [showAhaMoment, setShowAhaMoment] = useState(false);
-    const [ahaData, setAhaData] = useState<{dailyLimit: number; monthlySaving: number; targetName: string} | null>(null);
 
     const { toast } = useToast();
     const now = new Date();
@@ -262,22 +258,15 @@ export default function Target() {
             if (res.ok) {
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
                 
-                // Tandai setup sudah selesai → mulai hitung trial 14 hari
-                if (!localStorage.getItem(`bilano_setup_completed_${userEmail}`)) {
-                    localStorage.setItem(`bilano_setup_completed_${userEmail}`, new Date().toISOString());
+                // 🚀 FIX ALUR TOL SATU ARAH:
+                if (!isEditMode) {
+                    // Pengguna Baru: Cap stempel paywall, lalu lempar langsung ke halaman Mayar/Paywall
+                    localStorage.setItem(`bilano_welcomed_paywall_${userEmail}`, "true");
+                    window.location.href = "/paywall"; 
+                } else {
+                    // Pengguna Lama (Cuma edit target): Lempar kembali ke Home
+                    window.location.href = "/"; 
                 }
-
-                // Kalkulasi untuk Aha Moment
-                const calculatedDailyLimit = withBudget ? Math.round(budgetVal / 30) : 0;
-                const calculatedMonthlySaving = Math.round((parseNumber(rawTargetAmount) || 0) / (Number(inputDuration) || 12));
-                
-                // Tampilkan Aha Moment sebelum redirect
-                setAhaData({
-                    dailyLimit: calculatedDailyLimit,
-                    monthlySaving: calculatedMonthlySaving,
-                    targetName: isTargetMode ? "target finansialmu" : "kebebasan finansialmu"
-                });
-                setShowAhaMoment(true);
 
             } else { 
                 const errText = await res.text();
@@ -634,62 +623,6 @@ export default function Target() {
                                 {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : (isEditMode ? "SIMPAN PERUBAHAN" : "SIMPAN STRATEGI")}
                             </Button>
                             <Button variant="ghost" onClick={() => setStep('budget-ask')} className="w-full text-slate-400 font-bold">KEMBALI</Button>
-                        </div>
-                    </div>
-                )}
-                
-                {/* MODAL AHA MOMENT */}
-                {showAhaMoment && ahaData && (
-                    <div className="fixed inset-0 z-[99999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-                        <div className="bg-white rounded-[28px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 text-center">
-                            
-                            {/* Angka utama — ini momen dramatisnya */}
-                            <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-200">
-                                <span className="text-2xl">🎯</span>
-                            </div>
-                            
-                            <h2 className="text-xl font-black text-slate-800 mb-1">Target Sudah Terpasang!</h2>
-                            <p className="text-xs text-slate-500 mb-5 font-medium">
-                                Bilano sudah hitung semua untuk <span className="text-indigo-600 font-bold">{ahaData.targetName}</span>
-                            </p>
-
-                            {/* Angka yang membuat mimpi jadi konkret */}
-                            <div className="bg-indigo-50 rounded-2xl p-4 mb-3 border border-indigo-100">
-                                <p className="text-[9px] text-indigo-400 font-black uppercase tracking-widest mb-1">Batas Pengeluaran Harian</p>
-                                <p className="text-3xl font-black text-indigo-700">
-                                    Rp {ahaData.dailyLimit.toLocaleString("id-ID")}
-                                </p>
-                                <p className="text-[10px] text-indigo-400 font-medium mt-1">per hari untuk tetap on track</p>
-                            </div>
-
-                            <div className="bg-emerald-50 rounded-2xl p-3 mb-5 border border-emerald-100">
-                                <p className="text-[9px] text-emerald-600 font-black uppercase tracking-widest mb-0.5">Target Tabungan Bulanan</p>
-                                <p className="text-xl font-black text-emerald-700">
-                                    Rp {ahaData.monthlySaving.toLocaleString("id-ID")}
-                                </p>
-                            </div>
-
-                            {/* Kalimat validasi */}
-                            <p className="text-[11px] text-slate-500 leading-relaxed font-medium mb-5">
-                                Rp {ahaData.dailyLimit.toLocaleString("id-ID")}/hari. <span className="text-slate-700 font-bold">Itu bukan angka yang mustahil.</span><br/>
-                                Bilano akan membantumu menjaga angka itu — setiap hari, setiap transaksi.
-                            </p>
-
-                            <button
-                                onClick={() => { 
-                                    setShowAhaMoment(false);
-                                    // Redirect sesuai alur aplikasi (Pengguna baru ke Paywall, Edit Target ke Home)
-                                    if (!isEditMode) {
-                                        localStorage.setItem(`bilano_welcomed_paywall_${userEmail}`, "true");
-                                        window.location.href = "/paywall"; 
-                                    } else {
-                                        window.location.href = "/"; 
-                                    }
-                                }}
-                                className="w-full py-3.5 rounded-full bg-indigo-600 text-white font-extrabold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95"
-                            >
-                                MULAI SEKARANG →
-                            </button>
                         </div>
                     </div>
                 )}

@@ -8,11 +8,11 @@ import { formatCurrency } from "@/lib/utils";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
-  TrendingUp, DollarSign, Target,
+  TrendingUp, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
-  MoreVertical, ShieldCheck, ScanLine, Award, EyeOff, Eye, Lock, X, Loader2,
+  MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
-  Cpu, CheckCircle, HelpCircle, Notebook, Heart, Undo2, Lightbulb, Clock 
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass 
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -83,6 +83,7 @@ export default function Home() {
   
   const [showRetryButton, setShowRetryButton] = useState(false);
 
+  // 🚀 MENDETEKSI PWA
   const isStandalone = typeof window !== 'undefined' && 
       (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
 
@@ -315,20 +316,16 @@ export default function Home() {
   useEffect(() => {
       if (isUserPro || !user) return;
       
-      const setupCompletedAt = localStorage.getItem(`bilano_setup_completed_${rawEmail}`);
-      const trialStartTime = setupCompletedAt
-          ? new Date(setupCompletedAt).getTime()
-          : new Date(user.createdAt || Date.now()).getTime();
-          
-      const TRIAL_DURATION_DAYS = 14;
-      const daysPassed = (Date.now() - trialStartTime) / (1000 * 60 * 60 * 24);
-      
+      const startTime = new Date(user.createdAt || Date.now()).getTime();
+      const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
+      const TRIAL_DURATION_DAYS = 3; 
+
       if (daysPassed >= TRIAL_DURATION_DAYS) {
           setTrialDaysLeft(0);
       } else {
           setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
       }
-  }, [isUserPro, user, rawEmail]);
+  }, [isUserPro, user]);
 
   const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
   
@@ -336,6 +333,7 @@ export default function Home() {
   const isNewAccount = user && (Date.now() - startTimeAcc) < (15 * 60 * 1000); 
   const hasRedirected = rawEmail ? localStorage.getItem(`bilano_welcomed_paywall_${rawEmail}`) === "true" : false;
   
+  // 🚀 PERBAIKAN: Redirect penawaran bayar HANYA diaktifkan kalau dia buka via PWA
   const needsPaywallRedirect = isStandalone && !isUserPro && isNewAccount && !hasRedirected && !isTargetEmpty;
 
   useEffect(() => {
@@ -615,7 +613,7 @@ export default function Home() {
                   <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
                   <button onClick={() => setProFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
                   <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10">
-                      <Award className="w-10 h-10 text-amber-950"/>
+                      <Crown className="w-10 h-10 text-amber-950"/>
                   </div>
                   <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Akses VIP Terjamin! 👑</h2>
                   <p className="text-sm text-indigo-200 mb-6 leading-relaxed px-2 font-medium">
@@ -623,7 +621,7 @@ export default function Home() {
                       Sebagai pengguna <b>PRO</b>, Anda tidak perlu membayar biaya tambahan apapun. Fitur ini akan otomatis terbuka untuk Anda begitu dirilis!
                   </p>
                   <Button onClick={() => setProFeatureModal(null)} className="w-full h-14 bg-white hover:bg-slate-100 text-indigo-950 rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
-                      <CheckCircle className="w-5 h-5"/> SAYA MENGERTI
+                      <CheckCircle2 className="w-5 h-5"/> SAYA MENGERTI
                   </Button>
               </div>
           </div>
@@ -698,7 +696,7 @@ export default function Home() {
 
                 <div className="relative z-10 p-6 text-center">
                     <div className="w-20 h-20 mx-auto bg-gradient-to-tr from-amber-400 to-yellow-300 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(251,191,36,0.4)] animate-bounce">
-                        <Award className="w-10 h-10 text-amber-950" />
+                        <Crown className="w-10 h-10 text-amber-950" />
                     </div>
                     <h2 className="text-2xl font-black text-white mb-2 tracking-tight">
                         Selamat Datang di <br/>
@@ -772,7 +770,7 @@ export default function Home() {
           <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border-4 border-emerald-100">
                   <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <Award className="w-10 h-10" />
+                      <Crown className="w-10 h-10" />
                   </div>
                   <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Target Tercapai! 🎉</h2>
                   <p className="text-slate-500 text-sm mb-8">Luar biasa! Saldo kamu sudah melebihi impian yang kamu targetkan. Ingin membuat target baru?</p>
@@ -813,7 +811,7 @@ export default function Home() {
                 <div>
                     <div className="flex items-center gap-2">
                         <p className="text-xs font-medium text-slate-500">Selamat datang,</p>
-                        {isUserPro && <Award className="w-3.5 h-3.5 text-amber-500" />}
+                        {isUserPro && <Crown className="w-3.5 h-3.5 text-amber-500" />}
                     </div>
                     <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight">{greetingName}</h2>
                 </div>
@@ -878,59 +876,19 @@ export default function Home() {
         </div>
 
         {!isUserPro && trialDaysLeft !== null && isStandalone && (
-            <div className={`mx-1 mt-[-10px] rounded-[20px] overflow-hidden shadow-lg animate-in slide-in-from-top-4`}>
-                <div className={`p-4 flex items-center justify-between ${
-                    trialDaysLeft === 0 
-                        ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' 
-                        : trialDaysLeft <= 4
-                            ? 'bg-gradient-to-r from-orange-400 to-amber-500 text-amber-950'
-                            : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'
-                }`}>
-                    <div className="flex items-center gap-3">
-                        <div className="bg-white/20 p-2 rounded-full">
-                            {trialDaysLeft === 0 ? <Lock className="w-5 h-5" /> : <Award className="w-5 h-5" />}
-                        </div>
-                        <div>
-                            <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">
-                                {trialDaysLeft === 0 ? "MASA COBA HABIS" : trialDaysLeft <= 4 ? "⚡ Hampir Habis!" : "Masa Coba Gratis"}
-                            </p>
-                            <p className="text-xs font-medium opacity-90">
-                                {trialDaysLeft === 0 
-                                    ? "Amankan progress kamu sekarang." 
-                                    : trialDaysLeft <= 4
-                                        ? <span>Hanya <b>{trialDaysLeft} hari</b> tersisa — kunci harga sebelum naik!</span>
-                                        : <span>Sisa: <b>{trialDaysLeft} hari</b> • Harga akan naik saat fitur baru hadir</span>
-                                }
-                            </p>
-                        </div>
+            <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${trialDaysLeft === 0 ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
+                <div className="flex items-center gap-3">
+                    <div className="bg-white/20 p-2 rounded-full">
+                        {trialDaysLeft === 0 ? <Lock className="w-5 h-5" /> : <Crown className="w-5 h-5" />}
                     </div>
-                    <Link href="/paywall">
-                        <button className="bg-white/25 hover:bg-white/40 px-3 py-2 rounded-full text-[10px] font-extrabold backdrop-blur-sm transition-all active:scale-95 shadow-sm whitespace-nowrap">
-                            {trialDaysLeft === 0 ? "BUKA KUNCI" : "KUNCI HARGA"}
-                        </button>
-                    </Link>
+                    <div>
+                        <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">{trialDaysLeft === 0 ? "MASA COBA HABIS" : "Masa Coba Gratis"}</p>
+                        <p className="text-xs font-medium opacity-90">{trialDaysLeft === 0 ? "Fungsi aplikasi dikunci." : <span>Sisa waktu: <b>{trialDaysLeft} Hari</b></span>}</p>
+                    </div>
                 </div>
-                {/* AI Strategi progress bar — selalu terlihat di bawah trial banner */}
-                {trialDaysLeft > 0 && (
-                    <div className="bg-slate-800 px-4 py-2.5 flex items-center gap-3">
-                        <Cpu className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-center mb-1">
-                                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wide">AI Strategi Penghasilan</span>
-                                <span className="text-[9px] text-indigo-300 font-black">
-                                    {Math.max(0, 30 - (14 - trialDaysLeft))} hari lagi
-                                </span>
-                            </div>
-                            <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
-                                <div 
-                                    className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full"
-                                    style={{ width: `${Math.min(100, Math.max(3, ((14 - trialDaysLeft) / 30) * 100))}%` }}
-                                />
-                            </div>
-                        </div>
-                        <Lock className="w-3 h-3 text-slate-600 flex-shrink-0" />
-                    </div>
-                )}
+                <Link href="/paywall">
+                    <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-full text-[10px] font-extrabold backdrop-blur-sm transition-all active:scale-95 shadow-sm">{trialDaysLeft === 0 ? "BUKA KUNCI" : "UPGRADE PRO"}</button>
+                </Link>
             </div>
         )}
         
@@ -1017,8 +975,8 @@ export default function Home() {
 
                 <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
-                        <MenuIconBox href="/amal" icon={Heart} bg="bg-emerald-500" label="Amal" />
-                        <MenuIconBox href="/retained" icon={Clock} bg="bg-amber-500" label="Tertahan" />
+                        <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-emerald-500" label="Amal" />
+                        <MenuIconBox href="/retained" icon={Hourglass} bg="bg-amber-500" label="Tertahan" />
                         <MenuIconBox 
                             onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} 
                             icon={CreditCard} bg="bg-slate-800" label="Cicilan" badge="SEGERA" 
@@ -1056,51 +1014,11 @@ export default function Home() {
         </div>
 
         <div className="flex flex-col gap-4 mt-2 px-1">
-            {/* AI Strategi Penghasilan — Locked But Visible */}
-            {!isUserPro && (
-                <Link href="/paywall">
-                    <div className="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-[24px] p-5 border border-indigo-800/50 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group shadow-lg">
-                        <div className="absolute right-0 top-0 w-28 h-28 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/20 transition-colors"></div>
-                        <div className="flex items-center gap-4 relative z-10 mb-3">
-                            <div className="w-12 h-12 rounded-full bg-indigo-900/80 border border-indigo-700/50 flex items-center justify-center">
-                                <Cpu className="w-6 h-6 text-indigo-300"/>
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                    <h3 className="font-black text-white text-sm">AI Strategi Penghasilan</h3>
-                                    <span className="text-[8px] bg-amber-400 text-amber-950 font-black px-1.5 py-0.5 rounded uppercase">PRO</span>
-                                </div>
-                                <p className="text-[11px] text-slate-400 font-medium">Rekomendasi personal dari data keuanganmu</p>
-                            </div>
-                            <Lock className="w-4 h-4 text-slate-600 flex-shrink-0"/>
-                        </div>
-                        {/* Progress bar countdown */}
-                        <div className="relative z-10">
-                            <div className="flex justify-between mb-1.5">
-                                <span className="text-[9px] text-indigo-400 font-bold uppercase tracking-wide">Progress Data</span>
-                                <span className="text-[9px] text-slate-500 font-medium">
-                                    Butuh 30 hari data aktif
-                                </span>
-                            </div>
-                            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                <div 
-                                    className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 rounded-full"
-                                    style={{ width: `${Math.min(100, Math.max(3, ((trialDaysLeft !== null ? (14 - trialDaysLeft) : 0) / 30) * 100))}%` }}
-                                />
-                            </div>
-                            <p className="text-[9px] text-slate-600 font-medium mt-1.5 text-center">
-                                Upgrade ke Premium untuk membuka fitur ini
-                            </p>
-                        </div>
-                    </div>
-                </Link>
-            )}
-
             <Link href="/chat-ai">
                 <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
                     <div className="flex items-center gap-4 z-10">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-900 via-indigo-800 to-blue-950 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-blue-900/20">
-                            <Cpu className="w-6 h-6 text-blue-100"/>
+                            <Bot className="w-6 h-6 text-blue-100"/>
                         </div>
                         <div>
                             <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
