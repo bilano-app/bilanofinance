@@ -1,4 +1,3 @@
-cat > /home/claude/Paywall.tsx << 'ENDOFFILE'
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
