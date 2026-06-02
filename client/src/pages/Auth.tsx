@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Card, Button, Input } from "@/components/UIComponents";
-import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, RefreshCw, AlertCircle, X, CheckCircle2 } from "lucide-react";
-import { auth } from "@/lib/firebase";
+import { initializeApp } from "firebase/app";
 import { 
+    getAuth,
     getRedirectResult,
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
@@ -12,7 +11,23 @@ import {
     User
 } from "firebase/auth";
 
-export default function Auth() {
+const firebaseConfig = typeof __firebase_config !== 'undefined' && __firebase_config ? JSON.parse(__firebase_config) : { apiKey: "demo" };
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+const Card = ({ children, className }: any) => <div className={className}>{children}</div>;
+const Button = ({ children, className, disabled, ...props }: any) => (
+    <button disabled={disabled} className={`${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`} {...props}>
+        {children}
+    </button>
+);
+const Input = ({ className, ...props }: any) => <input className={`outline-none ${className}`} {...props} />;
+
+const useToast = () => ({
+    toast: ({ title, description }: any) => console.log(`[Toast] ${title} - ${description}`)
+});
+
+export default function App() {
   localStorage.removeItem("bilano_trial_expired");
 
   const [isLogin, setIsLogin] = useState(() => localStorage.getItem("auth_isLogin") !== "false"); 
@@ -81,7 +96,16 @@ export default function Auth() {
 
       const cleanEmail = (user.email || "").trim().toLowerCase();
       localStorage.setItem("bilano_auth", "true");
-      localStorage.setItem("bilano_email", cleanEmail);
+
+      // Saat login berhasil, pastikan setup completion belum ditandai
+      // (akan ditandai nanti setelah user selesai set target)
+      const loggedEmail = cleanEmail;
+      
+      // Jangan reset jika sudah pernah setup sebelumnya
+      if (!localStorage.getItem(`bilano_setup_completed_${loggedEmail}`)) {
+          console.log("[Bilano] New session — setup not yet completed for:", loggedEmail);
+      }
+      localStorage.setItem("bilano_email", loggedEmail);
       
       clearAuthCache(); 
 

@@ -73,9 +73,13 @@ export default function Performance() {
 
   const isPro = user?.isPro || localStorage.getItem("bilano_pro") === "true";
   
-  const startTime = new Date(user?.createdAt || Date.now()).getTime();
-  const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
-  const isTrialExpired = daysPassed >= 3;
+  // 🚀 Gunakan setup completion timestamp & trial 14 hari
+  const setupCompletedAt = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`);
+  const trialStartTime = setupCompletedAt
+      ? new Date(setupCompletedAt).getTime()
+      : new Date(user?.createdAt || Date.now()).getTime();
+  const daysPassed = (Date.now() - trialStartTime) / (1000 * 60 * 60 * 24);
+  const isTrialExpired = daysPassed >= 14;
 
   const locked = !isUserLoading && !isPro && isTrialExpired;
 
@@ -145,7 +149,7 @@ export default function Performance() {
                       
                       <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Masa Coba Habis</h2>
                       <p className="text-sm text-slate-600 mb-6 max-w-xs leading-relaxed font-medium">
-                          Masa coba gratis 3 hari telah berakhir. Berlangganan <b className="text-slate-800">BILANO PRO</b> sekarang untuk membuka kembali Analisis Cashflow, ROI Aset, dan Diagnosa Target Finansial.
+                          Masa coba gratis 14 hari telah berakhir. Berlangganan <b className="text-slate-800">BILANO PRO</b> sekarang untuk membuka kembali Analisis Cashflow, ROI Aset, dan Diagnosa Target Finansial.
                       </p>
                       
                       <div className="w-full max-w-sm space-y-3 mb-6 animate-in zoom-in-95">
@@ -619,6 +623,64 @@ export default function Performance() {
                 <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
             </div>
         )}
+
+        {/* ── MILESTONE TRACKER ────────────────────────────────────── */}
+        {/* Gamification: tunjukkan progress user, buat mereka mau terus aktif */}
+        {(() => {
+            const txCount = transactions?.length || 0;
+            const daysSinceSetup = Math.floor(daysPassed);
+            
+            const milestones = [
+                { label: "Transaksi Pertama", done: txCount >= 1, icon: "✏️", desc: "Catat 1 transaksi" },
+                { label: "Mulai Tracking", done: txCount >= 10, icon: "📊", desc: `${Math.min(txCount, 10)}/10 transaksi` },
+                { label: "1 Minggu Aktif", done: daysSinceSetup >= 7, icon: "🗓️", desc: `${Math.min(daysSinceSetup, 7)}/7 hari` },
+                { label: "AI Strategi Siap", done: daysSinceSetup >= 30 && isPro, icon: "🤖", desc: daysSinceSetup >= 30 ? (isPro ? "Tersedia!" : "Upgrade PRO") : `${Math.min(daysSinceSetup, 30)}/30 hari` },
+            ];
+
+            const doneCount = milestones.filter(m => m.done).length;
+
+            return (
+                <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 mb-2">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="font-black text-slate-800 text-sm">Perjalanan Finansialmu</h3>
+                            <p className="text-[10px] text-slate-400 font-medium mt-0.5">{doneCount} dari {milestones.length} milestone tercapai</p>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-2xl font-black text-indigo-600">{Math.round((doneCount / milestones.length) * 100)}%</span>
+                        </div>
+                    </div>
+                    
+                    {/* Progress bar keseluruhan */}
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
+                        <div 
+                            className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full transition-all duration-700"
+                            style={{ width: `${(doneCount / milestones.length) * 100}%` }}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                        {milestones.map((m, i) => (
+                            <div key={i} className={`flex items-center gap-2.5 p-3 rounded-2xl border transition-all ${
+                                m.done 
+                                    ? 'bg-emerald-50 border-emerald-100' 
+                                    : 'bg-slate-50 border-slate-100'
+                            }`}>
+                                <span className={`text-lg ${m.done ? '' : 'grayscale opacity-50'}`}>{m.icon}</span>
+                                <div className="min-w-0">
+                                    <p className={`text-[10px] font-black truncate ${m.done ? 'text-emerald-700' : 'text-slate-500'}`}>
+                                        {m.label}
+                                    </p>
+                                    <p className={`text-[9px] font-medium truncate ${m.done ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                        {m.done ? '✓ Selesai' : m.desc}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        })()}
 
         {hasValidTarget ? (
             <div className="grid grid-cols-1 gap-5">
