@@ -4,21 +4,13 @@ import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
 import { useUser, useTransactions, useTarget } from "@/hooks/use-finance";
 import { 
-  CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, 
-  Bot, TrendingUp, Lock, ChevronRight, Star
+  CheckCircle, Star, Award, ArrowRight, Loader2, X, 
+  Cpu, TrendingUp, Lock, ChevronRight 
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // =========================================================================
 // 🚀 PAYWALL v2 — "Checkpoint Perjalanan" bukan "Tembok Biaya"
-// 
-// Strategi yang diimplementasikan:
-// 1. Tampilkan progress yang sudah user bangun (transaksi, hari aktif, target)
-// 2. AI Strategi Penghasilan: "Locked But Visible" dengan countdown
-// 3. Framing harga Rp 500/hari bukan Rp 14.900/bulan
-// 4. Grandfathered Pricing — harga terkunci selamanya untuk subscriber sekarang
-// 5. Data tetap aman 30 hari (hilangkan rasa urgency manipulatif)
-// 6. Segmentasi: pesan berbeda untuk new user vs trial expired user
 // =========================================================================
 
 export default function Paywall() {
@@ -123,7 +115,7 @@ export default function Paywall() {
         {/* ── HERO ────────────────────────────────────────────────── */}
         <div className="text-center space-y-2 mb-6">
           <div className="w-16 h-16 bg-gradient-to-tr from-amber-400 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto shadow-xl shadow-indigo-950/50">
-            <Crown className="w-8 h-8 text-slate-900" />
+            <Award className="w-8 h-8 text-slate-900" />
           </div>
           
           {isNewUserFlow ? (
@@ -150,7 +142,6 @@ export default function Paywall() {
         </div>
 
         {/* ── PROGRESS CHECKPOINT ─────────────────────────────────── */}
-        {/* Ini adalah inti dari strategi: tunjukkan apa yang sudah user bangun */}
         <div className="bg-slate-800/40 border border-slate-800 rounded-[24px] p-4 mb-5">
           <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-3 text-center">
             Progress yang Sudah Kamu Bangun
@@ -172,14 +163,13 @@ export default function Paywall() {
         </div>
 
         {/* ── AI STRATEGI — LOCKED BUT VISIBLE ────────────────────── */}
-        {/* Fitur premium paling kuat — selalu terlihat, belum bisa diakses */}
         <div 
           onClick={() => handleComingSoon("AI Strategi Penghasilan")}
           className="bg-gradient-to-r from-indigo-900/60 to-indigo-800/40 border border-indigo-700/50 rounded-[20px] p-4 mb-5 cursor-pointer active:scale-[0.98] transition-transform"
         >
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Bot className="w-5 h-5 text-white" />
+              <Cpu className="w-5 h-5 text-white" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
@@ -193,7 +183,6 @@ export default function Paywall() {
             <Lock className="w-4 h-4 text-indigo-400 flex-shrink-0" />
           </div>
           
-          {/* Progress bar countdown */}
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
               <span className="text-[9px] text-indigo-400 font-bold uppercase tracking-wide">Progress Data</span>
@@ -214,7 +203,6 @@ export default function Paywall() {
         </div>
 
         {/* ── COMING SOON FEATURES ─────────────────────────────────── */}
-        {/* Strategi grandfathered pricing: fitur ini akan menaikkan harga */}
         <div className="grid grid-cols-2 gap-2 mb-5">
           <button 
             onClick={() => handleComingSoon("E-Book Keuangan Premium")}
@@ -249,7 +237,6 @@ export default function Paywall() {
 
         {/* ── PAKET HARGA ──────────────────────────────────────────── */}
         <div className="space-y-3 mb-5">
-          {/* Paket Tahunan — highlighted sebagai pilihan utama */}
           <div 
             onClick={() => setSelectedPlan('yearly')}
             className={`p-4 rounded-2xl border text-left flex items-center justify-between cursor-pointer transition-all ${
@@ -276,7 +263,6 @@ export default function Paywall() {
             </div>
           </div>
 
-          {/* Paket Bulanan */}
           <div 
             onClick={() => setSelectedPlan('monthly')}
             className={`p-4 rounded-2xl border text-left flex items-center justify-between cursor-pointer transition-all ${
@@ -301,9 +287,9 @@ export default function Paywall() {
         {/* ── BENEFIT LIST ─────────────────────────────────────────── */}
         <div className="space-y-2 mb-6 px-1">
           {[
-            { icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />, text: "Semua fitur lengkap: Valas, Investasi, Piutang, PDF Report" },
-            { icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />, text: "AI Konsultasi berdasarkan kondisi keuangan riil kamu" },
-            { icon: <Bot className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />, text: "AI Strategi Penghasilan (aktif setelah 30 hari data)" },
+            { icon: <CheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />, text: "Semua fitur lengkap: Valas, Investasi, Piutang, PDF Report" },
+            { icon: <CheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />, text: "AI Konsultasi berdasarkan kondisi keuangan riil kamu" },
+            { icon: <Cpu className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />, text: "AI Strategi Penghasilan (aktif setelah 30 hari data)" },
             { icon: <Star className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />, text: "Garansi harga terkunci selamanya di angka sekarang" },
           ].map((item, i) => (
             <div key={i} className="flex items-start gap-2.5 text-[11px] font-semibold text-slate-300">
@@ -351,7 +337,6 @@ export default function Paywall() {
       </div>
 
       {/* ── MODAL: GRANDFATHERED PRICING COMMITMENT ──────────────── */}
-      {/* Strategi: jelaskan kenapa harga akan naik = FOMO yang elegan */}
       {showVisionModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-end justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-slate-900 border border-slate-800 rounded-[28px] p-6 w-full max-w-sm shadow-2xl relative text-left animate-in slide-in-from-bottom-4 duration-300">
@@ -360,7 +345,7 @@ export default function Paywall() {
             </button>
             
             <div className="flex items-center gap-2 text-amber-400 mb-4">
-              <Sparkles className="w-5 h-5" />
+              <Star className="w-5 h-5" />
               <h3 className="text-base font-black tracking-tight text-white">Garansi Harga Terkunci Selamanya</h3>
             </div>
             
@@ -389,7 +374,6 @@ export default function Paywall() {
       )}
 
       {/* ── MODAL: COMING SOON FEATURES ──────────────────────────── */}
-      {/* Strategi: tampilkan fitur coming soon + pesan harga akan naik */}
       {showComingSoonModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-end justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-slate-900 border border-slate-800 rounded-[28px] p-6 w-full max-w-sm shadow-2xl relative animate-in slide-in-from-bottom-4 duration-300">

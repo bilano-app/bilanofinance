@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents";
-import { Hourglass, Plus, Trash2, Edit2, ArrowDownToLine, Loader2, X, AlertTriangle, Crown, ShieldCheck } from "lucide-react";
+import { Clock, Plus, Trash2, Edit2, ArrowDown, Loader2, X, AlertTriangle, Award, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-finance";
@@ -79,12 +79,12 @@ export default function Retained() {
     }, [isLocked]);
 
     const handleLanjutBayar = async () => {
-      if (!currentUserEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
+      if (!userEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
       setIsCharging(true);
       try {
           const res = await fetch("/api/payment/mayar/charge", { 
               method: "POST", 
-              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              headers: { "Content-Type": "application/json", "x-user-email": userEmail },
               body: JSON.stringify({ plan: selectedPlan }) 
           });
           const data = await res.json();
@@ -100,10 +100,8 @@ export default function Retained() {
       }
     };
 
-    // 🚀 PERBAIKAN PEMBACAAN INPUT UANG ALAMAT INDONESIA
     const formatNumber = (val: string) => {
         let cleaned = val.replace(/[^0-9.,]/g, '');
-        // Cegah pengguna memasukkan koma lebih dari satu
         const parts = cleaned.split(',');
         if (parts.length > 2) {
             cleaned = parts[0] + ',' + parts.slice(1).join('');
@@ -113,7 +111,6 @@ export default function Retained() {
     
     const parseNumber = (val: string) => {
         if (!val) return 0;
-        // Hapus titik ribuan, ubah koma menjadi titik desimal standar
         const clean = val.replace(/\./g, '').replace(/,/g, '.');
         return parseFloat(clean) || 0;
     };
@@ -186,7 +183,6 @@ export default function Retained() {
         setIsSubmitting(false);
     };
 
-    // 🚀 TAMPILAN LOCKOUT UNTUK PENGGUNA NON-PREMIUM & EXPIRED
     if (isLocked) {
         return (
             <MobileLayout title="Saldo Tertahan" showBack>
@@ -197,7 +193,7 @@ export default function Retained() {
                     </div>
                     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center px-4 text-center">
                         <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(251,191,36,0.4)] mt-8">
-                            <Crown className="w-10 h-10 text-amber-950" />
+                            <Award className="w-10 h-10 text-amber-950" />
                         </div>
                         <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Fitur Premium 👑</h2>
                         <p className="text-sm text-slate-600 mb-6 max-w-xs leading-relaxed font-medium">
@@ -234,7 +230,7 @@ export default function Retained() {
                     <div className="relative z-10 flex justify-between items-start">
                         <div>
                             <p className="text-xs text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
-                                <Hourglass className="w-3 h-3"/> Total Tertahan (Estimasi)
+                                <Clock className="w-3 h-3"/> Total Tertahan (Estimasi)
                             </p>
                             <h2 className="text-3xl font-bold text-amber-400 whitespace-nowrap transition-all duration-300">
                                 {formatRp(totalRetainedIDR)}
@@ -255,7 +251,7 @@ export default function Retained() {
                     <div className="space-y-3">
                         {items.length === 0 ? (
                             <div className="text-center py-8 text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                                <Hourglass className="w-8 h-8 mx-auto mb-2 opacity-30"/>
+                                <Clock className="w-8 h-8 mx-auto mb-2 opacity-30"/>
                                 <p className="text-sm">Belum ada saldo tertahan.</p>
                             </div>
                         ) : (
@@ -284,7 +280,7 @@ export default function Retained() {
                                                 <Edit2 className="w-3 h-3"/> UPDATE
                                             </button>
                                             <button onClick={() => { setShowWithdrawModal(item); setTempAmount(""); }} className="flex-1 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1">
-                                                <ArrowDownToLine className="w-3 h-3"/> TARIK
+                                                <ArrowDown className="w-3 h-3"/> TARIK
                                             </button>
                                             <button onClick={() => handleDelete(item.id)} className="w-10 flex items-center justify-center bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-lg">
                                                 <Trash2 className="w-4 h-4"/>
