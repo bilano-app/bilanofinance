@@ -5,18 +5,39 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { WifiOff, RefreshCw, Lock } from "lucide-react"; 
 import { useNotifications } from "./hooks/useNotifications"; 
-import { useUser } from "./hooks/use-finance"; 
+import { useUser, useTransactions } from "./hooks/use-finance"; 
+
+import NotFound from "./pages/not-found";
+import Security from "./pages/Security";
+import Home from "./pages/Home";
+import Landing from "./pages/Landing"; 
+import Target from "./pages/Target";
+import Income from "./pages/Income";
+import Expense from "./pages/Expense";
+import Reports from "./pages/Reports";
+import Investment from "./pages/Investment";
+import Forex from "./pages/Forex";
+import Subscriptions from "./pages/Subscriptions";
+import Categories from "./pages/Categories";
+import Auth from "./pages/Auth";
+import ChatAI from "./pages/ChatAI";
+import Profile from "./pages/Profile";
+import Performance from "./pages/Performance";
+import Paywall from "./pages/Paywall";
+import Debts from "./pages/Debts"; 
+import SmartScan from "./pages/SmartScan"; 
+import AdminPremium from "./pages/AdminPremium";
+import Help from "./pages/Help";
+import Guide from "./pages/Guide";
+import Amal from "./pages/Amal"; 
+import Retained from "./pages/Retained";
 
 // =========================================================================
 // 🚑 AUTO-HEAL: PEMBERSIH CACHE OTOMATIS UNTUK USER (ANTI-STUCK)
 // =========================================================================
-// Script ini akan mendeteksi jika aplikasi gagal memuat modul baru dari Vercel
-// lalu secara OTOMATIS menghapus Service Worker lama dan me-refresh halaman 
-// tanpa user perlu melakukan apa-apa.
 const triggerAutoHeal = async () => {
   if (!sessionStorage.getItem('bilano_auto_heal')) {
     sessionStorage.setItem('bilano_auto_heal', 'true');
-    // Membunuh Service Worker (PWA Cache) versi lama yang nyangkut
     if ('serviceWorker' in navigator) {
       try {
         const regs = await navigator.serviceWorker.getRegistrations();
@@ -25,7 +46,6 @@ const triggerAutoHeal = async () => {
         }
       } catch (err) {}
     }
-    // Refresh paksa untuk menarik UI terbaru dari Vercel
     window.location.reload();
   }
 };
@@ -43,13 +63,7 @@ window.addEventListener('unhandledrejection', (e) => {
     triggerAutoHeal();
   }
 });
-
-// Khusus tangkapan error bawaan Vite
-window.addEventListener('vite:preloadError', () => {
-  triggerAutoHeal();
-});
 // =========================================================================
-
 
 // =========================================================================
 // 🚀 KUNCI MEMORI AGAR ANGKA TIDAK BERKEDIP
@@ -117,31 +131,6 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
 };
 // =========================================================================
 
-import NotFound from "@/pages/not-found";
-import Security from "./pages/Security";
-import Home from "@/pages/Home";
-import Landing from "@/pages/Landing"; 
-import Target from "@/pages/Target";
-import Income from "@/pages/Income";
-import Expense from "@/pages/Expense";
-import Reports from "@/pages/Reports";
-import Investment from "@/pages/Investment";
-import Forex from "@/pages/Forex";
-import Subscriptions from "@/pages/Subscriptions";
-import Categories from "@/pages/Categories";
-import Auth from "@/pages/Auth";
-import ChatAI from "@/pages/ChatAI";
-import Profile from "@/pages/Profile";
-import Performance from "@/pages/Performance";
-import Paywall from "@/pages/Paywall";
-import Debts from "@/pages/Debts"; 
-import SmartScan from "@/pages/SmartScan"; 
-import AdminPremium from "@/pages/AdminPremium";
-import Help from "@/pages/Help";
-import Guide from "@/pages/Guide";
-import Amal from "@/pages/Amal"; 
-import Retained from "@/pages/Retained";
-
 function Router() {
   const [location, setLocation] = useLocation();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -193,7 +182,7 @@ function Router() {
 
           const startTime = new Date(user.createdAt || "2024-01-01").getTime();
           const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
-          const TRIAL_DURATION_DAYS = 3;
+          const TRIAL_DURATION_DAYS = 14; 
 
           const isNewAccount = (Date.now() - startTime) < 15000; 
           const hasRedirected = sessionStorage.getItem("bilano_first_paywall_redirect");
