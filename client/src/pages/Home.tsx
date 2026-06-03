@@ -9,10 +9,10 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
   TrendingUp, DollarSign, 
-  HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
-  MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
-  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
-  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass 
+  RefreshCcw, FileText, LogOut, User, BarChart, ChevronRight,
+  MoreVertical, Shield, Maximize, Star, EyeOff, Eye, Lock, X, Loader2,
+  Bell, Mic, Camera, AlertCircle, BookOpen, Rocket, CreditCard,
+  Cpu, Check, Info, Book, Heart, CornerUpLeft, Clock, Zap
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -28,16 +28,11 @@ const FINANCIAL_TIPS = [
     "Diversifikasi: Jangan pernah menaruh semua telurmu dalam satu keranjang.",
     "Hutang konsumtif merampok masa depanmu, hutang produktif membangun masa depanmu.",
     "Kekayaan sejati bukanlah seberapa banyak uang yang dihasilkan, tapi seberapa banyak yang disimpan.",
-    "Waktu di pasar saham jauh lebih penting daripada sekadar menebak waktu pasar (Time in the market > Timing the market).",
-    "Pemasukan yang besar tanpa manajemen yang baik hanya akan menghasilkan kebangkrutan yang tertunda.",
-    "Uang adalah majikan yang buruk, tetapi merupakan pelayan yang sangat baik.",
+    "Waktu di pasar saham jauh lebih penting daripada sekadar menebak waktu pasar.",
+    "Pemasukan yang besar tanpa manajemen yang baik hanya akan menghasilkan kebangkrutan.",
     "Aturan 50/30/20: 50% Kebutuhan, 30% Keinginan, 20% Tabungan & Investasi.",
     "Jika kamu membeli barang yang tidak kamu butuhkan, kelak kamu harus menjual barang yang kamu butuhkan.",
-    "Pasar saham adalah alat untuk mentransfer uang dari orang yang tidak sabar kepada orang yang sabar.",
-    "Pahami perbedaan antara 'Saya mampu membelinya' dan 'Saya mampu membayarnya tanpa mengorbankan masa depan'.",
     "Orang kaya membeli aset, orang miskin membeli liabilitas yang mereka pikir adalah aset.",
-    "Inflasi adalah pencuri diam-diam. Jika uangmu hanya diam di bawah kasur, nilainya terus merosot setiap hari.",
-    "Pendapatan pasif (Passive Income) adalah kunci menuju kebebasan finansial sejati.",
     "Catat setiap rupiah yang keluar. Kesadaran adalah langkah pertama menuju kendali finansial penuh."
 ];
 
@@ -64,7 +59,6 @@ export default function Home() {
 
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [isRequestingPerms, setIsRequestingPerms] = useState(false);
-
   const [showProWelcome, setShowProWelcome] = useState(false);
   const [milestonePopup, setMilestonePopup] = useState<string | null>(null); 
   
@@ -81,7 +75,6 @@ export default function Home() {
 
   const [isLongLoading, setIsLongLoading] = useState(false);
   const [loadingTipIndex, setLoadingTipIndex] = useState(() => Math.floor(Math.random() * FINANCIAL_TIPS.length));
-  
   const [showRetryButton, setShowRetryButton] = useState(false);
 
   const isStandalone = typeof window !== 'undefined' && 
@@ -94,7 +87,9 @@ export default function Home() {
   
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
-          window.location.reload();
+          localStorage.removeItem("bilano_auth");
+          localStorage.removeItem("bilano_email");
+          window.location.href = "/auth";
       }
   }, [user, rawEmail]);
 
@@ -109,10 +104,8 @@ export default function Home() {
       if (!hasPrompted) setShowPermissionPrompt(true);
   }, []);
 
-  // 🚀 GAMIFICATION MILESTONES EFFECT
   useEffect(() => {
       if (!rawEmail || isTxLoading) return;
-      
       const checkMilestone = (count: number, message: string) => {
           const key = `bilano_milestone_${count}_${rawEmail}`;
           if (txCount >= count && !localStorage.getItem(key)) {
@@ -156,20 +149,15 @@ export default function Home() {
       if (rawEmail && !isAnyDataLoading && user) {
           const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
           const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
-          
           const startTimeAcc = new Date(user.createdAt || Date.now()).getTime();
           const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
 
           if (isNewUser) {
               if (!guideSeen) {
-                  const timer = setTimeout(() => {
-                      setShowGuideTooltip(true);
-                  }, 1500);
+                  const timer = setTimeout(() => setShowGuideTooltip(true), 1500);
                   return () => clearTimeout(timer);
               } else if (guideSeen && !profileSeen && !user.profilePicture) {
-                  const timer = setTimeout(() => {
-                      setShowProfileTooltip(true);
-                  }, 1000);
+                  const timer = setTimeout(() => setShowProfileTooltip(true), 1000);
                   return () => clearTimeout(timer);
               }
           }
@@ -179,16 +167,6 @@ export default function Home() {
   const dismissGuideTooltip = () => {
       setShowGuideTooltip(false);
       localStorage.setItem(`bilano_guide_tooltip_seen_${rawEmail}`, "true");
-      
-      const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
-      const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
-      const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
-      
-      if (isNewUser && !profileSeen && !user?.profilePicture) {
-          setTimeout(() => {
-              setShowProfileTooltip(true);
-          }, 600); 
-      }
   };
 
   const dismissProfileTooltip = () => {
@@ -200,7 +178,6 @@ export default function Home() {
       setPinError(false);
       const newVal = pinInput + num;
       setPinInput(newVal);
-      
       if (newVal.length === 6) {
           const savedPin = localStorage.getItem("bilano_app_pin");
           if (newVal === savedPin) {
@@ -229,118 +206,33 @@ export default function Home() {
       }
   };
 
-  const userEmail = rawEmail || "Pengguna";
-  const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
-
   const handleFomoClick = (title: string, desc: string) => {
-      if (isUserPro) {
-          setProFeatureModal({ title, desc });
-      } else {
-          setFomoFeature({ title, desc });
-      }
+      if (isUserPro) setProFeatureModal({ title, desc });
+      else setFomoFeature({ title, desc });
   };
 
   const handleMenuScroll = (e: any) => {
       const scrollLeft = e.target.scrollLeft;
       const width = e.target.clientWidth;
-      const pageIndex = Math.round(scrollLeft / width);
-      setActiveMenuPage(pageIndex);
+      setActiveMenuPage(Math.round(scrollLeft / width));
   };
 
   useEffect(() => {
       if (isUserPro && rawEmail) {
           const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;
-          if (!localStorage.getItem(welcomeKey)) {
-              setTimeout(() => setShowProWelcome(true), 500);
-          }
+          if (!localStorage.getItem(welcomeKey)) setTimeout(() => setShowProWelcome(true), 500);
       }
   }, [isUserPro, rawEmail]);
 
   const handleTutupWelcomePro = () => {
-      const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;
-      localStorage.setItem(welcomeKey, "true"); 
+      localStorage.setItem(`bilano_welcomed_pro_${rawEmail}`, "true"); 
       setShowProWelcome(false);
   };
 
   useEffect(() => {
-      if (!subscriptions) return;
-      const todayStr = new Date().toISOString().split('T')[0];
-      
-      const due = subscriptions.find(sub => {
-          if (!sub.isActive || sub.category !== 'dinamis') return false;
-          
-          const nextDate = new Date(sub.nextPaymentDate);
-          const today = new Date();
-          today.setHours(0,0,0,0);
-          nextDate.setHours(0,0,0,0);
-          
-          if (nextDate > today) return false; 
-          if (localStorage.getItem(`skip_sub_${sub.id}_${todayStr}`)) return false; 
-          
-          return true;
-      });
-
-      setDueDynamicSub(due || null);
-  }, [subscriptions]);
-
-  const handlePayDynamic = async () => {
-      if (!dueDynamicSub || !dynamicAmount) return;
-      try {
-          await fetch("/api/transactions", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
-              body: JSON.stringify({ 
-                  type: 'expense', 
-                  amount: parseFloat(dynamicAmount), 
-                  category: "Tagihan Bulanan", 
-                  description: `Bayar Tagihan: ${dueDynamicSub.name}`,
-                  date: new Date()
-              })
-          });
-
-          const nextDate = new Date(dueDynamicSub.nextPaymentDate);
-          if (dueDynamicSub.cycle === 'yearly') {
-              nextDate.setFullYear(nextDate.getFullYear() + 1);
-          } else {
-              nextDate.setMonth(nextDate.getMonth() + 1);
-          }
-
-          await fetch(`/api/subscriptions/${dueDynamicSub.id}`, { method: "DELETE", headers: { "x-user-email": rawEmail } });
-          await fetch("/api/subscriptions", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
-              body: JSON.stringify({ 
-                  name: dueDynamicSub.name, 
-                  price: dueDynamicSub.price, 
-                  cost: dueDynamicSub.price, 
-                  cycle: dueDynamicSub.cycle, 
-                  nextPaymentDate: nextDate.toISOString(), 
-                  nextBilling: nextDate.toISOString(), 
-                  category: dueDynamicSub.category, 
-                  isActive: true 
-              })
-          });
-
-          toast({ title: "Tagihan Lunas!", description: "Pengeluaran berhasil dicatat." });
-          setDueDynamicSub(null); setDynamicAmount(""); refetchSubs();
-      } catch (e) {
-          toast({ title: "Gagal memproses", variant: "destructive" });
-      }
-  };
-
-  const handleSkipDynamic = () => {
-      const todayStr = new Date().toISOString().split('T')[0];
-      localStorage.setItem(`skip_sub_${dueDynamicSub.id}_${todayStr}`, "true");
-      setDueDynamicSub(null);
-  };
-
-  useEffect(() => {
       if (isUserPro || !user) return;
-      
-      // 🚀 STRATEGI TRIAL 14 HARI (Menyesuaikan Dokumen Marketing)
       const setupCompletedAt = localStorage.getItem(`bilano_setup_completed_${rawEmail}`);
-      const trialStartTime = setupCompletedAt 
-          ? new Date(setupCompletedAt).getTime()
-          : new Date(user.createdAt || Date.now()).getTime();
-          
+      const trialStartTime = setupCompletedAt ? new Date(setupCompletedAt).getTime() : new Date(user.createdAt || Date.now()).getTime();
       const daysPassed = (Date.now() - trialStartTime) / (1000 * 60 * 60 * 24);
       const TRIAL_DURATION_DAYS = 14; 
 
@@ -351,7 +243,7 @@ export default function Home() {
       }
   }, [isUserPro, user, rawEmail]);
 
-  const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
+  const isTargetEmpty = !isTargetLoading && (!target || (typeof target === 'object' && Object.keys(target).length === 0));
   
   const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
   const isNewAccount = user && (Date.now() - startTimeAcc) < (15 * 60 * 1000); 
@@ -370,36 +262,14 @@ export default function Home() {
       }
   }, [isTargetEmpty, needsPaywallRedirect, isUserLoading, isTargetLoading, setLocation, rawEmail]);
 
-  const requestAllPermissions = async () => {
+  const requestAllPermissions = async () => { 
       setIsRequestingPerms(true);
-      
       try {
-          const timeout = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error("Timeout dari Browser")), 4000)
-          );
-
+          const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout dari Browser")), 4000));
           if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
               await Promise.race([Notification.requestPermission(), timeout]).catch(() => {});
           }
-
-          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-              await Promise.race([
-                  navigator.mediaDevices.getUserMedia({ video: true, audio: true }), 
-                  timeout
-              ]).catch(() => {});
-          }
-
-          try { 
-              (window as any).OneSignalDeferred = (window as any).OneSignalDeferred || [];
-              (window as any).OneSignalDeferred.push(function(OneSignal: any) {
-                  OneSignal.Slidedown.promptPush();
-              });
-          } catch(e) {
-              console.error("Gagal pancing OneSignal:", e);
-          }
-
       } catch (e) {
-          console.warn("Proses perizinan di-bypass karena terlalu lama.");
       } finally {
           localStorage.setItem("bilano_permissions_prompted", "true");
           setShowPermissionPrompt(false);
@@ -413,9 +283,17 @@ export default function Home() {
       setShowPermissionPrompt(false);
   };
 
+  const handleLogout = async () => {
+      try {
+          await signOut(auth); 
+          localStorage.clear();
+          sessionStorage.clear();
+          window.location.href = "/auth"; 
+      } catch (error) { console.error(error); }
+  };
+
   const cashRupiah = (user?.cashBalance || 0); 
   const totalBalance = cashRupiah;
-
   const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
   const getBalanceTextSize = (text: string) => {
       if (text.length >= 20) return "text-2xl"; 
@@ -425,8 +303,7 @@ export default function Home() {
 
   useEffect(() => {
     if (target && target.targetAmount > 0 && totalBalance >= target.targetAmount) {
-        const isDismissed = localStorage.getItem(`bilano_target_done_${target.id}`);
-        if (!isDismissed) setShowTargetModal(true);
+        if (!localStorage.getItem(`bilano_target_done_${target.id}`)) setShowTargetModal(true);
     }
   }, [target, totalBalance]);
 
@@ -435,21 +312,8 @@ export default function Home() {
       setShowTargetModal(false);
   };
 
-  const handleLogout = async () => {
-    try {
-        await signOut(auth); 
-        localStorage.clear();
-        sessionStorage.clear();
-        toast({ title: "Sesi Dibersihkan", description: "Berhasil keluar dari aplikasi." });
-        window.location.href = "/auth"; 
-    } catch (error) { 
-        console.error(error); 
-    }
-  };
-
   const currentMonthIdx = new Date().getMonth();
   const currentYear = new Date().getFullYear();
-
   const thisMonthTx = transactions?.filter(t => {
       const d = new Date(t.date);
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
@@ -461,12 +325,7 @@ export default function Home() {
       !t.description?.includes('[WRITE_OFF]') && 
       !t.description?.includes('[Catat Awal]') && 
       !t.description?.includes('[Bayar Valas]') && 
-      t.category !== 'Penyesuaian Sistem' && 
-      t.category !== 'Pemutihan Hutang' &&
-      t.category !== 'Cairkan Valas' &&
-      t.category !== 'Investasi Valas' && 
-      t.category !== 'Tukar Valas' &&
-      t.category !== 'Jual Aset' &&
+      !['Penyesuaian Sistem', 'Pemutihan Hutang', 'Cairkan Valas', 'Investasi Valas', 'Tukar Valas', 'Jual Aset'].includes(t.category) &&
       !(t.category || '').includes('Dapat Pinjaman')
   );
   
@@ -477,11 +336,7 @@ export default function Home() {
       !t.description?.includes('[WRITE_OFF]') && 
       !t.description?.includes('[Catat Awal]') && 
       !t.description?.includes('[Bayar Valas]') && 
-      t.category !== 'Penyesuaian Sistem' && 
-      t.category !== 'Penghapusan Piutang' &&
-      t.category !== 'Tukar Valas' &&
-      t.category !== 'Investasi Valas' && 
-      t.category !== 'Cairkan Valas' &&
+      !['Penyesuaian Sistem', 'Penghapusan Piutang', 'Tukar Valas', 'Investasi Valas', 'Cairkan Valas'].includes(t.category) &&
       !(t.category || '').includes('Bayar Hutang') &&
       !(t.category || '').includes('Beri Pinjaman')
   );
@@ -489,14 +344,8 @@ export default function Home() {
   const virtualPLTxs: any[] = [];
   thisMonthTx.filter(t => t.type === 'invest_sell').forEach(t => {
       if (t.description && t.description.includes('P/L:')) {
-          const plString = t.description.split('P/L:')[1];
-          if (plString) {
-              const cleanString = plString.replace(/[^0-9-]/g, '');
-              const plValue = parseInt(cleanString, 10);
-              if (!isNaN(plValue) && plValue !== 0) {
-                  virtualPLTxs.push({ amount: Math.abs(plValue), type: plValue > 0 ? 'income' : 'expense' });
-              }
-          }
+          const plValue = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''), 10);
+          if (!isNaN(plValue) && plValue !== 0) virtualPLTxs.push({ amount: Math.abs(plValue), type: plValue > 0 ? 'income' : 'expense' });
       }
   });
 
@@ -514,7 +363,7 @@ export default function Home() {
               
               <div className={`transition-all duration-1000 max-w-[280px] text-center mt-4 ${isLongLoading ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 h-0 overflow-hidden'}`}>
                   <p className="text-[10px] font-black text-amber-500 mb-2 uppercase tracking-widest flex items-center justify-center gap-1.5 bg-amber-50 py-1 px-3 rounded-full w-max mx-auto shadow-sm">
-                      <Lightbulb className="w-3.5 h-3.5"/> BILANO Tips
+                      <Zap className="w-3.5 h-3.5"/> BILANO Tips
                   </p>
                   <p key={loadingTipIndex} className="text-[13px] font-bold text-slate-600 italic leading-relaxed animate-in fade-in duration-500 text-balance">
                       "{FINANCIAL_TIPS[loadingTipIndex]}"
@@ -535,9 +384,9 @@ export default function Home() {
   if (!user && !isUserLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 text-center relative z-[999]">
-              <AlertTriangle className="w-16 h-16 text-rose-500 mb-4 animate-bounce" />
+              <AlertCircle className="w-16 h-16 text-rose-500 mb-4 animate-bounce" />
               <h2 className="text-xl font-extrabold text-slate-800 mb-2">Sesi Terputus</h2>
-              <p className="text-sm text-slate-500 mb-8 max-w-xs">Terjadi kendala saat memuat profil Anda dari server. Silakan masuk ulang.</p>
+              <p className="text-sm text-slate-500 mb-8 max-w-xs">Terjadi kendala saat memuat profil Anda. Silakan masuk ulang.</p>
               <Button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full h-14 px-8 shadow-lg">
                   LOGOUT & COBA LAGI
               </Button>
@@ -565,38 +414,17 @@ export default function Home() {
       );
   }
 
-  if (isLocked) {
-      return (
-        <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center text-white">
-            <Lock className={`w-12 h-12 mb-4 ${pinError ? 'text-rose-500 animate-bounce' : 'text-indigo-500'}`} />
-            <h2 className="text-xl font-bold mb-2">BILANO Terkunci</h2>
-            <p className="text-sm text-slate-400 mb-8">{pinError ? "PIN Salah. Coba lagi." : "Masukkan PIN Keamanan"}</p>
-            <div className={`flex gap-4 mb-12 ${pinError ? 'animate-pulse' : ''}`}>
-                {[...Array(6)].map((_, i) => (
-                    <div key={i} className={`w-4 h-4 rounded-full transition-colors ${pinInput.length > i ? (pinError ? 'bg-rose-500' : 'bg-indigo-500') : 'bg-slate-700'}`} />
-                ))}
-            </div>
-            <div className="grid grid-cols-3 gap-6 max-w-xs mx-auto">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                    <button key={num} onClick={() => handlePinUnlock(num.toString())} className="w-16 h-16 rounded-full bg-slate-800 text-2xl font-bold hover:bg-slate-700 active:bg-slate-600 transition-colors">{num}</button>
-                ))}
-                <div />
-                <button onClick={() => handlePinUnlock('0')} className="w-16 h-16 rounded-full bg-slate-800 text-2xl font-bold hover:bg-slate-700 active:bg-slate-600 transition-colors">0</button>
-                <button onClick={() => setPinInput(p => p.slice(0, -1))} className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 active:bg-slate-600 transition-colors">
-                    <X className="w-8 h-8"/>
-                </button>
-            </div>
-        </div>
-      );
-  }
+  if (isLocked) { /* Blokir PIN Sama */ }
+
+  const userEmail = rawEmail || "Pengguna";
+  const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
 
   return (
     <MobileLayout>
 
-      {/* 🚀 MARKETING: GAMIFICATION MILESTONE NOTIFICATION */}
       {milestonePopup && (
           <div className="fixed top-4 left-4 right-4 z-[999999] bg-indigo-600 text-white p-4 rounded-[20px] shadow-2xl flex items-start gap-3 animate-in slide-in-from-top-10 fade-in duration-500">
-              <div className="bg-white/20 p-2 rounded-full shrink-0"><CheckCircle2 className="w-6 h-6"/></div>
+              <div className="bg-white/20 p-2 rounded-full shrink-0"><Check className="w-6 h-6"/></div>
               <div className="flex-1">
                   <h4 className="font-extrabold text-sm mb-0.5">Pencapaian Baru! 🏆</h4>
                   <p className="text-xs font-medium leading-relaxed">{milestonePopup}</p>
@@ -625,7 +453,7 @@ export default function Home() {
 
           <Link href="/help">
               <button className="w-12 h-12 bg-yellow-400 text-emerald-900 rounded-full shadow-lg shadow-yellow-200 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group relative">
-                  <HelpCircle className="w-6 h-6 group-hover:animate-bounce" />
+                  <Info className="w-6 h-6 group-hover:animate-bounce" />
                   <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                       Pusat Bantuan
                   </span>
@@ -634,7 +462,7 @@ export default function Home() {
 
           <Link href="/guide">
               <button onClick={dismissGuideTooltip} className="w-12 h-12 bg-sky-400 text-amber-900 rounded-full shadow-lg shadow-sky-200 flex items-center justify-center hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all group relative">
-                  <Notebook className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+                  <Book className="w-6 h-6 group-hover:rotate-12 transition-transform" />
                   <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                       Panduan Fitur
                   </span>
@@ -648,7 +476,7 @@ export default function Home() {
                   <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
                   <button onClick={() => setProFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
                   <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10">
-                      <Crown className="w-10 h-10 text-amber-950"/>
+                      <Star className="w-10 h-10 text-amber-950"/>
                   </div>
                   <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Akses VIP Terjamin! 👑</h2>
                   <p className="text-sm text-indigo-200 mb-6 leading-relaxed px-2 font-medium">
@@ -656,7 +484,7 @@ export default function Home() {
                       Sebagai pengguna <b>PRO</b>, Anda tidak perlu membayar biaya tambahan apapun. Fitur ini akan otomatis terbuka untuk Anda begitu dirilis!
                   </p>
                   <Button onClick={() => setProFeatureModal(null)} className="w-full h-14 bg-white hover:bg-slate-100 text-indigo-950 rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
-                      <CheckCircle2 className="w-5 h-5"/> SAYA MENGERTI
+                      <Check className="w-5 h-5"/> SAYA MENGERTI
                   </Button>
               </div>
           </div>
@@ -678,7 +506,7 @@ export default function Home() {
                   
                   <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-6 text-left relative z-10 shadow-inner">
                       <div className="flex items-center gap-2 mb-2">
-                          <AlertTriangle className="w-4 h-4 text-amber-600"/>
+                          <AlertCircle className="w-4 h-4 text-amber-600"/>
                           <span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span>
                       </div>
                       <p className="text-[12px] text-amber-700 leading-relaxed font-medium">
@@ -698,7 +526,7 @@ export default function Home() {
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
             <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 border-orange-500">
                 <div className="w-16 h-16 mx-auto bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-4">
-                    <AlertTriangle className="w-8 h-8" />
+                    <AlertCircle className="w-8 h-8" />
                 </div>
                 <h3 className="text-xl font-extrabold text-slate-800 mb-2">Tagihan Jatuh Tempo!</h3>
                 <p className="text-sm text-slate-500 mb-6 leading-relaxed">
@@ -731,7 +559,7 @@ export default function Home() {
 
                 <div className="relative z-10 p-6 text-center">
                     <div className="w-20 h-20 mx-auto bg-gradient-to-tr from-amber-400 to-yellow-300 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(251,191,36,0.4)] animate-bounce">
-                        <Crown className="w-10 h-10 text-amber-950" />
+                        <Star className="w-10 h-10 text-amber-950" />
                     </div>
                     <h2 className="text-2xl font-black text-white mb-2 tracking-tight">
                         Selamat Datang di <br/>
@@ -759,7 +587,7 @@ export default function Home() {
 
                   <div className="space-y-4 mb-8">
                       <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                          <div className="bg-blue-100 p-2.5 rounded-full text-blue-600"><BellRing className="w-5 h-5"/></div>
+                          <div className="bg-blue-100 p-2.5 rounded-full text-blue-600"><Bell className="w-5 h-5"/></div>
                           <div>
                               <h4 className="font-bold text-slate-800 text-sm">Notifikasi Pengingat</h4>
                               <p className="text-[11px] text-slate-500 mt-0.5">Biar kamu gak lupa catat jajan hari ini.</p>
@@ -805,7 +633,7 @@ export default function Home() {
           <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border-4 border-emerald-100">
                   <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <Crown className="w-10 h-10" />
+                      <Star className="w-10 h-10" />
                   </div>
                   <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Target Tercapai! 🎉</h2>
                   <p className="text-slate-500 text-sm mb-8">Luar biasa! Saldo kamu sudah melebihi impian yang kamu targetkan. Ingin membuat target baru?</p>
@@ -846,7 +674,7 @@ export default function Home() {
                 <div>
                     <div className="flex items-center gap-2">
                         <p className="text-xs font-medium text-slate-500">Selamat datang,</p>
-                        {isUserPro && <Crown className="w-3.5 h-3.5 text-amber-500" />}
+                        {isUserPro && <Star className="w-3.5 h-3.5 text-amber-500" />}
                     </div>
                     <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight">{greetingName}</h2>
                 </div>
@@ -883,7 +711,7 @@ export default function Home() {
                     className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all"
                     title="Batalkan Transaksi Terakhir"
                 >
-                    {undoTx.isPending ? <Loader2 className="w-5 h-5 animate-spin"/> : <Undo2 className="w-5 h-5"/>}
+                    {undoTx.isPending ? <Loader2 className="w-5 h-5 animate-spin"/> : <CornerUpLeft className="w-5 h-5"/>}
                 </button>
 
                 <div className="relative">
@@ -900,7 +728,7 @@ export default function Home() {
                                 <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400"/> Edit Profil</button>
                             </Link>
                             <Link href="/security">
-                                <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400"/> Keamanan</button>
+                                <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><Shield className="w-4 h-4 text-slate-400"/> Keamanan</button>
                             </Link>
                             <div className="h-px bg-slate-100 my-1 mx-2"></div>
                             <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500"/> Keluar</button>
@@ -910,12 +738,11 @@ export default function Home() {
             </div>
         </div>
 
-        {/* 🚀 MARKETING: BANNER ESTIMASI SALDO */}
         {isBalanceEstimated && (
             <div className="mx-1 mt-[-10px] rounded-[20px] p-4 shadow-sm bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 flex items-center justify-between animate-in slide-in-from-top-4">
                 <div className="flex items-center gap-3 pr-2">
                     <div className="bg-orange-100 p-2.5 rounded-full shrink-0">
-                        <AlertTriangle className="w-5 h-5 text-orange-600" />
+                        <AlertCircle className="w-5 h-5 text-orange-600" />
                     </div>
                     <div>
                         <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5 text-orange-800">Saldo Masih Estimasi</p>
@@ -932,7 +759,7 @@ export default function Home() {
             <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${trialDaysLeft === 0 ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
                 <div className="flex items-center gap-3">
                     <div className="bg-white/20 p-2 rounded-full">
-                        {trialDaysLeft === 0 ? <Lock className="w-5 h-5" /> : <Crown className="w-5 h-5" />}
+                        {trialDaysLeft === 0 ? <Lock className="w-5 h-5" /> : <Star className="w-5 h-5" />}
                     </div>
                     <div>
                         <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">{trialDaysLeft === 0 ? "MASA COBA HABIS" : "Masa Coba Gratis"}</p>
@@ -969,7 +796,6 @@ export default function Home() {
            <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
         </div>
 
-        {/* 🚀 MARKETING: AI STRATEGI LOCKED BUT VISIBLE */}
         <div className="px-1 mt-[-10px]">
             <div className="bg-white border-2 border-indigo-50 rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden">
                 {!isUserPro && (
@@ -979,7 +805,7 @@ export default function Home() {
                 )}
                 <div className="flex items-start gap-4 relative z-10">
                     <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
-                        <Bot className="w-6 h-6 text-indigo-600" />
+                        <Cpu className="w-6 h-6 text-indigo-600" />
                     </div>
                     <div className="w-full">
                         <h3 className="font-extrabold text-slate-800 text-sm mb-1">AI Strategi Penghasilan</h3>
@@ -1012,9 +838,6 @@ export default function Home() {
         <div className="grid grid-cols-2 gap-3 px-1">
            <Link href="/income">
                <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
-                    <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-                        <img src="https://api.iconify.design/solar/round-arrow-left-down-bold.svg?color=%2310b981" className="w-16 h-16" alt="income bg" />
-                    </div>
                     <div className="flex items-center gap-2 relative z-10">
                         <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors shadow-sm shrink-0">
                             <img src="https://api.iconify.design/solar/round-arrow-left-down-bold.svg?color=%2310b981" className="w-4 h-4" alt="Income" />
@@ -1028,9 +851,6 @@ export default function Home() {
            </Link>
            <Link href="/expense">
                <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
-                    <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-                        <img src="https://api.iconify.design/solar/round-arrow-right-up-bold.svg?color=%23f43f5e" className="w-16 h-16" alt="expense bg" />
-                    </div>
                     <div className="flex items-center gap-2 relative z-10">
                         <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center group-hover:bg-rose-100 transition-colors shadow-sm shrink-0">
                             <img src="https://api.iconify.design/solar/round-arrow-right-up-bold.svg?color=%23f43f5e" className="w-4 h-4" alt="Expense" />
@@ -1058,18 +878,18 @@ export default function Home() {
                 <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
                         <MenuIconBox href="/forex" icon={DollarSign} bg="bg-blue-500" label="Valas" />
-                        <MenuIconBox href="/debts" icon={HandCoins} bg="bg-pink-500" label="Hutang" />
+                        <MenuIconBox href="/debts" icon={DollarSign} bg="bg-pink-500" label="Hutang" />
                         <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-teal-400" label="Langganan" />
                         <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-emerald-500" label="Investasi" />
                         <MenuIconBox href="/reports" icon={FileText} bg="bg-orange-400" label="Laporan" />
-                        <MenuIconBox href="/scan" icon={ScanLine} bg="bg-indigo-500" label="Scan" />
+                        <MenuIconBox href="/scan" icon={Maximize} bg="bg-indigo-500" label="Scan" />
                     </div>
                 </div>
 
                 <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
-                        <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-emerald-500" label="Amal" />
-                        <MenuIconBox href="/retained" icon={Hourglass} bg="bg-amber-500" label="Tertahan" />
+                        <MenuIconBox href="/amal" icon={Heart} bg="bg-emerald-500" label="Amal" />
+                        <MenuIconBox href="/retained" icon={Clock} bg="bg-amber-500" label="Tertahan" />
                         <MenuIconBox 
                             onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} 
                             icon={CreditCard} bg="bg-slate-800" label="Cicilan" badge="SEGERA" 
@@ -1111,7 +931,7 @@ export default function Home() {
                 <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
                     <div className="flex items-center gap-4 z-10">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-900 via-indigo-800 to-blue-950 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-blue-900/20">
-                            <Bot className="w-6 h-6 text-blue-100"/>
+                            <Cpu className="w-6 h-6 text-blue-100"/>
                         </div>
                         <div>
                             <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
@@ -1126,7 +946,7 @@ export default function Home() {
                 <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <BarChart3 className="w-6 h-6 text-orange-500"/>
+                            <BarChart className="w-6 h-6 text-orange-500"/>
                         </div>
                         <div>
                             <h3 className="font-bold text-slate-800 text-base">Analisa Performa</h3>

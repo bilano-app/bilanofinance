@@ -3,8 +3,8 @@ import { useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
-    Target as TargetIcon, ShieldCheck, PiggyBank, Calculator, Wallet, 
-    Globe, Plus, Trash2, X, ListPlus, HandCoins, Briefcase, Landmark, ChevronDown, ChevronUp, ShieldAlert, Loader2, ChevronRight 
+    Target as TargetIcon, Shield, Database, Calculator, Wallet, 
+    Globe, Plus, Trash2, X, List, Briefcase, Home, ChevronDown, ChevronUp, Loader2, ChevronRight 
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
@@ -28,7 +28,6 @@ interface InvItem { id: number; type: string; symbol: string; quantity: string; 
 const INV_TYPES = ["Saham", "Crypto", "Reksadana", "Emas", "P2P", "Obligasi"];
 const FALLBACK_CURRENCIES = ["USD", "EUR", "SGD", "JPY", "AUD", "GBP", "CNY", "MYR", "SAR", "KRW", "THB"];
 
-// 🚀 MARKETING: Opsi Quick Win
 const QUICK_GOALS = [
     { label: "Beli Rumah / KPR", icon: "🏡" },
     { label: "Dana Darurat Aman", icon: "🛡️" },
@@ -58,21 +57,17 @@ export default function Target() {
     const { data: userData, isLoading: isUserLoading } = useUser();
     const [target, setTarget] = useState<TargetData | null>(null);
     
-    // 🚀 ALUR BARU: Quick Win & Guided Deep Setup
     const [step, setStep] = useState<'intro' | 'quick-goal' | 'quick-balance' | 'aha-moment' | 'guided-intro' | 'guided-1' | 'guided-2' | 'guided-3' | 'guided-4' | 'guided-5' | 'target-input' | 'budget-ask' | 'budget-setup' | 'assets-setup'>('intro');
     const [isTargetMode, setIsTargetMode] = useState(false); 
     
-    // Quick Win State
     const [quickGoal, setQuickGoal] = useState("");
     const [quickRange, setQuickRange] = useState(0);
 
-    // Guided Calculation State
     const [rekUtama, setRekUtama] = useState("");
     const [rekLain, setRekLain] = useState("");
     const [ewallet, setEwallet] = useState("");
     const [uangCash, setUangCash] = useState("");
     
-    // Advanced Assets
     const [hasForex, setHasForex] = useState(false);
     const [forexItems, setForexItems] = useState<ForexItem[]>([]);
     const [tempForexCurrency, setTempForexCurrency] = useState("USD");
@@ -98,7 +93,6 @@ export default function Target() {
     const [tempDebtAmount, setTempDebtAmount] = useState("");
     const [tempDebtCurrency, setTempDebtCurrency] = useState("IDR");
     
-    // Target & Budget
     const [rawTargetAmount, setRawTargetAmount] = useState("");
     const [inputDuration, setInputDuration] = useState(""); 
     const [rawBudgetAmount, setRawBudgetAmount] = useState("");
@@ -154,7 +148,6 @@ export default function Target() {
 
     const isEditMode = target && target.targetAmount !== undefined;
 
-    // Aset Addition Logic
     const addForexItem = () => { if (!tempForexAmount || parseNumber(tempForexAmount) <= 0) return; setForexItems([...forexItems, { id: Date.now(), currency: tempForexCurrency, amount: tempForexAmount }]); setTempForexAmount(""); };
     const removeForexItem = (id: number) => setForexItems(forexItems.filter(item => item.id !== id));
     const addRecvItem = () => { if (!tempRecvName || !tempRecvAmount) return; setRecvItems([...recvItems, { id: Date.now(), name: tempRecvName, amount: tempRecvAmount, currency: tempRecvCurrency }]); setTempRecvName(""); setTempRecvAmount(""); setTempRecvCurrency("IDR"); };
@@ -164,7 +157,6 @@ export default function Target() {
     const addDebtItem = () => { if (!tempDebtName || !tempDebtAmount) return; setDebtItems([...debtItems, { id: Date.now(), name: tempDebtName, amount: tempDebtAmount, currency: tempDebtCurrency }]); setTempDebtName(""); setTempDebtAmount(""); setTempDebtCurrency("IDR"); };
     const removeDebtItem = (id: number) => setDebtItems(debtItems.filter(i => i.id !== id));
 
-    // Breakdown Logic
     const addBreakdownItem = () => { if (!newItemName || !newItemAmount) return; setBreakdownItems([...breakdownItems, { id: Date.now(), name: newItemName, amount: parseNumber(newItemAmount) }]); setNewItemName(""); setNewItemAmount(""); };
     const removeBreakdownItem = (id: number) => setBreakdownItems(breakdownItems.filter(item => item.id !== id));
     const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
@@ -172,7 +164,6 @@ export default function Target() {
 
     const getRate = (curr: string) => curr === 'IDR' ? 1 : (safeForexRates[curr] || 1);
     
-    // Hitung Estimasi Kekayaan (Untuk Mode Guided & Edit)
     const totalCashDeep = parseNumber(rekUtama) + parseNumber(rekLain) + parseNumber(ewallet) + parseNumber(uangCash);
     const totalForexInIDR = forexItems.reduce((acc, item) => acc + (parseNumber(item.amount) * getRate(item.currency)), 0) + (parseNumber(tempForexAmount) * getRate(tempForexCurrency));
     const totalRecvInIDR = recvItems.reduce((acc, i) => acc + (parseNumber(i.amount) * getRate(i.currency)), 0) + (parseNumber(tempRecvAmount) * getRate(tempRecvCurrency));
@@ -185,7 +176,6 @@ export default function Target() {
     const totalStart = totalCashDeep + totalForexInIDR + totalRecvInIDR + totalInvInIDR - totalDebtInIDR;
     const displayTotalStart = formatRp(totalStart);
 
-    // --- NAVIGATION ---
     const startSetup = (mode: 'target' | 'saving') => {
         setIsTargetMode(mode === 'target');
         if (!isEditMode) {
@@ -195,7 +185,7 @@ export default function Target() {
         if (isEditMode) { 
             mode === 'target' ? setStep('target-input') : setStep('budget-ask'); 
         } else { 
-            setStep('quick-goal'); // Langsung hajar pertanyaan emosional
+            setStep('quick-goal');
         }
     };
     
@@ -217,7 +207,6 @@ export default function Target() {
     };
     const handleBudgetAnswer = (answer: boolean) => { if (answer) setStep('budget-setup'); else handleSubmitFinal(false, false); };
 
-    // --- SUBMIT FINAL (QUICK WIN vs DEEP SETUP) ---
     const handleSubmitFinal = async (withBudget: boolean, isQuickWin = false) => {
         if (isTrialExpired) {
             window.dispatchEvent(new Event('trigger-paywall-lock'));
@@ -248,10 +237,8 @@ export default function Target() {
                 startYear: target?.startYear || now.getFullYear()
             };
 
-            // Simpan status estimasi agar Banner di Dashboard Muncul
             localStorage.setItem(`bilano_is_balance_estimated_${userEmail}`, isQuickWin ? "true" : "false");
             
-            // Coba update profile di backend (Fire and Forget)
             try {
                 await fetch("/api/user/profile", {
                     method: "PATCH",
@@ -269,7 +256,6 @@ export default function Target() {
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan data." });
                 
                 if (!isEditMode) {
-                    // Trial 14 hari dimulai SEKARANG
                     localStorage.setItem(`bilano_setup_completed_${userEmail}`, new Date().toISOString());
                     localStorage.setItem(`bilano_welcomed_paywall_${userEmail}`, "true");
                     window.location.href = "/paywall"; 
@@ -297,7 +283,7 @@ export default function Target() {
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in p-4">
                         <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 border border-slate-100">
                             <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><ListPlus className="w-5 h-5 text-indigo-600"/> Rincian Pengeluaran</h3>
+                                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><List className="w-5 h-5 text-indigo-600"/> Rincian Pengeluaran</h3>
                                 <button onClick={() => setIsBreakdownOpen(false)} className="p-1.5 bg-slate-100 rounded-full hover:bg-rose-100 hover:text-rose-600"><X className="w-5 h-5"/></button>
                             </div>
                             <div className="space-y-3 mb-4">
@@ -340,7 +326,7 @@ export default function Target() {
                             </button>
 
                             <button onClick={() => startSetup('saving')} className="w-full text-left p-5 border border-slate-100 rounded-[24px] hover:border-emerald-400 hover:bg-emerald-50/50 transition-all bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group mt-2">
-                                <div className="bg-emerald-100 p-3 rounded-full group-hover:scale-110 transition-transform flex-shrink-0"><PiggyBank className="w-6 h-6 text-emerald-600"/></div>
+                                <div className="bg-emerald-100 p-3 rounded-full group-hover:scale-110 transition-transform flex-shrink-0"><Database className="w-6 h-6 text-emerald-600"/></div>
                                 <div><h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500">Saya cuma mau lihat keluar masuk uang harian saja.</p></div>
                             </button>
                         </div>
@@ -550,7 +536,7 @@ export default function Target() {
                             <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
                                 <div onClick={() => setHasRecv(!hasRecv)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
-                                        <div className="p-2 bg-emerald-100 text-emerald-600 rounded-full"><HandCoins className="w-4 h-4"/></div> Punya Piutang?
+                                        <div className="p-2 bg-emerald-100 text-emerald-600 rounded-full"><Briefcase className="w-4 h-4"/></div> Punya Piutang?
                                     </label>
                                     {hasRecv ? <ChevronUp className="w-5 h-5 text-slate-400"/> : <ChevronDown className="w-5 h-5 text-slate-400"/>}
                                 </div>
@@ -638,7 +624,7 @@ export default function Target() {
                             <div className="border border-rose-100 rounded-[24px] bg-rose-50/30 overflow-hidden transition-all">
                                 <div onClick={() => setHasDebt(!hasDebt)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-rose-50 transition">
                                     <label className="text-sm font-bold text-rose-700 flex items-center gap-3 pointer-events-none">
-                                        <div className="p-2 bg-rose-100 text-rose-600 rounded-full"><Landmark className="w-4 h-4"/></div> Punya Hutang?
+                                        <div className="p-2 bg-rose-100 text-rose-600 rounded-full"><Home className="w-4 h-4"/></div> Punya Hutang?
                                     </label>
                                     {hasDebt ? <ChevronUp className="w-5 h-5 text-rose-400"/> : <ChevronDown className="w-5 h-5 text-rose-400"/>}
                                 </div>
@@ -723,7 +709,7 @@ export default function Target() {
                     <div className="space-y-6 animate-in slide-in-from-right pt-6">
                         <div className="bg-white p-8 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 text-center">
                             <div className="bg-rose-50 p-5 rounded-full w-24 h-24 mx-auto flex items-center justify-center mb-6">
-                                <ShieldCheck className="w-10 h-10 text-rose-500"/>
+                                <Shield className="w-10 h-10 text-rose-500"/>
                             </div>
                             <h2 className="text-2xl font-extrabold text-slate-800">Batasi Pengeluaran?</h2>
                             <p className="text-slate-500 text-sm mt-3 leading-relaxed">Aktifkan sistem darurat agar kamu tidak boros dan {isTargetMode ? 'impian cepat tercapai' : 'uang cepat terkumpul'}.</p>
@@ -743,7 +729,7 @@ export default function Target() {
                         <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6">
                             <div className="text-center pb-2 border-b border-slate-100">
                                 <div className="w-14 h-14 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <ShieldAlert className="w-7 h-7 text-rose-500"/>
+                                    <Shield className="w-7 h-7 text-rose-500"/>
                                 </div>
                                 <h3 className="font-extrabold text-slate-800 text-xl">Atur Batasan</h3>
                                 <p className="text-xs text-slate-500 mt-1">Maksimal uang keluar per bulan.</p>
