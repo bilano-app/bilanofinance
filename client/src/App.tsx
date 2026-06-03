@@ -5,7 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { WifiOff, RefreshCw, Lock } from "lucide-react"; 
 import { useNotifications } from "./hooks/useNotifications"; 
-import { useUser, useTransactions } from "./hooks/use-finance"; 
+import { useUser } from "./hooks/use-finance"; 
 
 // =========================================================================
 // 🚀 KUNCI MEMORI AGAR ANGKA TIDAK BERKEDIP
@@ -72,85 +72,6 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
     return originalXhrSend.apply(this, args as any);
 };
 // =========================================================================
-
-// =========================================================================
-// 🚀 PAYWALL LOCK ALERT — Checkpoint Perjalanan (bukan tembok dingin)
-// Menampilkan progress yang sudah dibangun user sebelum meminta mereka bayar.
-// =========================================================================
-function PaywallLockAlert({ onClose, onUpgrade, onDismiss }: { onClose: () => void; onUpgrade: () => void; onDismiss: () => void; }) {
-  const { data: transactions = [] } = useUser(); // reuse hook — transactions diambil di Paywall.tsx
-  const txCount = parseInt(localStorage.getItem("bilano_cached_tx_count") || "0");
-  const daysPassed = parseInt(localStorage.getItem("bilano_trial_days_passed") || "0");
-  const hasTarget = localStorage.getItem("bilano_has_target") === "true";
-  
-  // Hitung countdown AI Strategi (butuh 30 hari data sejak setup)
-  const aiDaysRemaining = Math.max(0, 30 - daysPassed);
-
-  return (
-    <div className="fixed inset-0 z-[99999] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-      <div className="bg-white rounded-[28px] max-w-sm w-full shadow-2xl animate-in zoom-in-95 overflow-hidden">
-        {/* Header merah sebagai penanda checkpoint, bukan error */}
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 p-5 text-white text-center">
-          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <Lock className="w-6 h-6 text-white"/>
-          </div>
-          <h3 className="text-lg font-black tracking-tight">Perjalananmu Belum Selesai</h3>
-          <p className="text-[11px] text-indigo-200 mt-1 font-medium">Masa trial telah habis — tapi progresmu tetap tersimpan.</p>
-        </div>
-
-        {/* Progress yang sudah dibangun user */}
-        <div className="p-5 space-y-4">
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
-              <span className="text-xl font-black text-indigo-600 block">{txCount}</span>
-              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wide">Transaksi</span>
-            </div>
-            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
-              <span className="text-xl font-black text-emerald-600 block">{daysPassed}</span>
-              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wide">Hari Aktif</span>
-            </div>
-            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
-              <span className="text-xl font-black text-amber-500 block">{hasTarget ? "✓" : "–"}</span>
-              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wide">Target</span>
-            </div>
-          </div>
-
-          {/* AI Strategi countdown — locked but visible */}
-          <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3 flex items-center gap-3">
-            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-xs">🤖</span>
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-indigo-700 uppercase tracking-wider">AI Strategi Penghasilan</p>
-              <p className="text-[10px] text-indigo-500 font-semibold">
-                {aiDaysRemaining > 0 ? `Siap dalam ${aiDaysRemaining} hari lagi` : "Siap diakses — upgrade sekarang!"}
-              </p>
-            </div>
-          </div>
-
-          <p className="text-[11px] text-slate-500 text-center leading-relaxed font-medium">
-            Lanjutkan seharga <span className="font-black text-slate-800">Rp 500/hari</span> — kurang dari secangkir kopi.
-          </p>
-
-          <div className="space-y-2">
-            <button 
-              onClick={onUpgrade}
-              className="w-full py-3.5 rounded-full bg-indigo-600 text-white font-extrabold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95"
-            >
-              LANJUTKAN PERJALANAN
-            </button>
-            <button 
-              onClick={onDismiss}
-              className="w-full py-3 rounded-full bg-slate-100 text-slate-500 font-bold text-xs hover:bg-slate-200 transition-colors"
-            >
-              Kembali ke Beranda
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 import NotFound from "@/pages/not-found";
 import Security from "./pages/Security";
@@ -226,28 +147,11 @@ function Router() {
       else if (user && !user.isPro) {
           localStorage.setItem("bilano_pro", "false"); 
 
-          // =========================================================================
-          // 🚀 STRATEGI TRIAL 14 HARI:
-          // Trial dihitung dari saat user MENYELESAIKAN SETUP (bilano_setup_completed),
-          // bukan dari tanggal akun dibuat. Ini memastikan user tidak kehilangan
-          // waktu trial hanya karena belum sempat setup saat pertama install.
-          // =========================================================================
-          const TRIAL_DURATION_DAYS = 14;
+          const startTime = new Date(user.createdAt || "2024-01-01").getTime();
+          const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
+          const TRIAL_DURATION_DAYS = 3;
 
-          // Ambil timestamp setup completion, fallback ke createdAt jika belum ada
-          const setupCompletedAt = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`);
-          const trialStartTime = setupCompletedAt 
-              ? new Date(setupCompletedAt).getTime()
-              : new Date(user.createdAt || "2024-01-01").getTime();
-          
-          const daysPassed = (Date.now() - trialStartTime) / (1000 * 60 * 60 * 24);
-          const daysRemaining = Math.max(0, Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
-
-          // Simpan sisa hari untuk dipakai di komponen Paywall
-          localStorage.setItem("bilano_trial_days_remaining", String(daysRemaining));
-          localStorage.setItem("bilano_trial_days_passed", String(Math.floor(daysPassed)));
-
-          const isNewAccount = (Date.now() - new Date(user.createdAt || "2024-01-01").getTime()) < 15000; 
+          const isNewAccount = (Date.now() - startTime) < 15000; 
           const hasRedirected = sessionStorage.getItem("bilano_first_paywall_redirect");
           
           // 🚀 PERBAIKAN: Penawaran Langganan Otomatis (Paywall) HANYA terjadi di dalam Aplikasi PWA
@@ -368,7 +272,31 @@ function Router() {
 
       {/* 🚀 PERBAIKAN: Tambahkan isStandalone && sebelum showPaywallAlert */}
       {isStandalone && showPaywallAlert && (
-        <PaywallLockAlert onClose={() => setShowPaywallAlert(false)} onUpgrade={() => { setShowPaywallAlert(false); setLocation('/paywall'); }} onDismiss={() => { setShowPaywallAlert(false); setLocation('/'); }} />
+        <div className="fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-white rounded-[24px] p-6 max-w-sm w-full shadow-2xl text-center border-t-8 border-rose-500 animate-in zoom-in-95">
+                <div className="w-16 h-16 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Lock className="w-8 h-8"/>
+                </div>
+                <h3 className="text-xl font-extrabold text-slate-800 mb-2">Akses Terkunci</h3>
+                <p className="text-sm text-slate-600 mb-6 leading-relaxed font-medium">
+                    Masa percobaan gratis Anda telah habis. Fitur ini eksklusif untuk pengguna Premium BILANO.
+                </p>
+                <div className="flex flex-col gap-3">
+                    <button 
+                        onClick={() => { setShowPaywallAlert(false); setLocation('/paywall'); }} 
+                        className="w-full py-3.5 rounded-full bg-indigo-600 text-white font-extrabold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95"
+                    >
+                        BERLANGGANAN SEKARANG
+                    </button>
+                    <button 
+                        onClick={() => { setShowPaywallAlert(false); setLocation('/'); }} 
+                        className="w-full py-3.5 rounded-full bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
+                    >
+                        TUTUP & KEMBALI
+                    </button>
+                </div>
+            </div>
+        </div>
       )}
     </>
   );
