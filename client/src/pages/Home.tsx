@@ -66,6 +66,7 @@ export default function Home() {
   const [isRequestingPerms, setIsRequestingPerms] = useState(false);
 
   const [showProWelcome, setShowProWelcome] = useState(false);
+  const [milestonePopup, setMilestonePopup] = useState<string | null>(null); 
   
   const [showGuideTooltip, setShowGuideTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
@@ -83,12 +84,13 @@ export default function Home() {
   
   const [showRetryButton, setShowRetryButton] = useState(false);
 
-  // 🚀 MENDETEKSI PWA
   const isStandalone = typeof window !== 'undefined' && 
       (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isUserPro = user?.isPro === true; 
+  const isBalanceEstimated = localStorage.getItem(`bilano_is_balance_estimated_${rawEmail}`) === "true";
+  const txCount = transactions?.length || 0;
   
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
@@ -106,6 +108,23 @@ export default function Home() {
       const hasPrompted = localStorage.getItem("bilano_permissions_prompted");
       if (!hasPrompted) setShowPermissionPrompt(true);
   }, []);
+
+  // 🚀 GAMIFICATION MILESTONES EFFECT
+  useEffect(() => {
+      if (!rawEmail || isTxLoading) return;
+      
+      const checkMilestone = (count: number, message: string) => {
+          const key = `bilano_milestone_${count}_${rawEmail}`;
+          if (txCount >= count && !localStorage.getItem(key)) {
+              setTimeout(() => setMilestonePopup(message), 1500);
+              localStorage.setItem(key, "true");
+          }
+      };
+
+      checkMilestone(1, "Langkah pertama! 🎉 Satu transaksi sudah lebih baik dari nol.");
+      checkMilestone(5, "Hebat! Kamu mulai punya gambaran nyata tentang keuanganmu.");
+      checkMilestone(20, "20 Transaksi! Kamu sedang membangun kebiasaan finansial yang luar biasa.");
+  }, [txCount, rawEmail, isTxLoading]);
 
   const isAnyDataLoading = isUserLoading || isTargetLoading || isTxLoading || isFxLoading || isSubLoading;
 
@@ -316,16 +335,21 @@ export default function Home() {
   useEffect(() => {
       if (isUserPro || !user) return;
       
-      const startTime = new Date(user.createdAt || Date.now()).getTime();
-      const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
-      const TRIAL_DURATION_DAYS = 3; 
+      // 🚀 STRATEGI TRIAL 14 HARI (Menyesuaikan Dokumen Marketing)
+      const setupCompletedAt = localStorage.getItem(`bilano_setup_completed_${rawEmail}`);
+      const trialStartTime = setupCompletedAt 
+          ? new Date(setupCompletedAt).getTime()
+          : new Date(user.createdAt || Date.now()).getTime();
+          
+      const daysPassed = (Date.now() - trialStartTime) / (1000 * 60 * 60 * 24);
+      const TRIAL_DURATION_DAYS = 14; 
 
       if (daysPassed >= TRIAL_DURATION_DAYS) {
           setTrialDaysLeft(0);
       } else {
           setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
       }
-  }, [isUserPro, user]);
+  }, [isUserPro, user, rawEmail]);
 
   const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
   
@@ -333,7 +357,6 @@ export default function Home() {
   const isNewAccount = user && (Date.now() - startTimeAcc) < (15 * 60 * 1000); 
   const hasRedirected = rawEmail ? localStorage.getItem(`bilano_welcomed_paywall_${rawEmail}`) === "true" : false;
   
-  // 🚀 PERBAIKAN: Redirect penawaran bayar HANYA diaktifkan kalau dia buka via PWA
   const needsPaywallRedirect = isStandalone && !isUserPro && isNewAccount && !hasRedirected && !isTargetEmpty;
 
   useEffect(() => {
@@ -569,6 +592,18 @@ export default function Home() {
 
   return (
     <MobileLayout>
+
+      {/* 🚀 MARKETING: GAMIFICATION MILESTONE NOTIFICATION */}
+      {milestonePopup && (
+          <div className="fixed top-4 left-4 right-4 z-[999999] bg-indigo-600 text-white p-4 rounded-[20px] shadow-2xl flex items-start gap-3 animate-in slide-in-from-top-10 fade-in duration-500">
+              <div className="bg-white/20 p-2 rounded-full shrink-0"><CheckCircle2 className="w-6 h-6"/></div>
+              <div className="flex-1">
+                  <h4 className="font-extrabold text-sm mb-0.5">Pencapaian Baru! 🏆</h4>
+                  <p className="text-xs font-medium leading-relaxed">{milestonePopup}</p>
+              </div>
+              <button onClick={() => setMilestonePopup(null)} className="shrink-0 p-1 bg-black/10 hover:bg-black/20 rounded-full transition-colors"><X className="w-4 h-4"/></button>
+          </div>
+      )}
 
       <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
           
@@ -875,6 +910,24 @@ export default function Home() {
             </div>
         </div>
 
+        {/* 🚀 MARKETING: BANNER ESTIMASI SALDO */}
+        {isBalanceEstimated && (
+            <div className="mx-1 mt-[-10px] rounded-[20px] p-4 shadow-sm bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 flex items-center justify-between animate-in slide-in-from-top-4">
+                <div className="flex items-center gap-3 pr-2">
+                    <div className="bg-orange-100 p-2.5 rounded-full shrink-0">
+                        <AlertTriangle className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                        <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5 text-orange-800">Saldo Masih Estimasi</p>
+                        <p className="text-[10px] font-medium opacity-90 text-orange-700 leading-tight">Lengkapi data aset & rekening untuk hasil akurat.</p>
+                    </div>
+                </div>
+                <Link href="/target">
+                    <button className="bg-orange-500 hover:bg-orange-600 px-4 py-2.5 rounded-full text-[10px] font-extrabold text-white transition-all active:scale-95 shadow-md shrink-0">LENGKAPI</button>
+                </Link>
+            </div>
+        )}
+
         {!isUserPro && trialDaysLeft !== null && isStandalone && (
             <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${trialDaysLeft === 0 ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
                 <div className="flex items-center gap-3">
@@ -914,6 +967,46 @@ export default function Home() {
            <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
            <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
            <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
+        </div>
+
+        {/* 🚀 MARKETING: AI STRATEGI LOCKED BUT VISIBLE */}
+        <div className="px-1 mt-[-10px]">
+            <div className="bg-white border-2 border-indigo-50 rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden">
+                {!isUserPro && (
+                    <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[9px] font-black px-3 py-1.5 rounded-bl-[16px] z-10 flex items-center gap-1 shadow-sm">
+                        <Lock className="w-3 h-3" /> EKSKLUSIF PRO
+                    </div>
+                )}
+                <div className="flex items-start gap-4 relative z-10">
+                    <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
+                        <Bot className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <div className="w-full">
+                        <h3 className="font-extrabold text-slate-800 text-sm mb-1">AI Strategi Penghasilan</h3>
+                        <p className="text-[11px] text-slate-500 leading-relaxed font-medium mb-3">
+                            Berdasarkan pola transaksi, AI akan meracik strategi penghasilan tambahan khusus untukmu.
+                        </p>
+                        
+                        <div className="space-y-1.5 w-full">
+                            <div className="flex justify-between text-[9px] font-extrabold text-indigo-600 uppercase tracking-widest">
+                                <span>Mengumpulkan Data</span>
+                                <span>{Math.min(30, txCount)} / 30 Transaksi</span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (txCount / 30) * 100)}%` }}></div>
+                            </div>
+                        </div>
+
+                        {!isUserPro && (
+                            <Link href="/paywall">
+                                <button className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] py-2.5 rounded-[12px] transition-colors flex items-center justify-center gap-2 shadow-md">
+                                    Buka Akses (Mulai Rp 500/hari) <ChevronRight className="w-3 h-3"/>
+                                </button>
+                            </Link>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 px-1">

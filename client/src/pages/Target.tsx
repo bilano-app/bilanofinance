@@ -4,7 +4,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
     Target as TargetIcon, ShieldCheck, PiggyBank, Calculator, Wallet, 
-    Globe, Plus, Trash2, X, ListPlus, HandCoins, Briefcase, Landmark, ChevronDown, ChevronUp, ShieldAlert, Loader2 
+    Globe, Plus, Trash2, X, ListPlus, HandCoins, Briefcase, Landmark, ChevronDown, ChevronUp, ShieldAlert, Loader2, ChevronRight 
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
@@ -28,6 +28,24 @@ interface InvItem { id: number; type: string; symbol: string; quantity: string; 
 const INV_TYPES = ["Saham", "Crypto", "Reksadana", "Emas", "P2P", "Obligasi"];
 const FALLBACK_CURRENCIES = ["USD", "EUR", "SGD", "JPY", "AUD", "GBP", "CNY", "MYR", "SAR", "KRW", "THB"];
 
+// 🚀 MARKETING: Opsi Quick Win
+const QUICK_GOALS = [
+    { label: "Beli Rumah / KPR", icon: "🏡" },
+    { label: "Dana Darurat Aman", icon: "🛡️" },
+    { label: "Beli Kendaraan", icon: "🚗" },
+    { label: "Menikah / Keluarga", icon: "💍" },
+    { label: "Bebas Finansial", icon: "🏖️" },
+    { label: "Lainnya", icon: "✨" }
+];
+
+const BALANCE_RANGES = [
+    { label: "< Rp 5 Juta", value: 2500000 },
+    { label: "Rp 5 - 20 Juta", value: 12500000 },
+    { label: "Rp 20 - 50 Juta", value: 35000000 },
+    { label: "Rp 50 - 100 Juta", value: 75000000 },
+    { label: "> Rp 100 Juta", value: 150000000 }
+];
+
 const formatNumber = (val: string) => {
     const clean = val.replace(/\D/g, '');
     return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -40,11 +58,21 @@ export default function Target() {
     const { data: userData, isLoading: isUserLoading } = useUser();
     const [target, setTarget] = useState<TargetData | null>(null);
     
-    const [step, setStep] = useState<'intro' | 'assets-setup' | 'target-input' | 'budget-ask' | 'budget-setup'>('intro');
+    // 🚀 ALUR BARU: Quick Win & Guided Deep Setup
+    const [step, setStep] = useState<'intro' | 'quick-goal' | 'quick-balance' | 'aha-moment' | 'guided-intro' | 'guided-1' | 'guided-2' | 'guided-3' | 'guided-4' | 'guided-5' | 'target-input' | 'budget-ask' | 'budget-setup' | 'assets-setup'>('intro');
     const [isTargetMode, setIsTargetMode] = useState(false); 
     
-    const [rawCurrentCash, setRawCurrentCash] = useState("");
+    // Quick Win State
+    const [quickGoal, setQuickGoal] = useState("");
+    const [quickRange, setQuickRange] = useState(0);
+
+    // Guided Calculation State
+    const [rekUtama, setRekUtama] = useState("");
+    const [rekLain, setRekLain] = useState("");
+    const [ewallet, setEwallet] = useState("");
+    const [uangCash, setUangCash] = useState("");
     
+    // Advanced Assets
     const [hasForex, setHasForex] = useState(false);
     const [forexItems, setForexItems] = useState<ForexItem[]>([]);
     const [tempForexCurrency, setTempForexCurrency] = useState("USD");
@@ -70,6 +98,7 @@ export default function Target() {
     const [tempDebtAmount, setTempDebtAmount] = useState("");
     const [tempDebtCurrency, setTempDebtCurrency] = useState("IDR");
     
+    // Target & Budget
     const [rawTargetAmount, setRawTargetAmount] = useState("");
     const [inputDuration, setInputDuration] = useState(""); 
     const [rawBudgetAmount, setRawBudgetAmount] = useState("");
@@ -125,87 +154,60 @@ export default function Target() {
 
     const isEditMode = target && target.targetAmount !== undefined;
 
-    const addForexItem = () => {
-        if (!tempForexAmount || parseNumber(tempForexAmount) <= 0) return;
-        setForexItems([...forexItems, { id: Date.now(), currency: tempForexCurrency, amount: tempForexAmount }]);
-        setTempForexAmount(""); 
-    };
-    const removeForexItem = (id: number) => { setForexItems(forexItems.filter(item => item.id !== id)); };
-
-    const addRecvItem = () => {
-        if (!tempRecvName || !tempRecvAmount) return;
-        setRecvItems([...recvItems, { id: Date.now(), name: tempRecvName, amount: tempRecvAmount, currency: tempRecvCurrency }]);
-        setTempRecvName(""); setTempRecvAmount(""); setTempRecvCurrency("IDR");
-    };
+    // Aset Addition Logic
+    const addForexItem = () => { if (!tempForexAmount || parseNumber(tempForexAmount) <= 0) return; setForexItems([...forexItems, { id: Date.now(), currency: tempForexCurrency, amount: tempForexAmount }]); setTempForexAmount(""); };
+    const removeForexItem = (id: number) => setForexItems(forexItems.filter(item => item.id !== id));
+    const addRecvItem = () => { if (!tempRecvName || !tempRecvAmount) return; setRecvItems([...recvItems, { id: Date.now(), name: tempRecvName, amount: tempRecvAmount, currency: tempRecvCurrency }]); setTempRecvName(""); setTempRecvAmount(""); setTempRecvCurrency("IDR"); };
     const removeRecvItem = (id: number) => setRecvItems(recvItems.filter(i => i.id !== id));
-
-    const addInvItem = () => {
-        if (!tempInvSymbol || !tempInvQty || !tempInvPrice) return;
-        setInvItems([...invItems, { id: Date.now(), type: tempInvType, symbol: tempInvSymbol, quantity: tempInvQty, price: tempInvPrice, currency: tempInvCurrency }]);
-        setTempInvSymbol(""); setTempInvQty(""); setTempInvPrice(""); setTempInvCurrency("IDR");
-    };
+    const addInvItem = () => { if (!tempInvSymbol || !tempInvQty || !tempInvPrice) return; setInvItems([...invItems, { id: Date.now(), type: tempInvType, symbol: tempInvSymbol, quantity: tempInvQty, price: tempInvPrice, currency: tempInvCurrency }]); setTempInvSymbol(""); setTempInvQty(""); setTempInvPrice(""); setTempInvCurrency("IDR"); };
     const removeInvItem = (id: number) => setInvItems(invItems.filter(i => i.id !== id));
-
-    const addDebtItem = () => {
-        if (!tempDebtName || !tempDebtAmount) return;
-        setDebtItems([...debtItems, { id: Date.now(), name: tempDebtName, amount: tempDebtAmount, currency: tempDebtCurrency }]);
-        setTempDebtName(""); setTempDebtAmount(""); setTempDebtCurrency("IDR");
-    };
+    const addDebtItem = () => { if (!tempDebtName || !tempDebtAmount) return; setDebtItems([...debtItems, { id: Date.now(), name: tempDebtName, amount: tempDebtAmount, currency: tempDebtCurrency }]); setTempDebtName(""); setTempDebtAmount(""); setTempDebtCurrency("IDR"); };
     const removeDebtItem = (id: number) => setDebtItems(debtItems.filter(i => i.id !== id));
 
-    const addBreakdownItem = () => {
-        if (!newItemName || !newItemAmount) return;
-        setBreakdownItems([...breakdownItems, { id: Date.now(), name: newItemName, amount: parseNumber(newItemAmount) }]);
-        setNewItemName(""); setNewItemAmount("");
-    };
-    const removeBreakdownItem = (id: number) => { setBreakdownItems(breakdownItems.filter(item => item.id !== id)); };
-    const saveBreakdownTotal = () => {
-        const total = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
-        setRawBudgetAmount(total.toString()); setIsBreakdownOpen(false);
-        toast({ title: "Terhitung!", description: `Budget diset ke ${formatRp(total)}` });
-    };
+    // Breakdown Logic
+    const addBreakdownItem = () => { if (!newItemName || !newItemAmount) return; setBreakdownItems([...breakdownItems, { id: Date.now(), name: newItemName, amount: parseNumber(newItemAmount) }]); setNewItemName(""); setNewItemAmount(""); };
+    const removeBreakdownItem = (id: number) => setBreakdownItems(breakdownItems.filter(item => item.id !== id));
     const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
+    const saveBreakdownTotal = () => { setRawBudgetAmount(breakdownTotal.toString()); setIsBreakdownOpen(false); toast({ title: "Terhitung!", description: `Budget diset ke ${formatRp(breakdownTotal)}` }); };
 
-    const cashPreview = parseNumber(rawCurrentCash);
-    const totalForexInIDR = forexItems.reduce((acc, item) => acc + (parseNumber(item.amount) * (safeForexRates[item.currency] || 0)), 0) + (parseNumber(tempForexAmount) * (safeForexRates[tempForexCurrency] || 0));
-    
     const getRate = (curr: string) => curr === 'IDR' ? 1 : (safeForexRates[curr] || 1);
     
+    // Hitung Estimasi Kekayaan (Untuk Mode Guided & Edit)
+    const totalCashDeep = parseNumber(rekUtama) + parseNumber(rekLain) + parseNumber(ewallet) + parseNumber(uangCash);
+    const totalForexInIDR = forexItems.reduce((acc, item) => acc + (parseNumber(item.amount) * getRate(item.currency)), 0) + (parseNumber(tempForexAmount) * getRate(tempForexCurrency));
     const totalRecvInIDR = recvItems.reduce((acc, i) => acc + (parseNumber(i.amount) * getRate(i.currency)), 0) + (parseNumber(tempRecvAmount) * getRate(tempRecvCurrency));
     const totalDebtInIDR = debtItems.reduce((acc, i) => acc + (parseNumber(i.amount) * getRate(i.currency)), 0) + (parseNumber(tempDebtAmount) * getRate(tempDebtCurrency));
-    
     const calcInv = (type: string, symbol: string, qty: string, price: string, curr: string) => {
         const isSaham = type.toLowerCase() === 'saham' || (symbol.length === 4 && type.toLowerCase() !== 'crypto');
-        const m = isSaham && curr === 'IDR' ? 100 : 1;
-        return parseNumber(qty) * parseNumber(price) * m * getRate(curr);
+        return parseNumber(qty) * parseNumber(price) * (isSaham && curr === 'IDR' ? 100 : 1) * getRate(curr);
     };
     const totalInvInIDR = invItems.reduce((acc, i) => acc + calcInv(i.type, i.symbol, i.quantity, i.price, i.currency), 0) + calcInv(tempInvType, tempInvSymbol, tempInvQty, tempInvPrice, tempInvCurrency);
-
-    const totalStart = cashPreview + totalForexInIDR + totalRecvInIDR + totalInvInIDR - totalDebtInIDR;
-
+    const totalStart = totalCashDeep + totalForexInIDR + totalRecvInIDR + totalInvInIDR - totalDebtInIDR;
     const displayTotalStart = formatRp(totalStart);
-    const getBalanceTextSize = (text: string) => {
-        if (text.length >= 20) return "text-xl"; 
-        if (text.length >= 15) return "text-2xl"; 
-        return "text-3xl"; 
-    };
 
+    // --- NAVIGATION ---
     const startSetup = (mode: 'target' | 'saving') => {
         setIsTargetMode(mode === 'target');
         if (!isEditMode) {
             if (mode === 'saving') { setRawTargetAmount("0"); setInputDuration("12"); } 
             else { setRawTargetAmount(""); setInputDuration(""); }
         }
-        if (isEditMode) { mode === 'target' ? setStep('target-input') : setStep('budget-ask'); } 
-        else { setStep('assets-setup'); }
+        if (isEditMode) { 
+            mode === 'target' ? setStep('target-input') : setStep('budget-ask'); 
+        } else { 
+            setStep('quick-goal'); // Langsung hajar pertanyaan emosional
+        }
     };
     
-    const nextToTarget = () => { 
+    const nextFromGuided5 = () => { 
         if (hasForex && tempForexAmount) addForexItem();
         if (hasRecv && tempRecvName && tempRecvAmount) addRecvItem();
         if (hasInv && tempInvSymbol && tempInvQty && tempInvPrice) addInvItem();
         if (hasDebt && tempDebtName && tempDebtAmount) addDebtItem();
-
+        
+        if (!rawTargetAmount) setRawTargetAmount((quickRange * 3).toString());
+        if (!inputDuration) setInputDuration("12");
+        
         if (isTargetMode) setStep('target-input'); else setStep('budget-ask'); 
     };
 
@@ -213,42 +215,50 @@ export default function Target() {
         if (!parseNumber(rawTargetAmount) || !Number(inputDuration)) { toast({title: "Data Kurang", description: "Nominal & Durasi wajib diisi.", variant: "destructive"}); return; } 
         setStep('budget-ask'); 
     };
-    const handleBudgetAnswer = (answer: boolean) => { if (answer) setStep('budget-setup'); else handleSubmitFinal(false); };
+    const handleBudgetAnswer = (answer: boolean) => { if (answer) setStep('budget-setup'); else handleSubmitFinal(false, false); };
 
-    const handleSubmitFinal = async (withBudget: boolean) => {
+    // --- SUBMIT FINAL (QUICK WIN vs DEEP SETUP) ---
+    const handleSubmitFinal = async (withBudget: boolean, isQuickWin = false) => {
         if (isTrialExpired) {
             window.dispatchEvent(new Event('trigger-paywall-lock'));
             return;
         }
 
         const budgetVal = parseNumber(rawBudgetAmount);
-        if (withBudget && !budgetVal) { toast({title: "Error", description: "Nominal batas harus diisi!", variant: "destructive"}); return; }
+        if (!isQuickWin && withBudget && !budgetVal) { toast({title: "Error", description: "Nominal batas harus diisi!", variant: "destructive"}); return; }
 
         setIsSubmitting(true);
 
         try {
             const payload = {
-                targetAmount: parseNumber(rawTargetAmount) || 0,
-                durationMonths: Number(inputDuration) || 12,
-                monthlyBudget: withBudget ? budgetVal : 0,
-                budgetType: withBudget ? budgetType : 'static',
+                targetAmount: isQuickWin ? quickRange * 3 : (parseNumber(rawTargetAmount) || 0),
+                durationMonths: isQuickWin ? 12 : (Number(inputDuration) || 12),
+                monthlyBudget: isQuickWin ? 0 : (withBudget ? budgetVal : 0),
+                budgetType: isQuickWin ? 'static' : (withBudget ? budgetType : 'static'),
                 
-                addCurrentCash: !isEditMode ? parseNumber(rawCurrentCash) : 0,
-                initialForexList: !isEditMode && hasForex ? forexItems.map(f => ({ currency: f.currency, amount: parseNumber(f.amount) })) : [],
-                initialReceivables: !isEditMode && hasRecv ? recvItems.map(r => ({ name: `${r.name}|${r.currency}`, amount: parseNumber(r.amount) })) : [],
-                initialDebts: !isEditMode && hasDebt ? debtItems.map(d => ({ name: `${d.name}|${d.currency}`, amount: parseNumber(d.amount) })) : [],
-                
-                initialInvestments: !isEditMode && hasInv ? invItems.map(i => ({ 
-                    type: i.type, 
-                    symbol: `${i.symbol}|${i.currency}`, 
-                    quantity: parseNumber(i.quantity), 
-                    price: parseNumber(i.price),
-                    avgPrice: parseNumber(i.price) 
+                addCurrentCash: !isEditMode ? (isQuickWin ? quickRange : totalCashDeep) : 0,
+                initialForexList: !isEditMode && !isQuickWin && hasForex ? forexItems.map(f => ({ currency: f.currency, amount: parseNumber(f.amount) })) : [],
+                initialReceivables: !isEditMode && !isQuickWin && hasRecv ? recvItems.map(r => ({ name: `${r.name}|${r.currency}`, amount: parseNumber(r.amount) })) : [],
+                initialDebts: !isEditMode && !isQuickWin && hasDebt ? debtItems.map(d => ({ name: `${d.name}|${d.currency}`, amount: parseNumber(d.amount) })) : [],
+                initialInvestments: !isEditMode && !isQuickWin && hasInv ? invItems.map(i => ({ 
+                    type: i.type, symbol: `${i.symbol}|${i.currency}`, quantity: parseNumber(i.quantity), price: parseNumber(i.price), avgPrice: parseNumber(i.price) 
                 })) : [],
                 
                 startMonth: target?.startMonth || now.getMonth() + 1,
                 startYear: target?.startYear || now.getFullYear()
             };
+
+            // Simpan status estimasi agar Banner di Dashboard Muncul
+            localStorage.setItem(`bilano_is_balance_estimated_${userEmail}`, isQuickWin ? "true" : "false");
+            
+            // Coba update profile di backend (Fire and Forget)
+            try {
+                await fetch("/api/user/profile", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json", "x-user-email": userEmail },
+                    body: JSON.stringify({ isBalanceEstimated: isQuickWin, financialGoal: quickGoal })
+                });
+            } catch(e) {}
 
             const res = await fetch("/api/target", {
                 method: "POST", headers: { "Content-Type": "application/json", "x-user-email": userEmail },
@@ -256,26 +266,18 @@ export default function Target() {
             });
 
             if (res.ok) {
-                toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
+                toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan data." });
                 
-                // 🚀 FIX ALUR TOL SATU ARAH:
                 if (!isEditMode) {
-                    // Pengguna Baru: Cap stempel paywall, lalu lempar langsung ke halaman Mayar/Paywall
+                    // Trial 14 hari dimulai SEKARANG
+                    localStorage.setItem(`bilano_setup_completed_${userEmail}`, new Date().toISOString());
                     localStorage.setItem(`bilano_welcomed_paywall_${userEmail}`, "true");
                     window.location.href = "/paywall"; 
                 } else {
-                    // Pengguna Lama (Cuma edit target): Lempar kembali ke Home
                     window.location.href = "/"; 
                 }
-
             } else { 
-                const errText = await res.text();
-                if (res.status === 504) {
-                    toast({ title: "Server Sibuk (Timeout)", description: "Data berhasil dikirim, tetapi Vercel merespon lambat. Coba refresh aplikasi.", variant: "destructive" });
-                    setTimeout(() => window.location.href = "/", 2000);
-                } else {
-                    toast({ title: "Gagal Menyimpan", description: errText || "Kesalahan server.", variant: "destructive" }); 
-                }
+                toast({ title: "Gagal Menyimpan", description: "Terjadi kesalahan server.", variant: "destructive" }); 
             }
         } catch (e) { 
             toast({ title: "Error Koneksi", description: "Periksa jaringan internet Anda.", variant: "destructive" }); 
@@ -289,7 +291,7 @@ export default function Target() {
     }
 
     return (
-        <MobileLayout title={isEditMode ? "Edit Strategi & Target" : "Atur Strategi Baru"} showBack>
+        <MobileLayout title={isEditMode ? "Edit Strategi & Target" : "Atur Strategi Baru"} showBack={isEditMode}>
             <div className="space-y-6 pt-4 px-2 pb-20">
                 {isBreakdownOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in p-4">
@@ -317,17 +319,15 @@ export default function Target() {
                     </div>
                 )}
 
+                {/* --- FASE A: PENCOCOKAN EMOSIONAL & QUICK WIN --- */}
                 {step === 'intro' && (
-                    <div className="space-y-5 animate-in slide-in-from-bottom-4">
-                        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-[32px] text-white text-center shadow-xl relative overflow-hidden">
-                            <div className="relative z-10">
-                                <h2 className="text-2xl font-extrabold mb-1">Halo, {userData?.firstName || 'Partner'}!</h2>
-                                <p className="text-sm text-blue-100">{isEditMode ? "Silakan edit target dan strategi keuanganmu." : "Pilih gaya keuangan yang paling cocok denganmu hari ini."}</p>
-                            </div>
-                            <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                    <div className="space-y-5 animate-in slide-in-from-bottom-4 pt-4">
+                        <div className="text-center px-4 mb-8">
+                            <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Halo, {userData?.firstName || 'Partner'}! 👋</h2>
+                            <p className="text-sm text-slate-500">{isEditMode ? "Silakan edit target dan strategi keuanganmu." : "Pilih gaya keuangan yang paling cocok denganmu hari ini."}</p>
                         </div>
                         
-                        <div className="space-y-4 pt-4">
+                        <div className="space-y-4 pt-2">
                             <button onClick={() => startSetup('target')} className="relative w-full text-left p-5 border-2 border-indigo-200 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/50 bg-indigo-50/30 transition-all shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-start sm:items-center gap-4 group">
                                 <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md border border-yellow-300 flex items-center gap-1">
                                     Direkomendasikan
@@ -335,37 +335,187 @@ export default function Target() {
                                 <div className="bg-indigo-100 p-3 rounded-full group-hover:scale-110 transition-transform mt-1 sm:mt-0 flex-shrink-0"><TargetIcon className="w-6 h-6 text-indigo-600"/></div>
                                 <div>
                                     <h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Kejar Target / Menabung</h3>
-                                    <p className="text-xs text-slate-500">Saya punya impian spesifik yang ingin dicapai.</p>
+                                    <p className="text-xs text-slate-500 leading-relaxed">Saya punya impian spesifik yang ingin dicapai dalam waktu dekat.</p>
                                 </div>
                             </button>
 
                             <button onClick={() => startSetup('saving')} className="w-full text-left p-5 border border-slate-100 rounded-[24px] hover:border-emerald-400 hover:bg-emerald-50/50 transition-all bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group mt-2">
                                 <div className="bg-emerald-100 p-3 rounded-full group-hover:scale-110 transition-transform flex-shrink-0"><PiggyBank className="w-6 h-6 text-emerald-600"/></div>
-                                <div><h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500">Saya ingin melihat keluar masuk uang harian saja.</p></div>
+                                <div><h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500">Saya cuma mau lihat keluar masuk uang harian saja.</p></div>
                             </button>
                         </div>
                     </div>
                 )}
 
-                {step === 'assets-setup' && !isEditMode && (
+                {step === 'quick-goal' && (
+                    <div className="space-y-6 animate-in slide-in-from-right pt-4 px-2">
+                        <div className="text-center mb-8">
+                            <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Mimpi Finansialmu</h2>
+                            <p className="text-sm text-slate-500">Apa tujuan finansial terbesarmu dalam 1 tahun ke depan?</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            {QUICK_GOALS.map(g => (
+                                <button key={g.label} onClick={() => { setQuickGoal(g.label); setStep('quick-balance'); }} className="p-5 bg-white border border-slate-100 shadow-[0_4px_15px_rgb(0,0,0,0.03)] rounded-[20px] hover:border-indigo-500 hover:bg-indigo-50 hover:-translate-y-1 text-left transition-all group">
+                                    <span className="text-3xl block mb-3 group-hover:scale-110 transition-transform origin-left">{g.icon}</span>
+                                    <span className="font-extrabold text-slate-800 text-sm leading-tight block">{g.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {step === 'quick-balance' && (
+                    <div className="space-y-6 animate-in slide-in-from-right pt-4 px-2">
+                        <div className="text-center mb-8">
+                            <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Kondisi Saat Ini</h2>
+                            <p className="text-sm text-slate-500">Berapa kira-kira total seluruh uangmu saat ini? (Tabungan + Cash + E-Wallet). <b>Pilih range saja, tidak perlu angka pasti.</b></p>
+                        </div>
+                        <div className="space-y-3">
+                            {BALANCE_RANGES.map(r => (
+                                <button key={r.label} onClick={() => { setQuickRange(r.value); setStep('aha-moment'); }} className="w-full p-5 bg-white border border-slate-100 shadow-[0_4px_15px_rgb(0,0,0,0.03)] rounded-[20px] hover:border-indigo-500 hover:bg-indigo-50 text-left font-extrabold text-slate-800 text-lg transition-all flex items-center justify-between group">
+                                    {r.label} 
+                                    <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600"/>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {step === 'aha-moment' && (
+                    <div className="space-y-6 animate-in zoom-in-95 pt-6">
+                        <div className="bg-gradient-to-br from-indigo-700 to-indigo-950 p-8 rounded-[32px] text-white text-center shadow-2xl relative overflow-hidden">
+                            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+                            
+                            <div className="relative z-10 space-y-6">
+                                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2 shadow-inner">
+                                    <TargetIcon className="w-8 h-8 text-white" />
+                                </div>
+                                
+                                <div>
+                                    <p className="text-[11px] text-indigo-300 font-bold mb-1 uppercase tracking-widest">Untuk mencapai impian</p>
+                                    <h3 className="text-2xl font-black text-amber-300">{quickGoal}</h3>
+                                </div>
+
+                                <div className="bg-white/10 p-5 rounded-[24px] backdrop-blur-sm border border-white/20 shadow-lg">
+                                    <p className="text-[11px] text-indigo-200 font-bold mb-2">Kamu perlu mengumpulkan sekitar</p>
+                                    <h2 className="text-4xl font-black text-white mb-1">{formatRp(quickRange * 3 / 12).split(',')[0]}<span className="text-sm text-indigo-200 font-medium">/bln</span></h2>
+                                    <p className="text-xs font-bold text-indigo-100 mt-3 bg-white/10 py-1.5 px-3 rounded-full inline-block">Atau <span className="text-emerald-300 font-black">{formatRp((quickRange * 3 / 12) / 30).split(',')[0]} / hari</span></p>
+                                </div>
+
+                                <p className="text-[13px] text-indigo-200 italic leading-relaxed px-2 font-medium">
+                                    "Angka yang masuk akal, bukan? Mulai hari ini, Bilano akan jadi saksi komitmenmu mewujudkannya."
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 pt-2">
+                            <Button onClick={() => setStep('guided-intro')} className="w-full bg-emerald-500 hover:bg-emerald-600 h-16 text-[14px] font-black rounded-full shadow-lg shadow-emerald-200 active:scale-95 transition-transform">
+                                LENGKAPI DATA SEKARANG (AKURAT)
+                            </Button>
+                            <Button onClick={() => handleSubmitFinal(false, true)} variant="ghost" disabled={isSubmitting} className="w-full h-12 text-slate-400 font-bold hover:bg-slate-100 hover:text-slate-600 rounded-full">
+                                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : "Nanti Saja (Masuk Dashboard)"}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- FASE B: GUIDED CALCULATION (DEEP SETUP) --- */}
+                {step === 'guided-intro' && (
+                    <div className="space-y-6 animate-in slide-in-from-right pt-10 text-center px-4">
+                        <div className="w-24 h-24 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                            <Wallet className="w-12 h-12" />
+                        </div>
+                        <h2 className="text-2xl font-extrabold text-slate-800">Mari Berkenalan Lebih Jauh</h2>
+                        <p className="text-slate-500 text-sm leading-relaxed max-w-xs mx-auto">
+                            Sekarang saatnya Bilano benar-benar mengenal kondisi keuanganmu. Siapkan 3 menit dan buka aplikasi m-banking kamu — hasilnya akan jauh lebih personal dan akurat.
+                        </p>
+                        <div className="pt-8 space-y-3">
+                            <Button onClick={() => setStep('guided-1')} className="w-full bg-indigo-600 hover:bg-indigo-700 h-16 text-[15px] font-black rounded-full shadow-lg shadow-indigo-200">MULAI SETUP MENDALAM</Button>
+                        </div>
+                    </div>
+                )}
+
+                {step === 'guided-1' && (
+                    <div className="space-y-6 animate-in slide-in-from-right pt-6">
+                        <div className="text-center mb-10">
+                            <p className="text-[10px] font-extrabold text-indigo-500 tracking-widest uppercase mb-3 bg-indigo-50 px-3 py-1 rounded-full inline-block">Langkah 1 dari 5</p>
+                            <h2 className="text-2xl font-extrabold text-slate-800">Berapa saldo di rekening bank UTAMA kamu?</h2>
+                        </div>
+                        <div className="relative">
+                            <span className="absolute left-5 top-5 font-extrabold text-slate-400 text-xl">Rp</span>
+                            <Input type="tel" placeholder="0" value={rekUtama} onChange={(e) => handleNumberChange(setRekUtama, e.target.value)} className="pl-16 h-20 text-3xl font-extrabold text-indigo-600 bg-white border-2 border-slate-100 focus:border-indigo-500 rounded-[24px] shadow-sm transition-all"/>
+                        </div>
+                        <div className="pt-8 space-y-3">
+                            <Button onClick={() => setStep('guided-2')} className="w-full bg-indigo-600 hover:bg-indigo-700 h-14 text-sm font-extrabold rounded-full shadow-lg shadow-indigo-200">LANJUTKAN</Button>
+                            <Button onClick={() => setStep('guided-2')} variant="ghost" className="w-full text-slate-400 font-bold">Lewati Saja (Tidak Ada)</Button>
+                        </div>
+                    </div>
+                )}
+
+                {step === 'guided-2' && (
+                    <div className="space-y-6 animate-in slide-in-from-right pt-6">
+                        <div className="text-center mb-10">
+                            <p className="text-[10px] font-extrabold text-indigo-500 tracking-widest uppercase mb-3 bg-indigo-50 px-3 py-1 rounded-full inline-block">Langkah 2 dari 5</p>
+                            <h2 className="text-2xl font-extrabold text-slate-800">Ada rekening lain? (Tabungan / Deposito)</h2>
+                        </div>
+                        <div className="relative">
+                            <span className="absolute left-5 top-5 font-extrabold text-slate-400 text-xl">Rp</span>
+                            <Input type="tel" placeholder="0" value={rekLain} onChange={(e) => handleNumberChange(setRekLain, e.target.value)} className="pl-16 h-20 text-3xl font-extrabold text-emerald-600 bg-white border-2 border-slate-100 focus:border-emerald-500 rounded-[24px] shadow-sm transition-all"/>
+                        </div>
+                        <div className="pt-8 space-y-3">
+                            <Button onClick={() => setStep('guided-3')} className="w-full bg-indigo-600 hover:bg-indigo-700 h-14 text-sm font-extrabold rounded-full shadow-lg shadow-indigo-200">LANJUTKAN</Button>
+                            <Button onClick={() => setStep('guided-3')} variant="ghost" className="w-full text-slate-400 font-bold">Lewati Saja</Button>
+                        </div>
+                    </div>
+                )}
+
+                {step === 'guided-3' && (
+                    <div className="space-y-6 animate-in slide-in-from-right pt-6">
+                        <div className="text-center mb-10">
+                            <p className="text-[10px] font-extrabold text-indigo-500 tracking-widest uppercase mb-3 bg-indigo-50 px-3 py-1 rounded-full inline-block">Langkah 3 dari 5</p>
+                            <h2 className="text-2xl font-extrabold text-slate-800">Berapa total saldo E-Wallet mu? (GoPay, OVO, dll)</h2>
+                        </div>
+                        <div className="relative">
+                            <span className="absolute left-5 top-5 font-extrabold text-slate-400 text-xl">Rp</span>
+                            <Input type="tel" placeholder="0" value={ewallet} onChange={(e) => handleNumberChange(setEwallet, e.target.value)} className="pl-16 h-20 text-3xl font-extrabold text-blue-600 bg-white border-2 border-slate-100 focus:border-blue-500 rounded-[24px] shadow-sm transition-all"/>
+                        </div>
+                        <div className="pt-8 space-y-3">
+                            <Button onClick={() => setStep('guided-4')} className="w-full bg-indigo-600 hover:bg-indigo-700 h-14 text-sm font-extrabold rounded-full shadow-lg shadow-indigo-200">LANJUTKAN</Button>
+                            <Button onClick={() => setStep('guided-4')} variant="ghost" className="w-full text-slate-400 font-bold">Lewati Saja</Button>
+                        </div>
+                    </div>
+                )}
+
+                {step === 'guided-4' && (
+                    <div className="space-y-6 animate-in slide-in-from-right pt-6">
+                        <div className="text-center mb-10">
+                            <p className="text-[10px] font-extrabold text-indigo-500 tracking-widest uppercase mb-3 bg-indigo-50 px-3 py-1 rounded-full inline-block">Langkah 4 dari 5</p>
+                            <h2 className="text-2xl font-extrabold text-slate-800">Ada uang Cash di tangan kira-kira?</h2>
+                        </div>
+                        <div className="relative">
+                            <span className="absolute left-5 top-5 font-extrabold text-slate-400 text-xl">Rp</span>
+                            <Input type="tel" placeholder="0" value={uangCash} onChange={(e) => handleNumberChange(setUangCash, e.target.value)} className="pl-16 h-20 text-3xl font-extrabold text-amber-600 bg-white border-2 border-slate-100 focus:border-amber-500 rounded-[24px] shadow-sm transition-all"/>
+                        </div>
+                        <div className="pt-8 space-y-3">
+                            <Button onClick={() => setStep('guided-5')} className="w-full bg-indigo-600 hover:bg-indigo-700 h-14 text-sm font-extrabold rounded-full shadow-lg shadow-indigo-200">LANJUTKAN</Button>
+                            <Button onClick={() => setStep('guided-5')} variant="ghost" className="w-full text-slate-400 font-bold">Lewati Saja</Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- ASET LAIN (PENGGANTI ASSETS-SETUP) --- */}
+                {step === 'guided-5' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-2">
                         <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6">
                             <div className="text-center pb-2 border-b border-slate-100">
-                                <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <Wallet className="w-7 h-7 text-emerald-500"/>
-                                </div>
-                                <h3 className="font-extrabold text-slate-800 text-xl">Cek Dompet Dulu!</h3>
-                                <p className="text-xs text-slate-500 mt-1">Catat semua harta & kewajibanmu saat ini.</p>
+                                <p className="text-[10px] font-extrabold text-indigo-500 tracking-widest uppercase mb-2">Langkah Terakhir</p>
+                                <h3 className="font-extrabold text-slate-800 text-xl">Aset Lain & Hutang</h3>
+                                <p className="text-xs text-slate-500 mt-1">Punya valas, investasi, atau tanggungan hutang? (Boleh dilewati)</p>
                             </div>
                             
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">Saldo Rupiah (IDR)</label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-4 font-extrabold text-slate-400 text-lg">Rp</span>
-                                    <Input type="tel" placeholder="0" value={rawCurrentCash} onChange={(e) => handleNumberChange(setRawCurrentCash, e.target.value)} className="pl-14 h-16 text-2xl font-extrabold text-slate-800 bg-slate-50 border-transparent focus:bg-white focus:border-emerald-500 rounded-[20px] transition-all"/>
-                                </div>
-                            </div>
-                            
+                            {/* Accordion Valas */}
                             <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
                                 <div onClick={() => setHasForex(!hasForex)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
@@ -396,6 +546,7 @@ export default function Target() {
                                 )}
                             </div>
 
+                            {/* Accordion Piutang */}
                             <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
                                 <div onClick={() => setHasRecv(!hasRecv)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
@@ -436,6 +587,7 @@ export default function Target() {
                                 )}
                             </div>
 
+                            {/* Accordion Investasi */}
                             <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
                                 <div onClick={() => setHasInv(!hasInv)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
                                     <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
@@ -464,7 +616,7 @@ export default function Target() {
                                                 <select value={tempInvType} onChange={(e) => setTempInvType(e.target.value)} className="p-3 border-slate-100 rounded-[16px] text-xs w-1/3 outline-none focus:ring-2 focus:ring-indigo-500">
                                                     {INV_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                                 </select>
-                                                <Input type="text" placeholder="Simbol (Cth: BBCA / AAPL)" value={tempInvSymbol} onChange={(e) => setTempInvSymbol(e.target.value.toUpperCase())} className="flex-1 text-sm h-11 rounded-[16px] border-slate-100"/>
+                                                <Input type="text" placeholder="Simbol (Cth: BBCA)" value={tempInvSymbol} onChange={(e) => setTempInvSymbol(e.target.value.toUpperCase())} className="flex-1 text-sm h-11 rounded-[16px] border-slate-100"/>
                                             </div>
                                             <div className="flex gap-2">
                                                 <Input type="tel" placeholder="Lot/Unit" value={tempInvQty} onChange={(e) => handleNumberChange(setTempInvQty, e.target.value)} className="w-1/3 text-sm h-11 rounded-[16px] border-slate-100"/>
@@ -482,6 +634,7 @@ export default function Target() {
                                 )}
                             </div>
 
+                            {/* Accordion Hutang */}
                             <div className="border border-rose-100 rounded-[24px] bg-rose-50/30 overflow-hidden transition-all">
                                 <div onClick={() => setHasDebt(!hasDebt)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-rose-50 transition">
                                     <label className="text-sm font-bold text-rose-700 flex items-center gap-3 pointer-events-none">
@@ -525,20 +678,20 @@ export default function Target() {
                             </div>
 
                             <div className="bg-slate-900 text-white p-5 rounded-[24px] shadow-lg flex flex-col items-center justify-center mt-2">
-                                <span className="text-[11px] uppercase tracking-widest font-bold text-slate-400 mb-1">Estimasi Kekayaan Bersih</span>
-                                <span className={`font-extrabold ${getBalanceTextSize(displayTotalStart)} ${totalStart >= 0 ? 'text-emerald-400' : 'text-rose-400'} whitespace-nowrap transition-all duration-300`}>
+                                <span className="text-[11px] uppercase tracking-widest font-bold text-slate-400 mb-1">Kekayaan Bersih Anda</span>
+                                <span className={`font-extrabold text-2xl ${totalStart >= 0 ? 'text-emerald-400' : 'text-rose-400'} whitespace-nowrap transition-all duration-300`}>
                                     {displayTotalStart}
                                 </span>
                             </div>
 
                         </div>
                         <div className="pt-2 space-y-3">
-                            <Button onClick={nextToTarget} className="w-full bg-emerald-500 hover:bg-emerald-600 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-emerald-200">LANJUTKAN</Button>
-                            <Button variant="ghost" onClick={() => setStep('intro')} className="w-full text-slate-400 font-bold">KEMBALI</Button>
+                            <Button onClick={nextFromGuided5} className="w-full bg-emerald-500 hover:bg-emerald-600 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-emerald-200">LANJUTKAN</Button>
                         </div>
                     </div>
                 )}
 
+                {/* --- TARGET & BUDGET LAMA --- */}
                 {step === 'target-input' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-2">
                         <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6 text-center">
@@ -546,8 +699,8 @@ export default function Target() {
                                 <Calculator className="w-7 h-7 text-indigo-500"/> 
                             </div>
                             <div>
-                                <h3 className="font-extrabold text-slate-800 text-xl">Kalkulator Target</h3>
-                                <p className="text-xs text-slate-500 mt-1">Berapa besar impianmu?</p>
+                                <h3 className="font-extrabold text-slate-800 text-xl">Penyesuaian Target</h3>
+                                <p className="text-xs text-slate-500 mt-1">Sesuaikan nominal impianmu di sini.</p>
                             </div>
                             <div className="space-y-4 text-left">
                                 <div>
@@ -562,7 +715,6 @@ export default function Target() {
                         </div>
                         <div className="pt-2 space-y-3">
                             <Button onClick={nextToBudgetAsk} className="w-full bg-indigo-600 hover:bg-indigo-700 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-indigo-200">LANJUTKAN</Button>
-                            <Button variant="ghost" onClick={() => setStep(isEditMode ? 'intro' : 'assets-setup')} className="w-full text-slate-400 font-bold">KEMBALI</Button>
                         </div>
                     </div>
                 )}
@@ -578,10 +730,11 @@ export default function Target() {
                             
                             <div className="space-y-3 pt-8">
                                 <Button onClick={() => handleBudgetAnswer(true)} className="w-full bg-slate-900 hover:bg-slate-800 h-14 text-lg font-extrabold rounded-full shadow-lg">YA, PASANG BATAS</Button>
-                                <Button onClick={() => handleBudgetAnswer(false)} variant="outline" className="w-full h-14 text-slate-500 border-slate-200 hover:bg-slate-50 font-bold rounded-full">TIDAK, SAYA BEBAS</Button>
+                                <Button onClick={() => handleBudgetAnswer(false)} disabled={isSubmitting} variant="outline" className="w-full h-14 text-slate-500 border-slate-200 hover:bg-slate-50 font-bold rounded-full">
+                                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : "TIDAK, SAYA BEBAS"}
+                                </Button>
                             </div>
                         </div>
-                        <Button variant="ghost" onClick={() => isTargetMode ? setStep('target-input') : setStep(isEditMode ? 'intro' : 'assets-setup')} className="w-full text-sm text-slate-400 font-bold mt-2">KEMBALI</Button>
                     </div>
                 )}
 
@@ -616,13 +769,12 @@ export default function Target() {
                         </div>
                         <div className="pt-2 space-y-3">
                             <Button 
-                                onClick={() => handleSubmitFinal(true)} 
+                                onClick={() => handleSubmitFinal(true, false)} 
                                 disabled={isSubmitting}
                                 className="w-full bg-slate-900 hover:bg-slate-800 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-slate-900/20"
                             >
-                                {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : (isEditMode ? "SIMPAN PERUBAHAN" : "SIMPAN STRATEGI")}
+                                {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : (isEditMode ? "SIMPAN PERUBAHAN" : "SIMPAN STRATEGI & ASET")}
                             </Button>
-                            <Button variant="ghost" onClick={() => setStep('budget-ask')} className="w-full text-slate-400 font-bold">KEMBALI</Button>
                         </div>
                     </div>
                 )}

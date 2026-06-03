@@ -11,6 +11,13 @@ export const users = pgTable("users", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   profilePicture: text("profile_picture"),
+  
+  // 🚀 MARKETING STRATEGY UPDATES
+  instagram: text("instagram"), 
+  isOnboardingComplete: boolean("is_onboarding_complete").default(false), 
+  isBalanceEstimated: boolean("is_balance_estimated").default(true), 
+  financialGoal: text("financial_goal"), 
+
   // 🚀 UPGRADE KE BIGINT
   cashBalance: bigint("cash_balance", { mode: "number" }).default(0).notNull(),
   isPro: boolean("is_pro").default(false),
