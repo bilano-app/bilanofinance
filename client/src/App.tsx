@@ -8,6 +8,50 @@ import { useNotifications } from "./hooks/useNotifications";
 import { useUser } from "./hooks/use-finance"; 
 
 // =========================================================================
+// 🚑 AUTO-HEAL: PEMBERSIH CACHE OTOMATIS UNTUK USER (ANTI-STUCK)
+// =========================================================================
+// Script ini akan mendeteksi jika aplikasi gagal memuat modul baru dari Vercel
+// lalu secara OTOMATIS menghapus Service Worker lama dan me-refresh halaman 
+// tanpa user perlu melakukan apa-apa.
+const triggerAutoHeal = async () => {
+  if (!sessionStorage.getItem('bilano_auto_heal')) {
+    sessionStorage.setItem('bilano_auto_heal', 'true');
+    // Membunuh Service Worker (PWA Cache) versi lama yang nyangkut
+    if ('serviceWorker' in navigator) {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (let r of regs) {
+          await r.unregister();
+        }
+      } catch (err) {}
+    }
+    // Refresh paksa untuk menarik UI terbaru dari Vercel
+    window.location.reload();
+  }
+};
+
+window.addEventListener('error', (e) => {
+  const msg = e.message || '';
+  if (msg.includes('Failed to fetch dynamically') || msg.includes('Importing a module') || msg.includes('Minified React error #130')) {
+    triggerAutoHeal();
+  }
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+  const msg = e.reason?.message || '';
+  if (msg.includes('Failed to fetch dynamically') || msg.includes('Importing a module')) {
+    triggerAutoHeal();
+  }
+});
+
+// Khusus tangkapan error bawaan Vite
+window.addEventListener('vite:preloadError', () => {
+  triggerAutoHeal();
+});
+// =========================================================================
+
+
+// =========================================================================
 // 🚀 KUNCI MEMORI AGAR ANGKA TIDAK BERKEDIP
 // =========================================================================
 queryClient.setDefaultOptions({
@@ -154,7 +198,6 @@ function Router() {
           const isNewAccount = (Date.now() - startTime) < 15000; 
           const hasRedirected = sessionStorage.getItem("bilano_first_paywall_redirect");
           
-          // 🚀 PERBAIKAN: Penawaran Langganan Otomatis (Paywall) HANYA terjadi di dalam Aplikasi PWA
           if (isStandalone && isNewAccount && !hasRedirected && location !== '/paywall') {
               sessionStorage.setItem("bilano_first_paywall_redirect", "true");
               setLocation("/paywall");
@@ -188,7 +231,6 @@ function Router() {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
 
-    // 🚀 PERBAIKAN: Hanya aktifkan state paywall jika berada di PWA
     const handleCustomLock = () => {
       if (isStandalone) {
         setShowPaywallAlert(true);
@@ -270,7 +312,6 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
 
-      {/* 🚀 PERBAIKAN: Tambahkan isStandalone && sebelum showPaywallAlert */}
       {isStandalone && showPaywallAlert && (
         <div className="fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
             <div className="bg-white rounded-[24px] p-6 max-w-sm w-full shadow-2xl text-center border-t-8 border-rose-500 animate-in zoom-in-95">
