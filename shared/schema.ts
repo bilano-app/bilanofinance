@@ -11,6 +11,13 @@ export const users = pgTable("users", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   profilePicture: text("profile_picture"),
+  
+  // 🚀 MARKETING STRATEGY UPDATES
+  instagram: text("instagram"), 
+  isOnboardingComplete: boolean("is_onboarding_complete").default(false), 
+  isBalanceEstimated: boolean("is_balance_estimated").default(true), 
+  financialGoal: text("financial_goal"), 
+
   // 🚀 UPGRADE KE BIGINT
   cashBalance: bigint("cash_balance", { mode: "number" }).default(0).notNull(),
   isPro: boolean("is_pro").default(false),
@@ -24,7 +31,6 @@ export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   type: text("type").notNull(), 
-  // 🚀 UPGRADE KE BIGINT
   amount: bigint("amount", { mode: "number" }).notNull(),
   category: text("category").notNull(),
   description: text("description"),
@@ -46,10 +52,8 @@ export const investments = pgTable("investments", {
 export const targets = pgTable("targets", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  // 🚀 UPGRADE KE BIGINT
   targetAmount: bigint("target_amount", { mode: "number" }).default(0).notNull(),
   durationMonths: integer("duration_months").default(12).notNull(),
-  // 🚀 UPGRADE KE BIGINT
   monthlyBudget: bigint("monthly_budget", { mode: "number" }).default(0).notNull(),
   budgetType: text("budget_type").default('static'),
   startMonth: integer("start_month").default(1),
@@ -61,7 +65,6 @@ export const debts = pgTable("debts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   name: text("name").notNull(),
-  // 🚀 UPGRADE KE BIGINT
   amount: bigint("amount", { mode: "number" }).notNull(),
   type: text("type").notNull(),
   dueDate: timestamp("due_date"),
@@ -74,7 +77,6 @@ export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   name: text("name").notNull(),
-  // 🚀 UPGRADE KE BIGINT
   cost: bigint("cost", { mode: "number" }).notNull(),
   cycle: text("cycle").default('bulanan'),
   nextBilling: timestamp("next_billing"),
@@ -91,7 +93,7 @@ export const categories = pgTable("categories", {
   color: text("color"),
 });
 
-// --- 8. FOREX ASSETS (TABEL VALAS) ---
+// --- 8. FOREX ASSETS ---
 export const forexAssets = pgTable("forex_assets", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
@@ -100,12 +102,19 @@ export const forexAssets = pgTable("forex_assets", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// --- 9. OTP SESSIONS ---
-export const otpSessions = pgTable("otp_sessions", {
+// --- 9. RETAINED BALANCES (DIKEMBALIKAN AGAR TIDAK DIHAPUS DRIZZLE) ---
+export const retainedBalances = pgTable("retained_balances", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  amount: bigint("amount", { mode: "number" }).notNull(),
+  description: text("description"),
+  date: timestamp("date").notNull().defaultNow(),
+});
+
+// --- 10. OTP SESSIONS (DIKEMBALIKAN KE VERSI LIVE AGAR DATA AMAN) ---
+export const otpSessions = pgTable("otp_sessions", {
   email: text("email").notNull(),
-  otp: text("otp").notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
+  code: text("code").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -118,7 +127,7 @@ export const insertDebtSchema = createInsertSchema(debts, { dueDate: z.coerce.da
 export const insertSubscriptionSchema = createInsertSchema(subscriptions, { nextBilling: z.coerce.date() }).omit({ id: true, userId: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, userId: true });
 export const insertForexAssetSchema = createInsertSchema(forexAssets).omit({ id: true, userId: true, createdAt: true });
-export const insertOtpSessionSchema = createInsertSchema(otpSessions).omit({ id: true, createdAt: true });
+export const insertRetainedBalanceSchema = createInsertSchema(retainedBalances).omit({ id: true, userId: true });
 
 // Export Types
 export type User = typeof users.$inferSelect;
@@ -130,3 +139,4 @@ export type Debt = typeof debts.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type ForexAsset = typeof forexAssets.$inferSelect;
+export type RetainedBalance = typeof retainedBalances.$inferSelect;
