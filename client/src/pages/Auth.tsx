@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Lock, RefreshCw, AlertCircle, X, CheckCircle2, AtSign } from "lucide-react";
+import { Mail, Lock, RefreshCw, AlertCircle, X, CheckCircle2 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { 
     getRedirectResult,
@@ -22,7 +22,6 @@ export default function Auth() {
   
   const [firstName, setFirstName] = useState(() => localStorage.getItem("auth_firstName") || "");
   const [lastName, setLastName] = useState(() => localStorage.getItem("auth_lastName") || "");
-  const [igUsername, setIgUsername] = useState(""); // 🚀 MARKETING: DM Bridge
 
   const [authError, setAuthError] = useState("");
   const [forgotError, setForgotError] = useState("");
@@ -70,11 +69,7 @@ export default function Auth() {
               await fetch("/api/user/profile", {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json", "x-user-email": cleanEmail },
-                  body: JSON.stringify({ 
-                      firstName, 
-                      lastName,
-                      instagram: igUsername // Kirim username IG untuk komunitas
-                  })
+                  body: JSON.stringify({ firstName, lastName })
               });
           } catch (e) {}
       }
@@ -92,7 +87,6 @@ export default function Auth() {
 
       toast({ title: "Berhasil!", description: isLogin ? "Selamat datang kembali di BILANO." : "Pendaftaran berhasil!" });
       
-      // Pengguna lama -> Home | Pengguna baru -> Target (Onboarding Flow)
       if (isLogin) {
           window.location.href = "/"; 
       } else {
@@ -204,20 +198,10 @@ export default function Auth() {
           <div className="space-y-4">
               <form onSubmit={handleAuth} className="space-y-4">
                   {!isLogin && (
-                    <>
-                        <div className="grid grid-cols-2 gap-3 animate-in slide-in-from-top-2">
-                            <div className="space-y-1"><label className="text-xs font-bold text-slate-500 ml-1">Nama Depan</label><Input type="text" placeholder="Budi" className="h-12" value={firstName} onChange={(e) => setFirstName(e.target.value)}/></div>
-                            <div className="space-y-1"><label className="text-xs font-bold text-slate-500 ml-1">Nama Belakang</label><Input type="text" placeholder="Santoso" className="h-12" value={lastName} onChange={(e) => setLastName(e.target.value)}/></div>
-                        </div>
-                        {/* 🚀 DM Bridge: Instagram Username */}
-                        <div className="space-y-1 animate-in slide-in-from-top-2">
-                            <label className="text-xs font-bold text-slate-500 ml-1">Username Instagram (Opsional)</label>
-                            <div className="relative">
-                                <AtSign className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
-                                <Input type="text" placeholder="Untuk grup khusus member" className="pl-10 h-12" value={igUsername} onChange={(e) => setIgUsername(e.target.value)}/>
-                            </div>
-                        </div>
-                    </>
+                    <div className="grid grid-cols-2 gap-3 animate-in slide-in-from-top-2">
+                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 ml-1">Nama Depan</label><Input type="text" placeholder="Budi" className="h-12" value={firstName} onChange={(e) => setFirstName(e.target.value)}/></div>
+                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500 ml-1">Nama Belakang</label><Input type="text" placeholder="Santoso" className="h-12" value={lastName} onChange={(e) => setLastName(e.target.value)}/></div>
+                    </div>
                   )}
                   <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-500 ml-1">Email</label>

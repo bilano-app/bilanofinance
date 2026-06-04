@@ -12,12 +12,6 @@ export const users = pgTable("users", {
   lastName: text("last_name"),
   profilePicture: text("profile_picture"),
   
-  // 🚀 MARKETING STRATEGY UPDATES
-  instagram: text("instagram"), 
-  isOnboardingComplete: boolean("is_onboarding_complete").default(false), 
-  isBalanceEstimated: boolean("is_balance_estimated").default(true), 
-  financialGoal: text("financial_goal"), 
-
   // 🚀 UPGRADE KE BIGINT
   cashBalance: bigint("cash_balance", { mode: "number" }).default(0).notNull(),
   isPro: boolean("is_pro").default(false),
@@ -102,7 +96,7 @@ export const forexAssets = pgTable("forex_assets", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// --- 9. RETAINED BALANCES (DIKEMBALIKAN AGAR TIDAK DIHAPUS DRIZZLE) ---
+// --- 9. RETAINED BALANCES ---
 export const retainedBalances = pgTable("retained_balances", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
@@ -111,7 +105,7 @@ export const retainedBalances = pgTable("retained_balances", {
   date: timestamp("date").notNull().defaultNow(),
 });
 
-// --- 10. OTP SESSIONS (DIKEMBALIKAN KE VERSI LIVE AGAR DATA AMAN) ---
+// --- 10. OTP SESSIONS ---
 export const otpSessions = pgTable("otp_sessions", {
   email: text("email").notNull(),
   code: text("code").notNull(),
