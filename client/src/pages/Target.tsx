@@ -28,6 +28,7 @@ interface InvItem { id: number; type: string; symbol: string; quantity: string; 
 const INV_TYPES = ["Saham", "Crypto", "Reksadana", "Emas", "P2P", "Obligasi"];
 const FALLBACK_CURRENCIES = ["USD", "EUR", "SGD", "JPY", "AUD", "GBP", "CNY", "MYR", "SAR", "KRW", "THB"];
 
+// 🚀 MARKETING: Opsi Quick Win
 const QUICK_GOALS = [
     { label: "Beli Rumah / KPR", icon: "🏡" },
     { label: "Dana Darurat Aman", icon: "🛡️" },
@@ -57,17 +58,21 @@ export default function Target() {
     const { data: userData, isLoading: isUserLoading } = useUser();
     const [target, setTarget] = useState<TargetData | null>(null);
     
+    // 🚀 ALUR BARU: Quick Win & Guided Deep Setup
     const [step, setStep] = useState<'intro' | 'quick-goal' | 'quick-balance' | 'aha-moment' | 'guided-intro' | 'guided-1' | 'guided-2' | 'guided-3' | 'guided-4' | 'guided-5' | 'target-input' | 'budget-ask' | 'budget-setup' | 'assets-setup'>('intro');
     const [isTargetMode, setIsTargetMode] = useState(false); 
     
+    // Quick Win State
     const [quickGoal, setQuickGoal] = useState("");
     const [quickRange, setQuickRange] = useState(0);
 
+    // Guided Calculation State
     const [rekUtama, setRekUtama] = useState("");
     const [rekLain, setRekLain] = useState("");
     const [ewallet, setEwallet] = useState("");
     const [uangCash, setUangCash] = useState("");
     
+    // Advanced Assets
     const [hasForex, setHasForex] = useState(false);
     const [forexItems, setForexItems] = useState<ForexItem[]>([]);
     const [tempForexCurrency, setTempForexCurrency] = useState("USD");
@@ -93,6 +98,7 @@ export default function Target() {
     const [tempDebtAmount, setTempDebtAmount] = useState("");
     const [tempDebtCurrency, setTempDebtCurrency] = useState("IDR");
     
+    // Target & Budget
     const [rawTargetAmount, setRawTargetAmount] = useState("");
     const [inputDuration, setInputDuration] = useState(""); 
     const [rawBudgetAmount, setRawBudgetAmount] = useState("");
@@ -148,6 +154,7 @@ export default function Target() {
 
     const isEditMode = target && target.targetAmount !== undefined;
 
+    // Aset Addition Logic
     const addForexItem = () => { if (!tempForexAmount || parseNumber(tempForexAmount) <= 0) return; setForexItems([...forexItems, { id: Date.now(), currency: tempForexCurrency, amount: tempForexAmount }]); setTempForexAmount(""); };
     const removeForexItem = (id: number) => setForexItems(forexItems.filter(item => item.id !== id));
     const addRecvItem = () => { if (!tempRecvName || !tempRecvAmount) return; setRecvItems([...recvItems, { id: Date.now(), name: tempRecvName, amount: tempRecvAmount, currency: tempRecvCurrency }]); setTempRecvName(""); setTempRecvAmount(""); setTempRecvCurrency("IDR"); };
@@ -157,6 +164,7 @@ export default function Target() {
     const addDebtItem = () => { if (!tempDebtName || !tempDebtAmount) return; setDebtItems([...debtItems, { id: Date.now(), name: tempDebtName, amount: tempDebtAmount, currency: tempDebtCurrency }]); setTempDebtName(""); setTempDebtAmount(""); setTempDebtCurrency("IDR"); };
     const removeDebtItem = (id: number) => setDebtItems(debtItems.filter(i => i.id !== id));
 
+    // Breakdown Logic
     const addBreakdownItem = () => { if (!newItemName || !newItemAmount) return; setBreakdownItems([...breakdownItems, { id: Date.now(), name: newItemName, amount: parseNumber(newItemAmount) }]); setNewItemName(""); setNewItemAmount(""); };
     const removeBreakdownItem = (id: number) => setBreakdownItems(breakdownItems.filter(item => item.id !== id));
     const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
@@ -164,6 +172,7 @@ export default function Target() {
 
     const getRate = (curr: string) => curr === 'IDR' ? 1 : (safeForexRates[curr] || 1);
     
+    // Hitung Estimasi Kekayaan (Untuk Mode Guided & Edit)
     const totalCashDeep = parseNumber(rekUtama) + parseNumber(rekLain) + parseNumber(ewallet) + parseNumber(uangCash);
     const totalForexInIDR = forexItems.reduce((acc, item) => acc + (parseNumber(item.amount) * getRate(item.currency)), 0) + (parseNumber(tempForexAmount) * getRate(tempForexCurrency));
     const totalRecvInIDR = recvItems.reduce((acc, i) => acc + (parseNumber(i.amount) * getRate(i.currency)), 0) + (parseNumber(tempRecvAmount) * getRate(tempRecvCurrency));
@@ -176,6 +185,7 @@ export default function Target() {
     const totalStart = totalCashDeep + totalForexInIDR + totalRecvInIDR + totalInvInIDR - totalDebtInIDR;
     const displayTotalStart = formatRp(totalStart);
 
+    // --- NAVIGATION ---
     const startSetup = (mode: 'target' | 'saving') => {
         setIsTargetMode(mode === 'target');
         if (!isEditMode) {
@@ -185,7 +195,7 @@ export default function Target() {
         if (isEditMode) { 
             mode === 'target' ? setStep('target-input') : setStep('budget-ask'); 
         } else { 
-            setStep('quick-goal');
+            setStep('quick-goal'); // Langsung hajar pertanyaan emosional
         }
     };
     
@@ -207,6 +217,7 @@ export default function Target() {
     };
     const handleBudgetAnswer = (answer: boolean) => { if (answer) setStep('budget-setup'); else handleSubmitFinal(false, false); };
 
+    // --- SUBMIT FINAL (QUICK WIN vs DEEP SETUP) ---
     const handleSubmitFinal = async (withBudget: boolean, isQuickWin = false) => {
         if (isTrialExpired) {
             window.dispatchEvent(new Event('trigger-paywall-lock'));
@@ -237,8 +248,10 @@ export default function Target() {
                 startYear: target?.startYear || now.getFullYear()
             };
 
+            // Simpan status estimasi agar Banner di Dashboard Muncul
             localStorage.setItem(`bilano_is_balance_estimated_${userEmail}`, isQuickWin ? "true" : "false");
             
+            // Coba update profile di backend (Fire and Forget)
             try {
                 await fetch("/api/user/profile", {
                     method: "PATCH",
@@ -256,6 +269,7 @@ export default function Target() {
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan data." });
                 
                 if (!isEditMode) {
+                    // Trial 14 hari dimulai SEKARANG
                     localStorage.setItem(`bilano_setup_completed_${userEmail}`, new Date().toISOString());
                     localStorage.setItem(`bilano_welcomed_paywall_${userEmail}`, "true");
                     window.location.href = "/paywall"; 
