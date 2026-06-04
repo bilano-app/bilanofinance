@@ -12,7 +12,7 @@ import {
   RefreshCcw, FileText, LogOut, User, BarChart, ChevronRight,
   MoreVertical, Shield, Maximize, Star, EyeOff, Eye, Lock, X, Loader2,
   Bell, Mic, Camera, AlertCircle, BookOpen, Rocket, CreditCard,
-  Cpu, Check, Info, Book, Heart, CornerUpLeft, Clock, Zap
+  Bot, Check, Info, Book, Heart, CornerUpLeft, Clock, Zap
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -76,6 +76,9 @@ export default function Home() {
   const [isLongLoading, setIsLongLoading] = useState(false);
   const [loadingTipIndex, setLoadingTipIndex] = useState(() => Math.floor(Math.random() * FINANCIAL_TIPS.length));
   const [showRetryButton, setShowRetryButton] = useState(false);
+
+  // 🚀 STATE UNTUK HASIL AI STRATEGI
+  const [aiResultModal, setAiResultModal] = useState(false);
 
   const isStandalone = typeof window !== 'undefined' && 
       (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
@@ -444,6 +447,43 @@ export default function Home() {
 
   return (
     <MobileLayout>
+
+      {/* 🚀 MODAL HASIL AI STRATEGI */}
+      {aiResultModal && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
+              <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative border-t-8 border-indigo-500">
+                  <button onClick={() => setAiResultModal(false)} className="absolute top-4 right-4 p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition-colors"><X className="w-4 h-4"/></button>
+                  
+                  <div className="w-16 h-16 mx-auto bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4 shadow-inner">
+                      <Bot className="w-8 h-8" />
+                  </div>
+                  
+                  <h3 className="text-xl font-black text-slate-800 mb-1 text-center">Strategi Khusus Untukmu</h3>
+                  <p className="text-[11px] text-slate-500 mb-5 text-center font-medium">Berdasarkan analisa 30+ transaksimu terakhir</p>
+                  
+                  <div className="space-y-3 mb-6">
+                      <div className="bg-emerald-50 p-4 rounded-[20px] border border-emerald-100 relative">
+                          <div className="absolute -top-2.5 left-4 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest">PELUANG 1</div>
+                          <p className="text-[12px] text-emerald-900 leading-relaxed font-medium mt-1">
+                              Pengeluaran makanmu rata-rata <b>Rp 1.2 juta/bulan</b>. Pola ini konsisten. Ada peluang memulai bisnis <i>meal-prep</i> (katering rumahan) di akhir pekan dengan modal awal <b>Rp 300rb</b> untuk teman sekitarmu.
+                          </p>
+                      </div>
+                      <div className="bg-blue-50 p-4 rounded-[20px] border border-blue-100 relative">
+                          <div className="absolute -top-2.5 left-4 bg-blue-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest">PELUANG 2</div>
+                          <p className="text-[12px] text-blue-900 leading-relaxed font-medium mt-1">
+                              Kamu sering menyisakan <b>Rp 800rb</b> di akhir bulan. Daripada mengendap di bank utama, otomatisasikan ke Reksa Dana Pasar Uang. Ini bisa mencetak *passive income* ekstra tanpa kerja tambahan.
+                          </p>
+                      </div>
+                  </div>
+                  
+                  <Link href="/chat-ai">
+                      <Button onClick={() => setAiResultModal(false)} className="w-full h-14 rounded-[16px] bg-slate-900 hover:bg-slate-800 text-white font-extrabold shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2">
+                          <Bot className="w-4 h-4"/> DISKUSI LEBIH LANJUT
+                      </Button>
+                  </Link>
+              </div>
+          </div>
+      )}
 
       {milestonePopup && (
           <div className="fixed top-4 left-4 right-4 z-[999999] bg-indigo-600 text-white p-4 rounded-[20px] shadow-2xl flex items-start gap-3 animate-in slide-in-from-top-10 fade-in duration-500">
@@ -819,45 +859,6 @@ export default function Home() {
            <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
         </div>
 
-        <div className="px-1 mt-[-10px]">
-            <div className="bg-white border-2 border-indigo-50 rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden">
-                {!isUserPro && (
-                    <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[9px] font-black px-3 py-1.5 rounded-bl-[16px] z-10 flex items-center gap-1 shadow-sm">
-                        <Lock className="w-3 h-3" /> EKSKLUSIF PRO
-                    </div>
-                )}
-                <div className="flex items-start gap-4 relative z-10">
-                    <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
-                        <Cpu className="w-6 h-6 text-indigo-600" />
-                    </div>
-                    <div className="w-full">
-                        <h3 className="font-extrabold text-slate-800 text-sm mb-1">AI Strategi Penghasilan</h3>
-                        <p className="text-[11px] text-slate-500 leading-relaxed font-medium mb-3">
-                            Berdasarkan pola transaksi, AI akan meracik strategi penghasilan tambahan khusus untukmu.
-                        </p>
-                        
-                        <div className="space-y-1.5 w-full">
-                            <div className="flex justify-between text-[9px] font-extrabold text-indigo-600 uppercase tracking-widest">
-                                <span>Mengumpulkan Data</span>
-                                <span>{Math.min(30, txCount)} / 30 Transaksi</span>
-                            </div>
-                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (txCount / 30) * 100)}%` }}></div>
-                            </div>
-                        </div>
-
-                        {!isUserPro && (
-                            <Link href="/paywall">
-                                <button className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] py-2.5 rounded-[12px] transition-colors flex items-center justify-center gap-2 shadow-md">
-                                    Buka Akses (Mulai Rp 500/hari) <ChevronRight className="w-3 h-3"/>
-                                </button>
-                            </Link>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div className="grid grid-cols-2 gap-3 px-1">
            <Link href="/income">
                <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
@@ -885,6 +886,61 @@ export default function Home() {
                     </div>
                </div>
            </Link>
+        </div>
+
+        {/* 🚀 AI STRATEGI PENHGASILAN DIPINDAH KE SINI AGAR LEBIH RAPI & PROPORSIONAL */}
+        <div className="px-1 mt-3">
+            <div className="bg-gradient-to-br from-white to-indigo-50/40 border border-indigo-100 rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
+                {!isUserPro && (
+                    <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[9px] font-black px-3 py-1.5 rounded-bl-[16px] z-10 flex items-center gap-1 shadow-sm">
+                        <Lock className="w-3 h-3" /> EKSKLUSIF PRO
+                    </div>
+                )}
+                {isUserPro && txCount >= 30 && (
+                    <div className="absolute top-0 right-0 bg-gradient-to-r from-emerald-400 to-emerald-500 text-white text-[9px] font-black px-3 py-1.5 rounded-bl-[16px] z-10 flex items-center gap-1 shadow-sm">
+                        SIAP DIBACA
+                    </div>
+                )}
+                <div className="flex items-start gap-4 relative z-10">
+                    <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 shadow-inner">
+                        <Bot className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <div className="w-full">
+                        <h3 className="font-extrabold text-slate-800 text-sm mb-1">AI Strategi Penghasilan</h3>
+                        <p className="text-[11px] text-slate-500 leading-relaxed font-medium mb-3">
+                            {isUserPro && txCount >= 30 
+                                ? "Data sudah lengkap! AI kami telah selesai meracik strategi khusus untukmu."
+                                : "Berdasarkan pola transaksi, AI akan meracik strategi penghasilan tambahan khusus untukmu."}
+                        </p>
+                        
+                        {(!isUserPro || txCount < 30) ? (
+                            <div className="space-y-1.5 w-full">
+                                <div className="flex justify-between text-[9px] font-extrabold text-indigo-600 uppercase tracking-widest">
+                                    <span>Mengumpulkan Data</span>
+                                    <span>{Math.min(30, txCount)} / 30 Transaksi</span>
+                                </div>
+                                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (txCount / 30) * 100)}%` }}></div>
+                                </div>
+                            </div>
+                        ) : null}
+
+                        {!isUserPro && (
+                            <Link href="/paywall">
+                                <button className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] py-2.5 rounded-[12px] transition-colors flex items-center justify-center gap-2 shadow-md">
+                                    Buka Akses (Mulai Rp 500/hari) <ChevronRight className="w-3 h-3"/>
+                                </button>
+                            </Link>
+                        )}
+
+                        {isUserPro && txCount >= 30 && (
+                            <button onClick={() => setAiResultModal(true)} className="mt-3 w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-black text-[11px] py-3 rounded-[12px] transition-all flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(79,70,229,0.3)] animate-pulse">
+                                LIHAT HASIL ANALISA SEKARANG <ChevronRight className="w-4 h-4"/>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div className="px-1 mt-2">
@@ -954,7 +1010,7 @@ export default function Home() {
                 <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
                     <div className="flex items-center gap-4 z-10">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-900 via-indigo-800 to-blue-950 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-blue-900/20">
-                            <Cpu className="w-6 h-6 text-blue-100"/>
+                            <Bot className="w-6 h-6 text-blue-100"/>
                         </div>
                         <div>
                             <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
