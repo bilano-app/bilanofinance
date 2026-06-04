@@ -10,9 +10,9 @@ import { Button, Input } from "@/components/UIComponents";
 import { 
   TrendingUp, DollarSign, 
   RefreshCcw, FileText, LogOut, User, BarChart, ChevronRight,
-  MoreVertical, Shield, Maximize, Star, EyeOff, Eye, Lock, X, Loader2,
+  MoreVertical, Shield, Maximize, Crown, EyeOff, Eye, Lock, X, Loader2,
   Bell, Mic, Camera, AlertCircle, BookOpen, Rocket, CreditCard,
-  Bot, Check, Info, Book, Heart, CornerUpLeft, Clock, Zap
+  Bot, Check, Info, Book, Heart, CornerUpLeft, Clock, Zap, HandCoins
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -539,7 +539,7 @@ export default function Home() {
                   <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
                   <button onClick={() => setProFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
                   <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10">
-                      <Star className="w-10 h-10 text-amber-950"/>
+                      <Crown className="w-10 h-10 text-amber-950"/>
                   </div>
                   <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Akses VIP Terjamin! 👑</h2>
                   <p className="text-sm text-indigo-200 mb-6 leading-relaxed px-2 font-medium">
@@ -622,7 +622,7 @@ export default function Home() {
 
                 <div className="relative z-10 p-6 text-center">
                     <div className="w-20 h-20 mx-auto bg-gradient-to-tr from-amber-400 to-yellow-300 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(251,191,36,0.4)] animate-bounce">
-                        <Star className="w-10 h-10 text-amber-950" />
+                        <Crown className="w-10 h-10 text-amber-950" />
                     </div>
                     <h2 className="text-2xl font-black text-white mb-2 tracking-tight">
                         Selamat Datang di <br/>
@@ -696,7 +696,7 @@ export default function Home() {
           <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border-4 border-emerald-100">
                   <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <Star className="w-10 h-10" />
+                      <Crown className="w-10 h-10" />
                   </div>
                   <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Target Tercapai! 🎉</h2>
                   <p className="text-slate-500 text-sm mb-8">Luar biasa! Saldo kamu sudah melebihi impian yang kamu targetkan. Ingin membuat target baru?</p>
@@ -737,7 +737,7 @@ export default function Home() {
                 <div>
                     <div className="flex items-center gap-2">
                         <p className="text-xs font-medium text-slate-500">Selamat datang,</p>
-                        {isUserPro && <Star className="w-3.5 h-3.5 text-amber-500" />}
+                        {isUserPro && <Crown className="w-3.5 h-3.5 text-amber-500" />}
                     </div>
                     <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight">{greetingName}</h2>
                 </div>
@@ -822,7 +822,7 @@ export default function Home() {
             <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${trialDaysLeft === 0 ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
                 <div className="flex items-center gap-3">
                     <div className="bg-white/20 p-2 rounded-full">
-                        {trialDaysLeft === 0 ? <Lock className="w-5 h-5" /> : <Star className="w-5 h-5" />}
+                        {trialDaysLeft === 0 ? <Lock className="w-5 h-5" /> : <Crown className="w-5 h-5" />}
                     </div>
                     <div>
                         <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">{trialDaysLeft === 0 ? "MASA COBA HABIS" : "Masa Coba Gratis"}</p>
@@ -888,7 +888,7 @@ export default function Home() {
            </Link>
         </div>
 
-        {/* 🚀 AI STRATEGI PENHGASILAN DIPINDAH KE SINI AGAR LEBIH RAPI & PROPORSIONAL */}
+        {/* 🚀 AI STRATEGI PENGHASILAN */}
         <div className="px-1 mt-3">
             <div className="bg-gradient-to-br from-white to-indigo-50/40 border border-indigo-100 rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
                 {!isUserPro && (
@@ -957,7 +957,7 @@ export default function Home() {
                 <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
                         <MenuIconBox href="/forex" icon={DollarSign} bg="bg-blue-500" label="Valas" />
-                        <MenuIconBox href="/debts" icon={DollarSign} bg="bg-pink-500" label="Hutang" />
+                        <MenuIconBox href="/debts" icon={HandCoins} bg="bg-pink-500" label="Hutang" />
                         <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-teal-400" label="Langganan" />
                         <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-emerald-500" label="Investasi" />
                         <MenuIconBox href="/reports" icon={FileText} bg="bg-orange-400" label="Laporan" />
