@@ -424,8 +424,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let sisaBudget = "Tidak dibatasi";
       if (target && target.monthlyBudget > 0) sisaBudget = `Rp ${(target.monthlyBudget - pengeluaranBulanIni).toLocaleString('id-ID')}`;
 
+      // 🚀 PENAMBAHAN KEMAMPUAN "MEMORY BRIDGE" UNTUK CHAT AI
       const systemPrompt = `
-      Kamu adalah BILANO Intelligence.
+      Kamu adalah BILA (BILANO Intelligence).
       PERATURAN SIKAP & LOGIKA KEUANGAN (MUTLAK):
       1. INGAT KONTEKS: Kamu menerima riwayat percakapan. Jika pengguna bertanya hal lanjutan, jawablah menyambung dengan topik sebelumnya tanpa kebingungan.
       2. MENTOR PROAKTIF: Jadilah mentor yang peduli dan cerdas. SETIAP KALI selesai memberikan jawaban/analisis, kamu WAJIB mengakhirinya dengan sebuah pertanyaan penawaran bantuan.
@@ -433,6 +434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
          - Menghapus/Ikhlas Piutang (Write-off) TIDAK mengurangi Kas likuid, hanya mengurangi Kekayaan Bersih (Net Worth).
          - Amal/Sedekah dianggap pengeluaran positif, tidak digabungkan dengan limit budget konsumtif.
       4. PEMISAHAN WAKTU: Perhatikan pertanyaan pengguna! Jika bertanya "bulan ini", gunakan data [BULAN INI]. Jika bertanya secara utuh, gunakan data [KESELURUHAN].
+      5. INTEGRASI STRATEGI: Jika pengguna merujuk pada "strategi tadi", "hasil analisa", atau "peluang bisnis", asumsikan mereka baru saja membaca Pop-up Strategi AI di Dashboard. Lanjutkan diskusi dengan tajam untuk membedah strategi tersebut. JANGAN BERASUMSI jika kamu tidak tau jenis usaha/sumber pendapatan mereka, tanyakan langsung faktanya dengan jujur.
       
       --- DATA KEUANGAN PENGGUNA ---
       [DATA KESELURUHAN (HARTA & KEWAJIBAN TOTAL)]
@@ -1216,13 +1218,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses gambar." }); }
   });
 
-  // 🚀 ENDPOINT BARU: AI STRATEGI PENGHASILAN DENGAN OTAK "BILA" (V2 - DEEP ANALYSIS)
+  // 🚀 ENDPOINT BARU: AI STRATEGI PENGHASILAN DENGAN OTAK "BILA" (V2 - BRUTAL & AKURAT)
   app.post("/api/ai/strategy", async (req, res) => {
       try {
           const user = await getUser(req);
           if (!user) return res.status(401).json({ success: false, error: "Unauthorized" });
 
-          // Kumpulkan SELURUH profil finansial pengguna dari Database
           const [txList, target, investments, debts, forexAssets, subscriptions] = await Promise.all([
               storage.getTransactions(user.id),
               storage.getTarget(user.id),
@@ -1232,7 +1233,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               storage.getSubscriptions(user.id)
           ]);
 
-          // 1. REKAM JEJAK 6 BULAN (Untuk melihat fluktuasi penghasilan)
           const monthlyHistory: Record<string, { income: number, expense: number }> = {};
           txList.forEach(t => {
               const d = new Date(t.date);
@@ -1242,41 +1242,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (t.type === 'expense') monthlyHistory[key].expense += t.amount;
           });
           const historyArray = Object.entries(monthlyHistory)
-              .map(([month, data]) => ({ month, ...data }))
+              .map(([month, data]) => ({ month, incomeFormatted: `Rp ${data.income.toLocaleString('id-ID')}`, expenseFormatted: `Rp ${data.expense.toLocaleString('id-ID')}` }))
               .sort((a, b) => b.month.localeCompare(a.month))
-              .slice(0, 6); // Ambil maksimal 6 bulan terakhir
-
-          // 2. ANALISA PENGELUARAN & PEMASUKAN TOTAL
-          const totalExpense = txList.filter(t => t.type === 'expense').reduce((a, b) => a + b.amount, 0);
-          const totalIncome = txList.filter(t => t.type === 'income').reduce((a, b) => a + b.amount, 0);
+              .slice(0, 6); 
 
           const expCategories = txList.filter(t => t.type === 'expense').reduce((acc, t) => {
               acc[t.category] = (acc[t.category] || 0) + t.amount; return acc;
           }, {} as Record<string, number>);
-          const topExpCategories = Object.entries(expCategories).sort((a,b) => b[1]-a[1]).slice(0,5).map(x => ({category: x[0], total: x[1]}));
+          const topExpCategories = Object.entries(expCategories).sort((a,b) => b[1]-a[1]).slice(0,5).map(x => ({category: x[0], total: `Rp ${x[1].toLocaleString('id-ID')}`}));
 
           const incomeCategories = txList.filter(t => t.type === 'income').reduce((acc, t) => {
               acc[t.category] = (acc[t.category] || 0) + t.amount; return acc;
           }, {} as Record<string, number>);
-          const topIncomeCategories = Object.entries(incomeCategories).sort((a,b) => b[1]-a[1]).slice(0,3).map(x => ({category: x[0], total: x[1]}));
+          const topIncomeCategories = Object.entries(incomeCategories).sort((a,b) => b[1]-a[1]).slice(0,3).map(x => ({category: x[0], total: `Rp ${x[1].toLocaleString('id-ID')}`}));
 
-          // 3. AMBIL 100 TRANSAKSI TERAKHIR SEBAGAI SAMPEL (Diperbanyak dari 20 jadi 100)
           const recentTransactions = txList
               .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
               .slice(0, 100)
-              .map(t => ({ date: t.date.toISOString().split('T')[0], type: t.type, amount: t.amount, category: t.category, desc: t.description }));
-
-          // 4. DETEKSI FLUKTUASI TINGGI (Irregular Income)
-          const incomes = historyArray.map(h => h.income);
-          const maxIncome = Math.max(...incomes, 0);
-          const minIncome = Math.min(...incomes.filter(i => i > 0), maxIncome);
-          const isIrregular = maxIncome > 0 && minIncome > 0 && (maxIncome / minIncome > 1.5);
+              .map(t => ({ date: t.date.toISOString().split('T')[0], type: t.type, amount: `Rp ${t.amount.toLocaleString('id-ID')}`, category: t.category, desc: t.description }));
 
           const financialData = {
-              profile: { cashBalance: user.cashBalance, monthlyBudget: target?.monthlyBudget || 0 },
+              profile: { cashBalance: `Rp ${user.cashBalance.toLocaleString('id-ID')}`, monthlyBudget: `Rp ${target?.monthlyBudget || 0}` },
               monthlyHistory: historyArray,
-              incomeAnalysis: { allTimeIncome: totalIncome, topSources: topIncomeCategories, isIrregularIncome: isIrregular },
-              expenseAnalysis: { allTimeExpense: totalExpense, topCategories: topExpCategories },
+              incomeAnalysis: { topSources: topIncomeCategories },
+              expenseAnalysis: { topCategories: topExpCategories },
               assets: { investmentTotal: investments.length, forexTotal: forexAssets.length, debts: debts.length, activeSubscriptions: subscriptions.length },
               recentTransactions: recentTransactions
           };
@@ -1285,16 +1274,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!apiKey) throw new Error("API Key Gemini belum diatur di Vercel/Server");
 
           const systemPrompt = `Kamu adalah BILA — Bilano Intelligence for Life & Assets.
-Kamu BUKAN asisten keuangan generik. Kamu adalah ahli strategi berbasis data yang brutal, tajam, dan berpikir seperti gabungan dari CFO berpengalaman, Pendiri Startup, dan Ekonom Perilaku.
+Kamu BUKAN asisten keuangan generik. Kamu adalah ahli strategi berbasis data yang tajam, dan berpikir seperti gabungan dari CFO berpengalaman, Pendiri Startup, dan Ekonom Perilaku.
 
 TUGASMU:
-Analisa data finansial (JSON) pengguna di bawah ini. Hasilkan 2 strategi penghasilan tambahan / optimalisasi aset yang SANGAT SPESIFIK dan BISA DIEKSEKUSI berdasarkan angka riil mereka.
+Analisa data finansial (JSON) pengguna di bawah ini. Hasilkan 2 strategi penghasilan tambahan / optimalisasi aset yang SANGAT SPESIFIK dan BISA DIEKSEKUSI.
 
 PERATURAN MUTLAK (JIKA DILANGGAR KAMU GAGAL):
-1. LARANGAN KERAS KORELASI DANGKAL: JANGAN PERNAH menyarankan pengguna untuk berjualan/membuka bisnis dari barang yang sering mereka konsumsi! (Contoh BURUK: "Kamu sering beli Es Teler, coba jualan Es Teler", "Kamu sering langganan Netflix, coba jualan akun Netflix"). Ini adalah pemikiran yang sangat bodoh dan dilarang keras! Cari peluang dari "Keahlian" (sumber Pemasukan mereka) atau "Aset Menganggur" (Cash yang tidak dipakai), BUKAN dari jajanan mereka.
-2. PERHATIKAN FLUKTUASI PENDAPATAN: Lihat bagian "monthlyHistory". Jika pemasukan mereka naik-turun (misal bulan lalu 8 juta, lalu 3 juta, lalu 2 juta), JANGAN anggap gaji mereka 2 juta! Sadari bahwa mereka memiliki *Irregular Income* (Pekerja lepas/Bisnis). Strategimu harus berfokus pada "Income Smoothing", mencari klien retainer (tetap), atau menstabilkan arus kas, BUKAN menyuruh mereka mencari kerja sampingan receh.
-3. Sebutkan angka rupiah asli dari data "monthlyHistory" atau "cashBalance" mereka dalam saranmu agar terasa personal.
-4. Berikan kebenaran pahit terlebih dahulu sebelum solusi. (Misal: "Pemasukanmu bulan Mei tembus 8 Juta, tapi merosot drastis di Juli menjadi 2 Juta. Ini bahaya jika kamu tidak punya buffer dana.")
+1. BACA ANGKA DENGAN BENAR & TELITI: Perhatikan format "Rp X.XXX.XXX". 2.000.000 adalah 2 Juta, bukan 200 Ribu. Sebutkan angka dengan benar dalam saranmu!
+2. ANTI ASUMSI LIAR: JANGAN PERNAH menebak-nebak sumber uang atau pekerjaan user jika tidak tertulis eksplisit. Dilarang menggunakan kata "kemungkinan besar adalah...", "sepertinya...", "mungkin...". Jika kamu tidak tahu profesi aslinya, sebutkan secara logis "Sumber dana dari kategori [Nama Kategori] ini berpotensi...", dan tutup dengan kalimat: "Mari kita diskusikan lebih detail tentang sumber dana ini di Chat AI."
+3. LARANGAN KORELASI DANGKAL: JANGAN menyarankan pengguna berjualan barang yang sering mereka konsumsi! (Contoh BURUK: Sering beli Es Teler disuruh jualan Es Teler, sering beli Kopi disuruh buka warkop). Cari peluang dari Pemasukan, Aset Menganggur, atau Skill, bukan dari jajanan/konsumsi pribadi!
+4. PERHATIKAN FLUKTUASI PENDAPATAN: Jika pemasukan naik-turun (irregular income/freelancer), fokus pada "Income Smoothing" atau mencari klien retainer, BUKAN menyuruh mereka cari kerja sampingan receh.
+5. Berikan kebenaran pahit terlebih dahulu sebelum solusi.
 
 DATA PENGGUNA:
 ${JSON.stringify(financialData, null, 2)}
@@ -1303,15 +1293,15 @@ OUTPUT WAJIB JSON ARRAY MURNI dengan struktur persis seperti ini (TIDAK BOLEH AD
 [
   {
     "title": "📊 Pembacaan Profil Finansialmu",
-    "description": "[2-3 kalimat observasi tajam dari data. Sebutkan angka fluktuasi jika ada]"
+    "description": "[2-3 kalimat observasi tajam dari data. Tanpa asumsi profesi. Sebutkan angka fluktuasi jika ada]"
   },
   {
     "title": "⚠️ Yang Data Ini Benar-Benar Katakan",
-    "description": "[1 kebenaran pahit yang mungkin dihindari user terkait fluktuasi atau kebocoran dana. Langsung pada intinya]"
+    "description": "[1 kebenaran pahit yang mungkin dihindari user terkait fluktuasi atau aset menganggur. Langsung pada intinya]"
   },
   {
     "title": "🎯 STRATEGI 1: [Nama Spesifik & Logis]",
-    "description": "INSIGHT:\\n[pola spesifik dari data, dilarang bahas jajanan]\\n\\nPELUANG:\\n[peluang logis profesional]\\n\\nCARA KERJANYA:\\n1. [step 1]\\n2. [step 2]\\n\\nMODAL DIBUTUHKAN:\\nRp [nominal dari saldo mereka]\\n\\nPROYEKSI REALISTIS:\\n[proyeksi keuntungan]"
+    "description": "INSIGHT:\\n[pola spesifik dari data]\\n\\nPELUANG:\\n[peluang logis tanpa asumsi dangkal]\\n\\nCARA KERJANYA:\\n1. [step 1]\\n2. [step 2]\\n\\nMODAL DIBUTUHKAN:\\nRp [nominal rasional dari saldo mereka]\\n\\nPROYEKSI REALISTIS:\\n[proyeksi keuntungan]\\n\\n💡 DISKUSI: Punya rincian lebih detail soal ini? Mari bahas tuntas di Chat AI."
   },
   {
     "title": "🎯 STRATEGI 2: [Nama Spesifik & Logis]",
