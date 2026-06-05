@@ -297,12 +297,12 @@ export default function Home() {
       } catch (error) { console.error(error); }
   };
 
-  // 🚀 FUNGSI BARU UNTUK MENGAMBIL DATA DARI GEMINI AI
+  // 🚀 FUNGSI BARU UNTUK MENGAMBIL DATA DARI GEMINI AI (SUDAH DIPERBAIKI)
   const fetchAiStrategy = async () => {
-      setAiResultModal(true);
-      if (aiStrategies) return; // Jika sudah ada cache di memori, tidak perlu panggil ulang
+      setAiResultModal(true); // Langsung buka popup
+      if (aiStrategies) return; // Kalau datanya sudah ada, gak usah manggil API lagi
       
-      setIsGeneratingAi(true);
+      setIsGeneratingAi(true); // Mulai animasi loading
       try {
           const res = await fetch("/api/ai/strategy", {
               method: "POST", 
@@ -316,10 +316,10 @@ export default function Home() {
               throw new Error(responseData.error || "Gagal parsing AI");
           }
       } catch (e) {
-          toast({ title: "Server Sibuk", description: "Gemini AI sedang memproses antrean panjang. Coba sesaat lagi.", variant: "destructive" });
-          setAiResultModal(false);
+          // Tampilkan pesan error tanpa menutup paksa modal
+          toast({ title: "AI Sedang Sibuk", description: "Gagal mengambil data dari server. Pastikan API berfungsi atau coba lagi.", variant: "destructive" });
       } finally {
-          setIsGeneratingAi(false);
+          setIsGeneratingAi(false); // Matikan animasi loading
       }
   };
 
@@ -417,7 +417,7 @@ export default function Home() {
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 text-center relative z-[999]">
               <AlertCircle className="w-16 h-16 text-rose-500 mb-4 animate-bounce" />
               <h2 className="text-xl font-extrabold text-slate-800 mb-2">Sesi Terputus</h2>
-              <p className="text-sm text-slate-500 mb-8 max-w-xs">Terjadi kendala saat memuat profil Anda. Silakan masuk ulang.</p>
+              <p className="text-sm text-slate-500 mb-8 max-w-xs">Terjadi kendala saat memuat profil Anda dari server. Silakan masuk ulang.</p>
               <Button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full h-14 px-8 shadow-lg">
                   LOGOUT & COBA LAGI
               </Button>
@@ -510,7 +510,7 @@ export default function Home() {
                               </div>
                           ))
                       ) : (
-                          <div className="text-center text-slate-400 text-xs py-4">Gagal memuat strategi. Silakan coba lagi.</div>
+                          <div className="text-center text-slate-400 text-xs py-4 border border-dashed border-slate-200 rounded-xl">Gagal memuat strategi karena koneksi server.<br/> Silakan tutup dan coba lagi.</div>
                       )}
                   </div>
                   
