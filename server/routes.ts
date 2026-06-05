@@ -1216,13 +1216,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses gambar." }); }
   });
 
-  // 🚀 ENDPOINT BARU: AI STRATEGI PENGHASILAN DENGAN OTAK "BILA"
+  // 🚀 ENDPOINT BARU: AI STRATEGI PENGHASILAN DENGAN OTAK "BILA" (V2 - DEEP ANALYSIS)
   app.post("/api/ai/strategy", async (req, res) => {
       try {
           const user = await getUser(req);
           if (!user) return res.status(401).json({ success: false, error: "Unauthorized" });
 
-          // Kumpulkan SELURUH profil finansial pengguna dari Database untuk diberikan ke AI
+          // Kumpulkan SELURUH profil finansial pengguna dari Database
           const [txList, target, investments, debts, forexAssets, subscriptions] = await Promise.all([
               storage.getTransactions(user.id),
               storage.getTarget(user.id),
@@ -1232,40 +1232,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
               storage.getSubscriptions(user.id)
           ]);
 
-          const tx30d = txList.filter(t => new Date(t.date) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
-          const expense30d = tx30d.filter(t => t.type === 'expense').reduce((a, b) => a + b.amount, 0);
-          const income30d = tx30d.filter(t => t.type === 'income').reduce((a, b) => a + b.amount, 0);
+          // 1. REKAM JEJAK 6 BULAN (Untuk melihat fluktuasi penghasilan)
+          const monthlyHistory: Record<string, { income: number, expense: number }> = {};
+          txList.forEach(t => {
+              const d = new Date(t.date);
+              const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+              if (!monthlyHistory[key]) monthlyHistory[key] = { income: 0, expense: 0 };
+              if (t.type === 'income') monthlyHistory[key].income += t.amount;
+              if (t.type === 'expense') monthlyHistory[key].expense += t.amount;
+          });
+          const historyArray = Object.entries(monthlyHistory)
+              .map(([month, data]) => ({ month, ...data }))
+              .sort((a, b) => b.month.localeCompare(a.month))
+              .slice(0, 6); // Ambil maksimal 6 bulan terakhir
 
-          const expCategories = tx30d.filter(t => t.type === 'expense').reduce((acc, t) => {
+          // 2. ANALISA PENGELUARAN & PEMASUKAN TOTAL
+          const totalExpense = txList.filter(t => t.type === 'expense').reduce((a, b) => a + b.amount, 0);
+          const totalIncome = txList.filter(t => t.type === 'income').reduce((a, b) => a + b.amount, 0);
+
+          const expCategories = txList.filter(t => t.type === 'expense').reduce((acc, t) => {
               acc[t.category] = (acc[t.category] || 0) + t.amount; return acc;
           }, {} as Record<string, number>);
-          const topExpCategories = Object.entries(expCategories).sort((a,b) => b[1]-a[1]).slice(0,3).map(x => ({category: x[0], total: x[1]}));
+          const topExpCategories = Object.entries(expCategories).sort((a,b) => b[1]-a[1]).slice(0,5).map(x => ({category: x[0], total: x[1]}));
+
+          const incomeCategories = txList.filter(t => t.type === 'income').reduce((acc, t) => {
+              acc[t.category] = (acc[t.category] || 0) + t.amount; return acc;
+          }, {} as Record<string, number>);
+          const topIncomeCategories = Object.entries(incomeCategories).sort((a,b) => b[1]-a[1]).slice(0,3).map(x => ({category: x[0], total: x[1]}));
+
+          // 3. AMBIL 100 TRANSAKSI TERAKHIR SEBAGAI SAMPEL (Diperbanyak dari 20 jadi 100)
+          const recentTransactions = txList
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .slice(0, 100)
+              .map(t => ({ date: t.date.toISOString().split('T')[0], type: t.type, amount: t.amount, category: t.category, desc: t.description }));
+
+          // 4. DETEKSI FLUKTUASI TINGGI (Irregular Income)
+          const incomes = historyArray.map(h => h.income);
+          const maxIncome = Math.max(...incomes, 0);
+          const minIncome = Math.min(...incomes.filter(i => i > 0), maxIncome);
+          const isIrregular = maxIncome > 0 && minIncome > 0 && (maxIncome / minIncome > 1.5);
 
           const financialData = {
               profile: { cashBalance: user.cashBalance, monthlyBudget: target?.monthlyBudget || 0 },
-              incomeAnalysis: { totalIncome30d: income30d },
-              expenseAnalysis: { totalExpense30d: expense30d, topCategories: topExpCategories, dailyAvgSpend: Math.round(expense30d / 30) },
+              monthlyHistory: historyArray,
+              incomeAnalysis: { allTimeIncome: totalIncome, topSources: topIncomeCategories, isIrregularIncome: isIrregular },
+              expenseAnalysis: { allTimeExpense: totalExpense, topCategories: topExpCategories },
               assets: { investmentTotal: investments.length, forexTotal: forexAssets.length, debts: debts.length, activeSubscriptions: subscriptions.length },
-              rawTransactionSample: tx30d.slice(-20).map(t => ({type: t.type, amount: t.amount, category: t.category, description: t.description}))
+              recentTransactions: recentTransactions
           };
 
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
           if (!apiKey) throw new Error("API Key Gemini belum diatur di Vercel/Server");
 
           const systemPrompt = `Kamu adalah BILA — Bilano Intelligence for Life & Assets.
-Kamu BUKAN asisten keuangan generik. Kamu adalah ahli strategi berbasis data yang brutal, tajam, dan berpikir seperti gabungan dari:
-- CFO berpengalaman yang melihat pola angka
-- Pendiri startup yang membangun bisnis dari nol
-- Ekonom perilaku yang paham MENGAPA orang membuat keputusan finansial
-- Mentor yang memberikan kebenaran pahit dengan kepedulian tulus.
+Kamu BUKAN asisten keuangan generik. Kamu adalah ahli strategi berbasis data yang brutal, tajam, dan berpikir seperti gabungan dari CFO berpengalaman, Pendiri Startup, dan Ekonom Perilaku.
 
 TUGASMU:
 Analisa data finansial (JSON) pengguna di bawah ini. Hasilkan 2 strategi penghasilan tambahan / optimalisasi aset yang SANGAT SPESIFIK dan BISA DIEKSEKUSI berdasarkan angka riil mereka.
-Aturan:
-1. JANGAN PERNAH berikan saran generik seperti "coba jualan online" atau "investasi saham".
-2. Hubungkan kebiasaan pengeluaran terbesar mereka dengan peluang bisnis.
-3. Sebutkan angka rupiah asli dari data mereka dalam saranmu.
-4. Berikan kebenaran pahit terlebih dahulu sebelum solusi.
+
+PERATURAN MUTLAK (JIKA DILANGGAR KAMU GAGAL):
+1. LARANGAN KERAS KORELASI DANGKAL: JANGAN PERNAH menyarankan pengguna untuk berjualan/membuka bisnis dari barang yang sering mereka konsumsi! (Contoh BURUK: "Kamu sering beli Es Teler, coba jualan Es Teler", "Kamu sering langganan Netflix, coba jualan akun Netflix"). Ini adalah pemikiran yang sangat bodoh dan dilarang keras! Cari peluang dari "Keahlian" (sumber Pemasukan mereka) atau "Aset Menganggur" (Cash yang tidak dipakai), BUKAN dari jajanan mereka.
+2. PERHATIKAN FLUKTUASI PENDAPATAN: Lihat bagian "monthlyHistory". Jika pemasukan mereka naik-turun (misal bulan lalu 8 juta, lalu 3 juta, lalu 2 juta), JANGAN anggap gaji mereka 2 juta! Sadari bahwa mereka memiliki *Irregular Income* (Pekerja lepas/Bisnis). Strategimu harus berfokus pada "Income Smoothing", mencari klien retainer (tetap), atau menstabilkan arus kas, BUKAN menyuruh mereka mencari kerja sampingan receh.
+3. Sebutkan angka rupiah asli dari data "monthlyHistory" atau "cashBalance" mereka dalam saranmu agar terasa personal.
+4. Berikan kebenaran pahit terlebih dahulu sebelum solusi. (Misal: "Pemasukanmu bulan Mei tembus 8 Juta, tapi merosot drastis di Juli menjadi 2 Juta. Ini bahaya jika kamu tidak punya buffer dana.")
 
 DATA PENGGUNA:
 ${JSON.stringify(financialData, null, 2)}
@@ -1274,18 +1303,18 @@ OUTPUT WAJIB JSON ARRAY MURNI dengan struktur persis seperti ini (TIDAK BOLEH AD
 [
   {
     "title": "📊 Pembacaan Profil Finansialmu",
-    "description": "[2-3 kalimat observasi tajam dari data. Sebutkan setidaknya 2 angka spesifik]"
+    "description": "[2-3 kalimat observasi tajam dari data. Sebutkan angka fluktuasi jika ada]"
   },
   {
     "title": "⚠️ Yang Data Ini Benar-Benar Katakan",
-    "description": "[1 kebenaran pahit yang mungkin dihindari user. Langsung pada intinya]"
+    "description": "[1 kebenaran pahit yang mungkin dihindari user terkait fluktuasi atau kebocoran dana. Langsung pada intinya]"
   },
   {
-    "title": "🎯 STRATEGI 1: [Nama Spesifik]",
-    "description": "INSIGHT:\\n[pola spesifik dari data]\\n\\nPELUANG:\\n[peluang]\\n\\nCARA KERJANYA:\\n1. [step 1]\\n2. [step 2]\\n\\nMODAL DIBUTUHKAN:\\nRp [nominal dari saldo mereka]\\n\\nPROYEKSI REALISTIS:\\n[proyeksi keuntungan]"
+    "title": "🎯 STRATEGI 1: [Nama Spesifik & Logis]",
+    "description": "INSIGHT:\\n[pola spesifik dari data, dilarang bahas jajanan]\\n\\nPELUANG:\\n[peluang logis profesional]\\n\\nCARA KERJANYA:\\n1. [step 1]\\n2. [step 2]\\n\\nMODAL DIBUTUHKAN:\\nRp [nominal dari saldo mereka]\\n\\nPROYEKSI REALISTIS:\\n[proyeksi keuntungan]"
   },
   {
-    "title": "🎯 STRATEGI 2: [Nama Spesifik]",
+    "title": "🎯 STRATEGI 2: [Nama Spesifik & Logis]",
     "description": "[Format sama seperti strategi 1]"
   },
   {
