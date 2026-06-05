@@ -3,10 +3,10 @@ import { Link, useLocation } from "wouter";
 import { 
   useUser, useTransactions, useTarget, 
   useForexAssets, useSubscriptions, useUndoTransaction 
-} from "@/hooks/use-finance"; 
-import { formatCurrency } from "@/lib/utils";
-import { MobileLayout } from "@/components/Layout";
-import { Button, Input } from "@/components/UIComponents";
+} from "../hooks/use-finance"; 
+import { formatCurrency } from "../lib/utils";
+import { MobileLayout } from "../components/Layout";
+import { Button, Input } from "../components/UIComponents";
 import { 
   TrendingUp, DollarSign, 
   RefreshCcw, FileText, LogOut, User, BarChart, ChevronRight,
@@ -14,9 +14,9 @@ import {
   Bell, Mic, Camera, AlertCircle, BookOpen, Rocket, CreditCard,
   Bot, Check, Info, Book, Heart, CornerUpLeft, Clock, Zap, HandCoins
 } from "lucide-react";
-import { auth } from "@/lib/firebase";
+import { auth } from "../lib/firebase";
 import { signOut } from "firebase/auth";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "../hooks/use-toast";
 
 const FINANCIAL_TIPS = [
     "Bunga majemuk (Compound Interest) adalah keajaiban dunia kedelapan. - Albert Einstein",
@@ -304,12 +304,26 @@ export default function Home() {
       
       setIsGeneratingAi(true); 
       try {
+          // Ambil maksimal 50 transaksi terakhir pengguna untuk dianalisa AI
+          const txData = transactions || [];
+          if (txData.length < 5) {
+              setAiStrategies([
+                  { title: "BUTUH LEBIH BANYAK DATA", description: "AI membutuhkan minimal 5 transaksi nyata untuk bisa menemukan pola keuanganmu. Yuk catat lebih banyak pengeluaran dan pemasukan!" }
+              ]);
+              setIsGeneratingAi(false);
+              return;
+          }
+
+          // Format data transaksi menjadi teks yang mudah dibaca AI
+          const txSummary = txData.slice(-50).map(t => `${new Date(t.date).toISOString().split('T')[0]} | ${t.type} | Rp ${t.amount} | ${t.category} | ${t.description || ''}`).join('\n');
+
           const res = await fetch("/api/ai/strategy", {
               method: "POST", 
-              headers: { "Content-Type": "application/json", "x-user-email": rawEmail }
+              headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
+              body: JSON.stringify({ transactions: txSummary })
           });
           
-          if (!res.ok) throw new Error("API Timeout");
+          if (!res.ok) throw new Error("Endpoint /api/ai/strategy belum tersedia atau API Key bermasalah");
           
           const responseData = await res.json();
           if (responseData.success) {
@@ -317,17 +331,12 @@ export default function Home() {
           } else {
               throw new Error(responseData.error || "Gagal parsing AI");
           }
-      } catch (e) {
-          // 🛡️ AUTO-FALLBACK: Jika Server Timeout/Error, otomatis munculkan mock data yang realistis!
-          await new Promise(resolve => setTimeout(resolve, 2500)); // Simulasi AI berpikir 2.5 detik
+      } catch (e: any) {
+          // 🛡️ SEKARANG JIKA GAGAL, AKAN MUNCUL ERROR ASLI BUKAN TEMPLATE
           setAiStrategies([
               {
-                  title: "PELUANG 1: Layanan Jasa / Freelance",
-                  description: "Berdasarkan pola transaksi, alokasi waktu luang Anda bisa dimanfaatkan untuk menawarkan jasa freelance (keterampilan khusus). Ini minim risiko dan berpotensi menambah arus pemasukan Anda tanpa perlu modal finansial besar."
-              },
-              {
-                  title: "PELUANG 2: Optimalisasi Aset Menganggur",
-                  description: "Terdapat tren sisa saldo positif (mengendap) dalam catatan Anda. Segera otomatisasikan 15-20% dari dana menganggur tersebut ke instrumen rendah risiko seperti Reksa Dana Pasar Uang agar nilainya berkembang melampaui inflasi."
+                  title: "KONEKSI AI GAGAL",
+                  description: `Pesan Error: ${e.message}. Pastikan Anda sudah menambahkan endpoint baru ke routes.ts dan GEMINI_API_KEY valid di server Vercel.`
               }
           ]);
       } finally {
@@ -587,7 +596,7 @@ export default function Home() {
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-indigo-500/30">
                   <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
-                  <button onClick={() => setProFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
+                  <button onClick={() => setProFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-50 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
                   <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10">
                       <Crown className="w-10 h-10 text-amber-950"/>
                   </div>

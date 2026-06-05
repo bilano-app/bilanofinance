@@ -1275,6 +1275,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+    app.post("/api/ai/strategy", async (req, res) => {
+      try {
+          const { transactions } = req.body;
+          
+          if (!transactions) {
+              return res.status(400).json({ success: false, error: "Data transaksi kosong" });
+          }
+
+          const apiKey = process.env.GEMINI_API_KEY;
+          if (!apiKey) throw new Error("API Key Gemini belum diatur di Vercel/Server");
+
+          // Prompt khusus yang membaca langsung transaksi nyata user
+          const systemPrompt = `Kamu adalah Penasihat Keuangan AI profesional. Analisa data transaksi nyata pengguna berikut ini:\n\n${transactions}\n\nTugasmu:\n1. Pahami pola pengeluaran dan pemasukan pengguna dari data di atas secara mendalam.\n2. Berikan 2 ide atau peluang strategi penghasilan tambahan atau penghematan yang SANGAT SPESIFIK, LOGIS, dan BISA DILAKUKAN berdasarkan gaya hidup dan pola pengeluaran mereka tersebut.\n3. Output WAJIB JSON Array murni tanpa blok markdown, dengan format persis seperti ini: [{"title": "STRATEGI 1: [Judul Singkat]", "description": "Penjelasan detail dan realistis..."}]`;
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: "POST", 
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                  contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
+                  generationConfig: { temperature: 0.7, response_mime_type: "application/json" }
+              })
+          });
+
+          if (!response.ok) throw new Error("Gagal menghubungi Google Gemini AI");
+
+          const aiData = await response.json();
+          const resultText = aiData.candidates[0].content.parts[0].text;
+
+          let parsedResult;
+          try { parsedResult = JSON.parse(resultText); }
+          catch(e) { parsedResult = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); }
+
+          res.json({ success: true, data: parsedResult });
+      } catch (error: any) {
+          console.error("AI Strategy Error:", error);
+          res.status(500).json({ success: false, error: error.message });
+      }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
