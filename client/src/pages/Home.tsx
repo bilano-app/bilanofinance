@@ -77,8 +77,10 @@ export default function Home() {
   const [loadingTipIndex, setLoadingTipIndex] = useState(() => Math.floor(Math.random() * FINANCIAL_TIPS.length));
   const [showRetryButton, setShowRetryButton] = useState(false);
 
-  // 🚀 STATE UNTUK HASIL AI STRATEGI
+  // 🚀 STATE UNTUK HASIL AI STRATEGI (SUNGGUHAN)
   const [aiResultModal, setAiResultModal] = useState(false);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [aiStrategies, setAiStrategies] = useState<{title: string, description: string}[] | null>(null);
 
   const isStandalone = typeof window !== 'undefined' && 
       (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
@@ -295,6 +297,32 @@ export default function Home() {
       } catch (error) { console.error(error); }
   };
 
+  // 🚀 FUNGSI BARU UNTUK MENGAMBIL DATA DARI GEMINI AI
+  const fetchAiStrategy = async () => {
+      setAiResultModal(true);
+      if (aiStrategies) return; // Jika sudah ada cache di memori, tidak perlu panggil ulang
+      
+      setIsGeneratingAi(true);
+      try {
+          const res = await fetch("/api/ai/strategy", {
+              method: "POST", 
+              headers: { "Content-Type": "application/json", "x-user-email": rawEmail }
+          });
+          const responseData = await res.json();
+          
+          if (responseData.success) {
+              setAiStrategies(responseData.data);
+          } else {
+              throw new Error(responseData.error || "Gagal parsing AI");
+          }
+      } catch (e) {
+          toast({ title: "Server Sibuk", description: "Gemini AI sedang memproses antrean panjang. Coba sesaat lagi.", variant: "destructive" });
+          setAiResultModal(false);
+      } finally {
+          setIsGeneratingAi(false);
+      }
+  };
+
   const cashRupiah = (user?.cashBalance || 0); 
   const totalBalance = cashRupiah;
   const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
@@ -448,32 +476,42 @@ export default function Home() {
   return (
     <MobileLayout>
 
-      {/* 🚀 MODAL HASIL AI STRATEGI */}
+      {/* 🚀 MODAL HASIL AI STRATEGI DENGAN DATA DINAMIS DARI GEMINI */}
       {aiResultModal && (
           <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
-              <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative border-t-8 border-indigo-500">
+              <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative border-t-8 border-indigo-500 max-h-[85vh] overflow-y-auto custom-scrollbar">
                   <button onClick={() => setAiResultModal(false)} className="absolute top-4 right-4 p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition-colors"><X className="w-4 h-4"/></button>
                   
                   <div className="w-16 h-16 mx-auto bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4 shadow-inner">
-                      <Bot className="w-8 h-8" />
+                      {isGeneratingAi ? <Loader2 className="w-8 h-8 animate-spin" /> : <Bot className="w-8 h-8" />}
                   </div>
                   
                   <h3 className="text-xl font-black text-slate-800 mb-1 text-center">Strategi Khusus Untukmu</h3>
-                  <p className="text-[11px] text-slate-500 mb-5 text-center font-medium">Berdasarkan analisa 30+ transaksimu terakhir</p>
+                  <p className="text-[11px] text-slate-500 mb-5 text-center font-medium">Berdasarkan analisa komprehensif Gemini AI</p>
                   
                   <div className="space-y-3 mb-6">
-                      <div className="bg-emerald-50 p-4 rounded-[20px] border border-emerald-100 relative">
-                          <div className="absolute -top-2.5 left-4 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest">PELUANG 1</div>
-                          <p className="text-[12px] text-emerald-900 leading-relaxed font-medium mt-1">
-                              Pengeluaran makanmu rata-rata <b>Rp 1.2 juta/bulan</b>. Pola ini konsisten. Ada peluang memulai bisnis <i>meal-prep</i> (katering rumahan) di akhir pekan dengan modal awal <b>Rp 300rb</b> untuk teman sekitarmu.
-                          </p>
-                      </div>
-                      <div className="bg-blue-50 p-4 rounded-[20px] border border-blue-100 relative">
-                          <div className="absolute -top-2.5 left-4 bg-blue-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest">PELUANG 2</div>
-                          <p className="text-[12px] text-blue-900 leading-relaxed font-medium mt-1">
-                              Kamu sering menyisakan <b>Rp 800rb</b> di akhir bulan. Daripada mengendap di bank utama, otomatisasikan ke Reksa Dana Pasar Uang. Ini bisa mencetak *passive income* ekstra tanpa kerja tambahan.
-                          </p>
-                      </div>
+                      {isGeneratingAi ? (
+                          <div className="space-y-4 animate-pulse">
+                              <div className="h-28 bg-slate-100 rounded-[20px]"></div>
+                              <div className="h-28 bg-slate-100 rounded-[20px]"></div>
+                          </div>
+                      ) : aiStrategies ? (
+                          aiStrategies.map((strat, idx) => (
+                              <div key={idx} className={`p-4 rounded-[20px] border relative ${idx % 2 === 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-blue-50 border-blue-100'}`}>
+                                  <div className={`absolute -top-2.5 left-4 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest shadow-sm ${idx % 2 === 0 ? 'bg-emerald-500' : 'bg-blue-500'}`}>
+                                      {strat.title.includes(':') ? strat.title.split(':')[0] : `STRATEGI ${idx + 1}`}
+                                  </div>
+                                  <h4 className={`text-[12px] font-extrabold mb-1 mt-1 ${idx % 2 === 0 ? 'text-emerald-900' : 'text-blue-900'}`}>
+                                      {strat.title.includes(':') ? strat.title.split(':')[1] : strat.title}
+                                  </h4>
+                                  <p className={`text-[11px] leading-relaxed font-medium ${idx % 2 === 0 ? 'text-emerald-800' : 'text-blue-800'}`}>
+                                      {strat.description}
+                                  </p>
+                              </div>
+                          ))
+                      ) : (
+                          <div className="text-center text-slate-400 text-xs py-4">Gagal memuat strategi. Silakan coba lagi.</div>
+                      )}
                   </div>
                   
                   <Link href="/chat-ai">
@@ -862,6 +900,9 @@ export default function Home() {
         <div className="grid grid-cols-2 gap-3 px-1">
            <Link href="/income">
                <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
+                    <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                        <img src="https://api.iconify.design/solar/round-arrow-left-down-bold.svg?color=%2310b981" className="w-16 h-16" alt="income bg" />
+                    </div>
                     <div className="flex items-center gap-2 relative z-10">
                         <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors shadow-sm shrink-0">
                             <img src="https://api.iconify.design/solar/round-arrow-left-down-bold.svg?color=%2310b981" className="w-4 h-4" alt="Income" />
@@ -875,6 +916,9 @@ export default function Home() {
            </Link>
            <Link href="/expense">
                <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
+                    <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                        <img src="https://api.iconify.design/solar/round-arrow-right-up-bold.svg?color=%23f43f5e" className="w-16 h-16" alt="expense bg" />
+                    </div>
                     <div className="flex items-center gap-2 relative z-10">
                         <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center group-hover:bg-rose-100 transition-colors shadow-sm shrink-0">
                             <img src="https://api.iconify.design/solar/round-arrow-right-up-bold.svg?color=%23f43f5e" className="w-4 h-4" alt="Expense" />
@@ -888,7 +932,7 @@ export default function Home() {
            </Link>
         </div>
 
-        {/* 🚀 AI STRATEGI PENGHASILAN */}
+        {/* 🚀 AI STRATEGI PENGHASILAN TERINTEGRASI API */}
         <div className="px-1 mt-3">
             <div className="bg-gradient-to-br from-white to-indigo-50/40 border border-indigo-100 rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
                 {!isUserPro && (
@@ -934,7 +978,7 @@ export default function Home() {
                         )}
 
                         {isUserPro && txCount >= 30 && (
-                            <button onClick={() => setAiResultModal(true)} className="mt-3 w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-black text-[11px] py-3 rounded-[12px] transition-all flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(79,70,229,0.3)] animate-pulse">
+                            <button onClick={fetchAiStrategy} className="mt-3 w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-black text-[11px] py-3 rounded-[12px] transition-all flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(79,70,229,0.3)] animate-pulse">
                                 LIHAT HASIL ANALISA SEKARANG <ChevronRight className="w-4 h-4"/>
                             </button>
                         )}

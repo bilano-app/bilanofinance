@@ -1219,6 +1219,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses gambar." }); }
   });
 
+  // ============================================================================
+// 🤖 TAMBAHKAN RUTE INI DI DALAM FILE `routes.ts` (Misal di bawah rute /api/scan)
+// ============================================================================
+  app.post("/api/ai/strategy", async (req, res) => {
+      try {
+          const email = req.headers["x-user-email"] as string;
+          if (!email) return res.status(401).json({ error: "Unauthorized" });
+
+          const userList = await db.select().from(users).where(eq(users.email, email));
+          if (!userList.length) return res.status(404).json({ error: "User tidak ditemukan" });
+          const user = userList[0];
+
+          const txList = await db.select().from(transactions).where(eq(transactions.userId, user.id));
+
+        // Jika data kurang dari 5, AI mungkin tidak bisa menemukan pola akurat
+          if (txList.length < 5) {
+              return res.json({
+                  success: true,
+                  data: [
+                      { title: "PELUANG 1: Tingkatkan Catatan", description: "Transaksimu masih terlalu sedikit. Terus catat pengeluaran/pemasukan agar AI kami bisa memetakan pola keuanganmu dengan akurat." },
+                      { title: "PELUANG 2: Potong Langganan", description: "Sambil menunggu, periksa kembali aplikasi berbayarmu. Banyak pengguna berhasil hemat 20% hanya dengan memutus langganan tak terpakai." }
+                  ]
+              });
+          }
+
+        // Ambil 50 transaksi terakhir untuk dianalisa
+          const txSummary = txList.slice(-50).map(t => `${t.date.toISOString().split('T')[0]} - ${t.type === 'income' ? '+' : '-'}${t.amount} (${t.category}): ${t.description || ''}`).join('\n');
+
+          const apiKey = process.env.GEMINI_API_KEY;
+          if (!apiKey) throw new Error("API Key Gemini belum diatur");
+
+          const systemPrompt = `Kamu adalah Penasihat Keuangan AI dari BILANO. Analisa maksimal 50 transaksi terakhir ini:\n${txSummary}\n\nTemukan pola kebiasaan pengguna. Berikan 2 ide atau peluang strategi penghasilan tambahan / penghematan yang SPESIFIK dan BISA DILAKUKAN berdasarkan pola di atas. Output WAJIB JSON Array murni: [{"title": "PELUANG 1: [Ide Utama]", "description": "Penjelasan detail kenapa ide ini cocok..."}]`;
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                  contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
+                  generationConfig: { temperature: 0.7, response_mime_type: "application/json" }
+              })
+          });
+
+          if (!response.ok) throw new Error("AI Timeout");
+          const aiData = await response.json();
+          const resultText = aiData.candidates[0].content.parts[0].text;
+
+          let parsedResult;
+          try { parsedResult = JSON.parse(resultText); }
+          catch(e) { parsedResult = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); }
+
+          res.json({ success: true, data: parsedResult });
+      } catch (error: any) {
+          console.error("AI Error:", error);
+          res.status(500).json({ error: error.message });
+      }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
