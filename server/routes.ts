@@ -353,7 +353,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal menyimpan ID OneSignal" }); }
   });
 
-  // 🚀 PERBAIKAN: Menggunakan app.all agar bisa menerima metode GET dari Vercel Cron
   app.all("/api/cron/notifications", async (req, res) => {
       try {
           const restKey = process.env.ONESIGNAL_REST_KEY;
@@ -802,7 +801,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!debt) return res.status(404).json({ error: "Tagihan ini sudah tidak ada di database." });
           if (debt.isPaid) return res.status(400).json({ error: "Tagihan ini sudah berstatus lunas sebelumnya." });
 
-          // 🚀 PERBAIKAN: Deteksi tag [PIUTANG_PENDAPATAN] dari deskripsi aslinya
           const isIncomePiutang = debt.description?.includes('[PIUTANG_PENDAPATAN]');
           const cairPostfix = isIncomePiutang ? " [Pemasukan Cair]" : "";
 
@@ -821,7 +819,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (curr === 'IDR') {
                   if (debt.type === 'piutang') { 
                       newBalance += payAmountIDR; 
-                      // 🚀 Menempelkan tag ke dalam riwayat pelunasan agar terbaca oleh Amal.tsx
                       const finalDesc = isIncomePiutang 
                           ? `[PIUTANG_PENDAPATAN] Lunas/Cicilan dari ${debt.name.split('|')[0]}${cairPostfix}`
                           : `Lunas/Cicilan dari ${debt.name.split('|')[0]}`;
@@ -1219,27 +1216,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses gambar." }); }
   });
 
-  // 🚀 ENDPOINT BARU: AI STRATEGI PENGHASILAN DARI DATA NYATA
+  // 🚀 ENDPOINT BARU: AI STRATEGI PENGHASILAN DENGAN OTAK "BILA"
   app.post("/api/ai/strategy", async (req, res) => {
       try {
-          const { transactions } = req.body;
-          
-          if (!transactions) {
-              return res.status(400).json({ success: false, error: "Data transaksi kosong" });
-          }
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ success: false, error: "Unauthorized" });
 
-          // FIX: Pembersihan API Key dari karakter kutip/spasi yang tertinggal di environment Vercel
+          // Kumpulkan SELURUH profil finansial pengguna dari Database untuk diberikan ke AI
+          const [txList, target, investments, debts, forexAssets, subscriptions] = await Promise.all([
+              storage.getTransactions(user.id),
+              storage.getTarget(user.id),
+              storage.getInvestments(user.id),
+              storage.getDebts(user.id),
+              storage.getForexAssets(user.id),
+              storage.getSubscriptions(user.id)
+          ]);
+
+          const tx30d = txList.filter(t => new Date(t.date) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+          const expense30d = tx30d.filter(t => t.type === 'expense').reduce((a, b) => a + b.amount, 0);
+          const income30d = tx30d.filter(t => t.type === 'income').reduce((a, b) => a + b.amount, 0);
+
+          const expCategories = tx30d.filter(t => t.type === 'expense').reduce((acc, t) => {
+              acc[t.category] = (acc[t.category] || 0) + t.amount; return acc;
+          }, {} as Record<string, number>);
+          const topExpCategories = Object.entries(expCategories).sort((a,b) => b[1]-a[1]).slice(0,3).map(x => ({category: x[0], total: x[1]}));
+
+          const financialData = {
+              profile: { cashBalance: user.cashBalance, monthlyBudget: target?.monthlyBudget || 0 },
+              incomeAnalysis: { totalIncome30d: income30d },
+              expenseAnalysis: { totalExpense30d: expense30d, topCategories: topExpCategories, dailyAvgSpend: Math.round(expense30d / 30) },
+              assets: { investmentTotal: investments.length, forexTotal: forexAssets.length, debts: debts.length, activeSubscriptions: subscriptions.length },
+              rawTransactionSample: tx30d.slice(-20).map(t => ({type: t.type, amount: t.amount, category: t.category, description: t.description}))
+          };
+
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
           if (!apiKey) throw new Error("API Key Gemini belum diatur di Vercel/Server");
 
-          // Prompt khusus yang membaca langsung transaksi nyata user
-          const systemPrompt = `Kamu adalah Penasihat Keuangan AI profesional. Analisa data transaksi nyata pengguna berikut ini:\n\n${transactions}\n\nTugasmu:\n1. Pahami pola pengeluaran dan pemasukan pengguna dari data di atas secara mendalam.\n2. Berikan 2 ide atau peluang strategi penghasilan tambahan atau penghematan yang SANGAT SPESIFIK, LOGIS, dan BISA DILAKUKAN berdasarkan gaya hidup dan pola pengeluaran mereka tersebut.\n3. Output WAJIB JSON Array murni tanpa blok markdown, dengan format persis seperti ini: [{"title": "STRATEGI 1: [Judul Singkat]", "description": "Penjelasan detail dan realistis..."}]`;
+          const systemPrompt = `Kamu adalah BILA — Bilano Intelligence for Life & Assets.
+Kamu BUKAN asisten keuangan generik. Kamu adalah ahli strategi berbasis data yang brutal, tajam, dan berpikir seperti gabungan dari:
+- CFO berpengalaman yang melihat pola angka
+- Pendiri startup yang membangun bisnis dari nol
+- Ekonom perilaku yang paham MENGAPA orang membuat keputusan finansial
+- Mentor yang memberikan kebenaran pahit dengan kepedulian tulus.
+
+TUGASMU:
+Analisa data finansial (JSON) pengguna di bawah ini. Hasilkan 2 strategi penghasilan tambahan / optimalisasi aset yang SANGAT SPESIFIK dan BISA DIEKSEKUSI berdasarkan angka riil mereka.
+Aturan:
+1. JANGAN PERNAH berikan saran generik seperti "coba jualan online" atau "investasi saham".
+2. Hubungkan kebiasaan pengeluaran terbesar mereka dengan peluang bisnis.
+3. Sebutkan angka rupiah asli dari data mereka dalam saranmu.
+4. Berikan kebenaran pahit terlebih dahulu sebelum solusi.
+
+DATA PENGGUNA:
+${JSON.stringify(financialData, null, 2)}
+
+OUTPUT WAJIB JSON ARRAY MURNI dengan struktur persis seperti ini (TIDAK BOLEH ADA MARKDOWN \`\`\`json ATAU \`\`\`):
+[
+  {
+    "title": "📊 Pembacaan Profil Finansialmu",
+    "description": "[2-3 kalimat observasi tajam dari data. Sebutkan setidaknya 2 angka spesifik]"
+  },
+  {
+    "title": "⚠️ Yang Data Ini Benar-Benar Katakan",
+    "description": "[1 kebenaran pahit yang mungkin dihindari user. Langsung pada intinya]"
+  },
+  {
+    "title": "🎯 STRATEGI 1: [Nama Spesifik]",
+    "description": "INSIGHT:\\n[pola spesifik dari data]\\n\\nPELUANG:\\n[peluang]\\n\\nCARA KERJANYA:\\n1. [step 1]\\n2. [step 2]\\n\\nMODAL DIBUTUHKAN:\\nRp [nominal dari saldo mereka]\\n\\nPROYEKSI REALISTIS:\\n[proyeksi keuntungan]"
+  },
+  {
+    "title": "🎯 STRATEGI 2: [Nama Spesifik]",
+    "description": "[Format sama seperti strategi 1]"
+  },
+  {
+    "title": "⚡ Langkah Pertama Besok",
+    "description": "[Satu tindakan spesifik yang bisa dilakukan dalam 2 jam]"
+  }
+]
+PASTIKAN OUTPUT HANYA JSON ARRAY MURNI.`;
 
           const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
               method: "POST", 
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                  contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
+                  contents: [{ role: "user", parts: [{ text: "Lakukan analisa sekarang." }] }],
+                  system_instruction: { parts: [{ text: systemPrompt }] },
                   generationConfig: { temperature: 0.7, response_mime_type: "application/json" }
               })
           });

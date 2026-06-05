@@ -77,7 +77,7 @@ export default function Home() {
   const [loadingTipIndex, setLoadingTipIndex] = useState(() => Math.floor(Math.random() * FINANCIAL_TIPS.length));
   const [showRetryButton, setShowRetryButton] = useState(false);
 
-  // 🚀 STATE UNTUK HASIL AI STRATEGI 
+  // 🚀 STATE UNTUK HASIL AI STRATEGI
   const [aiResultModal, setAiResultModal] = useState(false);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [aiStrategies, setAiStrategies] = useState<{title: string, description: string}[] | null>(null);
@@ -297,7 +297,7 @@ export default function Home() {
       } catch (error) { console.error(error); }
   };
 
-  // 🚀 FUNGSI BARU UNTUK MENGAMBIL DATA AI 
+  // 🚀 FUNGSI BARU UNTUK MENGAMBIL DATA AI (DENGAN OTAK BILA)
   const fetchAiStrategy = async () => {
       setAiResultModal(true); 
       if (aiStrategies) return; 
@@ -307,18 +307,16 @@ export default function Home() {
           const txData = transactions || [];
           if (txData.length < 5) {
               setAiStrategies([
-                  { title: "BUTUH LEBIH BANYAK DATA", description: "Sistem membutuhkan minimal 5 transaksi nyata untuk bisa menemukan pola keuanganmu. Yuk catat lebih banyak pengeluaran dan pemasukan!" }
+                  { title: "BUTUH LEBIH BANYAK DATA", description: "BILA AI membutuhkan minimal 5 transaksi nyata untuk bisa menemukan pola keuanganmu. Yuk catat lebih banyak pengeluaran dan pemasukan!" }
               ]);
               setIsGeneratingAi(false);
               return;
           }
 
-          const txSummary = txData.slice(-50).map(t => `${new Date(t.date).toISOString().split('T')[0]} | ${t.type} | Rp ${t.amount} | ${t.category} | ${t.description || ''}`).join('\n');
-
+          // Trigger backend tanpa melempar transaksi (backend akan merakit ulang JSON kompleks)
           const res = await fetch("/api/ai/strategy", {
               method: "POST", 
-              headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
-              body: JSON.stringify({ transactions: txSummary })
+              headers: { "Content-Type": "application/json", "x-user-email": rawEmail }
           });
           
           let responseData;
@@ -337,7 +335,7 @@ export default function Home() {
           setAiStrategies([
               {
                   title: "KONEKSI AI GAGAL",
-                  description: `Pesan Error: ${e.message}`
+                  description: `Pesan Error: ${e.message}\n\nPastikan API Key sudah benar dan server tidak mengalami Timeout.`
               }
           ]);
       } finally {
@@ -498,20 +496,20 @@ export default function Home() {
   return (
     <MobileLayout>
 
-      {/* 🚀 MODAL HASIL AI STRATEGI DENGAN DATA DINAMIS & FALLBACK AMAN */}
+      {/* 🚀 MODAL HASIL AI STRATEGI DENGAN DATA DINAMIS & OTAK BILA */}
       {aiResultModal && (
           <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
-              <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative border-t-8 border-indigo-500 max-h-[85vh] overflow-y-auto custom-scrollbar">
+              <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative border-t-8 border-indigo-600 max-h-[85vh] overflow-y-auto custom-scrollbar">
                   <button onClick={() => setAiResultModal(false)} className="absolute top-4 right-4 p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition-colors"><X className="w-4 h-4"/></button>
                   
                   <div className="w-16 h-16 mx-auto bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4 shadow-inner">
                       {isGeneratingAi ? <Loader2 className="w-8 h-8 animate-spin" /> : <Bot className="w-8 h-8" />}
                   </div>
                   
-                  <h3 className="text-xl font-black text-slate-800 mb-1 text-center">Strategi Khusus Untukmu</h3>
-                  <p className="text-[11px] text-slate-500 mb-5 text-center font-medium">Berdasarkan analisa komprehensif sistem AI kami</p>
+                  <h3 className="text-xl font-black text-slate-800 mb-1 text-center">BILA Intelligence</h3>
+                  <p className="text-[11px] text-slate-500 mb-5 text-center font-medium">Analisa mendalam dari seluruh rekam jejak finansialmu</p>
                   
-                  <div className="space-y-3 mb-6">
+                  <div className="space-y-4 mb-6">
                       {isGeneratingAi ? (
                           <div className="space-y-4 animate-pulse">
                               <div className="h-28 bg-slate-100 rounded-[20px]"></div>
@@ -519,16 +517,26 @@ export default function Home() {
                           </div>
                       ) : aiStrategies ? (
                           aiStrategies.map((strat, idx) => (
-                              <div key={idx} className={`p-4 rounded-[20px] border relative ${idx % 2 === 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-blue-50 border-blue-100'}`}>
-                                  <div className={`absolute -top-2.5 left-4 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest shadow-sm ${idx % 2 === 0 ? 'bg-emerald-500' : 'bg-blue-500'}`}>
-                                      {strat.title.includes(':') ? strat.title.split(':')[0] : `STRATEGI ${idx + 1}`}
-                                  </div>
-                                  <h4 className={`text-[12px] font-extrabold mb-1 mt-1 ${idx % 2 === 0 ? 'text-emerald-900' : 'text-blue-900'}`}>
-                                      {strat.title.includes(':') ? strat.title.split(':')[1] : strat.title}
+                              <div key={idx} className={`p-5 rounded-[24px] border relative shadow-sm ${
+                                  idx === 0 ? 'bg-slate-50 border-slate-200' : 
+                                  idx === 1 ? 'bg-rose-50 border-rose-100' :
+                                  idx % 2 === 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-blue-50 border-blue-100'
+                              }`}>
+                                  <h4 className={`text-[13px] font-black mb-3 pb-2 border-b ${
+                                      idx === 0 ? 'text-slate-800 border-slate-200' : 
+                                      idx === 1 ? 'text-rose-800 border-rose-200' :
+                                      idx % 2 === 0 ? 'text-emerald-900 border-emerald-200' : 'text-blue-900 border-blue-200'
+                                  }`}>
+                                      {strat.title}
                                   </h4>
-                                  <p className={`text-[11px] leading-relaxed font-medium ${idx % 2 === 0 ? 'text-emerald-800' : 'text-blue-800'}`}>
-                                      {strat.description}
-                                  </p>
+                                  {/* 🚀 PERBAIKAN: whitespace-pre-line membuat enter/line-break AI terbaca cantik */}
+                                  <div className={`text-[11.5px] leading-relaxed font-medium whitespace-pre-line ${
+                                      idx === 0 ? 'text-slate-600' : 
+                                      idx === 1 ? 'text-rose-700' :
+                                      idx % 2 === 0 ? 'text-emerald-800' : 'text-blue-800'
+                                  }`}>
+                                      {strat.description.replace(/\*\*/g, '')} {/* Membersihkan markdown bold agar rapi di UI */}
+                                  </div>
                               </div>
                           ))
                       ) : null}
@@ -537,7 +545,7 @@ export default function Home() {
                   {!isGeneratingAi && (
                       <Link href="/chat-ai">
                           <Button onClick={() => setAiResultModal(false)} className="w-full h-14 rounded-[16px] bg-slate-900 hover:bg-slate-800 text-white font-extrabold shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2">
-                              <Bot className="w-4 h-4"/> DISKUSI LEBIH LANJUT
+                              <Bot className="w-4 h-4"/> TANYA BILA LEBIH LANJUT
                           </Button>
                       </Link>
                   )}
