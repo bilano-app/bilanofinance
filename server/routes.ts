@@ -35,7 +35,6 @@ const ensureOtpTable = async () => {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
         await db.execute(sql`SELECT code FROM otp_sessions LIMIT 1`);
     } catch (e) {
-        console.log("Mendeteksi tabel OTP yang cacat. Menghancurkan dan membuat ulang...");
         await db.execute(sql`DROP TABLE IF EXISTS otp_sessions`);
         await db.execute(sql`CREATE TABLE otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
     }
@@ -46,7 +45,6 @@ const ensureRetainedTable = async () => {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS retained_balances (id SERIAL PRIMARY KEY, user_id INTEGER, source VARCHAR(255), amount DOUBLE PRECISION, currency VARCHAR(10), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW());`);
         await db.execute(sql`SELECT source FROM retained_balances LIMIT 1`);
     } catch (e) {
-        console.log("Mendeteksi tabel retained yang cacat. Menghancurkan dan membuat ulang...");
         await db.execute(sql`DROP TABLE IF EXISTS retained_balances`);
         await db.execute(sql`CREATE TABLE retained_balances (id SERIAL PRIMARY KEY, user_id INTEGER, source VARCHAR(255), amount DOUBLE PRECISION, currency VARCHAR(10), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW());`);
     }
@@ -130,180 +128,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  app.post("/api/auth/send-otp", async (req, res) => {
-      const cleanEmail = (req.body.email || "").trim().toLowerCase();
-      let otp = Math.floor(100000 + Math.random() * 900000).toString(); 
-
-      try {
-          await ensureOtpTable(); 
-
-          try {
-              const existing = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE LOWER(TRIM(email)) = ${cleanEmail}`);
-              const rows = Array.isArray(existing) ? existing : (existing as any).rows || [];
-              if (rows.length > 0) {
-                  const createdAt = new Date(rows[0].created_at).getTime();
-                  if (Date.now() - createdAt < 300000) otp = rows[0].code;
-              }
-
-              await db.execute(sql`DELETE FROM otp_sessions WHERE LOWER(TRIM(email)) = ${cleanEmail}`);
-              await db.execute(sql`INSERT INTO otp_sessions (email, code, created_at) VALUES (${cleanEmail}, ${otp}, NOW())`);
-          } catch (dbError: any) {
-              return res.status(500).json({ error: `Gagal menyimpan ke Database: ${dbError.message}` });
-          }
-
-          if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return res.status(500).json({ error: "Kredensial EMAIL_USER / EMAIL_PASS belum diisi di Vercel Settings!" });
-
-          const transporter = createTransporter();
-          const htmlContent = `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #4f46e5;">Selamat Datang di BILANO!</h2><p style="color: #4b5563;">Gunakan kode OTP berikut untuk memverifikasi email Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`;
-          
-          await transporter.sendMail({ from: `"BILANO Official" <${process.env.EMAIL_USER}>`, to: cleanEmail, subject: "Kode Verifikasi BILANO", html: htmlContent });
-          res.json({ success: true, message: "OTP Terkirim ke Email Anda!" }); 
-
-      } catch (error: any) {
-          const errMsg = error.message || "";
-          if (errMsg.includes("Invalid login") || errMsg.includes("535")) res.status(500).json({ error: "Sistem Email Error (535): App Password Gmail salah atau ditolak oleh Google." });
-          else res.status(500).json({ error: `Gagal Kirim Email: ${errMsg.substring(0, 100)}` });
-      }
-  });
-
-  app.post("/api/auth/send-otp-reset", async (req, res) => {
-      if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
-      const cleanEmail = (req.body.email || "").trim().toLowerCase();
-      try { await admin.auth().getUserByEmail(cleanEmail); } catch (e) { return res.status(404).json({ error: "Email ini belum terdaftar di aplikasi kami." }); }
-
-      let otp = Math.floor(100000 + Math.random() * 900000).toString(); 
-      try {
-          await ensureOtpTable();
-
-          try {
-              const existing = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE LOWER(TRIM(email)) = ${cleanEmail}`);
-              const rows = Array.isArray(existing) ? existing : (existing as any).rows || [];
-              if (rows.length > 0) {
-                  const createdAt = new Date(rows[0].created_at).getTime();
-                  if (Date.now() - createdAt < 300000) otp = rows[0].code;
-              }
-
-              await db.execute(sql`DELETE FROM otp_sessions WHERE LOWER(TRIM(email)) = ${cleanEmail}`);
-              await db.execute(sql`INSERT INTO otp_sessions (email, code, created_at) VALUES (${cleanEmail}, ${otp}, NOW())`);
-          } catch (dbError: any) {
-              return res.status(500).json({ error: `Gagal menyimpan ke Database: ${dbError.message}` });
-          }
-
-          if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return res.status(500).json({ error: "Kredensial EMAIL_USER / EMAIL_PASS belum diatur di Vercel." });
-
-          const transporter = createTransporter();
-          const htmlContent = `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #e11d48;">Reset Password Anda</h2><p style="color: #4b5563;">Gunakan kode OTP rahasia berikut untuk membuat password baru Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`;
-          
-          await transporter.sendMail({ from: `"BILANO Security" <${process.env.EMAIL_USER}>`, to: cleanEmail, subject: "Reset Password BILANO", html: htmlContent });
-          res.json({ success: true, message: "OTP Reset Terkirim" }); 
-
-      } catch (error: any) {
-          const errMsg = error.message || "";
-          if (errMsg.includes("Invalid login") || errMsg.includes("535")) res.status(500).json({ error: "Sistem Email Error (535): App Password Gmail salah atau ditolak oleh Google." });
-          else res.status(500).json({ error: `Gagal Kirim Email: ${errMsg.substring(0, 100)}` });
-      }
-  });
-
-  app.post("/api/transactions/undo", async (req, res) => {
-      try {
-          const user = await getUser(req);
-          const lastTx = await storage.getLatestTransaction(user!.id);
-          if (!lastTx) return res.status(404).json({ error: "Tidak ada transaksi untuk dibatalkan." });
-
-          let newBalance = Math.round(user!.cashBalance);
-          const amt = Math.round(lastTx.amount);
-
-          const isValas = lastTx.category?.includes('Valas');
-
-          if (!isValas) {
-              if (lastTx.type === 'income') newBalance -= amt;
-              else if (lastTx.type === 'expense') newBalance += amt;
-              else if (lastTx.type === 'debt_borrow' || lastTx.type === 'piutang_record') newBalance -= amt;
-              else if (lastTx.type === 'debt_lend' || lastTx.type === 'hutang_record') newBalance += amt;
-              else if (lastTx.type === 'debt_receive') newBalance -= amt;
-              else if (lastTx.type === 'debt_pay') newBalance += amt;
-          }
-
-          if (lastTx.type === 'invest_buy') newBalance += amt;
-          else if (lastTx.type === 'invest_sell') newBalance -= amt;
-          else if (lastTx.type === 'forex_buy') newBalance += amt;
-          else if (lastTx.type === 'forex_sell') newBalance -= amt;
-
-          if (lastTx.type === 'forex_buy' || lastTx.type === 'forex_sell') {
-              const desc = lastTx.description || "";
-              const match = desc.match(/(Beli|Jual)\s+([0-9.]+)\s+([A-Z]{3})/i);
-              if (match) {
-                  const qty = parseFloat(match[2]);
-                  const curr = match[3].toUpperCase();
-                  const existing = await storage.getForexByCurrency(user!.id, curr);
-                  if (existing) {
-                      const reverseQty = (lastTx.type === 'forex_buy') ? (existing.amount - qty) : (existing.amount + qty);
-                      await storage.updateForexAsset(existing.id, Math.max(0, reverseQty));
-                  }
-              }
-          }
-
-          if (lastTx.type === 'invest_buy') {
-              const desc = lastTx.description || "";
-              const match = desc.match(/([0-9.]+)\s+lot\/unit\s+([A-Z0-9]+)/i);
-              if (match) {
-                  const qty = parseFloat(match[1]);
-                  const symbol = match[2].toUpperCase();
-                  const inv = await storage.getInvestmentBySymbol(user!.id, symbol);
-                  if (inv) {
-                      const newQty = inv.quantity - qty;
-                      if (newQty <= 0) await storage.deleteInvestment(inv.id);
-                      else await storage.updateInvestment(inv.id, newQty, inv.avgPrice);
-                  }
-              }
-          }
-
-          await storage.updateUserBalance(user!.id, newBalance);
-          await storage.deleteTransaction(lastTx.id);
-
-          res.json({ success: true, message: `Berhasil membatalkan: ${lastTx.category}` });
-      } catch (e: any) { res.status(500).json({ error: e.message }); }
-  });
-
-  app.post("/api/auth/reset-password", async (req, res) => {
-      if (!firebaseAdminInitialized) return res.status(500).json({ error: "Kunci Admin JSON di Vercel belum dikonfigurasi!" });
-      
-      const { email, code, newPassword } = req.body;
-      if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: "Password baru minimal 6 karakter!" });
-
-      try {
-          const cleanEmail = email.trim().toLowerCase();
-          const result = await db.execute(sql`SELECT code FROM otp_sessions WHERE LOWER(TRIM(email)) = ${cleanEmail}`);
-          const rows = Array.isArray(result) ? result : (result as any).rows || [];
-          
-          if (rows.length === 0 || rows[0].code.trim() !== code.trim()) {
-              return res.status(400).json({ error: "Kode OTP Salah atau Kadaluarsa!" });
-          }
-
-          const userRecord = await admin.auth().getUserByEmail(cleanEmail);
-          await admin.auth().updateUser(userRecord.uid, { password: newPassword });
-          
-          await db.execute(sql`DELETE FROM otp_sessions WHERE LOWER(TRIM(email)) = ${cleanEmail}`); 
-          res.status(200).json({ success: true, message: "Password berhasil diubah" });
-      } catch (error: any) { res.status(500).json({ error: "Gagal mengganti password: " + error.message }); }
-  });
-
-  app.post("/api/auth/verify-otp", async (req, res) => {
-      const { email, code } = req.body;
-      try {
-          const cleanEmail = email.trim().toLowerCase();
-          const result = await db.execute(sql`SELECT code FROM otp_sessions WHERE LOWER(TRIM(email)) = ${cleanEmail}`);
-          const rows = Array.isArray(result) ? result : (result as any).rows || [];
-          
-          if (rows.length > 0 && rows[0].code.trim() === code.trim()) {
-              await db.execute(sql`DELETE FROM otp_sessions WHERE LOWER(TRIM(email)) = ${cleanEmail}`);
-              res.json({ success: true });
-          } else {
-              res.status(400).json({ error: "Kode OTP Salah atau Kadaluarsa" });
-          }
-      } catch (e) { res.status(500).json({ error: "Error mengecek OTP di database." }); }
-  });
-
   app.get("/api/ping", async (req, res) => {
       try {
           await db.execute(sql`SELECT 1`);
@@ -311,6 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) { res.status(200).json({ status: "awake but db delayed", message: "It's fine" }); }
   });
 
+  // 🚀 FIX: FUNGSI GET USER DENGAN PERLINDUNGAN RACE CONDITION (MENCEGAH CRASH SAAT SIGNUP)
   const getUser = async (req: any) => {
     const email = req.headers["x-user-email"];
     
@@ -322,19 +147,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     let user = await storage.getUserByUsername(email as string);
     if (!user) {
-        try { user = await storage.createUser({ username: email as string, password: "123", email: email as string }); } 
-        catch (err) { user = await storage.getUserByUsername(email as string); }
+        try { 
+            // 🛡️ ON CONFLICT DO NOTHING mencegah server Vercel crash bila ditembak 5 request bersamaan!
+            await db.execute(sql`INSERT INTO users (username, email, password, cash_balance, is_pro, created_at) VALUES (${email as string}, ${email as string}, '123', 0, false, NOW()) ON CONFLICT (username) DO NOTHING`);
+            user = await storage.getUserByUsername(email as string);
+        } catch (err) { 
+            user = await storage.getUserByUsername(email as string); 
+        }
     }
 
-    const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"];
+    if (!user) return null;
 
-    if (user && vipEmails.includes(user.email || "")) {
+    const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"];
+    if (vipEmails.includes(user.email || "")) {
         user.isPro = true;
         user.proValidUntil = new Date("2099-12-31").toISOString() as any; 
         return user; 
     }
 
-    if (user && user.isPro && user.proValidUntil) {
+    if (user.isPro && user.proValidUntil) {
         const now = new Date();
         const validUntil = new Date(user.proValidUntil);
         if (now > validUntil) user = await storage.updateUserProStatus(user.id, false, null);
@@ -351,44 +182,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (user && onesignalId) await storage.updateUserOneSignalId(user.id, onesignalId);
           res.json({ success: true });
       } catch (e) { res.status(500).json({ error: "Gagal menyimpan ID OneSignal" }); }
-  });
-
-  app.all("/api/cron/notifications", async (req, res) => {
-      try {
-          const restKey = process.env.ONESIGNAL_REST_KEY;
-          const appId = process.env.ONESIGNAL_APP_ID; 
-
-          if (!restKey || !appId) return res.status(400).json({ error: "ONESIGNAL_REST_KEY atau ONESIGNAL_APP_ID tidak ditemukan di environment Vercel." });
-
-          const NOTIF_MESSAGES = [
-              "Waktunya ngecek dompet! Ada jajan yang belum dicatat? 🤔",
-              "BILANO kangen nih. Yuk update catatan keuanganmu! 🚀",
-              "Hari ini udah nabung atau malah boncos? Yuk catat dulu! 📊"
-          ];
-          const randomMsg = NOTIF_MESSAGES[Math.floor(Math.random() * NOTIF_MESSAGES.length)];
-
-          const payload = {
-              app_id: appId,
-              included_segments: ["Subscribed Users"], 
-              headings: { en: "BILANO Finance", id: "BILANO Finance" },
-              contents: { en: randomMsg, id: randomMsg },
-              url: "https://bilanofinance-dvbi.vercel.app/dashboard",
-              chrome_web_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png",
-              chrome_web_badge: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png",
-              firefox_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png"
-          };
-
-          const response = await fetch("https://onesignal.com/api/v1/notifications", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "Authorization": `Basic ${restKey}` },
-              body: JSON.stringify(payload)
-          });
-
-          const data = await response.json();
-          res.json({ success: true, onesignal_response: data });
-      } catch (error: any) {
-          res.status(500).json({ error: "Gagal memproses Cron Job OneSignal: " + error.message });
-      }
   });
 
   app.post("/api/chat/ask", async (req, res) => {
@@ -434,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
          - Menghapus/Ikhlas Piutang (Write-off) TIDAK mengurangi Kas likuid, hanya mengurangi Kekayaan Bersih (Net Worth).
          - Amal/Sedekah dianggap pengeluaran positif, tidak digabungkan dengan limit budget konsumtif.
       4. PEMISAHAN WAKTU: Perhatikan pertanyaan pengguna! Jika bertanya "bulan ini", gunakan data [BULAN INI]. Jika bertanya secara utuh, gunakan data [KESELURUHAN].
-      5. INTEGRASI STRATEGI: Jika pengguna merujuk pada "strategi tadi", "hasil analisa", atau "peluang bisnis", asumsikan mereka baru saja membaca Pop-up Strategi AI di Dashboard. Lanjutkan diskusi dengan tajam untuk membedah strategi tersebut. JANGAN BERASUMSI jika kamu tidak tau jenis usaha/sumber pendapatan mereka, tanyakan langsung faktanya dengan jujur.
+      5. INTEGRASI STRATEGI: Jika pengguna merujuk pada "strategi tadi", "hasil analisa", "peluang bisnis", atau ide bisnis yang baru saja diberikan, asumsikan mereka baru saja membaca Pop-up Strategi AI di Dashboard. Lanjutkan diskusi dengan tajam untuk membedah strategi tersebut. JANGAN BERASUMSI liar jika kamu tidak tau jenis usaha/sumber pendapatan mereka yang spesifik, tanyakan langsung faktanya dengan jujur.
       
       --- DATA KEUANGAN PENGGUNA ---
       [DATA KESELURUHAN (HARTA & KEWAJIBAN TOTAL)]
@@ -1281,10 +1074,10 @@ Analisa data finansial (JSON) pengguna di bawah ini. Hasilkan 2 strategi penghas
 
 PERATURAN MUTLAK (JIKA DILANGGAR KAMU GAGAL):
 1. BACA ANGKA DENGAN BENAR & TELITI: Perhatikan format "Rp X.XXX.XXX". 2.000.000 adalah 2 Juta, bukan 200 Ribu. Sebutkan angka dengan benar dalam saranmu!
-2. ANTI ASUMSI LIAR: JANGAN PERNAH menebak-nebak sumber uang atau pekerjaan user jika tidak tertulis eksplisit. Dilarang menggunakan kata "kemungkinan besar adalah...", "sepertinya...", "mungkin...". Jika kamu tidak tahu profesi aslinya, sebutkan secara logis "Sumber dana dari kategori [Nama Kategori] ini berpotensi...", dan tutup dengan kalimat: "Mari kita diskusikan lebih detail tentang sumber dana ini di Chat AI."
-3. LARANGAN KORELASI DANGKAL: JANGAN menyarankan pengguna berjualan barang yang sering mereka konsumsi! (Contoh BURUK: Sering beli Es Teler disuruh jualan Es Teler, sering beli Kopi disuruh buka warkop). Cari peluang dari Pemasukan, Aset Menganggur, atau Skill, bukan dari jajanan/konsumsi pribadi!
-4. PERHATIKAN FLUKTUASI PENDAPATAN: Jika pemasukan naik-turun (irregular income/freelancer), fokus pada "Income Smoothing" atau mencari klien retainer, BUKAN menyuruh mereka cari kerja sampingan receh.
-5. Berikan kebenaran pahit terlebih dahulu sebelum solusi.
+2. ANTI ASUMSI LIAR: JANGAN PERNAH menebak-nebak sumber uang atau pekerjaan user jika tidak tertulis eksplisit. Dilarang menggunakan kata "kemungkinan besar adalah...", "sepertinya...", "mungkin...". Jika kamu tidak tahu profesi aslinya, sebutkan secara logis "Berdasarkan arus kas dari kategori [Nama Kategori]...", dan wajib diakhiri dengan: "Mari kita diskusikan lebih detail tentang konteks sebenarnya di Chat AI."
+3. LARANGAN KORELASI DANGKAL: JANGAN menyarankan pengguna berjualan barang yang sering mereka konsumsi! (Contoh BURUK: Sering beli Es Teler disuruh jualan Es Teler). Cari peluang dari Pemasukan, Aset Menganggur, atau Skill, bukan dari jajanan/konsumsi pribadi!
+4. PERHATIKAN FLUKTUASI PENDAPATAN: Jika pemasukan naik-turun, fokus pada "Income Smoothing" atau menstabilkan arus kas.
+5. BERIKAN KEBENARAN PAHIT terlebih dahulu sebelum solusi.
 
 DATA PENGGUNA:
 ${JSON.stringify(financialData, null, 2)}
@@ -1297,11 +1090,11 @@ OUTPUT WAJIB JSON ARRAY MURNI dengan struktur persis seperti ini (TIDAK BOLEH AD
   },
   {
     "title": "⚠️ Yang Data Ini Benar-Benar Katakan",
-    "description": "[1 kebenaran pahit yang mungkin dihindari user terkait fluktuasi atau aset menganggur. Langsung pada intinya]"
+    "description": "[1 kebenaran pahit yang mungkin dihindari user. Langsung pada intinya]"
   },
   {
     "title": "🎯 STRATEGI 1: [Nama Spesifik & Logis]",
-    "description": "INSIGHT:\\n[pola spesifik dari data]\\n\\nPELUANG:\\n[peluang logis tanpa asumsi dangkal]\\n\\nCARA KERJANYA:\\n1. [step 1]\\n2. [step 2]\\n\\nMODAL DIBUTUHKAN:\\nRp [nominal rasional dari saldo mereka]\\n\\nPROYEKSI REALISTIS:\\n[proyeksi keuntungan]\\n\\n💡 DISKUSI: Punya rincian lebih detail soal ini? Mari bahas tuntas di Chat AI."
+    "description": "INSIGHT:\\n[pola spesifik dari data]\\n\\nPELUANG:\\n[peluang logis tanpa asumsi dangkal]\\n\\nCARA KERJANYA:\\n1. [step 1]\\n2. [step 2]\\n\\nMODAL DIBUTUHKAN:\\nRp [nominal rasional dari saldo mereka]\\n\\nPROYEKSI REALISTIS:\\n[proyeksi keuntungan]\\n\\n💡 DISKUSI: Ingin membedah strategi ini lebih dalam? Mari kita diskusikan detailnya di menu Chat AI!"
   },
   {
     "title": "🎯 STRATEGI 2: [Nama Spesifik & Logis]",
