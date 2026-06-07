@@ -50,7 +50,8 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileZoomed, setIsProfileZoomed] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false); 
-  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
+  const [isTrialExpiredState, setIsTrialExpiredState] = useState(false); // Untuk UI
+  const [milestoneTxProgress, setMilestoneTxProgress] = useState(0); // Untuk Progress Banner
 
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -77,7 +78,6 @@ export default function Home() {
   const [loadingTipIndex, setLoadingTipIndex] = useState(() => Math.floor(Math.random() * FINANCIAL_TIPS.length));
   const [showRetryButton, setShowRetryButton] = useState(false);
 
-  // 🚀 STATE UNTUK HASIL AI STRATEGI
   const [aiResultModal, setAiResultModal] = useState(false);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [aiStrategies, setAiStrategies] = useState<{title: string, description: string}[] | null>(null);
@@ -90,6 +90,14 @@ export default function Home() {
   const isBalanceEstimated = localStorage.getItem(`bilano_is_balance_estimated_${rawEmail}`) === "true";
   const txCount = transactions?.length || 0;
   
+  // 🚀 UPDATE LOKAL CACHE TRANSAKSI UNTUK PERHITUNGAN TRIAL
+  useEffect(() => {
+      if (rawEmail && transactions !== undefined) {
+          localStorage.setItem(`bilano_tx_count_${rawEmail}`, txCount.toString());
+          setMilestoneTxProgress(Math.min(10, txCount));
+      }
+  }, [transactions, rawEmail, txCount]);
+
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
           localStorage.removeItem("bilano_auth");
@@ -236,16 +244,9 @@ export default function Home() {
 
   useEffect(() => {
       if (isUserPro || !user) return;
-      const setupCompletedAt = localStorage.getItem(`bilano_setup_completed_${rawEmail}`);
-      const trialStartTime = setupCompletedAt ? new Date(setupCompletedAt).getTime() : new Date(user.createdAt || Date.now()).getTime();
-      const daysPassed = (Date.now() - trialStartTime) / (1000 * 60 * 60 * 24);
-      const TRIAL_DURATION_DAYS = 14; 
-
-      if (daysPassed >= TRIAL_DURATION_DAYS) {
-          setTrialDaysLeft(0);
-      } else {
-          setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
-      }
+      // Sinkronisasi status expired UI dengan logika dari App.tsx
+      const expiredStatus = localStorage.getItem(`bilano_trial_expired_${rawEmail}`) === "true";
+      setIsTrialExpiredState(expiredStatus);
   }, [isUserPro, user, rawEmail]);
 
   const isTargetEmpty = !isTargetLoading && (!target || (typeof target === 'object' && Object.keys(target).length === 0));
@@ -297,7 +298,6 @@ export default function Home() {
       } catch (error) { console.error(error); }
   };
 
-  // 🚀 FUNGSI BARU UNTUK MENGAMBIL DATA AI (DENGAN OTAK BILA)
   const fetchAiStrategy = async () => {
       setAiResultModal(true); 
       if (aiStrategies) return; 
@@ -313,7 +313,6 @@ export default function Home() {
               return;
           }
 
-          // Trigger backend tanpa melempar transaksi (backend akan merakit ulang JSON kompleks)
           const res = await fetch("/api/ai/strategy", {
               method: "POST", 
               headers: { "Content-Type": "application/json", "x-user-email": rawEmail }
@@ -529,13 +528,12 @@ export default function Home() {
                                   }`}>
                                       {strat.title}
                                   </h4>
-                                  {/* 🚀 PERBAIKAN: whitespace-pre-line membuat enter/line-break AI terbaca cantik */}
                                   <div className={`text-[11.5px] leading-relaxed font-medium whitespace-pre-line ${
                                       idx === 0 ? 'text-slate-600' : 
                                       idx === 1 ? 'text-rose-700' :
                                       idx % 2 === 0 ? 'text-emerald-800' : 'text-blue-800'
                                   }`}>
-                                      {strat.description.replace(/\*\*/g, '')} {/* Membersihkan markdown bold agar rapi di UI */}
+                                      {strat.description.replace(/\*\*/g, '')} 
                                   </div>
                               </div>
                           ))
@@ -886,19 +884,22 @@ export default function Home() {
             </div>
         )}
 
-        {!isUserPro && trialDaysLeft !== null && isStandalone && (
-            <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${trialDaysLeft === 0 ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
+        {/* 🚀 BANNER TRIAL DI DASHBOARD (Sesuai Logika Milestone App.tsx) */}
+        {!isUserPro && isStandalone && (
+            <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${isTrialExpiredState ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
                 <div className="flex items-center gap-3">
                     <div className="bg-white/20 p-2 rounded-full">
-                        {trialDaysLeft === 0 ? <Lock className="w-5 h-5" /> : <Crown className="w-5 h-5" />}
+                        {isTrialExpiredState ? <Lock className="w-5 h-5" /> : <Crown className="w-5 h-5" />}
                     </div>
                     <div>
-                        <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">{trialDaysLeft === 0 ? "MASA COBA HABIS" : "Masa Coba Gratis"}</p>
-                        <p className="text-xs font-medium opacity-90">{trialDaysLeft === 0 ? "Fungsi aplikasi dikunci." : <span>Sisa waktu: <b>{trialDaysLeft} Hari</b></span>}</p>
+                        <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">{isTrialExpiredState ? "MASA COBA HABIS" : "Milestone Trial"}</p>
+                        <p className="text-xs font-medium opacity-90">
+                            {isTrialExpiredState ? "Fungsi aplikasi dikunci." : <span>Misi: <b>{milestoneTxProgress}/10 Transaksi</b></span>}
+                        </p>
                     </div>
                 </div>
                 <Link href="/paywall">
-                    <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-full text-[10px] font-extrabold backdrop-blur-sm transition-all active:scale-95 shadow-sm">{trialDaysLeft === 0 ? "BUKA KUNCI" : "UPGRADE PRO"}</button>
+                    <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-full text-[10px] font-extrabold backdrop-blur-sm transition-all active:scale-95 shadow-sm">{isTrialExpiredState ? "BUKA KUNCI" : "UPGRADE PRO"}</button>
                 </Link>
             </div>
         )}
@@ -962,7 +963,6 @@ export default function Home() {
            </Link>
         </div>
 
-        {/* 🚀 AI STRATEGI PENGHASILAN TERINTEGRASI API */}
         <div className="px-1 mt-3">
             <div className="bg-gradient-to-br from-white to-indigo-50/40 border border-indigo-100 rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
                 {!isUserPro && (
