@@ -711,4 +711,79 @@ export default function Reports() {
       );
   }
 
-  const
+  const archiveList = getArchiveMonths();
+
+  return (
+    <MobileLayout title="Pusat Laporan" showBack>
+      <div className="space-y-6 pt-4 pb-20 px-2 animate-in fade-in">
+        <div className="bg-gradient-to-br from-violet-600 to-indigo-600 p-8 rounded-[32px] text-white shadow-xl shadow-indigo-200 text-center relative overflow-hidden">
+            <div className="relative z-10">
+                <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 backdrop-blur-sm border border-white/20"><FileBarChart className="w-8 h-8 text-white"/></div>
+                <h2 className="text-2xl font-extrabold mb-2">Cetak Laporan Bulan Ini</h2>
+                <p className="text-indigo-100 text-xs mb-8 px-4 leading-relaxed font-medium">Download laporan PDF profesional lengkap dengan neraca, arus kas, hutang, dan riwayat investasi terkini.</p>
+                <Button onClick={() => generatePDF()} disabled={generatingId !== null} className="w-full bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold shadow-xl border-none h-14 rounded-full text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                    {generatingId === 'current' ? <Loader2 className="w-5 h-5 animate-spin"/> : <Download className="w-5 h-5"/>} {generatingId === 'current' ? "MEMPROSES PDF..." : "DOWNLOAD PDF SEKARANG"}
+                </Button>
+            </div>
+            <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
+        </div>
+
+        <div className="bg-white rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100">
+            <div className="flex items-center gap-2 mb-6"><Archive className="w-5 h-5 text-indigo-500"/><h3 className="font-extrabold text-slate-800 text-lg">Arsip & Laporan Tahunan</h3></div>
+            <div className="space-y-0">
+                {archiveList.map((arc, i) => (
+                    <div key={i} className={`flex flex-col sm:flex-row sm:items-center justify-between py-5 border-b border-slate-100 last:border-0 gap-4 ${arc.isYearly ? 'bg-indigo-50/50 -mx-6 px-6 border-indigo-100' : ''}`}>
+                        <div>
+                            <h4 className={`font-bold text-sm ${arc.isYearly ? 'text-indigo-700' : 'text-slate-800'}`}>Laporan Keuangan {arc.label}</h4>
+                            <p className="text-[11px] text-slate-400 mt-1 font-medium">PDF Document - {arc.year}</p>
+                        </div>
+                        <button onClick={() => generatePDF(arc.month, arc.year, arc.isYearly)} disabled={generatingId !== null} className={`flex items-center justify-center gap-2 font-bold text-xs px-5 py-2.5 rounded-full transition-colors ${generatingId === `archive_${arc.month}_${arc.year}_${arc.isYearly}` ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : (arc.isYearly ? 'bg-indigo-600 text-white shadow-md hover:bg-indigo-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white')}`}>
+                            {generatingId === `archive_${arc.month}_${arc.year}_${arc.isYearly}` ? <Loader2 className="w-4 h-4 animate-spin"/> : <Download className="w-4 h-4"/>} Download
+                        </button>
+                    </div>
+                ))}
+                {archiveList.length === 0 && (
+                    <div className="text-center py-8"><div className="bg-slate-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"><Archive className="w-5 h-5 text-slate-300"/></div><p className="text-sm text-slate-400 font-medium">Belum ada arsip laporan bulan lalu.</p></div>
+                )}
+            </div>
+        </div>
+
+        <div>
+            <h3 className="font-extrabold text-slate-800 mb-4 text-sm flex items-center gap-2 px-2"><FileText className="w-5 h-5 text-indigo-500"/> Apa saja yang ada di dalam PDF?</h3>
+            <div className="space-y-3">
+                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform"><Wallet className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan Terpadu</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap total Kas, Investasi, Valas, Saldo Tertahan dan Hutang/Piutang.</p></div>
+                </div>
+
+                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform"><HeartHandshake className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Riwayat Amal & Kebaikan</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Data sedekah yang terpisah dari budget pengeluaran rutin.</p></div>
+                </div>
+
+                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform"><FileText className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Bulan/Tahun Laporan)</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional pada periode terkait.</p></div>
+                </div>
+
+                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform"><Briefcase className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Riwayat Mutasi Investasi</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Data harga beli aset, total nominal, serta kalkulasi P/L.</p></div>
+                </div>
+
+                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform"><HandCoins className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Detail Hutang & Piutang</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Daftar pihak terkait, total nominal, dan jatuh temponya.</p></div>
+                </div>
+
+                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 rounded-full bg-cyan-50 flex items-center justify-center text-cyan-600 group-hover:scale-110 transition-transform"><Globe className="w-5 h-5"/></div>
+                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Estimasi Valas Live</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Tabel aset mata uang asing dikali kurs pertukaran hari ini.</p></div>
+                </div>
+            </div>
+        </div>
+      </div>
+    </MobileLayout>
+  );
+}
