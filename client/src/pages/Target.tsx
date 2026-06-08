@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface TargetData {
     id: number;
@@ -28,16 +28,6 @@ interface InvItem { id: number; type: string; symbol: string; quantity: string; 
 const INV_TYPES = ["Saham", "Crypto", "Reksadana", "Emas", "P2P", "Obligasi"];
 const FALLBACK_CURRENCIES = ["USD", "EUR", "SGD", "JPY", "AUD", "GBP", "CNY", "MYR", "SAR", "KRW", "THB"];
 
-// 🚀 MARKETING: Opsi Quick Win
-const QUICK_GOALS = [
-    { label: "Beli Rumah / KPR", icon: "🏡" },
-    { label: "Dana Darurat Aman", icon: "🛡️" },
-    { label: "Beli Kendaraan", icon: "🚗" },
-    { label: "Menikah / Keluarga", icon: "💍" },
-    { label: "Bebas Finansial", icon: "🏖️" },
-    { label: "Lainnya", icon: "✨" }
-];
-
 const BALANCE_RANGES = [
     { label: "< Rp 5 Juta", value: 2500000 },
     { label: "Rp 5 - 20 Juta", value: 12500000 },
@@ -56,23 +46,18 @@ const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID"
 export default function Target() {
     const [, setLocation] = useLocation(); 
     const { data: userData, isLoading: isUserLoading } = useUser();
+    const queryClient = useQueryClient();
     const [target, setTarget] = useState<TargetData | null>(null);
     
-    // 🚀 ALUR BARU: Quick Win & Guided Deep Setup
-    const [step, setStep] = useState<'intro' | 'quick-goal' | 'quick-balance' | 'aha-moment' | 'guided-intro' | 'guided-1' | 'guided-2' | 'guided-3' | 'guided-4' | 'guided-5' | 'target-input' | 'budget-ask' | 'budget-setup' | 'assets-setup'>('intro');
+    // Perbaikan: Mulai langsung dari 'quick-balance' menghilangkan fase 'quick-goal'
+    const [step, setStep] = useState<'quick-balance' | 'intro' | 'guided-1' | 'guided-2' | 'guided-3' | 'guided-4' | 'guided-5' | 'target-input' | 'budget-ask' | 'budget-setup'>('quick-balance');
     const [isTargetMode, setIsTargetMode] = useState(false); 
     
-    // Quick Win State
-    const [quickGoal, setQuickGoal] = useState("");
-    const [quickRange, setQuickRange] = useState(0);
-
-    // Guided Calculation State
     const [rekUtama, setRekUtama] = useState("");
     const [rekLain, setRekLain] = useState("");
     const [ewallet, setEwallet] = useState("");
     const [uangCash, setUangCash] = useState("");
     
-    // Advanced Assets
     const [hasForex, setHasForex] = useState(false);
     const [forexItems, setForexItems] = useState<ForexItem[]>([]);
     const [tempForexCurrency, setTempForexCurrency] = useState("USD");
@@ -98,7 +83,6 @@ export default function Target() {
     const [tempDebtAmount, setTempDebtAmount] = useState("");
     const [tempDebtCurrency, setTempDebtCurrency] = useState("IDR");
     
-    // Target & Budget
     const [rawTargetAmount, setRawTargetAmount] = useState("");
     const [inputDuration, setInputDuration] = useState(""); 
     const [rawBudgetAmount, setRawBudgetAmount] = useState("");
@@ -142,19 +126,27 @@ export default function Target() {
         enabled: !!userEmail
     });
 
+    const isEstimated = localStorage.getItem(`bilano_is_balance_estimated_${userEmail}`) === "true";
+    const isEditMode = target && target.targetAmount !== undefined && !isEstimated;
+
+    // 🚀 LOGIKA INISIALISASI HALAMAN ONBOARDING/DEEP SETUP
     useEffect(() => {
-        if (fetchedTarget && fetchedTarget.targetAmount !== undefined) {
-            setTarget(fetchedTarget);
-            setRawTargetAmount(fetchedTarget.targetAmount.toString());
-            setInputDuration(fetchedTarget.durationMonths.toString());
-            setRawBudgetAmount(fetchedTarget.monthlyBudget.toString());
-            setBudgetType(fetchedTarget.budgetType);
+        if (!isTargetLoading && fetchedTarget) {
+            if (fetchedTarget.id && !isEstimated) {
+                setTarget(fetchedTarget);
+                setRawTargetAmount(fetchedTarget.targetAmount.toString());
+                setInputDuration(fetchedTarget.durationMonths.toString());
+                setRawBudgetAmount(fetchedTarget.monthlyBudget.toString());
+                setBudgetType(fetchedTarget.budgetType);
+                setStep('intro');
+            } else if (fetchedTarget.id && isEstimated) {
+                setStep('intro');
+            } else {
+                setStep('quick-balance'); // Skip langsung ke quick balance
+            }
         }
-    }, [fetchedTarget]);
+    }, [fetchedTarget, isTargetLoading, userEmail, isEstimated]);
 
-    const isEditMode = target && target.targetAmount !== undefined;
-
-    // Aset Addition Logic
     const addForexItem = () => { if (!tempForexAmount || parseNumber(tempForexAmount) <= 0) return; setForexItems([...forexItems, { id: Date.now(), currency: tempForexCurrency, amount: tempForexAmount }]); setTempForexAmount(""); };
     const removeForexItem = (id: number) => setForexItems(forexItems.filter(item => item.id !== id));
     const addRecvItem = () => { if (!tempRecvName || !tempRecvAmount) return; setRecvItems([...recvItems, { id: Date.now(), name: tempRecvName, amount: tempRecvAmount, currency: tempRecvCurrency }]); setTempRecvName(""); setTempRecvAmount(""); setTempRecvCurrency("IDR"); };
@@ -164,7 +156,6 @@ export default function Target() {
     const addDebtItem = () => { if (!tempDebtName || !tempDebtAmount) return; setDebtItems([...debtItems, { id: Date.now(), name: tempDebtName, amount: tempDebtAmount, currency: tempDebtCurrency }]); setTempDebtName(""); setTempDebtAmount(""); setTempDebtCurrency("IDR"); };
     const removeDebtItem = (id: number) => setDebtItems(debtItems.filter(i => i.id !== id));
 
-    // Breakdown Logic
     const addBreakdownItem = () => { if (!newItemName || !newItemAmount) return; setBreakdownItems([...breakdownItems, { id: Date.now(), name: newItemName, amount: parseNumber(newItemAmount) }]); setNewItemName(""); setNewItemAmount(""); };
     const removeBreakdownItem = (id: number) => setBreakdownItems(breakdownItems.filter(item => item.id !== id));
     const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
@@ -172,7 +163,6 @@ export default function Target() {
 
     const getRate = (curr: string) => curr === 'IDR' ? 1 : (safeForexRates[curr] || 1);
     
-    // Hitung Estimasi Kekayaan (Untuk Mode Guided & Edit)
     const totalCashDeep = parseNumber(rekUtama) + parseNumber(rekLain) + parseNumber(ewallet) + parseNumber(uangCash);
     const totalForexInIDR = forexItems.reduce((acc, item) => acc + (parseNumber(item.amount) * getRate(item.currency)), 0) + (parseNumber(tempForexAmount) * getRate(tempForexCurrency));
     const totalRecvInIDR = recvItems.reduce((acc, i) => acc + (parseNumber(i.amount) * getRate(i.currency)), 0) + (parseNumber(tempRecvAmount) * getRate(tempRecvCurrency));
@@ -185,18 +175,14 @@ export default function Target() {
     const totalStart = totalCashDeep + totalForexInIDR + totalRecvInIDR + totalInvInIDR - totalDebtInIDR;
     const displayTotalStart = formatRp(totalStart);
 
-    // --- NAVIGATION ---
+    // --- NAVIGATION DEEP SETUP ---
     const startSetup = (mode: 'target' | 'saving') => {
         setIsTargetMode(mode === 'target');
         if (!isEditMode) {
             if (mode === 'saving') { setRawTargetAmount("0"); setInputDuration("12"); } 
             else { setRawTargetAmount(""); setInputDuration(""); }
         }
-        if (isEditMode) { 
-            mode === 'target' ? setStep('target-input') : setStep('budget-ask'); 
-        } else { 
-            setStep('quick-goal'); // Langsung hajar pertanyaan emosional
-        }
+        setStep('guided-1'); 
     };
     
     const nextFromGuided5 = () => { 
@@ -205,9 +191,6 @@ export default function Target() {
         if (hasInv && tempInvSymbol && tempInvQty && tempInvPrice) addInvItem();
         if (hasDebt && tempDebtName && tempDebtAmount) addDebtItem();
         
-        if (!rawTargetAmount) setRawTargetAmount((quickRange * 3).toString());
-        if (!inputDuration) setInputDuration("12");
-        
         if (isTargetMode) setStep('target-input'); else setStep('budget-ask'); 
     };
 
@@ -215,50 +198,21 @@ export default function Target() {
         if (!parseNumber(rawTargetAmount) || !Number(inputDuration)) { toast({title: "Data Kurang", description: "Nominal & Durasi wajib diisi.", variant: "destructive"}); return; } 
         setStep('budget-ask'); 
     };
-    const handleBudgetAnswer = (answer: boolean) => { if (answer) setStep('budget-setup'); else handleSubmitFinal(false, false); };
+    const handleBudgetAnswer = (answer: boolean) => { if (answer) setStep('budget-setup'); else handleSubmitFinal(false); };
 
-    // --- SUBMIT FINAL (QUICK WIN vs DEEP SETUP) ---
-    const handleSubmitFinal = async (withBudget: boolean, isQuickWin = false) => {
-        if (isTrialExpired) {
-            window.dispatchEvent(new Event('trigger-paywall-lock'));
-            return;
-        }
-
-        const budgetVal = parseNumber(rawBudgetAmount);
-        if (!isQuickWin && withBudget && !budgetVal) { toast({title: "Error", description: "Nominal batas harus diisi!", variant: "destructive"}); return; }
-
+    // 🚀 FUNGSI BARU: SIMPAN KISARAN LALU LANGSUNG KE DASHBOARD (Mencegah Buffering)
+    const handleQuickSetup = async (rangeValue: number) => {
         setIsSubmitting(true);
-
         try {
             const payload = {
-                targetAmount: isQuickWin ? quickRange * 3 : (parseNumber(rawTargetAmount) || 0),
-                durationMonths: isQuickWin ? 12 : (Number(inputDuration) || 12),
-                monthlyBudget: isQuickWin ? 0 : (withBudget ? budgetVal : 0),
-                budgetType: isQuickWin ? 'static' : (withBudget ? budgetType : 'static'),
-                
-                addCurrentCash: !isEditMode ? (isQuickWin ? quickRange : totalCashDeep) : 0,
-                initialForexList: !isEditMode && !isQuickWin && hasForex ? forexItems.map(f => ({ currency: f.currency, amount: parseNumber(f.amount) })) : [],
-                initialReceivables: !isEditMode && !isQuickWin && hasRecv ? recvItems.map(r => ({ name: `${r.name}|${r.currency}`, amount: parseNumber(r.amount) })) : [],
-                initialDebts: !isEditMode && !isQuickWin && hasDebt ? debtItems.map(d => ({ name: `${d.name}|${d.currency}`, amount: parseNumber(d.amount) })) : [],
-                initialInvestments: !isEditMode && !isQuickWin && hasInv ? invItems.map(i => ({ 
-                    type: i.type, symbol: `${i.symbol}|${i.currency}`, quantity: parseNumber(i.quantity), price: parseNumber(i.price), avgPrice: parseNumber(i.price) 
-                })) : [],
-                
-                startMonth: target?.startMonth || now.getMonth() + 1,
-                startYear: target?.startYear || now.getFullYear()
+                targetAmount: 0,
+                durationMonths: 12,
+                monthlyBudget: 0,
+                budgetType: 'static',
+                addCurrentCash: rangeValue,
+                startMonth: now.getMonth() + 1,
+                startYear: now.getFullYear()
             };
-
-            // Simpan status estimasi agar Banner di Dashboard Muncul
-            localStorage.setItem(`bilano_is_balance_estimated_${userEmail}`, isQuickWin ? "true" : "false");
-            
-            // Coba update profile di backend (Fire and Forget)
-            try {
-                await fetch("/api/user/profile", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json", "x-user-email": userEmail },
-                    body: JSON.stringify({ isBalanceEstimated: isQuickWin, financialGoal: quickGoal })
-                });
-            } catch(e) {}
 
             const res = await fetch("/api/target", {
                 method: "POST", headers: { "Content-Type": "application/json", "x-user-email": userEmail },
@@ -266,16 +220,98 @@ export default function Target() {
             });
 
             if (res.ok) {
-                toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan data." });
+                localStorage.setItem(`bilano_is_balance_estimated_${userEmail}`, "true");
+                localStorage.setItem(`bilano_setup_completed_${userEmail}`, new Date().toISOString());
+                queryClient.invalidateQueries({ queryKey: ['target', userEmail] });
+                queryClient.invalidateQueries({ queryKey: ['user', userEmail] });
+                setLocation("/"); 
+            } else {
+                toast({ title: "Gagal", description: "Terjadi kesalahan server.", variant: "destructive" });
+            }
+        } catch (e) {
+            toast({ title: "Error", description: "Koneksi terputus.", variant: "destructive" });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // 🚀 FUNGSI SKIP: JIKA PENGGUNA MENEKAN NANTI SAJA
+    const handleSkipQuickSetup = async () => {
+        setIsSubmitting(true);
+        try {
+            const payload = {
+                targetAmount: 0,
+                durationMonths: 12,
+                monthlyBudget: 0,
+                budgetType: 'static',
+                addCurrentCash: 0,
+                startMonth: now.getMonth() + 1,
+                startYear: now.getFullYear()
+            };
+
+            const res = await fetch("/api/target", {
+                method: "POST", headers: { "Content-Type": "application/json", "x-user-email": userEmail },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                localStorage.setItem(`bilano_is_balance_estimated_${userEmail}`, "true");
+                localStorage.setItem(`bilano_setup_completed_${userEmail}`, new Date().toISOString());
+                queryClient.invalidateQueries({ queryKey: ['target', userEmail] });
+                queryClient.invalidateQueries({ queryKey: ['user', userEmail] });
+                setLocation("/"); 
+            } else {
+                toast({ title: "Gagal", description: "Terjadi kesalahan server.", variant: "destructive" });
+            }
+        } catch (e) {
+            toast({ title: "Error", description: "Koneksi terputus.", variant: "destructive" });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // --- SUBMIT FINAL (DEEP SETUP) ---
+    const handleSubmitFinal = async (withBudget: boolean) => {
+        if (isTrialExpired) {
+            window.dispatchEvent(new Event('trigger-paywall-lock'));
+            return;
+        }
+
+        const budgetVal = parseNumber(rawBudgetAmount);
+        if (withBudget && !budgetVal) { toast({title: "Error", description: "Nominal batas harus diisi!", variant: "destructive"}); return; }
+
+        setIsSubmitting(true);
+
+        try {
+            const payload = {
+                targetAmount: parseNumber(rawTargetAmount) || 0,
+                durationMonths: Number(inputDuration) || 12,
+                monthlyBudget: withBudget ? budgetVal : 0,
+                budgetType: withBudget ? budgetType : 'static',
                 
-                if (!isEditMode) {
-                    // Trial 14 hari dimulai SEKARANG
-                    localStorage.setItem(`bilano_setup_completed_${userEmail}`, new Date().toISOString());
-                    localStorage.setItem(`bilano_welcomed_paywall_${userEmail}`, "true");
-                    window.location.href = "/paywall"; 
-                } else {
-                    window.location.href = "/"; 
-                }
+                addCurrentCash: !isEditMode ? totalCashDeep : 0,
+                initialForexList: !isEditMode && hasForex ? forexItems.map(f => ({ currency: f.currency, amount: parseNumber(f.amount) })) : [],
+                initialReceivables: !isEditMode && hasRecv ? recvItems.map(r => ({ name: `${r.name}|${r.currency}`, amount: parseNumber(r.amount) })) : [],
+                initialDebts: !isEditMode && hasDebt ? debtItems.map(d => ({ name: `${d.name}|${d.currency}`, amount: parseNumber(d.amount) })) : [],
+                initialInvestments: !isEditMode && hasInv ? invItems.map(i => ({ 
+                    type: i.type, symbol: `${i.symbol}|${i.currency}`, quantity: parseNumber(i.quantity), price: parseNumber(i.price), avgPrice: parseNumber(i.price) 
+                })) : [],
+                
+                startMonth: target?.startMonth || now.getMonth() + 1,
+                startYear: target?.startYear || now.getFullYear()
+            };
+
+            const res = await fetch("/api/target", {
+                method: "POST", headers: { "Content-Type": "application/json", "x-user-email": userEmail },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                localStorage.setItem(`bilano_is_balance_estimated_${userEmail}`, "false");
+                queryClient.invalidateQueries({ queryKey: ['target', userEmail] });
+                queryClient.invalidateQueries({ queryKey: ['user', userEmail] });
+                toast({ title: "Strategi Berhasil Disimpan!", description: "Sistem telah menyesuaikan data." });
+                setLocation("/"); 
             } else { 
                 toast({ title: "Gagal Menyimpan", description: "Terjadi kesalahan server.", variant: "destructive" }); 
             }
@@ -319,12 +355,44 @@ export default function Target() {
                     </div>
                 )}
 
-                {/* --- FASE A: PENCOCOKAN EMOSIONAL & QUICK WIN --- */}
+                {/* --- FASE A: ONBOARDING CEPAT LALU LANGSUNG DASHBOARD --- */}
+                {step === 'quick-balance' && (
+                    <div className="space-y-6 animate-in slide-in-from-right pt-4 px-2">
+                        <div className="text-center mb-8">
+                            <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Halo, {userData?.firstName || 'Partner'}! 👋</h2>
+                            <p className="text-sm text-slate-500">Berapa kira-kira total seluruh uangmu saat ini? (Tabungan + Cash + E-Wallet). <b>Pilih kisaran saja.</b></p>
+                        </div>
+                        <div className="space-y-3 relative">
+                            {/* Overlay Spinner jika sedang memproses ke dashboard */}
+                            {isSubmitting && (
+                                <div className="absolute inset-0 z-10 bg-slate-50/50 backdrop-blur-sm flex items-center justify-center rounded-[20px]">
+                                    <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                                </div>
+                            )}
+                            
+                            {BALANCE_RANGES.map(r => (
+                                <button disabled={isSubmitting} key={r.label} onClick={() => handleQuickSetup(r.value)} className="w-full p-5 bg-white border border-slate-100 shadow-[0_4px_15px_rgb(0,0,0,0.03)] rounded-[20px] hover:border-indigo-500 hover:bg-indigo-50 text-left font-extrabold text-slate-800 text-lg transition-all flex items-center justify-between group">
+                                    {r.label} 
+                                    <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600"/>
+                                    </div>
+                                </button>
+                            ))}
+                            
+                            <Button variant="ghost" disabled={isSubmitting} onClick={handleSkipQuickSetup} className="w-full text-slate-400 font-bold mt-2">Nanti Saja (Masuk Dashboard)</Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- FASE B: DEEP SETUP (DIKLIK DARI TOMBOL LENGKAPI DATA DI DASHBOARD) --- */}
                 {step === 'intro' && (
                     <div className="space-y-5 animate-in slide-in-from-bottom-4 pt-4">
                         <div className="text-center px-4 mb-8">
-                            <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Halo, {userData?.firstName || 'Partner'}! 👋</h2>
-                            <p className="text-sm text-slate-500">{isEditMode ? "Silakan edit target dan strategi keuanganmu." : "Pilih gaya keuangan yang paling cocok denganmu hari ini."}</p>
+                            <div className="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                                <Wallet className="w-10 h-10" />
+                            </div>
+                            <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Setup Keuangan Akurat</h2>
+                            <p className="text-sm text-slate-500">Sistem butuh akurasi agar analisa bekerja maksimal. Pilih gaya keuanganmu.</p>
                         </div>
                         
                         <div className="space-y-4 pt-2">
@@ -343,96 +411,6 @@ export default function Target() {
                                 <div className="bg-emerald-100 p-3 rounded-full group-hover:scale-110 transition-transform flex-shrink-0"><Database className="w-6 h-6 text-emerald-600"/></div>
                                 <div><h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500">Saya cuma mau lihat keluar masuk uang harian saja.</p></div>
                             </button>
-                        </div>
-                    </div>
-                )}
-
-                {step === 'quick-goal' && (
-                    <div className="space-y-6 animate-in slide-in-from-right pt-4 px-2">
-                        <div className="text-center mb-8">
-                            <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Mimpi Finansialmu</h2>
-                            <p className="text-sm text-slate-500">Apa tujuan finansial terbesarmu dalam 1 tahun ke depan?</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            {QUICK_GOALS.map(g => (
-                                <button key={g.label} onClick={() => { setQuickGoal(g.label); setStep('quick-balance'); }} className="p-5 bg-white border border-slate-100 shadow-[0_4px_15px_rgb(0,0,0,0.03)] rounded-[20px] hover:border-indigo-500 hover:bg-indigo-50 hover:-translate-y-1 text-left transition-all group">
-                                    <span className="text-3xl block mb-3 group-hover:scale-110 transition-transform origin-left">{g.icon}</span>
-                                    <span className="font-extrabold text-slate-800 text-sm leading-tight block">{g.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {step === 'quick-balance' && (
-                    <div className="space-y-6 animate-in slide-in-from-right pt-4 px-2">
-                        <div className="text-center mb-8">
-                            <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Kondisi Saat Ini</h2>
-                            <p className="text-sm text-slate-500">Berapa kira-kira total seluruh uangmu saat ini? (Tabungan + Cash + E-Wallet). <b>Pilih range saja, tidak perlu angka pasti.</b></p>
-                        </div>
-                        <div className="space-y-3">
-                            {BALANCE_RANGES.map(r => (
-                                <button key={r.label} onClick={() => { setQuickRange(r.value); setStep('aha-moment'); }} className="w-full p-5 bg-white border border-slate-100 shadow-[0_4px_15px_rgb(0,0,0,0.03)] rounded-[20px] hover:border-indigo-500 hover:bg-indigo-50 text-left font-extrabold text-slate-800 text-lg transition-all flex items-center justify-between group">
-                                    {r.label} 
-                                    <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
-                                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600"/>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {step === 'aha-moment' && (
-                    <div className="space-y-6 animate-in zoom-in-95 pt-6">
-                        <div className="bg-gradient-to-br from-indigo-700 to-indigo-950 p-8 rounded-[32px] text-white text-center shadow-2xl relative overflow-hidden">
-                            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
-                            
-                            <div className="relative z-10 space-y-6">
-                                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2 shadow-inner">
-                                    <TargetIcon className="w-8 h-8 text-white" />
-                                </div>
-                                
-                                <div>
-                                    <p className="text-[11px] text-indigo-300 font-bold mb-1 uppercase tracking-widest">Untuk mencapai impian</p>
-                                    <h3 className="text-2xl font-black text-amber-300">{quickGoal}</h3>
-                                </div>
-
-                                <div className="bg-white/10 p-5 rounded-[24px] backdrop-blur-sm border border-white/20 shadow-lg">
-                                    <p className="text-[11px] text-indigo-200 font-bold mb-2">Kamu perlu mengumpulkan sekitar</p>
-                                    <h2 className="text-4xl font-black text-white mb-1">{formatRp(quickRange * 3 / 12).split(',')[0]}<span className="text-sm text-indigo-200 font-medium">/bln</span></h2>
-                                    <p className="text-xs font-bold text-indigo-100 mt-3 bg-white/10 py-1.5 px-3 rounded-full inline-block">Atau <span className="text-emerald-300 font-black">{formatRp((quickRange * 3 / 12) / 30).split(',')[0]} / hari</span></p>
-                                </div>
-
-                                <p className="text-[13px] text-indigo-200 italic leading-relaxed px-2 font-medium">
-                                    "Angka yang masuk akal, bukan? Mulai hari ini, Bilano akan jadi saksi komitmenmu mewujudkannya."
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3 pt-2">
-                            <Button onClick={() => setStep('guided-intro')} className="w-full bg-emerald-500 hover:bg-emerald-600 h-16 text-[14px] font-black rounded-full shadow-lg shadow-emerald-200 active:scale-95 transition-transform">
-                                LENGKAPI DATA SEKARANG (AKURAT)
-                            </Button>
-                            <Button onClick={() => handleSubmitFinal(false, true)} variant="ghost" disabled={isSubmitting} className="w-full h-12 text-slate-400 font-bold hover:bg-slate-100 hover:text-slate-600 rounded-full">
-                                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : "Nanti Saja (Masuk Dashboard)"}
-                            </Button>
-                        </div>
-                    </div>
-                )}
-
-                {/* --- FASE B: GUIDED CALCULATION (DEEP SETUP) --- */}
-                {step === 'guided-intro' && (
-                    <div className="space-y-6 animate-in slide-in-from-right pt-10 text-center px-4">
-                        <div className="w-24 h-24 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                            <Wallet className="w-12 h-12" />
-                        </div>
-                        <h2 className="text-2xl font-extrabold text-slate-800">Mari Berkenalan Lebih Jauh</h2>
-                        <p className="text-slate-500 text-sm leading-relaxed max-w-xs mx-auto">
-                            Sekarang saatnya Bilano benar-benar mengenal kondisi keuanganmu. Siapkan 3 menit dan buka aplikasi m-banking kamu — hasilnya akan jauh lebih personal dan akurat.
-                        </p>
-                        <div className="pt-8 space-y-3">
-                            <Button onClick={() => setStep('guided-1')} className="w-full bg-indigo-600 hover:bg-indigo-700 h-16 text-[15px] font-black rounded-full shadow-lg shadow-indigo-200">MULAI SETUP MENDALAM</Button>
                         </div>
                     </div>
                 )}
@@ -505,7 +483,7 @@ export default function Target() {
                     </div>
                 )}
 
-                {/* --- ASET LAIN (PENGGANTI ASSETS-SETUP) --- */}
+                {/* --- ASET LAIN --- */}
                 {step === 'guided-5' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-2">
                         <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6">
@@ -691,7 +669,7 @@ export default function Target() {
                     </div>
                 )}
 
-                {/* --- TARGET & BUDGET LAMA --- */}
+                {/* --- TARGET & BUDGET --- */}
                 {step === 'target-input' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-2">
                         <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6 text-center">
@@ -769,7 +747,7 @@ export default function Target() {
                         </div>
                         <div className="pt-2 space-y-3">
                             <Button 
-                                onClick={() => handleSubmitFinal(true, false)} 
+                                onClick={() => handleSubmitFinal(true)} 
                                 disabled={isSubmitting}
                                 className="w-full bg-slate-900 hover:bg-slate-800 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-slate-900/20"
                             >

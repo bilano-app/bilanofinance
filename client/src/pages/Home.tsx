@@ -50,8 +50,8 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileZoomed, setIsProfileZoomed] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false); 
-  const [isTrialExpiredState, setIsTrialExpiredState] = useState(false); // Untuk UI
-  const [milestoneTxProgress, setMilestoneTxProgress] = useState(0); // Untuk Progress Banner
+  const [isTrialExpiredState, setIsTrialExpiredState] = useState(false); 
+  const [milestoneTxProgress, setMilestoneTxProgress] = useState(0); 
 
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -90,7 +90,6 @@ export default function Home() {
   const isBalanceEstimated = localStorage.getItem(`bilano_is_balance_estimated_${rawEmail}`) === "true";
   const txCount = transactions?.length || 0;
   
-  // 🚀 UPDATE LOKAL CACHE TRANSAKSI UNTUK PERHITUNGAN TRIAL
   useEffect(() => {
       if (rawEmail && transactions !== undefined) {
           localStorage.setItem(`bilano_tx_count_${rawEmail}`, txCount.toString());
@@ -244,7 +243,6 @@ export default function Home() {
 
   useEffect(() => {
       if (isUserPro || !user) return;
-      // Sinkronisasi status expired UI dengan logika dari App.tsx
       const expiredStatus = localStorage.getItem(`bilano_trial_expired_${rawEmail}`) === "true";
       setIsTrialExpiredState(expiredStatus);
   }, [isUserPro, user, rawEmail]);
@@ -344,7 +342,7 @@ export default function Home() {
 
   const cashRupiah = (user?.cashBalance || 0); 
   const totalBalance = cashRupiah;
-  const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
+  const displayBalance = isPrivacyMode ? "Rp •••••••" : (isBalanceEstimated ? `~ ${formatCurrency(totalBalance).split(",")[0]}` : formatCurrency(totalBalance).split(",")[0]);
   const getBalanceTextSize = (text: string) => {
       if (text.length >= 20) return "text-2xl"; 
       if (text.length >= 15) return "text-3xl"; 
@@ -907,7 +905,7 @@ export default function Home() {
         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
               <div className="flex justify-between items-center mb-1">
-                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">Saldo Kas</p>
+                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">{isBalanceEstimated ? "Saldo Kas (Estimasi)" : "Saldo Kas"}</p>
                   <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-blue-200">
                       {isPrivacyMode ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                   </button>
@@ -919,7 +917,7 @@ export default function Home() {
 
               <div className="flex gap-3">
                   <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                      <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+                      <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : (isBalanceEstimated ? `~ ${formatCurrency(cashRupiah).split(",")[0]}` : formatCurrency(cashRupiah).split(",")[0])}</span>
                   </div>
               </div>
            </div>
@@ -1002,7 +1000,7 @@ export default function Home() {
                         {!isUserPro && (
                             <Link href="/paywall">
                                 <button className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] py-2.5 rounded-[12px] transition-colors flex items-center justify-center gap-2 shadow-md">
-                                    Buka Akses (Mulai Rp 500/hari) <ChevronRight className="w-3 h-3"/>
+                                    Buka Akses Fitur PRO <ChevronRight className="w-3 h-3"/>
                                 </button>
                             </Link>
                         )}
