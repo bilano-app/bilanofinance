@@ -61,7 +61,6 @@ export default function Performance() {
       enabled: !!currentUserEmail
   });
 
-  // 🚀 FETCH SALDO TERTAHAN
   const { data: retainedData = [], isLoading: isRetainedLoading } = useQuery({
       queryKey: ['retained', currentUserEmail],
       queryFn: async () => {
@@ -127,10 +126,10 @@ export default function Performance() {
       );
   }
 
-  // 🚀 PROTEKSI PERINGATAN SALDO ESTIMASI (Disisipkan persis sesuai janji)
-  const isBalanceEstimated = localStorage.getItem(`bilano_is_balance_estimated_${currentUserEmail}`) === "true";
+  // 🚀 PROTEKSI WAJIB SETUP (Memblokir Total)
+  const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
   
-  if (isBalanceEstimated) {
+  if (!isSetupCompleted) {
       return (
           <MobileLayout title="Analisa Performa" showBack>
               <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center animate-in fade-in zoom-in-95">
@@ -250,7 +249,6 @@ export default function Performance() {
       return acc + (inv.quantity * inv.avgPrice * m * rate);
   }, 0) : 0;
 
-  // 🚀 HITUNGAN SALDO TERTAHAN
   const retainedReal = Array.isArray(retainedData) ? retainedData.reduce((acc: number, r: any) => {
       const curr = r.currency;
       const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 15000);

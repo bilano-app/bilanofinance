@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useAddTransaction, useUser } from "@/hooks/use-finance";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
-import { Loader2, Wallet, HandCoins } from "lucide-react";
+// 🚨 PERBAIKAN: AlertCircle sudah ditambahkan di sini!
+import { Loader2, Wallet, HandCoins, AlertCircle } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 
 export default function Income() {
@@ -20,7 +21,11 @@ export default function Income() {
 
   const formatRp = (val: number) => "Rp " + val.toLocaleString("id-ID");
   const currentCash = user?.cashBalance || 0;
+  
+  // 🚨 PERBAIKAN: Pastikan 3 baris ini HANYA MUNCUL SATU KALI di seluruh file ini!
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
+  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, "");
@@ -33,6 +38,12 @@ export default function Income() {
   };
 
   const handleSubmit = async () => {
+    // 🚀 BLOKIR JIKA BELUM SETUP
+    if (!isSetupCompleted) {
+        setShowSetupPrompt(true);
+        return;
+    }
+
     const cleanAmount = parseInt(amountStr.replace(/\./g, ""), 10);
 
     if (!cleanAmount || cleanAmount <= 0) {
@@ -56,7 +67,6 @@ export default function Income() {
               date: new Date().toISOString() 
           });
       } else {
-          // 🚀 PERBAIKAN: Menambahkan tag [PIUTANG_PENDAPATAN] secara otomatis
           await fetch("/api/debts", {
               method: "POST", 
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
@@ -161,6 +171,25 @@ export default function Income() {
             </Button>
         </div>
       </div>
+
+      {/* 🚀 Pop-up Penghalang Submit (Belum Setup) */}
+      {showSetupPrompt && (
+          <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
+                  <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5">
+                      <AlertCircle className="w-10 h-10" />
+                  </div>
+                  <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Aksi Tertahan</h2>
+                  <p className="text-[13px] text-slate-500 mb-6 leading-relaxed">
+                      Untuk memastikan laporan tetap akurat, Anda harus menyelesaikan Setup Saldo Awal sebelum mencatat transaksi.
+                  </p>
+                  <div className="space-y-3">
+                      <Button onClick={() => window.location.href = '/target'} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-full shadow-lg">LAKUKAN SETUP SEKARANG</Button>
+                      <Button variant="ghost" onClick={() => setShowSetupPrompt(false)} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 rounded-full">Tutup</Button>
+                  </div>
+              </div>
+          </div>
+      )}
     </MobileLayout>
   );
 }

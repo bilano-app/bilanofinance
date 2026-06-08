@@ -113,7 +113,7 @@ export default function Reports() {
 
           let snapPiutang = 0; let snapDebt = 0;
           const uniqueDebts = new Set(allDebts.map((d:any) => d.name));
-          uniqueDebts.forEach((name: string) => {
+          uniqueDebts.forEach((name: any) => {
               const relatedDebts = allDebts.filter((d:any) => d.name === name);
               const earliestDbDate = new Date(Math.min(...relatedDebts.map((d:any) => new Date(d.createdAt||Date.now()).getTime())));
               let firstTxDate = Date.now();
@@ -143,7 +143,7 @@ export default function Reports() {
 
           let snapForex = 0;
           const uniqueForex = new Set(allForexAssets.map((f:any) => f.currency));
-          uniqueForex.forEach((curr: string) => {
+          uniqueForex.forEach((curr: any) => {
               const relatedFx = allForexAssets.find((f:any) => f.currency === curr);
               let firstDate = relatedFx ? new Date(relatedFx.createdAt||Date.now()).getTime() : Date.now();
               allTxs.forEach((t:any) => { if ((t.category||'').includes(curr) || (t.description||'').includes(curr)) if(new Date(t.date).getTime() < firstDate) firstDate = new Date(t.date).getTime(); });
@@ -161,7 +161,7 @@ export default function Reports() {
           });
 
           let snapInvest = 0;
-          Array.from(allUniqueSymbols).forEach((symbolRaw: string) => {
+          Array.from(allUniqueSymbols).forEach((symbolRaw: any) => {
               const sym = symbolRaw.split('|')[0];
               const rate = getRate(symbolRaw.split('|')[1] || 'IDR'); 
               const dbInv = allInvestments.find((i:any) => i.symbol === symbolRaw);
@@ -208,7 +208,6 @@ export default function Reports() {
       const pemutihanTransactions = allTxs.filter((t:any) => t.category === 'Pemutihan Hutang' && new Date(t.date) <= reportDateEnd);
       const totalPemutihanGain = pemutihanTransactions.reduce((sum: number, t:any) => sum + (Number(t.amount) || 0), 0);
 
-      // SALDO TERTAHAN 
       const snapRetained = allRetained.reduce((acc: number, r:any) => {
           const rate = r.currency === 'IDR' ? 1 : getRate(r.currency);
           return acc + (r.amount * rate);
@@ -231,7 +230,7 @@ export default function Reports() {
           return [curr, liveAmt.toLocaleString('id-ID', {maximumFractionDigits: 2}), rate, liveAmt * rate];
       }).filter(Boolean);
 
-      const invRows = Array.from(allUniqueSymbols).map((symbolRaw: string) => {
+      const invRows = Array.from(allUniqueSymbols).map((symbolRaw: any) => {
           const sym = symbolRaw.split('|')[0];
           const rate = getRate(symbolRaw.split('|')[1] || 'IDR');
           const dbInv = allInvestments.find((i:any) => i.symbol === symbolRaw);
@@ -433,7 +432,7 @@ export default function Reports() {
   };
 
   const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isBalanceEstimated = localStorage.getItem(`bilano_is_balance_estimated_${userEmail}`) === "true";
+  const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${userEmail}`) === "true";
 
   const generatePDF = async (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
     
@@ -689,16 +688,16 @@ export default function Reports() {
       );
   }
 
-  if (isBalanceEstimated) {
+  if (!isSetupCompleted) {
       return (
           <MobileLayout title="Pusat Laporan" showBack>
               <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center animate-in fade-in zoom-in-95">
                   <div className="bg-amber-100 p-5 rounded-full mb-6 shadow-sm">
                       <AlertCircle className="w-10 h-10 text-amber-600" />
                   </div>
-                  <h2 className="text-xl font-extrabold text-slate-800 mb-2">Lengkapi Data Keuangan</h2>
+                  <h2 className="text-xl font-extrabold text-slate-800 mb-2">Lengkapi Data Keuangan Awal</h2>
                   <p className="text-slate-500 text-sm mb-8 leading-relaxed font-medium">
-                      Laporan keuangan akurat membutuhkan riwayat transaksi dan saldo yang pasti. Silakan selesaikan Setup Keuangan Akurat terlebih dahulu.
+                      Laporan keuangan akurat membutuhkan riwayat transaksi dan saldo yang pasti. Silakan selesaikan Setup Keuangan terlebih dahulu.
                   </p>
                   <Button 
                       onClick={() => setLocation('/target')} 

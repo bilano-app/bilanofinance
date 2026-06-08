@@ -12,7 +12,7 @@ import {
   RefreshCcw, FileText, LogOut, User, BarChart, ChevronRight,
   MoreVertical, Shield, Maximize, Crown, EyeOff, Eye, Lock, X, Loader2,
   Bell, Mic, Camera, AlertCircle, BookOpen, Rocket, CreditCard,
-  Bot, Check, Info, Book, Heart, CornerUpLeft, Clock, Zap, HandCoins
+  Bot, Check, Info, Book, Heart, CornerUpLeft, Clock, Zap, HandCoins, Wallet
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -63,6 +63,8 @@ export default function Home() {
   const [showProWelcome, setShowProWelcome] = useState(false);
   const [milestonePopup, setMilestonePopup] = useState<string | null>(null); 
   
+  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
+  const [isSetupPromptHandled, setIsSetupPromptHandled] = useState(false);
   const [showGuideTooltip, setShowGuideTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
   
@@ -87,7 +89,7 @@ export default function Home() {
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isUserPro = user?.isPro === true; 
-  const isBalanceEstimated = localStorage.getItem(`bilano_is_balance_estimated_${rawEmail}`) === "true";
+  const isSetupCompleted = rawEmail ? localStorage.getItem(`bilano_setup_completed_${rawEmail}`) === "true" : false;
   const txCount = transactions?.length || 0;
   
   useEffect(() => {
@@ -157,8 +159,21 @@ export default function Home() {
       };
   }, [isAnyDataLoading]);
 
+  // Logika Pop-up Setup Awal
   useEffect(() => {
-      if (rawEmail && !isAnyDataLoading && user) {
+      if (rawEmail && !isAnyDataLoading) {
+          const skipped = sessionStorage.getItem(`skip_setup_prompt_${rawEmail}`) === "true";
+          if (isSetupCompleted || skipped) {
+              setIsSetupPromptHandled(true);
+          } else {
+              setShowSetupPrompt(true);
+          }
+      }
+  }, [rawEmail, isAnyDataLoading, isSetupCompleted]);
+
+  // Logika Tooltip Guide & Profile (Hanya muncul jika pop-up setup sudah tertangani)
+  useEffect(() => {
+      if (rawEmail && !isAnyDataLoading && user && isSetupPromptHandled) {
           const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
           const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
           const startTimeAcc = new Date(user.createdAt || Date.now()).getTime();
@@ -174,7 +189,7 @@ export default function Home() {
               }
           }
       }
-  }, [rawEmail, isAnyDataLoading, user]);
+  }, [rawEmail, isAnyDataLoading, user, isSetupPromptHandled]);
 
   const dismissGuideTooltip = () => {
       setShowGuideTooltip(false);
@@ -255,17 +270,6 @@ export default function Home() {
   
   const needsPaywallRedirect = isStandalone && !isUserPro && isNewAccount && !hasRedirected && !isTargetEmpty;
 
-  useEffect(() => {
-      if (!isUserLoading && !isTargetLoading && target !== undefined) {
-          if (isTargetEmpty) {
-              setLocation("/target");
-          } else if (needsPaywallRedirect) {
-              localStorage.setItem(`bilano_welcomed_paywall_${rawEmail}`, "true");
-              setLocation("/paywall");
-          }
-      }
-  }, [isTargetEmpty, needsPaywallRedirect, isUserLoading, isTargetLoading, setLocation, rawEmail]);
-
   const requestAllPermissions = async () => { 
       setIsRequestingPerms(true);
       try {
@@ -342,7 +346,7 @@ export default function Home() {
 
   const cashRupiah = (user?.cashBalance || 0); 
   const totalBalance = cashRupiah;
-  const displayBalance = isPrivacyMode ? "Rp •••••••" : (isBalanceEstimated ? `~ ${formatCurrency(totalBalance).split(",")[0]}` : formatCurrency(totalBalance).split(",")[0]);
+  const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
   const getBalanceTextSize = (text: string) => {
       if (text.length >= 20) return "text-2xl"; 
       if (text.length >= 15) return "text-3xl"; 
@@ -442,16 +446,6 @@ export default function Home() {
       );
   }
 
-  if (isTargetEmpty) {
-      return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
-              <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
-              <h2 className="text-lg font-bold text-slate-800">Mengarahkan...</h2>
-              <p className="text-sm text-slate-500 text-center">Membuka pengaturan profil finansial pertama Anda.</p>
-          </div>
-      );
-  }
-
   if (needsPaywallRedirect) {
        return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
@@ -489,9 +483,28 @@ export default function Home() {
 
   const userEmail = rawEmail || "Pengguna";
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
-
+  const handlePayDynamic = () => { setDueDynamicSub(null); };
+  const handleSkipDynamic = () => { setDueDynamicSub(null); };
+  
   return (
     <MobileLayout>
+
+      {/* Pop-up Wajib Setup Saldo Akurat */}
+      {showSetupPrompt && (
+          <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
+                  <div className="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-5">
+                      <Wallet className="w-10 h-10" />
+                  </div>
+                  <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Setup Saldo Awal</h2>
+                  <p className="text-[13px] text-slate-500 mb-6 leading-relaxed">Untuk memulai dengan akurat, mari catat saldo tunai, tabungan, dan aset yang Anda miliki saat ini.</p>
+                  <div className="space-y-3">
+                      <Button onClick={() => setLocation('/target')} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-full shadow-lg">LENGKAPI SEKARANG</Button>
+                      <Button variant="ghost" onClick={() => { setShowSetupPrompt(false); sessionStorage.setItem(`skip_setup_prompt_${rawEmail}`, 'true'); setIsSetupPromptHandled(true); }} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 rounded-full">Nanti Saja</Button>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* 🚀 MODAL HASIL AI STRATEGI DENGAN DATA DINAMIS & OTAK BILA */}
       {aiResultModal && (
@@ -865,23 +878,6 @@ export default function Home() {
             </div>
         </div>
 
-        {isBalanceEstimated && (
-            <div className="mx-1 mt-[-10px] rounded-[20px] p-4 shadow-sm bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 flex items-center justify-between animate-in slide-in-from-top-4">
-                <div className="flex items-center gap-3 pr-2">
-                    <div className="bg-orange-100 p-2.5 rounded-full shrink-0">
-                        <AlertCircle className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <div>
-                        <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5 text-orange-800">Saldo Masih Estimasi</p>
-                        <p className="text-[10px] font-medium opacity-90 text-orange-700 leading-tight">Lengkapi data aset & rekening untuk hasil akurat.</p>
-                    </div>
-                </div>
-                <Link href="/target">
-                    <button className="bg-orange-500 hover:bg-orange-600 px-4 py-2.5 rounded-full text-[10px] font-extrabold text-white transition-all active:scale-95 shadow-md shrink-0">LENGKAPI</button>
-                </Link>
-            </div>
-        )}
-
         {/* 🚀 BANNER TRIAL DI DASHBOARD (Sesuai Logika Milestone App.tsx) */}
         {!isUserPro && isStandalone && (
             <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${isTrialExpiredState ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
@@ -905,7 +901,7 @@ export default function Home() {
         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
               <div className="flex justify-between items-center mb-1">
-                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">{isBalanceEstimated ? "Saldo Kas (Estimasi)" : "Saldo Kas"}</p>
+                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">Saldo Kas</p>
                   <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-blue-200">
                       {isPrivacyMode ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                   </button>
@@ -917,7 +913,7 @@ export default function Home() {
 
               <div className="flex gap-3">
                   <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                      <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : (isBalanceEstimated ? `~ ${formatCurrency(cashRupiah).split(",")[0]}` : formatCurrency(cashRupiah).split(",")[0])}</span>
+                      <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                   </div>
               </div>
            </div>

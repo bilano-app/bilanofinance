@@ -28,14 +28,6 @@ interface InvItem { id: number; type: string; symbol: string; quantity: string; 
 const INV_TYPES = ["Saham", "Crypto", "Reksadana", "Emas", "P2P", "Obligasi"];
 const FALLBACK_CURRENCIES = ["USD", "EUR", "SGD", "JPY", "AUD", "GBP", "CNY", "MYR", "SAR", "KRW", "THB"];
 
-const BALANCE_RANGES = [
-    { label: "< Rp 5 Juta", value: 2500000 },
-    { label: "Rp 5 - 20 Juta", value: 12500000 },
-    { label: "Rp 20 - 50 Juta", value: 35000000 },
-    { label: "Rp 50 - 100 Juta", value: 75000000 },
-    { label: "> Rp 100 Juta", value: 150000000 }
-];
-
 const formatNumber = (val: string) => {
     const clean = val.replace(/\D/g, '');
     return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -49,8 +41,7 @@ export default function Target() {
     const queryClient = useQueryClient();
     const [target, setTarget] = useState<TargetData | null>(null);
     
-    // Perbaikan: Mulai langsung dari 'quick-balance' menghilangkan fase 'quick-goal'
-    const [step, setStep] = useState<'quick-balance' | 'intro' | 'guided-1' | 'guided-2' | 'guided-3' | 'guided-4' | 'guided-5' | 'target-input' | 'budget-ask' | 'budget-setup'>('quick-balance');
+    const [step, setStep] = useState<'intro' | 'guided-1' | 'guided-2' | 'guided-3' | 'guided-4' | 'guided-5' | 'target-input' | 'budget-ask' | 'budget-setup'>('intro');
     const [isTargetMode, setIsTargetMode] = useState(false); 
     
     const [rekUtama, setRekUtama] = useState("");
@@ -126,26 +117,26 @@ export default function Target() {
         enabled: !!userEmail
     });
 
+    const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${userEmail}`) === "true";
+    
+    // 🚀 PERBAIKAN: Menambahkan isEstimated agar tidak error
     const isEstimated = localStorage.getItem(`bilano_is_balance_estimated_${userEmail}`) === "true";
-    const isEditMode = target && target.targetAmount !== undefined && !isEstimated;
+    const isEditMode = !!(target && target.targetAmount !== undefined && !isEstimated);
 
-    // 🚀 LOGIKA INISIALISASI HALAMAN ONBOARDING/DEEP SETUP
     useEffect(() => {
-        if (!isTargetLoading && fetchedTarget) {
-            if (fetchedTarget.id && !isEstimated) {
+        if (!isTargetLoading) {
+            if (fetchedTarget && fetchedTarget.id) {
                 setTarget(fetchedTarget);
                 setRawTargetAmount(fetchedTarget.targetAmount.toString());
                 setInputDuration(fetchedTarget.durationMonths.toString());
                 setRawBudgetAmount(fetchedTarget.monthlyBudget.toString());
                 setBudgetType(fetchedTarget.budgetType);
                 setStep('intro');
-            } else if (fetchedTarget.id && isEstimated) {
-                setStep('intro');
             } else {
-                setStep('quick-balance'); // Skip langsung ke quick balance
+                setStep('intro');
             }
         }
-    }, [fetchedTarget, isTargetLoading, userEmail, isEstimated]);
+    }, [fetchedTarget, isTargetLoading, userEmail]);
 
     const addForexItem = () => { if (!tempForexAmount || parseNumber(tempForexAmount) <= 0) return; setForexItems([...forexItems, { id: Date.now(), currency: tempForexCurrency, amount: tempForexAmount }]); setTempForexAmount(""); };
     const removeForexItem = (id: number) => setForexItems(forexItems.filter(item => item.id !== id));
@@ -175,7 +166,6 @@ export default function Target() {
     const totalStart = totalCashDeep + totalForexInIDR + totalRecvInIDR + totalInvInIDR - totalDebtInIDR;
     const displayTotalStart = formatRp(totalStart);
 
-    // --- NAVIGATION DEEP SETUP ---
     const startSetup = (mode: 'target' | 'saving') => {
         setIsTargetMode(mode === 'target');
         if (!isEditMode) {
@@ -200,77 +190,6 @@ export default function Target() {
     };
     const handleBudgetAnswer = (answer: boolean) => { if (answer) setStep('budget-setup'); else handleSubmitFinal(false); };
 
-    // 🚀 FUNGSI BARU: SIMPAN KISARAN LALU LANGSUNG KE DASHBOARD (Mencegah Buffering)
-    const handleQuickSetup = async (rangeValue: number) => {
-        setIsSubmitting(true);
-        try {
-            const payload = {
-                targetAmount: 0,
-                durationMonths: 12,
-                monthlyBudget: 0,
-                budgetType: 'static',
-                addCurrentCash: rangeValue,
-                startMonth: now.getMonth() + 1,
-                startYear: now.getFullYear()
-            };
-
-            const res = await fetch("/api/target", {
-                method: "POST", headers: { "Content-Type": "application/json", "x-user-email": userEmail },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                localStorage.setItem(`bilano_is_balance_estimated_${userEmail}`, "true");
-                localStorage.setItem(`bilano_setup_completed_${userEmail}`, new Date().toISOString());
-                queryClient.invalidateQueries({ queryKey: ['target', userEmail] });
-                queryClient.invalidateQueries({ queryKey: ['user', userEmail] });
-                setLocation("/"); 
-            } else {
-                toast({ title: "Gagal", description: "Terjadi kesalahan server.", variant: "destructive" });
-            }
-        } catch (e) {
-            toast({ title: "Error", description: "Koneksi terputus.", variant: "destructive" });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    // 🚀 FUNGSI SKIP: JIKA PENGGUNA MENEKAN NANTI SAJA
-    const handleSkipQuickSetup = async () => {
-        setIsSubmitting(true);
-        try {
-            const payload = {
-                targetAmount: 0,
-                durationMonths: 12,
-                monthlyBudget: 0,
-                budgetType: 'static',
-                addCurrentCash: 0,
-                startMonth: now.getMonth() + 1,
-                startYear: now.getFullYear()
-            };
-
-            const res = await fetch("/api/target", {
-                method: "POST", headers: { "Content-Type": "application/json", "x-user-email": userEmail },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                localStorage.setItem(`bilano_is_balance_estimated_${userEmail}`, "true");
-                localStorage.setItem(`bilano_setup_completed_${userEmail}`, new Date().toISOString());
-                queryClient.invalidateQueries({ queryKey: ['target', userEmail] });
-                queryClient.invalidateQueries({ queryKey: ['user', userEmail] });
-                setLocation("/"); 
-            } else {
-                toast({ title: "Gagal", description: "Terjadi kesalahan server.", variant: "destructive" });
-            }
-        } catch (e) {
-            toast({ title: "Error", description: "Koneksi terputus.", variant: "destructive" });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    // --- SUBMIT FINAL (DEEP SETUP) ---
     const handleSubmitFinal = async (withBudget: boolean) => {
         if (isTrialExpired) {
             window.dispatchEvent(new Event('trigger-paywall-lock'));
@@ -307,7 +226,7 @@ export default function Target() {
             });
 
             if (res.ok) {
-                localStorage.setItem(`bilano_is_balance_estimated_${userEmail}`, "false");
+                localStorage.setItem(`bilano_setup_completed_${userEmail}`, "true");
                 queryClient.invalidateQueries({ queryKey: ['target', userEmail] });
                 queryClient.invalidateQueries({ queryKey: ['user', userEmail] });
                 toast({ title: "Strategi Berhasil Disimpan!", description: "Sistem telah menyesuaikan data." });
@@ -355,36 +274,7 @@ export default function Target() {
                     </div>
                 )}
 
-                {/* --- FASE A: ONBOARDING CEPAT LALU LANGSUNG DASHBOARD --- */}
-                {step === 'quick-balance' && (
-                    <div className="space-y-6 animate-in slide-in-from-right pt-4 px-2">
-                        <div className="text-center mb-8">
-                            <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Halo, {userData?.firstName || 'Partner'}! 👋</h2>
-                            <p className="text-sm text-slate-500">Berapa kira-kira total seluruh uangmu saat ini? (Tabungan + Cash + E-Wallet). <b>Pilih kisaran saja.</b></p>
-                        </div>
-                        <div className="space-y-3 relative">
-                            {/* Overlay Spinner jika sedang memproses ke dashboard */}
-                            {isSubmitting && (
-                                <div className="absolute inset-0 z-10 bg-slate-50/50 backdrop-blur-sm flex items-center justify-center rounded-[20px]">
-                                    <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-                                </div>
-                            )}
-                            
-                            {BALANCE_RANGES.map(r => (
-                                <button disabled={isSubmitting} key={r.label} onClick={() => handleQuickSetup(r.value)} className="w-full p-5 bg-white border border-slate-100 shadow-[0_4px_15px_rgb(0,0,0,0.03)] rounded-[20px] hover:border-indigo-500 hover:bg-indigo-50 text-left font-extrabold text-slate-800 text-lg transition-all flex items-center justify-between group">
-                                    {r.label} 
-                                    <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
-                                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600"/>
-                                    </div>
-                                </button>
-                            ))}
-                            
-                            <Button variant="ghost" disabled={isSubmitting} onClick={handleSkipQuickSetup} className="w-full text-slate-400 font-bold mt-2">Nanti Saja (Masuk Dashboard)</Button>
-                        </div>
-                    </div>
-                )}
-
-                {/* --- FASE B: DEEP SETUP (DIKLIK DARI TOMBOL LENGKAPI DATA DI DASHBOARD) --- */}
+                {/* --- FASE DEEP SETUP --- */}
                 {step === 'intro' && (
                     <div className="space-y-5 animate-in slide-in-from-bottom-4 pt-4">
                         <div className="text-center px-4 mb-8">

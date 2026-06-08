@@ -38,6 +38,10 @@ export default function Debts() {
   const [selectedDebt, setSelectedDebt] = useState<DebtItem | null>(null);
   const [payAmount, setPayAmount] = useState("");
   const [isPaying, setIsPaying] = useState(false);
+  // Cek Status Setup & State Modal Pop-up
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
+  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   const { toast } = useToast();
   const currentUserEmail = localStorage.getItem("bilano_email") || "";
@@ -138,6 +142,10 @@ export default function Debts() {
   };
 
   const handlePay = async () => {
+      if (!isSetupCompleted) {
+          setShowSetupPrompt(true);
+          return;
+      }
       if (checkPaywall() || !selectedDebt) return;
       
       if (!selectedDebt.id) {
@@ -447,6 +455,24 @@ export default function Debts() {
         </div>
 
       </div>
+      {/* 🚀 Pop-up Penghalang Submit (Belum Setup) */}
+      {showSetupPrompt && (
+          <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
+                  <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5">
+                      <AlertCircle className="w-10 h-10" />
+                  </div>
+                  <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Aksi Tertahan</h2>
+                  <p className="text-[13px] text-slate-500 mb-6 leading-relaxed">
+                      Untuk memastikan laporan tetap akurat, Anda harus menyelesaikan Setup Saldo Awal sebelum mencatat transaksi.
+                  </p>
+                  <div className="space-y-3">
+                      <Button onClick={() => window.location.href = '/target'} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-full shadow-lg">LAKUKAN SETUP SEKARANG</Button>
+                      <Button variant="ghost" onClick={() => setShowSetupPrompt(false)} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 rounded-full">Tutup</Button>
+                  </div>
+              </div>
+          </div>
+      )}
     </MobileLayout>
   );
 }

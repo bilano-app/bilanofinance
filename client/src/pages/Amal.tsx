@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { useUser, useTransactions, useAddTransaction } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
-import { HeartHandshake, Loader2, CheckCircle2, History, Settings, Info, PieChart, X, AlertTriangle } from "lucide-react";
+import { HeartHandshake, Loader2, CheckCircle2, History, Settings, Info, PieChart, X, AlertTriangle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Amal() {
@@ -26,6 +26,10 @@ export default function Amal() {
   const [isRetroactive, setIsRetroactive] = useState(false);
   
   const [excessData, setExcessData] = useState<{amount: number, excess: number, desc: string} | null>(null);
+  // Cek Status Setup & State Modal Pop-up
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
+  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   useEffect(() => {
       const savedPct = localStorage.getItem(`bilano_amal_pct_${userEmail}`);
@@ -45,6 +49,10 @@ export default function Amal() {
   const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
 
   const handleSaveSettings = () => {
+      if (!isSetupCompleted) {
+          setShowSetupPrompt(true);
+          return;
+      }
       const newPct = parseFloat(tempPct);
       if (isNaN(newPct) || newPct < 0 || newPct > 100) {
           toast({ title: "Error", description: "Masukkan persentase valid (0-100).", variant: "destructive" });
@@ -354,6 +362,24 @@ export default function Amal() {
                           TIDAK, SAYA IKHLASKAN SEPENUHNYA
                       </Button>
                       <button onClick={() => setExcessData(null)} className="text-[10px] font-bold text-slate-400 hover:text-slate-600 underline pt-2">Batal & Kembali</button>
+                  </div>
+              </div>
+          </div>
+      )}
+      {/* 🚀 Pop-up Penghalang Submit (Belum Setup) */}
+      {showSetupPrompt && (
+          <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
+                  <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5">
+                      <AlertCircle className="w-10 h-10" />
+                  </div>
+                  <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Aksi Tertahan</h2>
+                  <p className="text-[13px] text-slate-500 mb-6 leading-relaxed">
+                      Untuk memastikan laporan tetap akurat, Anda harus menyelesaikan Setup Saldo Awal sebelum mencatat transaksi.
+                  </p>
+                  <div className="space-y-3">
+                      <Button onClick={() => window.location.href = '/target'} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-full shadow-lg">LAKUKAN SETUP SEKARANG</Button>
+                      <Button variant="ghost" onClick={() => setShowSetupPrompt(false)} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 rounded-full">Tutup</Button>
                   </div>
               </div>
           </div>
