@@ -24,10 +24,6 @@ export default function Expense() {
   const [paymentMode, setPaymentMode] = useState<'cash' | 'hutang'>('cash');
   const [debtName, setDebtName] = useState("");
   const [dueDate, setDueDate] = useState("");
-  // Cek Status Setup & State Modal Pop-up
-  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
-  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   const formatNumber = (value: string) => value.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => setAmountStr(formatNumber(e.target.value));
@@ -38,6 +34,10 @@ export default function Expense() {
   const currentMonthIdx = now.getMonth(); 
   const currentYear = now.getFullYear();
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  
+  // 🚀 PENAMBAHAN: Cek Setup Selesai & State Pop-up
+  const isSetupCompleted = currentUserEmail ? localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true" : false;
+  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   let remainingBudget = 0;     
   let budgetLabel = "Batas Bulan Ini";
@@ -71,10 +71,12 @@ export default function Expense() {
   }
 
   const handleSubmit = async (isEmergencyOverride = false) => {
+      // 🚀 PENAMBAHAN: BLOKIR JIKA BELUM SETUP
       if (!isSetupCompleted) {
           setShowSetupPrompt(true);
           return;
       }
+
       const nominal = parseNumber(amountStr);
       if (!nominal || nominal <= 0) {
           toast({ title: "Error", description: "Isi nominal pengeluaran!", variant: "destructive" });
@@ -294,7 +296,8 @@ export default function Expense() {
             </Button>
         </div>
       </div>
-      {/* 🚀 Pop-up Penghalang Submit (Belum Setup) */}
+
+      {/* 🚀 PENAMBAHAN: Pop-up Penghalang Submit (Belum Setup) */}
       {showSetupPrompt && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
