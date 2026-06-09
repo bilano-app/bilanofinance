@@ -38,14 +38,14 @@ export default function Debts() {
   const [selectedDebt, setSelectedDebt] = useState<DebtItem | null>(null);
   const [payAmount, setPayAmount] = useState("");
   const [isPaying, setIsPaying] = useState(false);
-  // Cek Status Setup & State Modal Pop-up
-  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
-  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   const { toast } = useToast();
-  const currentUserEmail = localStorage.getItem("bilano_email") || "";
+  
+  // 🚨 DEKLARASI HANYA SATU KALI DI SINI (Error Vercel sudah diperbaiki)
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
+  const isSetupCompleted = currentUserEmail ? localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true" : false;
+  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   const formatNum = (val: string, isForeign: boolean = false) => {
       if (!val) return "";
@@ -107,6 +107,12 @@ export default function Debts() {
   };
 
   const handleAdd = async () => {
+      // 🚀 BLOKIR JIKA BELUM SETUP
+      if (!isSetupCompleted) {
+          setShowSetupPrompt(true);
+          return;
+      }
+      
       if (checkPaywall()) return;
       const isForeign = currency !== 'IDR';
       const nominal = parseNum(amount, isForeign);
@@ -142,10 +148,12 @@ export default function Debts() {
   };
 
   const handlePay = async () => {
+      // 🚀 BLOKIR JIKA BELUM SETUP
       if (!isSetupCompleted) {
           setShowSetupPrompt(true);
           return;
       }
+
       if (checkPaywall() || !selectedDebt) return;
       
       if (!selectedDebt.id) {
@@ -185,6 +193,12 @@ export default function Debts() {
   };
 
   const handleWriteOff = async (debtToProcess: DebtItem) => {
+      // 🚀 BLOKIR JIKA BELUM SETUP
+      if (!isSetupCompleted) {
+          setShowSetupPrompt(true);
+          return;
+      }
+
       if (checkPaywall() || !debtToProcess) return;
       
       if (!debtToProcess.id) {
@@ -225,6 +239,12 @@ export default function Debts() {
   };
 
   const handleRestore = async (debtId: number) => {
+      // 🚀 BLOKIR JIKA BELUM SETUP
+      if (!isSetupCompleted) {
+          setShowSetupPrompt(true);
+          return;
+      }
+
       if (checkPaywall()) return;
       if (!confirm("Pulihkan tagihan ini? Saldo dan transaksi akan dikembalikan seperti semula.")) return;
 
@@ -455,6 +475,7 @@ export default function Debts() {
         </div>
 
       </div>
+
       {/* 🚀 Pop-up Penghalang Submit (Belum Setup) */}
       {showSetupPrompt && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
