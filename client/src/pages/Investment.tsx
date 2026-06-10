@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, PlusCircle, X, Loader2, Info, Sparkles, AlertTriangle, Lock, Crown, CheckCircle2, AlertCircle } from "lucide-react"; 
+// 🚀 PERBAIKAN: Ikon 'Globe' sudah ditambahkan di sini agar tidak blank crash lagi!
+import { ArrowLeft, PlusCircle, X, Loader2, Info, Sparkles, AlertTriangle, Lock, Crown, CheckCircle2, AlertCircle, Globe } from "lucide-react"; 
 import { Button, Input } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
 import { useUser, useInvestments } from "@/hooks/use-finance";
@@ -65,7 +66,10 @@ export default function Investment() {
   const [inputCurrency, setInputCurrency] = useState("IDR");
   const [selectedSellSymbol, setSelectedSellSymbol] = useState("");
 
-  const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
+  const formatRp = (num: number) => {
+      const validNum = Number(num) || 0;
+      return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(validNum);
+  };
 
   const assetConfig: Record<AssetType, { label: string, unit: string, imgUrl: string, bg: string, headerBg: string, color: string }> = {
       saham: { label: 'Saham', unit: 'Lot/Lembar', imgUrl: 'https://api.iconify.design/solar/chart-square-bold.svg?color=%23059669', bg: 'bg-emerald-50 hover:bg-emerald-100', headerBg: 'bg-emerald-500', color: 'text-emerald-600' },
@@ -189,6 +193,10 @@ export default function Investment() {
 
     const rawEstimasi = qtyNum * priceNum * multiplier;
     const estimasiIDR = rawEstimasi * rate;
+    
+    // Safety check untuk memastikan angka selalu valid saat di-render
+    const safeRawEstimasi = Number.isFinite(rawEstimasi) ? rawEstimasi : 0;
+    const safeEstimasiIDR = Number.isFinite(estimasiIDR) ? estimasiIDR : 0;
 
     let isSellOverLimit = false;
     let ownedQty = 0;
@@ -226,15 +234,20 @@ export default function Investment() {
                   />
               </div>
            ) : (
-              <select className="w-full h-14 px-4 border-transparent rounded-[20px] bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 uppercase font-bold text-slate-700 outline-none transition-all" onChange={e => {
-                  setSelectedSellSymbol(e.target.value);
-                  const p = aggregatedPortfolio.find(x => x.symbol === e.target.value);
-                  if (p) {
-                      const parts = (p.symbol || "").split('|');
-                      setInputCurrency(parts[1] || 'IDR');
-                      setInputName(parts[0] || "");
-                  }
-              }}>
+              // 🚀 PERBAIKAN: Menambahkan 'value' agar dropdown terkontrol dan anti-crash
+              <select 
+                  value={selectedSellSymbol}
+                  className="w-full h-14 px-4 border-transparent rounded-[20px] bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 uppercase font-bold text-slate-700 outline-none transition-all" 
+                  onChange={e => {
+                      setSelectedSellSymbol(e.target.value);
+                      const p = aggregatedPortfolio.find(x => x.symbol === e.target.value);
+                      if (p) {
+                          const parts = (p.symbol || "").split('|');
+                          setInputCurrency(parts[1] || 'IDR');
+                          setInputName(parts[0] || "");
+                      }
+                  }}
+              >
                  <option value="">-- PILIH ASET DI PORTFOLIO --</option>
                  {filteredItems.map(p => {
                      const parts = (p.symbol || "").split('|');
@@ -276,13 +289,13 @@ export default function Investment() {
            <div className="flex justify-between items-center">
                <span className={`text-xs font-bold ${txType==='BUY'?'text-rose-500':'text-emerald-600'}`}>Estimasi {isForeign ? inputCurrency : 'IDR'} {txType==='BUY' ? 'Keluar' : 'Masuk'}</span>
                <span className={`font-extrabold text-xl ${txType==='BUY'?'text-rose-600':'text-emerald-700'}`}>
-                  {isForeign ? `${inputCurrency} ${rawEstimasi.toLocaleString('id-ID')}` : formatRp(rawEstimasi)}
+                  {isForeign ? `${inputCurrency} ${safeRawEstimasi.toLocaleString('id-ID')}` : formatRp(safeRawEstimasi)}
                </span>
            </div>
            {isForeign && (
                <div className={`flex justify-between items-center mt-1 pt-1 border-t ${txType==='BUY'?'border-rose-100/50':'border-emerald-100/50'}`}>
                    <span className="text-[10px] font-bold text-slate-400">Nilai IDR (Utk Laporan PDF)</span>
-                   <span className="text-[10px] font-bold text-slate-500">≈ {formatRp(estimasiIDR)}</span>
+                   <span className="text-[10px] font-bold text-slate-500">≈ {formatRp(safeEstimasiIDR)}</span>
                </div>
            )}
         </div>
@@ -317,7 +330,7 @@ export default function Investment() {
                   
                   <button onClick={() => setProFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
                   
-                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10">
+                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10 animate-bounce">
                       <Crown className="w-10 h-10 text-amber-950"/>
                   </div>
                   
@@ -511,6 +524,7 @@ export default function Investment() {
           </div>
        )}
 
+      {/* 🚀 Pop-up Penghalang Submit (Belum Setup) */}
       {showSetupPrompt && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
