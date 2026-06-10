@@ -9,10 +9,10 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
   TrendingUp, DollarSign, 
-  RefreshCcw, FileText, LogOut, User, BarChart, ChevronRight,
-  MoreVertical, Shield, Maximize, Crown, EyeOff, Eye, Lock, X, Loader2,
-  Bell, Mic, Camera, AlertCircle, BookOpen, Rocket, CreditCard,
-  Bot, Check, Info, Book, Heart, CornerUpLeft, Clock, Zap, HandCoins, Wallet
+  HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
+  MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
+  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass 
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -28,11 +28,16 @@ const FINANCIAL_TIPS = [
     "Diversifikasi: Jangan pernah menaruh semua telurmu dalam satu keranjang.",
     "Hutang konsumtif merampok masa depanmu, hutang produktif membangun masa depanmu.",
     "Kekayaan sejati bukanlah seberapa banyak uang yang dihasilkan, tapi seberapa banyak yang disimpan.",
-    "Waktu di pasar saham jauh lebih penting daripada sekadar menebak waktu pasar.",
-    "Pemasukan yang besar tanpa manajemen yang baik hanya akan menghasilkan kebangkrutan.",
+    "Waktu di pasar saham jauh lebih penting daripada sekadar menebak waktu pasar (Time in the market > Timing the market).",
+    "Pemasukan yang besar tanpa manajemen yang baik hanya akan menghasilkan kebangkrutan yang tertunda.",
+    "Uang adalah majikan yang buruk, tetapi merupakan pelayan yang sangat baik.",
     "Aturan 50/30/20: 50% Kebutuhan, 30% Keinginan, 20% Tabungan & Investasi.",
     "Jika kamu membeli barang yang tidak kamu butuhkan, kelak kamu harus menjual barang yang kamu butuhkan.",
+    "Pasar saham adalah alat untuk mentransfer uang dari orang yang tidak sabar kepada orang yang sabar.",
+    "Pahami perbedaan antara 'Saya mampu membelinya' dan 'Saya mampu membayarnya tanpa mengorbankan masa depan'.",
     "Orang kaya membeli aset, orang miskin membeli liabilitas yang mereka pikir adalah aset.",
+    "Inflasi adalah pencuri diam-diam. Jika uangmu hanya diam di bawah kasur, nilainya terus merosot setiap hari.",
+    "Pendapatan pasif (Passive Income) adalah kunci menuju kebebasan finansial sejati.",
     "Catat setiap rupiah yang keluar. Kesadaran adalah langkah pertama menuju kendali finansial penuh."
 ];
 
@@ -50,8 +55,7 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileZoomed, setIsProfileZoomed] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false); 
-  const [isTrialExpiredState, setIsTrialExpiredState] = useState(false); 
-  const [milestoneTxProgress, setMilestoneTxProgress] = useState(0); 
+  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
 
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -60,11 +64,12 @@ export default function Home() {
 
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [isRequestingPerms, setIsRequestingPerms] = useState(false);
+
   const [showProWelcome, setShowProWelcome] = useState(false);
-  const [milestonePopup, setMilestonePopup] = useState<string | null>(null); 
   
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const [isSetupPromptHandled, setIsSetupPromptHandled] = useState(false);
+
   const [showGuideTooltip, setShowGuideTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
   
@@ -78,32 +83,18 @@ export default function Home() {
 
   const [isLongLoading, setIsLongLoading] = useState(false);
   const [loadingTipIndex, setLoadingTipIndex] = useState(() => Math.floor(Math.random() * FINANCIAL_TIPS.length));
+  
   const [showRetryButton, setShowRetryButton] = useState(false);
-
-  const [aiResultModal, setAiResultModal] = useState(false);
-  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
-  const [aiStrategies, setAiStrategies] = useState<{title: string, description: string}[] | null>(null);
 
   const isStandalone = typeof window !== 'undefined' && 
       (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isUserPro = user?.isPro === true; 
-  const isSetupCompleted = rawEmail ? localStorage.getItem(`bilano_setup_completed_${rawEmail}`) === "true" : false;
-  const txCount = transactions?.length || 0;
   
   useEffect(() => {
-      if (rawEmail && transactions !== undefined) {
-          localStorage.setItem(`bilano_tx_count_${rawEmail}`, txCount.toString());
-          setMilestoneTxProgress(Math.min(10, txCount));
-      }
-  }, [transactions, rawEmail, txCount]);
-
-  useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
-          localStorage.removeItem("bilano_auth");
-          localStorage.removeItem("bilano_email");
-          window.location.href = "/auth";
+          window.location.reload();
       }
   }, [user, rawEmail]);
 
@@ -117,21 +108,6 @@ export default function Home() {
       const hasPrompted = localStorage.getItem("bilano_permissions_prompted");
       if (!hasPrompted) setShowPermissionPrompt(true);
   }, []);
-
-  useEffect(() => {
-      if (!rawEmail || isTxLoading) return;
-      const checkMilestone = (count: number, message: string) => {
-          const key = `bilano_milestone_${count}_${rawEmail}`;
-          if (txCount >= count && !localStorage.getItem(key)) {
-              setTimeout(() => setMilestonePopup(message), 1500);
-              localStorage.setItem(key, "true");
-          }
-      };
-
-      checkMilestone(1, "Langkah pertama! 🎉 Satu transaksi sudah lebih baik dari nol.");
-      checkMilestone(5, "Hebat! Kamu mulai punya gambaran nyata tentang keuanganmu.");
-      checkMilestone(20, "20 Transaksi! Kamu sedang membangun kebiasaan finansial yang luar biasa.");
-  }, [txCount, rawEmail, isTxLoading]);
 
   const isAnyDataLoading = isUserLoading || isTargetLoading || isTxLoading || isFxLoading || isSubLoading;
 
@@ -159,23 +135,59 @@ export default function Home() {
       };
   }, [isAnyDataLoading]);
 
+  // 🚀 PERBAIKAN: AUTO-DETEKSI PENGGUNA LAMA & PENANGANAN LOADING INFINITE PAYWALL
+  const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
+  
+  const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
+  const isNewAccount = user && (Date.now() - startTimeAcc) < (15 * 60 * 1000); 
+  const hasRedirected = rawEmail ? localStorage.getItem(`bilano_welcomed_paywall_${rawEmail}`) === "true" : false;
+  
+  const needsPaywallRedirect = isStandalone && !isUserPro && isNewAccount && !hasRedirected && !isTargetEmpty;
+
+  useEffect(() => {
+      if (!isUserLoading && !isTargetLoading && target !== undefined) {
+          
+          // AUTO-UNLOCK BAGI PENGGUNA LAMA YANG SUDAH PUNYA TARGET
+          if (!isTargetEmpty && rawEmail) {
+              if (localStorage.getItem(`bilano_setup_completed_${rawEmail}`) !== "true") {
+                  localStorage.setItem(`bilano_setup_completed_${rawEmail}`, "true");
+              }
+          }
+
+          if (isTargetEmpty) {
+              // Pakai href agar transisi halaman lebih mulus dan tidak nge-hang
+              window.location.href = "/target";
+          } else if (needsPaywallRedirect) {
+              localStorage.setItem(`bilano_welcomed_paywall_${rawEmail}`, "true");
+              // Pakai href agar loading paywall tidak stuck
+              window.location.href = "/paywall";
+          }
+      }
+  }, [isTargetEmpty, needsPaywallRedirect, isUserLoading, isTargetLoading, rawEmail, target]);
+
+
   // Logika Pop-up Setup Awal
   useEffect(() => {
       if (rawEmail && !isAnyDataLoading) {
           const skipped = sessionStorage.getItem(`skip_setup_prompt_${rawEmail}`) === "true";
-          if (isSetupCompleted || skipped) {
+          const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${rawEmail}`) === "true";
+          const hasExistingTarget = target && Object.keys(target).length > 0;
+          
+          if (isSetupCompleted || skipped || hasExistingTarget) {
               setIsSetupPromptHandled(true);
           } else {
               setShowSetupPrompt(true);
           }
       }
-  }, [rawEmail, isAnyDataLoading, isSetupCompleted]);
+  }, [rawEmail, isAnyDataLoading, target]);
+
 
   // Logika Tooltip Guide & Profile (Hanya muncul jika pop-up setup sudah tertangani)
   useEffect(() => {
       if (rawEmail && !isAnyDataLoading && user && isSetupPromptHandled) {
           const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
           const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
+          
           const startTimeAcc = new Date(user.createdAt || Date.now()).getTime();
           const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
 
@@ -194,6 +206,14 @@ export default function Home() {
   const dismissGuideTooltip = () => {
       setShowGuideTooltip(false);
       localStorage.setItem(`bilano_guide_tooltip_seen_${rawEmail}`, "true");
+      
+      const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
+      const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
+      const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
+      
+      if (isNewUser && !profileSeen && !user?.profilePicture) {
+          setTimeout(() => setShowProfileTooltip(true), 600); 
+      }
   };
 
   const dismissProfileTooltip = () => {
@@ -205,6 +225,7 @@ export default function Home() {
       setPinError(false);
       const newVal = pinInput + num;
       setPinInput(newVal);
+      
       if (newVal.length === 6) {
           const savedPin = localStorage.getItem("bilano_app_pin");
           if (newVal === savedPin) {
@@ -233,51 +254,153 @@ export default function Home() {
       }
   };
 
+  const userEmail = rawEmail || "Pengguna";
+  const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
+
   const handleFomoClick = (title: string, desc: string) => {
-      if (isUserPro) setProFeatureModal({ title, desc });
-      else setFomoFeature({ title, desc });
+      if (isUserPro) {
+          setProFeatureModal({ title, desc });
+      } else {
+          setFomoFeature({ title, desc });
+      }
   };
 
   const handleMenuScroll = (e: any) => {
       const scrollLeft = e.target.scrollLeft;
       const width = e.target.clientWidth;
-      setActiveMenuPage(Math.round(scrollLeft / width));
+      const pageIndex = Math.round(scrollLeft / width);
+      setActiveMenuPage(pageIndex);
   };
 
   useEffect(() => {
       if (isUserPro && rawEmail) {
           const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;
-          if (!localStorage.getItem(welcomeKey)) setTimeout(() => setShowProWelcome(true), 500);
+          if (!localStorage.getItem(welcomeKey)) {
+              setTimeout(() => setShowProWelcome(true), 500);
+          }
       }
   }, [isUserPro, rawEmail]);
 
   const handleTutupWelcomePro = () => {
-      localStorage.setItem(`bilano_welcomed_pro_${rawEmail}`, "true"); 
+      const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;
+      localStorage.setItem(welcomeKey, "true"); 
       setShowProWelcome(false);
   };
 
   useEffect(() => {
-      if (isUserPro || !user) return;
-      const expiredStatus = localStorage.getItem(`bilano_trial_expired_${rawEmail}`) === "true";
-      setIsTrialExpiredState(expiredStatus);
-  }, [isUserPro, user, rawEmail]);
+      if (!subscriptions) return;
+      const todayStr = new Date().toISOString().split('T')[0];
+      
+      const due = subscriptions.find(sub => {
+          if (!sub.isActive || sub.category !== 'dinamis') return false;
+          
+          const nextDate = new Date(sub.nextPaymentDate);
+          const today = new Date();
+          today.setHours(0,0,0,0);
+          nextDate.setHours(0,0,0,0);
+          
+          if (nextDate > today) return false; 
+          if (localStorage.getItem(`skip_sub_${sub.id}_${todayStr}`)) return false; 
+          
+          return true;
+      });
 
-  const isTargetEmpty = !isTargetLoading && (!target || (typeof target === 'object' && Object.keys(target).length === 0));
-  
-  const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
-  const isNewAccount = user && (Date.now() - startTimeAcc) < (15 * 60 * 1000); 
-  const hasRedirected = rawEmail ? localStorage.getItem(`bilano_welcomed_paywall_${rawEmail}`) === "true" : false;
-  
-  const needsPaywallRedirect = isStandalone && !isUserPro && isNewAccount && !hasRedirected && !isTargetEmpty;
+      setDueDynamicSub(due || null);
+  }, [subscriptions]);
 
-  const requestAllPermissions = async () => { 
-      setIsRequestingPerms(true);
+  const handlePayDynamic = async () => {
+      if (!dueDynamicSub || !dynamicAmount) return;
       try {
-          const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout dari Browser")), 4000));
+          await fetch("/api/transactions", {
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
+              body: JSON.stringify({ 
+                  type: 'expense', 
+                  amount: parseFloat(dynamicAmount), 
+                  category: "Tagihan Bulanan", 
+                  description: `Bayar Tagihan: ${dueDynamicSub.name}`,
+                  date: new Date()
+              })
+          });
+
+          const nextDate = new Date(dueDynamicSub.nextPaymentDate);
+          if (dueDynamicSub.cycle === 'yearly') {
+              nextDate.setFullYear(nextDate.getFullYear() + 1);
+          } else {
+              nextDate.setMonth(nextDate.getMonth() + 1);
+          }
+
+          await fetch(`/api/subscriptions/${dueDynamicSub.id}`, { method: "DELETE", headers: { "x-user-email": rawEmail } });
+          await fetch("/api/subscriptions", {
+              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
+              body: JSON.stringify({ 
+                  name: dueDynamicSub.name, 
+                  price: dueDynamicSub.price, 
+                  cost: dueDynamicSub.price, 
+                  cycle: dueDynamicSub.cycle, 
+                  nextPaymentDate: nextDate.toISOString(), 
+                  nextBilling: nextDate.toISOString(), 
+                  category: dueDynamicSub.category, 
+                  isActive: true 
+              })
+          });
+
+          toast({ title: "Tagihan Lunas!", description: "Pengeluaran berhasil dicatat." });
+          setDueDynamicSub(null); setDynamicAmount(""); refetchSubs();
+      } catch (e) {
+          toast({ title: "Gagal memproses", variant: "destructive" });
+      }
+  };
+
+  const handleSkipDynamic = () => {
+      const todayStr = new Date().toISOString().split('T')[0];
+      localStorage.setItem(`skip_sub_${dueDynamicSub.id}_${todayStr}`, "true");
+      setDueDynamicSub(null);
+  };
+
+  useEffect(() => {
+      if (isUserPro || !user) return;
+      
+      const startTime = new Date(user.createdAt || Date.now()).getTime();
+      const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
+      const TRIAL_DURATION_DAYS = 3; 
+
+      if (daysPassed >= TRIAL_DURATION_DAYS) {
+          setTrialDaysLeft(0);
+      } else {
+          setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
+      }
+  }, [isUserPro, user]);
+
+  const requestAllPermissions = async () => {
+      setIsRequestingPerms(true);
+      
+      try {
+          const timeout = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error("Timeout dari Browser")), 4000)
+          );
+
           if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
               await Promise.race([Notification.requestPermission(), timeout]).catch(() => {});
           }
+
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+              await Promise.race([
+                  navigator.mediaDevices.getUserMedia({ video: true, audio: true }), 
+                  timeout
+              ]).catch(() => {});
+          }
+
+          try { 
+              (window as any).OneSignalDeferred = (window as any).OneSignalDeferred || [];
+              (window as any).OneSignalDeferred.push(function(OneSignal: any) {
+                  OneSignal.Slidedown.promptPush();
+              });
+          } catch(e) {
+              console.error("Gagal pancing OneSignal:", e);
+          }
+
       } catch (e) {
+          console.warn("Proses perizinan di-bypass karena terlalu lama.");
       } finally {
           localStorage.setItem("bilano_permissions_prompted", "true");
           setShowPermissionPrompt(false);
@@ -291,61 +414,9 @@ export default function Home() {
       setShowPermissionPrompt(false);
   };
 
-  const handleLogout = async () => {
-      try {
-          await signOut(auth); 
-          localStorage.clear();
-          sessionStorage.clear();
-          window.location.href = "/auth"; 
-      } catch (error) { console.error(error); }
-  };
-
-  const fetchAiStrategy = async () => {
-      setAiResultModal(true); 
-      if (aiStrategies) return; 
-      
-      setIsGeneratingAi(true); 
-      try {
-          const txData = transactions || [];
-          if (txData.length < 5) {
-              setAiStrategies([
-                  { title: "BUTUH LEBIH BANYAK DATA", description: "BILA AI membutuhkan minimal 5 transaksi nyata untuk bisa menemukan pola keuanganmu. Yuk catat lebih banyak pengeluaran dan pemasukan!" }
-              ]);
-              setIsGeneratingAi(false);
-              return;
-          }
-
-          const res = await fetch("/api/ai/strategy", {
-              method: "POST", 
-              headers: { "Content-Type": "application/json", "x-user-email": rawEmail }
-          });
-          
-          let responseData;
-          try {
-              responseData = await res.json();
-          } catch (e) {
-              throw new Error("Gagal membaca balasan dari server. (Timeout/Restart)");
-          }
-
-          if (!res.ok || !responseData.success) {
-              throw new Error(responseData.error || "Terjadi kesalahan internal server.");
-          }
-          
-          setAiStrategies(responseData.data);
-      } catch (e: any) {
-          setAiStrategies([
-              {
-                  title: "KONEKSI AI GAGAL",
-                  description: `Pesan Error: ${e.message}\n\nPastikan API Key sudah benar dan server tidak mengalami Timeout.`
-              }
-          ]);
-      } finally {
-          setIsGeneratingAi(false); 
-      }
-  };
-
   const cashRupiah = (user?.cashBalance || 0); 
   const totalBalance = cashRupiah;
+
   const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
   const getBalanceTextSize = (text: string) => {
       if (text.length >= 20) return "text-2xl"; 
@@ -355,7 +426,8 @@ export default function Home() {
 
   useEffect(() => {
     if (target && target.targetAmount > 0 && totalBalance >= target.targetAmount) {
-        if (!localStorage.getItem(`bilano_target_done_${target.id}`)) setShowTargetModal(true);
+        const isDismissed = localStorage.getItem(`bilano_target_done_${target.id}`);
+        if (!isDismissed) setShowTargetModal(true);
     }
   }, [target, totalBalance]);
 
@@ -364,8 +436,21 @@ export default function Home() {
       setShowTargetModal(false);
   };
 
+  const handleLogout = async () => {
+    try {
+        await signOut(auth); 
+        localStorage.clear();
+        sessionStorage.clear();
+        toast({ title: "Sesi Dibersihkan", description: "Berhasil keluar dari aplikasi." });
+        window.location.href = "/auth"; 
+    } catch (error) { 
+        console.error(error); 
+    }
+  };
+
   const currentMonthIdx = new Date().getMonth();
   const currentYear = new Date().getFullYear();
+
   const thisMonthTx = transactions?.filter(t => {
       const d = new Date(t.date);
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
@@ -377,7 +462,12 @@ export default function Home() {
       !t.description?.includes('[WRITE_OFF]') && 
       !t.description?.includes('[Catat Awal]') && 
       !t.description?.includes('[Bayar Valas]') && 
-      !['Penyesuaian Sistem', 'Pemutihan Hutang', 'Cairkan Valas', 'Investasi Valas', 'Tukar Valas', 'Jual Aset'].includes(t.category) &&
+      t.category !== 'Penyesuaian Sistem' && 
+      t.category !== 'Pemutihan Hutang' &&
+      t.category !== 'Cairkan Valas' &&
+      t.category !== 'Investasi Valas' && 
+      t.category !== 'Tukar Valas' &&
+      t.category !== 'Jual Aset' &&
       !(t.category || '').includes('Dapat Pinjaman')
   );
   
@@ -388,7 +478,11 @@ export default function Home() {
       !t.description?.includes('[WRITE_OFF]') && 
       !t.description?.includes('[Catat Awal]') && 
       !t.description?.includes('[Bayar Valas]') && 
-      !['Penyesuaian Sistem', 'Penghapusan Piutang', 'Tukar Valas', 'Investasi Valas', 'Cairkan Valas'].includes(t.category) &&
+      t.category !== 'Penyesuaian Sistem' && 
+      t.category !== 'Penghapusan Piutang' &&
+      t.category !== 'Tukar Valas' &&
+      t.category !== 'Investasi Valas' && 
+      t.category !== 'Cairkan Valas' &&
       !(t.category || '').includes('Bayar Hutang') &&
       !(t.category || '').includes('Beri Pinjaman')
   );
@@ -396,8 +490,14 @@ export default function Home() {
   const virtualPLTxs: any[] = [];
   thisMonthTx.filter(t => t.type === 'invest_sell').forEach(t => {
       if (t.description && t.description.includes('P/L:')) {
-          const plValue = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, ''), 10);
-          if (!isNaN(plValue) && plValue !== 0) virtualPLTxs.push({ amount: Math.abs(plValue), type: plValue > 0 ? 'income' : 'expense' });
+          const plString = t.description.split('P/L:')[1];
+          if (plString) {
+              const cleanString = plString.replace(/[^0-9-]/g, '');
+              const plValue = parseInt(cleanString, 10);
+              if (!isNaN(plValue) && plValue !== 0) {
+                  virtualPLTxs.push({ amount: Math.abs(plValue), type: plValue > 0 ? 'income' : 'expense' });
+              }
+          }
       }
   });
 
@@ -415,7 +515,7 @@ export default function Home() {
               
               <div className={`transition-all duration-1000 max-w-[280px] text-center mt-4 ${isLongLoading ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 h-0 overflow-hidden'}`}>
                   <p className="text-[10px] font-black text-amber-500 mb-2 uppercase tracking-widest flex items-center justify-center gap-1.5 bg-amber-50 py-1 px-3 rounded-full w-max mx-auto shadow-sm">
-                      <Zap className="w-3.5 h-3.5"/> BILANO Tips
+                      <Lightbulb className="w-3.5 h-3.5"/> BILANO Tips
                   </p>
                   <p key={loadingTipIndex} className="text-[13px] font-bold text-slate-600 italic leading-relaxed animate-in fade-in duration-500 text-balance">
                       "{FINANCIAL_TIPS[loadingTipIndex]}"
@@ -436,12 +536,22 @@ export default function Home() {
   if (!user && !isUserLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 text-center relative z-[999]">
-              <AlertCircle className="w-16 h-16 text-rose-500 mb-4 animate-bounce" />
+              <AlertTriangle className="w-16 h-16 text-rose-500 mb-4 animate-bounce" />
               <h2 className="text-xl font-extrabold text-slate-800 mb-2">Sesi Terputus</h2>
               <p className="text-sm text-slate-500 mb-8 max-w-xs">Terjadi kendala saat memuat profil Anda dari server. Silakan masuk ulang.</p>
               <Button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full h-14 px-8 shadow-lg">
                   LOGOUT & COBA LAGI
               </Button>
+          </div>
+      );
+  }
+
+  if (isTargetEmpty) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
+              <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
+              <h2 className="text-lg font-bold text-slate-800">Mengarahkan...</h2>
+              <p className="text-sm text-slate-500 text-center">Membuka pengaturan profil finansial pertama Anda.</p>
           </div>
       );
   }
@@ -456,7 +566,7 @@ export default function Home() {
       );
   }
 
-  if (isLocked) { 
+  if (isLocked) {
       return (
         <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center text-white">
             <Lock className={`w-12 h-12 mb-4 ${pinError ? 'text-rose-500 animate-bounce' : 'text-indigo-500'}`} />
@@ -481,11 +591,6 @@ export default function Home() {
       );
   }
 
-  const userEmail = rawEmail || "Pengguna";
-  const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
-  const handlePayDynamic = () => { setDueDynamicSub(null); };
-  const handleSkipDynamic = () => { setDueDynamicSub(null); };
-  
   return (
     <MobileLayout>
 
@@ -499,77 +604,10 @@ export default function Home() {
                   <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Setup Saldo Awal</h2>
                   <p className="text-[13px] text-slate-500 mb-6 leading-relaxed">Untuk memulai dengan akurat, mari catat saldo tunai, tabungan, dan aset yang Anda miliki saat ini.</p>
                   <div className="space-y-3">
-                      <Button onClick={() => setLocation('/target')} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-full shadow-lg">LENGKAPI SEKARANG</Button>
+                      <Button onClick={() => window.location.href='/target'} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-full shadow-lg">LENGKAPI SEKARANG</Button>
                       <Button variant="ghost" onClick={() => { setShowSetupPrompt(false); sessionStorage.setItem(`skip_setup_prompt_${rawEmail}`, 'true'); setIsSetupPromptHandled(true); }} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 rounded-full">Nanti Saja</Button>
                   </div>
               </div>
-          </div>
-      )}
-
-      {/* 🚀 MODAL HASIL AI STRATEGI DENGAN DATA DINAMIS & OTAK BILA */}
-      {aiResultModal && (
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
-              <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative border-t-8 border-indigo-600 max-h-[85vh] overflow-y-auto custom-scrollbar">
-                  <button onClick={() => setAiResultModal(false)} className="absolute top-4 right-4 p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition-colors"><X className="w-4 h-4"/></button>
-                  
-                  <div className="w-16 h-16 mx-auto bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4 shadow-inner">
-                      {isGeneratingAi ? <Loader2 className="w-8 h-8 animate-spin" /> : <Bot className="w-8 h-8" />}
-                  </div>
-                  
-                  <h3 className="text-xl font-black text-slate-800 mb-1 text-center">BILA Intelligence</h3>
-                  <p className="text-[11px] text-slate-500 mb-5 text-center font-medium">Analisa mendalam dari seluruh rekam jejak finansialmu</p>
-                  
-                  <div className="space-y-4 mb-6">
-                      {isGeneratingAi ? (
-                          <div className="space-y-4 animate-pulse">
-                              <div className="h-28 bg-slate-100 rounded-[20px]"></div>
-                              <div className="h-28 bg-slate-100 rounded-[20px]"></div>
-                          </div>
-                      ) : aiStrategies ? (
-                          aiStrategies.map((strat, idx) => (
-                              <div key={idx} className={`p-5 rounded-[24px] border relative shadow-sm ${
-                                  idx === 0 ? 'bg-slate-50 border-slate-200' : 
-                                  idx === 1 ? 'bg-rose-50 border-rose-100' :
-                                  idx % 2 === 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-blue-50 border-blue-100'
-                              }`}>
-                                  <h4 className={`text-[13px] font-black mb-3 pb-2 border-b ${
-                                      idx === 0 ? 'text-slate-800 border-slate-200' : 
-                                      idx === 1 ? 'text-rose-800 border-rose-200' :
-                                      idx % 2 === 0 ? 'text-emerald-900 border-emerald-200' : 'text-blue-900 border-blue-200'
-                                  }`}>
-                                      {strat.title}
-                                  </h4>
-                                  <div className={`text-[11.5px] leading-relaxed font-medium whitespace-pre-line ${
-                                      idx === 0 ? 'text-slate-600' : 
-                                      idx === 1 ? 'text-rose-700' :
-                                      idx % 2 === 0 ? 'text-emerald-800' : 'text-blue-800'
-                                  }`}>
-                                      {strat.description.replace(/\*\*/g, '')} 
-                                  </div>
-                              </div>
-                          ))
-                      ) : null}
-                  </div>
-                  
-                  {!isGeneratingAi && (
-                      <Link href="/chat-ai">
-                          <Button onClick={() => setAiResultModal(false)} className="w-full h-14 rounded-[16px] bg-slate-900 hover:bg-slate-800 text-white font-extrabold shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2">
-                              <Bot className="w-4 h-4"/> TANYA BILA LEBIH LANJUT
-                          </Button>
-                      </Link>
-                  )}
-              </div>
-          </div>
-      )}
-
-      {milestonePopup && (
-          <div className="fixed top-4 left-4 right-4 z-[999999] bg-indigo-600 text-white p-4 rounded-[20px] shadow-2xl flex items-start gap-3 animate-in slide-in-from-top-10 fade-in duration-500">
-              <div className="bg-white/20 p-2 rounded-full shrink-0"><Check className="w-6 h-6"/></div>
-              <div className="flex-1">
-                  <h4 className="font-extrabold text-sm mb-0.5">Pencapaian Baru! 🏆</h4>
-                  <p className="text-xs font-medium leading-relaxed">{milestonePopup}</p>
-              </div>
-              <button onClick={() => setMilestonePopup(null)} className="shrink-0 p-1 bg-black/10 hover:bg-black/20 rounded-full transition-colors"><X className="w-4 h-4"/></button>
           </div>
       )}
 
@@ -593,7 +631,7 @@ export default function Home() {
 
           <Link href="/help">
               <button className="w-12 h-12 bg-yellow-400 text-emerald-900 rounded-full shadow-lg shadow-yellow-200 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group relative">
-                  <Info className="w-6 h-6 group-hover:animate-bounce" />
+                  <HelpCircle className="w-6 h-6 group-hover:animate-bounce" />
                   <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                       Pusat Bantuan
                   </span>
@@ -602,7 +640,7 @@ export default function Home() {
 
           <Link href="/guide">
               <button onClick={dismissGuideTooltip} className="w-12 h-12 bg-sky-400 text-amber-900 rounded-full shadow-lg shadow-sky-200 flex items-center justify-center hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all group relative">
-                  <Book className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+                  <Notebook className="w-6 h-6 group-hover:rotate-12 transition-transform" />
                   <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                       Panduan Fitur
                   </span>
@@ -624,7 +662,7 @@ export default function Home() {
                       Sebagai pengguna <b>PRO</b>, Anda tidak perlu membayar biaya tambahan apapun. Fitur ini akan otomatis terbuka untuk Anda begitu dirilis!
                   </p>
                   <Button onClick={() => setProFeatureModal(null)} className="w-full h-14 bg-white hover:bg-slate-100 text-indigo-950 rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
-                      <Check className="w-5 h-5"/> SAYA MENGERTI
+                      <CheckCircle2 className="w-5 h-5"/> SAYA MENGERTI
                   </Button>
               </div>
           </div>
@@ -646,7 +684,7 @@ export default function Home() {
                   
                   <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-6 text-left relative z-10 shadow-inner">
                       <div className="flex items-center gap-2 mb-2">
-                          <AlertCircle className="w-4 h-4 text-amber-600"/>
+                          <AlertTriangle className="w-4 h-4 text-amber-600"/>
                           <span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span>
                       </div>
                       <p className="text-[12px] text-amber-700 leading-relaxed font-medium">
@@ -655,7 +693,7 @@ export default function Home() {
                       </p>
                   </div>
                   
-                  <Button onClick={() => { setFomoFeature(null); setLocation('/paywall'); }} className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
+                  <Button onClick={() => { setFomoFeature(null); window.location.href='/paywall'; }} className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
                       <Lock className="w-4 h-4"/> AMANKAN HARGA SAYA ➔
                   </Button>
               </div>
@@ -666,7 +704,7 @@ export default function Home() {
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
             <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 border-orange-500">
                 <div className="w-16 h-16 mx-auto bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-4">
-                    <AlertCircle className="w-8 h-8" />
+                    <AlertTriangle className="w-8 h-8" />
                 </div>
                 <h3 className="text-xl font-extrabold text-slate-800 mb-2">Tagihan Jatuh Tempo!</h3>
                 <p className="text-sm text-slate-500 mb-6 leading-relaxed">
@@ -727,7 +765,7 @@ export default function Home() {
 
                   <div className="space-y-4 mb-8">
                       <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                          <div className="bg-blue-100 p-2.5 rounded-full text-blue-600"><Bell className="w-5 h-5"/></div>
+                          <div className="bg-blue-100 p-2.5 rounded-full text-blue-600"><BellRing className="w-5 h-5"/></div>
                           <div>
                               <h4 className="font-bold text-slate-800 text-sm">Notifikasi Pengingat</h4>
                               <p className="text-[11px] text-slate-500 mt-0.5">Biar kamu gak lupa catat jajan hari ini.</p>
@@ -778,7 +816,7 @@ export default function Home() {
                   <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Target Tercapai! 🎉</h2>
                   <p className="text-slate-500 text-sm mb-8">Luar biasa! Saldo kamu sudah melebihi impian yang kamu targetkan. Ingin membuat target baru?</p>
                   <div className="space-y-3">
-                      <Button onClick={() => { dismissTargetModal(); setLocation('/target'); }} className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 font-bold rounded-full text-lg shadow-lg shadow-emerald-200">BUAT TARGET BARU</Button>
+                      <Button onClick={() => { dismissTargetModal(); window.location.href='/target'; }} className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 font-bold rounded-full text-lg shadow-lg shadow-emerald-200">BUAT TARGET BARU</Button>
                       <Button variant="ghost" onClick={dismissTargetModal} className="w-full h-14 font-bold text-slate-400 hover:text-slate-600 rounded-full">BIARKAN SAJA</Button>
                   </div>
               </div>
@@ -851,7 +889,7 @@ export default function Home() {
                     className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all"
                     title="Batalkan Transaksi Terakhir"
                 >
-                    {undoTx.isPending ? <Loader2 className="w-5 h-5 animate-spin"/> : <CornerUpLeft className="w-5 h-5"/>}
+                    {undoTx.isPending ? <Loader2 className="w-5 h-5 animate-spin"/> : <Undo2 className="w-5 h-5"/>}
                 </button>
 
                 <div className="relative">
@@ -868,7 +906,7 @@ export default function Home() {
                                 <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400"/> Edit Profil</button>
                             </Link>
                             <Link href="/security">
-                                <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><Shield className="w-4 h-4 text-slate-400"/> Keamanan</button>
+                                <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400"/> Keamanan</button>
                             </Link>
                             <div className="h-px bg-slate-100 my-1 mx-2"></div>
                             <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500"/> Keluar</button>
@@ -878,22 +916,19 @@ export default function Home() {
             </div>
         </div>
 
-        {/* 🚀 BANNER TRIAL DI DASHBOARD (Sesuai Logika Milestone App.tsx) */}
-        {!isUserPro && isStandalone && (
-            <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${isTrialExpiredState ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
+        {!isUserPro && trialDaysLeft !== null && isStandalone && (
+            <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${trialDaysLeft === 0 ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
                 <div className="flex items-center gap-3">
                     <div className="bg-white/20 p-2 rounded-full">
-                        {isTrialExpiredState ? <Lock className="w-5 h-5" /> : <Crown className="w-5 h-5" />}
+                        {trialDaysLeft === 0 ? <Lock className="w-5 h-5" /> : <Crown className="w-5 h-5" />}
                     </div>
                     <div>
-                        <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">{isTrialExpiredState ? "MASA COBA HABIS" : "Milestone Trial"}</p>
-                        <p className="text-xs font-medium opacity-90">
-                            {isTrialExpiredState ? "Fungsi aplikasi dikunci." : <span>Misi: <b>{milestoneTxProgress}/10 Transaksi</b></span>}
-                        </p>
+                        <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">{trialDaysLeft === 0 ? "MASA COBA HABIS" : "Masa Coba Gratis"}</p>
+                        <p className="text-xs font-medium opacity-90">{trialDaysLeft === 0 ? "Fungsi aplikasi dikunci." : <span>Sisa waktu: <b>{trialDaysLeft} Hari</b></span>}</p>
                     </div>
                 </div>
                 <Link href="/paywall">
-                    <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-full text-[10px] font-extrabold backdrop-blur-sm transition-all active:scale-95 shadow-sm">{isTrialExpiredState ? "BUKA KUNCI" : "UPGRADE PRO"}</button>
+                    <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-full text-[10px] font-extrabold backdrop-blur-sm transition-all active:scale-95 shadow-sm">{trialDaysLeft === 0 ? "BUKA KUNCI" : "UPGRADE PRO"}</button>
                 </Link>
             </div>
         )}
@@ -911,10 +946,16 @@ export default function Home() {
                  {displayBalance}
               </h2>
 
-              <div className="flex gap-3">
+              <div className="flex justify-between items-center w-full">
                   <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
                       <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                   </div>
+                  {/* 🚀 TOMBOL SETUP SALDO BARU */}
+                  <Link href="/target">
+                      <button className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full text-[10px] font-extrabold backdrop-blur-md transition-all active:scale-95 flex items-center gap-1.5 border border-white/10 shadow-sm uppercase tracking-wider">
+                          <RefreshCcw className="w-3 h-3"/> SETUP SALDO
+                      </button>
+                  </Link>
               </div>
            </div>
            <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
@@ -957,60 +998,6 @@ export default function Home() {
            </Link>
         </div>
 
-        <div className="px-1 mt-3">
-            <div className="bg-gradient-to-br from-white to-indigo-50/40 border border-indigo-100 rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
-                {!isUserPro && (
-                    <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[9px] font-black px-3 py-1.5 rounded-bl-[16px] z-10 flex items-center gap-1 shadow-sm">
-                        <Lock className="w-3 h-3" /> EKSKLUSIF PRO
-                    </div>
-                )}
-                {isUserPro && txCount >= 30 && (
-                    <div className="absolute top-0 right-0 bg-gradient-to-r from-emerald-400 to-emerald-500 text-white text-[9px] font-black px-3 py-1.5 rounded-bl-[16px] z-10 flex items-center gap-1 shadow-sm">
-                        SIAP DIBACA
-                    </div>
-                )}
-                <div className="flex items-start gap-4 relative z-10">
-                    <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 shadow-inner">
-                        <Bot className="w-6 h-6 text-indigo-600" />
-                    </div>
-                    <div className="w-full">
-                        <h3 className="font-extrabold text-slate-800 text-sm mb-1">AI Strategi Penghasilan</h3>
-                        <p className="text-[11px] text-slate-500 leading-relaxed font-medium mb-3">
-                            {isUserPro && txCount >= 30 
-                                ? "Data sudah lengkap! AI kami telah selesai meracik strategi khusus untukmu."
-                                : "Berdasarkan pola transaksi, AI akan meracik strategi penghasilan tambahan khusus untukmu."}
-                        </p>
-                        
-                        {(!isUserPro || txCount < 30) ? (
-                            <div className="space-y-1.5 w-full">
-                                <div className="flex justify-between text-[9px] font-extrabold text-indigo-600 uppercase tracking-widest">
-                                    <span>Mengumpulkan Data</span>
-                                    <span>{Math.min(30, txCount)} / 30 Transaksi</span>
-                                </div>
-                                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (txCount / 30) * 100)}%` }}></div>
-                                </div>
-                            </div>
-                        ) : null}
-
-                        {!isUserPro && (
-                            <Link href="/paywall">
-                                <button className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] py-2.5 rounded-[12px] transition-colors flex items-center justify-center gap-2 shadow-md">
-                                    Buka Akses Fitur PRO <ChevronRight className="w-3 h-3"/>
-                                </button>
-                            </Link>
-                        )}
-
-                        {isUserPro && txCount >= 30 && (
-                            <button onClick={fetchAiStrategy} className="mt-3 w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-black text-[11px] py-3 rounded-[12px] transition-all flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(79,70,229,0.3)] animate-pulse">
-                                LIHAT HASIL ANALISA SEKARANG <ChevronRight className="w-4 h-4"/>
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div className="px-1 mt-2">
             <div className="flex justify-between items-center mb-4 px-1">
                 <h3 className="font-bold text-slate-800 text-sm">Fitur Pilihan</h3>
@@ -1029,14 +1016,14 @@ export default function Home() {
                         <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-teal-400" label="Langganan" />
                         <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-emerald-500" label="Investasi" />
                         <MenuIconBox href="/reports" icon={FileText} bg="bg-orange-400" label="Laporan" />
-                        <MenuIconBox href="/scan" icon={Maximize} bg="bg-indigo-500" label="Scan" />
+                        <MenuIconBox href="/scan" icon={ScanLine} bg="bg-indigo-500" label="Scan" />
                     </div>
                 </div>
 
                 <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
-                        <MenuIconBox href="/amal" icon={Heart} bg="bg-emerald-500" label="Amal" />
-                        <MenuIconBox href="/retained" icon={Clock} bg="bg-amber-500" label="Tertahan" />
+                        <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-emerald-500" label="Amal" />
+                        <MenuIconBox href="/retained" icon={Hourglass} bg="bg-amber-500" label="Tertahan" />
                         <MenuIconBox 
                             onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} 
                             icon={CreditCard} bg="bg-slate-800" label="Cicilan" badge="SEGERA" 
@@ -1093,7 +1080,7 @@ export default function Home() {
                 <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <BarChart className="w-6 h-6 text-orange-500"/>
+                            <BarChart3 className="w-6 h-6 text-orange-500"/>
                         </div>
                         <div>
                             <h3 className="font-bold text-slate-800 text-base">Analisa Performa</h3>
