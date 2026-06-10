@@ -86,6 +86,39 @@ export default function Home() {
   
   const [showRetryButton, setShowRetryButton] = useState(false);
 
+  // 🚀 STATE & LOGIKA PEMUSNAH UANG GAIB
+  const [isNuking, setIsNuking] = useState(false);
+  const ghostTransactions = transactions?.filter(t => t.category?.includes('Sistem: Auto-Fix')) || [];
+  const totalGhostMoney = ghostTransactions.reduce((acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount), 0);
+
+  const handleNukeGhostMoney = async () => {
+      setIsNuking(true);
+      try {
+          // 1. Hapus record transaksinya
+          for (const tx of ghostTransactions) {
+              await fetch(`/api/transactions/${tx.id}`, {
+                  method: 'DELETE',
+                  headers: { "x-user-email": rawEmail }
+              });
+          }
+
+          // 2. Potong paksa uang gaib yang nyangkut di Kas Rupiah
+          if (totalGhostMoney !== 0) {
+              await fetch('/api/admin/silent-correction', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', "x-user-email": rawEmail },
+                  body: JSON.stringify({ deductAmount: totalGhostMoney })
+              });
+          }
+
+          toast({ title: "BERHASIL!", description: "Uang gaib dimusnahkan. Saldo kembali normal." });
+          window.location.reload();
+      } catch (e) {
+          toast({ title: "Gagal", variant: "destructive" });
+          setIsNuking(false);
+      }
+  };
+
   const isStandalone = typeof window !== 'undefined' && 
       (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
 
@@ -135,7 +168,6 @@ export default function Home() {
       };
   }, [isAnyDataLoading]);
 
-  // 🚀 PERBAIKAN: AUTO-DETEKSI PENGGUNA LAMA & PENANGANAN LOADING INFINITE PAYWALL
   const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
   
   const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
@@ -147,7 +179,6 @@ export default function Home() {
   useEffect(() => {
       if (!isUserLoading && !isTargetLoading && target !== undefined) {
           
-          // AUTO-UNLOCK BAGI PENGGUNA LAMA YANG SUDAH PUNYA TARGET
           if (!isTargetEmpty && rawEmail) {
               if (localStorage.getItem(`bilano_setup_completed_${rawEmail}`) !== "true") {
                   localStorage.setItem(`bilano_setup_completed_${rawEmail}`, "true");
@@ -155,18 +186,15 @@ export default function Home() {
           }
 
           if (isTargetEmpty) {
-              // Pakai href agar transisi halaman lebih mulus dan tidak nge-hang
               window.location.href = "/target";
           } else if (needsPaywallRedirect) {
               localStorage.setItem(`bilano_welcomed_paywall_${rawEmail}`, "true");
-              // Pakai href agar loading paywall tidak stuck
               window.location.href = "/paywall";
           }
       }
   }, [isTargetEmpty, needsPaywallRedirect, isUserLoading, isTargetLoading, rawEmail, target]);
 
 
-  // Logika Pop-up Setup Awal
   useEffect(() => {
       if (rawEmail && !isAnyDataLoading) {
           const skipped = sessionStorage.getItem(`skip_setup_prompt_${rawEmail}`) === "true";
@@ -182,7 +210,6 @@ export default function Home() {
   }, [rawEmail, isAnyDataLoading, target]);
 
 
-  // Logika Tooltip Guide & Profile (Hanya muncul jika pop-up setup sudah tertangani)
   useEffect(() => {
       if (rawEmail && !isAnyDataLoading && user && isSetupPromptHandled) {
           const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
@@ -838,6 +865,23 @@ export default function Home() {
       )}
 
       <div className="flex flex-col gap-6">
+        
+        {/* 🚀 TOMBOL PEMUSNAH UANG GAIB */}
+        {ghostTransactions.length > 0 && (
+            <div className="mx-2 mt-4 rounded-[24px] p-5 bg-rose-600 text-white shadow-lg animate-in slide-in-from-top-4">
+                <div className="flex items-center gap-3 mb-2">
+                    <AlertTriangle className="w-8 h-8 text-rose-200 animate-pulse"/>
+                    <h3 className="font-extrabold text-lg">Uang Gaib Terdeteksi!</h3>
+                </div>
+                <p className="text-xs text-rose-100 mb-4 leading-relaxed">
+                    Sistem mendeteksi ada anomali saldo sebesar <b>Rp {totalGhostMoney.toLocaleString('id-ID')}</b> dari proses sebelumnya. Silakan klik tombol di bawah untuk membersihkan riwayat dan menormalkan saldo Anda.
+                </p>
+                <Button onClick={handleNukeGhostMoney} disabled={isNuking} className="w-full bg-white hover:bg-slate-100 text-rose-700 font-black rounded-full h-12 shadow-md">
+                    {isNuking ? "MEMUSNAHKAN..." : "BERSIHKAN SALDO SEKARANG"}
+                </Button>
+            </div>
+        )}
+
         <div className="flex items-center justify-between px-2 pt-2 relative">
             <div className="flex items-center gap-3">
                 <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100">
@@ -950,7 +994,6 @@ export default function Home() {
                   <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
                       <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                   </div>
-                  {/* 🚀 TOMBOL SETUP SALDO BARU */}
                   <Link href="/target">
                       <button className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full text-[10px] font-extrabold backdrop-blur-md transition-all active:scale-95 flex items-center gap-1.5 border border-white/10 shadow-sm uppercase tracking-wider">
                           <RefreshCcw className="w-3 h-3"/> SETUP SALDO
