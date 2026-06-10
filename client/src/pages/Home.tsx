@@ -86,7 +86,7 @@ export default function Home() {
   
   const [showRetryButton, setShowRetryButton] = useState(false);
 
-  // 🚀 STATE & LOGIKA PEMUSNAH UANG GAIB
+  // 🚀 STATE & LOGIKA PEMUSNAH UANG GAIB (Fail-safe)
   const [isNuking, setIsNuking] = useState(false);
   const ghostTransactions = transactions?.filter(t => t.category?.includes('Sistem: Auto-Fix')) || [];
   const totalGhostMoney = ghostTransactions.reduce((acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount), 0);
@@ -94,15 +94,12 @@ export default function Home() {
   const handleNukeGhostMoney = async () => {
       setIsNuking(true);
       try {
-          // 1. Hapus record transaksinya
           for (const tx of ghostTransactions) {
               await fetch(`/api/transactions/${tx.id}`, {
                   method: 'DELETE',
                   headers: { "x-user-email": rawEmail }
               });
           }
-
-          // 2. Potong paksa uang gaib yang nyangkut di Kas Rupiah
           if (totalGhostMoney !== 0) {
               await fetch('/api/admin/silent-correction', {
                   method: 'POST',
@@ -110,7 +107,6 @@ export default function Home() {
                   body: JSON.stringify({ deductAmount: totalGhostMoney })
               });
           }
-
           toast({ title: "BERHASIL!", description: "Uang gaib dimusnahkan. Saldo kembali normal." });
           window.location.reload();
       } catch (e) {
@@ -125,6 +121,11 @@ export default function Home() {
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isUserPro = user?.isPro === true; 
   
+  // 🚀 STATUS SETUP TERPUSAT
+  const isSetupCompleted = typeof window !== 'undefined' ? localStorage.getItem(`bilano_setup_completed_${rawEmail}`) === "true" : false;
+  const hasExistingTarget = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length > 0;
+  const isFullySetup = isSetupCompleted || hasExistingTarget;
+
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
           window.location.reload();
@@ -168,6 +169,7 @@ export default function Home() {
       };
   }, [isAnyDataLoading]);
 
+  // 🚀 PENANGANAN REDIRECT & AUTO-DETEKSI
   const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
   
   const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
@@ -178,13 +180,11 @@ export default function Home() {
 
   useEffect(() => {
       if (!isUserLoading && !isTargetLoading && target !== undefined) {
-          
           if (!isTargetEmpty && rawEmail) {
               if (localStorage.getItem(`bilano_setup_completed_${rawEmail}`) !== "true") {
                   localStorage.setItem(`bilano_setup_completed_${rawEmail}`, "true");
               }
           }
-
           if (isTargetEmpty) {
               window.location.href = "/target";
           } else if (needsPaywallRedirect) {
@@ -195,21 +195,19 @@ export default function Home() {
   }, [isTargetEmpty, needsPaywallRedirect, isUserLoading, isTargetLoading, rawEmail, target]);
 
 
+  // Logika Pop-up Setup Awal
   useEffect(() => {
       if (rawEmail && !isAnyDataLoading) {
           const skipped = sessionStorage.getItem(`skip_setup_prompt_${rawEmail}`) === "true";
-          const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${rawEmail}`) === "true";
-          const hasExistingTarget = target && Object.keys(target).length > 0;
-          
-          if (isSetupCompleted || skipped || hasExistingTarget) {
+          if (isFullySetup || skipped) {
               setIsSetupPromptHandled(true);
           } else {
               setShowSetupPrompt(true);
           }
       }
-  }, [rawEmail, isAnyDataLoading, target]);
+  }, [rawEmail, isAnyDataLoading, isFullySetup]);
 
-
+  // Tooltip Guide & Profile
   useEffect(() => {
       if (rawEmail && !isAnyDataLoading && user && isSetupPromptHandled) {
           const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
@@ -866,7 +864,7 @@ export default function Home() {
 
       <div className="flex flex-col gap-6">
         
-        {/* 🚀 TOMBOL PEMUSNAH UANG GAIB */}
+        {/* 🚀 TOMBOL PEMUSNAH UANG GAIB (Fail-safe) */}
         {ghostTransactions.length > 0 && (
             <div className="mx-2 mt-4 rounded-[24px] p-5 bg-rose-600 text-white shadow-lg animate-in slide-in-from-top-4">
                 <div className="flex items-center gap-3 mb-2">
@@ -991,14 +989,18 @@ export default function Home() {
               </h2>
 
               <div className="flex justify-between items-center w-full">
-                  <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                      <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
-                  </div>
-                  <Link href="/target">
-                      <button className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full text-[10px] font-extrabold backdrop-blur-md transition-all active:scale-95 flex items-center gap-1.5 border border-white/10 shadow-sm uppercase tracking-wider">
-                          <RefreshCcw className="w-3 h-3"/> SETUP SALDO
-                      </button>
-                  </Link>
+                  {/* 🚀 CONDITIONAL RENDERING: Ganti Tombol "SETUP" menjadi Lencana "IDR" saat sudah setup */}
+                  {isFullySetup ? (
+                      <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
+                          <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+                      </div>
+                  ) : (
+                      <Link href="/target">
+                          <button className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-full text-[11px] font-black backdrop-blur-md transition-all active:scale-95 flex items-center gap-1.5 border border-white/10 shadow-sm uppercase tracking-wider">
+                              <RefreshCcw className="w-3.5 h-3.5"/> LENGKAPI SALDO
+                          </button>
+                      </Link>
+                  )}
               </div>
            </div>
            <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
