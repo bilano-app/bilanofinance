@@ -240,7 +240,9 @@ export default function Performance() {
   }, 0) : 0;
 
   const investmentReal = Array.isArray(investments) ? investments.reduce((acc, inv) => {
-      const [sym, curr] = (inv.symbol || "").split('|');
+      const parts = (inv.symbol || "").split('|');
+      const sym = parts[0] || "";
+      const curr = parts[1];
       const actualCurr = curr || 'IDR';
       const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_RATES[actualCurr] || 15000);
       const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
@@ -342,6 +344,7 @@ export default function Performance() {
       !t.description?.includes('[Valas Masuk') && 
       t.category !== 'Penyesuaian Sistem' && 
       t.category !== 'Sistem: Auto-Fix Valas' &&
+      t.category !== 'Sistem: Auto-Fix Valas v2' &&
       t.category !== 'Pemutihan Hutang' &&
       t.category !== 'Beli Aset Valas' &&
       t.category !== 'Jual Aset Valas' &&
@@ -358,6 +361,7 @@ export default function Performance() {
       !t.description?.includes('[Valas Keluar') && 
       t.category !== 'Penyesuaian Sistem' && 
       t.category !== 'Sistem: Auto-Fix Valas' &&
+      t.category !== 'Sistem: Auto-Fix Valas v2' &&
       t.category !== 'Penghapusan Piutang' &&
       t.category !== 'Beli Aset Valas' &&
       t.category !== 'Jual Aset Valas' &&

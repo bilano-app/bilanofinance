@@ -25,10 +25,10 @@ export default function Investment() {
   const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
-  // 🚀 TRIGGER AUTO-CORRECTION BUG VALAS
+  // 🚀 TRIGGER AUTO-CORRECTION BUG VALAS V2
   useEffect(() => {
       if (isSetupCompleted && currentUserEmail) {
-          fetch("/api/investments/fix-valas-bug", { method: "POST", headers: { "x-user-email": currentUserEmail } })
+          fetch("/api/investments/fix-valas-bug-v2", { method: "POST", headers: { "x-user-email": currentUserEmail } })
               .catch(() => {});
       }
   }, [isSetupCompleted, currentUserEmail]);
@@ -92,7 +92,8 @@ export default function Investment() {
       if (!activeCategory) return aggregatedPortfolio;
       return aggregatedPortfolio.filter(p => {
           if (p.type) return p.type.toLowerCase() === activeCategory.toLowerCase();
-          const [sym] = (p.symbol||"").split('|');
+          const parts = (p.symbol||"").split('|');
+          const sym = parts[0] || "";
           const isLegacyStock = sym.length === 4 && !sym.includes(" ");
           if (activeCategory === 'saham') return isLegacyStock;
           if (isLegacyStock) return false; 
@@ -103,7 +104,9 @@ export default function Investment() {
   const filteredItems = getFilteredPortfolio();
 
   const calculateLiveValue = (p: any) => {
-      const [sym, curr] = (p.symbol||"").split('|');
+      const parts = (p.symbol||"").split('|');
+      const sym = parts[0] || "";
+      const curr = parts[1];
       const actualCurr = curr || 'IDR';
       const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || 1);
       const isStock = p.type?.toLowerCase() === 'saham' || (!p.type && sym.length === 4);
@@ -227,15 +230,17 @@ export default function Investment() {
                   setSelectedSellSymbol(e.target.value);
                   const p = aggregatedPortfolio.find(x => x.symbol === e.target.value);
                   if (p) {
-                      const [, c] = p.symbol.split('|');
-                      setInputCurrency(c || 'IDR');
-                      setInputName(p.symbol.split('|')[0]);
+                      const parts = (p.symbol || "").split('|');
+                      setInputCurrency(parts[1] || 'IDR');
+                      setInputName(parts[0] || "");
                   }
               }}>
                  <option value="">-- PILIH ASET DI PORTFOLIO --</option>
                  {filteredItems.map(p => {
-                     const [sym, c] = p.symbol.split('|');
-                     return <option key={p.id} value={p.symbol}>{sym} {c && c!=='IDR' ? `(${c})` : ''} - Sisa {p.quantity}</option>
+                     const parts = (p.symbol || "").split('|');
+                     const sym = parts[0] || "";
+                     const c = parts[1] || "IDR";
+                     return <option key={p.id} value={p.symbol}>{sym} {c !== 'IDR' ? `(${c})` : ''} - Sisa {p.quantity}</option>
                  })}
               </select>
            )}
@@ -312,7 +317,7 @@ export default function Investment() {
                   
                   <button onClick={() => setProFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
                   
-                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10 animate-bounce">
+                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10">
                       <Crown className="w-10 h-10 text-amber-950"/>
                   </div>
                   
@@ -472,7 +477,9 @@ export default function Investment() {
                 )}
                 
                 {filteredItems.map((p) => {
-                   const [displaySymbol, curr] = p.symbol.split('|');
+                   const parts = (p.symbol||"").split('|');
+                   const displaySymbol = parts[0] || "";
+                   const curr = parts[1];
                    const actualCurr = curr || 'IDR';
                    const liveVal = calculateLiveValue(p);
                    const isForeign = actualCurr !== 'IDR';

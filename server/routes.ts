@@ -213,7 +213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let newBalance = Math.round(user!.cashBalance);
           const amt = Math.round(lastTx.amount);
 
-          const isValas = lastTx.category?.includes('Valas') || lastTx.type?.includes('forex');
+          const isValas = lastTx.category?.includes('Valas') || lastTx.type?.includes('forex') || lastTx.description?.includes('(Potong Dompet Valas)') || lastTx.description?.includes('(Masuk ke Dompet Valas)');
 
           if (!isValas) {
               if (lastTx.type === 'income') newBalance -= amt;
@@ -244,8 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           if (lastTx.type === 'invest_buy') {
-              const isValasAsset = lastTx.category === 'Beli Aset Valas';
-              if (isValasAsset) {
+              if (isValas) {
                   const desc = lastTx.description || "";
                   const match = desc.match(/@\s+([A-Z]{3})\s+([0-9.]+)/i);
                   if (match) {
@@ -273,8 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           }
           else if (lastTx.type === 'invest_sell') {
-              const isValasAsset = lastTx.category === 'Jual Aset Valas';
-              if (isValasAsset) {
+              if (isValas) {
                   const desc = lastTx.description || "";
                   const match = desc.match(/@\s+([A-Z]{3})\s+([0-9.]+)/i);
                   if (match) {
@@ -646,7 +644,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let newBalance = Math.round(user!.cashBalance);
           const amt = Math.round(txToDelete.amount);
           
-          const isValas = txToDelete.category?.includes('Valas') || txToDelete.type?.includes('forex');
+          const isValas = txToDelete.category?.includes('Valas') || txToDelete.type?.includes('forex') || txToDelete.description?.includes('(Potong Dompet Valas)') || txToDelete.description?.includes('(Masuk ke Dompet Valas)');
 
           if (!isValas) {
               if (txToDelete.type === 'income') newBalance -= amt;
@@ -1037,56 +1035,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/investments", async (req, res) => { const user = await getUser(req); res.json(await storage.getInvestments(user!.id)); });
 
-  // 🚀 SCRIPT AUTO-KOREKSI VALAS (Refund IDR yg salah potong & Potong Valas yg sebenarnya)
-  app.post("/api/investments/fix-valas-bug", async (req, res) => {
+  // 🚀 SCRIPT AUTO-KOREKSI VALAS V2 (Sapu Bersih & Refund Pasti Akurat)
+  app.post("/api/investments/fix-valas-bug-v2", async (req, res) => {
       try {
           const user = await getUser(req);
           const txs = await storage.getTransactions(user!.id);
           
-          if (txs.some(t => t.category === 'Sistem: Auto-Fix Valas')) {
-              return res.json({ success: true, message: "Sudah diperbaiki sebelumnya." });
-          }
+          let refundIDR = 0; 
+          let deductForex: Record<string, number> = {}; 
+          let fixedCount = 0;
 
-          const investments = await storage.getInvestments(user!.id);
-          let refundIDR = 0;
-          let deductForex: Record<string, number> = {};
+          for (const tx of txs) {
+              if (tx.type !== 'invest_buy' && tx.type !== 'invest_sell') continue;
+              
+              const desc = tx.description || "";
+              if (desc.includes('(Auto-Fixed)')) continue;
+              if (desc.includes('(Potong Dompet Valas)') || desc.includes('(Masuk ke Dompet Valas)')) continue; 
 
-          for (const inv of investments) {
-              const [sym, curr] = inv.symbol.split('|');
-              if (curr && curr !== 'IDR') {
-                  const valasCost = inv.quantity * inv.avgPrice; 
-                  const wrongIDRDeducted = Math.round(valasCost);
+              const match = desc.match(/([0-9.]+)\s+(?:lot\/unit|unit)\s+([A-Z0-9]+)\|([A-Z]{3})\s+@\s+Rp\s+([0-9.,]+)/i);
+              if (match) {
+                  const qty = parseFloat(match[1]);
+                  const curr = match[3].toUpperCase();
+                  const price = parseFloat(match[4].replace(/\./g, '').replace(/,/g, '.'));
                   
-                  refundIDR += wrongIDRDeducted;
-                  deductForex[curr] = (deductForex[curr] || 0) + valasCost;
+                  if (tx.type === 'invest_buy') {
+                      refundIDR += tx.amount; 
+                      deductForex[curr] = (deductForex[curr] || 0) + (qty * price); 
+                  } else if (tx.type === 'invest_sell') {
+                      refundIDR -= tx.amount; 
+                      deductForex[curr] = (deductForex[curr] || 0) - (qty * price); 
+                  }
+
+                  await db.execute(sql`UPDATE transactions SET description = ${desc + " (Auto-Fixed)"} WHERE id = ${tx.id}`);
+                  fixedCount++;
               }
           }
 
-          if (refundIDR > 0) {
-              await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + refundIDR));
+          if (fixedCount > 0) {
+              const newBalance = Math.round(user!.cashBalance + refundIDR);
+              await storage.updateUserBalance(user!.id, newBalance);
+              
               for (const [curr, amt] of Object.entries(deductForex)) {
                   const existing = await storage.getForexByCurrency(user!.id, curr);
                   if (existing) {
                       await storage.updateForexAsset(existing.id, Math.max(0, existing.amount - amt));
+                  } else if (amt < 0) { 
+                      await storage.createForexAsset(user!.id, { currency: curr, amount: Math.abs(amt), avgPrice: 0 } as any);
                   }
               }
 
               await storage.createTransaction(user!.id, {
-                  userId: user!.id, type: 'income', amount: refundIDR,
-                  category: 'Sistem: Auto-Fix Valas',
-                  description: `Pengembalian Kas IDR & Penyesuaian Dompet Valas untuk aset yang dibeli sebelum update.`,
-                  date: new Date()
-              } as any);
-          } else {
-              await storage.createTransaction(user!.id, {
-                  userId: user!.id, type: 'income', amount: 0,
-                  category: 'Sistem: Auto-Fix Valas',
-                  description: `Sistem sudah diperbarui. Tidak ada aset valas salah hitung yang perlu dikoreksi.`,
+                  userId: user!.id, type: refundIDR >= 0 ? 'income' : 'expense', amount: Math.abs(refundIDR),
+                  category: 'Sistem: Auto-Fix Valas v2',
+                  description: `Memperbaiki ${fixedCount} riwayat investasi valas yang salah memotong IDR. (Refund Rp ${Math.abs(refundIDR).toLocaleString('id-ID')})`,
                   date: new Date()
               } as any);
           }
 
-          res.json({ success: true, message: "Koreksi Selesai" });
+          res.json({ success: true, fixedCount });
       } catch (e: any) {
           res.status(500).json({ error: e.message });
       }
