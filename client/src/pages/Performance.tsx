@@ -341,7 +341,10 @@ export default function Performance() {
       !t.description?.includes('[Catat Awal]') && 
       !t.description?.includes('[Valas Masuk') && 
       t.category !== 'Penyesuaian Sistem' && 
+      t.category !== 'Sistem: Auto-Fix Valas' &&
       t.category !== 'Pemutihan Hutang' &&
+      t.category !== 'Beli Aset Valas' &&
+      t.category !== 'Jual Aset Valas' &&
       !(t.category || '').includes('Piutang Dibayar') &&
       !(t.category || '').includes('Dapat Pinjaman')
   );
@@ -354,7 +357,10 @@ export default function Performance() {
       !t.description?.includes('[Catat Awal]') && 
       !t.description?.includes('[Valas Keluar') && 
       t.category !== 'Penyesuaian Sistem' && 
+      t.category !== 'Sistem: Auto-Fix Valas' &&
       t.category !== 'Penghapusan Piutang' &&
+      t.category !== 'Beli Aset Valas' &&
+      t.category !== 'Jual Aset Valas' &&
       t.category !== 'Amal' && 
       !(t.category || '').includes('Bayar Hutang') &&
       !(t.category || '').includes('Beri Pinjaman')
