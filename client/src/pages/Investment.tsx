@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ArrowLeft, PlusCircle, X, Loader2, Info, Sparkles, AlertTriangle, Lock, Crown, CheckCircle2, AlertCircle } from "lucide-react"; 
 import { Button, Input } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
@@ -24,14 +24,6 @@ export default function Investment() {
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
-
-  // 🚀 TRIGGER AUTO-CORRECTION BUG VALAS V2
-  useEffect(() => {
-      if (isSetupCompleted && currentUserEmail) {
-          fetch("/api/investments/fix-valas-bug-v2", { method: "POST", headers: { "x-user-email": currentUserEmail } })
-              .catch(() => {});
-      }
-  }, [isSetupCompleted, currentUserEmail]);
 
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: portfolioRaw = [], isLoading: isInvLoading } = useInvestments();
@@ -65,7 +57,10 @@ export default function Investment() {
   const [inputCurrency, setInputCurrency] = useState("IDR");
   const [selectedSellSymbol, setSelectedSellSymbol] = useState("");
 
-  const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
+  const formatRp = (num: number) => {
+      const validNum = Number(num) || 0;
+      return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(validNum);
+  };
 
   const assetConfig: Record<AssetType, { label: string, unit: string, imgUrl: string, bg: string, headerBg: string, color: string }> = {
       saham: { label: 'Saham', unit: 'Lot/Lembar', imgUrl: 'https://api.iconify.design/solar/chart-square-bold.svg?color=%23059669', bg: 'bg-emerald-50 hover:bg-emerald-100', headerBg: 'bg-emerald-500', color: 'text-emerald-600' },
@@ -179,17 +174,18 @@ export default function Investment() {
   };
 
   const renderDynamicForm = () => {
-    const qtyNum = parseNum(inputQty);
-    const priceNum = parseNum(inputPrice);
+    const qtyNum = parseNum(inputQty) || 0;
+    const priceNum = parseNum(inputPrice) || 0;
     
     const isForeign = inputCurrency !== 'IDR';
-    const rate = isForeign ? (forexRates[inputCurrency] || 1) : 1;
+    const rate = isForeign ? (Number(forexRates[inputCurrency]) || 1) : 1;
     const isSaham = activeCategory === 'saham';
     const multiplier = (isSaham && !isForeign) ? 100 : 1; 
 
+    // Kalkulasi matematika murni yang aman (Anti-Crash)
     const rawEstimasi = qtyNum * priceNum * multiplier;
     const estimasiIDR = rawEstimasi * rate;
-
+    
     let isSellOverLimit = false;
     let ownedQty = 0;
 
@@ -226,21 +222,33 @@ export default function Investment() {
                   />
               </div>
            ) : (
-              <select className="w-full h-14 px-4 border-transparent rounded-[20px] bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 uppercase font-bold text-slate-700 outline-none transition-all" onChange={e => {
-                  setSelectedSellSymbol(e.target.value);
-                  const p = aggregatedPortfolio.find(x => x.symbol === e.target.value);
-                  if (p) {
-                      const parts = (p.symbol || "").split('|');
-                      setInputCurrency(parts[1] || 'IDR');
-                      setInputName(parts[0] || "");
-                  }
-              }}>
+              // 🚀 ANTI-CRASH DROPDOWN (Tidak ada manipulasi format string rumit)
+              <select 
+                  value={selectedSellSymbol}
+                  className="w-full h-14 px-4 border-transparent rounded-[20px] bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 uppercase font-bold text-slate-700 outline-none transition-all" 
+                  onChange={e => {
+                      const val = e.target.value;
+                      setSelectedSellSymbol(val);
+                      const p = aggregatedPortfolio.find(x => x.symbol === val);
+                      if (p) {
+                          const symRaw = p.symbol || "";
+                          const parts = symRaw.split('|');
+                          setInputCurrency(parts[1] || 'IDR');
+                          setInputName(parts[0] || "");
+                      } else {
+                          setInputCurrency('IDR');
+                          setInputName("");
+                      }
+                  }}
+              >
                  <option value="">-- PILIH ASET DI PORTFOLIO --</option>
                  {filteredItems.map(p => {
-                     const parts = (p.symbol || "").split('|');
+                     const symRaw = p.symbol || "";
+                     const parts = symRaw.split('|');
                      const sym = parts[0] || "";
                      const c = parts[1] || "IDR";
-                     return <option key={p.id} value={p.symbol}>{sym} {c !== 'IDR' ? `(${c})` : ''} - Sisa {p.quantity}</option>
+                     const keyId = p.id || p.symbol;
+                     return <option key={keyId} value={symRaw}>{sym} {c !== 'IDR' ? `(${c})` : ''} - Sisa {p.quantity}</option>
                  })}
               </select>
            )}
@@ -260,7 +268,7 @@ export default function Investment() {
             </div>
         </div>
 
-        {isSaham && inputCurrency === 'IDR' && (
+        {isSaham && !isForeign && (
             <div className="flex items-center gap-2 text-[10px] text-emerald-600 bg-emerald-50 p-2 rounded-xl mt-[-10px] px-3 font-medium">
                 <Info className="w-3.5 h-3.5" /> Harga per lembar, total otomatis dikali 100 (1 Lot).
             </div>
@@ -268,7 +276,7 @@ export default function Investment() {
         
         {isForeign && (
             <div className="flex items-center gap-2 text-[10px] text-blue-600 bg-blue-50 p-2 rounded-xl mt-[-10px] px-3 font-medium">
-                <Globe className="w-3.5 h-3.5" /> Akan {txType === 'BUY' ? 'memotong' : 'menambah'} Dompet Valas ({inputCurrency})
+                <Info className="w-3.5 h-3.5" /> Akan {txType === 'BUY' ? 'memotong' : 'menambah'} Dompet Valas ({inputCurrency})
             </div>
         )}
 
@@ -276,13 +284,13 @@ export default function Investment() {
            <div className="flex justify-between items-center">
                <span className={`text-xs font-bold ${txType==='BUY'?'text-rose-500':'text-emerald-600'}`}>Estimasi {isForeign ? inputCurrency : 'IDR'} {txType==='BUY' ? 'Keluar' : 'Masuk'}</span>
                <span className={`font-extrabold text-xl ${txType==='BUY'?'text-rose-600':'text-emerald-700'}`}>
-                  {isForeign ? `${inputCurrency} ${rawEstimasi.toLocaleString('id-ID')}` : formatRp(rawEstimasi)}
+                  {isForeign ? `${inputCurrency} ${Number(rawEstimasi).toLocaleString('en-US')}` : formatRp(Number(rawEstimasi))}
                </span>
            </div>
            {isForeign && (
                <div className={`flex justify-between items-center mt-1 pt-1 border-t ${txType==='BUY'?'border-rose-100/50':'border-emerald-100/50'}`}>
                    <span className="text-[10px] font-bold text-slate-400">Nilai IDR (Utk Laporan PDF)</span>
-                   <span className="text-[10px] font-bold text-slate-500">≈ {formatRp(estimasiIDR)}</span>
+                   <span className="text-[10px] font-bold text-slate-500">≈ {formatRp(Number(estimasiIDR))}</span>
                </div>
            )}
         </div>
@@ -317,7 +325,7 @@ export default function Investment() {
                   
                   <button onClick={() => setProFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
                   
-                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10">
+                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10 animate-bounce">
                       <Crown className="w-10 h-10 text-amber-950"/>
                   </div>
                   
@@ -483,9 +491,10 @@ export default function Investment() {
                    const actualCurr = curr || 'IDR';
                    const liveVal = calculateLiveValue(p);
                    const isForeign = actualCurr !== 'IDR';
+                   const keyId = p.id || p.symbol;
                    
                    return (
-                     <div key={p.id} className="bg-white p-5 rounded-[24px] border border-slate-100 flex justify-between items-center shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-md transition-shadow">
+                     <div key={keyId} className="bg-white p-5 rounded-[24px] border border-slate-100 flex justify-between items-center shadow-[0_4px_20px_rgb(0,0,0,0.02)] hover:shadow-md transition-shadow">
                         <div className="flex items-center gap-4">
                            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-extrabold text-sm ${activeCategory ? assetConfig[activeCategory].bg.split(' ')[0] : 'bg-slate-100'} ${activeCategory ? assetConfig[activeCategory].color : 'text-slate-600'}`}>
                               {displaySymbol.substring(0,2)}
