@@ -19,19 +19,14 @@ export default function Paywall() {
   const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const trialKey = `bilano_trial_start_${userEmail}`;
   const expiredKey = `bilano_trial_expired_${userEmail}`;
-  
-  // Ambil Data Kontekstual dari Cache (disimpan oleh App/Home)
-  const txCount = localStorage.getItem(`bilano_tx_count_${userEmail}`) || "0";
-  const daysActive = localStorage.getItem("bilano_trial_days_passed") || "0";
-  const aiDaysRemaining = Math.max(0, 30 - parseInt(daysActive));
 
   useEffect(() => {
-      // Kita anggap user sudah mulai trial jika mereka sudah menyelesaikan setup target
-      if (localStorage.getItem(`bilano_setup_completed_${userEmail}`)) setHasStartedTrial(true);
+      if (localStorage.getItem(trialKey)) setHasStartedTrial(true);
       if (localStorage.getItem(expiredKey) === "true") setIsExpired(true);
-  }, [trialKey, expiredKey, userEmail]);
+  }, [trialKey, expiredKey]);
 
   const handleMulaiCoba = () => {
+      if (!localStorage.getItem(trialKey)) localStorage.setItem(trialKey, Date.now().toString());
       window.location.href = "/";
   };
 
@@ -68,7 +63,7 @@ export default function Paywall() {
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute bottom-1/4 left-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-            {hasStartedTrial && !isExpired && (
+            {hasStartedTrial && (
                 <button onClick={() => window.location.href = "/"} className="absolute top-6 right-6 z-50 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md border border-white/10 transition-colors shadow-lg">
                     <X className="w-5 h-5 text-white opacity-90" />
                 </button>
@@ -81,29 +76,31 @@ export default function Paywall() {
                 </div>
                 
                 <h1 className="text-3xl font-extrabold leading-tight mb-3">
-                    Perjalanan ini <br/>
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-500">belum selesai.</span>
+                    Buka Potensi Penuh <br/>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-500">BILANO PRO</span>
                 </h1>
-                <p className="text-sm text-slate-400 font-medium leading-relaxed mb-6 pr-4">
-                    Lihat apa yang sudah kamu bangun sejauh ini:
+                <p className="text-sm text-slate-400 font-medium leading-relaxed mb-8 pr-4">
+                    Catat lebih cepat, analisa lebih tajam, dan capai target keuanganmu tanpa batas.
                 </p>
 
-                {/* 🚀 CONTEXTUAL SUMMARY CARD */}
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-5 mb-8 backdrop-blur-sm animate-in slide-in-from-bottom-4">
-                    <ul className="space-y-3">
-                        <li className="flex items-center gap-3 text-sm font-bold text-white">
-                            <div className="w-8 h-8 bg-indigo-500/20 rounded-full flex items-center justify-center text-indigo-400"><Zap className="w-4 h-4"/></div>
-                            {txCount} Transaksi telah tercatat
-                        </li>
-                        <li className="flex items-center gap-3 text-sm font-bold text-white">
-                            <div className="w-8 h-8 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-400"><CheckCircle2 className="w-4 h-4"/></div>
-                            Aktif selama {daysActive} hari
-                        </li>
-                        <li className="flex items-center gap-3 text-sm font-bold text-white">
-                            <div className="w-8 h-8 bg-amber-500/20 rounded-full flex items-center justify-center text-amber-400"><Bot className="w-4 h-4"/></div>
-                            AI Strategi {aiDaysRemaining > 0 ? `${aiDaysRemaining} hari lagi siap` : `Siap digunakan!`}
-                        </li>
-                    </ul>
+                <div className="space-y-4 mb-10">
+                    {[
+                        { title: "Tanya AI Assistant 24/7", desc: "Konsultasi keuangan cerdas tanpa batas kuota harian." },
+                        { title: "Tracking Investasi Terpadu", desc: "Pantau portofolio saham, crypto, reksadana, hingga emas." },
+                        { title: "Cetak PDF Premium", desc: "Export mutasi dan kekayaan bersih ala Bank Statement." },
+                        { title: "Multi-Currency (Valas) Live", desc: "Pantau aset mata uang asing dengan kurs real-time." },
+                        { title: "Scan Struk Otomatis", desc: "Tidak perlu ketik manual, cukup foto struk belanja." }
+                    ].map((feature, idx) => (
+                        <div key={idx} className="flex gap-4 items-start animate-in slide-in-from-bottom-4" style={{ animationDelay: `${idx * 100}ms` }}>
+                            <div className="bg-white/10 p-1.5 rounded-full text-amber-400 mt-0.5">
+                                <CheckCircle2 className="w-4 h-4"/>
+                            </div>
+                            <div>
+                                <h3 className="font-extrabold text-sm text-white">{feature.title}</h3>
+                                <p className="text-[11px] text-slate-400 mt-0.5">{feature.desc}</p>
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
                 <div className="w-full relative z-10 animate-in slide-in-from-bottom-8 delay-300">
@@ -112,7 +109,7 @@ export default function Paywall() {
                         className={`w-full h-16 text-lg font-extrabold rounded-full active:scale-95 transition-transform flex items-center justify-center gap-2 ${isExpired ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-[0_0_30px_rgba(225,29,72,0.3)]' : 'bg-amber-400 hover:bg-amber-500 text-amber-950 shadow-[0_0_30px_rgba(251,191,36,0.3)]'}`}
                     >
                         <Sparkles className="w-5 h-5"/>
-                        {isExpired ? "LANJUTKAN SEKARANG" : "BERLANGGANAN SEKARANG"}
+                        {isExpired ? "BUKA KUNCI AKSES" : "BERLANGGANAN SEKARANG"}
                     </Button>
                     
                     {!hasStartedTrial && (
@@ -146,10 +143,6 @@ export default function Paywall() {
                             <div className="flex items-end gap-1">
                                 <p className="text-2xl font-black text-slate-800">Rp 14.900 <span className="text-xs font-bold text-slate-400">/ bulan</span></p>
                             </div>
-                            {/* Framing Harga Eceran */}
-                            <p className="text-[10px] font-bold text-indigo-600 mt-2 bg-indigo-100 px-2 py-1 rounded-md inline-block">
-                                Hanya Rp 500/hari!
-                            </p>
                         </div>
 
                         <div onClick={() => setSelectedPlan('yearly')} className={`relative p-5 rounded-[20px] border-2 cursor-pointer transition-all overflow-hidden ${selectedPlan === 'yearly' ? 'border-amber-400 bg-gradient-to-br from-slate-900 to-indigo-950 shadow-xl' : 'border-slate-200 bg-white'}`}>
@@ -168,13 +161,6 @@ export default function Paywall() {
                                 <p className={`text-3xl font-black tracking-tight ${selectedPlan === 'yearly' ? 'text-white' : 'text-slate-800'}`}>Rp 8.250 <span className="text-xs font-bold opacity-60">/ bulan</span></p>
                             </div>
 
-                            {/* Framing Harga Eceran */}
-                            {selectedPlan === 'yearly' && (
-                                <p className="text-[10px] font-bold text-amber-400 mt-2 bg-white/10 px-2 py-1 rounded-md inline-block relative z-10 border border-amber-400/30">
-                                    Cuma Rp 275/hari. Setara bayar parkir.
-                                </p>
-                            )}
-
                             {selectedPlan === 'yearly' && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); setShowVisionModal(true); }}
@@ -184,7 +170,7 @@ export default function Paywall() {
                                         <div className="bg-amber-400/20 p-1.5 rounded-full">
                                             <ShieldCheck className="w-4 h-4 text-amber-400" />
                                         </div>
-                                        <p className="text-xs font-bold text-white">Garansi Harga Tetap Selamanya</p>
+                                        <p className="text-xs font-bold text-white">Kenapa harga ini menguntungkan Anda?</p>
                                     </div>
                                     <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-white" />
                                 </button>
@@ -224,7 +210,7 @@ export default function Paywall() {
                             </h2>
                             {selectedPlan === 'yearly' && (
                                 <div className="text-[11px] font-extrabold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full inline-block mt-2 border border-emerald-100 shadow-sm">
-                                    🚀 Perhitungan: (Rp 8.250 x 12 Bulan)
+                                    櫨 Perhitungan: (Rp 8.250 x 12 Bulan)
                                 </div>
                             )}
                             <div className="flex items-center justify-center mt-3">
