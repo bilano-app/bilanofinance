@@ -39,6 +39,7 @@ interface ForexAsset {
   id: number;
   currency: string;
   amount: number;
+  avg_price?: number;
 }
 
 export default function Forex() {
@@ -75,7 +76,6 @@ export default function Forex() {
   const isSetupCompleted = currentUserEmail ? localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true" : false;
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
-  // 🚀 PENYELAMAT DESIMAL: Pemisah antara Rupiah (Bulat) dan Valas (Desimal)
   const formatIdr = (val: string) => {
       if (!val) return "";
       let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
@@ -85,7 +85,6 @@ export default function Forex() {
   };
   const parseIdr = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
   
-  // Membiarkan Titik/Koma tetap hidup di Valas
   const parseValas = (val: string) => parseFloat(val.replace(/,/g, ".")) || 0;
 
   const { data: user } = useQuery({
@@ -206,7 +205,6 @@ export default function Forex() {
   };
 
   const handleExchange = async () => {
-      // 🚀 BLOKIR JIKA BELUM SETUP
       if (!isSetupCompleted) {
           setShowSetupPrompt(true);
           return;
@@ -245,13 +243,14 @@ export default function Forex() {
 
       setIsSubmitting(true);
       try {
-          const forexType = exchangeMode === 'buy' ? 'income' : 'expense';
+          const forexType = exchangeMode === 'buy' ? 'forex_buy' : 'forex_sell';
           
           const resForex = await fetch("/api/forex/transaction", {
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ 
                   currency: selectedCurr.code, 
                   amount: qty, 
+                  rate: rate,
                   type: forexType 
               })
           });
@@ -272,7 +271,6 @@ export default function Forex() {
   };
 
   const handleMutation = async () => {
-      // 🚀 BLOKIR JIKA BELUM SETUP
       if (!isSetupCompleted) {
           setShowSetupPrompt(true);
           return;
@@ -303,7 +301,7 @@ export default function Forex() {
           }
       }
 
-      const note = noteMutation.trim() || (mutationMode === 'in' ? "Valas Masuk" : "Valas Keluar");
+      const note = noteMutation.trim();
       setIsSubmitting(true);
 
       try {
@@ -552,7 +550,6 @@ export default function Forex() {
 
                         <div>
                             <label className="text-xs font-bold text-slate-500 mb-1 block">Nominal ({selectedCurr.code})</label>
-                            {/* 🚀 MENGIZINKAN NATIVE KETIK TITIK / KOMA UNTUK VALAS */}
                             <Input type="text" inputMode="decimal" placeholder="Contoh: 10.5" className="h-14 text-xl font-bold rounded-xl" value={amountMutation} onChange={(e) => setAmountMutation(e.target.value.replace(/[^0-9.,]/g, ''))}/>
                         </div>
                         
@@ -577,7 +574,6 @@ export default function Forex() {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="text-xs font-bold text-slate-500 mb-1 block">Jml ({selectedCurr.code})</label>
-                                {/* 🚀 MENGIZINKAN KOMA VALAS */}
                                 <Input type="text" inputMode="decimal" placeholder="10.5" className="h-12 text-lg font-bold" value={amountExchange} onChange={(e) => setAmountExchange(e.target.value.replace(/[^0-9.,]/g, ''))}/>
                             </div>
                             <div>
@@ -635,8 +631,6 @@ export default function Forex() {
         </div>
 
       </div>
-      
-      {/* 🚀 Pop-up Penghalang Submit (Belum Setup) */}
       {showSetupPrompt && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">

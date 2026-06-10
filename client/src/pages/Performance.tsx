@@ -126,7 +126,6 @@ export default function Performance() {
       );
   }
 
-  // 🚀 PROTEKSI WAJIB SETUP (Memblokir Total)
   const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
   
   if (!isSetupCompleted) {
@@ -275,7 +274,7 @@ export default function Performance() {
   let totalCuanJual = 0;
   let totalModalTerpakai = 0;
 
-  allTimeTx.filter(t => t.type === 'invest_sell').forEach(t => {
+  allTimeTx.filter(t => t.type === 'invest_sell' || t.type === 'forex_sell').forEach(t => {
       if (t.description && t.description.includes('P/L:')) {
           const plString = t.description.split('P/L:')[1];
           if (plString) {
@@ -340,13 +339,9 @@ export default function Performance() {
       !t.description?.includes('[Offset') && 
       !t.description?.includes('[WRITE_OFF]') && 
       !t.description?.includes('[Catat Awal]') && 
-      !t.description?.includes('[Bayar Valas]') && 
+      !t.description?.includes('[Valas Masuk') && 
       t.category !== 'Penyesuaian Sistem' && 
       t.category !== 'Pemutihan Hutang' &&
-      t.category !== 'Cairkan Valas' &&
-      t.category !== 'Investasi Valas' && 
-      t.category !== 'Tukar Valas' &&
-      t.category !== 'Jual Aset' &&
       !(t.category || '').includes('Piutang Dibayar') &&
       !(t.category || '').includes('Dapat Pinjaman')
   );
@@ -357,19 +352,16 @@ export default function Performance() {
       !t.description?.includes('[Offset') && 
       !t.description?.includes('[WRITE_OFF]') && 
       !t.description?.includes('[Catat Awal]') && 
-      !t.description?.includes('[Bayar Valas]') && 
+      !t.description?.includes('[Valas Keluar') && 
       t.category !== 'Penyesuaian Sistem' && 
       t.category !== 'Penghapusan Piutang' &&
-      t.category !== 'Tukar Valas' &&
-      t.category !== 'Investasi Valas' && 
-      t.category !== 'Cairkan Valas' &&
       t.category !== 'Amal' && 
       !(t.category || '').includes('Bayar Hutang') &&
       !(t.category || '').includes('Beri Pinjaman')
   );
 
   const virtualPLTxs: any[] = [];
-  thisMonthTx.filter(t => t.type === 'invest_sell').forEach(t => {
+  thisMonthTx.filter(t => t.type === 'invest_sell' || t.type === 'forex_sell').forEach(t => {
       if (t.description && t.description.includes('P/L:')) {
           const plString = t.description.split('P/L:')[1];
           if (plString) {
@@ -381,7 +373,7 @@ export default function Performance() {
                       ...t, 
                       type: plValue > 0 ? 'income' : 'expense',
                       amount: Math.abs(plValue),
-                      category: plValue > 0 ? 'Profit Investasi' : 'Rugi Investasi',
+                      category: plValue > 0 ? (t.type === 'forex_sell' ? 'Profit Valas' : 'Profit Investasi') : (t.type === 'forex_sell' ? 'Rugi Valas' : 'Rugi Investasi'),
                       description: `Realisasi: ${t.description.split('@')[0].trim()}`
                   });
               }
@@ -603,7 +595,7 @@ export default function Performance() {
             </div>
         </div>
 
-        {isPro && (totalCuanJual !== 0 || investmentReal > 0) && (
+        {isPro && (totalCuanJual !== 0 || investmentReal > 0 || forexValue > 0) && (
             <div className="p-6 rounded-[32px] bg-slate-900 text-white shadow-xl border border-slate-700 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
                 <div className="flex justify-between items-start mb-6">
                     <div>
