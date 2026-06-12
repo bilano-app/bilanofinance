@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { WifiOff, RefreshCw, Lock } from "lucide-react"; 
 import { useNotifications } from "./hooks/useNotifications"; 
 import { useUser, useTransactions } from "./hooks/use-finance"; 
-import { useTrackingInit } from "./hooks/useTracking";
+
 // =========================================================================
 // 🚀 KUNCI MEMORI AGAR ANGKA TIDAK BERKEDIP
 // =========================================================================
@@ -364,8 +364,6 @@ function Router() {
 }
 
 function App() {
-  useTrackingInit(); // 🚀 MENJALANKAN TRACKING OTOMATIS
-  
   return (
     <QueryClientProvider client={queryClient}>
       <Router />

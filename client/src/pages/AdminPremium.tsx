@@ -1,11 +1,7 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
-import { 
-    ShieldAlert, Crown, Search, CheckCircle2, XCircle, Calendar, 
-    Mail, User as UserIcon, Loader2, Users, MessageSquare, X, 
-    Activity, TrendingDown, Target, BellRing, ChevronRight
-} from "lucide-react";
+import { ShieldAlert, Crown, Search, CheckCircle2, XCircle, Calendar, Mail, User as UserIcon, Loader2, Users, MessageSquare, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
@@ -15,7 +11,7 @@ export default function AdminPremium() {
     
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState("");
-    const [activeTab, setActiveTab] = useState<'users' | 'tickets' | 'tracking'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'tickets'>('users');
 
     // State untuk Tiket Bantuan
     const [tickets, setTickets] = useState<any[]>([]);
@@ -33,28 +29,6 @@ export default function AdminPremium() {
             return res.json();
         },
         enabled: isAdmin
-    });
-
-    // Query untuk Funnel Overview
-    const { data: funnelData, isLoading: isLoadingFunnel } = useQuery({
-        queryKey: ['admin_funnel', currentUserEmail],
-        queryFn: async () => {
-            const res = await fetch("/api/funnel/overview", { headers: { "x-user-email": currentUserEmail } });
-            if (!res.ok) throw new Error("Gagal mengambil data funnel");
-            return res.json();
-        },
-        enabled: isAdmin && activeTab === 'tracking'
-    });
-
-    // Query untuk Follow-up Triggers
-    const { data: triggersData = [], isLoading: isLoadingTriggers } = useQuery({
-        queryKey: ['admin_triggers', currentUserEmail],
-        queryFn: async () => {
-            const res = await fetch("/api/funnel/followup-triggers", { headers: { "x-user-email": currentUserEmail } });
-            if (!res.ok) throw new Error("Gagal mengambil data triggers");
-            return res.json();
-        },
-        enabled: isAdmin && activeTab === 'tracking'
     });
 
     // Fetch Tiket Bantuan saat tab diklik
@@ -174,21 +148,12 @@ export default function AdminPremium() {
                     <div className="absolute -right-10 -top-10 w-40 h-40 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
                 </div>
 
-                {/* TABS NAVIGATION */}
-                <div className="flex bg-slate-200 p-1.5 rounded-[20px] overflow-x-auto hide-scrollbar">
-                    <button onClick={() => setActiveTab('users')} className={`flex-none px-4 py-3 rounded-[16px] font-bold text-sm transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>
-                        <Users className="w-4 h-4"/> Pengguna
-                    </button>
-                    <button onClick={() => setActiveTab('tracking')} className={`flex-none px-4 py-3 rounded-[16px] font-bold text-sm transition-all flex items-center gap-2 ${activeTab === 'tracking' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500'}`}>
-                        <Activity className="w-4 h-4"/> Funnel & Track
-                    </button>
-                    <button onClick={() => setActiveTab('tickets')} className={`flex-none px-4 py-3 rounded-[16px] font-bold text-sm transition-all flex items-center gap-2 ${activeTab === 'tickets' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500'}`}>
-                        <MessageSquare className="w-4 h-4"/> Tiket
-                    </button>
+                <div className="flex bg-slate-200 p-1.5 rounded-[20px]">
+                    <button onClick={() => setActiveTab('users')} className={`flex-1 py-3 rounded-[16px] font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === 'users' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}><Users className="w-4 h-4"/> Pengguna</button>
+                    <button onClick={() => setActiveTab('tickets')} className={`flex-1 py-3 rounded-[16px] font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === 'tickets' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500'}`}><MessageSquare className="w-4 h-4"/> Tiket Bantuan</button>
                 </div>
 
-                {/* TAB: PENGGUNA */}
-                {activeTab === 'users' && (
+                {activeTab === 'users' ? (
                     <div className="space-y-4 animate-in fade-in slide-in-from-left">
                         <div className="relative">
                             <Search className="w-5 h-5 absolute left-4 top-4 text-slate-400" />
@@ -244,106 +209,12 @@ export default function AdminPremium() {
                             </div>
                         ))}
                     </div>
-                )}
-
-                {/* TAB: PELACAKAN (FUNNEL) */}
-                {activeTab === 'tracking' && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom">
-                        {isLoadingFunnel || isLoadingTriggers ? (
-                            <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-indigo-500"/></div>
-                        ) : (
-                            <>
-                                {/* Metrik Utama */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-white p-4 rounded-[20px] shadow-sm border border-slate-100">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Target className="w-4 h-4 text-emerald-500" />
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Acquisition Rate</p>
-                                        </div>
-                                        <p className="text-2xl font-black text-slate-800">
-                                            {funnelData?.acquisition_rate ? (funnelData.acquisition_rate * 100).toFixed(1) : 0}%
-                                        </p>
-                                        <p className="text-[10px] text-slate-400 mt-1">Visit → Install PWA</p>
-                                    </div>
-                                    <div className="bg-white p-4 rounded-[20px] shadow-sm border border-slate-100">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Activity className="w-4 h-4 text-indigo-500" />
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Activation Rate</p>
-                                        </div>
-                                        <p className="text-2xl font-black text-slate-800">
-                                            {funnelData?.activation_rate ? (funnelData.activation_rate * 100).toFixed(1) : 0}%
-                                        </p>
-                                        <p className="text-[10px] text-slate-400 mt-1">Register → Aha Moment</p>
-                                    </div>
-                                </div>
-
-                                {/* Analisis Dropoff */}
-                                <div className="bg-white p-5 rounded-[24px] shadow-sm border border-slate-100">
-                                    <h3 className="font-extrabold text-slate-800 text-sm mb-4 flex items-center gap-2">
-                                        <TrendingDown className="w-4 h-4 text-rose-500"/> Analisis Drop-off
-                                    </h3>
-                                    
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-xs font-bold text-slate-600">Landing → Install</p>
-                                            <span className="text-xs font-black text-slate-800">{funnelData?.dropoff_breakdown?.landing_to_install ? (funnelData.dropoff_breakdown.landing_to_install * 100).toFixed(1) : 0}%</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-xs font-bold text-slate-600">Install → Register</p>
-                                            <span className="text-xs font-black text-slate-800">{funnelData?.dropoff_breakdown?.install_to_register ? (funnelData.dropoff_breakdown.install_to_register * 100).toFixed(1) : 0}%</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-xs font-bold text-slate-600">Register → Transaksi Pertama</p>
-                                            <span className="text-xs font-black text-slate-800">{funnelData?.dropoff_breakdown?.register_to_aha ? (funnelData.dropoff_breakdown.register_to_aha * 100).toFixed(1) : 0}%</span>
-                                        </div>
-                                        <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                                            <p className="text-xs font-bold text-slate-600">Trial → Berlangganan (Paid)</p>
-                                            <span className="text-xs font-black text-indigo-600">{funnelData?.dropoff_breakdown?.aha_to_paid ? (funnelData.dropoff_breakdown.aha_to_paid * 100).toFixed(1) : 0}%</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Follow-up Triggers List */}
-                                <div className="bg-white p-5 rounded-[24px] shadow-sm border border-slate-100">
-                                    <h3 className="font-extrabold text-slate-800 text-sm mb-4 flex items-center gap-2">
-                                        <BellRing className="w-4 h-4 text-amber-500"/> Daftar Follow-up (Actionable)
-                                    </h3>
-
-                                    {triggersData.length === 0 ? (
-                                        <p className="text-center py-6 text-sm text-slate-400">Tidak ada pengguna yang perlu difollow-up saat ini.</p>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {triggersData.map((trigger: any, idx: number) => (
-                                                <div key={idx} className="p-3 bg-slate-50 border border-slate-100 rounded-[16px] flex flex-col gap-2">
-                                                    <div className="flex justify-between items-start">
-                                                        <span className="text-xs font-black text-slate-800">
-                                                            {trigger.ig_user ? <span className="text-pink-600">{trigger.ig_user}</span> : 'Anonymous / Organic'}
-                                                        </span>
-                                                        <span className="text-[9px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded font-bold uppercase">
-                                                            {trigger.condition.replace(/_/g, ' ')}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center mt-1">
-                                                        <p className="text-[10px] text-slate-500">Event terakhir: {new Date(trigger.last_event_at).toLocaleDateString('id-ID')}</p>
-                                                        <Button variant="outline" className="h-7 text-[10px] rounded-full px-3">Lihat Detail <ChevronRight className="w-3 h-3 ml-1"/></Button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
-
-                {/* TAB: TIKET BANTUAN */}
-                {activeTab === 'tickets' && (
+                ) : (
                     <div className="space-y-4 animate-in fade-in slide-in-from-right">
                         {isLoadingTickets ? (
                             <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-indigo-500"/></div>
                         ) : tickets.length === 0 ? (
-                            <div className="text-center py-10 text-slate-400 font-medium bg-white rounded-[24px] border border-dashed border-slate-200">Hore! Tidak ada keluhan hari ini.</div>
+                            <div className="text-center py-10 text-slate-400 font-medium">Hore! Tidak ada keluhan hari ini.</div>
                         ) : (
                             tickets.map(t => (
                                 <div key={t.id} className="bg-white p-5 rounded-[24px] shadow-sm border border-slate-200 space-y-3">
