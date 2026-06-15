@@ -3,13 +3,9 @@ import { useEffect, useState } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import { WifiOff, RefreshCw, Lock } from "lucide-react"; 
+import { WifiOff, RefreshCw } from "lucide-react"; 
 import { useNotifications } from "./hooks/useNotifications"; 
-import { useUser, useTransactions } from "./hooks/use-finance"; 
 
-// =========================================================================
-// 🚀 KUNCI MEMORI AGAR ANGKA TIDAK BERKEDIP
-// =========================================================================
 queryClient.setDefaultOptions({
   queries: {
     refetchOnWindowFocus: true, 
@@ -20,13 +16,10 @@ queryClient.setDefaultOptions({
   },
 });
 
-// =========================================================================
-// 🛡️ SATPAM API: BLOKIR SEMUA TRANSAKSI JIKA TRIAL HABIS / NON PREMIUM
-// =========================================================================
+// Tetap pertahankan injeksi Header x-user-email, tapi hapus blokir Paywall
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : (input as Request).url;
-  const method = init.method ? init.method.toUpperCase() : 'GET';
   const email = localStorage.getItem("bilano_email");
 
   const newHeaders = new Headers(init.headers);
@@ -34,21 +27,6 @@ window.fetch = async (input, init = {}) => {
     newHeaders.set('x-user-email', email);
   }
   init.headers = newHeaders;
-
-  const isWriteAction = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
-  
-  const isAllowedRoute = url.includes('/api/auth') || 
-                         url.includes('/api/user/onesignal') || 
-                         url.includes('/api/payment');
-
-  const isTrialExpired = localStorage.getItem('bilano_trial_expired') === 'true';
-  const isPro = localStorage.getItem('bilano_pro') === 'true';
-
-  if (isWriteAction && !isAllowedRoute && isTrialExpired && !isPro) {
-      window.dispatchEvent(new Event('trigger-paywall-lock'));
-      return Promise.reject(new Error("TRIAL_EXPIRED_LOCKED")); 
-  }
-
   return originalFetch(input, init);
 };
 
@@ -72,77 +50,6 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
     return originalXhrSend.apply(this, args as any);
 };
 
-// =========================================================================
-// 🚀 PAYWALL LOCK ALERT — Checkpoint Perjalanan (bukan tembok dingin)
-// =========================================================================
-function PaywallLockAlert({ onClose, onUpgrade, onDismiss }: { onClose: () => void; onUpgrade: () => void; onDismiss: () => void; }) {
-  const currentUserEmail = localStorage.getItem("bilano_email") || "";
-  const txCount = parseInt(localStorage.getItem(`bilano_tx_count_${currentUserEmail}`) || "0");
-  
-  const setupCompletedAt = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`);
-  const daysPassed = setupCompletedAt ? Math.floor((Date.now() - new Date(setupCompletedAt).getTime()) / 86400000) : 0;
-  
-  const aiDaysRemaining = Math.max(0, 30 - daysPassed);
-
-  return (
-    <div className="fixed inset-0 z-[99999] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-      <div className="bg-white rounded-[28px] max-w-sm w-full shadow-2xl animate-in zoom-in-95 overflow-hidden">
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 p-5 text-white text-center">
-          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <Lock className="w-6 h-6 text-white"/>
-          </div>
-          <h3 className="text-lg font-black tracking-tight">Perjalananmu Belum Selesai</h3>
-          <p className="text-[11px] text-indigo-200 mt-1 font-medium">Masa trial telah habis — tapi progresmu tetap tersimpan.</p>
-        </div>
-
-        <div className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-2 text-center">
-            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
-              <span className="text-xl font-black text-indigo-600 block">{txCount}</span>
-              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wide">Transaksi</span>
-            </div>
-            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
-              <span className="text-xl font-black text-emerald-600 block">{daysPassed}</span>
-              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wide">Hari Aktif</span>
-            </div>
-          </div>
-
-          <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3 flex items-center gap-3">
-            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-xs">🤖</span>
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-indigo-700 uppercase tracking-wider">AI Strategi Penghasilan</p>
-              <p className="text-[10px] text-indigo-500 font-semibold">
-                {aiDaysRemaining > 0 ? `Siap dalam ${aiDaysRemaining} hari lagi` : "Siap diakses — upgrade sekarang!"}
-              </p>
-            </div>
-          </div>
-
-          <p className="text-[11px] text-slate-500 text-center leading-relaxed font-medium">
-            Lanjutkan seharga <span className="font-black text-slate-800">Rp 500/hari</span> — kurang dari secangkir kopi.
-          </p>
-
-          <div className="space-y-2">
-            <button 
-              onClick={onUpgrade}
-              className="w-full py-3.5 rounded-full bg-indigo-600 text-white font-extrabold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95"
-            >
-              LANJUTKAN PERJALANAN
-            </button>
-            <button 
-              onClick={onDismiss}
-              className="w-full py-3 rounded-full bg-slate-100 text-slate-500 font-bold text-xs hover:bg-slate-200 transition-colors"
-            >
-              Kembali ke Beranda
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 import NotFound from "@/pages/not-found";
 import Security from "./pages/Security";
 import Home from "@/pages/Home";
@@ -159,7 +66,6 @@ import Auth from "@/pages/Auth";
 import ChatAI from "@/pages/ChatAI";
 import Profile from "@/pages/Profile";
 import Performance from "@/pages/Performance";
-import Paywall from "@/pages/Paywall";
 import Debts from "@/pages/Debts"; 
 import SmartScan from "@/pages/SmartScan"; 
 import AdminPremium from "@/pages/AdminPremium";
@@ -171,8 +77,7 @@ import Retained from "@/pages/Retained";
 function Router() {
   const [location, setLocation] = useLocation();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const [showPaywallAlert, setShowPaywallAlert] = useState(false);
-  const [isSessionRefreshing, setIsSessionRefreshing] = useState(false); 
+  const [isSessionRefreshing] = useState(false); 
 
   const isStandalone = typeof window !== 'undefined' && 
     (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
@@ -198,65 +103,6 @@ function Router() {
     };
   }, []);
 
-  const { data: user } = useUser();
-  const currentUserEmail = localStorage.getItem("bilano_email") || "";
-
-  useEffect(() => {
-      const vipEmails = [
-          "adrienfandra14@gmail.com", 
-          "bilanotech@gmail.com" 
-      ];
-      
-      if (!currentUserEmail) return;
-
-      if (vipEmails.includes(currentUserEmail) || user?.isPro) {
-          localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
-          localStorage.setItem("bilano_trial_expired", "false");
-          localStorage.setItem("bilano_pro", "true"); 
-      } 
-      else if (user && !user.isPro) {
-          localStorage.setItem("bilano_pro", "false"); 
-
-          // 🚀 STRATEGI BARU: MILESTONE TRIAL
-          // Trial HANYA dihitung sejak Onboarding selesai
-          const setupCompletedAt = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`);
-          const txCountStr = localStorage.getItem(`bilano_tx_count_${currentUserEmail}`) || "0";
-          const txCount = parseInt(txCountStr);
-
-          let trialExpired = false;
-
-          if (setupCompletedAt) {
-              const trialStartTime = new Date(setupCompletedAt).getTime();
-              const daysPassed = (Date.now() - trialStartTime) / (1000 * 60 * 60 * 24);
-              
-              // Trial habis JIKA: Sudah lewat 7 hari DAN sudah punya >= 10 transaksi
-              if (daysPassed >= 7 && txCount >= 10) {
-                  trialExpired = true;
-              }
-              // Fallback batas maksimal: 14 hari mutlak 
-              if (daysPassed >= 14) {
-                  trialExpired = true;
-              }
-          }
-
-          const isNewAccount = (Date.now() - new Date(user.createdAt || "2024-01-01").getTime()) < 15000; 
-          const hasRedirected = sessionStorage.getItem("bilano_first_paywall_redirect");
-          
-          if (isStandalone && isNewAccount && !hasRedirected && location !== '/paywall') {
-              sessionStorage.setItem("bilano_first_paywall_redirect", "true");
-              setLocation("/paywall");
-          }
-
-          if (trialExpired) {
-              localStorage.setItem("bilano_trial_expired", "true");
-              localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "true");
-          } else {
-              localStorage.setItem("bilano_trial_expired", "false");
-              localStorage.setItem(`bilano_trial_expired_${currentUserEmail}`, "false");
-          }
-      }
-  }, [user, currentUserEmail, location, setLocation, isStandalone]);
-
   useNotifications();
 
   useEffect(() => {
@@ -275,17 +121,9 @@ function Router() {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
 
-    const handleCustomLock = () => {
-      if (isStandalone) {
-        setShowPaywallAlert(true);
-      }
-    };
-    window.addEventListener('trigger-paywall-lock', handleCustomLock);
-
     return () => {
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
-      window.removeEventListener('trigger-paywall-lock', handleCustomLock);
     };
   }, [location, setLocation, isStandalone]);
 
@@ -325,41 +163,31 @@ function Router() {
   }
 
   return (
-    <>
-      <Switch>
-        <Route path="/">
-          {isStandalone ? <Home /> : <Landing />}
-        </Route>
-        
-        <Route path="/dashboard" component={Home} />
-        <Route path="/target" component={Target} />
-        <Route path="/income" component={Income} />
-        <Route path="/expense" component={Expense} />
-        <Route path="/reports" component={Reports} />
-        <Route path="/investment" component={Investment} />
-        <Route path="/debts" component={Debts} />
-        <Route path="/forex" component={Forex} />
-        <Route path="/subscriptions" component={Subscriptions} />
-        <Route path="/categories" component={Categories} />
-        <Route path="/auth" component={Auth} />
-        <Route path="/chat-ai" component={ChatAI} />
-        <Route path="/profile" component={Profile} />
-        <Route path="/performance" component={Performance} />
-        <Route path="/scan" component={SmartScan} />
-        <Route path="/paywall" component={Paywall} />
-        <Route path="/security" component={Security} />
-        <Route path="/admin-premium" component={AdminPremium} />
-        <Route path="/help" component={Help} />
-        <Route path="/guide" component={Guide} />
-        <Route path="/amal" component={Amal} /> 
-        <Route path="/retained" component={Retained} />
-        <Route component={NotFound} />
-      </Switch>
-
-      {isStandalone && showPaywallAlert && (
-        <PaywallLockAlert onClose={() => setShowPaywallAlert(false)} onUpgrade={() => { setShowPaywallAlert(false); setLocation('/paywall'); }} onDismiss={() => { setShowPaywallAlert(false); setLocation('/'); }} />
-      )}
-    </>
+    <Switch>
+      <Route path="/">{isStandalone ? <Home /> : <Landing />}</Route>
+      <Route path="/dashboard" component={Home} />
+      <Route path="/target" component={Target} />
+      <Route path="/income" component={Income} />
+      <Route path="/expense" component={Expense} />
+      <Route path="/reports" component={Reports} />
+      <Route path="/investment" component={Investment} />
+      <Route path="/debts" component={Debts} />
+      <Route path="/forex" component={Forex} />
+      <Route path="/subscriptions" component={Subscriptions} />
+      <Route path="/categories" component={Categories} />
+      <Route path="/auth" component={Auth} />
+      <Route path="/chat-ai" component={ChatAI} />
+      <Route path="/profile" component={Profile} />
+      <Route path="/performance" component={Performance} />
+      <Route path="/scan" component={SmartScan} />
+      <Route path="/security" component={Security} />
+      <Route path="/admin-premium" component={AdminPremium} />
+      <Route path="/help" component={Help} />
+      <Route path="/guide" component={Guide} />
+      <Route path="/amal" component={Amal} /> 
+      <Route path="/retained" component={Retained} />
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 

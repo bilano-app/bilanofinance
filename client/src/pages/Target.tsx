@@ -3,12 +3,12 @@ import { useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
-    Target as TargetIcon, Shield, Database, Calculator, Wallet, 
-    Globe, Plus, Trash2, X, List, Briefcase, Home, ChevronDown, ChevronUp, Loader2, ChevronRight 
+    Target as TargetIcon, ShieldCheck, PiggyBank, Calculator, 
+    Plus, Trash2, X, ListPlus, ShieldAlert, Loader2 
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 interface TargetData {
     id: number;
@@ -21,12 +21,6 @@ interface TargetData {
 }
 
 interface ExpenseItem { id: number; name: string; amount: number; }
-interface ForexItem { id: number; currency: string; amount: string; }
-interface DebtRecvItem { id: number; name: string; amount: string; currency: string; }
-interface InvItem { id: number; type: string; symbol: string; quantity: string; price: string; currency: string; }
-
-const INV_TYPES = ["Saham", "Crypto", "Reksadana", "Emas", "P2P", "Obligasi"];
-const FALLBACK_CURRENCIES = ["USD", "EUR", "SGD", "JPY", "AUD", "GBP", "CNY", "MYR", "SAR", "KRW", "THB"];
 
 const formatNumber = (val: string) => {
     const clean = val.replace(/\D/g, '');
@@ -38,41 +32,11 @@ const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID"
 export default function Target() {
     const [, setLocation] = useLocation(); 
     const { data: userData, isLoading: isUserLoading } = useUser();
-    const queryClient = useQueryClient();
     const [target, setTarget] = useState<TargetData | null>(null);
     
-    const [step, setStep] = useState<'intro' | 'guided-1' | 'guided-2' | 'guided-3' | 'guided-4' | 'guided-5' | 'target-input' | 'budget-ask' | 'budget-setup'>('intro');
+    // Tahapan disederhanakan
+    const [step, setStep] = useState<'intro' | 'target-input' | 'budget-ask' | 'budget-setup'>('intro');
     const [isTargetMode, setIsTargetMode] = useState(false); 
-    
-    const [rekUtama, setRekUtama] = useState("");
-    const [rekLain, setRekLain] = useState("");
-    const [ewallet, setEwallet] = useState("");
-    const [uangCash, setUangCash] = useState("");
-    
-    const [hasForex, setHasForex] = useState(false);
-    const [forexItems, setForexItems] = useState<ForexItem[]>([]);
-    const [tempForexCurrency, setTempForexCurrency] = useState("USD");
-    const [tempForexAmount, setTempForexAmount] = useState("");
-
-    const [hasRecv, setHasRecv] = useState(false);
-    const [recvItems, setRecvItems] = useState<DebtRecvItem[]>([]);
-    const [tempRecvName, setTempRecvName] = useState("");
-    const [tempRecvAmount, setTempRecvAmount] = useState("");
-    const [tempRecvCurrency, setTempRecvCurrency] = useState("IDR");
-
-    const [hasInv, setHasInv] = useState(false);
-    const [invItems, setInvItems] = useState<InvItem[]>([]);
-    const [tempInvType, setTempInvType] = useState("Saham");
-    const [tempInvSymbol, setTempInvSymbol] = useState("");
-    const [tempInvQty, setTempInvQty] = useState("");
-    const [tempInvPrice, setTempInvPrice] = useState("");
-    const [tempInvCurrency, setTempInvCurrency] = useState("IDR");
-
-    const [hasDebt, setHasDebt] = useState(false);
-    const [debtItems, setDebtItems] = useState<DebtRecvItem[]>([]);
-    const [tempDebtName, setTempDebtName] = useState("");
-    const [tempDebtAmount, setTempDebtAmount] = useState("");
-    const [tempDebtCurrency, setTempDebtCurrency] = useState("IDR");
     
     const [rawTargetAmount, setRawTargetAmount] = useState("");
     const [inputDuration, setInputDuration] = useState(""); 
@@ -90,22 +54,7 @@ export default function Target() {
     const now = new Date();
 
     const handleNumberChange = (setter: (val: string) => void, value: string) => setter(formatNumber(value));
-    
     const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-    const isTrialExpired = userEmail ? localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true" : false;
-
-    const { data: forexRates = {}, isLoading: isRatesLoading } = useQuery({
-        queryKey: ['forexRates', userEmail],
-        queryFn: async () => {
-            const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": userEmail }});
-            if (!res.ok) return {};
-            return res.json();
-        },
-        enabled: !!userEmail
-    });
-    
-    const safeForexRates = typeof forexRates === 'object' && forexRates !== null ? forexRates : {};
-    const availableCurrencies = Object.keys(safeForexRates).length > 0 ? Object.keys(safeForexRates) : FALLBACK_CURRENCIES;
 
     const { data: fetchedTarget, isLoading: isTargetLoading } = useQuery({
         queryKey: ['target', userEmail],
@@ -117,54 +66,30 @@ export default function Target() {
         enabled: !!userEmail
     });
 
-    const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${userEmail}`) === "true";
-    
-    // 🚀 PERBAIKAN: Menambahkan isEstimated agar tidak error
-    const isEstimated = localStorage.getItem(`bilano_is_balance_estimated_${userEmail}`) === "true";
-    const isEditMode = !!(target && target.targetAmount !== undefined && !isEstimated);
-
     useEffect(() => {
-        if (!isTargetLoading) {
-            if (fetchedTarget && fetchedTarget.id) {
-                setTarget(fetchedTarget);
-                setRawTargetAmount(fetchedTarget.targetAmount.toString());
-                setInputDuration(fetchedTarget.durationMonths.toString());
-                setRawBudgetAmount(fetchedTarget.monthlyBudget.toString());
-                setBudgetType(fetchedTarget.budgetType);
-                setStep('intro');
-            } else {
-                setStep('intro');
-            }
+        if (fetchedTarget && fetchedTarget.targetAmount !== undefined) {
+            setTarget(fetchedTarget);
+            setRawTargetAmount(fetchedTarget.targetAmount.toString());
+            setInputDuration(fetchedTarget.durationMonths.toString());
+            setRawBudgetAmount(fetchedTarget.monthlyBudget.toString());
+            setBudgetType(fetchedTarget.budgetType);
         }
-    }, [fetchedTarget, isTargetLoading, userEmail]);
+    }, [fetchedTarget]);
 
-    const addForexItem = () => { if (!tempForexAmount || parseNumber(tempForexAmount) <= 0) return; setForexItems([...forexItems, { id: Date.now(), currency: tempForexCurrency, amount: tempForexAmount }]); setTempForexAmount(""); };
-    const removeForexItem = (id: number) => setForexItems(forexItems.filter(item => item.id !== id));
-    const addRecvItem = () => { if (!tempRecvName || !tempRecvAmount) return; setRecvItems([...recvItems, { id: Date.now(), name: tempRecvName, amount: tempRecvAmount, currency: tempRecvCurrency }]); setTempRecvName(""); setTempRecvAmount(""); setTempRecvCurrency("IDR"); };
-    const removeRecvItem = (id: number) => setRecvItems(recvItems.filter(i => i.id !== id));
-    const addInvItem = () => { if (!tempInvSymbol || !tempInvQty || !tempInvPrice) return; setInvItems([...invItems, { id: Date.now(), type: tempInvType, symbol: tempInvSymbol, quantity: tempInvQty, price: tempInvPrice, currency: tempInvCurrency }]); setTempInvSymbol(""); setTempInvQty(""); setTempInvPrice(""); setTempInvCurrency("IDR"); };
-    const removeInvItem = (id: number) => setInvItems(invItems.filter(i => i.id !== id));
-    const addDebtItem = () => { if (!tempDebtName || !tempDebtAmount) return; setDebtItems([...debtItems, { id: Date.now(), name: tempDebtName, amount: tempDebtAmount, currency: tempDebtCurrency }]); setTempDebtName(""); setTempDebtAmount(""); setTempDebtCurrency("IDR"); };
-    const removeDebtItem = (id: number) => setDebtItems(debtItems.filter(i => i.id !== id));
+    const isEditMode = target && target.targetAmount !== undefined;
 
-    const addBreakdownItem = () => { if (!newItemName || !newItemAmount) return; setBreakdownItems([...breakdownItems, { id: Date.now(), name: newItemName, amount: parseNumber(newItemAmount) }]); setNewItemName(""); setNewItemAmount(""); };
-    const removeBreakdownItem = (id: number) => setBreakdownItems(breakdownItems.filter(item => item.id !== id));
-    const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
-    const saveBreakdownTotal = () => { setRawBudgetAmount(breakdownTotal.toString()); setIsBreakdownOpen(false); toast({ title: "Terhitung!", description: `Budget diset ke ${formatRp(breakdownTotal)}` }); };
-
-    const getRate = (curr: string) => curr === 'IDR' ? 1 : (safeForexRates[curr] || 1);
-    
-    const totalCashDeep = parseNumber(rekUtama) + parseNumber(rekLain) + parseNumber(ewallet) + parseNumber(uangCash);
-    const totalForexInIDR = forexItems.reduce((acc, item) => acc + (parseNumber(item.amount) * getRate(item.currency)), 0) + (parseNumber(tempForexAmount) * getRate(tempForexCurrency));
-    const totalRecvInIDR = recvItems.reduce((acc, i) => acc + (parseNumber(i.amount) * getRate(i.currency)), 0) + (parseNumber(tempRecvAmount) * getRate(tempRecvCurrency));
-    const totalDebtInIDR = debtItems.reduce((acc, i) => acc + (parseNumber(i.amount) * getRate(i.currency)), 0) + (parseNumber(tempDebtAmount) * getRate(tempDebtCurrency));
-    const calcInv = (type: string, symbol: string, qty: string, price: string, curr: string) => {
-        const isSaham = type.toLowerCase() === 'saham' || (symbol.length === 4 && type.toLowerCase() !== 'crypto');
-        return parseNumber(qty) * parseNumber(price) * (isSaham && curr === 'IDR' ? 100 : 1) * getRate(curr);
+    const addBreakdownItem = () => {
+        if (!newItemName || !newItemAmount) return;
+        setBreakdownItems([...breakdownItems, { id: Date.now(), name: newItemName, amount: parseNumber(newItemAmount) }]);
+        setNewItemName(""); setNewItemAmount("");
     };
-    const totalInvInIDR = invItems.reduce((acc, i) => acc + calcInv(i.type, i.symbol, i.quantity, i.price, i.currency), 0) + calcInv(tempInvType, tempInvSymbol, tempInvQty, tempInvPrice, tempInvCurrency);
-    const totalStart = totalCashDeep + totalForexInIDR + totalRecvInIDR + totalInvInIDR - totalDebtInIDR;
-    const displayTotalStart = formatRp(totalStart);
+    const removeBreakdownItem = (id: number) => { setBreakdownItems(breakdownItems.filter(item => item.id !== id)); };
+    const saveBreakdownTotal = () => {
+        const total = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
+        setRawBudgetAmount(total.toString()); setIsBreakdownOpen(false);
+        toast({ title: "Terhitung!", description: `Budget diset ke ${formatRp(total)}` });
+    };
+    const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
 
     const startSetup = (mode: 'target' | 'saving') => {
         setIsTargetMode(mode === 'target');
@@ -172,30 +97,26 @@ export default function Target() {
             if (mode === 'saving') { setRawTargetAmount("0"); setInputDuration("12"); } 
             else { setRawTargetAmount(""); setInputDuration(""); }
         }
-        setStep('guided-1'); 
+        
+        // Langsung lompat ke Input Target atau Budget, lewati halaman estimasi aset
+        if (mode === 'target') {
+            setStep('target-input');
+        } else {
+            setStep('budget-ask');
+        }
     };
     
-    const nextFromGuided5 = () => { 
-        if (hasForex && tempForexAmount) addForexItem();
-        if (hasRecv && tempRecvName && tempRecvAmount) addRecvItem();
-        if (hasInv && tempInvSymbol && tempInvQty && tempInvPrice) addInvItem();
-        if (hasDebt && tempDebtName && tempDebtAmount) addDebtItem();
-        
-        if (isTargetMode) setStep('target-input'); else setStep('budget-ask'); 
-    };
-
     const nextToBudgetAsk = () => { 
         if (!parseNumber(rawTargetAmount) || !Number(inputDuration)) { toast({title: "Data Kurang", description: "Nominal & Durasi wajib diisi.", variant: "destructive"}); return; } 
         setStep('budget-ask'); 
     };
-    const handleBudgetAnswer = (answer: boolean) => { if (answer) setStep('budget-setup'); else handleSubmitFinal(false); };
+
+    const handleBudgetAnswer = (answer: boolean) => { 
+        if (answer) setStep('budget-setup'); 
+        else handleSubmitFinal(false); 
+    };
 
     const handleSubmitFinal = async (withBudget: boolean) => {
-        if (isTrialExpired) {
-            window.dispatchEvent(new Event('trigger-paywall-lock'));
-            return;
-        }
-
         const budgetVal = parseNumber(rawBudgetAmount);
         if (withBudget && !budgetVal) { toast({title: "Error", description: "Nominal batas harus diisi!", variant: "destructive"}); return; }
 
@@ -207,15 +128,6 @@ export default function Target() {
                 durationMonths: Number(inputDuration) || 12,
                 monthlyBudget: withBudget ? budgetVal : 0,
                 budgetType: withBudget ? budgetType : 'static',
-                
-                addCurrentCash: !isEditMode ? totalCashDeep : 0,
-                initialForexList: !isEditMode && hasForex ? forexItems.map(f => ({ currency: f.currency, amount: parseNumber(f.amount) })) : [],
-                initialReceivables: !isEditMode && hasRecv ? recvItems.map(r => ({ name: `${r.name}|${r.currency}`, amount: parseNumber(r.amount) })) : [],
-                initialDebts: !isEditMode && hasDebt ? debtItems.map(d => ({ name: `${d.name}|${d.currency}`, amount: parseNumber(d.amount) })) : [],
-                initialInvestments: !isEditMode && hasInv ? invItems.map(i => ({ 
-                    type: i.type, symbol: `${i.symbol}|${i.currency}`, quantity: parseNumber(i.quantity), price: parseNumber(i.price), avgPrice: parseNumber(i.price) 
-                })) : [],
-                
                 startMonth: target?.startMonth || now.getMonth() + 1,
                 startYear: target?.startYear || now.getFullYear()
             };
@@ -226,13 +138,12 @@ export default function Target() {
             });
 
             if (res.ok) {
-                localStorage.setItem(`bilano_setup_completed_${userEmail}`, "true");
-                queryClient.invalidateQueries({ queryKey: ['target', userEmail] });
-                queryClient.invalidateQueries({ queryKey: ['user', userEmail] });
-                toast({ title: "Strategi Berhasil Disimpan!", description: "Sistem telah menyesuaikan data." });
-                setLocation("/"); 
+                toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
+                // Langsung kembali ke Home tanpa memikirkan paywall
+                window.location.href = "/"; 
             } else { 
-                toast({ title: "Gagal Menyimpan", description: "Terjadi kesalahan server.", variant: "destructive" }); 
+                const errText = await res.text();
+                toast({ title: "Gagal Menyimpan", description: errText || "Kesalahan server.", variant: "destructive" }); 
             }
         } catch (e) { 
             toast({ title: "Error Koneksi", description: "Periksa jaringan internet Anda.", variant: "destructive" }); 
@@ -241,18 +152,18 @@ export default function Target() {
         }
     };
     
-    if (isUserLoading || isTargetLoading || isRatesLoading) {
+    if (isUserLoading || isTargetLoading) {
         return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-indigo-500"/></div>;
     }
 
     return (
-        <MobileLayout title={isEditMode ? "Edit Strategi & Target" : "Atur Strategi Baru"} showBack={isEditMode}>
+        <MobileLayout title={isEditMode ? "Edit Strategi & Target" : "Atur Strategi Baru"} showBack>
             <div className="space-y-6 pt-4 px-2 pb-20">
                 {isBreakdownOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in p-4">
                         <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 border border-slate-100">
                             <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><List className="w-5 h-5 text-indigo-600"/> Rincian Pengeluaran</h3>
+                                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><ListPlus className="w-5 h-5 text-indigo-600"/> Rincian Pengeluaran</h3>
                                 <button onClick={() => setIsBreakdownOpen(false)} className="p-1.5 bg-slate-100 rounded-full hover:bg-rose-100 hover:text-rose-600"><X className="w-5 h-5"/></button>
                             </div>
                             <div className="space-y-3 mb-4">
@@ -274,18 +185,17 @@ export default function Target() {
                     </div>
                 )}
 
-                {/* --- FASE DEEP SETUP --- */}
                 {step === 'intro' && (
-                    <div className="space-y-5 animate-in slide-in-from-bottom-4 pt-4">
-                        <div className="text-center px-4 mb-8">
-                            <div className="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                                <Wallet className="w-10 h-10" />
+                    <div className="space-y-5 animate-in slide-in-from-bottom-4">
+                        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-[32px] text-white text-center shadow-xl relative overflow-hidden">
+                            <div className="relative z-10">
+                                <h2 className="text-2xl font-extrabold mb-1">Halo, {userData?.firstName || 'Partner'}!</h2>
+                                <p className="text-sm text-blue-100">{isEditMode ? "Silakan edit target dan strategi keuanganmu." : "Pilih gaya keuangan yang paling cocok denganmu hari ini."}</p>
                             </div>
-                            <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Setup Keuangan Akurat</h2>
-                            <p className="text-sm text-slate-500">Sistem butuh akurasi agar analisa bekerja maksimal. Pilih gaya keuanganmu.</p>
+                            <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
                         </div>
                         
-                        <div className="space-y-4 pt-2">
+                        <div className="space-y-4 pt-4">
                             <button onClick={() => startSetup('target')} className="relative w-full text-left p-5 border-2 border-indigo-200 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/50 bg-indigo-50/30 transition-all shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-start sm:items-center gap-4 group">
                                 <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md border border-yellow-300 flex items-center gap-1">
                                     Direkomendasikan
@@ -293,273 +203,18 @@ export default function Target() {
                                 <div className="bg-indigo-100 p-3 rounded-full group-hover:scale-110 transition-transform mt-1 sm:mt-0 flex-shrink-0"><TargetIcon className="w-6 h-6 text-indigo-600"/></div>
                                 <div>
                                     <h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Kejar Target / Menabung</h3>
-                                    <p className="text-xs text-slate-500 leading-relaxed">Saya punya impian spesifik yang ingin dicapai dalam waktu dekat.</p>
+                                    <p className="text-xs text-slate-500">Saya punya impian spesifik yang ingin dicapai.</p>
                                 </div>
                             </button>
 
                             <button onClick={() => startSetup('saving')} className="w-full text-left p-5 border border-slate-100 rounded-[24px] hover:border-emerald-400 hover:bg-emerald-50/50 transition-all bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group mt-2">
-                                <div className="bg-emerald-100 p-3 rounded-full group-hover:scale-110 transition-transform flex-shrink-0"><Database className="w-6 h-6 text-emerald-600"/></div>
-                                <div><h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500">Saya cuma mau lihat keluar masuk uang harian saja.</p></div>
+                                <div className="bg-emerald-100 p-3 rounded-full group-hover:scale-110 transition-transform flex-shrink-0"><PiggyBank className="w-6 h-6 text-emerald-600"/></div>
+                                <div><h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500">Saya ingin melihat keluar masuk uang harian saja.</p></div>
                             </button>
                         </div>
                     </div>
                 )}
 
-                {step === 'guided-1' && (
-                    <div className="space-y-6 animate-in slide-in-from-right pt-6">
-                        <div className="text-center mb-10">
-                            <p className="text-[10px] font-extrabold text-indigo-500 tracking-widest uppercase mb-3 bg-indigo-50 px-3 py-1 rounded-full inline-block">Langkah 1 dari 5</p>
-                            <h2 className="text-2xl font-extrabold text-slate-800">Berapa saldo di rekening bank UTAMA kamu?</h2>
-                        </div>
-                        <div className="relative">
-                            <span className="absolute left-5 top-5 font-extrabold text-slate-400 text-xl">Rp</span>
-                            <Input type="tel" placeholder="0" value={rekUtama} onChange={(e) => handleNumberChange(setRekUtama, e.target.value)} className="pl-16 h-20 text-3xl font-extrabold text-indigo-600 bg-white border-2 border-slate-100 focus:border-indigo-500 rounded-[24px] shadow-sm transition-all"/>
-                        </div>
-                        <div className="pt-8 space-y-3">
-                            <Button onClick={() => setStep('guided-2')} className="w-full bg-indigo-600 hover:bg-indigo-700 h-14 text-sm font-extrabold rounded-full shadow-lg shadow-indigo-200">LANJUTKAN</Button>
-                            <Button onClick={() => setStep('guided-2')} variant="ghost" className="w-full text-slate-400 font-bold">Lewati Saja (Tidak Ada)</Button>
-                        </div>
-                    </div>
-                )}
-
-                {step === 'guided-2' && (
-                    <div className="space-y-6 animate-in slide-in-from-right pt-6">
-                        <div className="text-center mb-10">
-                            <p className="text-[10px] font-extrabold text-indigo-500 tracking-widest uppercase mb-3 bg-indigo-50 px-3 py-1 rounded-full inline-block">Langkah 2 dari 5</p>
-                            <h2 className="text-2xl font-extrabold text-slate-800">Ada rekening lain? (Tabungan / Deposito)</h2>
-                        </div>
-                        <div className="relative">
-                            <span className="absolute left-5 top-5 font-extrabold text-slate-400 text-xl">Rp</span>
-                            <Input type="tel" placeholder="0" value={rekLain} onChange={(e) => handleNumberChange(setRekLain, e.target.value)} className="pl-16 h-20 text-3xl font-extrabold text-emerald-600 bg-white border-2 border-slate-100 focus:border-emerald-500 rounded-[24px] shadow-sm transition-all"/>
-                        </div>
-                        <div className="pt-8 space-y-3">
-                            <Button onClick={() => setStep('guided-3')} className="w-full bg-indigo-600 hover:bg-indigo-700 h-14 text-sm font-extrabold rounded-full shadow-lg shadow-indigo-200">LANJUTKAN</Button>
-                            <Button onClick={() => setStep('guided-3')} variant="ghost" className="w-full text-slate-400 font-bold">Lewati Saja</Button>
-                        </div>
-                    </div>
-                )}
-
-                {step === 'guided-3' && (
-                    <div className="space-y-6 animate-in slide-in-from-right pt-6">
-                        <div className="text-center mb-10">
-                            <p className="text-[10px] font-extrabold text-indigo-500 tracking-widest uppercase mb-3 bg-indigo-50 px-3 py-1 rounded-full inline-block">Langkah 3 dari 5</p>
-                            <h2 className="text-2xl font-extrabold text-slate-800">Berapa total saldo E-Wallet mu? (GoPay, OVO, dll)</h2>
-                        </div>
-                        <div className="relative">
-                            <span className="absolute left-5 top-5 font-extrabold text-slate-400 text-xl">Rp</span>
-                            <Input type="tel" placeholder="0" value={ewallet} onChange={(e) => handleNumberChange(setEwallet, e.target.value)} className="pl-16 h-20 text-3xl font-extrabold text-blue-600 bg-white border-2 border-slate-100 focus:border-blue-500 rounded-[24px] shadow-sm transition-all"/>
-                        </div>
-                        <div className="pt-8 space-y-3">
-                            <Button onClick={() => setStep('guided-4')} className="w-full bg-indigo-600 hover:bg-indigo-700 h-14 text-sm font-extrabold rounded-full shadow-lg shadow-indigo-200">LANJUTKAN</Button>
-                            <Button onClick={() => setStep('guided-4')} variant="ghost" className="w-full text-slate-400 font-bold">Lewati Saja</Button>
-                        </div>
-                    </div>
-                )}
-
-                {step === 'guided-4' && (
-                    <div className="space-y-6 animate-in slide-in-from-right pt-6">
-                        <div className="text-center mb-10">
-                            <p className="text-[10px] font-extrabold text-indigo-500 tracking-widest uppercase mb-3 bg-indigo-50 px-3 py-1 rounded-full inline-block">Langkah 4 dari 5</p>
-                            <h2 className="text-2xl font-extrabold text-slate-800">Ada uang Cash di tangan kira-kira?</h2>
-                        </div>
-                        <div className="relative">
-                            <span className="absolute left-5 top-5 font-extrabold text-slate-400 text-xl">Rp</span>
-                            <Input type="tel" placeholder="0" value={uangCash} onChange={(e) => handleNumberChange(setUangCash, e.target.value)} className="pl-16 h-20 text-3xl font-extrabold text-amber-600 bg-white border-2 border-slate-100 focus:border-amber-500 rounded-[24px] shadow-sm transition-all"/>
-                        </div>
-                        <div className="pt-8 space-y-3">
-                            <Button onClick={() => setStep('guided-5')} className="w-full bg-indigo-600 hover:bg-indigo-700 h-14 text-sm font-extrabold rounded-full shadow-lg shadow-indigo-200">LANJUTKAN</Button>
-                            <Button onClick={() => setStep('guided-5')} variant="ghost" className="w-full text-slate-400 font-bold">Lewati Saja</Button>
-                        </div>
-                    </div>
-                )}
-
-                {/* --- ASET LAIN --- */}
-                {step === 'guided-5' && (
-                    <div className="space-y-6 animate-in slide-in-from-right pt-2">
-                        <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6">
-                            <div className="text-center pb-2 border-b border-slate-100">
-                                <p className="text-[10px] font-extrabold text-indigo-500 tracking-widest uppercase mb-2">Langkah Terakhir</p>
-                                <h3 className="font-extrabold text-slate-800 text-xl">Aset Lain & Hutang</h3>
-                                <p className="text-xs text-slate-500 mt-1">Punya valas, investasi, atau tanggungan hutang? (Boleh dilewati)</p>
-                            </div>
-                            
-                            {/* Accordion Valas */}
-                            <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
-                                <div onClick={() => setHasForex(!hasForex)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
-                                    <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
-                                        <div className="p-2 bg-blue-100 text-blue-600 rounded-full"><Globe className="w-4 h-4"/></div> Punya Valas Tunai?
-                                    </label>
-                                    {hasForex ? <ChevronUp className="w-5 h-5 text-slate-400"/> : <ChevronDown className="w-5 h-5 text-slate-400"/>}
-                                </div>
-                                {hasForex && (
-                                    <div className="p-4 bg-white space-y-4 animate-in fade-in border-t border-slate-100">
-                                        {forexItems.length > 0 && (
-                                            <div className="space-y-2">
-                                                {forexItems.map((item) => (
-                                                    <div key={item.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-[16px] border border-slate-100 text-sm">
-                                                        <div className="flex items-center gap-2"><span className="font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded">{item.currency}</span><span className="font-bold text-slate-700">{formatNumber(item.amount)}</span></div>
-                                                        <div className="flex items-center gap-3"><span className="text-[10px] font-bold text-slate-400">≈ {formatRp(parseNumber(item.amount) * (safeForexRates[item.currency] || 0))}</span><button onClick={() => removeForexItem(item.id)} className="text-slate-300 hover:text-rose-500"><Trash2 className="w-4 h-4"/></button></div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <div className="flex gap-2">
-                                            <select value={tempForexCurrency} onChange={(e) => setTempForexCurrency(e.target.value)} className="p-3 rounded-[16px] border-transparent bg-slate-50 font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none w-28">
-                                                {availableCurrencies.filter(c => c !== 'IDR').map(curr => <option key={curr} value={curr}>{curr}</option>)}
-                                            </select>
-                                            <Input type="tel" placeholder="Nominal" value={tempForexAmount} onChange={(e) => handleNumberChange(setTempForexAmount, e.target.value)} className="flex-1 font-bold h-12 rounded-[16px] border-transparent bg-slate-50 focus:bg-white focus:border-blue-500"/>
-                                            <button onClick={addForexItem} className="bg-blue-600 text-white w-12 h-12 flex items-center justify-center rounded-[16px] hover:bg-blue-700 shadow-sm"><Plus className="w-5 h-5"/></button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Accordion Piutang */}
-                            <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
-                                <div onClick={() => setHasRecv(!hasRecv)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
-                                    <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
-                                        <div className="p-2 bg-emerald-100 text-emerald-600 rounded-full"><Briefcase className="w-4 h-4"/></div> Punya Piutang?
-                                    </label>
-                                    {hasRecv ? <ChevronUp className="w-5 h-5 text-slate-400"/> : <ChevronDown className="w-5 h-5 text-slate-400"/>}
-                                </div>
-                                {hasRecv && (
-                                    <div className="p-4 bg-white space-y-4 animate-in fade-in border-t border-slate-100">
-                                        {recvItems.length > 0 && (
-                                            <div className="space-y-2">
-                                                {recvItems.map((item) => (
-                                                    <div key={item.id} className="flex justify-between items-center bg-white p-3 rounded-[16px] border border-slate-200 text-sm">
-                                                        <div>
-                                                            <span className="font-bold text-slate-700">{item.name}</span>
-                                                            {item.currency !== 'IDR' && <span className="ml-2 text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-bold">{item.currency} {formatNumber(item.amount)}</span>}
-                                                        </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="font-bold text-emerald-600">{formatRp(parseNumber(item.amount) * getRate(item.currency))}</span>
-                                                            <button onClick={() => removeRecvItem(item.id)} className="text-slate-300 hover:text-rose-500"><Trash2 className="w-4 h-4"/></button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <div className="flex flex-col gap-2">
-                                            <Input type="text" placeholder="Nama Pihak" value={tempRecvName} onChange={(e) => setTempRecvName(e.target.value)} className="h-12 rounded-[16px] border-slate-100"/>
-                                            <div className="flex gap-2">
-                                                <select value={tempRecvCurrency} onChange={e => setTempRecvCurrency(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
-                                                    <option value="IDR">IDR</option>
-                                                    {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
-                                                </select>
-                                                <Input type="text" placeholder="Nominal" value={tempRecvAmount} onChange={(e) => handleNumberChange(setTempRecvAmount, e.target.value)} className="flex-1 font-bold h-12 rounded-[16px] border-slate-100"/>
-                                                <button onClick={addRecvItem} className="bg-emerald-600 text-white p-3 rounded-[16px] hover:bg-emerald-700 shadow-sm"><Plus className="w-5 h-5"/></button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Accordion Investasi */}
-                            <div className="border border-slate-100 rounded-[24px] bg-slate-50 overflow-hidden transition-all">
-                                <div onClick={() => setHasInv(!hasInv)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-slate-100 transition">
-                                    <label className="text-sm font-bold text-slate-700 flex items-center gap-3 pointer-events-none">
-                                        <div className="p-2 bg-indigo-100 text-indigo-600 rounded-full"><Briefcase className="w-4 h-4"/></div> Aset Investasi?
-                                    </label>
-                                    {hasInv ? <ChevronUp className="w-5 h-5 text-slate-400"/> : <ChevronDown className="w-5 h-5 text-slate-400"/>}
-                                </div>
-                                {hasInv && (
-                                    <div className="p-4 bg-white space-y-4 animate-in fade-in border-t border-slate-100">
-                                        {invItems.length > 0 && (
-                                            <div className="space-y-3">
-                                                {invItems.map((item) => (
-                                                    <div key={item.id} className="bg-slate-50 p-3 rounded-[16px] border border-slate-100 text-sm relative">
-                                                        <button onClick={() => removeInvItem(item.id)} className="absolute top-3 right-3 text-slate-300 hover:text-rose-500"><X className="w-4 h-4"/></button>
-                                                        <div className="font-extrabold text-indigo-600 mb-1">{item.symbol} <span className="text-[10px] font-medium text-slate-400">({item.type}) {item.currency !== 'IDR' ? ` - ${item.currency}` : ''}</span></div>
-                                                        <div className="text-[11px] font-bold text-slate-500 flex justify-between">
-                                                            <span>Jml: {formatNumber(item.quantity)}</span>
-                                                            <span>@ {item.currency !== 'IDR' ? item.currency : 'Rp'} {formatNumber(item.price)}</span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <div className="space-y-2">
-                                            <div className="flex gap-2">
-                                                <select value={tempInvType} onChange={(e) => setTempInvType(e.target.value)} className="p-3 border-slate-100 rounded-[16px] text-xs w-1/3 outline-none focus:ring-2 focus:ring-indigo-500">
-                                                    {INV_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                                </select>
-                                                <Input type="text" placeholder="Simbol (Cth: BBCA)" value={tempInvSymbol} onChange={(e) => setTempInvSymbol(e.target.value.toUpperCase())} className="flex-1 text-sm h-11 rounded-[16px] border-slate-100"/>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Input type="tel" placeholder="Lot/Unit" value={tempInvQty} onChange={(e) => handleNumberChange(setTempInvQty, e.target.value)} className="w-1/3 text-sm h-11 rounded-[16px] border-slate-100"/>
-                                                
-                                                <select value={tempInvCurrency} onChange={e => setTempInvCurrency(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
-                                                    <option value="IDR">IDR</option>
-                                                    {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
-                                                </select>
-
-                                                <Input type="tel" placeholder="Harga Beli" value={tempInvPrice} onChange={(e) => handleNumberChange(setTempInvPrice, e.target.value)} className="flex-1 text-sm h-11 rounded-[16px] border-slate-100 font-bold"/>
-                                            </div>
-                                            <Button onClick={addInvItem} className="w-full bg-indigo-50 text-indigo-700 font-bold h-11 rounded-[16px] hover:bg-indigo-100 text-xs">TAMBAHKAN ASET INI</Button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Accordion Hutang */}
-                            <div className="border border-rose-100 rounded-[24px] bg-rose-50/30 overflow-hidden transition-all">
-                                <div onClick={() => setHasDebt(!hasDebt)} className="flex justify-between items-center cursor-pointer p-4 hover:bg-rose-50 transition">
-                                    <label className="text-sm font-bold text-rose-700 flex items-center gap-3 pointer-events-none">
-                                        <div className="p-2 bg-rose-100 text-rose-600 rounded-full"><Home className="w-4 h-4"/></div> Punya Hutang?
-                                    </label>
-                                    {hasDebt ? <ChevronUp className="w-5 h-5 text-rose-400"/> : <ChevronDown className="w-5 h-5 text-rose-400"/>}
-                                </div>
-                                {hasDebt && (
-                                    <div className="p-4 bg-white space-y-4 animate-in fade-in border-t border-rose-100">
-                                        {debtItems.length > 0 && (
-                                            <div className="space-y-2">
-                                                {debtItems.map((item) => (
-                                                    <div key={item.id} className="flex justify-between items-center bg-rose-50 p-3 rounded-[16px] border border-rose-100 text-sm">
-                                                        <div>
-                                                            <span className="font-bold text-slate-700">{item.name}</span>
-                                                            {item.currency !== 'IDR' && <span className="ml-2 text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold">{item.currency} {formatNumber(item.amount)}</span>}
-                                                        </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="font-extrabold text-rose-600">- {formatRp(parseNumber(item.amount) * getRate(item.currency))}</span>
-                                                            <button onClick={() => removeDebtItem(item.id)} className="text-rose-300 hover:text-rose-600"><Trash2 className="w-4 h-4"/></button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <div className="flex flex-col gap-2">
-                                            <Input type="text" placeholder="Hutang ke Siapa?" value={tempDebtName} onChange={(e) => setTempDebtName(e.target.value)} className="h-12 rounded-[16px] border-slate-100 text-sm"/>
-                                            <div className="flex gap-2">
-                                                
-                                                <select value={tempDebtCurrency} onChange={e => setTempDebtCurrency(e.target.value)} className="w-20 p-2 text-xs font-bold rounded-[16px] bg-indigo-50 text-indigo-700 outline-none border border-indigo-100">
-                                                    <option value="IDR">IDR</option>
-                                                    {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
-                                                </select>
-
-                                                <Input type="tel" placeholder="Nominal" value={tempDebtAmount} onChange={(e) => handleNumberChange(setTempDebtAmount, e.target.value)} className="flex-1 font-bold h-12 rounded-[16px] border-slate-100 text-rose-600"/>
-                                                <button onClick={addDebtItem} className="bg-rose-500 text-white p-3 rounded-[16px] hover:bg-rose-600 shadow-sm"><Plus className="w-5 h-5"/></button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="bg-slate-900 text-white p-5 rounded-[24px] shadow-lg flex flex-col items-center justify-center mt-2">
-                                <span className="text-[11px] uppercase tracking-widest font-bold text-slate-400 mb-1">Kekayaan Bersih Anda</span>
-                                <span className={`font-extrabold text-2xl ${totalStart >= 0 ? 'text-emerald-400' : 'text-rose-400'} whitespace-nowrap transition-all duration-300`}>
-                                    {displayTotalStart}
-                                </span>
-                            </div>
-
-                        </div>
-                        <div className="pt-2 space-y-3">
-                            <Button onClick={nextFromGuided5} className="w-full bg-emerald-500 hover:bg-emerald-600 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-emerald-200">LANJUTKAN</Button>
-                        </div>
-                    </div>
-                )}
-
-                {/* --- TARGET & BUDGET --- */}
                 {step === 'target-input' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-2">
                         <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6 text-center">
@@ -567,8 +222,8 @@ export default function Target() {
                                 <Calculator className="w-7 h-7 text-indigo-500"/> 
                             </div>
                             <div>
-                                <h3 className="font-extrabold text-slate-800 text-xl">Penyesuaian Target</h3>
-                                <p className="text-xs text-slate-500 mt-1">Sesuaikan nominal impianmu di sini.</p>
+                                <h3 className="font-extrabold text-slate-800 text-xl">Kalkulator Target</h3>
+                                <p className="text-xs text-slate-500 mt-1">Berapa besar impianmu?</p>
                             </div>
                             <div className="space-y-4 text-left">
                                 <div>
@@ -583,6 +238,7 @@ export default function Target() {
                         </div>
                         <div className="pt-2 space-y-3">
                             <Button onClick={nextToBudgetAsk} className="w-full bg-indigo-600 hover:bg-indigo-700 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-indigo-200">LANJUTKAN</Button>
+                            <Button variant="ghost" onClick={() => setStep('intro')} className="w-full text-slate-400 font-bold">KEMBALI</Button>
                         </div>
                     </div>
                 )}
@@ -591,18 +247,17 @@ export default function Target() {
                     <div className="space-y-6 animate-in slide-in-from-right pt-6">
                         <div className="bg-white p-8 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 text-center">
                             <div className="bg-rose-50 p-5 rounded-full w-24 h-24 mx-auto flex items-center justify-center mb-6">
-                                <Shield className="w-10 h-10 text-rose-500"/>
+                                <ShieldCheck className="w-10 h-10 text-rose-500"/>
                             </div>
                             <h2 className="text-2xl font-extrabold text-slate-800">Batasi Pengeluaran?</h2>
                             <p className="text-slate-500 text-sm mt-3 leading-relaxed">Aktifkan sistem darurat agar kamu tidak boros dan {isTargetMode ? 'impian cepat tercapai' : 'uang cepat terkumpul'}.</p>
                             
                             <div className="space-y-3 pt-8">
                                 <Button onClick={() => handleBudgetAnswer(true)} className="w-full bg-slate-900 hover:bg-slate-800 h-14 text-lg font-extrabold rounded-full shadow-lg">YA, PASANG BATAS</Button>
-                                <Button onClick={() => handleBudgetAnswer(false)} disabled={isSubmitting} variant="outline" className="w-full h-14 text-slate-500 border-slate-200 hover:bg-slate-50 font-bold rounded-full">
-                                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : "TIDAK, SAYA BEBAS"}
-                                </Button>
+                                <Button onClick={() => handleBudgetAnswer(false)} variant="outline" className="w-full h-14 text-slate-500 border-slate-200 hover:bg-slate-50 font-bold rounded-full">TIDAK, SAYA BEBAS</Button>
                             </div>
                         </div>
+                        <Button variant="ghost" onClick={() => isTargetMode ? setStep('target-input') : setStep('intro')} className="w-full text-sm text-slate-400 font-bold mt-2">KEMBALI</Button>
                     </div>
                 )}
 
@@ -611,7 +266,7 @@ export default function Target() {
                         <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6">
                             <div className="text-center pb-2 border-b border-slate-100">
                                 <div className="w-14 h-14 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <Shield className="w-7 h-7 text-rose-500"/>
+                                    <ShieldAlert className="w-7 h-7 text-rose-500"/>
                                 </div>
                                 <h3 className="font-extrabold text-slate-800 text-xl">Atur Batasan</h3>
                                 <p className="text-xs text-slate-500 mt-1">Maksimal uang keluar per bulan.</p>
@@ -641,8 +296,9 @@ export default function Target() {
                                 disabled={isSubmitting}
                                 className="w-full bg-slate-900 hover:bg-slate-800 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-slate-900/20"
                             >
-                                {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : (isEditMode ? "SIMPAN PERUBAHAN" : "SIMPAN STRATEGI & ASET")}
+                                {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : (isEditMode ? "SIMPAN PERUBAHAN" : "SIMPAN STRATEGI")}
                             </Button>
+                            <Button variant="ghost" onClick={() => setStep('budget-ask')} className="w-full text-slate-400 font-bold">KEMBALI</Button>
                         </div>
                     </div>
                 )}

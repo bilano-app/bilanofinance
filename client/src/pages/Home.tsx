@@ -55,7 +55,6 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileZoomed, setIsProfileZoomed] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false); 
-  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
 
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -64,17 +63,9 @@ export default function Home() {
 
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [isRequestingPerms, setIsRequestingPerms] = useState(false);
-
-  const [showProWelcome, setShowProWelcome] = useState(false);
   
-  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
-  const [isSetupPromptHandled, setIsSetupPromptHandled] = useState(false);
-
   const [showGuideTooltip, setShowGuideTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
-  
-  const [fomoFeature, setFomoFeature] = useState<{title: string, desc: string} | null>(null);
-  const [proFeatureModal, setProFeatureModal] = useState<{title: string, desc: string} | null>(null);
 
   const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
@@ -86,46 +77,11 @@ export default function Home() {
   
   const [showRetryButton, setShowRetryButton] = useState(false);
 
-  // 🚀 STATE & LOGIKA PEMUSNAH UANG GAIB (Fail-safe)
-  const [isNuking, setIsNuking] = useState(false);
-  const ghostTransactions = transactions?.filter(t => t.category?.includes('Sistem: Auto-Fix')) || [];
-  const totalGhostMoney = ghostTransactions.reduce((acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount), 0);
-
-  const handleNukeGhostMoney = async () => {
-      setIsNuking(true);
-      try {
-          for (const tx of ghostTransactions) {
-              await fetch(`/api/transactions/${tx.id}`, {
-                  method: 'DELETE',
-                  headers: { "x-user-email": rawEmail }
-              });
-          }
-          if (totalGhostMoney !== 0) {
-              await fetch('/api/admin/silent-correction', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', "x-user-email": rawEmail },
-                  body: JSON.stringify({ deductAmount: totalGhostMoney })
-              });
-          }
-          toast({ title: "BERHASIL!", description: "Uang gaib dimusnahkan. Saldo kembali normal." });
-          window.location.reload();
-      } catch (e) {
-          toast({ title: "Gagal", variant: "destructive" });
-          setIsNuking(false);
-      }
-  };
-
   const isStandalone = typeof window !== 'undefined' && 
       (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
 
   const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isUserPro = user?.isPro === true; 
   
-  // 🚀 STATUS SETUP TERPUSAT
-  const isSetupCompleted = typeof window !== 'undefined' ? localStorage.getItem(`bilano_setup_completed_${rawEmail}`) === "true" : false;
-  const hasExistingTarget = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length > 0;
-  const isFullySetup = isSetupCompleted || hasExistingTarget;
-
   useEffect(() => {
       if (rawEmail && user && user.username === 'guest') {
           window.location.reload();
@@ -169,47 +125,8 @@ export default function Home() {
       };
   }, [isAnyDataLoading]);
 
-  // 🚀 PENANGANAN REDIRECT & AUTO-DETEKSI
-  const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
-  
-  const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
-  const isNewAccount = user && (Date.now() - startTimeAcc) < (15 * 60 * 1000); 
-  const hasRedirected = rawEmail ? localStorage.getItem(`bilano_welcomed_paywall_${rawEmail}`) === "true" : false;
-  
-  const needsPaywallRedirect = isStandalone && !isUserPro && isNewAccount && !hasRedirected && !isTargetEmpty;
-
   useEffect(() => {
-      if (!isUserLoading && !isTargetLoading && target !== undefined) {
-          if (!isTargetEmpty && rawEmail) {
-              if (localStorage.getItem(`bilano_setup_completed_${rawEmail}`) !== "true") {
-                  localStorage.setItem(`bilano_setup_completed_${rawEmail}`, "true");
-              }
-          }
-          if (isTargetEmpty) {
-              window.location.href = "/target";
-          } else if (needsPaywallRedirect) {
-              localStorage.setItem(`bilano_welcomed_paywall_${rawEmail}`, "true");
-              window.location.href = "/paywall";
-          }
-      }
-  }, [isTargetEmpty, needsPaywallRedirect, isUserLoading, isTargetLoading, rawEmail, target]);
-
-
-  // Logika Pop-up Setup Awal
-  useEffect(() => {
-      if (rawEmail && !isAnyDataLoading) {
-          const skipped = sessionStorage.getItem(`skip_setup_prompt_${rawEmail}`) === "true";
-          if (isFullySetup || skipped) {
-              setIsSetupPromptHandled(true);
-          } else {
-              setShowSetupPrompt(true);
-          }
-      }
-  }, [rawEmail, isAnyDataLoading, isFullySetup]);
-
-  // Tooltip Guide & Profile
-  useEffect(() => {
-      if (rawEmail && !isAnyDataLoading && user && isSetupPromptHandled) {
+      if (rawEmail && !isAnyDataLoading && user) {
           const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
           const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
           
@@ -218,15 +135,19 @@ export default function Home() {
 
           if (isNewUser) {
               if (!guideSeen) {
-                  const timer = setTimeout(() => setShowGuideTooltip(true), 1500);
+                  const timer = setTimeout(() => {
+                      setShowGuideTooltip(true);
+                  }, 1500);
                   return () => clearTimeout(timer);
               } else if (guideSeen && !profileSeen && !user.profilePicture) {
-                  const timer = setTimeout(() => setShowProfileTooltip(true), 1000);
+                  const timer = setTimeout(() => {
+                      setShowProfileTooltip(true);
+                  }, 1000);
                   return () => clearTimeout(timer);
               }
           }
       }
-  }, [rawEmail, isAnyDataLoading, user, isSetupPromptHandled]);
+  }, [rawEmail, isAnyDataLoading, user]);
 
   const dismissGuideTooltip = () => {
       setShowGuideTooltip(false);
@@ -237,7 +158,9 @@ export default function Home() {
       const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
       
       if (isNewUser && !profileSeen && !user?.profilePicture) {
-          setTimeout(() => setShowProfileTooltip(true), 600); 
+          setTimeout(() => {
+              setShowProfileTooltip(true);
+          }, 600); 
       }
   };
 
@@ -282,34 +205,11 @@ export default function Home() {
   const userEmail = rawEmail || "Pengguna";
   const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
 
-  const handleFomoClick = (title: string, desc: string) => {
-      if (isUserPro) {
-          setProFeatureModal({ title, desc });
-      } else {
-          setFomoFeature({ title, desc });
-      }
-  };
-
   const handleMenuScroll = (e: any) => {
       const scrollLeft = e.target.scrollLeft;
       const width = e.target.clientWidth;
       const pageIndex = Math.round(scrollLeft / width);
       setActiveMenuPage(pageIndex);
-  };
-
-  useEffect(() => {
-      if (isUserPro && rawEmail) {
-          const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;
-          if (!localStorage.getItem(welcomeKey)) {
-              setTimeout(() => setShowProWelcome(true), 500);
-          }
-      }
-  }, [isUserPro, rawEmail]);
-
-  const handleTutupWelcomePro = () => {
-      const welcomeKey = `bilano_welcomed_pro_${rawEmail}`;
-      localStorage.setItem(welcomeKey, "true"); 
-      setShowProWelcome(false);
   };
 
   useEffect(() => {
@@ -382,23 +282,19 @@ export default function Home() {
       setDueDynamicSub(null);
   };
 
-  useEffect(() => {
-      if (isUserPro || !user) return;
-      
-      const startTime = new Date(user.createdAt || Date.now()).getTime();
-      const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
-      const TRIAL_DURATION_DAYS = 3; 
+  const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
 
-      if (daysPassed >= TRIAL_DURATION_DAYS) {
-          setTrialDaysLeft(0);
-      } else {
-          setTrialDaysLeft(Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
+  // Alur Tol Satu Arah: Hanya mengarahkan ke pembuatan target jika data kosong
+  useEffect(() => {
+      if (!isUserLoading && !isTargetLoading && target !== undefined) {
+          if (isTargetEmpty) {
+              setLocation("/target");
+          }
       }
-  }, [isUserPro, user]);
+  }, [isTargetEmpty, isUserLoading, isTargetLoading, setLocation]);
 
   const requestAllPermissions = async () => {
       setIsRequestingPerms(true);
-      
       try {
           const timeout = new Promise((_, reject) => 
               setTimeout(() => reject(new Error("Timeout dari Browser")), 4000)
@@ -426,7 +322,7 @@ export default function Home() {
 
       } catch (e) {
           console.warn("Proses perizinan di-bypass karena terlalu lama.");
-      } finally {
+      } finaly {
           localStorage.setItem("bilano_permissions_prompted", "true");
           setShowPermissionPrompt(false);
           setIsRequestingPerms(false);
@@ -581,16 +477,6 @@ export default function Home() {
       );
   }
 
-  if (needsPaywallRedirect) {
-       return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
-              <Loader2 className="w-10 h-10 animate-spin text-indigo-500 mb-4" />
-              <h2 className="text-lg font-bold text-slate-800">Tunggu Sebentar...</h2>
-              <p className="text-sm text-slate-500 text-center">Menyiapkan penawaran eksklusif BILANO untuk Anda.</p>
-          </div>
-      );
-  }
-
   if (isLocked) {
       return (
         <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center text-white">
@@ -599,7 +485,7 @@ export default function Home() {
             <p className="text-sm text-slate-400 mb-8">{pinError ? "PIN Salah. Coba lagi." : "Masukkan PIN Keamanan"}</p>
             <div className={`flex gap-4 mb-12 ${pinError ? 'animate-pulse' : ''}`}>
                 {[...Array(6)].map((_, i) => (
-                    <div key={i} className={`w-4 h-4 rounded-full transition-colors ${pinInput.length > i ? (pinError ? 'bg-rose-500' : 'bg-indigo-500') : 'bg-slate-700'}`} />
+                    <div key={i} className={`w-4 h-4 rounded-full transition-colors ${pinInput.length > i ? (pinError ? 'bg-rose-500' : 'bg-indigo-50/50') : 'bg-slate-700'}`} />
                 ))}
             </div>
             <div className="grid grid-cols-3 gap-6 max-w-xs mx-auto">
@@ -618,26 +504,7 @@ export default function Home() {
 
   return (
     <MobileLayout>
-
-      {/* Pop-up Wajib Setup Saldo Akurat */}
-      {showSetupPrompt && (
-          <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
-                  <div className="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-5">
-                      <Wallet className="w-10 h-10" />
-                  </div>
-                  <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Setup Saldo Awal</h2>
-                  <p className="text-[13px] text-slate-500 mb-6 leading-relaxed">Untuk memulai dengan akurat, mari catat saldo tunai, tabungan, dan aset yang Anda miliki saat ini.</p>
-                  <div className="space-y-3">
-                      <Button onClick={() => window.location.href='/target'} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-full shadow-lg">LENGKAPI SEKARANG</Button>
-                      <Button variant="ghost" onClick={() => { setShowSetupPrompt(false); sessionStorage.setItem(`skip_setup_prompt_${rawEmail}`, 'true'); setIsSetupPromptHandled(true); }} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 rounded-full">Nanti Saja</Button>
-                  </div>
-              </div>
-          </div>
-      )}
-
       <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
-          
           {showGuideTooltip && (
               <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-slate-900 p-4 rounded-[20px] shadow-[6px_6px_0px_#0f172a] animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
                   <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-full hover:bg-slate-100">
@@ -673,58 +540,6 @@ export default function Home() {
           </Link>
       </div>
 
-      {proFeatureModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-indigo-500/30">
-                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
-                  <button onClick={() => setProFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
-                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10">
-                      <Crown className="w-10 h-10 text-amber-950"/>
-                  </div>
-                  <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Akses VIP Terjamin! 👑</h2>
-                  <p className="text-sm text-indigo-200 mb-6 leading-relaxed px-2 font-medium">
-                      Fitur <b className="text-amber-400">{proFeatureModal.title}</b> saat ini sedang dalam tahap akhir pengembangan oleh tim kami. <br/><br/>
-                      Sebagai pengguna <b>PRO</b>, Anda tidak perlu membayar biaya tambahan apapun. Fitur ini akan otomatis terbuka untuk Anda begitu dirilis!
-                  </p>
-                  <Button onClick={() => setProFeatureModal(null)} className="w-full h-14 bg-white hover:bg-slate-100 text-indigo-950 rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
-                      <CheckCircle2 className="w-5 h-5"/> SAYA MENGERTI
-                  </Button>
-              </div>
-          </div>
-      )}
-
-      {fomoFeature && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-[3px] border-amber-100">
-                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-100 rounded-full blur-3xl pointer-events-none"></div>
-                  <button onClick={() => setFomoFeature(null)} className="absolute top-4 right-4 p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
-                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.4)] relative z-10">
-                      <Rocket className="w-10 h-10 text-amber-950"/>
-                  </div>
-                  <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Misi Selanjutnya! 🚀</h2>
-                  <p className="text-sm text-slate-500 mb-5 leading-relaxed px-2">
-                      Fitur <b>{fomoFeature.title}</b> adalah salah satu inovasi besar yang masuk dalam rencana pengembangan (roadmap) kami ke depan.<br/><br/>
-                      <span className="text-[11px] bg-slate-100 px-2 py-1 rounded-lg">"{fomoFeature.desc}"</span>
-                  </p>
-                  
-                  <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-4 mb-6 text-left relative z-10 shadow-inner">
-                      <div className="flex items-center gap-2 mb-2">
-                          <AlertTriangle className="w-4 h-4 text-amber-600"/>
-                          <span className="text-xs font-extrabold text-amber-800 uppercase tracking-widest">PERHATIAN PENTING</span>
-                      </div>
-                      <p className="text-[12px] text-amber-700 leading-relaxed font-medium">
-                          Begitu fitur eksklusif ini diluncurkan nanti, harga langganan pengguna baru berpotensi akan <b className="text-rose-600">DINAIKKAN</b>. <br/><br/>
-                          <b>Garansi Harga Tetap:</b> Kunci harga Anda di <b>Rp 99.000/tahun HARI INI</b>. Maka harga perpanjangan Anda tahun depan dan seterusnya akan <b>TERKUNCI SELAMANYA</b> di angka tersebut. Anda otomatis menikmati fitur baru ini tanpa perlu membayar selisih kenaikan harga!
-                      </p>
-                  </div>
-                  
-                  <Button onClick={() => { setFomoFeature(null); window.location.href='/paywall'; }} className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
-                      <Lock className="w-4 h-4"/> AMANKAN HARGA SAYA ➔
-                  </Button>
-              </div>
-          </div>
-      )}
-
       {dueDynamicSub && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
             <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 border-orange-500">
@@ -747,32 +562,7 @@ export default function Home() {
                         BAYAR & CATAT SEKARANG
                     </Button>
                     <Button variant="ghost" onClick={handleSkipDynamic} className="w-full h-12 rounded-full font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">
-                        Nanti Saja (Lewati Hari Hari Ini)
-                    </Button>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {showProWelcome && (
-        <div className="fixed inset-0 z-[99998] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-500">
-            <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 rounded-[32px] p-1 w-full max-w-sm shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-10 relative overflow-hidden border border-indigo-500/30">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
-
-                <div className="relative z-10 p-6 text-center">
-                    <div className="w-20 h-20 mx-auto bg-gradient-to-tr from-amber-400 to-yellow-300 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(251,191,36,0.4)] animate-bounce">
-                        <Crown className="w-10 h-10 text-amber-950" />
-                    </div>
-                    <h2 className="text-2xl font-black text-white mb-2 tracking-tight">
-                        Selamat Datang di <br/>
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-500">BILANO PRO!</span> 🎉
-                    </h2>
-                    <p className="text-indigo-200 text-sm mb-8 leading-relaxed font-medium px-2">
-                        Luar biasa! Seluruh fitur eksklusif, analisa tanpa batas, laporan premium, dan asisten AI kini sepenuhnya terbuka untuk Anda.
-                    </p>
-                    <Button onClick={handleTutupWelcomePro} className="w-full h-14 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 font-black text-[15px] rounded-full shadow-xl shadow-amber-500/20 active:scale-95 transition-transform">
-                        AYO MULAI SEKARANG! 🚀
+                        Nanti Saja (Lewati Hari Ini)
                     </Button>
                 </div>
             </div>
@@ -841,7 +631,7 @@ export default function Home() {
                   <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Target Tercapai! 🎉</h2>
                   <p className="text-slate-500 text-sm mb-8">Luar biasa! Saldo kamu sudah melebihi impian yang kamu targetkan. Ingin membuat target baru?</p>
                   <div className="space-y-3">
-                      <Button onClick={() => { dismissTargetModal(); window.location.href='/target'; }} className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 font-bold rounded-full text-lg shadow-lg shadow-emerald-200">BUAT TARGET BARU</Button>
+                      <Button onClick={() => { dismissTargetModal(); setLocation('/target'); }} className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 font-bold rounded-full text-lg shadow-lg shadow-emerald-200">BUAT TARGET BARU</Button>
                       <Button variant="ghost" onClick={dismissTargetModal} className="w-full h-14 font-bold text-slate-400 hover:text-slate-600 rounded-full">BIARKAN SAJA</Button>
                   </div>
               </div>
@@ -863,23 +653,6 @@ export default function Home() {
       )}
 
       <div className="flex flex-col gap-6">
-        
-        {/* 🚀 TOMBOL PEMUSNAH UANG GAIB (Fail-safe) */}
-        {ghostTransactions.length > 0 && (
-            <div className="mx-2 mt-4 rounded-[24px] p-5 bg-rose-600 text-white shadow-lg animate-in slide-in-from-top-4">
-                <div className="flex items-center gap-3 mb-2">
-                    <AlertTriangle className="w-8 h-8 text-rose-200 animate-pulse"/>
-                    <h3 className="font-extrabold text-lg">Uang Gaib Terdeteksi!</h3>
-                </div>
-                <p className="text-xs text-rose-100 mb-4 leading-relaxed">
-                    Sistem mendeteksi ada anomali saldo sebesar <b>Rp {totalGhostMoney.toLocaleString('id-ID')}</b> dari proses sebelumnya. Silakan klik tombol di bawah untuk membersihkan riwayat dan menormalkan saldo Anda.
-                </p>
-                <Button onClick={handleNukeGhostMoney} disabled={isNuking} className="w-full bg-white hover:bg-slate-100 text-rose-700 font-black rounded-full h-12 shadow-md">
-                    {isNuking ? "MEMUSNAHKAN..." : "BERSIHKAN SALDO SEKARANG"}
-                </Button>
-            </div>
-        )}
-
         <div className="flex items-center justify-between px-2 pt-2 relative">
             <div className="flex items-center gap-3">
                 <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100">
@@ -894,7 +667,7 @@ export default function Home() {
                 <div>
                     <div className="flex items-center gap-2">
                         <p className="text-xs font-medium text-slate-500">Selamat datang,</p>
-                        {isUserPro && <Crown className="w-3.5 h-3.5 text-amber-500" />}
+                        <Crown className="w-3.5 h-3.5 text-amber-500" />
                     </div>
                     <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight">{greetingName}</h2>
                 </div>
@@ -957,23 +730,6 @@ export default function Home() {
                 </div>
             </div>
         </div>
-
-        {!isUserPro && trialDaysLeft !== null && isStandalone && (
-            <div className={`mx-1 mt-[-10px] rounded-[20px] p-4 shadow-lg flex items-center justify-between animate-in slide-in-from-top-4 ${trialDaysLeft === 0 ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white' : 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950'}`}>
-                <div className="flex items-center gap-3">
-                    <div className="bg-white/20 p-2 rounded-full">
-                        {trialDaysLeft === 0 ? <Lock className="w-5 h-5" /> : <Crown className="w-5 h-5" />}
-                    </div>
-                    <div>
-                        <p className="text-[11px] font-extrabold uppercase tracking-widest mb-0.5">{trialDaysLeft === 0 ? "MASA COBA HABIS" : "Masa Coba Gratis"}</p>
-                        <p className="text-xs font-medium opacity-90">{trialDaysLeft === 0 ? "Fungsi aplikasi dikunci." : <span>Sisa waktu: <b>{trialDaysLeft} Hari</b></span>}</p>
-                    </div>
-                </div>
-                <Link href="/paywall">
-                    <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-full text-[10px] font-extrabold backdrop-blur-sm transition-all active:scale-95 shadow-sm">{trialDaysLeft === 0 ? "BUKA KUNCI" : "UPGRADE PRO"}</button>
-                </Link>
-            </div>
-        )}
         
         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
@@ -988,19 +744,10 @@ export default function Home() {
                  {displayBalance}
               </h2>
 
-              <div className="flex justify-between items-center w-full">
-                  {/* 🚀 CONDITIONAL RENDERING: Ganti Tombol "SETUP" menjadi Lencana "IDR" saat sudah setup */}
-                  {isFullySetup ? (
-                      <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                          <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
-                      </div>
-                  ) : (
-                      <Link href="/target">
-                          <button className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-full text-[11px] font-black backdrop-blur-md transition-all active:scale-95 flex items-center gap-1.5 border border-white/10 shadow-sm uppercase tracking-wider">
-                              <RefreshCcw className="w-3.5 h-3.5"/> LENGKAPI SALDO
-                          </button>
-                      </Link>
-                  )}
+              <div className="flex gap-3">
+                  <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
+                      <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+                  </div>
               </div>
            </div>
            <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
@@ -1069,10 +816,7 @@ export default function Home() {
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
                         <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-emerald-500" label="Amal" />
                         <MenuIconBox href="/retained" icon={Hourglass} bg="bg-amber-500" label="Tertahan" />
-                        <MenuIconBox 
-                            onClick={() => handleFomoClick("Manajemen Cicilan", "Fitur khusus untuk mencatat dan mengatur semua cicilan Anda secara otomatis setiap bulan agar tidak menumpuk.")} 
-                            icon={CreditCard} bg="bg-slate-800" label="Cicilan" badge="SEGERA" 
-                        />
+                        <MenuIconBox href="/cicilan" icon={CreditCard} bg="bg-slate-800" label="Cicilan" />
                     </div>
                 </div>
             </div>
@@ -1084,25 +828,26 @@ export default function Home() {
         </div>
 
         <div className="px-1 mt-4 mb-2">
-            <h3 className="font-bold text-slate-800 text-sm mb-2 px-1 uppercase tracking-widest text-[11px]">Eksklusif Segera Hadir</h3>
-            <div onClick={() => handleFomoClick("BILANO Academy", "Kumpulan E-Book Premium dan panduan mengelola uang serta investasi dari pakar finansial.")} className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
-                <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
-                <div className="flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
-                            <BookOpen className="w-6 h-6 text-amber-400"/>
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-black text-white text-base">BILANO Academy</h3>
-                                <span className="text-[9px] font-extrabold bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse shadow-sm">Segera</span>
+            <h3 className="font-bold text-slate-800 text-sm mb-2 px-1 uppercase tracking-widest text-[11px]">Eksklusif Premium</h3>
+            <Link href="/academy">
+                <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
+                    <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
+                    <div className="flex items-center justify-between relative z-10">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
+                                <BookOpen className="w-6 h-6 text-amber-400"/>
                             </div>
-                            <p className="text-[11px] text-slate-400 font-medium">E-Book & Panduan Finansial VIP</p>
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <h3 className="font-black text-white text-base">BILANO Academy</h3>
+                                </div>
+                                <p className="text-[11px] text-slate-400 font-medium">E-Book & Panduan Finansial VIP</p>
+                            </div>
                         </div>
+                        <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-amber-400 transition-colors"/>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-amber-400 transition-colors"/>
                 </div>
-            </div>
+            </Link>
         </div>
 
         <div className="flex flex-col gap-4 mt-2 px-1">
@@ -1143,29 +888,20 @@ export default function Home() {
                 © {new Date().getFullYear()} • Bilano Official
             </p>
         </div>
-
       </div>
     </MobileLayout>
   );
 }
 
-function MenuIconBox({ href, icon: Icon, bg, label, onClick, badge }: any) {
-    const content = (
-        <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-            <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
-                <Icon className="w-6 h-6"/>
-                {badge && (
-                    <span className="absolute -top-1 -right-2 bg-rose-500 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full z-10 animate-pulse border border-white shadow-sm">
-                        {badge}
-                    </span>
-                )}
+function MenuIconBox({ href, icon: Icon, bg, label }) {
+    return (
+        <Link href={href}>
+            <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
+                <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
+                    <Icon className="w-6 h-6"/>
+                </div>
+                <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
             </div>
-            <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
-        </div>
+        </Link>
     );
-
-    if (onClick) {
-        return <div onClick={onClick}>{content}</div>;
-    }
-    return <Link href={href}>{content}</Link>;
 }
