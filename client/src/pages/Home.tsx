@@ -322,7 +322,7 @@ export default function Home() {
 
       } catch (e) {
           console.warn("Proses perizinan di-bypass karena terlalu lama.");
-      } finaly {
+      } finally {
           localStorage.setItem("bilano_permissions_prompted", "true");
           setShowPermissionPrompt(false);
           setIsRequestingPerms(false);
