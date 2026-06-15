@@ -11,8 +11,8 @@ import {
   TrendingUp, DollarSign, 
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
-  BellRing, Mic, Camera, AlertTriangle, BookOpen, Sparkles, CreditCard,
-  Bot, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass 
+  BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass 
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -116,7 +116,7 @@ export default function Home() {
       } else {
           setIsLongLoading(false);
           setShowRetryButton(false);
-        }
+      }
 
       return () => {
           clearTimeout(timerLongLoad);
@@ -284,6 +284,7 @@ export default function Home() {
 
   const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
 
+  // Alur Tol Satu Arah: Hanya mengarahkan ke pembuatan target jika data kosong
   useEffect(() => {
       if (!isUserLoading && !isTargetLoading && target !== undefined) {
           if (isTargetEmpty) {
@@ -321,7 +322,7 @@ export default function Home() {
 
       } catch (e) {
           console.warn("Proses perizinan di-bypass karena terlalu lama.");
-      } finally {
+      } finaly {
           localStorage.setItem("bilano_permissions_prompted", "true");
           setShowPermissionPrompt(false);
           setIsRequestingPerms(false);
@@ -849,24 +850,7 @@ export default function Home() {
             </Link>
         </div>
 
-        {/* INTEGRASI SEBAGAI FITUR PERMANEN */}
         <div className="flex flex-col gap-4 mt-2 px-1">
-            <Link href="/chat-ai?mode=strategy">
-                <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.06)] border border-indigo-900/60 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
-                    <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-purple-500/20 transition-colors"></div>
-                    <div className="flex items-center gap-4 z-10">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-yellow-500/20">
-                            <Sparkles className="w-6 h-6 text-slate-950"/>
-                        </div>
-                        <div>
-                            <h3 className="font-black text-white text-base">AI Strategi Pemasukan</h3>
-                            <p className="text-xs text-indigo-200 mt-0.5">Optimasi aset & blueprint #NalarCuan otomatis</p>
-                        </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-indigo-400 z-10"/>
-                </div>
-            </Link>
-
             <Link href="/chat-ai">
                 <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
                     <div className="flex items-center gap-4 z-10">
