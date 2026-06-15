@@ -37,21 +37,41 @@ export default function Landing() {
     id: i + 1,
     title: `Fitur Unggulan ${i + 1}`,
     desc: "Deskripsi singkat yang menjelaskan kecanggihan fitur BILANO ini untuk menyelamatkan finansial Anda.",
-    // Ganti dengan URL thumbnail video asli Anda nanti
     poster: `https://placehold.co/600x338/121c3a/475569?text=Video+Fitur+${i + 1}`
   }));
 
   const sliderRef = useRef<HTMLDivElement>(null);
+  const [currentVidIdx, setCurrentVidIdx] = useState(0);
+
+  // 💡 REAL-TIME TRACKING SAAT USER SWIPE / GESER DI HP
+  const handleScroll = () => {
+    if (sliderRef.current) {
+      const container = sliderRef.current;
+      const scrollLeft = container.scrollLeft;
+      const itemWidth = container.children[0]?.getBoundingClientRect().width || 340;
+      const gap = 20; // Sesuai dengan konfigurasi gap-5 (1.25rem = 20px)
+      const index = Math.round(scrollLeft / (itemWidth + gap));
+      if (index >= 0 && index < 15) {
+        setCurrentVidIdx(index);
+      }
+    }
+  };
 
   const scrollNext = () => {
     if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: 350, behavior: 'smooth' });
+      const container = sliderRef.current;
+      const itemWidth = container.children[0]?.getBoundingClientRect().width || 340;
+      const gap = 20;
+      container.scrollBy({ left: itemWidth + gap, behavior: 'smooth' });
     }
   };
 
   const scrollPrev = () => {
     if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: -350, behavior: 'smooth' });
+      const container = sliderRef.current;
+      const itemWidth = container.children[0]?.getBoundingClientRect().width || 340;
+      const gap = 20;
+      container.scrollBy({ left: -(itemWidth + gap), behavior: 'smooth' });
     }
   };
 
@@ -160,12 +180,12 @@ export default function Landing() {
 
           {/* 🔥 3. SECTION VIDEO SHOWCASE FITUR */}
           <section className="w-full max-w-7xl flex flex-col items-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both">
-            <div className="mb-8 lg:mb-10 text-center max-w-2xl mx-auto px-4">
+            <div className="mb-6 lg:mb-10 text-center max-w-2xl mx-auto px-4">
               <h3 className="text-2xl lg:text-3xl font-black text-white flex items-center justify-center gap-3">
                 <PlayCircle className="w-8 h-8 text-amber-400"/> Kenali Lebih Dalam
               </h3>
-              <p className="text-slate-400 text-sm mt-3 lg:text-base leading-relaxed">
-                Geser untuk melihat 15 video eksklusif perkenalan fitur BILANO yang akan mengubah cara Anda mengelola uang.
+              <p className="text-slate-400 text-sm mt-2 lg:text-base leading-relaxed">
+                Temukan 15 video eksklusif perkenalan fitur BILANO yang dirancang khusus untuk memotong kebocoran dana Anda secara brutal.
               </p>
             </div>
 
@@ -181,7 +201,8 @@ export default function Landing() {
               {/* Container Scroll Video */}
               <div 
                 ref={sliderRef} 
-                className="flex overflow-x-auto gap-5 pb-8 snap-x snap-mandatory px-2 md:px-6 lg:px-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] scroll-smooth"
+                onScroll={handleScroll}
+                className="flex overflow-x-auto gap-5 pb-6 snap-x snap-mandatory px-2 md:px-6 lg:px-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] scroll-smooth"
               >
                 {featureVideos.map((vid) => (
                   <div 
@@ -190,9 +211,6 @@ export default function Landing() {
                   >
                     {/* Area Placeholder Video */}
                     <div className="w-full aspect-video bg-[#040814] relative flex items-center justify-center overflow-hidden">
-                       {/* 💡 NOTE: Nanti tag <img> ini bisa Anda ganti dengan tag <video> 
-                         contoh: <video src="url_video.mp4" controls className="..." /> 
-                       */}
                        <img src={vid.poster} alt={vid.title} className="w-full h-full object-cover opacity-70 group-hover/card:scale-105 group-hover/card:opacity-100 transition-all duration-500" />
                        
                        <div className="absolute inset-0 flex items-center justify-center">
@@ -219,8 +237,36 @@ export default function Landing() {
               </button>
             </div>
 
-            {/* 🔥 TOMBOL DAPATKAN APLIKASI (UTAMA) */}
-            <div className="mt-6 w-full flex justify-center animate-in slide-in-from-bottom-8 fade-in duration-700 delay-500">
+            {/* 📱 CONTROLLER & INDICATOR PRESET UNTUK HP */}
+            <div className="flex lg:hidden items-center justify-between w-full px-3 mt-1 mb-4">
+              {/* Keterangan Angka Model Capsule Premium */}
+              <div className="bg-[#121c3a] border border-white/10 px-4 py-2 rounded-full backdrop-blur-md shadow-inner flex items-center gap-1.5">
+                <span className="text-amber-400 font-black text-sm">{currentVidIdx + 1}</span>
+                <span className="text-slate-500 text-xs font-semibold">/</span>
+                <span className="text-slate-400 text-xs font-bold">15 Video</span>
+              </div>
+              
+              {/* Tombol Navigasi Mini Ringan untuk HP */}
+              <div className="flex gap-2">
+                <button 
+                  onClick={scrollPrev} 
+                  disabled={currentVidIdx === 0}
+                  className={`border p-2.5 rounded-full transition-all backdrop-blur-sm ${currentVidIdx === 0 ? 'border-white/5 text-slate-600 bg-white/20 opacity-30' : 'border-white/10 text-white bg-[#121c3a] active:bg-amber-400 active:text-black'}`}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={scrollNext} 
+                  disabled={currentVidIdx === 14}
+                  className={`border p-2.5 rounded-full transition-all backdrop-blur-sm ${currentVidIdx === 14 ? 'border-white/5 text-slate-600 bg-white/20 opacity-30' : 'border-white/10 text-white bg-[#121c3a] active:bg-amber-400 active:text-black'}`}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* 🔥 TOMBOL DAPATKAN APLIKASI (UTAMA DESKTOP) */}
+            <div className="hidden lg:flex mt-6 w-full justify-center animate-in slide-in-from-bottom-8 fade-in duration-700 delay-500">
               <button
                 onClick={handlePwaInstall}
                 className="w-full max-w-[420px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.15rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.25)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
