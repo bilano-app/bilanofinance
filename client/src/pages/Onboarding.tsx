@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { ArrowRight, Download, CheckCircle2, X, Sparkles, Target } from "lucide-react";
+import { 
+  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar 
+} from "lucide-react";
 
 export default function Onboarding() {
   const [, setLocation] = useLocation();
@@ -71,6 +73,50 @@ export default function Onboarding() {
       setFade(true);
     }, 300);
   };
+
+  // =======================================================
+  // 🚀 MESIN DIAGNOSTIK PROFIL FINANSIAL
+  // =======================================================
+  const getAssessment = () => {
+    const { q1, q2, q3, q4 } = answers;
+    const score = Number(q4);
+    const yesCount = [q1, q2, q3].filter(a => a === 'Ya').length;
+
+    // KONDISI 1: Niat kuat, siap eksekusi
+    if (yesCount === 3 && score >= 8) {
+      return {
+        title: "Profil: Eksekutor Visioner",
+        desc: `Kalkulasi menunjukkan sinkronisasi sempurna antara visi dan kesiapan mental (Skor Urgensi: ${score}/10). Anda tidak butuh motivasi dasar; Anda butuh alat presisi. Bilano akan langsung bekerja sebagai sistem pemantauan brutal untuk memastikan aset Anda terakumulasi sesuai rencana, tanpa kompromi.`,
+        icon: <Target className="w-8 h-8" />
+      };
+    } 
+    // KONDISI 2: Kurang konsisten/jelas, tapi mau berusaha
+    else if (yesCount >= 2 && score >= 6) {
+      return {
+        title: "Profil: Pembangun Sistem",
+        desc: `Anda memiliki kesadaran finansial yang logis (Skor Urgensi: ${score}/10) dan kemauan membangun kebiasaan, meski visi masa depan Anda mungkin belum 100% presisi. Ini adalah pijakan ideal. Bilano akan bertindak sebagai kerangka otomatis Anda—mengunci pengeluaran impulsif dan menuntut Anda disiplin setiap hari.`,
+        icon: <Fingerprint className="w-8 h-8" />
+      };
+    } 
+    // KONDISI 3: Tahu penting (skor tinggi), tapi malas gerak (Q3 = Tidak)
+    else if (q3 === 'Tidak' && score >= 7) {
+      return {
+        title: "Profil: Paradoks Analitis",
+        desc: `Data menunjukkan anomali logis: Anda tahu target keuangan itu sangat penting (Skor: ${score}/10), tapi Anda menolak membangun kebiasaan kecil. Niat tanpa eksekusi adalah ilusi matematis. Bilano didesain untuk mendobrak kepasifan ini dengan menyajikan realita arus kas Anda secara brutal dan transparan.`,
+        icon: <Activity className="w-8 h-8" />
+      };
+    } 
+    // KONDISI 4: Skor rendah atau mayoritas Tidak
+    else {
+      return {
+        title: "Profil: Pengamat Pasif",
+        desc: `Skor kalkulasi Anda (${score}/10) menunjukkan Anda belum sepenuhnya menyadari bahaya kebocoran finansial, atau masih meraba-raba tujuan. Tidak masalah. Daripada menebak, gunakan Bilano sebagai cermin realita. Biarkan data murni yang membuktikan seberapa banyak uang Anda yang menguap tanpa jejak bulan ini.`,
+        icon: <Radar className="w-8 h-8" />
+      };
+    }
+  };
+
+  const assessment = getAssessment();
 
   // =======================================================
   // 🚀 RENDERER HALAMAN
@@ -175,12 +221,13 @@ export default function Onboarding() {
         {step === 4 && (
           <div className={`transition-opacity duration-500 w-full flex flex-col items-center text-center bg-[#121c3a]/50 p-8 rounded-[32px] border border-white/10 backdrop-blur-md shadow-2xl ${fade ? 'opacity-100' : 'opacity-0'}`}>
             <div className="w-16 h-16 bg-amber-400/20 text-amber-400 rounded-full flex items-center justify-center mb-6">
-              <Sparkles className="w-8 h-8" />
+              {assessment.icon}
             </div>
-            <h2 className="text-2xl font-black mb-4">Profil Anda Telah Disiapkan</h2>
+            <h2 className="text-2xl font-black mb-4">{assessment.title}</h2>
             <p className="text-slate-300 leading-relaxed mb-8 text-[15px]">
-              Berdasarkan jawaban Anda, Anda memiliki tekad yang {answers.q4 >= 7 ? 'sangat kuat' : 'baik'} (Skor {answers.q4}/10) untuk memiliki arah finansial yang terencana. Karena Anda bersedia membangun kebiasaan kecil setiap hari, <b>Bilano akan menjadi sistem otomatis Anda untuk mewujudkan target masa depan tersebut secara pasti.</b>
-              <br/><br/>Yuk, mulai perjalanan finansial Anda sekarang.
+              {assessment.desc}
+              <br/><br/>
+              <span className="font-bold text-white">Mari kita eksekusi sistem ini sekarang.</span>
             </p>
             <button 
               onClick={() => {
