@@ -268,7 +268,7 @@ export default function Landing() {
             {/* 🔥 TOMBOL DAPATKAN APLIKASI (UTAMA DESKTOP) */}
             <div className="hidden lg:flex mt-6 w-full justify-center animate-in slide-in-from-bottom-8 fade-in duration-700 delay-500">
               <button
-                onClick={handlePwaInstall}
+                onClick={() => setLocation('/onboarding')}
                 className="w-full max-w-[420px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.15rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.25)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
               >
                 <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
@@ -282,7 +282,7 @@ export default function Landing() {
         {/* 🟡 STICKY TOMBOL HP */}
         <div className="lg:hidden sticky bottom-6 px-6 z-50 animate-in slide-in-from-bottom-12 fade-in duration-700 delay-700 fill-mode-both">
           <button
-            onClick={handlePwaInstall}
+            onClick={() => setLocation('/onboarding')}
             className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] tracking-wide py-4 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
           >
             <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />

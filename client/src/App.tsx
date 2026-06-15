@@ -73,6 +73,7 @@ import Help from "@/pages/Help";
 import Guide from "@/pages/Guide";
 import Amal from "@/pages/Amal"; 
 import Retained from "@/pages/Retained";
+import Onboarding from "@/pages/Onboarding"; // Sesuaikan path-nya jika berbeda
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -187,6 +188,7 @@ function Router() {
       <Route path="/amal" component={Amal} /> 
       <Route path="/retained" component={Retained} />
       <Route component={NotFound} />
+      <Route path="/onboarding" component={Onboarding} />
     </Switch>
   );
 }
