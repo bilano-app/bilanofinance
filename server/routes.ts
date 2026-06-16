@@ -35,6 +35,7 @@ const ensureOtpTable = async () => {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
         await db.execute(sql`SELECT code FROM otp_sessions LIMIT 1`);
     } catch (e) {
+        console.log("Mendeteksi tabel OTP yang cacat. Menghancurkan dan membuat ulang...");
         await db.execute(sql`DROP TABLE IF EXISTS otp_sessions`);
         await db.execute(sql`CREATE TABLE otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
     }
@@ -45,6 +46,7 @@ const ensureRetainedTable = async () => {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS retained_balances (id SERIAL PRIMARY KEY, user_id INTEGER, source VARCHAR(255), amount DOUBLE PRECISION, currency VARCHAR(10), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW());`);
         await db.execute(sql`SELECT source FROM retained_balances LIMIT 1`);
     } catch (e) {
+        console.log("Mendeteksi tabel retained yang cacat. Menghancurkan dan membuat ulang...");
         await db.execute(sql`DROP TABLE IF EXISTS retained_balances`);
         await db.execute(sql`CREATE TABLE retained_balances (id SERIAL PRIMARY KEY, user_id INTEGER, source VARCHAR(255), amount DOUBLE PRECISION, currency VARCHAR(10), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW());`);
     }
@@ -112,8 +114,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`ALTER TABLE forex_assets ALTER COLUMN amount TYPE DOUBLE PRECISION;`);
           await db.execute(sql`ALTER TABLE investments ALTER COLUMN quantity TYPE DOUBLE PRECISION;`);
           await db.execute(sql`ALTER TABLE investments ALTER COLUMN avg_price TYPE DOUBLE PRECISION;`);
-          
-          try { await db.execute(sql`ALTER TABLE forex_assets ADD COLUMN IF NOT EXISTS avg_price DOUBLE PRECISION DEFAULT 0;`); } catch(e){}
+
+          // 🚀 TABEL HISTORIKAL BARU UNTUK EXPERT TERMINAL
+          await db.execute(sql`CREATE TABLE IF NOT EXISTS portfolio_snapshots (id SERIAL PRIMARY KEY, user_id INTEGER, month INTEGER, year INTEGER, cash_balance REAL, invest_value REAL, total_value REAL, assets_detail TEXT, created_at TIMESTAMP DEFAULT NOW());`);
 
           res.json({ success: true, message: "🎉 DATABASE BERHASIL DIOPTIMASI!" });
       } catch (e: any) { res.status(500).json({ error: "Gagal Update DB: " + e.message }); }
@@ -213,7 +216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let newBalance = Math.round(user!.cashBalance);
           const amt = Math.round(lastTx.amount);
 
-          const isValas = lastTx.category?.includes('Valas') || lastTx.type?.includes('forex') || lastTx.description?.includes('(Potong Dompet Valas)') || lastTx.description?.includes('(Masuk ke Dompet Valas)');
+          const isValas = lastTx.category?.includes('Valas');
 
           if (!isValas) {
               if (lastTx.type === 'income') newBalance -= amt;
@@ -224,8 +227,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               else if (lastTx.type === 'debt_pay') newBalance += amt;
           }
 
-          if (lastTx.type === 'invest_buy' && !isValas) newBalance += amt;
-          else if (lastTx.type === 'invest_sell' && !isValas) newBalance -= amt;
+          if (lastTx.type === 'invest_buy') newBalance += amt;
+          else if (lastTx.type === 'invest_sell') newBalance -= amt;
           else if (lastTx.type === 'forex_buy') newBalance += amt;
           else if (lastTx.type === 'forex_sell') newBalance -= amt;
 
@@ -235,84 +238,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (match) {
                   const qty = parseFloat(match[2]);
                   const curr = match[3].toUpperCase();
-                  if (lastTx.type === 'forex_buy') {
-                      await db.execute(sql`UPDATE forex_assets SET amount = GREATEST(amount - ${qty}, 0) WHERE user_id = ${user!.id} AND currency = ${curr}`);
-                  } else {
-                      await db.execute(sql`UPDATE forex_assets SET amount = amount + ${qty} WHERE user_id = ${user!.id} AND currency = ${curr}`);
+                  const existing = await storage.getForexByCurrency(user!.id, curr);
+                  if (existing) {
+                      const reverseQty = (lastTx.type === 'forex_buy') ? (existing.amount - qty) : (existing.amount + qty);
+                      await storage.updateForexAsset(existing.id, Math.max(0, reverseQty));
                   }
               }
           }
 
           if (lastTx.type === 'invest_buy') {
-              if (isValas) {
-                  const desc = lastTx.description || "";
-                  const match = desc.match(/@\s+([A-Z]{3})\s+([0-9.]+)/i);
-                  if (match) {
-                      const curr = match[1].toUpperCase();
-                      const price = parseFloat(match[2]);
-                      const qtyMatch = desc.match(/([0-9.]+)\s+unit/i) || desc.match(/([0-9.]+)\s+lot/i);
-                      const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
-                      const valasAmount = qty * price;
-                      await db.execute(sql`UPDATE forex_assets SET amount = amount + ${valasAmount} WHERE user_id = ${user!.id} AND currency = ${curr}`);
-                  }
-              }
-
               const desc = lastTx.description || "";
-              const matchSymbol = desc.match(/lot\/unit\s+([A-Z0-9|]+)/i) || desc.match(/unit\s+([A-Z0-9|]+)/i);
-              if (matchSymbol) {
-                  const symbol = matchSymbol[1].toUpperCase();
+              const match = desc.match(/([0-9.]+)\s+lot\/unit\s+([A-Z0-9]+)/i);
+              if (match) {
+                  const qty = parseFloat(match[1]);
+                  const symbol = match[2].toUpperCase();
                   const inv = await storage.getInvestmentBySymbol(user!.id, symbol);
                   if (inv) {
-                      const qtyMatch = desc.match(/([0-9.]+)\s+lot/i) || desc.match(/([0-9.]+)\s+unit/i);
-                      const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
                       const newQty = inv.quantity - qty;
                       if (newQty <= 0) await storage.deleteInvestment(inv.id);
                       else await storage.updateInvestment(inv.id, newQty, inv.avgPrice);
-                  }
-              }
-          }
-          else if (lastTx.type === 'invest_sell') {
-              if (isValas) {
-                  const desc = lastTx.description || "";
-                  const match = desc.match(/@\s+([A-Z]{3})\s+([0-9.]+)/i);
-                  if (match) {
-                      const curr = match[1].toUpperCase();
-                      const price = parseFloat(match[2]);
-                      const qtyMatch = desc.match(/([0-9.]+)\s+unit/i) || desc.match(/([0-9.]+)\s+lot/i);
-                      const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
-                      const valasAmount = qty * price;
-                      await db.execute(sql`UPDATE forex_assets SET amount = GREATEST(amount - ${valasAmount}, 0) WHERE user_id = ${user!.id} AND currency = ${curr}`);
-                  }
-              }
-
-              const desc = lastTx.description || "";
-              const matchSymbol = desc.match(/lot\/unit\s+([A-Z0-9|]+)/i) || desc.match(/unit\s+([A-Z0-9|]+)/i);
-              if (matchSymbol) {
-                  const symbol = matchSymbol[1].toUpperCase();
-                  const qtyMatch = desc.match(/([0-9.]+)\s+lot/i) || desc.match(/([0-9.]+)\s+unit/i);
-                  const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
-                  const matchPrice = desc.match(/@\s+(?:Rp\s+|[A-Z]{3}\s+)([0-9.]+)/i);
-                  const price = matchPrice ? parseFloat(matchPrice[1].replace(/\./g, '')) : 0;
-                  
-                  const inv = await storage.getInvestmentBySymbol(user!.id, symbol);
-                  if (inv) {
-                      await storage.updateInvestment(inv.id, inv.quantity + qty, inv.avgPrice);
-                  } else {
-                      await storage.createInvestment(user!.id, {userId: user!.id, symbol: symbol, quantity: qty, avgPrice: price, type: 'saham'} as any);
-                  }
-              }
-          }
-
-          if (lastTx.type === 'income' || lastTx.type === 'expense') {
-              const valasMutMatch = (lastTx.description || "").match(/\[Valas (Masuk|Keluar)\s+([0-9.]+)\s+([A-Z]{3})\]/i);
-              if (valasMutMatch) {
-                  const isMasuk = valasMutMatch[1].toLowerCase() === 'masuk';
-                  const qty = parseFloat(valasMutMatch[2]);
-                  const curr = valasMutMatch[3].toUpperCase();
-                  if (isMasuk) {
-                      await db.execute(sql`UPDATE forex_assets SET amount = GREATEST(amount - ${qty}, 0) WHERE user_id = ${user!.id} AND currency = ${curr}`);
-                  } else {
-                      await db.execute(sql`UPDATE forex_assets SET amount = amount + ${qty} WHERE user_id = ${user!.id} AND currency = ${curr}`);
                   }
               }
           }
@@ -385,12 +329,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         catch (err) { user = await storage.getUserByUsername(email as string); }
     }
 
-    // 🚀 UNLOCK SEMUA FITUR PRO UNTUK SEMUA PENGGUNA
-    if (user) {
+    const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"];
+
+    if (user && vipEmails.includes(user.email || "")) {
         user.isPro = true;
         user.proValidUntil = new Date("2099-12-31").toISOString() as any; 
+        return user; 
     }
-    
+
+    if (user && user.isPro && user.proValidUntil) {
+        const now = new Date();
+        const validUntil = new Date(user.proValidUntil);
+        if (now > validUntil) user = await storage.updateUserProStatus(user.id, false, null);
+    }
     return user;
   };
 
@@ -579,16 +530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.get("/api/transactions", async (req, res) => { 
-      const user = await getUser(req); 
-      
-      // 🧹 SAPU BERSIH: Menghapus semua transaksi gaib dari sistem
-      try {
-          await db.execute(sql`DELETE FROM transactions WHERE category LIKE 'Sistem: Auto-Fix%'`);
-      } catch(e) {}
-      
-      res.json(await storage.getTransactions(user!.id)); 
-  });
+  app.get("/api/transactions", async (req, res) => { const user = await getUser(req); res.json(await storage.getTransactions(user!.id)); });
   
   app.post("/api/transactions", async (req, res) => { 
       const user = await getUser(req); 
@@ -629,6 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`DELETE FROM forex_assets WHERE user_id = ${user.id}`);
           await db.execute(sql`DELETE FROM help_tickets WHERE user_id = ${user.id}`);
           await db.execute(sql`DELETE FROM retained_balances WHERE user_id = ${user.id}`);
+          await db.execute(sql`DELETE FROM portfolio_snapshots WHERE user_id = ${user.id}`);
           await db.execute(sql`DELETE FROM users WHERE id = ${user.id}`);
           res.json({ success: true, message: "Seluruh data akun berhasil dimusnahkan." });
       } catch (error) { res.status(500).json({ error: "Gagal memusnahkan data akun." }); }
@@ -646,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let newBalance = Math.round(user!.cashBalance);
           const amt = Math.round(txToDelete.amount);
           
-          const isValas = txToDelete.category?.includes('Valas') || txToDelete.type?.includes('forex') || txToDelete.description?.includes('(Potong Dompet Valas)') || txToDelete.description?.includes('(Masuk ke Dompet Valas)');
+          const isValas = txToDelete.category?.includes('Valas');
 
           if (!isValas) {
               if (txToDelete.type === 'income') newBalance -= amt;
@@ -657,17 +600,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
               else if (txToDelete.type === 'debt_pay') newBalance += amt;
           }
 
-          if (txToDelete.type === 'invest_buy' && !isValas) newBalance += amt; 
-          else if (txToDelete.type === 'invest_sell' && !isValas) newBalance -= amt; 
+          if (txToDelete.type === 'invest_buy') newBalance += amt; 
+          else if (txToDelete.type === 'invest_sell') newBalance -= amt; 
           else if (txToDelete.type === 'forex_buy') {
               newBalance += amt;
               try {
                   const desc = txToDelete.description || "";
-                  const match = desc.match(/(Beli|Jual)\s+([0-9.]+)\s+([A-Z]{3})/i);
+                  const match = desc.match(/Beli\s+([0-9.]+)\s+([A-Z]{3})/i);
                   if (match) {
-                      const qty = parseFloat(match[2]);
-                      const curr = match[3].toUpperCase();
-                      await db.execute(sql`UPDATE forex_assets SET amount = GREATEST(amount - ${qty}, 0) WHERE user_id = ${user!.id} AND currency = ${curr}`);
+                      const qty = parseFloat(match[1]);
+                      const curr = match[2].toUpperCase();
+                      const existingForex = await storage.getForexByCurrency(user!.id, curr);
+                      if (existingForex) {
+                          let newForex = existingForex.amount - qty;
+                          if (newForex < 0) newForex = 0;
+                          await storage.updateForexAsset(existingForex.id, newForex);
+                      }
                   }
               } catch(e) {}
           }
@@ -675,52 +623,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               newBalance -= amt; 
               try {
                   const desc = txToDelete.description || "";
-                  const match = desc.match(/(Beli|Jual)\s+([0-9.]+)\s+([A-Z]{3})/i);
+                  const match = desc.match(/Jual\s+([0-9.]+)\s+([A-Z]{3})/i);
                   if (match) {
-                      const qty = parseFloat(match[2]);
-                      const curr = match[3].toUpperCase();
-                      await db.execute(sql`UPDATE forex_assets SET amount = amount + ${qty} WHERE user_id = ${user!.id} AND currency = ${curr}`);
+                      const qty = parseFloat(match[1]);
+                      const curr = match[2].toUpperCase();
+                      const existingForex = await storage.getForexByCurrency(user!.id, curr);
+                      if (existingForex) await storage.updateForexAsset(existingForex.id, existingForex.amount + qty);
+                      else await storage.createForexAsset(user!.id, { currency: curr, amount: qty } as any);
                   }
               } catch(e) {}
-          }
-          
-          if (txToDelete.type === 'invest_buy' && isValas) {
-              const desc = txToDelete.description || "";
-              const match = desc.match(/@\s+([A-Z]{3})\s+([0-9.]+)/i);
-              if (match) {
-                  const curr = match[1].toUpperCase();
-                  const price = parseFloat(match[2]);
-                  const qtyMatch = desc.match(/([0-9.]+)\s+unit/i) || desc.match(/([0-9.]+)\s+lot/i);
-                  const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
-                  const valasAmount = qty * price;
-                  await db.execute(sql`UPDATE forex_assets SET amount = amount + ${valasAmount} WHERE user_id = ${user!.id} AND currency = ${curr}`);
-              }
-          }
-          else if (txToDelete.type === 'invest_sell' && isValas) {
-              const desc = txToDelete.description || "";
-              const match = desc.match(/@\s+([A-Z]{3})\s+([0-9.]+)/i);
-              if (match) {
-                  const curr = match[1].toUpperCase();
-                  const price = parseFloat(match[2]);
-                  const qtyMatch = desc.match(/([0-9.]+)\s+unit/i) || desc.match(/([0-9.]+)\s+lot/i);
-                  const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
-                  const valasAmount = qty * price;
-                  await db.execute(sql`UPDATE forex_assets SET amount = GREATEST(amount - ${valasAmount}, 0) WHERE user_id = ${user!.id} AND currency = ${curr}`);
-              }
-          }
-          
-          if (txToDelete.type === 'income' || txToDelete.type === 'expense') {
-              const valasMutMatch = (txToDelete.description || "").match(/\[Valas (Masuk|Keluar)\s+([0-9.]+)\s+([A-Z]{3})\]/i);
-              if (valasMutMatch) {
-                  const isMasuk = valasMutMatch[1].toLowerCase() === 'masuk';
-                  const qty = parseFloat(valasMutMatch[2]);
-                  const curr = valasMutMatch[3].toUpperCase();
-                  if (isMasuk) {
-                      await db.execute(sql`UPDATE forex_assets SET amount = GREATEST(amount - ${qty}, 0) WHERE user_id = ${user!.id} AND currency = ${curr}`);
-                  } else {
-                      await db.execute(sql`UPDATE forex_assets SET amount = amount + ${qty} WHERE user_id = ${user!.id} AND currency = ${curr}`);
-                  }
-              }
           }
 
           if (newBalance !== Math.round(user!.cashBalance)) await storage.updateUserBalance(user!.id, newBalance);
@@ -740,75 +651,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   app.post("/api/forex/transaction", async (req, res) => {
-      try {
-          const user = await getUser(req);
-          const { type, currency, amount, description, rate: customRate } = req.body;
-          
-          try { await db.execute(sql`ALTER TABLE forex_assets ADD COLUMN IF NOT EXISTS avg_price DOUBLE PRECISION DEFAULT 0;`); } catch(e){}
+      const user = await getUser(req);
+      const { type, currency, amount, description } = req.body;
+      const existing = await storage.getForexByCurrency(user!.id, currency);
+      let currentAmount = existing ? existing.amount : 0;
+      
+      const t = type.toLowerCase();
+      const isIncome = t === 'income' || t === 'pemasukan' || t === 'tambah' || t === 'buy' || t === 'in' || t === 'dapat';
+      
+      const now = Date.now();
+      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
+      
+      const rate = cachedRates[currency as keyof typeof cachedRates] || 15000;
+      const amountIDR = Math.round(amount * rate);
+      let newCashBalance = Math.round(user!.cashBalance);
 
-          const fxRes = await db.execute(sql`SELECT id, amount, avg_price FROM forex_assets WHERE user_id = ${user!.id} AND currency = ${currency}`);
-          const fxRows = Array.isArray(fxRes) ? fxRes : (fxRes as any).rows || [];
-          const existingFx = fxRows.length > 0 ? fxRows[0] : null;
-          
-          let currentAmount = existingFx ? parseFloat(existingFx.amount) : 0;
-          let currentAvg = existingFx && existingFx.avg_price ? parseFloat(existingFx.avg_price) : 0;
-          
-          const t = type.toLowerCase();
-          const isMutation = (t === 'income' || t === 'expense');
-          
-          const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-          
-          const liveRate = cachedRates[currency as keyof typeof cachedRates] || 15000;
-          const actualRate = customRate ? parseFloat(customRate) : liveRate;
-          const amountIDR = Math.round(amount * actualRate);
-          
-          let newCashBalance = Math.round(user!.cashBalance);
-          let newAvgPrice = currentAvg;
-
-          if (isMutation) {
-              if (t === 'income') {
-                  currentAmount += amount;
-                  await storage.createTransaction(user!.id, { userId: user!.id, type:'income', amount:amountIDR, category:`Pemasukan Valas`, description:`[Valas Masuk ${amount} ${currency}] ${description || ''}`, date:new Date()} as any);
-              } else {
-                  currentAmount -= amount;
-                  if (currentAmount < 0) currentAmount = 0;
-                  await storage.createTransaction(user!.id, { userId: user!.id, type:'expense', amount:amountIDR, category:`Pengeluaran Valas`, description:`[Valas Keluar ${amount} ${currency}] ${description || ''}`, date:new Date()} as any);
-              }
+      if (description) {
+          if (isIncome) {
+              currentAmount += amount;
+              await storage.createTransaction(user!.id, { userId: user!.id, type:'income', amount:amountIDR, category:`Pemasukan Valas`, description:`${description}`, date:new Date()} as any);
           } else {
-              if (t === 'forex_buy') {
-                  if (newCashBalance < amountIDR) return res.status(400).json({error:"Saldo Rupiah tidak cukup untuk beli Valas."});
-                  
-                  if (currentAmount + amount > 0) {
-                      newAvgPrice = ((currentAmount * currentAvg) + (amount * actualRate)) / (currentAmount + amount);
-                  }
-
-                  currentAmount += amount;
-                  newCashBalance -= amountIDR;
-                  await storage.createTransaction(user!.id, { userId: user!.id, type:'forex_buy', amount:amountIDR, category:'Tukar Valas', description:`Beli ${amount} ${currency} @ Rp ${actualRate.toLocaleString('id-ID')}`, date:new Date()} as any);
-              } else if (t === 'forex_sell') {
-                  currentAmount -= amount;
-                  if (currentAmount < 0) currentAmount = 0;
-                  newCashBalance += amountIDR;
-                  
-                  const pl = Math.round((actualRate - currentAvg) * amount);
-                  const plText = currentAvg > 0 ? ` (P/L: ${pl >= 0 ? '+' : ''}Rp ${pl.toLocaleString('id-ID')})` : '';
-
-                  await storage.createTransaction(user!.id, { userId: user!.id, type:'forex_sell', amount:amountIDR, category:'Cairkan Valas', description:`Jual ${amount} ${currency} @ Rp ${actualRate.toLocaleString('id-ID')}${plText}`, date:new Date()} as any);
-              }
+              currentAmount -= amount;
+              if (currentAmount < 0) currentAmount = 0;
+              await storage.createTransaction(user!.id, { userId: user!.id, type:'expense', amount:amountIDR, category:`Pengeluaran Valas`, description:`${description}`, date:new Date()} as any);
           }
-
-          await storage.updateUserBalance(user!.id, newCashBalance);
-          
-          if (existingFx) {
-              await db.execute(sql`UPDATE forex_assets SET amount = ${currentAmount}, avg_price = ${newAvgPrice} WHERE id = ${existingFx.id}`);
+      } else {
+          if (isIncome) {
+              if (newCashBalance < amountIDR) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk beli Valas."});
+              currentAmount += amount;
+              newCashBalance -= amountIDR;
+              await storage.createTransaction(user!.id, { userId: user!.id, type:'forex_buy', amount:amountIDR, category:'Tukar Valas', description:`Beli ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, date:new Date()} as any);
           } else {
-              await db.execute(sql`INSERT INTO forex_assets (user_id, currency, amount, avg_price) VALUES (${user!.id}, ${currency}, ${currentAmount}, ${newAvgPrice})`);
+              currentAmount -= amount;
+              if (currentAmount < 0) currentAmount = 0;
+              newCashBalance += amountIDR;
+              await storage.createTransaction(user!.id, { userId: user!.id, type:'forex_sell', amount:amountIDR, category:'Cairkan Valas', description:`Jual ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, date:new Date()} as any);
           }
-          res.json({ success: true, newBalance: currentAmount });
-      } catch (e: any) {
-          res.status(500).json({ error: e.message });
       }
+
+      await storage.updateUserBalance(user!.id, newCashBalance);
+      if (existing) await storage.updateForexAsset(existing.id, currentAmount);
+      else await storage.createForexAsset(user!.id, { currency, amount: currentAmount } as any);
+      res.json({ success: true, newBalance: currentAmount });
   });
 
   app.get("/api/debts", async (req, res) => { const user = await getUser(req); res.json(await storage.getDebts(user!.id)); });
@@ -1036,38 +920,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   app.get("/api/investments", async (req, res) => { const user = await getUser(req); res.json(await storage.getInvestments(user!.id)); });
-
+  
   app.post("/api/investments/buy", async (req, res) => { 
       try {
           const user = await getUser(req); 
           const { symbol, quantity, price, type } = req.body; 
-          const [sym, curr] = symbol.split('|');
-          const actualCurr = curr || 'IDR';
           const typeLower = (type || 'saham').toLowerCase();
-          const isSaham = typeLower === 'saham' || (sym.length === 4 && typeLower !== 'crypto');
-          const m = (isSaham && actualCurr === 'IDR') ? 100 : 1; 
+          const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
+          const total = Math.round(quantity*price*m); 
           
-          const valasCost = quantity * price * m; 
-          
-          if (actualCurr === 'IDR') {
-              const total = Math.round(valasCost);
-              if(user!.cashBalance < total) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk pembelian ini."}); 
-              await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance - total)); 
-              await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_buy', amount:total, category:'Beli Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}`, date:new Date()} as any); 
-          } else {
-              const existingForex = await storage.getForexByCurrency(user!.id, actualCurr);
-              if (!existingForex || existingForex.amount < valasCost) return res.status(400).json({message:`Saldo Dompet Valas (${actualCurr}) tidak cukup. Anda hanya memiliki ${existingForex?.amount || 0} ${actualCurr}.`});
-              
-              await storage.updateForexAsset(existingForex.id, existingForex.amount - valasCost);
-              
-              const now = Date.now();
-              if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-              const rate = cachedRates[actualCurr] || 15000;
-              const totalIDR = Math.round(valasCost * rate);
-
-              await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_buy', amount:totalIDR, category:'Beli Aset Valas', description:`${quantity} unit ${symbol} @ ${actualCurr} ${price} (Potong Dompet Valas)`, date:new Date()} as any); 
-          }
-
+          if(user!.cashBalance < total) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk pembelian ini."}); 
+          await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance - total)); 
+          await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_buy', amount:total, category:'Beli Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}`, date:new Date()} as any); 
           await storage.createInvestment(user!.id, {userId: user!.id, symbol: symbol.toUpperCase(), quantity, avgPrice:price, type: typeLower} as any); 
           res.json({success:true}); 
       } catch (error: any) { res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menyimpan aset." }); }
@@ -1077,13 +941,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
           const user = await getUser(req); 
           const { symbol, quantity, price, type } = req.body; 
-          const [sym, curr] = symbol.split('|');
-          const actualCurr = curr || 'IDR';
           const typeLower = (type || 'saham').toLowerCase(); 
-          const isSaham = typeLower === 'saham' || (sym.length === 4 && typeLower !== 'crypto');
-          const m = (isSaham && actualCurr === 'IDR') ? 100 : 1; 
-          
-          const valasRevenue = quantity * price * m; 
+          const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
+          const totalSellPrice = Math.round(quantity*price*m); 
           
           const allInvestments = await storage.getInvestments(user!.id);
           const existings = allInvestments.filter(i => i.symbol === symbol); 
@@ -1104,33 +964,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           } 
 
-          const pl = valasRevenue - totalBuyPrice;
+          const pl = Math.round(totalSellPrice - totalBuyPrice);
+          const profitLossText = ` (P/L: ${pl >= 0 ? '+' : ''}Rp ${pl.toLocaleString('id-ID')})`;
 
-          if (actualCurr === 'IDR') {
-              const totalSellPriceIDR = Math.round(valasRevenue);
-              const plIDR = Math.round(pl);
-              const profitLossText = ` (P/L: ${plIDR >= 0 ? '+' : ''}Rp ${plIDR.toLocaleString('id-ID')})`;
-
-              await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + totalSellPriceIDR)); 
-              await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_sell', amount:totalSellPriceIDR, category:'Jual Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`, date:new Date()} as any); 
-          } else {
-              const existingForex = await storage.getForexByCurrency(user!.id, actualCurr);
-              if (existingForex) {
-                  await storage.updateForexAsset(existingForex.id, existingForex.amount + valasRevenue);
-              } else {
-                  await storage.createForexAsset(user!.id, { currency: actualCurr, amount: valasRevenue } as any);
-              }
-
-              const now = Date.now();
-              if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-              const rate = cachedRates[actualCurr] || 15000;
-              const totalSellPriceIDR = Math.round(valasRevenue * rate);
-              const plIDR = Math.round(pl * rate);
-              const profitLossText = ` (P/L: ${plIDR >= 0 ? '+' : ''}Rp ${plIDR.toLocaleString('id-ID')})`;
-
-              await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_sell', amount:totalSellPriceIDR, category:'Jual Aset Valas', description:`${quantity} unit ${symbol} @ ${actualCurr} ${price} (Masuk ke Dompet Valas)${profitLossText}`, date:new Date()} as any); 
-          }
-
+          await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + totalSellPrice)); 
+          await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_sell', amount:totalSellPrice, category:'Jual Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`, date:new Date()} as any); 
           res.json({success:true}); 
       } catch (error: any) { res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menjual aset." }); }
   });
@@ -1343,6 +1181,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateUserBalance(user!.id, newBalance);
           res.json({ success: true, message: "Operasi senyap berhasil. Saldo telah dikoreksi tanpa jejak." });
       } catch(e:any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // 🚀 EXPERT TERMINAL: ENDPOINT SNAPSHOT DATABASE HISTORIKAL
+  app.get("/api/portfolio/snapshots", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          const snaps = await storage.getPortfolioSnapshots(user!.id);
+          res.json({ success: true, data: snaps });
+      } catch(e:any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/portfolio/snapshots", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          const snapshot = await storage.createPortfolioSnapshot(user!.id, req.body);
+          res.json({ success: true, snapshot });
+      } catch(e:any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // =====================================================================
+  // 🚀 FITUR EXPERT TERMINAL: INTEGRASI DATA HARGA LIVE (YAHOO FINANCE)
+  // =====================================================================
+  app.post("/api/finance/quotes", async (req, res) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { symbols } = req.body; 
+          if (!symbols || !Array.isArray(symbols)) return res.status(400).json({ error: "Format pencarian simbol salah." });
+
+          const results: Record<string, number> = {};
+
+          await Promise.all(symbols.map(async (rawSymbol: string) => {
+              try {
+                  let symbol = rawSymbol.toUpperCase().trim();
+                  
+                  if (symbol.length === 4 && !symbol.includes('.')) {
+                      symbol = `${symbol}.JK`; 
+                  } else if (symbol === 'BTC' || symbol === 'ETH') {
+                      symbol = `${symbol}-USD`; 
+                  } else if (symbol === 'ANTM' || symbol === 'UBS') {
+                      symbol = `${symbol}.JK`; 
+                  }
+
+                  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`);
+                  
+                  if (response.ok) {
+                      const data = await response.json();
+                      const price = data.chart?.result?.[0]?.meta?.regularMarketPrice;
+                      
+                      if (price) {
+                         const currency = data.chart?.result?.[0]?.meta?.currency || "IDR";
+                         let finalPrice = price;
+                         
+                         if (currency !== "IDR" && currency !== "Rp") {
+                             const now = Date.now();
+                             if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
+                             const rate = cachedRates[currency as keyof typeof cachedRates] || 15000;
+                             finalPrice = price * rate; 
+                         }
+
+                         results[rawSymbol] = finalPrice;
+                      }
+                  }
+              } catch(e) { console.error(`Gagal menarik data Yahoo Finance untuk ${rawSymbol}`); }
+          }));
+
+          res.json({ success: true, data: results });
+      } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses data aset." }); }
   });
 
   app.post("/api/vision/scan", async (req, res) => {

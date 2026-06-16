@@ -11,8 +11,6 @@ export const users = pgTable("users", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   profilePicture: text("profile_picture"),
-  
-  // 🚀 UPGRADE KE BIGINT
   cashBalance: bigint("cash_balance", { mode: "number" }).default(0).notNull(),
   isPro: boolean("is_pro").default(false),
   proValidUntil: timestamp("pro_valid_until"), 
@@ -87,7 +85,7 @@ export const categories = pgTable("categories", {
   color: text("color"),
 });
 
-// --- 8. FOREX ASSETS ---
+// --- 8. FOREX ASSETS (TABEL VALAS) ---
 export const forexAssets = pgTable("forex_assets", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
@@ -96,21 +94,28 @@ export const forexAssets = pgTable("forex_assets", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// --- 9. RETAINED BALANCES ---
-export const retainedBalances = pgTable("retained_balances", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  amount: bigint("amount", { mode: "number" }).notNull(),
-  description: text("description"),
-  date: timestamp("date").notNull().defaultNow(),
-});
-
-// --- 10. OTP SESSIONS ---
+// --- 9. OTP SESSIONS ---
 export const otpSessions = pgTable("otp_sessions", {
+  id: serial("id").primaryKey(),
   email: text("email").notNull(),
-  code: text("code").notNull(),
+  otp: text("otp").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// --- 10. PORTFOLIO SNAPSHOTS (EXPERT TERMINAL) ---
+export const portfolioSnapshots = pgTable("portfolio_snapshots", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  month: integer("month").notNull(),
+  year: integer("year").notNull(),
+  cashBalance: real("cash_balance").notNull(),
+  investValue: real("invest_value").notNull(),
+  totalValue: real("total_value").notNull(),
+  assetsDetail: text("assets_detail"), // JSON Data Persentase
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 
 // --- ZOD SCHEMAS ---
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
@@ -121,16 +126,34 @@ export const insertDebtSchema = createInsertSchema(debts, { dueDate: z.coerce.da
 export const insertSubscriptionSchema = createInsertSchema(subscriptions, { nextBilling: z.coerce.date() }).omit({ id: true, userId: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, userId: true });
 export const insertForexAssetSchema = createInsertSchema(forexAssets).omit({ id: true, userId: true, createdAt: true });
-export const insertRetainedBalanceSchema = createInsertSchema(retainedBalances).omit({ id: true, userId: true });
+export const insertOtpSessionSchema = createInsertSchema(otpSessions).omit({ id: true, createdAt: true });
 
-// Export Types
+// =======================================================
+// EXPORT TYPES (PERBAIKAN AGAR TIDAK ERROR DI FRONTEND)
+// =======================================================
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
+
 export type Transaction = typeof transactions.$inferSelect;
+export type InsertTransaction = typeof transactions.$inferInsert;
+
 export type Investment = typeof investments.$inferSelect;
+export type InsertInvestment = typeof investments.$inferInsert;
+
 export type Target = typeof targets.$inferSelect;
+export type InsertTarget = typeof targets.$inferInsert;
+
 export type Debt = typeof debts.$inferSelect;
+export type InsertDebt = typeof debts.$inferInsert;
+
 export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;
+
 export type Category = typeof categories.$inferSelect;
+export type InsertCategory = typeof categories.$inferInsert;
+
 export type ForexAsset = typeof forexAssets.$inferSelect;
-export type RetainedBalance = typeof retainedBalances.$inferSelect;
+export type InsertForexAsset = typeof forexAssets.$inferInsert;
+
+export type PortfolioSnapshot = typeof portfolioSnapshots.$inferSelect;
+export type InsertPortfolioSnapshot = typeof portfolioSnapshots.$inferInsert;

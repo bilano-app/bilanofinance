@@ -176,7 +176,8 @@ import Help from "@/pages/Help";
 import Guide from "@/pages/Guide";
 import Amal from "@/pages/Amal"; 
 import Retained from "@/pages/Retained";
-import Onboarding from "@/pages/Onboarding"; // 👈 IMPORT HALAMAN BARU
+import Onboarding from "@/pages/Onboarding";
+import ExpertTerminal from "@/pages/ExpertTerminal"; // 👈 IMPORT HALAMAN BARU
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -369,6 +370,11 @@ function Router() {
         <Route path="/amal" component={Amal} /> 
         <Route path="/retained" component={Retained} />
         <Route component={NotFound} />
+        <Route path="/terminal">
+          <DesktopRequiredGate>
+              <ExpertTerminal />
+          </DesktopRequiredGate>
+        </Route>
       </Switch>
 
       {/* 🚀 PERBAIKAN: Tambahkan isStandalone && sebelum showPaywallAlert */}
@@ -377,6 +383,30 @@ function Router() {
       )}
     </>
   );
+}
+
+// Di dalam App.tsx, tambahkan komponen ini
+function DesktopRequiredGate({ children }: { children: React.ReactNode }) {
+  const isMobileScreen = typeof window !== 'undefined' && window.innerWidth < 1024;
+  
+  if (isMobileScreen) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center p-6 text-slate-300">
+        <div className="w-16 h-16 bg-rose-500/10 rounded-2xl flex items-center justify-center mb-6 border border-rose-500/20">
+           <svg className="w-8 h-8 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+        </div>
+        <h2 className="text-2xl font-black text-white mb-2">Gunakan PC/Laptop</h2>
+        <p className="text-sm text-slate-400 max-w-sm leading-relaxed mb-8">
+          BILANO Expert Terminal membutuhkan layar lebar untuk merender analisis portofolio skala besar secara optimal. Buka link ini di browser PC Anda.
+        </p>
+        <button onClick={() => window.location.href = '/'} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-full font-bold text-sm transition-colors">
+          Kembali ke Versi Mobile
+        </button>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }
 
 function App() {

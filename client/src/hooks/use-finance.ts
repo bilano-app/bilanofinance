@@ -74,14 +74,12 @@ export function useUser() {
           if (vipEmails.includes(email)) {
               isReallyPro = true;
           } else if (data.isPro) {
-              // 🚀 KUNCI PERBAIKAN: Validasi Tanggal Kedaluwarsa Paket (1 Bulan / 1 Tahun)
               if (data.proValidUntil) {
                   const validUntilTime = new Date(data.proValidUntil).getTime();
                   if (Date.now() <= validUntilTime) {
-                      isReallyPro = true; // Waktu paket masih aktif
+                      isReallyPro = true; 
                   }
               } else {
-                  // Jika di-set manual tanpa tanggal oleh admin
                   isReallyPro = true;
               }
           }
@@ -91,7 +89,6 @@ export function useUser() {
               data.plan = "pro";
               localStorage.setItem("bilano_pro", "true"); 
           } else {
-              // 🚀 JIKA KEDALUWARSA / NON-PREMIUM, CABUT AKSESNYA SAAT ITU JUGA!
               data.isPro = false;
               data.plan = "free";
               localStorage.removeItem("bilano_pro"); 
@@ -269,7 +266,6 @@ export function useSubscriptions() {
     });
 }
 
-// 🚀 HOOK UNDO BARU
 export function useUndoTransaction() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -293,7 +289,6 @@ export function useUndoTransaction() {
   });
 }
 
-// --- HOOK UNTUK LAPORAN ---
 export function useReportsData() {
     return useQuery({
         queryKey: ["reports"],
@@ -304,4 +299,69 @@ export function useReportsData() {
         staleTime: CACHE_TIME,
         retry: 3,
     });
+}
+
+export function useLiveQuotes(symbols: string[]) {
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+
+  return useQuery({
+    queryKey: ['liveQuotes', symbols.join(',')],
+    queryFn: async () => {
+      if (!symbols || symbols.length === 0) return {};
+
+      const res = await fetch('/api/finance/quotes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-email': currentUserEmail
+        },
+        body: JSON.stringify({ symbols })
+      });
+
+      if (!res.ok) throw new Error('Gagal mengambil data harga live dari server.');
+
+      const json = await res.json();
+      return json.data || {}; 
+    },
+    enabled: symbols.length > 0 && !!currentUserEmail,
+    refetchInterval: 60000, 
+    refetchOnWindowFocus: true, 
+    staleTime: 30000, 
+  });
+}
+
+// 🚀 HOOK BARU: MENGAMBIL & MENYIMPAN SNAPSHOT BULANAN EXPERT TERMINAL
+export function usePortfolioSnapshots() {
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  return useQuery({
+      queryKey: ["portfolioSnapshots", currentUserEmail],
+      queryFn: async () => {
+          const res = await fetch("/api/portfolio/snapshots", { headers: getHeaders() });
+          if (!res.ok) return [];
+          const json = await res.json();
+          return json.data || [];
+      },
+      enabled: !!currentUserEmail,
+      staleTime: CACHE_TIME,
+  });
+}
+
+export function useSaveSnapshot() {
+  const queryClient = useQueryClient();
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  
+  return useMutation({
+      mutationFn: async (data: any) => {
+          const res = await fetch("/api/portfolio/snapshots", {
+              method: "POST",
+              headers: getHeaders(),
+              body: JSON.stringify(data),
+          });
+          if (!res.ok) throw new Error("Gagal menyimpan data historis bulan ini");
+          return res.json();
+      },
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["portfolioSnapshots", currentUserEmail] });
+      },
+  });
 }

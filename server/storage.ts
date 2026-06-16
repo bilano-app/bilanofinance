@@ -2,7 +2,7 @@
 import { db } from "./db.js";
 import { eq, and, desc } from "drizzle-orm";
 import { 
-  users, transactions, investments, targets, categories, forexAssets, debts, subscriptions,
+  users, transactions, investments, targets, categories, forexAssets, debts, subscriptions, portfolioSnapshots,
   type User, type InsertUser, 
   type Transaction, type InsertTransaction,
   type Investment, type InsertInvestment,
@@ -10,7 +10,8 @@ import {
   type Category, type InsertCategory,
   type ForexAsset, 
   type Debt, type InsertDebt,
-  type Subscription, type InsertSubscription 
+  type Subscription, type InsertSubscription,
+  type PortfolioSnapshot
 } from "../shared/schema.js"; 
 
 export interface IStorage {
@@ -63,6 +64,10 @@ export interface IStorage {
   processAllDueSubscriptions(): Promise<void>;
 
   updateUserProStatus(userId: number, isPro: boolean, validUntil: Date | null): Promise<User>;
+
+  // 🚀 EXPERT TERMINAL
+  getPortfolioSnapshots(userId: number): Promise<PortfolioSnapshot[]>;
+  createPortfolioSnapshot(userId: number, snapshot: any): Promise<PortfolioSnapshot>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -124,7 +129,6 @@ export class DatabaseStorage implements IStorage {
       return user;
   }
 
-  // 🚀 OPTIMASI LIMITASI: Mengambil maksimal 1500 transaksi agar RAM Server Vercel tidak jebol!
   async getTransactions(userId: number): Promise<Transaction[]> {
     return await db.select()
         .from(transactions)
@@ -318,6 +322,37 @@ export class DatabaseStorage implements IStorage {
               await db.update(subscriptions).set({ nextBilling: nextPayment }).where(eq(subscriptions.id, sub.id));
           }
       }
+  }
+
+  // 🚀 FUNGSI BARU UNTUK HISTORI SNAPSHOT EXPERT TERMINAL
+  async getPortfolioSnapshots(userId: number): Promise<PortfolioSnapshot[]> {
+      return await db.select()
+          .from(portfolioSnapshots)
+          .where(eq(portfolioSnapshots.userId, userId))
+          .orderBy(desc(portfolioSnapshots.year), desc(portfolioSnapshots.month));
+  }
+
+  async createPortfolioSnapshot(userId: number, snapshot: any): Promise<PortfolioSnapshot> {
+      // Hapus data bulan & tahun yang sama agar tidak ada duplikasi data (Replace)
+      await db.delete(portfolioSnapshots).where(
+          and(
+             eq(portfolioSnapshots.userId, userId), 
+             eq(portfolioSnapshots.month, snapshot.month), 
+             eq(portfolioSnapshots.year, snapshot.year)
+          )
+      );
+      
+      const [newSnap] = await db.insert(portfolioSnapshots).values({
+          userId,
+          month: snapshot.month,
+          year: snapshot.year,
+          cashBalance: snapshot.cashBalance,
+          investValue: snapshot.investValue,
+          totalValue: snapshot.totalValue,
+          assetsDetail: snapshot.assetsDetail
+      }).returning();
+      
+      return newSnap;
   }
 }
 
