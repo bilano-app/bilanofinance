@@ -74,22 +74,19 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
 // =========================================================================
 
 // =========================================================================
-// 🚀 PAYWALL LOCK ALERT — Checkpoint Perjalanan (bukan tembok dingin)
-// Menampilkan progress yang sudah dibangun user sebelum meminta mereka bayar.
+// 🚀 PAYWALL LOCK ALERT — Checkpoint Perjalanan
 // =========================================================================
 function PaywallLockAlert({ onClose, onUpgrade, onDismiss }: { onClose: () => void; onUpgrade: () => void; onDismiss: () => void; }) {
-  const { data: transactions = [] } = useUser(); // reuse hook — transactions diambil di Paywall.tsx
+  const { data: transactions = [] } = useUser(); 
   const txCount = parseInt(localStorage.getItem("bilano_cached_tx_count") || "0");
   const daysPassed = parseInt(localStorage.getItem("bilano_trial_days_passed") || "0");
   const hasTarget = localStorage.getItem("bilano_has_target") === "true";
   
-  // Hitung countdown AI Strategi (butuh 30 hari data sejak setup)
   const aiDaysRemaining = Math.max(0, 30 - daysPassed);
 
   return (
     <div className="fixed inset-0 z-[99999] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
       <div className="bg-white rounded-[28px] max-w-sm w-full shadow-2xl animate-in zoom-in-95 overflow-hidden">
-        {/* Header merah sebagai penanda checkpoint, bukan error */}
         <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 p-5 text-white text-center">
           <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
             <Lock className="w-6 h-6 text-white"/>
@@ -98,7 +95,6 @@ function PaywallLockAlert({ onClose, onUpgrade, onDismiss }: { onClose: () => vo
           <p className="text-[11px] text-indigo-200 mt-1 font-medium">Masa trial telah habis — tapi progresmu tetap tersimpan.</p>
         </div>
 
-        {/* Progress yang sudah dibangun user */}
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
@@ -115,7 +111,6 @@ function PaywallLockAlert({ onClose, onUpgrade, onDismiss }: { onClose: () => vo
             </div>
           </div>
 
-          {/* AI Strategi countdown — locked but visible */}
           <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3 flex items-center gap-3">
             <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
               <span className="text-white text-xs">🤖</span>
@@ -152,6 +147,32 @@ function PaywallLockAlert({ onClose, onUpgrade, onDismiss }: { onClose: () => vo
   );
 }
 
+// =========================================================================
+// 🚀 GATEKEEPER KHUSUS TERMINAL EXPERT (Blokir akses dari HP)
+// =========================================================================
+function DesktopRequiredGate({ children }: { children: React.ReactNode }) {
+  const isMobileScreen = typeof window !== 'undefined' && window.innerWidth < 1024;
+  
+  if (isMobileScreen) {
+    return (
+      <div className="min-h-screen bg-[#0B0F19] flex flex-col items-center justify-center text-center p-6 text-slate-300">
+        <div className="w-16 h-16 bg-rose-500/10 rounded-2xl flex items-center justify-center mb-6 border border-rose-500/20">
+           <Lock className="w-8 h-8 text-rose-500" />
+        </div>
+        <h2 className="text-2xl font-black text-white mb-2">Gunakan PC/Laptop</h2>
+        <p className="text-sm text-slate-400 max-w-sm leading-relaxed mb-8">
+          BILANO Expert Terminal membutuhkan layar lebar untuk merender chart dan analisis skala besar secara optimal. Buka akun Anda melalui browser PC.
+        </p>
+        <button onClick={() => window.location.href = '/'} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-full font-bold text-sm transition-colors">
+          Kembali ke Versi Mobile
+        </button>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 import NotFound from "@/pages/not-found";
 import Security from "./pages/Security";
 import Home from "@/pages/Home";
@@ -176,8 +197,7 @@ import Help from "@/pages/Help";
 import Guide from "@/pages/Guide";
 import Amal from "@/pages/Amal"; 
 import Retained from "@/pages/Retained";
-import Onboarding from "@/pages/Onboarding";
-import ExpertTerminal from "@/pages/ExpertTerminal"; // 👈 IMPORT HALAMAN BARU
+import ExpertTerminal from "@/pages/ExpertTerminal"; // 🚀 Import Terminal Expert
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -228,15 +248,8 @@ function Router() {
       else if (user && !user.isPro) {
           localStorage.setItem("bilano_pro", "false"); 
 
-          // =========================================================================
-          // 🚀 STRATEGI TRIAL 14 HARI:
-          // Trial dihitung dari saat user MENYELESAIKAN SETUP (bilano_setup_completed),
-          // bukan dari tanggal akun dibuat. Ini memastikan user tidak kehilangan
-          // waktu trial hanya karena belum sempat setup saat pertama install.
-          // =========================================================================
           const TRIAL_DURATION_DAYS = 14;
 
-          // Ambil timestamp setup completion, fallback ke createdAt jika belum ada
           const setupCompletedAt = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`);
           const trialStartTime = setupCompletedAt 
               ? new Date(setupCompletedAt).getTime()
@@ -245,14 +258,12 @@ function Router() {
           const daysPassed = (Date.now() - trialStartTime) / (1000 * 60 * 60 * 24);
           const daysRemaining = Math.max(0, Math.ceil(TRIAL_DURATION_DAYS - daysPassed));
 
-          // Simpan sisa hari untuk dipakai di komponen Paywall
           localStorage.setItem("bilano_trial_days_remaining", String(daysRemaining));
           localStorage.setItem("bilano_trial_days_passed", String(Math.floor(daysPassed)));
 
           const isNewAccount = (Date.now() - new Date(user.createdAt || "2024-01-01").getTime()) < 15000; 
           const hasRedirected = sessionStorage.getItem("bilano_first_paywall_redirect");
           
-          // 🚀 PERBAIKAN: Penawaran Langganan Otomatis (Paywall) HANYA terjadi di dalam Aplikasi PWA
           if (isStandalone && isNewAccount && !hasRedirected && location !== '/paywall') {
               sessionStorage.setItem("bilano_first_paywall_redirect", "true");
               setLocation("/paywall");
@@ -273,8 +284,7 @@ function Router() {
   useEffect(() => {
     const isAuth = localStorage.getItem("bilano_auth");
     
-    // 🚀 PERBAIKAN: Kecualikan rute /onboarding dari pencekalan halaman auth agar bisa diakses bebas
-    if (!isAuth && location !== "/auth" && location !== "/onboarding") {
+    if (!isAuth && location !== "/auth") {
       if (isStandalone) {
         setLocation("/auth");
       } else if (location !== "/") {
@@ -287,7 +297,6 @@ function Router() {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
 
-    // 🚀 PERBAIKAN: Hanya aktifkan state paywall jika berada di PWA
     const handleCustomLock = () => {
       if (isStandalone) {
         setShowPaywallAlert(true);
@@ -344,8 +353,12 @@ function Router() {
           {isStandalone ? <Home /> : <Landing />}
         </Route>
         
-        {/* 👈 RUTE HALAMAN BARU */}
-        <Route path="/onboarding" component={Onboarding} />
+        {/* 🚀 Mendaftarkan Route Baru Expert Terminal */}
+        <Route path="/terminal">
+           <DesktopRequiredGate>
+              <ExpertTerminal />
+           </DesktopRequiredGate>
+        </Route>
         
         <Route path="/dashboard" component={Home} />
         <Route path="/target" component={Target} />
@@ -370,43 +383,13 @@ function Router() {
         <Route path="/amal" component={Amal} /> 
         <Route path="/retained" component={Retained} />
         <Route component={NotFound} />
-        <Route path="/terminal">
-          <DesktopRequiredGate>
-              <ExpertTerminal />
-          </DesktopRequiredGate>
-        </Route>
       </Switch>
 
-      {/* 🚀 PERBAIKAN: Tambahkan isStandalone && sebelum showPaywallAlert */}
       {isStandalone && showPaywallAlert && (
         <PaywallLockAlert onClose={() => setShowPaywallAlert(false)} onUpgrade={() => { setShowPaywallAlert(false); setLocation('/paywall'); }} onDismiss={() => { setShowPaywallAlert(false); setLocation('/'); }} />
       )}
     </>
   );
-}
-
-// Di dalam App.tsx, tambahkan komponen ini
-function DesktopRequiredGate({ children }: { children: React.ReactNode }) {
-  const isMobileScreen = typeof window !== 'undefined' && window.innerWidth < 1024;
-  
-  if (isMobileScreen) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center p-6 text-slate-300">
-        <div className="w-16 h-16 bg-rose-500/10 rounded-2xl flex items-center justify-center mb-6 border border-rose-500/20">
-           <svg className="w-8 h-8 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-        </div>
-        <h2 className="text-2xl font-black text-white mb-2">Gunakan PC/Laptop</h2>
-        <p className="text-sm text-slate-400 max-w-sm leading-relaxed mb-8">
-          BILANO Expert Terminal membutuhkan layar lebar untuk merender analisis portofolio skala besar secara optimal. Buka link ini di browser PC Anda.
-        </p>
-        <button onClick={() => window.location.href = '/'} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-full font-bold text-sm transition-colors">
-          Kembali ke Versi Mobile
-        </button>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
 }
 
 function App() {
