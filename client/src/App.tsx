@@ -77,7 +77,7 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
 // 🚀 PAYWALL LOCK ALERT — Checkpoint Perjalanan
 // =========================================================================
 function PaywallLockAlert({ onClose, onUpgrade, onDismiss }: { onClose: () => void; onUpgrade: () => void; onDismiss: () => void; }) {
-  const { data: transactions = [] } = useUser(); 
+  // 🚀 PERBAIKAN: Menghapus destructuring "transactions" yang salah dari useUser()
   const txCount = parseInt(localStorage.getItem("bilano_cached_tx_count") || "0");
   const daysPassed = parseInt(localStorage.getItem("bilano_trial_days_passed") || "0");
   const hasTarget = localStorage.getItem("bilano_has_target") === "true";
@@ -197,7 +197,8 @@ import Help from "@/pages/Help";
 import Guide from "@/pages/Guide";
 import Amal from "@/pages/Amal"; 
 import Retained from "@/pages/Retained";
-import ExpertTerminal from "@/pages/ExpertTerminal"; // 🚀 Import Terminal Expert
+import ExpertTerminal from "@/pages/ExpertTerminal"; 
+import Onboarding from "@/pages/Onboarding"; 
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -353,7 +354,6 @@ function Router() {
           {isStandalone ? <Home /> : <Landing />}
         </Route>
         
-        {/* 🚀 Mendaftarkan Route Baru Expert Terminal */}
         <Route path="/terminal">
            <DesktopRequiredGate>
               <ExpertTerminal />
@@ -382,6 +382,11 @@ function Router() {
         <Route path="/guide" component={Guide} />
         <Route path="/amal" component={Amal} /> 
         <Route path="/retained" component={Retained} />
+        
+        {/* 🚀 PERBAIKAN: Rute onboarding HARUS berada di atas NotFound */}
+        <Route path="/onboarding" component={Onboarding} />
+
+        {/* 🚀 PERBAIKAN: NotFound HARUS diletakkan paling ujung sebagai Catch-All */}
         <Route component={NotFound} />
       </Switch>
 
