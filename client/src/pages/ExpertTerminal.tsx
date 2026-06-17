@@ -42,8 +42,6 @@ export default function ExpertTerminal() {
   });
   const [editTickerModal, setEditTickerModal] = useState<string | null>(null);
   const [tempTicker, setTempTicker] = useState("");
-  
-  // 🚀 FITUR BARU: POPUP AUDIT HARGA
   const [assetDetailModal, setAssetDetailModal] = useState<any | null>(null);
 
   useEffect(() => {
@@ -52,12 +50,93 @@ export default function ExpertTerminal() {
 
   const cashBalance = user?.cashBalance || 0;
 
-  // 1. 🚀 LOGIKA PINTAR: URUTKAN TRANSAKSI DARI TERLAMA
+  // 1. Urutkan Transaksi dari terlama
   const chronologicalTxs = useMemo(() => {
       return [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [transactions]);
 
-  // 2. Tarik Seluruh Portofolio Aktif (Termasuk mendeteksi tanggal aset dari Setup Awal)
+  // ====================================================================
+  // 🚀 LOGIKA PINTAR: Isolasi Ticker Dulu Agar Tidak Terjadi Circular Dependency
+  // ====================================================================
+  
+  const uniqueTickersToFetch = useMemo(() => {
+    const tickers = new Set<string>();
+    
+    // Injeksi IDR=X untuk selalu mengambil histori Valas
+    tickers.add("IDR=X");
+
+    investments.forEach((inv: any) => {
+        const parts = (inv.symbol || "").split('|');
+        const sym = parts[0].trim().toUpperCase();
+        const curr = parts[1] || 'IDR';
+        const isIDR = curr === 'IDR';
+        const typeLower = (inv.type || 'saham').toLowerCase();
+        
+        const isStock = typeLower === 'saham' || (!inv.type && sym.length === 4);
+        const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
+        
+        const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
+        let defaultTicker = sym;
+        if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
+        
+        tickers.add(tickerOverrides[sym] || defaultTicker);
+    });
+
+    chronologicalTxs.forEach((t: any) => {
+        if (t.type === 'invest_sell') {
+            const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+            const symbol = match ? match[1].toUpperCase().trim() : 'Unknown';
+            if (symbol !== 'Unknown') {
+                const isUSD = t.description?.includes('USD') || t.description?.includes('US$');
+                const isIDR = !isUSD;
+                const isStock = symbol.length === 4; 
+                const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
+                const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
+                
+                let defaultTicker = symbol;
+                if (isIDR && isStock && !isGold && !knownUS.includes(symbol) && !symbol.endsWith('.JK')) defaultTicker = `${symbol}.JK`;
+                tickers.add(tickerOverrides[symbol] || defaultTicker);
+            }
+        }
+    });
+
+    return Array.from(tickers);
+  }, [investments, chronologicalTxs, tickerOverrides]);
+
+  // Tarik Data API Setelah Ticker Diketahui
+  const { data: livePrices = {}, isLoading: isLivePricesLoading } = useLiveQuotes(uniqueTickersToFetch);
+  const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
+
+  // ====================================================================
+  // 🚀 LOGIKA PINTAR: Fungsi Kalkulasi Kurs Historis
+  // ====================================================================
+  const getHistoricalRate = useCallback((targetTs: number, currency: string) => {
+      if (currency === 'IDR') return 1;
+      const liveRateFallback = Number(forexRates[currency]) || 16200;
+      
+      // Saat ini yang ditarik historisnya hanya USD. Jika butuh lebih, sistem fallback ke live rate.
+      if (currency !== 'USD') return liveRateFallback;
+
+      const hist = historyPrices['IDR=X'];
+      if (!hist || !hist.timestamps || hist.timestamps.length === 0) return liveRateFallback;
+      
+      const targetSec = targetTs / 1000;
+      let closestPrice = hist.close[hist.close.length - 1]; 
+      
+      // Mundur mencari data kurs yang paling mendekati hari H transaksi (Toleransi 24 Jam)
+      for(let i = hist.timestamps.length-1; i >= 0; i--) {
+          if (hist.timestamps[i] <= targetSec + 86400) { 
+              closestPrice = hist.close[i];
+              break;
+          }
+      }
+      return closestPrice || liveRateFallback;
+  }, [historyPrices, forexRates]);
+
+
+  // ====================================================================
+  // 🚀 RE-BUILD: Portofolio Aktif dengan Perhitungan Unrealized Forex
+  // ====================================================================
   const activePortfolio = useMemo(() => {
     const agg: Record<string, { qty: number, totalModalIDR: number, symbol: string, currency: string, activeTicker: string, liveMultiplier: number, isStock: boolean, isIDR: boolean, createdAt: string }> = {};
     
@@ -70,32 +149,35 @@ export default function ExpertTerminal() {
       
       const isStock = typeLower === 'saham' || (!inv.type && sym.length === 4);
       const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
-      
       const multiplier = (isStock && isIDR && !isGold) ? 100 : 1; 
 
       const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
       let defaultTicker = sym;
-      if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) {
-          defaultTicker = `${sym}.JK`;
-      }
+      if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
       
       const activeTicker = tickerOverrides[sym] || defaultTicker;
-      const rate = isIDR ? 1 : (Number(forexRates[curr]) || 16200);
+      
+      // Tangkap Waktu Pembelian & Kunci Kurs pada Detik Tersebut
+      const invDateTs = inv.createdAt ? new Date(inv.createdAt).getTime() : Date.now();
+      const historicalRate = isIDR ? 1 : getHistoricalRate(invDateTs, curr);
 
       if (!agg[sym]) {
           agg[sym] = { qty: 0, totalModalIDR: 0, symbol: sym, currency: curr, activeTicker, liveMultiplier: multiplier, isStock, isIDR, createdAt: inv.createdAt };
       } else if (inv.createdAt && new Date(inv.createdAt) < new Date(agg[sym].createdAt)) {
-          agg[sym].createdAt = inv.createdAt; // Cari yang paling tua jika ada double record
+          agg[sym].createdAt = inv.createdAt; // Cari yang paling tua jika double record
       }
       
       agg[sym].qty += inv.quantity;
-      agg[sym].totalModalIDR += (inv.quantity * inv.avgPrice * multiplier * rate);
+      // Rumus Kombinasi: Unit * Harga Aset Valas * Multiplier * KURS HISTORIS
+      agg[sym].totalModalIDR += (inv.quantity * inv.avgPrice * multiplier * historicalRate);
     });
     
-    return Object.values(agg).filter(p => p.qty > 0);
-  }, [investments, forexRates, tickerOverrides]);
+    return Object.values(agg).filter((p: any) => p.qty > 0);
+  }, [investments, tickerOverrides, getHistoricalRate]);
 
-  // 3. Tarik Data Investasi Terealisasi (Penjualan)
+  // ====================================================================
+  // 🚀 RE-BUILD: Investasi Terealisasi (Evaluasi Historis Forex & Saham)
+  // ====================================================================
   const realizedTradesBase = useMemo(() => {
     return chronologicalTxs.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
       const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
@@ -107,9 +189,12 @@ export default function ExpertTerminal() {
       const isUSD = t.description?.includes('USD') || t.description?.includes('US$');
       const currency = isUSD ? 'USD' : 'IDR'; 
       const isIDR = currency === 'IDR';
-      const rate = isIDR ? 1 : (Number(forexRates[currency]) || 16200);
       
-      const sellPriceIDR = sellPriceRaw * rate;
+      // Kunci Harga Jual menggunakan Kurs pada Tanggal Penjualan tersebut
+      const txDateTs = new Date(t.date).getTime();
+      const historicalRate = isIDR ? 1 : getHistoricalRate(txDateTs, currency);
+      
+      const sellPriceIDR = sellPriceRaw * historicalRate;
       const isStock = symbol.length === 4; 
       const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
       const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
@@ -120,27 +205,19 @@ export default function ExpertTerminal() {
 
       return { ...t, symbol, currency, sellPriceIDR, activeTicker, isIDR, isStock, isGold };
     });
-  }, [chronologicalTxs, forexRates, tickerOverrides]);
+  }, [chronologicalTxs, tickerOverrides, getHistoricalRate]);
 
-  // Tentukan Kode Ticker untuk API
-  const uniqueTickersToFetch = useMemo(() => {
-    const tickers = new Set<string>();
-    activePortfolio.forEach(p => tickers.add(p.activeTicker));
-    realizedTradesBase.forEach((t: any) => { if (t.symbol !== 'Unknown') tickers.add(t.activeTicker); });
-    return Array.from(tickers);
-  }, [activePortfolio, realizedTradesBase]);
-
-  const { data: livePrices = {}, isLoading: isLivePricesLoading } = useLiveQuotes(uniqueTickersToFetch);
-  const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
 
   // Kalkulasi Live Valuasi Saat Ini
   const totalAssetValue = activePortfolio.reduce((acc: any, p: any) => {
     const livePriceAPI = livePrices[p.activeTicker];
+    // Valuasi Realtime menggunakan Kurs Realtime dari Endpoint Yahoo Finance API di backend (sudah dikonversi)
     const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
     return acc + liveValuationIDR;
   }, 0);
 
   const totalInvested = activePortfolio.reduce((acc: any, p: any) => acc + p.totalModalIDR, 0);
+  // Total Profit Loss ini kini sudah mengandung Unrealized Capital Gain + Unrealized Forex Gain!
   const totalProfitLoss = totalAssetValue - totalInvested;
   const totalWealth = cashBalance + totalAssetValue;
 
@@ -160,10 +237,9 @@ export default function ExpertTerminal() {
   ].filter((d: any) => d.value > 0);
 
   // ====================================================================
-  // 4. 🚀 LOGIKA PINTAR: Isolasi Setup Awal vs Transaksi Historis
+  // 4. Isolasi Setup Awal vs Transaksi Historis
   // ====================================================================
   
-  // Mencari kapan investasi benar-benar dimulai (Cek transaksi ATAU Setup Awal)
   const firstInvestmentDate = useMemo(() => {
       let earliest = new Date();
       let found = false;
@@ -186,7 +262,6 @@ export default function ExpertTerminal() {
       return earliest;
   }, [chronologicalTxs, investments]);
 
-  // Siapkan Data Aset dari Setup Awal (Aset yang tidak ada di histori transaksi)
   const setupAwalBases = useMemo(() => {
       const txNetQty: Record<string, {qty: number, invested: number}> = {};
       
@@ -194,7 +269,6 @@ export default function ExpertTerminal() {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
               const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
               const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
-              // 🚀 Regex perbaikan: Jangan ganti titik agar saham desimal US tidak bengkak
               const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i); 
               const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
               
@@ -213,9 +287,9 @@ export default function ExpertTerminal() {
       activePortfolio.forEach(p => {
           const txNet = txNetQty[p.symbol] || { qty: 0, invested: 0 };
           const setupQty = p.qty - txNet.qty;
-          const setupInvested = p.totalModalIDR - txNet.invested;
+          const setupInvested = p.totalModalIDR - txNet.invested; // Ini akan akurat karena totalModalIDR sudah disuntik kurs historis
           
-          if (setupQty > 0.0001) { // Jika ada selisih, berarti berasal dari Setup Awal
+          if (setupQty > 0.0001) { 
               bases[p.symbol] = {
                   qty: setupQty,
                   invested: setupInvested > 0 ? setupInvested : 0,
@@ -241,7 +315,6 @@ export default function ExpertTerminal() {
       return MONTH_NAMES.map((name, idx) => ({ name, monthNum: idx + 1 })).slice(start, end + 1);
   }, [selectedYear, firstInvestmentDate]);
 
-  // Fungsi Tabel: Mendapatkan nilai akhir bulan dengan sangat akurat
   const getMonthData = useCallback((monthNum: number, year: number) => {
       const snap = snapshots.find((s: any) => s.month === monthNum && s.year === year);
       if (snap) {
@@ -253,14 +326,12 @@ export default function ExpertTerminal() {
       const endOfMonth = new Date(year, monthNum, 0, 23, 59, 59);
       const qtyMap: Record<string, { qty: number, investedIDR: number }> = {};
       
-      // 1. Suntikkan Aset Setup Awal (Jika mereka sudah dibeli sebelum akhir bulan ini)
       Object.keys(setupAwalBases).forEach(sym => {
           if (setupAwalBases[sym].date <= endOfMonth) {
               qtyMap[sym] = { qty: setupAwalBases[sym].qty, investedIDR: setupAwalBases[sym].invested };
           }
       });
 
-      // 2. Tambahkan Transaksi yang terjadi sampai bulan ini
       const pastTx = chronologicalTxs.filter((t:any) => new Date(t.date) <= endOfMonth);
       pastTx.forEach((t:any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
@@ -312,7 +383,7 @@ export default function ExpertTerminal() {
   }, [snapshots, chronologicalTxs, activePortfolio, livePrices, tickerOverrides, setupAwalBases]);
 
   // ====================================================================
-  // 5. 🚀 GRAFIK HARIAN (AKURASI TINGGI & PEMOTONGAN TIMEFRAME)
+  // 5. GRAFIK HARIAN
   // ====================================================================
   const chartDataDaily = useMemo(() => {
      if (activePortfolio.length === 0 || Object.keys(historyPrices).length === 0) return [];
@@ -349,7 +420,6 @@ export default function ExpertTerminal() {
      let currentQty: Record<string, number> = {};
      let currentInvestedIDR: Record<string, number> = {};
      
-     // 1. Suntik Setup Awal sebelum start timeframe
      Object.keys(setupAwalBases).forEach(sym => {
          if (setupAwalBases[sym].date.getTime() < currentTs) {
              currentQty[sym] = setupAwalBases[sym].qty;
@@ -357,7 +427,6 @@ export default function ExpertTerminal() {
          }
      });
 
-     // 2. Rekonstruksi Transaksi H-1
      parsedInvestTxs.forEach((t: any) => {
          if (new Date(t.date).getTime() < currentTs) {
              if (!currentQty[t.parsedSymbol]) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
@@ -395,7 +464,6 @@ export default function ExpertTerminal() {
          const dateObj = new Date(currentTs);
          const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
          
-         // Injeksi Setup Awal yang masuk TEPAT di hari ini
          Object.keys(setupAwalBases).forEach(sym => {
              const setupDateStr = `${setupAwalBases[sym].date.getFullYear()}-${String(setupAwalBases[sym].date.getMonth() + 1).padStart(2, '0')}-${String(setupAwalBases[sym].date.getDate()).padStart(2, '0')}`;
              if (setupDateStr === dateStr) {
@@ -484,7 +552,7 @@ export default function ExpertTerminal() {
   return (
     <div className="flex h-screen bg-[#0B0F19] text-slate-300 font-sans overflow-hidden">
       
-      {/* 🚀 MODAL AUDIT HARGA & KOREKSI TICKER */}
+      {/* MODAL AUDIT HARGA & KOREKSI TICKER */}
       {editTickerModal && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in p-4">
              <div className="bg-[#1E293B] border border-slate-700 rounded-[32px] p-8 max-w-md w-full shadow-2xl relative">
@@ -513,7 +581,7 @@ export default function ExpertTerminal() {
          </div>
       )}
 
-      {/* 🚀 MODAL CEK RINCIAN HARGA (POPUP AUDIT TRANSPARANSI) */}
+      {/* MODAL CEK RINCIAN HARGA (POPUP AUDIT TRANSPARANSI) */}
       {assetDetailModal && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in p-4">
              <div className="bg-[#1E293B] border border-slate-700 rounded-[32px] p-8 max-w-md w-full shadow-2xl relative">
@@ -768,7 +836,6 @@ export default function ExpertTerminal() {
                                 {activePortfolio.map((p: any) => {
                                     const assetSnap = details[p.symbol] || { invested: 0, valuasi: 0, qty: 0 };
                                     
-                                    // 🚀 KUNCI PERBAIKAN: Jika qty = 0 (belum dibeli atau sudah dijual habis), berikan tanda kosong (-)
                                     if (assetSnap.qty === 0) return <td key={p.symbol} className="px-6 py-4 text-slate-600">-</td>;
                                     
                                     const plAmount = assetSnap.valuasi - assetSnap.invested;
@@ -867,7 +934,6 @@ export default function ExpertTerminal() {
                         const isLivePriceReady = t.livePriceIDR > 0;
                         const livePricePerShareIDR = t.livePriceIDR;
                         
-                        // Perbaiki Multiplier Terealisasi agar adil membandingkan harga per lembarnya
                         const multiplier = (t.isStock && t.isIDR && !t.isGold) ? 100 : 1; 
                         const sellPricePerShareIDR = t.sellPriceIDR / multiplier;
                         
