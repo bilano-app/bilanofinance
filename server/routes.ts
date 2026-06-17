@@ -329,21 +329,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         catch (err) { user = await storage.getUserByUsername(email as string); }
     }
 
-    const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"];
-
-    if (user && vipEmails.includes(user.email || "")) {
+    // 🚀 UNLOCK SEMUA FITUR PRO UNTUK SEMUA PENGGUNA
+    if (user) {
         user.isPro = true;
         user.proValidUntil = new Date("2099-12-31").toISOString() as any; 
-        return user; 
     }
-
-    if (user && user.isPro && user.proValidUntil) {
-        const now = new Date();
-        const validUntil = new Date(user.proValidUntil);
-        if (now > validUntil) user = await storage.updateUserProStatus(user.id, false, null);
-    }
+    
     return user;
-  };
+  
 
   const isAdminValid = (email: string) => { return ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(email); };
 
