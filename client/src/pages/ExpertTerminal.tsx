@@ -24,7 +24,7 @@ export default function ExpertTerminal() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [chartTimeframe, setChartTimeframe] = useState<'1M' | '3M' | '1Y' | 'ALL'>('1Y');
 
-  // 🚀 Tarik Kurs Forex Live untuk mengonversi Modal USD ke IDR
+  // 🚀 Tarik Kurs Forex Live untuk mengonversi Modal Valas ke IDR
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const { data: forexRates = {} } = useQuery({
       queryKey: ['forexRates', currentUserEmail],
@@ -35,7 +35,7 @@ export default function ExpertTerminal() {
       enabled: !!currentUserEmail
   });
 
-  // Fitur Koreksi Ticker Manual
+  // Fitur Koreksi Ticker Manual (Penyelamat jika nama dari PWA kurang tepat)
   const [tickerOverrides, setTickerOverrides] = useState<Record<string, string>>(() => {
       const saved = localStorage.getItem('bilano_ticker_overrides');
       return saved ? JSON.parse(saved) : {};
@@ -49,80 +49,87 @@ export default function ExpertTerminal() {
 
   const cashBalance = user?.cashBalance || 0;
 
-  // 1. 🚀 100% OTOMATIS: Tarik Seluruh Portofolio Aktif dari PWA (Identik PWA Logic)
-  const aggregatedPortfolio = useMemo(() => {
-      const map: Record<string, any> = {};
-      investments.forEach((p: any) => {
-          const symRaw = p.symbol || "";
-          if (!map[symRaw]) map[symRaw] = { ...p, quantity: 0, totalVal: 0 };
-          map[symRaw].quantity += p.quantity;
-          map[symRaw].totalVal += (p.quantity * p.avgPrice);
-      });
-      return Object.values(map).map(g => ({
-          ...g,
-          avgPrice: g.quantity > 0 ? (g.totalVal / g.quantity) : 0
-      }));
-  }, [investments]);
-
+  // ====================================================================
+  // 1. 🚀 LOGIKA PINTAR: Tarik Seluruh Portofolio (Anti Bug QQQM/US)
+  // ====================================================================
   const activePortfolio = useMemo(() => {
-      return aggregatedPortfolio.filter((p: any) => p.quantity > 0).map((p: any) => {
-          const symRaw = p.symbol || "";
-          const parts = symRaw.split('|');
-          const symbol = parts[0].trim().toUpperCase();
-          const currency = parts[1] || 'IDR';
-          
-          const type = p.type || 'saham';
-          const isStock = type.toLowerCase() === 'saham' || (!p.type && symbol.length === 4);
-          const multiplier = (isStock && currency === 'IDR') ? 100 : 1;
-          const rate = currency === 'IDR' ? 1 : (Number(forexRates[currency]) || 16200);
-          
-          const defaultTicker = (isStock && currency === 'IDR') ? `${symbol}.JK` : symbol;
-          const activeTicker = tickerOverrides[symbol] || defaultTicker;
+    const agg: Record<string, { qty: number, totalModalIDR: number, symbol: string, currency: string, activeTicker: string, liveMultiplier: number }> = {};
+    
+    investments.forEach((inv: any) => {
+      const parts = (inv.symbol || "").split('|');
+      const sym = parts[0].trim().toUpperCase();
+      const curr = parts[1] || 'IDR';
+      const isIDR = curr === 'IDR';
+      
+      // Modal multiplier HARUS mengikuti logika PWA agar nominal modal persis sama dengan yang dipotong dari kas
+      const typeLower = (inv.type || 'saham').toLowerCase();
+      const originalMultiplier = (typeLower === 'saham' || (sym.length === 4 && typeLower !== 'crypto')) ? 100 : 1;
 
-          const totalModalIDR = p.quantity * p.avgPrice * multiplier * rate;
+      // Penebakan Ticker (Hanya saham IDR yang ditambah .JK otomatis)
+      let defaultTicker = sym;
+      if (isIDR && sym.length === 4 && !sym.endsWith('.JK')) {
+          defaultTicker = `${sym}.JK`;
+      }
+      
+      const activeTicker = tickerOverrides[sym] || defaultTicker;
+      
+      // LIVE MULTIPLIER (Murni melihat dari akhiran .JK) - Ini obat dari bug QQQM
+      const liveMultiplier = activeTicker.endsWith('.JK') ? 100 : 1;
+      const rate = isIDR ? 1 : (Number(forexRates[curr]) || 16200);
 
-          return { ...p, symbol, currency, isStock, multiplier, rate, activeTicker, totalModalIDR };
-      });
-  }, [aggregatedPortfolio, forexRates, tickerOverrides]);
+      if (!agg[sym]) agg[sym] = { qty: 0, totalModalIDR: 0, symbol: sym, currency: curr, activeTicker, liveMultiplier };
+      
+      agg[sym].qty += inv.quantity;
+      agg[sym].totalModalIDR += (inv.quantity * inv.avgPrice * originalMultiplier * rate);
+    });
+    
+    return Object.values(agg).filter(p => p.qty > 0);
+  }, [investments, forexRates, tickerOverrides]);
 
-  // 2. 🚀 OTOMATIS: Ekstrak Data Investasi Terealisasi (Anti-Bug IDR)
+  // ====================================================================
+  // 2. 🚀 LOGIKA PINTAR: Ekstrak Data Investasi Terealisasi (Anti Bug IDR)
+  // ====================================================================
   const realizedTradesBase = useMemo(() => {
-      return transactions.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
-          const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
-          const symbol = match ? match[1].toUpperCase().trim() : 'Unknown';
-          
-          const sellPriceMatch = t.description?.match(/@\s*(?:(?:Rp|USD)\s*)?([0-9.,]+)/i);
-          const sellPriceRaw = sellPriceMatch ? parseFloat(sellPriceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
+    return transactions.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
+      // Regex memotong kalimat tepat sebelum "|" atau "@" agar kata IDR/USD tidak tertangkap sebagai nama saham
+      const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+      const symbol = match ? match[1].toUpperCase().trim() : 'Unknown';
+      
+      const sellPriceMatch = t.description?.match(/@\s*(?:(?:Rp|USD|US\$)\s*)?([0-9.,]+)/i);
+      const sellPriceRaw = sellPriceMatch ? parseFloat(sellPriceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
 
-          const isUSD = t.description?.includes('USD') || t.description?.includes('US$');
-          const currency = isUSD ? 'USD' : 'IDR'; 
-          const rate = currency === 'IDR' ? 1 : (Number(forexRates[currency]) || 16200);
-          const sellPriceIDR = sellPriceRaw * rate;
+      const isUSD = t.description?.includes('USD') || t.description?.includes('US$');
+      const currency = isUSD ? 'USD' : 'IDR'; 
+      const rate = currency === 'IDR' ? 1 : (Number(forexRates[currency]) || 16200);
+      
+      // Harga jual per lembar disamakan ke IDR
+      const sellPriceIDR = sellPriceRaw * rate;
 
-          const isStock = symbol.length === 4; 
-          const defaultTicker = (currency === 'IDR' && isStock) ? `${symbol}.JK` : symbol;
-          const activeTicker = tickerOverrides[symbol] || defaultTicker;
+      const isStock = symbol.length === 4; 
+      const defaultTicker = (currency === 'IDR' && isStock && !symbol.endsWith('.JK')) ? `${symbol}.JK` : symbol;
+      const activeTicker = tickerOverrides[symbol] || defaultTicker;
 
-          return { ...t, symbol, currency, sellPriceIDR, activeTicker };
-      });
+      return { ...t, symbol, currency, sellPriceIDR, activeTicker };
+    });
   }, [transactions, forexRates, tickerOverrides]);
 
+  // Tentukan Kode Ticker untuk API Yahoo
   const uniqueTickersToFetch = useMemo(() => {
-      const tickers = new Set<string>();
-      activePortfolio.forEach((p: any) => tickers.add(p.activeTicker));
-      realizedTradesBase.forEach((t: any) => {
-          if (t.symbol !== 'Unknown') tickers.add(t.activeTicker);
-      });
-      return Array.from(tickers);
+    const tickers = new Set<string>();
+    activePortfolio.forEach(p => tickers.add(p.activeTicker));
+    realizedTradesBase.forEach((t: any) => {
+        if (t.symbol !== 'Unknown') tickers.add(t.activeTicker);
+    });
+    return Array.from(tickers);
   }, [activePortfolio, realizedTradesBase]);
 
   const { data: livePrices = {}, isLoading: isLivePricesLoading } = useLiveQuotes(uniqueTickersToFetch);
 
   // Kalkulasi Live Valuasi
   const totalAssetValue = activePortfolio.reduce((acc: any, p: any) => {
-      const livePriceIDR = livePrices[p.activeTicker];
-      const liveValuationIDR = livePriceIDR ? (p.quantity * livePriceIDR * p.multiplier) : p.totalModalIDR;
-      return acc + liveValuationIDR;
+    const livePriceAPI = livePrices[p.activeTicker];
+    const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
+    return acc + liveValuationIDR;
   }, 0);
 
   const totalInvested = activePortfolio.reduce((acc: any, p: any) => acc + p.totalModalIDR, 0);
@@ -130,31 +137,54 @@ export default function ExpertTerminal() {
   const totalWealth = cashBalance + totalAssetValue;
 
   const realizedTrades = useMemo(() => {
-      return realizedTradesBase.map((t: any) => ({
-          ...t,
-          livePriceIDR: livePrices[t.activeTicker] || 0
-      }));
+    return realizedTradesBase.map((t: any) => ({
+        ...t,
+        livePriceIDR: livePrices[t.activeTicker] || 0
+    }));
   }, [realizedTradesBase, livePrices]);
 
   const pieData = [
-      { name: 'Cash Tunai', value: cashBalance },
-      ...activePortfolio.map((p: any) => {
-          const livePriceIDR = livePrices[p.activeTicker];
-          const liveValuationIDR = livePriceIDR ? (p.quantity * livePriceIDR * p.multiplier) : p.totalModalIDR;
-          return { name: p.symbol, value: liveValuationIDR };
-      })
+    { name: 'Cash Tunai', value: cashBalance },
+    ...activePortfolio.map((p: any) => {
+       const livePriceAPI = livePrices[p.activeTicker];
+       const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
+       return { name: p.symbol, value: liveValuationIDR };
+    })
   ].filter((d: any) => d.value > 0);
 
-  const firstInvestmentMonthIndex = useMemo(() => {
+  // ====================================================================
+  // 3. 🚀 LOGIKA PINTAR: Rekonstruksi Histori & Sembunyikan Bulan Masa Depan
+  // ====================================================================
+  const firstInvestmentDate = useMemo(() => {
       const investTxs = transactions.filter((t: any) => t.type === 'invest_buy');
-      if (investTxs.length === 0) return 0;
-      const oldestTx = investTxs[investTxs.length - 1];
-      const date = new Date(oldestTx.date);
-      if (date.getFullYear() !== selectedYear) return 0;
-      return date.getMonth(); 
-  }, [transactions, selectedYear]);
+      if (investTxs.length === 0) return new Date();
+      const oldestTx = investTxs[investTxs.length - 1]; 
+      return new Date(oldestTx.date);
+  }, [transactions]);
 
-  // 🚀 REKONSTRUKSI HISTORIS OTOMATIS: Membangun data portofolio masa lalu walau belum disave
+  // Daftar bulan pintar: Hanya bulan di mana pengguna sudah punya investasi hingga hari ini
+  const availableMonths = useMemo(() => {
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth();
+      
+      if (selectedYear > currentYear) return [];
+      
+      let start = 0;
+      if (selectedYear === firstInvestmentDate.getFullYear()) {
+          start = firstInvestmentDate.getMonth();
+      } else if (selectedYear < firstInvestmentDate.getFullYear()) {
+          return []; 
+      }
+      
+      let end = 11;
+      if (selectedYear === currentYear) {
+          end = currentMonth;
+      }
+      
+      return MONTH_NAMES.map((name, idx) => ({ name, monthNum: idx + 1 })).slice(start, end + 1);
+  }, [selectedYear, firstInvestmentDate]);
+
+  // Fungsi AI untuk merangkai data portofolio lama yang belum pernah disimpan
   const getMonthData = useCallback((monthNum: number, year: number) => {
       const snap = snapshots.find((s: any) => s.month === monthNum && s.year === year);
       if (snap) {
@@ -163,6 +193,7 @@ export default function ExpertTerminal() {
           return { isSaved: true, totalValue: snap.totalValue, investValue: snap.investValue, details };
       }
       
+      // Jika belum pernah disave, hitung manual dari histori transaksi transaksi
       const endOfMonth = new Date(year, monthNum, 0, 23, 59, 59);
       const pastTx = transactions.filter((t:any) => new Date(t.date) <= endOfMonth);
       
@@ -195,11 +226,11 @@ export default function ExpertTerminal() {
       Object.keys(qtyMap).forEach(sym => {
           if (qtyMap[sym].qty > 0) {
               const currentAsset = activePortfolio.find((p: any) => p.symbol === sym);
-              const ticker = currentAsset ? currentAsset.activeTicker : (tickerOverrides[sym] || sym);
-              const multiplier = currentAsset ? currentAsset.multiplier : (sym.length === 4 ? 100 : 1);
-              const livePriceAPI = livePrices[ticker];
+              const activeTicker = currentAsset ? currentAsset.activeTicker : (tickerOverrides[sym] || (sym.length === 4 ? `${sym}.JK` : sym));
+              const liveMultiplier = activeTicker.endsWith('.JK') ? 100 : 1;
+              const livePriceAPI = livePrices[activeTicker];
               
-              const valuasi = livePriceAPI ? (qtyMap[sym].qty * livePriceAPI * multiplier) : qtyMap[sym].investedIDR;
+              const valuasi = livePriceAPI ? (qtyMap[sym].qty * livePriceAPI * liveMultiplier) : qtyMap[sym].investedIDR;
               details[sym] = { invested: qtyMap[sym].investedIDR, valuasi };
               totalInv += qtyMap[sym].investedIDR;
               totalVal += valuasi;
@@ -210,22 +241,20 @@ export default function ExpertTerminal() {
   }, [snapshots, transactions, activePortfolio, livePrices, tickerOverrides]);
 
   const lineData = useMemo(() => {
-     let dataPoints = MONTH_NAMES.slice(firstInvestmentMonthIndex).map((monthName, idx) => {
-         const monthNum = firstInvestmentMonthIndex + idx + 1;
-         const data = getMonthData(monthNum, selectedYear);
+     let dataPoints = availableMonths.map(m => {
+         const data = getMonthData(m.monthNum, selectedYear);
          return {
-             name: `${monthName} ${selectedYear}`,
+             name: `${m.name} ${selectedYear}`,
              Total: data.totalValue,
              Investasi: data.investValue
          };
      });
      
-     if (chartTimeframe === '1M') dataPoints = dataPoints.slice(-1); 
-     else if (chartTimeframe === '3M') dataPoints = dataPoints.slice(-3);
-     else if (chartTimeframe === '1Y') dataPoints = dataPoints.slice(-12);
-     
+     if (chartTimeframe === '1M') return dataPoints.slice(-1); 
+     if (chartTimeframe === '3M') return dataPoints.slice(-3);
+     if (chartTimeframe === '1Y') return dataPoints.slice(-12);
      return dataPoints;
-  }, [firstInvestmentMonthIndex, selectedYear, getMonthData, chartTimeframe]);
+  }, [availableMonths, selectedYear, getMonthData, chartTimeframe]);
 
   const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
   const formatPct = (num: number) => `${num > 0 ? '+' : ''}${(num * 100).toFixed(2)}%`;
@@ -235,8 +264,8 @@ export default function ExpertTerminal() {
       const year = new Date().getFullYear();
       
       const assetsDetail = activePortfolio.reduce((acc: any, p: any) => {
-         const livePriceIDR = livePrices[p.activeTicker];
-         const liveValuationIDR = livePriceIDR ? (p.quantity * livePriceIDR * p.multiplier) : p.totalModalIDR;
+         const livePriceAPI = livePrices[p.activeTicker];
+         const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
          acc[p.symbol] = { invested: p.totalModalIDR, valuasi: liveValuationIDR };
          return acc;
       }, {} as Record<string, {invested: number, valuasi: number}>);
@@ -408,8 +437,8 @@ export default function ExpertTerminal() {
                               <td className="px-6 py-4 font-bold text-slate-400 sticky left-0 bg-[#1E293B] z-10">Nilai Aset (Live)</td>
                               <td className="px-6 py-4">{formatRp(cashBalance)}</td>
                               {activePortfolio.map((p: any) => {
-                                const livePriceIDR = livePrices[p.activeTicker];
-                                const liveValuationIDR = livePriceIDR ? (p.quantity * livePriceIDR * p.multiplier) : p.totalModalIDR;
+                                const livePriceAPI = livePrices[p.activeTicker];
+                                const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
                                 return <td key={p.symbol} className="px-6 py-4">{formatRp(liveValuationIDR)}</td>
                               })}
                             </tr>
@@ -417,8 +446,8 @@ export default function ExpertTerminal() {
                               <td className="px-6 py-4 font-bold text-slate-400 sticky left-0 bg-[#1E293B] z-10">Persentase</td>
                               <td className="px-6 py-4 text-emerald-400 font-bold">{totalWealth > 0 ? formatPct(cashBalance / totalWealth) : '0%'}</td>
                               {activePortfolio.map((p: any) => {
-                                 const livePriceIDR = livePrices[p.activeTicker];
-                                 const liveValuationIDR = livePriceIDR ? (p.quantity * livePriceIDR * p.multiplier) : p.totalModalIDR;
+                                 const livePriceAPI = livePrices[p.activeTicker];
+                                 const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
                                  return <td key={p.symbol} className="px-6 py-4 text-indigo-400 font-bold">{totalWealth > 0 ? formatPct(liveValuationIDR / totalWealth) : '0%'}</td>
                               })}
                             </tr>
@@ -477,44 +506,47 @@ export default function ExpertTerminal() {
                     </tr>
                   </thead>
                   <tbody className="text-slate-300 font-medium">
-                    {MONTH_NAMES.slice(firstInvestmentMonthIndex).map((monthName, idx) => {
-                       const monthNum = firstInvestmentMonthIndex + idx + 1;
-                       const data = getMonthData(monthNum, selectedYear);
-                       const details = data.details as Record<string, {invested: number, valuasi: number}>;
-                       
-                       return (
-                          <tr key={monthName} className={`border-b border-slate-800/50 hover:bg-slate-800/20 ${!data.isSaved ? 'opacity-80' : ''}`}>
-                             <td className="px-6 py-4 font-bold text-slate-200 sticky left-0 bg-[#1E293B] z-10 flex items-center justify-between">
-                                 {monthName} {!data.isSaved && <span className="text-[8px] bg-amber-500/20 text-amber-500 px-1 rounded ml-2" title="Belum Disimpan (Dihitung Otomatis dari Transaksi Lalu)">AUTO</span>}
-                             </td>
-                             {activePortfolio.map((p: any) => {
-                                 const assetSnap = details[p.symbol] || { invested: 0, valuasi: 0 };
-                                 if (assetSnap.invested === 0) return <td key={p.symbol} className="px-6 py-4 text-slate-600">-</td>;
-                                 
-                                 const plAmount = assetSnap.valuasi - assetSnap.invested;
-                                 const plPct = (plAmount / assetSnap.invested);
-                                 return (
-                                     <td key={p.symbol} className={`px-6 py-4 ${plAmount >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                         <div className="font-bold">{formatRp(plAmount)}</div>
-                                         <div className="text-[10px] opacity-80">({formatPct(plPct)})</div>
-                                     </td>
-                                 );
-                             })}
-                             <td className="px-6 py-4 font-black">
-                                 {(() => {
-                                     if (data.investValue === 0) return <span className="text-slate-600">-</span>;
-                                     const plTotalAmount = data.totalValue - data.investValue;
-                                     return (
-                                         <div className={plTotalAmount >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                                             <div>{formatRp(plTotalAmount)}</div>
-                                             <div className="text-xs opacity-80">({formatPct(plTotalAmount / data.investValue)})</div>
-                                         </div>
-                                     );
-                                 })()}
-                             </td>
-                          </tr>
-                       )
-                    })}
+                    {availableMonths.length === 0 ? (
+                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-12 text-center text-slate-500 italic">Belum ada aktivitas investasi pada tahun {selectedYear}.</td></tr>
+                    ) : (
+                       availableMonths.map((m) => {
+                          const data = getMonthData(m.monthNum, selectedYear);
+                          const details = data.details as Record<string, {invested: number, valuasi: number}>;
+                          
+                          return (
+                             <tr key={m.name} className={`border-b border-slate-800/50 hover:bg-slate-800/20 ${!data.isSaved ? 'opacity-80' : ''}`}>
+                                <td className="px-6 py-4 font-bold text-slate-200 sticky left-0 bg-[#1E293B] z-10 flex items-center justify-between">
+                                    {m.name} {!data.isSaved && <span className="text-[8px] bg-amber-500/20 text-amber-500 px-1 rounded ml-2" title="Belum Disimpan (Dihitung Otomatis dari Transaksi Lalu)">AUTO</span>}
+                                </td>
+                                {activePortfolio.map((p: any) => {
+                                    const assetSnap = details[p.symbol] || { invested: 0, valuasi: 0 };
+                                    if (assetSnap.invested === 0) return <td key={p.symbol} className="px-6 py-4 text-slate-600">-</td>;
+                                    
+                                    const plAmount = assetSnap.valuasi - assetSnap.invested;
+                                    const plPct = (plAmount / assetSnap.invested);
+                                    return (
+                                        <td key={p.symbol} className={`px-6 py-4 ${plAmount >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            <div className="font-bold">{formatRp(plAmount)}</div>
+                                            <div className="text-[10px] opacity-80">({formatPct(plPct)})</div>
+                                        </td>
+                                    );
+                                })}
+                                <td className="px-6 py-4 font-black">
+                                    {(() => {
+                                        if (data.investValue === 0) return <span className="text-slate-600">-</span>;
+                                        const plTotalAmount = data.totalValue - data.investValue;
+                                        return (
+                                            <div className={plTotalAmount >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                                <div>{formatRp(plTotalAmount)}</div>
+                                                <div className="text-xs opacity-80">({formatPct(plTotalAmount / data.investValue)})</div>
+                                            </div>
+                                        );
+                                    })()}
+                                </td>
+                             </tr>
+                          )
+                       })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -584,7 +616,9 @@ export default function ExpertTerminal() {
                     ) : (
                       realizedTrades.map((t: any) => {
                         const isLivePriceReady = t.livePriceIDR > 0;
-                        const isGoodSell = isLivePriceReady && t.livePriceIDR < (t.sellPriceIDR / (t.marketTicker.includes('.JK') || t.symbol.length === 4 ? 100 : 1));
+                        const livePricePerShare = t.livePriceIDR;
+                        const sellPricePerShare = t.sellPriceIDR / (t.activeTicker.endsWith('.JK') || t.symbol.length === 4 ? 100 : 1);
+                        const isGoodSell = isLivePriceReady && livePricePerShare < sellPricePerShare;
 
                         return (
                           <tr key={t.id} className="border-b border-slate-800/50 hover:bg-slate-800/20">
@@ -598,10 +632,10 @@ export default function ExpertTerminal() {
                             </td>
                             <td className="px-6 py-4">
                                {formatRp(t.amount)} <br/>
-                               <span className="text-[10px] text-slate-500">Modal Asli: @ {formatRp(t.sellPriceIDR)}</span>
+                               <span className="text-[10px] text-slate-500">Modal Asli: @ {formatRp(sellPricePerShare)}</span>
                             </td>
                             <td className="px-6 py-4 text-indigo-300 font-bold">
-                               {isLivePricesLoading && !isLivePriceReady ? <Loader2 className="w-4 h-4 animate-spin text-indigo-500"/> : (t.livePriceIDR ? formatRp(t.livePriceIDR * (t.activeTicker.includes('.JK') || t.symbol.length === 4 ? 100 : 1)) : <span className="text-slate-600">N/A</span>)}
+                               {isLivePricesLoading && !isLivePriceReady ? <Loader2 className="w-4 h-4 animate-spin text-indigo-500"/> : (isLivePriceReady ? formatRp(livePricePerShare * (t.activeTicker.endsWith('.JK') || t.symbol.length === 4 ? 100 : 1)) : <span className="text-slate-600">N/A</span>)}
                             </td>
                             <td className="px-6 py-4 text-right">
                               {!isLivePriceReady ? <span className="text-[10px] text-slate-600">Menunggu API...</span> : isGoodSell ? (
