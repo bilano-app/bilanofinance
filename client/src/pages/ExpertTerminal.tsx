@@ -22,9 +22,9 @@ export default function ExpertTerminal() {
   const [activeTab, setActiveTab] = useState<'alokasi' | 'pantauan' | 'terealisasi'>('alokasi');
   const [showProfit, setShowProfit] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [chartTimeframe, setChartTimeframe] = useState<'1M' | '3M' | '1Y' | 'ALL'>('1Y');
+  const [chartTimeframe, setChartTimeframe] = useState<'1M' | '3M' | '1Y' | 'ALL'>('1M');
 
-  // 🚀 Tarik Kurs Forex Live
+  // Tarik Kurs Forex Live
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const { data: forexRates = {} } = useQuery({
       queryKey: ['forexRates', currentUserEmail],
@@ -52,14 +52,14 @@ export default function ExpertTerminal() {
 
   const cashBalance = user?.cashBalance || 0;
 
-  // 1. 🚀 LOGIKA PINTAR: URUTKAN TRANSAKSI DARI TERLAMA (KUNCI PERBAIKAN GRAFIK & TABEL)
+  // 1. 🚀 LOGIKA PINTAR: URUTKAN TRANSAKSI DARI TERLAMA
   const chronologicalTxs = useMemo(() => {
       return [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [transactions]);
 
-  // 2. Tarik Seluruh Portofolio Aktif (Modal)
+  // 2. Tarik Seluruh Portofolio Aktif (Termasuk mendeteksi tanggal aset dari Setup Awal)
   const activePortfolio = useMemo(() => {
-    const agg: Record<string, { qty: number, totalModalIDR: number, symbol: string, currency: string, activeTicker: string, liveMultiplier: number, isStock: boolean, isIDR: boolean }> = {};
+    const agg: Record<string, { qty: number, totalModalIDR: number, symbol: string, currency: string, activeTicker: string, liveMultiplier: number, isStock: boolean, isIDR: boolean, createdAt: string }> = {};
     
     investments.forEach((inv: any) => {
       const parts = (inv.symbol || "").split('|');
@@ -82,7 +82,11 @@ export default function ExpertTerminal() {
       const activeTicker = tickerOverrides[sym] || defaultTicker;
       const rate = isIDR ? 1 : (Number(forexRates[curr]) || 16200);
 
-      if (!agg[sym]) agg[sym] = { qty: 0, totalModalIDR: 0, symbol: sym, currency: curr, activeTicker, liveMultiplier: multiplier, isStock, isIDR };
+      if (!agg[sym]) {
+          agg[sym] = { qty: 0, totalModalIDR: 0, symbol: sym, currency: curr, activeTicker, liveMultiplier: multiplier, isStock, isIDR, createdAt: inv.createdAt };
+      } else if (inv.createdAt && new Date(inv.createdAt) < new Date(agg[sym].createdAt)) {
+          agg[sym].createdAt = inv.createdAt; // Cari yang paling tua jika ada double record
+      }
       
       agg[sym].qty += inv.quantity;
       agg[sym].totalModalIDR += (inv.quantity * inv.avgPrice * multiplier * rate);
@@ -91,7 +95,7 @@ export default function ExpertTerminal() {
     return Object.values(agg).filter(p => p.qty > 0);
   }, [investments, forexRates, tickerOverrides]);
 
-  // 3. Tarik Data Investasi Terealisasi
+  // 3. Tarik Data Investasi Terealisasi (Penjualan)
   const realizedTradesBase = useMemo(() => {
     return chronologicalTxs.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
       const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
@@ -156,13 +160,71 @@ export default function ExpertTerminal() {
   ].filter((d: any) => d.value > 0);
 
   // ====================================================================
-  // 4. 🚀 REKONSTRUKSI HISTORI (DIHENTIKAN JIKA ASET DIJUAL HABIS)
+  // 4. 🚀 LOGIKA PINTAR: Isolasi Setup Awal vs Transaksi Historis
   // ====================================================================
+  
+  // Mencari kapan investasi benar-benar dimulai (Cek transaksi ATAU Setup Awal)
   const firstInvestmentDate = useMemo(() => {
-      const investTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_buy');
-      if (investTxs.length > 0) return new Date(investTxs[0].date); // Menggunakan index 0 karena sudah chronological
-      return new Date();
-  }, [chronologicalTxs]);
+      let earliest = new Date();
+      let found = false;
+
+      const investTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_buy' || t.type === 'invest_sell');
+      if (investTxs.length > 0) {
+          earliest = new Date(investTxs[0].date);
+          found = true;
+      }
+
+      investments.forEach((inv: any) => {
+          if (inv.createdAt) {
+              const invDate = new Date(inv.createdAt);
+              if (!found || invDate < earliest) {
+                  earliest = invDate;
+                  found = true;
+              }
+          }
+      });
+      return earliest;
+  }, [chronologicalTxs, investments]);
+
+  // Siapkan Data Aset dari Setup Awal (Aset yang tidak ada di histori transaksi)
+  const setupAwalBases = useMemo(() => {
+      const txNetQty: Record<string, {qty: number, invested: number}> = {};
+      
+      chronologicalTxs.forEach((t: any) => {
+          if (t.type === 'invest_buy' || t.type === 'invest_sell') {
+              const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+              const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
+              // 🚀 Regex perbaikan: Jangan ganti titik agar saham desimal US tidak bengkak
+              const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i); 
+              const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
+              
+              if (!txNetQty[sym]) txNetQty[sym] = { qty: 0, invested: 0 };
+              if (t.type === 'invest_buy') {
+                  txNetQty[sym].qty += qty;
+                  txNetQty[sym].invested += t.amount;
+              } else {
+                  txNetQty[sym].qty -= qty;
+                  txNetQty[sym].invested -= t.amount;
+              }
+          }
+      });
+
+      const bases: Record<string, { qty: number, invested: number, date: Date }> = {};
+      activePortfolio.forEach(p => {
+          const txNet = txNetQty[p.symbol] || { qty: 0, invested: 0 };
+          const setupQty = p.qty - txNet.qty;
+          const setupInvested = p.totalModalIDR - txNet.invested;
+          
+          if (setupQty > 0.0001) { // Jika ada selisih, berarti berasal dari Setup Awal
+              bases[p.symbol] = {
+                  qty: setupQty,
+                  invested: setupInvested > 0 ? setupInvested : 0,
+                  date: new Date(p.createdAt || new Date())
+              };
+          }
+      });
+      return bases;
+  }, [chronologicalTxs, activePortfolio]);
 
   const availableMonths = useMemo(() => {
       const currentYear = new Date().getFullYear();
@@ -179,7 +241,7 @@ export default function ExpertTerminal() {
       return MONTH_NAMES.map((name, idx) => ({ name, monthNum: idx + 1 })).slice(start, end + 1);
   }, [selectedYear, firstInvestmentDate]);
 
-  // Fungsi Tabel: Mendapatkan nilai akhir bulan
+  // Fungsi Tabel: Mendapatkan nilai akhir bulan dengan sangat akurat
   const getMonthData = useCallback((monthNum: number, year: number) => {
       const snap = snapshots.find((s: any) => s.month === monthNum && s.year === year);
       if (snap) {
@@ -189,29 +251,24 @@ export default function ExpertTerminal() {
       }
       
       const endOfMonth = new Date(year, monthNum, 0, 23, 59, 59);
-      const pastTx = chronologicalTxs.filter((t:any) => new Date(t.date) <= endOfMonth);
-      
       const qtyMap: Record<string, { qty: number, investedIDR: number }> = {};
       
-      const symbolsWithTx = new Set(chronologicalTxs.map((t:any) => {
-          const m = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
-          return m ? m[1].toUpperCase().trim() : '';
-      }));
-      
-      activePortfolio.forEach(p => {
-          if (!symbolsWithTx.has(p.symbol)) {
-              qtyMap[p.symbol] = { qty: p.qty, investedIDR: p.totalModalIDR };
+      // 1. Suntikkan Aset Setup Awal (Jika mereka sudah dibeli sebelum akhir bulan ini)
+      Object.keys(setupAwalBases).forEach(sym => {
+          if (setupAwalBases[sym].date <= endOfMonth) {
+              qtyMap[sym] = { qty: setupAwalBases[sym].qty, investedIDR: setupAwalBases[sym].invested };
           }
       });
 
-      // Proses Kalkulasi Saldo Berjalan (Dengan Urutan Waktu yang Benar)
+      // 2. Tambahkan Transaksi yang terjadi sampai bulan ini
+      const pastTx = chronologicalTxs.filter((t:any) => new Date(t.date) <= endOfMonth);
       pastTx.forEach((t:any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
               const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
               if (match) {
                   const sym = match[1].toUpperCase().trim();
-                  const qtyMatch = t.description?.match(/([0-9.,]+)\s+lot\/unit/i);
-                  const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0; 
+                  const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
+                  const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0; 
                   
                   if (!qtyMap[sym]) qtyMap[sym] = { qty: 0, investedIDR: 0 };
                   
@@ -221,8 +278,6 @@ export default function ExpertTerminal() {
                   } else {
                       qtyMap[sym].qty -= qty;
                       qtyMap[sym].investedIDR -= t.amount;
-                      
-                      // KUNCI PERBAIKAN: Jika aset sudah terjual habis, pastikan disetel bersih 0.
                       if (qtyMap[sym].qty <= 0) {
                           qtyMap[sym].qty = 0;
                           qtyMap[sym].investedIDR = 0;
@@ -238,7 +293,6 @@ export default function ExpertTerminal() {
       let totalInv = 0; let totalVal = 0;
       
       Object.keys(qtyMap).forEach(sym => {
-          // Hanya hitung aset yang masih ada (qty > 0)
           if (qtyMap[sym].qty > 0) {
               const currentAsset = activePortfolio.find((p: any) => p.symbol === sym);
               const activeTicker = currentAsset ? currentAsset.activeTicker : (tickerOverrides[sym] || sym);
@@ -250,16 +304,15 @@ export default function ExpertTerminal() {
               totalInv += qtyMap[sym].investedIDR;
               totalVal += valuasi;
           } else {
-              // Tandai sebagai aset kosong untuk bulan ini
               details[sym] = { invested: 0, valuasi: 0, qty: 0 };
           }
       });
       
       return { isSaved: false, totalValue: totalVal, investValue: totalInv, details };
-  }, [snapshots, chronologicalTxs, activePortfolio, livePrices, tickerOverrides]);
+  }, [snapshots, chronologicalTxs, activePortfolio, livePrices, tickerOverrides, setupAwalBases]);
 
   // ====================================================================
-  // 5. 🚀 GRAFIK HARIAN (MAPPING WAKTU YANG TEPAT)
+  // 5. 🚀 GRAFIK HARIAN (AKURASI TINGGI & PEMOTONGAN TIMEFRAME)
   // ====================================================================
   const chartDataDaily = useMemo(() => {
      if (activePortfolio.length === 0 || Object.keys(historyPrices).length === 0) return [];
@@ -267,10 +320,9 @@ export default function ExpertTerminal() {
      const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => {
          const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
          const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
-         const qtyMatch = t.description?.match(/([0-9.,]+)\s+lot\/unit/i);
-         const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
+         const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
+         const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
          
-         // Gunakan format Local Time (YYYY-MM-DD) agar tidak geser zona waktu
          const date = new Date(t.date);
          const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
          return { ...t, parsedSymbol: sym, parsedQty: qty, dateStr };
@@ -297,16 +349,15 @@ export default function ExpertTerminal() {
      let currentQty: Record<string, number> = {};
      let currentInvestedIDR: Record<string, number> = {};
      
-     // Masukkan Setup Onboarding
-     const txSymbols = new Set(parsedInvestTxs.map(t => t.parsedSymbol));
-     activePortfolio.forEach(p => {
-         if (!txSymbols.has(p.symbol)) {
-             currentQty[p.symbol] = p.qty;
-             currentInvestedIDR[p.symbol] = p.totalModalIDR;
+     // 1. Suntik Setup Awal sebelum start timeframe
+     Object.keys(setupAwalBases).forEach(sym => {
+         if (setupAwalBases[sym].date.getTime() < currentTs) {
+             currentQty[sym] = setupAwalBases[sym].qty;
+             currentInvestedIDR[sym] = setupAwalBases[sym].invested;
          }
      });
 
-     // Rekonstruksi H-1
+     // 2. Rekonstruksi Transaksi H-1
      parsedInvestTxs.forEach((t: any) => {
          if (new Date(t.date).getTime() < currentTs) {
              if (!currentQty[t.parsedSymbol]) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
@@ -344,6 +395,16 @@ export default function ExpertTerminal() {
          const dateObj = new Date(currentTs);
          const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
          
+         // Injeksi Setup Awal yang masuk TEPAT di hari ini
+         Object.keys(setupAwalBases).forEach(sym => {
+             const setupDateStr = `${setupAwalBases[sym].date.getFullYear()}-${String(setupAwalBases[sym].date.getMonth() + 1).padStart(2, '0')}-${String(setupAwalBases[sym].date.getDate()).padStart(2, '0')}`;
+             if (setupDateStr === dateStr) {
+                 if (!currentQty[sym]) { currentQty[sym] = 0; currentInvestedIDR[sym] = 0; }
+                 currentQty[sym] += setupAwalBases[sym].qty;
+                 currentInvestedIDR[sym] += setupAwalBases[sym].invested;
+             }
+         });
+
          const dayTxs = txByDate[dateStr];
          if (dayTxs) {
              dayTxs.forEach(t => {
@@ -389,7 +450,7 @@ export default function ExpertTerminal() {
      }
 
      return dailyData;
-  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate]);
+  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases]);
 
   const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
   const formatPct = (num: number) => `${num > 0 ? '+' : ''}${(num * 100).toFixed(2)}%`;
@@ -452,7 +513,7 @@ export default function ExpertTerminal() {
          </div>
       )}
 
-      {/* 🚀 MODAL CEK RINCIAN HARGA (POPUP AUDIT) */}
+      {/* 🚀 MODAL CEK RINCIAN HARGA (POPUP AUDIT TRANSPARANSI) */}
       {assetDetailModal && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in p-4">
              <div className="bg-[#1E293B] border border-slate-700 rounded-[32px] p-8 max-w-md w-full shadow-2xl relative">
@@ -460,28 +521,31 @@ export default function ExpertTerminal() {
                 <div className="w-16 h-16 bg-indigo-500/20 rounded-2xl flex items-center justify-center mb-6">
                     <Info className="w-8 h-8 text-indigo-400"/>
                 </div>
-                <h2 className="text-2xl font-black text-white mb-1">Rincian Kalkulasi</h2>
-                <p className="text-sm text-slate-400 mb-6 font-medium">Transparansi perhitungan untuk <b>{assetDetailModal.symbol}</b></p>
+                <h2 className="text-2xl font-black text-white mb-1">Rincian Kalkulasi Live</h2>
+                <p className="text-sm text-slate-400 mb-6 font-medium">Audit transparansi perhitungan untuk <b>{assetDetailModal.symbol}</b></p>
                 
                 <div className="space-y-3 bg-[#0F172A] p-5 rounded-2xl border border-slate-800">
                     <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                         <span className="text-slate-500 text-xs font-bold uppercase">Sumber Ticker API</span>
-                        <span className="text-white font-bold">{assetDetailModal.activeTicker}</span>
+                        <div className="flex items-center gap-2">
+                           <span className="text-white font-bold">{assetDetailModal.activeTicker}</span>
+                           <button onClick={() => { setTempTicker(assetDetailModal.activeTicker); setEditTickerModal(assetDetailModal.symbol); setAssetDetailModal(null); }} className="text-[9px] bg-slate-800 px-2 py-1 rounded text-indigo-400">EDIT</button>
+                        </div>
                     </div>
                     <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                         <span className="text-slate-500 text-xs font-bold uppercase">Unit Dimiliki</span>
                         <span className="text-white font-bold">{assetDetailModal.qty} Unit</span>
                     </div>
                     <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                        <span className="text-slate-500 text-xs font-bold uppercase">Multiplier Lot</span>
+                        <span className="text-slate-500 text-xs font-bold uppercase">Multiplier</span>
                         <span className="text-white font-bold">x {assetDetailModal.liveMultiplier}</span>
                     </div>
                     <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                        <span className="text-slate-500 text-xs font-bold uppercase">Harga Live / Lembar (IDR)</span>
+                        <span className="text-slate-500 text-xs font-bold uppercase">Harga Live / Unit (IDR)</span>
                         <span className="text-indigo-400 font-black">{formatRp(livePrices[assetDetailModal.activeTicker] || 0)}</span>
                     </div>
                     <div className="flex justify-between items-center pt-1">
-                        <span className="text-slate-500 text-xs font-bold uppercase">Total Valuasi</span>
+                        <span className="text-slate-500 text-xs font-bold uppercase">Total Valuasi Saat Ini</span>
                         <span className="text-emerald-400 font-black text-lg">
                            {formatRp(assetDetailModal.qty * (livePrices[assetDetailModal.activeTicker] || 0) * assetDetailModal.liveMultiplier)}
                         </span>
@@ -596,12 +660,11 @@ export default function ExpertTerminal() {
                                        <div className="flex items-center gap-2 cursor-pointer hover:text-white" onClick={() => setAssetDetailModal(p)}>
                                            {p.symbol} 
                                            <span className="text-[9px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 font-medium">{p.activeTicker}</span>
-                                           {isError ? (
+                                           <Info className="w-3 h-3 text-indigo-500" />
+                                           {isError && (
                                               <button onClick={(e) => { e.stopPropagation(); setTempTicker(p.activeTicker); setEditTickerModal(p.symbol); }} className="text-rose-500 hover:text-rose-400 transition-colors bg-rose-500/10 px-1.5 py-0.5 rounded flex items-center gap-1" title="Perbaiki Ticker">
                                                  ⚠️ Error
                                               </button>
-                                           ) : (
-                                              <button onClick={(e) => { e.stopPropagation(); setTempTicker(p.activeTicker); setEditTickerModal(p.symbol); }} className="text-indigo-400 hover:text-indigo-300 transition-colors opacity-0 group-hover:opacity-100 bg-indigo-500/10 px-1.5 py-0.5 rounded flex items-center gap-1"><Edit3 className="w-3 h-3"/> Edit</button>
                                            )}
                                        </div>
                                     </th>
@@ -680,7 +743,10 @@ export default function ExpertTerminal() {
                       <th className="px-6 py-4 border-b border-slate-800 sticky left-0 bg-[#0F172A] z-10">Bulan ({selectedYear})</th>
                       {activePortfolio.map((p: any) => (
                           <th key={p.symbol} onClick={() => setAssetDetailModal(p)} className="px-6 py-4 border-b border-slate-800 whitespace-nowrap cursor-pointer hover:text-indigo-300 transition-colors">
-                              {p.symbol} L/R
+                              <div className="flex items-center gap-1">
+                                  {p.symbol} L/R
+                                  <Info className="w-3 h-3 text-indigo-500" />
+                              </div>
                           </th>
                       ))}
                       <th className="px-6 py-4 border-b border-slate-800 text-indigo-400 whitespace-nowrap">Portfolio Wtd</th>
@@ -702,7 +768,7 @@ export default function ExpertTerminal() {
                                 {activePortfolio.map((p: any) => {
                                     const assetSnap = details[p.symbol] || { invested: 0, valuasi: 0, qty: 0 };
                                     
-                                    // 🚀 KUNCI PERBAIKAN: Jika qty = 0, hentikan kalkulasi bulan tersebut (Tampilkan Strip)
+                                    // 🚀 KUNCI PERBAIKAN: Jika qty = 0 (belum dibeli atau sudah dijual habis), berikan tanda kosong (-)
                                     if (assetSnap.qty === 0) return <td key={p.symbol} className="px-6 py-4 text-slate-600">-</td>;
                                     
                                     const plAmount = assetSnap.valuasi - assetSnap.invested;
@@ -756,7 +822,6 @@ export default function ExpertTerminal() {
                      <button onClick={() => setChartTimeframe('1M')} className={`px-3 py-1 rounded text-xs font-bold border transition-colors ${chartTimeframe==='1M'?'bg-indigo-600 text-white border-indigo-500':'bg-[#0F172A] text-slate-400 border-slate-700 hover:border-slate-500'}`}>1 Bulan</button>
                      <button onClick={() => setChartTimeframe('3M')} className={`px-3 py-1 rounded text-xs font-bold border transition-colors ${chartTimeframe==='3M'?'bg-indigo-600 text-white border-indigo-500':'bg-[#0F172A] text-slate-400 border-slate-700 hover:border-slate-500'}`}>3 Bulan</button>
                      <button onClick={() => setChartTimeframe('1Y')} className={`px-3 py-1 rounded text-xs font-bold border transition-colors ${chartTimeframe==='1Y'?'bg-indigo-600 text-white border-indigo-500':'bg-[#0F172A] text-slate-400 border-slate-700 hover:border-slate-500'}`}>1 Tahun</button>
-                     <button onClick={() => setChartTimeframe('ALL')} className={`px-3 py-1 rounded text-xs font-bold border transition-colors ${chartTimeframe==='ALL'?'bg-indigo-600 text-white border-indigo-500':'bg-[#0F172A] text-slate-400 border-slate-700 hover:border-slate-500'}`}>Semua</button>
                   </div>
                 </div>
                 <div className="h-72 w-full">
@@ -802,10 +867,10 @@ export default function ExpertTerminal() {
                         const isLivePriceReady = t.livePriceIDR > 0;
                         const livePricePerShareIDR = t.livePriceIDR;
                         
+                        // Perbaiki Multiplier Terealisasi agar adil membandingkan harga per lembarnya
                         const multiplier = (t.isStock && t.isIDR && !t.isGold) ? 100 : 1; 
                         const sellPricePerShareIDR = t.sellPriceIDR / multiplier;
                         
-                        // Keputusan Tepat = Harga pasar saat ini LEBIH RENDAH dari harga jual dulu (untung jual duluan)
                         const isGoodSell = isLivePriceReady && livePricePerShareIDR < sellPricePerShareIDR;
 
                         return (
