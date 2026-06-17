@@ -35,7 +35,7 @@ export default function ExpertTerminal() {
       enabled: !!currentUserEmail
   });
 
-  // Fitur Koreksi Ticker Manual (Jika nama di PWA tidak dikenali Yahoo)
+  // Fitur Koreksi Ticker Manual
   const [tickerOverrides, setTickerOverrides] = useState<Record<string, string>>(() => {
       const saved = localStorage.getItem('bilano_ticker_overrides');
       return saved ? JSON.parse(saved) : {};
@@ -49,110 +49,102 @@ export default function ExpertTerminal() {
 
   const cashBalance = user?.cashBalance || 0;
 
-  // 1. 🚀 100% OTOMATIS: Tarik Seluruh Portofolio Aktif dari PWA + Logika Anti-Bug QQQM
-  const activePortfolio = useMemo(() => {
-    const agg: Record<string, { qty: number, totalModalIDR: number, symbol: string, currency: string, ticker: string, multiplier: number, rate: number }> = {};
-    
-    investments.forEach((inv: any) => {
-      const parts = (inv.symbol || "").split('|');
-      const sym = parts[0].trim().toUpperCase();
-      const curr = parts[1] || 'IDR';
-      const isIDR = curr === 'IDR';
-      const isStock = sym.length === 4; 
-      
-      // Jangan pernah tambahkan .JK ke saham US!
-      let ticker = sym;
-      if (isIDR && isStock) ticker = `${sym}.JK`;
-      
-      const multiplier = (isIDR && isStock) ? 100 : 1;
-      const rate = isIDR ? 1 : (forexRates[curr] || 16000);
+  // 1. 🚀 100% OTOMATIS: Tarik Seluruh Portofolio Aktif dari PWA (Identik PWA Logic)
+  const aggregatedPortfolio = useMemo(() => {
+      const map: Record<string, any> = {};
+      investments.forEach((p: any) => {
+          const symRaw = p.symbol || "";
+          if (!map[symRaw]) map[symRaw] = { ...p, quantity: 0, totalVal: 0 };
+          map[symRaw].quantity += p.quantity;
+          map[symRaw].totalVal += (p.quantity * p.avgPrice);
+      });
+      return Object.values(map).map(g => ({
+          ...g,
+          avgPrice: g.quantity > 0 ? (g.totalVal / g.quantity) : 0
+      }));
+  }, [investments]);
 
-      if (!agg[sym]) agg[sym] = { qty: 0, totalModalIDR: 0, symbol: sym, currency: curr, ticker, multiplier, rate };
-      
-      agg[sym].qty += inv.quantity;
-      agg[sym].totalModalIDR += (inv.quantity * inv.avgPrice * multiplier * rate);
-    });
-    
-    return Object.values(agg).filter(p => p.qty > 0);
-  }, [investments, forexRates]);
+  const activePortfolio = useMemo(() => {
+      return aggregatedPortfolio.filter((p: any) => p.quantity > 0).map((p: any) => {
+          const symRaw = p.symbol || "";
+          const parts = symRaw.split('|');
+          const symbol = parts[0].trim().toUpperCase();
+          const currency = parts[1] || 'IDR';
+          
+          const type = p.type || 'saham';
+          const isStock = type.toLowerCase() === 'saham' || (!p.type && symbol.length === 4);
+          const multiplier = (isStock && currency === 'IDR') ? 100 : 1;
+          const rate = currency === 'IDR' ? 1 : (Number(forexRates[currency]) || 16200);
+          
+          const defaultTicker = (isStock && currency === 'IDR') ? `${symbol}.JK` : symbol;
+          const activeTicker = tickerOverrides[symbol] || defaultTicker;
+
+          const totalModalIDR = p.quantity * p.avgPrice * multiplier * rate;
+
+          return { ...p, symbol, currency, isStock, multiplier, rate, activeTicker, totalModalIDR };
+      });
+  }, [aggregatedPortfolio, forexRates, tickerOverrides]);
 
   // 2. 🚀 OTOMATIS: Ekstrak Data Investasi Terealisasi (Anti-Bug IDR)
   const realizedTradesBase = useMemo(() => {
-    return transactions.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
-      // Regex pintar: Berhenti sebelum tanda "|" atau "@" agar kata IDR tidak ikut terbaca
-      const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
-      const symbol = match ? match[1].toUpperCase().trim() : 'Unknown';
-      
-      const sellPriceMatch = t.description?.match(/@\s*(?:(?:Rp|USD)\s*)?([0-9.,]+)/i);
-      const sellPriceRaw = sellPriceMatch ? parseFloat(sellPriceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
+      return transactions.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
+          const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+          const symbol = match ? match[1].toUpperCase().trim() : 'Unknown';
+          
+          const sellPriceMatch = t.description?.match(/@\s*(?:(?:Rp|USD)\s*)?([0-9.,]+)/i);
+          const sellPriceRaw = sellPriceMatch ? parseFloat(sellPriceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
 
-      const isUSD = t.description?.includes('USD') || t.description?.includes('US$');
-      const currency = isUSD ? 'USD' : 'IDR'; 
-      const rate = currency === 'IDR' ? 1 : (forexRates[currency] || 16000);
-      const sellPriceIDR = sellPriceRaw * rate;
+          const isUSD = t.description?.includes('USD') || t.description?.includes('US$');
+          const currency = isUSD ? 'USD' : 'IDR'; 
+          const rate = currency === 'IDR' ? 1 : (Number(forexRates[currency]) || 16200);
+          const sellPriceIDR = sellPriceRaw * rate;
 
-      return { ...t, symbol, currency, sellPriceIDR };
-    });
-  }, [transactions, forexRates]);
+          const isStock = symbol.length === 4; 
+          const defaultTicker = (currency === 'IDR' && isStock) ? `${symbol}.JK` : symbol;
+          const activeTicker = tickerOverrides[symbol] || defaultTicker;
 
-  // 3. Tentukan Kode Ticker yang akan dilempar ke Yahoo Finance
+          return { ...t, symbol, currency, sellPriceIDR, activeTicker };
+      });
+  }, [transactions, forexRates, tickerOverrides]);
+
   const uniqueTickersToFetch = useMemo(() => {
-    const tickers = new Set<string>();
-    activePortfolio.forEach(p => {
-        tickers.add(tickerOverrides[p.symbol] || p.ticker);
-    });
-    realizedTradesBase.forEach((t: any) => {
-        if (t.symbol !== 'Unknown') {
-            const isIDR = t.currency === 'IDR';
-            const isStock = t.symbol.length === 4;
-            const defaultTicker = (isIDR && isStock) ? `${t.symbol}.JK` : t.symbol;
-            tickers.add(tickerOverrides[t.symbol] || defaultTicker);
-        }
-    });
-    return Array.from(tickers);
-  }, [activePortfolio, realizedTradesBase, tickerOverrides]);
+      const tickers = new Set<string>();
+      activePortfolio.forEach((p: any) => tickers.add(p.activeTicker));
+      realizedTradesBase.forEach((t: any) => {
+          if (t.symbol !== 'Unknown') tickers.add(t.activeTicker);
+      });
+      return Array.from(tickers);
+  }, [activePortfolio, realizedTradesBase]);
 
   const { data: livePrices = {}, isLoading: isLivePricesLoading } = useLiveQuotes(uniqueTickersToFetch);
 
-  // 4. Kalkulasi Live Valuasi
+  // Kalkulasi Live Valuasi
   const totalAssetValue = activePortfolio.reduce((acc: any, p: any) => {
-    const activeTicker = tickerOverrides[p.symbol] || p.ticker;
-    const livePriceAPI = livePrices[activeTicker];
-    
-    // Jika API berhasil, gunakan harga API * qty * multiplier. 
-    // Jika API gagal/loading, fallback ke modal aslinya (Modal IDR)
-    const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.multiplier) : p.totalModalIDR;
-    return acc + liveValuationIDR;
+      const livePriceIDR = livePrices[p.activeTicker];
+      const liveValuationIDR = livePriceIDR ? (p.quantity * livePriceIDR * p.multiplier) : p.totalModalIDR;
+      return acc + liveValuationIDR;
   }, 0);
 
   const totalInvested = activePortfolio.reduce((acc: any, p: any) => acc + p.totalModalIDR, 0);
   const totalProfitLoss = totalAssetValue - totalInvested;
   const totalWealth = cashBalance + totalAssetValue;
 
-  // Data Tabel 3: Investasi Terealisasi
   const realizedTrades = useMemo(() => {
-    return realizedTradesBase.map((t: any) => {
-        const isIDR = t.currency === 'IDR';
-        const isStock = t.symbol.length === 4;
-        const defaultTicker = (isIDR && isStock) ? `${t.symbol}.JK` : t.symbol;
-        const activeTicker = tickerOverrides[t.symbol] || defaultTicker;
-        
-        return { ...t, marketTicker: activeTicker, livePrice: livePrices[activeTicker] || 0 };
-    });
-  }, [realizedTradesBase, livePrices, tickerOverrides]);
+      return realizedTradesBase.map((t: any) => ({
+          ...t,
+          livePriceIDR: livePrices[t.activeTicker] || 0
+      }));
+  }, [realizedTradesBase, livePrices]);
 
-  // Data Pie Chart
   const pieData = [
-    { name: 'Cash Tunai', value: cashBalance },
-    ...activePortfolio.map((p: any) => {
-       const activeTicker = tickerOverrides[p.symbol] || p.ticker;
-       const livePriceAPI = livePrices[activeTicker];
-       const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.multiplier) : p.totalModalIDR;
-       return { name: p.symbol, value: liveValuationIDR };
-    })
+      { name: 'Cash Tunai', value: cashBalance },
+      ...activePortfolio.map((p: any) => {
+          const livePriceIDR = livePrices[p.activeTicker];
+          const liveValuationIDR = livePriceIDR ? (p.quantity * livePriceIDR * p.multiplier) : p.totalModalIDR;
+          return { name: p.symbol, value: liveValuationIDR };
+      })
   ].filter((d: any) => d.value > 0);
 
-  // Cari bulan pertama transaksi investasi
   const firstInvestmentMonthIndex = useMemo(() => {
       const investTxs = transactions.filter((t: any) => t.type === 'invest_buy');
       if (investTxs.length === 0) return 0;
@@ -171,7 +163,6 @@ export default function ExpertTerminal() {
           return { isSaved: true, totalValue: snap.totalValue, investValue: snap.investValue, details };
       }
       
-      // Jika belum disave, AI akan merekonstruksi berdasarkan transaksi Anda hingga akhir bulan tersebut
       const endOfMonth = new Date(year, monthNum, 0, 23, 59, 59);
       const pastTx = transactions.filter((t:any) => new Date(t.date) <= endOfMonth);
       
@@ -203,9 +194,10 @@ export default function ExpertTerminal() {
       
       Object.keys(qtyMap).forEach(sym => {
           if (qtyMap[sym].qty > 0) {
-              const currentAsset = activePortfolio.find(p => p.symbol === sym);
-              const livePriceAPI = currentAsset ? livePrices[tickerOverrides[sym] || currentAsset.ticker] : undefined;
+              const currentAsset = activePortfolio.find((p: any) => p.symbol === sym);
+              const ticker = currentAsset ? currentAsset.activeTicker : (tickerOverrides[sym] || sym);
               const multiplier = currentAsset ? currentAsset.multiplier : (sym.length === 4 ? 100 : 1);
+              const livePriceAPI = livePrices[ticker];
               
               const valuasi = livePriceAPI ? (qtyMap[sym].qty * livePriceAPI * multiplier) : qtyMap[sym].investedIDR;
               details[sym] = { invested: qtyMap[sym].investedIDR, valuasi };
@@ -217,7 +209,6 @@ export default function ExpertTerminal() {
       return { isSaved: false, totalValue: totalVal, investValue: totalInv, details };
   }, [snapshots, transactions, activePortfolio, livePrices, tickerOverrides]);
 
-  // Data Line Chart
   const lineData = useMemo(() => {
      let dataPoints = MONTH_NAMES.slice(firstInvestmentMonthIndex).map((monthName, idx) => {
          const monthNum = firstInvestmentMonthIndex + idx + 1;
@@ -244,10 +235,8 @@ export default function ExpertTerminal() {
       const year = new Date().getFullYear();
       
       const assetsDetail = activePortfolio.reduce((acc: any, p: any) => {
-         const activeTicker = tickerOverrides[p.symbol] || p.ticker;
-         const livePriceAPI = livePrices[activeTicker];
-         const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.multiplier) : p.totalModalIDR;
-         
+         const livePriceIDR = livePrices[p.activeTicker];
+         const liveValuationIDR = livePriceIDR ? (p.quantity * livePriceIDR * p.multiplier) : p.totalModalIDR;
          acc[p.symbol] = { invested: p.totalModalIDR, valuasi: liveValuationIDR };
          return acc;
       }, {} as Record<string, {invested: number, valuasi: number}>);
@@ -288,7 +277,7 @@ export default function ExpertTerminal() {
                        type="text" 
                        value={tempTicker} 
                        onChange={e => setTempTicker(e.target.value)}
-                       placeholder="Cth: ANTM.JK / BTC-USD"
+                       placeholder="Cth: ANTM.JK / BTC-USD / QQQM"
                        className="w-full bg-[#0F172A] border border-slate-700 rounded-xl px-4 py-3.5 text-white font-bold outline-none focus:border-indigo-500 uppercase transition-colors"
                    />
                 </div>
@@ -395,19 +384,18 @@ export default function ExpertTerminal() {
                               <th className="px-6 py-4 border-b border-slate-800 whitespace-nowrap sticky left-0 bg-[#0F172A] z-10">Kategori</th>
                               <th className="px-6 py-4 border-b border-slate-800 text-emerald-400 whitespace-nowrap">Cash (Tunai)</th>
                               {activePortfolio.map((p: any) => {
-                                 const activeTicker = tickerOverrides[p.symbol] || p.ticker;
-                                 const isError = livePrices[activeTicker] === undefined && !isLivePricesLoading;
+                                 const isError = livePrices[p.activeTicker] === undefined && !isLivePricesLoading;
                                  return (
                                     <th key={p.symbol} className="px-6 py-4 border-b border-slate-800 whitespace-nowrap group">
                                        <div className="flex items-center gap-2">
                                            {p.symbol} 
-                                           <span className="text-[9px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 font-medium">{activeTicker}</span>
+                                           <span className="text-[9px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 font-medium">{p.activeTicker}</span>
                                            {isError ? (
-                                              <button onClick={() => { setTempTicker(activeTicker); setEditTickerModal(p.symbol); }} className="text-rose-500 hover:text-rose-400 transition-colors bg-rose-500/10 px-1.5 py-0.5 rounded flex items-center gap-1" title="Perbaiki Ticker">
+                                              <button onClick={() => { setTempTicker(p.activeTicker); setEditTickerModal(p.symbol); }} className="text-rose-500 hover:text-rose-400 transition-colors bg-rose-500/10 px-1.5 py-0.5 rounded flex items-center gap-1" title="Perbaiki Ticker">
                                                  ⚠️ Error
                                               </button>
                                            ) : (
-                                              <button onClick={() => { setTempTicker(activeTicker); setEditTickerModal(p.symbol); }} className="text-indigo-400 hover:text-indigo-300 transition-colors opacity-0 group-hover:opacity-100 bg-indigo-500/10 px-1.5 py-0.5 rounded flex items-center gap-1"><Edit3 className="w-3 h-3"/> Edit</button>
+                                              <button onClick={() => { setTempTicker(p.activeTicker); setEditTickerModal(p.symbol); }} className="text-indigo-400 hover:text-indigo-300 transition-colors opacity-0 group-hover:opacity-100 bg-indigo-500/10 px-1.5 py-0.5 rounded flex items-center gap-1"><Edit3 className="w-3 h-3"/> Edit</button>
                                            )}
                                        </div>
                                     </th>
@@ -420,10 +408,8 @@ export default function ExpertTerminal() {
                               <td className="px-6 py-4 font-bold text-slate-400 sticky left-0 bg-[#1E293B] z-10">Nilai Aset (Live)</td>
                               <td className="px-6 py-4">{formatRp(cashBalance)}</td>
                               {activePortfolio.map((p: any) => {
-                                const activeTicker = tickerOverrides[p.symbol] || p.ticker;
-                                const livePriceAPI = livePrices[activeTicker];
-                                const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.multiplier) : p.totalModalIDR;
-                                
+                                const livePriceIDR = livePrices[p.activeTicker];
+                                const liveValuationIDR = livePriceIDR ? (p.quantity * livePriceIDR * p.multiplier) : p.totalModalIDR;
                                 return <td key={p.symbol} className="px-6 py-4">{formatRp(liveValuationIDR)}</td>
                               })}
                             </tr>
@@ -431,10 +417,8 @@ export default function ExpertTerminal() {
                               <td className="px-6 py-4 font-bold text-slate-400 sticky left-0 bg-[#1E293B] z-10">Persentase</td>
                               <td className="px-6 py-4 text-emerald-400 font-bold">{totalWealth > 0 ? formatPct(cashBalance / totalWealth) : '0%'}</td>
                               {activePortfolio.map((p: any) => {
-                                 const activeTicker = tickerOverrides[p.symbol] || p.ticker;
-                                 const livePriceAPI = livePrices[activeTicker];
-                                 const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.multiplier) : p.totalModalIDR;
-                                 
+                                 const livePriceIDR = livePrices[p.activeTicker];
+                                 const liveValuationIDR = livePriceIDR ? (p.quantity * livePriceIDR * p.multiplier) : p.totalModalIDR;
                                  return <td key={p.symbol} className="px-6 py-4 text-indigo-400 font-bold">{totalWealth > 0 ? formatPct(liveValuationIDR / totalWealth) : '0%'}</td>
                               })}
                             </tr>
@@ -599,17 +583,17 @@ export default function ExpertTerminal() {
                       <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500">Belum ada rekam jejak investasi yang dijual.</td></tr>
                     ) : (
                       realizedTrades.map((t: any) => {
-                        const isLivePriceReady = t.livePrice > 0;
-                        const isGoodSell = isLivePriceReady && t.livePrice < (t.sellPriceIDR / (t.marketTicker.includes('.JK') ? 100 : 1)); // membandingkan per unit share
+                        const isLivePriceReady = t.livePriceIDR > 0;
+                        const isGoodSell = isLivePriceReady && t.livePriceIDR < (t.sellPriceIDR / (t.marketTicker.includes('.JK') || t.symbol.length === 4 ? 100 : 1));
 
                         return (
                           <tr key={t.id} className="border-b border-slate-800/50 hover:bg-slate-800/20">
                             <td className="px-6 py-4">{new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                             <td className="px-6 py-4 font-black text-white flex items-center gap-2">
                                {t.symbol} 
-                               <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-normal">{t.marketTicker}</span>
+                               <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-normal">{t.activeTicker}</span>
                                {!isLivePriceReady && !isLivePricesLoading && (
-                                   <button onClick={() => { setTempTicker(t.marketTicker); setEditTickerModal(t.symbol); }} className="text-rose-500 hover:text-rose-400 transition-colors bg-rose-500/10 px-1.5 py-0.5 rounded flex items-center gap-1" title="Perbaiki Ticker">⚠️ Error</button>
+                                   <button onClick={() => { setTempTicker(t.activeTicker); setEditTickerModal(t.symbol); }} className="text-rose-500 hover:text-rose-400 transition-colors bg-rose-500/10 px-1.5 py-0.5 rounded flex items-center gap-1" title="Perbaiki Ticker">⚠️ Error</button>
                                )}
                             </td>
                             <td className="px-6 py-4">
@@ -617,7 +601,7 @@ export default function ExpertTerminal() {
                                <span className="text-[10px] text-slate-500">Modal Asli: @ {formatRp(t.sellPriceIDR)}</span>
                             </td>
                             <td className="px-6 py-4 text-indigo-300 font-bold">
-                               {isLivePricesLoading && !isLivePriceReady ? <Loader2 className="w-4 h-4 animate-spin text-indigo-500"/> : (t.livePrice ? formatRp(t.livePrice * (t.marketTicker.includes('.JK') ? 100 : 1)) : <span className="text-slate-600">N/A</span>)}
+                               {isLivePricesLoading && !isLivePriceReady ? <Loader2 className="w-4 h-4 animate-spin text-indigo-500"/> : (t.livePriceIDR ? formatRp(t.livePriceIDR * (t.activeTicker.includes('.JK') || t.symbol.length === 4 ? 100 : 1)) : <span className="text-slate-600">N/A</span>)}
                             </td>
                             <td className="px-6 py-4 text-right">
                               {!isLivePriceReady ? <span className="text-[10px] text-slate-600">Menunggu API...</span> : isGoodSell ? (

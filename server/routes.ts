@@ -68,7 +68,7 @@ async function askSmartAI(systemPrompt: string, userMessage: string, history: an
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
-  app.use("/api", (req, res, next) => {
+  app.use("/api", (req: any, res: any, next: any) => {
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
@@ -96,7 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return false;
   };
 
-  app.get("/api/admin/upgrade-db", async (req, res) => {
+  app.get("/api/admin/upgrade-db", async (req: any, res: any) => {
       try {
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onesignal_id TEXT;`);
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`);
@@ -114,15 +114,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`ALTER TABLE forex_assets ALTER COLUMN amount TYPE DOUBLE PRECISION;`);
           await db.execute(sql`ALTER TABLE investments ALTER COLUMN quantity TYPE DOUBLE PRECISION;`);
           await db.execute(sql`ALTER TABLE investments ALTER COLUMN avg_price TYPE DOUBLE PRECISION;`);
-
-          // 🚀 TABEL HISTORIKAL BARU UNTUK EXPERT TERMINAL
           await db.execute(sql`CREATE TABLE IF NOT EXISTS portfolio_snapshots (id SERIAL PRIMARY KEY, user_id INTEGER, month INTEGER, year INTEGER, cash_balance REAL, invest_value REAL, total_value REAL, assets_detail TEXT, created_at TIMESTAMP DEFAULT NOW());`);
 
           res.json({ success: true, message: "🎉 DATABASE BERHASIL DIOPTIMASI!" });
       } catch (e: any) { res.status(500).json({ error: "Gagal Update DB: " + e.message }); }
   });
 
-  app.post("/api/auth/check-email", async (req, res) => {
+  app.post("/api/auth/check-email", async (req: any, res: any) => {
       if (!firebaseAdminInitialized) return res.status(200).json({ adminReady: false, exists: true }); 
       try {
           await admin.auth().getUserByEmail(req.body.email.trim().toLowerCase());
@@ -133,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  app.post("/api/auth/send-otp", async (req, res) => {
+  app.post("/api/auth/send-otp", async (req: any, res: any) => {
       const cleanEmail = (req.body.email || "").trim().toLowerCase();
       let otp = Math.floor(100000 + Math.random() * 900000).toString(); 
 
@@ -169,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  app.post("/api/auth/send-otp-reset", async (req, res) => {
+  app.post("/api/auth/send-otp-reset", async (req: any, res: any) => {
       if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
       const cleanEmail = (req.body.email || "").trim().toLowerCase();
       try { await admin.auth().getUserByEmail(cleanEmail); } catch (e) { return res.status(404).json({ error: "Email ini belum terdaftar di aplikasi kami." }); }
@@ -207,7 +205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  app.post("/api/transactions/undo", async (req, res) => {
+  app.post("/api/transactions/undo", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           const lastTx = await storage.getLatestTransaction(user!.id);
@@ -268,9 +266,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/auth/reset-password", async (req, res) => {
+  app.post("/api/auth/reset-password", async (req: any, res: any) => {
       if (!firebaseAdminInitialized) return res.status(500).json({ error: "Kunci Admin JSON di Vercel belum dikonfigurasi!" });
-      
       const { email, code, newPassword } = req.body;
       if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: "Password baru minimal 6 karakter!" });
 
@@ -291,7 +288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: "Gagal mengganti password: " + error.message }); }
   });
 
-  app.post("/api/auth/verify-otp", async (req, res) => {
+  app.post("/api/auth/verify-otp", async (req: any, res: any) => {
       const { email, code } = req.body;
       try {
           const cleanEmail = email.trim().toLowerCase();
@@ -307,7 +304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Error mengecek OTP di database." }); }
   });
 
-  app.get("/api/ping", async (req, res) => {
+  app.get("/api/ping", async (req: any, res: any) => {
       try {
           await db.execute(sql`SELECT 1`);
           res.status(200).json({ status: "awake & db connected", time: new Date().toISOString() });
@@ -329,18 +326,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         catch (err) { user = await storage.getUserByUsername(email as string); }
     }
 
-    // 🚀 UNLOCK SEMUA FITUR PRO UNTUK SEMUA PENGGUNA
-    if (user) {
+    const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"];
+
+    if (user && vipEmails.includes(user.email || "")) {
         user.isPro = true;
         user.proValidUntil = new Date("2099-12-31").toISOString() as any; 
+        return user; 
     }
-    
+
+    if (user && user.isPro && user.proValidUntil) {
+        const now = new Date();
+        const validUntil = new Date(user.proValidUntil);
+        if (now > validUntil) user = await storage.updateUserProStatus(user.id, false, null);
+    }
     return user;
   };
-  
+
   const isAdminValid = (email: string) => { return ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(email); };
 
-  app.post("/api/user/onesignal", async (req, res) => {
+  app.post("/api/user/onesignal", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           const { onesignalId } = req.body;
@@ -349,7 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal menyimpan ID OneSignal" }); }
   });
 
-  app.all("/api/cron/notifications", async (req, res) => {
+  app.all("/api/cron/notifications", async (req: any, res: any) => {
       try {
           const restKey = process.env.ONESIGNAL_REST_KEY;
           const appId = process.env.ONESIGNAL_APP_ID; 
@@ -387,7 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  app.post("/api/chat/ask", async (req, res) => {
+  app.post("/api/chat/ask", async (req: any, res: any) => {
       const user = await getUser(req);
       if (!user) return res.status(401).json({ reply: "Sesi berakhir. Login dulu ya." });
       
@@ -399,23 +403,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ]);
 
       const saldoTunai = user.cashBalance || 0;
-      const totalInvestasi = investments.reduce((acc, inv) => acc + (inv.quantity * inv.avgPrice * (inv.type === 'saham' || (inv.symbol.length === 4 && inv.type !== 'crypto') ? 100 : 1)), 0);
-      const activeDebts = debts.filter(d => !d.isPaid);
-      const listHutang = activeDebts.filter(d => d.type === 'hutang').map(d => `${d.amount} ${(d.name.split('|')[1] || 'IDR')}`).join(', ') || '0';
-      const listPiutang = activeDebts.filter(d => d.type === 'piutang').map(d => `${d.amount} ${(d.name.split('|')[1] || 'IDR')}`).join(', ') || '0';
-      const listValas = forexAssets.map(f => `${f.amount} ${f.currency}`).join(', ') || '0';
-      const listSubs = subscriptions.filter(s => s.isActive).map(s => `${s.name} (${s.cost})`).join(', ') || 'Tidak ada';
+      const totalInvestasi = investments.reduce((acc: any, inv: any) => acc + (inv.quantity * inv.avgPrice * (inv.type === 'saham' || (inv.symbol.length === 4 && inv.type !== 'crypto') ? 100 : 1)), 0);
+      const activeDebts = debts.filter((d: any) => !d.isPaid);
+      const listHutang = activeDebts.filter((d: any) => d.type === 'hutang').map((d: any) => `${d.amount} ${(d.name.split('|')[1] || 'IDR')}`).join(', ') || '0';
+      const listPiutang = activeDebts.filter((d: any) => d.type === 'piutang').map((d: any) => `${d.amount} ${(d.name.split('|')[1] || 'IDR')}`).join(', ') || '0';
+      const listValas = forexAssets.map((f: any) => `${f.amount} ${f.currency}`).join(', ') || '0';
+      const listSubs = subscriptions.filter((s: any) => s.isActive).map((s: any) => `${s.name} (${s.cost})`).join(', ') || 'Tidak ada';
 
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       
-      const txBulanIni = transactions.filter(t => {
+      const txBulanIni = transactions.filter((t: any) => {
           const d = new Date(t.date);
           return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       });
 
-      const pengeluaranBulanIni = txBulanIni.filter(t => t.type === 'expense' && t.category !== 'Amal').reduce((acc, t) => acc + t.amount, 0);
-      const totalAmalBulanIni = txBulanIni.filter(t => t.category === 'Amal').reduce((acc, t) => acc + t.amount, 0);
+      const pengeluaranBulanIni = txBulanIni.filter((t: any) => t.type === 'expense' && t.category !== 'Amal').reduce((acc: any, t: any) => acc + t.amount, 0);
+      const totalAmalBulanIni = txBulanIni.filter((t: any) => t.category === 'Amal').reduce((acc: any, t: any) => acc + t.amount, 0);
       
       let sisaBudget = "Tidak dibatasi";
       if (target && target.monthlyBudget > 0) sisaBudget = `Rp ${(target.monthlyBudget - pengeluaranBulanIni).toLocaleString('id-ID')}`;
@@ -451,7 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ reply });
   });
 
-  app.get("/api/retained", async (req, res) => {
+  app.get("/api/retained", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           await ensureRetainedTable();
@@ -461,7 +465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/retained", async (req, res) => {
+  app.post("/api/retained", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           const { source, amount, currency } = req.body;
@@ -471,7 +475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.put("/api/retained/:id", async (req, res) => {
+  app.put("/api/retained/:id", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           const { amount } = req.body;
@@ -480,7 +484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.delete("/api/retained/:id", async (req, res) => {
+  app.delete("/api/retained/:id", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           await db.execute(sql`DELETE FROM retained_balances WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
@@ -488,7 +492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/retained/:id/withdraw", async (req, res) => {
+  app.post("/api/retained/:id/withdraw", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           const { amount } = req.body;
@@ -523,9 +527,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.get("/api/transactions", async (req, res) => { const user = await getUser(req); res.json(await storage.getTransactions(user!.id)); });
+  app.get("/api/transactions", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getTransactions(user!.id)); });
   
-  app.post("/api/transactions", async (req, res) => { 
+  app.post("/api/transactions", async (req: any, res: any) => { 
       const user = await getUser(req); 
       const parsed = insertTransactionSchema.safeParse(req.body); 
       if (!parsed.success) return res.status(400).json(parsed.error); 
@@ -544,7 +548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(tx); 
   });
 
-  app.delete("/api/user/account", async (req, res) => {
+  app.delete("/api/user/account", async (req: any, res: any) => {
       const user = await getUser(req);
       if (!user || user.username === 'guest') return res.status(401).json({ error: "Sesi tidak valid." });
 
@@ -570,12 +574,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) { res.status(500).json({ error: "Gagal memusnahkan data akun." }); }
   });
 
-  app.delete("/api/transactions/:id", async (req, res) => {
+  app.delete("/api/transactions/:id", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           const txId = parseInt(req.params.id);
           const txs = await storage.getTransactions(user!.id);
-          const txToDelete = txs.find(t => t.id === txId);
+          const txToDelete = txs.find((t: any) => t.id === txId);
 
           if (!txToDelete) return res.status(404).json({ error: "Data transaksi tidak ditemukan" });
 
@@ -633,9 +637,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) { res.status(500).json({ error: "Terjadi kesalahan pada server saat menghapus" }); }
   });
 
-  app.get("/api/forex", async (req, res) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
+  app.get("/api/forex", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
   
-  app.get("/api/forex/rates", async (req, res) => { 
+  app.get("/api/forex/rates", async (req: any, res: any) => { 
       const now = Date.now();
       const ONE_HOUR = 1000 * 60 * 60;
       if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > ONE_HOUR) await fetchLiveRates(); 
@@ -643,7 +647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(cachedRates); 
   });
   
-  app.post("/api/forex/transaction", async (req, res) => {
+  app.post("/api/forex/transaction", async (req: any, res: any) => {
       const user = await getUser(req);
       const { type, currency, amount, description } = req.body;
       const existing = await storage.getForexByCurrency(user!.id, currency);
@@ -688,9 +692,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, newBalance: currentAmount });
   });
 
-  app.get("/api/debts", async (req, res) => { const user = await getUser(req); res.json(await storage.getDebts(user!.id)); });
+  app.get("/api/debts", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getDebts(user!.id)); });
   
-  app.post("/api/debts", async (req, res) => { 
+  app.post("/api/debts", async (req: any, res: any) => { 
       try {
           const user = await getUser(req); 
           const { type, amount, name, description, isFromTransaction } = req.body;
@@ -733,13 +737,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch(e:any) { res.status(500).json({error: e.message}); }
   });
 
-  app.post("/api/debts/:id/restore", async (req, res) => {
+  app.post("/api/debts/:id/restore", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           const id = parseInt(req.params.id);
 
           const debts = await storage.getDebts(user!.id);
-          const debt = debts.find(d => d.id === id);
+          const debt = debts.find((d: any) => d.id === id);
 
           if (!debt || !debt.isPaid) return res.status(400).json({ error: "Tagihan ini tidak dapat dipulihkan karena belum lunas." });
 
@@ -749,7 +753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const curr = debt.name.split('|')[1] || 'IDR';
 
           const txs = await storage.getTransactions(user!.id);
-          const payTxs = txs.filter(t => 
+          const payTxs = txs.filter((t: any) => 
               t.description.includes(`Lunas/Cicilan dari ${debtNameOnly}`) ||
               t.description.includes(`Lunas/Cicilan ke ${debtNameOnly}`) ||
               t.description.includes(`[WRITE_OFF] ${debt.name}`) ||
@@ -765,7 +769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (cashOffset !== 0) await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + cashOffset));
 
-          const hasValasTx = payTxs.some(t => t.category.includes('Valas'));
+          const hasValasTx = payTxs.some((t: any) => t.category.includes('Valas'));
           if (curr !== 'IDR' && hasValasTx) {
               const existingForex = await storage.getForexByCurrency(user!.id, curr);
               let currentForexAmount = existingForex ? existingForex.amount : 0;
@@ -781,7 +785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memulihkan tagihan." }); }
   });
 
-  app.post("/api/debts/:id/pay", async (req, res) => {
+  app.post("/api/debts/:id/pay", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           const id = parseInt(req.params.id);
@@ -793,7 +797,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
 
           const debts = await storage.getDebts(user!.id);
-          const debt = debts.find(d => d.id === id);
+          const debt = debts.find((d: any) => d.id === id);
           
           if (!debt) return res.status(404).json({ error: "Tagihan ini sudah tidak ada di database." });
           if (debt.isPaid) return res.status(400).json({ error: "Tagihan ini sudah berstatus lunas sebelumnya." });
@@ -859,17 +863,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses ke database." }); }
   });
 
-  app.delete("/api/debts/:id", async (req, res) => { await storage.deleteDebt(parseInt(req.params.id)); res.json({success:true}); });
+  app.delete("/api/debts/:id", async (req: any, res: any) => { await storage.deleteDebt(parseInt(req.params.id)); res.json({success:true}); });
 
-  app.get("/api/target", async (req, res) => { const user = await getUser(req); res.json(await storage.getTarget(user!.id) || {}); });
+  app.get("/api/target", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getTarget(user!.id) || {}); });
   
-  app.patch("/api/target/penalty", async (req, res) => { 
+  app.patch("/api/target/penalty", async (req: any, res: any) => { 
       const user = await getUser(req); 
       try { await storage.updateTargetPenalty(user!.id, Math.round(req.body.amount)); res.json({success:true}); } 
       catch(e) { res.status(500).send("Error"); } 
   });
   
-  app.post("/api/target", async (req, res) => { 
+  app.post("/api/target", async (req: any, res: any) => { 
       const user = await getUser(req); 
       const { addCurrentCash, initialForexList, initialDebts, initialReceivables, initialInvestments, ...targetData } = req.body; 
       const target = await storage.setTarget(user!.id, targetData as any); 
@@ -912,9 +916,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(target); 
   });
   
-  app.get("/api/investments", async (req, res) => { const user = await getUser(req); res.json(await storage.getInvestments(user!.id)); });
+  app.get("/api/investments", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getInvestments(user!.id)); });
   
-  app.post("/api/investments/buy", async (req, res) => { 
+  app.post("/api/investments/buy", async (req: any, res: any) => { 
       try {
           const user = await getUser(req); 
           const { symbol, quantity, price, type } = req.body; 
@@ -930,7 +934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menyimpan aset." }); }
   });
 
-  app.post("/api/investments/sell", async (req, res) => { 
+  app.post("/api/investments/sell", async (req: any, res: any) => { 
       try {
           const user = await getUser(req); 
           const { symbol, quantity, price, type } = req.body; 
@@ -939,7 +943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const totalSellPrice = Math.round(quantity*price*m); 
           
           const allInvestments = await storage.getInvestments(user!.id);
-          const existings = allInvestments.filter(i => i.symbol === symbol); 
+          const existings = allInvestments.filter((i: any) => i.symbol === symbol); 
           
           let remainingToSell = quantity;
           let totalBuyPrice = 0;
@@ -966,7 +970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menjual aset." }); }
   });
 
-  app.get("/api/reports/data", async (req, res) => { 
+  app.get("/api/reports/data", async (req: any, res: any) => { 
       const user = await getUser(req); 
       const [tx, inv, debt, fx, sub] = await Promise.all([ storage.getTransactions(user!.id), storage.getInvestments(user!.id), storage.getDebts(user!.id), storage.getForexAssets(user!.id), storage.getSubscriptions(user!.id) ]); 
       
@@ -978,26 +982,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ user, transactions: tx, investments: inv, debts: debt, forexAssets: fx, subscriptions: sub, retained }); 
   });
   
-  app.get("/api/categories", async (req, res) => { const user = await getUser(req); res.json(await storage.getCategories(user!.id)); });
-  app.post("/api/categories", async (req, res) => { const user = await getUser(req); await storage.createCategory({ ...req.body, userId: user!.id } as any); res.json({success:true}); });
-  app.delete("/api/categories/:id", async (req, res) => { await storage.deleteCategory(parseInt(req.params.id)); res.json({success:true}); });
+  app.get("/api/categories", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getCategories(user!.id)); });
+  app.post("/api/categories", async (req: any, res: any) => { const user = await getUser(req); await storage.createCategory({ ...req.body, userId: user!.id } as any); res.json({success:true}); });
+  app.delete("/api/categories/:id", async (req: any, res: any) => { await storage.deleteCategory(parseInt(req.params.id)); res.json({success:true}); });
 
-  app.get("/api/subscriptions", async (req, res) => { const user = await getUser(req); res.json(await storage.getSubscriptions(user!.id)); });
-  app.post("/api/subscriptions", async (req, res) => { const user = await getUser(req); const sub = await storage.createSubscription(user!.id, req.body as any); res.json(sub); });
-  app.patch("/api/subscriptions/:id/status", async (req, res) => { const { isActive } = req.body; await storage.updateSubscriptionStatus(parseInt(req.params.id), isActive); res.json({ success: true }); });
-  app.delete("/api/subscriptions/:id", async (req, res) => { await storage.deleteSubscription(parseInt(req.params.id)); res.json({ success: true }); });
+  app.get("/api/subscriptions", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getSubscriptions(user!.id)); });
+  app.post("/api/subscriptions", async (req: any, res: any) => { const user = await getUser(req); const sub = await storage.createSubscription(user!.id, req.body as any); res.json(sub); });
+  app.patch("/api/subscriptions/:id/status", async (req: any, res: any) => { const { isActive } = req.body; await storage.updateSubscriptionStatus(parseInt(req.params.id), isActive); res.json({ success: true }); });
+  app.delete("/api/subscriptions/:id", async (req: any, res: any) => { await storage.deleteSubscription(parseInt(req.params.id)); res.json({ success: true }); });
 
-  app.get("/api/user", async (req, res) => { const user = await getUser(req); res.json(user); });
-  app.patch("/api/user/profile", async (req, res) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
+  app.get("/api/user", async (req: any, res: any) => { const user = await getUser(req); res.json(user); });
+  app.patch("/api/user/profile", async (req: any, res: any) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
   
-  app.get("/api/admin/users", async (req, res) => {
+  app.get("/api/admin/users", async (req: any, res: any) => {
       const email = req.headers["x-user-email"] as string;
       if (!isAdminValid(email)) return res.status(403).json({ error: "Akses Ditolak. Anda bukan admin." });
       try { const allUsers = await db.select().from(users).orderBy(desc(users.createdAt)); res.json(allUsers); } 
       catch (e) { res.status(500).json({ error: "Gagal memuat data pengguna dari database." }); }
   });
 
-  app.patch("/api/admin/users/:id/pro", async (req, res) => {
+  app.patch("/api/admin/users/:id/pro", async (req: any, res: any) => {
       const emailAdmin = req.headers["x-user-email"] as string;
       if (!isAdminValid(emailAdmin)) return res.status(403).json({ error: "Akses Ditolak." });
       try {
@@ -1009,7 +1013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal memperbarui status pengguna." }); }
   });
 
-  app.post("/api/payment/mayar/charge", async (req, res) => {
+  app.post("/api/payment/mayar/charge", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
@@ -1069,7 +1073,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: "SERVER CRASH: " + error.message }); }
   });
 
-  app.post("/api/payment/mayar/webhook", async (req, res) => {
+  app.post("/api/payment/mayar/webhook", async (req: any, res: any) => {
       try {
           const payload = req.body || {}; 
           const status = String(payload?.status || payload?.data?.status || "").toUpperCase();
@@ -1097,7 +1101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) { res.status(200).json({ success: false, message: "Handled" }); }
   });
 
-  app.post("/api/help/submit", async (req, res) => {
+  app.post("/api/help/submit", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
@@ -1132,13 +1136,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) { res.status(500).json({ error: "Gagal mengirimkan laporan." }); }
   });
 
-  app.get("/api/admin/help", async (req, res) => {
+  app.get("/api/admin/help", async (req: any, res: any) => {
       const email = req.headers["x-user-email"] as string;
       if (!isAdminValid(email)) return res.status(403).json({ error: "Penyusup Ditolak" });
       try { const result = await db.execute(sql`SELECT * FROM help_tickets ORDER BY date DESC`); const rows = Array.isArray(result) ? result : (result as any).rows || []; res.json(rows); } catch (e) { res.json([]); }
   });
 
-  app.post("/api/admin/help/reply", async (req, res) => {
+  app.post("/api/admin/help/reply", async (req: any, res: any) => {
       const emailAdmin = req.headers["x-user-email"] as string;
       if (!isAdminValid(emailAdmin)) return res.status(403).json({ error: "Penyusup Ditolak" });
       const { ticketId, userEmail, subject, replyMessage } = req.body;
@@ -1166,7 +1170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) { res.status(500).json({ error: "Gagal mengirimkan email balasan." }); }
   });
 
-  app.post("/api/admin/silent-correction", async (req, res) => {
+  app.post("/api/admin/silent-correction", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           const { deductAmount } = req.body; 
@@ -1177,7 +1181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 🚀 EXPERT TERMINAL: ENDPOINT SNAPSHOT DATABASE HISTORIKAL
-  app.get("/api/portfolio/snapshots", async (req, res) => {
+  app.get("/api/portfolio/snapshots", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           const snaps = await storage.getPortfolioSnapshots(user!.id);
@@ -1185,7 +1189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch(e:any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/portfolio/snapshots", async (req, res) => {
+  app.post("/api/portfolio/snapshots", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           const snapshot = await storage.createPortfolioSnapshot(user!.id, req.body);
@@ -1196,7 +1200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =====================================================================
   // 🚀 FITUR EXPERT TERMINAL: INTEGRASI DATA HARGA LIVE (YAHOO FINANCE)
   // =====================================================================
-  app.post("/api/finance/quotes", async (req, res) => {
+  app.post("/api/finance/quotes", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
@@ -1210,14 +1214,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               try {
                   let symbol = rawSymbol.toUpperCase().trim();
                   
-                  if (symbol.length === 4 && !symbol.includes('.')) {
-                      symbol = `${symbol}.JK`; 
-                  } else if (symbol === 'BTC' || symbol === 'ETH') {
-                      symbol = `${symbol}-USD`; 
-                  } else if (symbol === 'ANTM' || symbol === 'UBS') {
-                      symbol = `${symbol}.JK`; 
-                  }
-
+                  // 🚀 BUGFIX: Tidak ada lagi penambahan paksa .JK agar saham US (AAPL, QQQM) tidak error.
+                  // Frontend sudah pintar mengirim ticker yang benar (Cth: BBCA.JK atau QQQM)
+                  if (symbol === 'BTC' || symbol === 'ETH') symbol = `${symbol}-USD`; 
+                  if (symbol === 'ANTM' || symbol === 'UBS') symbol = `${symbol}.JK`; 
+                  
                   const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`);
                   
                   if (response.ok) {
@@ -1245,7 +1246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses data aset." }); }
   });
 
-  app.post("/api/vision/scan", async (req, res) => {
+  app.post("/api/vision/scan", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
