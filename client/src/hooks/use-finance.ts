@@ -14,9 +14,6 @@ const getHeaders = () => {
 
 const CACHE_TIME = 1000 * 60; // 1 Menit
 
-// ============================================================================
-// 🚀 JURUS SUPER REQUEST (ANTI VERCEL COLD START)
-// ============================================================================
 let globalFetchPromise: Promise<any> | null = null;
 let globalFetchTime = 0;
 
@@ -29,7 +26,6 @@ const fetchSuperData = async () => {
     globalFetchTime = now;
     globalFetchPromise = (async () => {
         const headers = getHeaders();
-        
         const [resReports, resTarget] = await Promise.all([
             fetch("/api/reports/data", { headers }),
             fetch("/api/target", { headers })
@@ -54,7 +50,6 @@ const fetchSuperData = async () => {
     return globalFetchPromise;
 };
 
-// 1. USER
 export function useUser() {
   const email = localStorage.getItem("bilano_email") || "";
   return useQuery({
@@ -62,23 +57,16 @@ export function useUser() {
     queryFn: async () => {
       const allData = await fetchSuperData();
       const data = allData.user;
-
-      const vipEmails = [
-          "adrienfandra14@gmail.com",
-          "bilanotech@gmail.com" 
-      ]; 
+      const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"]; 
       
       if (data) {
           let isReallyPro = false;
-          
           if (vipEmails.includes(email)) {
               isReallyPro = true;
           } else if (data.isPro) {
               if (data.proValidUntil) {
                   const validUntilTime = new Date(data.proValidUntil).getTime();
-                  if (Date.now() <= validUntilTime) {
-                      isReallyPro = true; 
-                  }
+                  if (Date.now() <= validUntilTime) isReallyPro = true; 
               } else {
                   isReallyPro = true;
               }
@@ -101,7 +89,6 @@ export function useUser() {
   });
 }
 
-// 2. TRANSACTIONS
 export function useTransactions() {
   return useQuery<Transaction[]>({
     queryKey: ["transactions"],
@@ -119,11 +106,7 @@ export function useAddTransaction() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (tx: InsertTransaction) => {
-      const res = await fetch("/api/transactions", {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify(tx),
-      });
+      const res = await fetch("/api/transactions", { method: "POST", headers: getHeaders(), body: JSON.stringify(tx) });
       if (!res.ok) throw new Error("Gagal buat transaksi");
       return res.json();
     },
@@ -134,7 +117,6 @@ export function useAddTransaction() {
   });
 }
 
-// 3. INVESTMENTS
 export function useInvestments() {
   return useQuery<Investment[]>({
     queryKey: ["investments"],
@@ -151,11 +133,7 @@ export function useBuyInvestment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: any) => {
-      const res = await fetch("/api/investments/buy", {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify(data),
-      });
+      const res = await fetch("/api/investments/buy", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Gagal beli investasi");
       return res.json();
     },
@@ -170,11 +148,7 @@ export function useSellInvestment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: any) => {
-      const res = await fetch("/api/investments/sell", {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify(data),
-      });
+      const res = await fetch("/api/investments/sell", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Gagal jual investasi");
       return res.json();
     },
@@ -185,7 +159,6 @@ export function useSellInvestment() {
   });
 }
 
-// 4. TARGET
 export function useTarget() {
   return useQuery<Target | null>({
     queryKey: ["target"],
@@ -202,11 +175,7 @@ export function useUpdateTarget() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: any) => {
-      const res = await fetch("/api/target", {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify(data),
-      });
+      const res = await fetch("/api/target", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Gagal update target");
       return res.json();
     },
@@ -217,7 +186,6 @@ export function useUpdateTarget() {
   });
 }
 
-// 5. LAIN-LAIN
 export function useCategories() {
   return useQuery<Category[]>({
     queryKey: ["categories"],
@@ -270,56 +238,35 @@ export function useUndoTransaction() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/transactions/undo", {
-        method: "POST",
-        headers: { 
-            "Content-Type": "application/json",
-            "x-user-email": localStorage.getItem("bilano_email") || "guest" 
-        },
-      });
+      const res = await fetch("/api/transactions/undo", { method: "POST", headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "guest" } });
       if (!res.ok) {
           const err = await res.json();
           throw new Error(err.error || "Gagal membatalkan transaksi");
       }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries(); 
-    },
+    onSuccess: () => queryClient.invalidateQueries(),
   });
 }
 
 export function useReportsData() {
     return useQuery({
         queryKey: ["reports"],
-        queryFn: async () => {
-            const allData = await fetchSuperData();
-            return allData;
-        },
+        queryFn: async () => await fetchSuperData(),
         staleTime: CACHE_TIME,
         retry: 3,
     });
 }
 
+// 🚀 HOOK PENGAMBILAN HARGA LIVE
 export function useLiveQuotes(symbols: string[]) {
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-
   return useQuery({
     queryKey: ['liveQuotes', symbols.join(',')],
     queryFn: async () => {
       if (!symbols || symbols.length === 0) return {};
-
-      const res = await fetch('/api/finance/quotes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-email': currentUserEmail
-        },
-        body: JSON.stringify({ symbols })
-      });
-
-      if (!res.ok) throw new Error('Gagal mengambil data harga live dari server.');
-
+      const res = await fetch('/api/finance/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-user-email': currentUserEmail }, body: JSON.stringify({ symbols }) });
+      if (!res.ok) throw new Error('Gagal mengambil data harga live');
       const json = await res.json();
       return json.data || {}; 
     },
@@ -330,7 +277,23 @@ export function useLiveQuotes(symbols: string[]) {
   });
 }
 
-// 🚀 HOOK BARU: MENGAMBIL & MENYIMPAN SNAPSHOT BULANAN EXPERT TERMINAL
+// 🚀 HOOK BARU: MENGAMBIL DATA CHART HARIAN
+export function useHistoricalQuotes(symbols: string[], range: string = '5y') {
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  return useQuery({
+    queryKey: ['historicalQuotes', symbols.join(','), range],
+    queryFn: async () => {
+      if (!symbols || symbols.length === 0) return {};
+      const res = await fetch('/api/finance/history', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-user-email': currentUserEmail }, body: JSON.stringify({ symbols, range }) });
+      if (!res.ok) throw new Error('Gagal mengambil data chart historis');
+      const json = await res.json();
+      return json.data || {}; 
+    },
+    enabled: symbols.length > 0 && !!currentUserEmail,
+    staleTime: 1000 * 60 * 60 * 2, // Cache data history selama 2 jam biar enteng
+  });
+}
+
 export function usePortfolioSnapshots() {
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   return useQuery({
@@ -349,19 +312,12 @@ export function usePortfolioSnapshots() {
 export function useSaveSnapshot() {
   const queryClient = useQueryClient();
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  
   return useMutation({
       mutationFn: async (data: any) => {
-          const res = await fetch("/api/portfolio/snapshots", {
-              method: "POST",
-              headers: getHeaders(),
-              body: JSON.stringify(data),
-          });
+          const res = await fetch("/api/portfolio/snapshots", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) });
           if (!res.ok) throw new Error("Gagal menyimpan data historis bulan ini");
           return res.json();
       },
-      onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ["portfolioSnapshots", currentUserEmail] });
-      },
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ["portfolioSnapshots", currentUserEmail] }),
   });
 }

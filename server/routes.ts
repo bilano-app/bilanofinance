@@ -35,7 +35,6 @@ const ensureOtpTable = async () => {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
         await db.execute(sql`SELECT code FROM otp_sessions LIMIT 1`);
     } catch (e) {
-        console.log("Mendeteksi tabel OTP yang cacat. Menghancurkan dan membuat ulang...");
         await db.execute(sql`DROP TABLE IF EXISTS otp_sessions`);
         await db.execute(sql`CREATE TABLE otp_sessions (email VARCHAR(255) PRIMARY KEY, code VARCHAR(10), created_at TIMESTAMP DEFAULT NOW());`);
     }
@@ -46,7 +45,6 @@ const ensureRetainedTable = async () => {
         await db.execute(sql`CREATE TABLE IF NOT EXISTS retained_balances (id SERIAL PRIMARY KEY, user_id INTEGER, source VARCHAR(255), amount DOUBLE PRECISION, currency VARCHAR(10), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW());`);
         await db.execute(sql`SELECT source FROM retained_balances LIMIT 1`);
     } catch (e) {
-        console.log("Mendeteksi tabel retained yang cacat. Menghancurkan dan membuat ulang...");
         await db.execute(sql`DROP TABLE IF EXISTS retained_balances`);
         await db.execute(sql`CREATE TABLE retained_balances (id SERIAL PRIMARY KEY, user_id INTEGER, source VARCHAR(255), amount DOUBLE PRECISION, currency VARCHAR(10), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW());`);
     }
@@ -1180,7 +1178,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch(e:any) { res.status(500).json({ error: e.message }); }
   });
 
-  // 🚀 EXPERT TERMINAL: ENDPOINT SNAPSHOT DATABASE HISTORIKAL
   app.get("/api/portfolio/snapshots", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1198,7 +1195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // =====================================================================
-  // 🚀 FITUR EXPERT TERMINAL: INTEGRASI DATA HARGA LIVE (YAHOO FINANCE)
+  // 🚀 FITUR EXPERT TERMINAL: INTEGRASI DATA HARGA LIVE & HISTORICAL CHART
   // =====================================================================
   app.post("/api/finance/quotes", async (req: any, res: any) => {
       try {
@@ -1214,8 +1211,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               try {
                   let symbol = rawSymbol.toUpperCase().trim();
                   
-                  // 🚀 BUGFIX: Tidak ada lagi penambahan paksa .JK agar saham US (AAPL, QQQM) tidak error.
-                  // Frontend sudah pintar mengirim ticker yang benar (Cth: BBCA.JK atau QQQM)
                   if (symbol === 'BTC' || symbol === 'ETH') symbol = `${symbol}-USD`; 
                   if (symbol === 'ANTM' || symbol === 'UBS') symbol = `${symbol}.JK`; 
                   
@@ -1239,11 +1234,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
                          results[rawSymbol] = finalPrice;
                       }
                   }
-              } catch(e) { console.error(`Gagal menarik data Yahoo Finance untuk ${rawSymbol}`); }
+              } catch(e) {}
           }));
 
           res.json({ success: true, data: results });
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses data aset." }); }
+  });
+
+  app.post("/api/finance/history", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { symbols, range = '5y' } = req.body; 
+          if (!symbols || !Array.isArray(symbols)) return res.status(400).json({ error: "Format pencarian simbol salah." });
+
+          const results: Record<string, { timestamps: number[], close: number[] }> = {};
+
+          await Promise.all(symbols.map(async (rawSymbol: string) => {
+              try {
+                  let symbol = rawSymbol.toUpperCase().trim();
+                  if (symbol === 'BTC' || symbol === 'ETH') symbol = `${symbol}-USD`; 
+                  if (symbol === 'ANTM' || symbol === 'UBS') symbol = `${symbol}.JK`; 
+                  
+                  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=${range}`);
+                  
+                  if (response.ok) {
+                      const data = await response.json();
+                      const result = data.chart?.result?.[0];
+                      if (result) {
+                          const currency = result.meta?.currency || "IDR";
+                          let timestamps = result.timestamp || [];
+                          let close = result.indicators?.quote?.[0]?.close || [];
+                          
+                          if (currency !== "IDR" && currency !== "Rp") {
+                              const now = Date.now();
+                              if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
+                              const rate = cachedRates[currency as keyof typeof cachedRates] || 15000;
+                              close = close.map((p: number) => p ? p * rate : p); 
+                          }
+
+                          results[rawSymbol] = { timestamps, close };
+                      }
+                  }
+              } catch(e) {}
+          }));
+
+          res.json({ success: true, data: results });
+      } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses history aset." }); }
   });
 
   app.post("/api/vision/scan", async (req: any, res: any) => {
