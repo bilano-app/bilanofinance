@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { 
   LayoutDashboard, PieChart as PieIcon, TrendingUp, History, Eye, EyeOff, Search,
-  ArrowUpRight, ArrowDownRight, ChevronUp, Loader2, Save, Plus, X, Link as LinkIcon
+  ArrowUpRight, ArrowDownRight, ChevronUp, Loader2, Save, X, Link as LinkIcon
 } from "lucide-react";
 import { useUser, useInvestments, useTransactions, useLiveQuotes, usePortfolioSnapshots, useSaveSnapshot } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
@@ -23,7 +23,7 @@ export default function ExpertTerminal() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [chartTimeframe, setChartTimeframe] = useState<'1M' | '3M' | '1Y' | 'ALL'>('1Y');
 
-  // === MAPPING ASET UNTUK TAB 1 & TAB 2 ===
+  // === HALAMAN 1: SINKRONISASI ASET (AUTOCOMPLETE) ===
   const [monitoredAssets, setMonitoredAssets] = useState<{dbSymbol: string, ticker: string}[]>(() => {
       const saved = localStorage.getItem('bilano_expert_assets');
       return saved ? JSON.parse(saved) : [];
@@ -50,6 +50,7 @@ export default function ExpertTerminal() {
     return Object.values(agg);
   }, [investments]);
 
+  // Aset yang sudah di-mapping oleh pengguna
   const activePortfolio = useMemo(() => {
     return monitoredAssets.map(ma => {
         const dbAsset = aggregatedPortfolio.find(p => p.symbol === ma.dbSymbol);
@@ -62,10 +63,10 @@ export default function ExpertTerminal() {
     }).filter(p => p.qty > 0); 
   }, [monitoredAssets, aggregatedPortfolio]);
 
-  // === 🚀 PERBAIKAN SEAMLESS TABEL 3: DETEKSI OTOMATIS KODE ASLI ===
+  // HALAMAN 3: DETEKSI OTOMATIS KODE ASLI (Anti-Bug IDR)
   const realizedTradesBase = useMemo(() => {
     return transactions.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
-      // Regex baru untuk mendeteksi teks di antara "lot/unit" dan "|" atau "@" guna menghindari bug bacaan "IDR"
+      // Regex pintar: Ambil kata setelah "lot/unit " tapi berhenti sebelum "|" atau "@"
       const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
       const symbol = match ? match[1].toUpperCase().trim() : 'Unknown';
       return { ...t, symbol };
@@ -75,18 +76,14 @@ export default function ExpertTerminal() {
   // Kumpulkan semua ticker secara otomatis untuk dilempar ke Yahoo Finance API
   const uniqueTickersToFetch = useMemo(() => {
     const tickers = new Set<string>();
-    
-    // Dari portfolio aktif yang di-mapping user
     activePortfolio.forEach(p => tickers.add(p.marketTicker));
     
-    // Dari portfolio terealisasi (otomatis deteksi kode dan fallback format)
     realizedTradesBase.forEach((t: any) => {
         if (t.symbol !== 'Unknown') {
             const mapping = monitoredAssets.find(m => m.dbSymbol === t.symbol);
             if (mapping) {
                 tickers.add(mapping.ticker);
             } else {
-                // Auto format jika belum di-mapping (Saham indonesia otomatis tambahkan .JK)
                 const autoTicker = t.symbol.length === 4 ? `${t.symbol}.JK` : t.symbol;
                 tickers.add(autoTicker);
             }
@@ -97,7 +94,7 @@ export default function ExpertTerminal() {
 
   const { data: livePrices = {}, isLoading: isLivePricesLoading } = useLiveQuotes(uniqueTickersToFetch);
 
-  // Kalkulasi total aset portofolio aktif
+  // Kalkulasi total valuasi
   const totalAssetValue = activePortfolio.reduce((acc: any, p: any) => {
     const livePrice = livePrices[p.marketTicker] || (p.totalInvested / p.qty); 
     const multiplier = p.marketTicker.includes('.JK') || p.dbSymbol.length === 4 ? 100 : 1;
@@ -116,11 +113,13 @@ export default function ExpertTerminal() {
         return {
             ...t,
             marketTicker: tickerToUse,
-            livePrice: livePrices[tickerToUse] || 0
+            livePrice: livePrices[tickerToUse] || 0,
+            isMapped: !!mapping
         };
     });
   }, [realizedTradesBase, livePrices, monitoredAssets]);
 
+  // Data Pie Chart
   const pieData = [
     { name: 'Cash Tunai', value: cashBalance },
     ...activePortfolio.map((p: any) => {
@@ -130,6 +129,7 @@ export default function ExpertTerminal() {
     })
   ].filter((d: any) => d.value > 0);
 
+  // HALAMAN 2: FILTER TIMEFRAME GRAFIK
   const lineData = useMemo(() => {
      let filteredSnaps = [...snapshots].reverse();
      if (chartTimeframe === '1M') filteredSnaps = filteredSnaps.slice(-1); 
@@ -143,6 +143,7 @@ export default function ExpertTerminal() {
      }));
   }, [snapshots, chartTimeframe]);
 
+  // HALAMAN 2: CARI BULAN PERTAMA INVESTASI
   const firstInvestmentMonthIndex = useMemo(() => {
       const investTxs = transactions.filter((t: any) => t.type === 'invest_buy');
       if (investTxs.length === 0) return 0;
@@ -161,6 +162,7 @@ export default function ExpertTerminal() {
   const handleSaveSnapshot = () => {
       const month = new Date().getMonth() + 1;
       const year = new Date().getFullYear();
+      
       const assetsDetail = activePortfolio.reduce((acc: any, p: any) => {
          const livePrice = livePrices[p.marketTicker] || (p.totalInvested / p.qty);
          const multiplier = p.marketTicker.includes('.JK') || p.dbSymbol.length === 4 ? 100 : 1;
@@ -217,6 +219,7 @@ export default function ExpertTerminal() {
                            placeholder="Cth: ANTM.JK / AAPL / BTC-USD"
                            className="w-full bg-[#0F172A] border border-slate-700 rounded-xl px-4 py-3.5 text-white font-bold outline-none focus:border-indigo-500 uppercase transition-colors"
                        />
+                       <p className="text-[10px] text-slate-500 ml-1">Gunakan akhiran .JK untuk saham Indonesia (Cth: BBCA.JK).</p>
                    </div>
                 </div>
                 <button onClick={handleImportAsset} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-full transition-all active:scale-95 shadow-lg shadow-indigo-500/20">
@@ -239,12 +242,15 @@ export default function ExpertTerminal() {
 
         <nav className="flex-1 px-4 py-6 space-y-2">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">Analisis & Laporan</p>
+          
           <button onClick={() => setActiveTab('alokasi')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all text-sm font-semibold ${activeTab === 'alokasi' ? 'bg-indigo-600/10 text-indigo-400 border border-indigo-600/20' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
             <PieIcon className="w-4 h-4" /> Alokasi Aset
           </button>
+          
           <button onClick={() => setActiveTab('pantauan')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all text-sm font-semibold ${activeTab === 'pantauan' ? 'bg-indigo-600/10 text-indigo-400 border border-indigo-600/20' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
             <TrendingUp className="w-4 h-4" /> Pantauan Portofolio
           </button>
+          
           <button onClick={() => setActiveTab('terealisasi')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all text-sm font-semibold ${activeTab === 'terealisasi' ? 'bg-indigo-600/10 text-indigo-400 border border-indigo-600/20' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
             <History className="w-4 h-4" /> Investasi Terealisasi
           </button>
@@ -265,6 +271,7 @@ export default function ExpertTerminal() {
       </aside>
 
       <main className="flex-1 flex flex-col relative overflow-hidden">
+        
         <header className="h-20 border-b border-slate-800 flex items-center justify-between px-8 bg-[#0F172A]/80 backdrop-blur-md z-10">
           <div className="relative w-[400px]">
             <div className="flex items-center gap-4 bg-[#1E293B] px-4 py-2.5 rounded-full border border-slate-700/50 focus-within:border-indigo-500 transition-colors">
@@ -313,59 +320,83 @@ export default function ExpertTerminal() {
           {/* ================= TAB 1: ALOKASI ASET ================= */}
           {activeTab === 'alokasi' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
-              <h2 className="text-2xl font-black text-white tracking-tight">Peta Alokasi Kekayaan</h2>
-              <div className="bg-[#1E293B] border border-slate-800 rounded-2xl overflow-x-auto shadow-lg custom-scrollbar pb-2">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-[#0F172A] text-slate-400 font-bold uppercase tracking-wider text-[11px]">
-                    <tr>
-                      <th className="px-6 py-4 border-b border-slate-800 whitespace-nowrap sticky left-0 bg-[#0F172A] z-10">Kategori</th>
-                      <th className="px-6 py-4 border-b border-slate-800 text-emerald-400 whitespace-nowrap">Cash (Tunai)</th>
-                      {activePortfolio.map((p: any) => (
-                        <th key={p.dbSymbol} className="px-6 py-4 border-b border-slate-800 whitespace-nowrap group">
-                           <div className="flex items-center gap-2">
-                               {p.dbSymbol} <span className="text-[9px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 font-medium">{p.marketTicker}</span>
-                               <button onClick={() => removeAsset(p.dbSymbol)} className="opacity-0 group-hover:opacity-100 text-rose-500 ml-2 transition-opacity"><X className="w-3.5 h-3.5"/></button>
-                           </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="text-slate-200 font-medium">
-                    <tr className="border-b border-slate-800/50 hover:bg-slate-800/20">
-                      <td className="px-6 py-4 font-bold text-slate-400 sticky left-0 bg-[#1E293B] z-10">Nilai Aset (Live)</td>
-                      <td className="px-6 py-4">{formatRp(cashBalance)}</td>
-                      {activePortfolio.map((p: any) => {
-                        const livePrice = livePrices[p.marketTicker] || (p.totalInvested / p.qty);
-                        const multiplier = p.marketTicker.includes('.JK') || p.dbSymbol.length === 4 ? 100 : 1;
-                        return <td key={p.dbSymbol} className="px-6 py-4">{formatRp(p.qty * livePrice * multiplier)}</td>
-                      })}
-                    </tr>
-                    <tr className="hover:bg-slate-800/20">
-                      <td className="px-6 py-4 font-bold text-slate-400 sticky left-0 bg-[#1E293B] z-10">Persentase</td>
-                      <td className="px-6 py-4 text-emerald-400 font-bold">{totalWealth > 0 ? formatPct(cashBalance / totalWealth) : '0%'}</td>
-                      {activePortfolio.map((p: any) => {
-                         const livePrice = livePrices[p.marketTicker] || (p.totalInvested / p.qty);
-                         const multiplier = p.marketTicker.includes('.JK') || p.dbSymbol.length === 4 ? 100 : 1;
-                         const val = (p.qty * livePrice * multiplier);
-                         return <td key={p.dbSymbol} className="px-6 py-4 text-indigo-400 font-bold">{totalWealth > 0 ? formatPct(val / totalWealth) : '0%'}</td>
-                      })}
-                    </tr>
-                  </tbody>
-                </table>
+              <div className="flex justify-between items-end">
+                  <div>
+                      <h2 className="text-2xl font-black text-white tracking-tight">Peta Alokasi Kekayaan</h2>
+                      <p className="text-sm text-slate-400 mt-1">Gunakan Search Bar di atas untuk menyinkronkan data PWA ke Live Terminal.</p>
+                  </div>
               </div>
+              
+              {activePortfolio.length === 0 ? (
+                  <div className="bg-[#1E293B] border border-slate-800 rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-lg">
+                      <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-4"><Search className="w-8 h-8 text-slate-500" /></div>
+                      <h3 className="text-lg font-bold text-white mb-2">Terminal Masih Kosong</h3>
+                      <p className="text-slate-400 text-sm max-w-sm leading-relaxed">Anda belum memanggil aset apapun dari PWA Anda. Gunakan bar pencarian di bagian atas untuk mulai mengimpor dan melacak valuasi aset secara live.</p>
+                  </div>
+              ) : (
+                  <>
+                      <div className="bg-[#1E293B] border border-slate-800 rounded-2xl overflow-x-auto shadow-lg custom-scrollbar pb-2">
+                        <table className="w-full text-sm text-left">
+                          <thead className="bg-[#0F172A] text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                            <tr>
+                              <th className="px-6 py-4 border-b border-slate-800 whitespace-nowrap sticky left-0 bg-[#0F172A] z-10">Kategori</th>
+                              <th className="px-6 py-4 border-b border-slate-800 text-emerald-400 whitespace-nowrap">Cash (Tunai)</th>
+                              {activePortfolio.map((p: any) => (
+                                <th key={p.dbSymbol} className="px-6 py-4 border-b border-slate-800 whitespace-nowrap group">
+                                   <div className="flex items-center gap-2">
+                                       {p.dbSymbol} <span className="text-[9px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 font-medium">{p.marketTicker}</span>
+                                       <button onClick={() => removeAsset(p.dbSymbol)} className="opacity-0 group-hover:opacity-100 text-rose-500 ml-2 transition-opacity"><X className="w-3.5 h-3.5"/></button>
+                                   </div>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="text-slate-200 font-medium">
+                            <tr className="border-b border-slate-800/50 hover:bg-slate-800/20">
+                              <td className="px-6 py-4 font-bold text-slate-400 sticky left-0 bg-[#1E293B] z-10">Nilai Aset (Live)</td>
+                              <td className="px-6 py-4">{formatRp(cashBalance)}</td>
+                              {activePortfolio.map((p: any) => {
+                                const livePrice = livePrices[p.marketTicker] || (p.totalInvested / p.qty);
+                                const multiplier = p.marketTicker.includes('.JK') || p.dbSymbol.length === 4 ? 100 : 1;
+                                return <td key={p.dbSymbol} className="px-6 py-4">{formatRp(p.qty * livePrice * multiplier)}</td>
+                              })}
+                            </tr>
+                            <tr className="hover:bg-slate-800/20">
+                              <td className="px-6 py-4 font-bold text-slate-400 sticky left-0 bg-[#1E293B] z-10">Persentase</td>
+                              <td className="px-6 py-4 text-emerald-400 font-bold">{totalWealth > 0 ? formatPct(cashBalance / totalWealth) : '0%'}</td>
+                              {activePortfolio.map((p: any) => {
+                                 const livePrice = livePrices[p.marketTicker] || (p.totalInvested / p.qty);
+                                 const multiplier = p.marketTicker.includes('.JK') || p.dbSymbol.length === 4 ? 100 : 1;
+                                 const val = (p.qty * livePrice * multiplier);
+                                 return <td key={p.dbSymbol} className="px-6 py-4 text-indigo-400 font-bold">{totalWealth > 0 ? formatPct(val / totalWealth) : '0%'}</td>
+                              })}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
 
-              <div className="bg-[#1E293B] border border-slate-800 rounded-2xl p-8 flex flex-col items-center justify-center min-h-[350px] shadow-lg">
-                <div className="w-full max-w-sm h-64 relative">
-                   <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                         <Pie data={pieData} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={5} dataKey="value" stroke="none">
-                            {pieData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                         </Pie>
-                         <Tooltip formatter={(val: number) => formatRp(val)} contentStyle={{backgroundColor: '#0F172A', borderColor: '#1E293B', borderRadius: '8px', color: '#fff'}} itemStyle={{color: '#fff', fontWeight: 'bold'}} />
-                      </PieChart>
-                   </ResponsiveContainer>
-                </div>
-              </div>
+                      <div className="bg-[#1E293B] border border-slate-800 rounded-2xl p-8 flex flex-col items-center justify-center min-h-[350px] shadow-lg">
+                        <div className="w-full max-w-sm h-64 relative">
+                           <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                 <Pie data={pieData} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={5} dataKey="value" stroke="none">
+                                    {pieData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                 </Pie>
+                                 <Tooltip formatter={(val: number) => formatRp(val)} contentStyle={{backgroundColor: '#0F172A', borderColor: '#1E293B', borderRadius: '8px', color: '#fff'}} itemStyle={{color: '#fff', fontWeight: 'bold'}} />
+                              </PieChart>
+                           </ResponsiveContainer>
+                        </div>
+                        <div className="flex flex-wrap gap-4 justify-center mt-4">
+                            {pieData.map((d: any, i: number) => (
+                                <div key={d.name} className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                                   <span className="w-3 h-3 rounded-full" style={{backgroundColor: COLORS[i % COLORS.length]}}></span>
+                                   {d.name}
+                                </div>
+                            ))}
+                        </div>
+                      </div>
+                  </>
+              )}
             </div>
           )}
 
@@ -399,6 +430,7 @@ export default function ExpertTerminal() {
                        const monthNum = firstInvestmentMonthIndex + idx + 1;
                        const snap = snapshots.find((s: any) => s.month === monthNum && s.year === selectedYear);
                        if (!snap) return (<tr key={monthName} className="border-b border-slate-800/30"><td className="px-6 py-4 font-bold text-slate-600 sticky left-0 bg-[#1E293B] z-10">{monthName}</td><td colSpan={activePortfolio.length + 1} className="px-6 py-4 text-slate-600 text-xs italic">Belum ada snapshot disimpan</td></tr>);
+                       
                        let details: Record<string, {invested: number, valuasi: number}> = {};
                        try { details = JSON.parse(snap.assetsDetail || "{}"); } catch(e) {}
                        return (
@@ -414,7 +446,7 @@ export default function ExpertTerminal() {
                              <td className="px-6 py-4 font-black">
                                  {(() => {
                                      let totalInvSnap = 0; let totalValSnap = 0;
-                                     Object.values(details).forEach(d => { totalInvSnap += d.invested; totalValSnap += d.valuasi; });
+                                     Object.values(details).forEach((d: any) => { totalInvSnap += d.invested; totalValSnap += d.valuasi; });
                                      if (totalInvSnap === 0) return <span className="text-slate-600">-</span>;
                                      const plTotalAmount = totalValSnap - totalInvSnap;
                                      return (<div className={plTotalAmount >= 0 ? 'text-emerald-400' : 'text-rose-400'}><div>{formatRp(plTotalAmount)}</div><div className="text-xs opacity-80">({formatPct(plTotalAmount / totalInvSnap)})</div></div>);
@@ -434,6 +466,7 @@ export default function ExpertTerminal() {
                              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Total Laba/Rugi</p>
                              <button onClick={() => setShowProfit(!showProfit)} className="text-slate-500 hover:text-white transition-colors">{showProfit ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
                          </div>
+                         <p className="text-[10px] text-slate-500">Kalkulasi real-time seluruh aset saat ini</p>
                      </div>
                      <div className="text-right ml-4">
                          {showProfit ? <div className={`font-black text-2xl ${totalProfitLoss >= 0 ? 'text-emerald-400' : 'text-rose-400'} flex items-center gap-1 justify-end`}>{totalProfitLoss >= 0 ? <ArrowUpRight className="w-6 h-6"/> : <ArrowDownRight className="w-6 h-6"/>}{formatRp(Math.abs(totalProfitLoss))}</div> : <p className="font-black text-2xl text-slate-600">••••••••</p>}
@@ -459,7 +492,7 @@ export default function ExpertTerminal() {
                              <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `Rp${(val/1000000).toFixed(0)}M`} />
                              <Tooltip formatter={(val: number) => formatRp(val)} contentStyle={{backgroundColor: '#0F172A', borderColor: '#1E293B', borderRadius: '8px', color: '#fff', fontWeight: 'bold'}} />
                              <Line type="monotone" dataKey="Total" stroke="#6366f1" strokeWidth={3} dot={{r: 4, fill: '#6366f1'}} name="Valuasi Total" />
-                             <Line type="monotone" dataKey="Investasi" stroke="#10B981" strokeWidth={2} dot={false} strokeDasharray="3 3" name="Modal" />
+                             <Line type="monotone" dataKey="Investasi" stroke="#10B981" strokeWidth={2} dot={false} strokeDasharray="3 3" name="Modal Diinvestasikan" />
                           </LineChart>
                        </ResponsiveContainer>
                     ) : <div className="w-full h-full flex items-center justify-center border-2 border-dashed border-slate-700 rounded-xl text-slate-500 text-sm">Simpan data bulan ini untuk menggambar grafik.</div>}
@@ -494,14 +527,18 @@ export default function ExpertTerminal() {
                         const sellPriceRaw = sellPriceMatch ? parseFloat(sellPriceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
                         
                         const isLivePriceReady = t.livePrice > 0;
-                        // Evaluasi: Jika harga live di pasar sekarang lebih rendah dari harga jual Anda dulu, maka keputusan Anda untung/tepat waktu!
                         const isGoodSell = isLivePriceReady && t.livePrice < sellPriceRaw;
 
                         return (
                           <tr key={t.id} className="border-b border-slate-800/50 hover:bg-slate-800/20">
                             <td className="px-6 py-4">{new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                             <td className="px-6 py-4 font-black text-white flex items-center gap-2">
-                               {t.symbol} <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-normal">{t.marketTicker}</span>
+                               {t.symbol} 
+                               {t.isMapped ? (
+                                   <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-normal">{t.marketTicker}</span>
+                               ) : (
+                                   <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-normal" title="Deteksi Otomatis">AUTO</span>
+                               )}
                             </td>
                             <td className="px-6 py-4">
                                {formatRp(t.amount)} <br/>

@@ -337,7 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     return user;
   };
-
+  
   const isAdminValid = (email: string) => { return ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(email); };
 
   app.post("/api/user/onesignal", async (req, res) => {
