@@ -311,27 +311,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const getUser = async (req: any) => {
     const email = req.headers["x-user-email"];
-    
     if (!email || email === "guest") {
         let user = await storage.getUser(1);
         if (!user) user = await storage.createUser({ username: "guest", password: "123", email: "guest@bilano.app" });
         return user;
     }
-
     let user = await storage.getUserByUsername(email as string);
     if (!user) {
         try { user = await storage.createUser({ username: email as string, password: "123", email: email as string }); } 
         catch (err) { user = await storage.getUserByUsername(email as string); }
     }
-
     const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"];
-
     if (user && vipEmails.includes(user.email || "")) {
         user.isPro = true;
         user.proValidUntil = new Date("2099-12-31").toISOString() as any; 
         return user; 
     }
-
     if (user && user.isPro && user.proValidUntil) {
         const now = new Date();
         const validUntil = new Date(user.proValidUntil);
@@ -1211,23 +1206,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
               try {
                   let symbol = rawSymbol.toUpperCase().trim();
                   
-                  if (symbol === 'BTC' || symbol === 'ETH') symbol = `${symbol}-USD`; 
-                  if (symbol === 'ANTM' || symbol === 'UBS') symbol = `${symbol}.JK`; 
+                  // 🚀 EMAS OTOMATIS: Dikonversi dari harga Global USD per Troy Ounce ke IDR per Gram
+                  const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
+                  const fetchSymbol = isGold ? 'GC=F' : symbol;
                   
-                  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`);
+                  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=1d&range=1d`);
                   
                   if (response.ok) {
                       const data = await response.json();
-                      const price = data.chart?.result?.[0]?.meta?.regularMarketPrice;
+                      let price = data.chart?.result?.[0]?.meta?.regularMarketPrice;
                       
                       if (price) {
                          const currency = data.chart?.result?.[0]?.meta?.currency || "IDR";
                          let finalPrice = price;
                          
-                         if (currency !== "IDR" && currency !== "Rp") {
-                             const now = Date.now();
-                             if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-                             const rate = cachedRates[currency as keyof typeof cachedRates] || 15000;
+                         const now = Date.now();
+                         if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
+                         const usdToIdr = cachedRates['USD'] || 16200;
+
+                         if (isGold) {
+                             // Rumus Emas: (Harga / 31.1034768) * Kurs USD
+                             finalPrice = (price / 31.1034768) * usdToIdr;
+                         } else if (currency !== "IDR" && currency !== "Rp") {
+                             const rate = cachedRates[currency as keyof typeof cachedRates] || usdToIdr;
                              finalPrice = price * rate; 
                          }
 
@@ -1254,10 +1255,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await Promise.all(symbols.map(async (rawSymbol: string) => {
               try {
                   let symbol = rawSymbol.toUpperCase().trim();
-                  if (symbol === 'BTC' || symbol === 'ETH') symbol = `${symbol}-USD`; 
-                  if (symbol === 'ANTM' || symbol === 'UBS') symbol = `${symbol}.JK`; 
                   
-                  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=${range}`);
+                  const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
+                  const fetchSymbol = isGold ? 'GC=F' : symbol;
+                  
+                  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=1d&range=${range}`);
                   
                   if (response.ok) {
                       const data = await response.json();
@@ -1267,10 +1269,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                           let timestamps = result.timestamp || [];
                           let close = result.indicators?.quote?.[0]?.close || [];
                           
-                          if (currency !== "IDR" && currency !== "Rp") {
-                              const now = Date.now();
-                              if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-                              const rate = cachedRates[currency as keyof typeof cachedRates] || 15000;
+                          const now = Date.now();
+                          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
+                          const usdToIdr = cachedRates['USD'] || 16200;
+
+                          if (isGold) {
+                              close = close.map((p: number) => p ? (p / 31.1034768) * usdToIdr : p);
+                          } else if (currency !== "IDR" && currency !== "Rp") {
+                              const rate = cachedRates[currency as keyof typeof cachedRates] || usdToIdr;
                               close = close.map((p: number) => p ? p * rate : p); 
                           }
 

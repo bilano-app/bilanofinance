@@ -41,24 +41,14 @@ export default function ExpertTerminal() {
   const [editTickerModal, setEditTickerModal] = useState<string | null>(null);
   const [tempTicker, setTempTicker] = useState("");
 
-  // Bersihkan override yang rusak secara diam-diam
   useEffect(() => {
-      const cleanOverrides = { ...tickerOverrides };
-      let changed = false;
-      Object.keys(cleanOverrides).forEach(key => {
-         if (cleanOverrides[key] === 'QQQM.JK' || cleanOverrides[key] === 'IVV.JK') {
-             cleanOverrides[key] = key;
-             changed = true;
-         }
-      });
-      if (changed) setTickerOverrides(cleanOverrides);
-      localStorage.setItem('bilano_ticker_overrides', JSON.stringify(cleanOverrides));
+      localStorage.setItem('bilano_ticker_overrides', JSON.stringify(tickerOverrides));
   }, [tickerOverrides]);
 
   const cashBalance = user?.cashBalance || 0;
 
   // ====================================================================
-  // 1. 🚀 LOGIKA PINTAR: Tarik Seluruh Portofolio (BUG MULTIPLIER FIXED)
+  // 1. 🚀 LOGIKA PINTAR: Tarik Seluruh Portofolio (BUG QQQM MULTIPLIER FIXED)
   // ====================================================================
   const activePortfolio = useMemo(() => {
     const agg: Record<string, { qty: number, totalModalIDR: number, symbol: string, currency: string, activeTicker: string, liveMultiplier: number }> = {};
@@ -71,13 +61,15 @@ export default function ExpertTerminal() {
       const typeLower = (inv.type || 'saham').toLowerCase();
       
       const isStock = typeLower === 'saham' || (!inv.type && sym.length === 4);
+      const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
       
-      // 🚀 KUNCI PERBAIKAN: Hanya kalikan 100 jika dia Saham DAN mata uangnya Rupiah
-      const multiplier = (isStock && isIDR) ? 100 : 1; 
+      // 🚀 KUNCI PERBAIKAN: Hanya kalikan 100 jika dia Saham DAN mata uangnya Rupiah. Saham US / Emas = 1.
+      const multiplier = (isStock && isIDR && !isGold) ? 100 : 1; 
 
-      // 🚀 KUNCI PERBAIKAN: Hanya tambah .JK jika dia IDR
+      // 🚀 KUNCI PERBAIKAN: Hanya tambah .JK jika dia IDR, bukan saham luar.
+      const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
       let defaultTicker = sym;
-      if (isIDR && isStock && !sym.endsWith('.JK')) {
+      if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) {
           defaultTicker = `${sym}.JK`;
       }
       
@@ -98,11 +90,12 @@ export default function ExpertTerminal() {
   // ====================================================================
   const realizedTradesBase = useMemo(() => {
     return transactions.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
-      // Potong deskripsi sebelum "|" atau "@" agar kata IDR/USD tidak tertangkap
+      // Regex memotong kalimat tepat sebelum "|" atau "@" agar kata IDR/USD tidak tertangkap
       const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
       const symbol = match ? match[1].toUpperCase().trim() : 'Unknown';
       
       const sellPriceMatch = t.description?.match(/@\s*(?:(?:Rp|USD|US\$)\s*)?([0-9.,]+)/i);
+      // Harga di-format dengan localeString, maka titik (.) harus dibuang dulu.
       const sellPriceRaw = sellPriceMatch ? parseFloat(sellPriceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
 
       const isUSD = t.description?.includes('USD') || t.description?.includes('US$');
@@ -113,10 +106,17 @@ export default function ExpertTerminal() {
       const sellPriceIDR = sellPriceRaw * rate;
 
       const isStock = symbol.length === 4; 
-      const defaultTicker = (isIDR && isStock && !symbol.endsWith('.JK')) ? `${symbol}.JK` : symbol;
+      const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
+      const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
+      
+      let defaultTicker = symbol;
+      if (isIDR && isStock && !isGold && !knownUS.includes(symbol) && !symbol.endsWith('.JK')) {
+          defaultTicker = `${symbol}.JK`;
+      }
+      
       const activeTicker = tickerOverrides[symbol] || defaultTicker;
 
-      return { ...t, symbol, currency, sellPriceIDR, activeTicker, isIDR, isStock };
+      return { ...t, symbol, currency, sellPriceIDR, activeTicker, isIDR, isStock, isGold };
     });
   }, [transactions, forexRates, tickerOverrides]);
 
@@ -161,13 +161,14 @@ export default function ExpertTerminal() {
   ].filter((d: any) => d.value > 0);
 
   // ====================================================================
-  // 3. 🚀 AUTO-RECONSTRUCT HISTORI & GRAFIK HARIAN YF
+  // 3. 🚀 AUTO-RECONSTRUCT HISTORI (ANTI PANTAUAN KOSONG)
   // ====================================================================
   const firstInvestmentDate = useMemo(() => {
+      // Cari tanggal investasi pertama atau tanggal akun dibuat
       const investTxs = transactions.filter((t: any) => t.type === 'invest_buy');
-      if (investTxs.length === 0) return new Date();
-      return new Date(investTxs[investTxs.length - 1].date);
-  }, [transactions]);
+      if (investTxs.length > 0) return new Date(investTxs[investTxs.length - 1].date);
+      return new Date(user?.createdAt || new Date());
+  }, [transactions, user]);
 
   const availableMonths = useMemo(() => {
       const currentYear = new Date().getFullYear();
@@ -193,25 +194,42 @@ export default function ExpertTerminal() {
           return { isSaved: true, totalValue: snap.totalValue, investValue: snap.investValue, details };
       }
       
+      // Jika belum disave, AI akan merekonstruksi berdasarkan transaksi
       const endOfMonth = new Date(year, monthNum, 0, 23, 59, 59);
       const pastTx = transactions.filter((t:any) => new Date(t.date) <= endOfMonth);
       
       const qtyMap: Record<string, { qty: number, investedIDR: number }> = {};
+      
+      // 🚀 KUNCI PERBAIKAN: Jika ada aset yang dibeli via Setup Awal (Onboarding), dia TIDAK ADA di history pastTx.
+      // Kita harus memasukkannya secara paksa ke dalam qtyMap agar tidak kosong!
+      const symbolsWithTx = new Set(transactions.map((t:any) => {
+          const m = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+          return m ? m[1].toUpperCase().trim() : '';
+      }));
+      
+      activePortfolio.forEach(p => {
+          if (!symbolsWithTx.has(p.symbol)) {
+              // Aset ini masuk dari Onboarding, jadi anggap sudah ada sejak awal.
+              qtyMap[p.symbol] = { qty: p.qty, investedIDR: p.totalModalIDR };
+          }
+      });
+
+      // Proses semua transaksi untuk menambah/mengurangi qty
       pastTx.forEach((t:any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
               const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
               if (match) {
                   const sym = match[1].toUpperCase().trim();
                   const qtyMatch = t.description?.match(/([0-9.,]+)\s+lot\/unit/i);
-                  const qtyStr = qtyMatch ? qtyMatch[1].replace(/\./g, '').replace(/,/g, '.') : "0";
-                  const qty = parseFloat(qtyStr);
+                  // 🚀 KUNCI PERBAIKAN: Jangan replace titik! Biarkan koma desimal terbaca benar (parseFloat Javascript)
+                  const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0; 
                   
                   if (!qtyMap[sym]) qtyMap[sym] = { qty: 0, investedIDR: 0 };
                   if (t.type === 'invest_buy') {
                       qtyMap[sym].qty += qty;
                       qtyMap[sym].investedIDR += t.amount;
                   } else {
-                      qtyMap[sym].qty -= qty;
+                      qtyMap[sym].qty = Math.max(0, qtyMap[sym].qty - qty);
                       qtyMap[sym].investedIDR = Math.max(0, qtyMap[sym].investedIDR - t.amount); 
                   }
               }
@@ -224,8 +242,8 @@ export default function ExpertTerminal() {
       Object.keys(qtyMap).forEach(sym => {
           if (qtyMap[sym].qty > 0) {
               const currentAsset = activePortfolio.find((p: any) => p.symbol === sym);
-              const activeTicker = currentAsset ? currentAsset.activeTicker : (tickerOverrides[sym] || (sym.length === 4 ? `${sym}.JK` : sym));
-              const liveMultiplier = currentAsset ? currentAsset.liveMultiplier : (activeTicker.endsWith('.JK') ? 100 : 1);
+              const activeTicker = currentAsset ? currentAsset.activeTicker : (tickerOverrides[sym] || sym);
+              const liveMultiplier = currentAsset ? currentAsset.liveMultiplier : 1;
               const livePriceAPI = livePrices[activeTicker];
               
               const valuasi = livePriceAPI ? (qtyMap[sym].qty * livePriceAPI * liveMultiplier) : qtyMap[sym].investedIDR;
@@ -236,34 +254,30 @@ export default function ExpertTerminal() {
       });
       
       return { isSaved: false, totalValue: totalVal, investValue: totalInv, details };
-  }, [snapshots, transactions, activePortfolio, livePrices, tickerOverrides]);
+  }, [snapshots, transactions, activePortfolio, livePrices, tickerOverrides, user]);
 
   // 🚀 LOGIKA GRAFIK HARIAN (MENGGUNAKAN DATA YAHOO HISTORY)
   const chartDataDaily = useMemo(() => {
      if (activePortfolio.length === 0 || Object.keys(historyPrices).length === 0) return [];
 
-     // Kumpulkan dan parse semua transaksi investasi sekali saja
      const parsedInvestTxs = transactions.filter((t: any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => {
          const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
          const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
          const qtyMatch = t.description?.match(/([0-9.,]+)\s+lot\/unit/i);
-         const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
+         const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
          const dateStr = new Date(t.date).toISOString().split('T')[0];
          return { ...t, parsedSymbol: sym, parsedQty: qty, dateStr };
      });
 
-     if (parsedInvestTxs.length === 0) return [];
-
-     const minDate = new Date(parsedInvestTxs[parsedInvestTxs.length - 1].date);
+     const firstDate = firstInvestmentDate.getTime();
      const ONE_DAY = 24 * 60 * 60 * 1000;
      const now = new Date().getTime();
 
-     let startTimeframe = minDate.getTime();
+     let startTimeframe = firstDate;
      if (chartTimeframe === '1M') startTimeframe = now - 30 * ONE_DAY;
      if (chartTimeframe === '3M') startTimeframe = now - 90 * ONE_DAY;
-     if (chartTimeframe === '1Y') startTimeframe = Math.max(minDate.getTime(), now - 365 * ONE_DAY);
+     if (chartTimeframe === '1Y') startTimeframe = Math.max(firstDate, now - 365 * ONE_DAY);
      
-     // Bersihkan jam agar tepat 00:00
      let currentTs = new Date(startTimeframe).setHours(0,0,0,0);
      const endTs = new Date().setHours(0,0,0,0);
 
@@ -273,9 +287,20 @@ export default function ExpertTerminal() {
          txByDate[t.dateStr].push(t);
      });
 
-     // Karena kita loncat waktu, kita harus re-kalkulasi kepemilikan saham pada H-1 dari startTimeframe
+     // Base Map sebelum start date
      let currentQty: Record<string, number> = {};
      let currentInvestedIDR: Record<string, number> = {};
+     
+     // Masukkan Onboarding Asset
+     const txSymbols = new Set(parsedInvestTxs.map(t => t.parsedSymbol));
+     activePortfolio.forEach(p => {
+         if (!txSymbols.has(p.symbol)) {
+             currentQty[p.symbol] = p.qty;
+             currentInvestedIDR[p.symbol] = p.totalModalIDR;
+         }
+     });
+
+     // Kalkulasi masa lalu hingga H-1
      parsedInvestTxs.forEach((t: any) => {
          if (new Date(t.date).getTime() < currentTs) {
              if (!currentQty[t.parsedSymbol]) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
@@ -327,8 +352,8 @@ export default function ExpertTerminal() {
          Object.keys(currentQty).forEach(sym => {
              if (currentQty[sym] > 0) {
                  const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
-                 const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || (sym.length === 4 ? `${sym}.JK` : sym));
-                 const multiplier = assetMeta ? assetMeta.liveMultiplier : (ticker.endsWith('.JK') ? 100 : 1);
+                 const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
+                 const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
 
                  const price = getPriceForDate(ticker, currentTs);
                  if (price) dailyValuation += currentQty[sym] * price * multiplier;
@@ -348,7 +373,7 @@ export default function ExpertTerminal() {
      }
 
      return dailyData;
-  }, [historyPrices, transactions, activePortfolio, tickerOverrides, chartTimeframe]);
+  }, [historyPrices, transactions, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate]);
 
   const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
   const formatPct = (num: number) => `${num > 0 ? '+' : ''}${(num * 100).toFixed(2)}%`;
@@ -382,6 +407,7 @@ export default function ExpertTerminal() {
   return (
     <div className="flex h-screen bg-[#0B0F19] text-slate-300 font-sans overflow-hidden">
       
+      {/* MODAL KOREKSI TICKER API */}
       {editTickerModal && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in p-4">
              <div className="bg-[#1E293B] border border-slate-700 rounded-[32px] p-8 max-w-md w-full shadow-2xl relative">
@@ -711,7 +737,8 @@ export default function ExpertTerminal() {
                       realizedTrades.map((t: any) => {
                         const isLivePriceReady = t.livePriceIDR > 0;
                         const livePricePerShare = t.livePriceIDR;
-                        const multiplier = (t.isStock && t.isIDR) ? 100 : 1; 
+                        
+                        const multiplier = (t.isStock && t.isIDR && !t.isGold) ? 100 : 1; 
                         const sellPricePerShare = t.sellPriceIDR / multiplier;
                         
                         // Keputusan Tepat = Harga di Pasar saat ini LEBIH RENDAH dari harga saat user nge-jual dulu (user jual di pucuk)
@@ -729,7 +756,7 @@ export default function ExpertTerminal() {
                             </td>
                             <td className="px-6 py-4">
                                {formatRp(t.amount)} <br/>
-                               <span className="text-[10px] text-slate-500">Modal Jual: @ {formatRp(sellPricePerShare)}</span>
+                               <span className="text-[10px] text-slate-500">Modal Asli: @ {formatRp(t.sellPriceIDR)}</span>
                             </td>
                             <td className="px-6 py-4 text-indigo-300 font-bold">
                                {isLivePricesLoading && !isLivePriceReady ? <Loader2 className="w-4 h-4 animate-spin text-indigo-500"/> : (isLivePriceReady ? formatRp(livePricePerShare * multiplier) : <span className="text-slate-600">N/A</span>)}
