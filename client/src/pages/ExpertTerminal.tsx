@@ -10,14 +10,12 @@ import { useQuery } from "@tanstack/react-query";
 import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 
-// Skema Warna Terminal Profesional (High Contrast Neons)
 const COLORS = ['#00FF41', '#00E5FF', '#FF003C', '#FFD700', '#B500FF', '#FF8C00', '#FFFFFF'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
 
 export default function ExpertTerminal() {
   const { toast } = useToast();
   
-  // State Autentikasi Terminal
   const [isTerminalAuth, setIsTerminalAuth] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem("bilano_auth") === "true";
     return false;
@@ -29,7 +27,6 @@ export default function ExpertTerminal() {
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
-  // Data Hooks
   const { data: user } = useUser();
   const { data: investments = [] } = useInvestments();
   const { data: transactions = [] } = useTransactions();
@@ -216,7 +213,7 @@ export default function ExpertTerminal() {
       return { cagr, volatility };
   }, [historyPrices]);
 
-  // PRE-POPULATE DATA: Hitung parameter awal semua aset tanpa harus di-expand dulu
+  // PRE-POPULATE DATA: Hitung parameter awal semua aset
   useEffect(() => {
       if (activePortfolio.length > 0 && Object.keys(livePrices).length > 0) {
           setSimParams(prev => {
@@ -242,6 +239,14 @@ export default function ExpertTerminal() {
           });
       }
   }, [activePortfolio, livePrices, extractHistoricalStats]);
+
+  const handleExpandSim = (asset: any) => {
+      if (expandedSimAsset === asset.symbol) {
+          setExpandedSimAsset(null);
+      } else {
+          setExpandedSimAsset(asset.symbol);
+      }
+  };
 
   const getSimDataForAsset = useCallback((asset: any, params: any) => {
       const S0 = 100; 
@@ -339,7 +344,6 @@ export default function ExpertTerminal() {
 
       return { totalModal, totalAkhir, maxHorizon, laba: totalAkhir - totalModal };
   }, [activePortfolio, simParams, getSimDataForAsset]);
-
 
   const realizedTradesBase = useMemo(() => {
     return chronologicalTxs.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
@@ -698,7 +702,6 @@ export default function ExpertTerminal() {
      return dailyData;
   }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices]);
 
-  // AKSI AUTENTIKASI TERMINAL
   const handleTerminalLogin = async (e: React.FormEvent) => {
       e.preventDefault();
       setLoginError("");
@@ -763,7 +766,7 @@ export default function ExpertTerminal() {
         onClick={() => setShowProfit(!showProfit)} 
         className={`ml-4 px-4 py-2 rounded-sm border transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.15em] ${
             showProfit 
-            ? 'bg-[#111] border-[#333] text-[#888] hover:text-white' 
+            ? 'bg-[#111] border-[#333] text-[#A1A1AA] hover:text-white' 
             : 'bg-[#00FF41]/10 border-[#00FF41]/50 text-[#00FF41]'
         }`}
     >
@@ -771,21 +774,21 @@ export default function ExpertTerminal() {
     </button>
   );
 
-  // RENDER: HALAMAN LOGIN JIKA BELUM AUTENTIKASI
   if (!isTerminalAuth) {
       return (
           <>
-          <style dangerouslySetInnerHTML={{__html: `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700;800&display=swap');`}} />
+          <style dangerouslySetInnerHTML={{__html: `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;700;800&display=swap');`}} />
           <div className="flex h-screen bg-[#000000] items-center justify-center p-4 font-sans text-[#E4E4E7]">
               <div className="bg-[#09090B] border border-[#27272A] p-10 max-w-md w-full shadow-2xl relative">
                   <div className="text-center mb-8">
+                      <img src="/BILANO-ICON.png" alt="BILANO" className="w-16 h-16 mx-auto mb-4 object-contain drop-shadow-[0_0_8px_rgba(0,255,65,0.4)]" />
                       <h2 className="text-2xl font-black text-white tracking-tight uppercase">EXPERT TERMINAL</h2>
                       <p className="text-[10px] text-[#00E5FF] font-bold uppercase tracking-[0.2em] mt-1">Authorized Access Only</p>
                   </div>
                   
                   <form onSubmit={handleTerminalLogin} className="space-y-6">
                       <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-[#888888] uppercase tracking-[0.15em]">Email Terdaftar</label>
+                          <label className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Email Terdaftar</label>
                           <input 
                               type="email" 
                               value={loginEmail} 
@@ -796,7 +799,7 @@ export default function ExpertTerminal() {
                           />
                       </div>
                       <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-[#888888] uppercase tracking-[0.15em]">Password</label>
+                          <label className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Password</label>
                           <input 
                               type="password" 
                               value={loginPassword} 
@@ -837,8 +840,8 @@ export default function ExpertTerminal() {
   return (
     <>
     <style dangerouslySetInnerHTML={{__html: `
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700;800&display=swap');
-        .font-sans { font-family: 'Inter', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;700;800&display=swap');
+        .font-sans { font-family: 'Plus Jakarta Sans', sans-serif; }
         .mono-font { font-family: 'JetBrains Mono', monospace; letter-spacing: -0.5px; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #000; }
@@ -852,16 +855,16 @@ export default function ExpertTerminal() {
       {editTickerModal && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in p-4">
              <div className="bg-[#09090B] border border-[#27272A] p-8 max-w-md w-full relative">
-                <button onClick={() => setEditTickerModal(null)} className="absolute top-6 right-6 text-[#888] hover:text-white"><X className="w-6 h-6"/></button>
+                <button onClick={() => setEditTickerModal(null)} className="absolute top-6 right-6 text-[#A1A1AA] hover:text-white"><X className="w-6 h-6"/></button>
                 <div className="w-16 h-16 bg-[#FFD700]/10 flex items-center justify-center mb-6 border border-[#FFD700]/30">
                     <Wrench className="w-8 h-8 text-[#FFD700]"/>
                 </div>
                 <h2 className="text-xl font-black text-white mb-2 uppercase tracking-tight">Koreksi Ticker Aset</h2>
-                <p className="text-xs text-[#888] mb-6 leading-relaxed">
+                <p className="text-xs text-[#A1A1AA] mb-6 leading-relaxed">
                    Sistem gagal menarik data dari Yahoo Finance untuk <b className="text-white">{editTickerModal}</b>. Silakan gunakan ticker yang valid.
                 </p>
                 <div className="space-y-2 mb-8">
-                   <label className="text-[10px] font-bold text-[#888] uppercase tracking-[0.15em]">Kode Ticker Baru</label>
+                   <label className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Kode Ticker Baru</label>
                    <input 
                        type="text" 
                        value={tempTicker} 
@@ -881,35 +884,35 @@ export default function ExpertTerminal() {
       {assetDetailModal && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in p-4">
              <div className="bg-[#09090B] border border-[#27272A] p-8 max-w-md w-full relative">
-                <button onClick={() => setAssetDetailModal(null)} className="absolute top-6 right-6 text-[#888] hover:text-white"><X className="w-6 h-6"/></button>
+                <button onClick={() => setAssetDetailModal(null)} className="absolute top-6 right-6 text-[#A1A1AA] hover:text-white"><X className="w-6 h-6"/></button>
                 <div className="w-16 h-16 bg-[#00E5FF]/10 flex items-center justify-center mb-6 border border-[#00E5FF]/30">
                     <ScanSearch className="w-8 h-8 text-[#00E5FF]"/>
                 </div>
                 <h2 className="text-xl font-black text-white mb-1 uppercase tracking-tight">Audit Kalkulasi API</h2>
-                <p className="text-xs text-[#888] mb-6 uppercase tracking-wider">Aset: <b className="text-white">{assetDetailModal.symbol}</b></p>
+                <p className="text-xs text-[#A1A1AA] mb-6 uppercase tracking-wider">Aset: <b className="text-white">{assetDetailModal.symbol}</b></p>
                 
                 <div className="space-y-4 bg-[#000] p-5 border border-[#222]">
                     <div className="flex justify-between items-center border-b border-[#222] pb-3">
-                        <span className="text-[#888] text-[10px] font-bold uppercase tracking-[0.15em]">Ticker Target</span>
+                        <span className="text-[#A1A1AA] text-[10px] font-bold uppercase tracking-[0.15em]">Ticker Target</span>
                         <div className="flex items-center gap-2">
                            <span className="text-white font-mono">{assetDetailModal.activeTicker}</span>
                            <button onClick={() => { setTempTicker(assetDetailModal.activeTicker); setEditTickerModal(assetDetailModal.symbol); setAssetDetailModal(null); }} className="text-[9px] bg-[#222] px-2 py-1 text-[#00E5FF] hover:bg-[#333] transition-colors font-bold uppercase tracking-wider">EDIT</button>
                         </div>
                     </div>
                     <div className="flex justify-between items-center border-b border-[#222] pb-3">
-                        <span className="text-[#888] text-[10px] font-bold uppercase tracking-[0.15em]">Volume (Qty)</span>
+                        <span className="text-[#A1A1AA] text-[10px] font-bold uppercase tracking-[0.15em]">Volume (Qty)</span>
                         <span className="text-white font-mono">{assetDetailModal.qty}</span>
                     </div>
                     <div className="flex justify-between items-center border-b border-[#222] pb-3">
-                        <span className="text-[#888] text-[10px] font-bold uppercase tracking-[0.15em]">Multiplier</span>
+                        <span className="text-[#A1A1AA] text-[10px] font-bold uppercase tracking-[0.15em]">Multiplier</span>
                         <span className="text-white font-mono">x {assetDetailModal.liveMultiplier}</span>
                     </div>
                     <div className="flex justify-between items-center border-b border-[#222] pb-3">
-                        <span className="text-[#888] text-[10px] font-bold uppercase tracking-[0.15em]">Harga Live/Unit</span>
+                        <span className="text-[#A1A1AA] text-[10px] font-bold uppercase tracking-[0.15em]">Harga Live/Unit</span>
                         <span className="text-[#00E5FF] font-mono">{maskRp(livePrices[assetDetailModal.activeTicker] || 0)}</span>
                     </div>
                     <div className="flex justify-between items-center pt-1">
-                        <span className="text-[#888] text-[10px] font-bold uppercase tracking-[0.15em]">Valuasi Total</span>
+                        <span className="text-[#A1A1AA] text-[10px] font-bold uppercase tracking-[0.15em]">Valuasi Total</span>
                         <span className="text-[#00FF41] font-mono font-black text-lg">
                            {maskRp(assetDetailModal.qty * (livePrices[assetDetailModal.activeTicker] || 0) * assetDetailModal.liveMultiplier)}
                         </span>
@@ -925,9 +928,7 @@ export default function ExpertTerminal() {
       {/* SIDEBAR */}
       <aside className="w-64 bg-[#09090B] border-r border-[#27272A] flex flex-col z-20">
         <div className="p-6 flex items-center gap-3 border-b border-[#27272A]">
-          <div className="w-8 h-8 bg-[#00FF41] flex items-center justify-center rounded-sm">
-             <Layers className="w-5 h-5 text-black" />
-          </div>
+          <img src="/BILANO-ICON.png" alt="BILANO" className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(0,255,65,0.5)]" />
           <div>
             <h1 className="text-white font-black text-lg tracking-tight leading-none uppercase">BILANO</h1>
             <p className="text-[9px] text-[#00FF41] font-bold uppercase tracking-[0.2em] mt-1">Terminal Pro</p>
@@ -935,21 +936,21 @@ export default function ExpertTerminal() {
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1">
-          <p className="text-[9px] font-bold text-[#666] uppercase tracking-[0.2em] mb-4 px-2">Data Analytics</p>
-          <button onClick={() => setActiveTab('alokasi')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'alokasi' ? 'bg-[#111] text-[#00FF41] border-l-2 border-[#00FF41]' : 'text-[#888] hover:bg-[#111] hover:text-white'}`}>
+          <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.2em] mb-4 px-2">Data Analytics</p>
+          <button onClick={() => setActiveTab('alokasi')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'alokasi' ? 'bg-[#111] text-[#00FF41] border-l-2 border-[#00FF41]' : 'text-[#D4D4D8] hover:bg-[#111] hover:text-white'}`}>
             <Layers className="w-4 h-4" /> Alokasi Aset
           </button>
-          <button onClick={() => setActiveTab('pantauan')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'pantauan' ? 'bg-[#111] text-[#00FF41] border-l-2 border-[#00FF41]' : 'text-[#888] hover:bg-[#111] hover:text-white'}`}>
+          <button onClick={() => setActiveTab('pantauan')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'pantauan' ? 'bg-[#111] text-[#00FF41] border-l-2 border-[#00FF41]' : 'text-[#D4D4D8] hover:bg-[#111] hover:text-white'}`}>
             <Radar className="w-4 h-4" /> Portofolio
           </button>
-          <button onClick={() => setActiveTab('terealisasi')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'terealisasi' ? 'bg-[#111] text-[#00FF41] border-l-2 border-[#00FF41]' : 'text-[#888] hover:bg-[#111] hover:text-white'}`}>
+          <button onClick={() => setActiveTab('terealisasi')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'terealisasi' ? 'bg-[#111] text-[#00FF41] border-l-2 border-[#00FF41]' : 'text-[#D4D4D8] hover:bg-[#111] hover:text-white'}`}>
             <Scale className="w-4 h-4" /> Terealisasi
           </button>
           
           <div className="h-px bg-[#222] my-4 mx-2"></div>
           
-          <p className="text-[9px] font-bold text-[#666] uppercase tracking-[0.2em] mb-4 px-2 flex items-center gap-1.5"><Settings2 className="w-3.5 h-3.5"/> AI Quantitative</p>
-          <button onClick={() => setActiveTab('simulator')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'simulator' ? 'bg-[#111] text-[#00E5FF] border-l-2 border-[#00E5FF]' : 'text-[#888] hover:bg-[#111] hover:text-white'}`}>
+          <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.2em] mb-4 px-2 flex items-center gap-1.5"><Settings2 className="w-3.5 h-3.5"/> AI Quantitative</p>
+          <button onClick={() => setActiveTab('simulator')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'simulator' ? 'bg-[#111] text-[#00E5FF] border-l-2 border-[#00E5FF]' : 'text-[#D4D4D8] hover:bg-[#111] hover:text-white'}`}>
             <Calculator className="w-4 h-4" /> Simulator
           </button>
         </nav>
@@ -957,22 +958,26 @@ export default function ExpertTerminal() {
         {/* PROFIL & LOGOUT */}
         <div className="p-4 border-t border-[#27272A] mt-auto flex flex-col gap-4 bg-[#050505]">
           <div className="flex items-center gap-3 px-2">
-            <div className="w-10 h-10 border border-[#333] bg-[#111] flex items-center justify-center shrink-0">
-               <span className="text-[#00FF41] font-mono font-black text-lg">{(user?.firstName || currentUserEmail || "U").charAt(0).toUpperCase()}</span>
+            <div className="w-10 h-10 border-2 border-[#333] rounded-full overflow-hidden bg-[#111] flex items-center justify-center shrink-0 shadow-md">
+              {user?.profilePicture ? (
+                <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-[#00FF41] font-mono font-black text-lg">{(user?.firstName || currentUserEmail || "U").charAt(0).toUpperCase()}</span>
+              )}
             </div>
             <div className="flex-1 overflow-hidden">
               <p className="text-[11px] font-bold text-white uppercase truncate">
                 {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Trader'}
               </p>
-              <p className="text-[9px] text-[#666] font-mono truncate mt-0.5">{currentUserEmail}</p>
+              <p className="text-[9px] text-[#A1A1AA] font-mono truncate mt-0.5">{currentUserEmail}</p>
             </div>
-            <button onClick={handleLogout} className="p-2 text-[#888] hover:text-[#FF003C] hover:bg-[#FF003C]/10 transition-all" title="Logout">
+            <button onClick={handleLogout} className="p-2 text-[#A1A1AA] hover:text-[#FF003C] hover:bg-[#FF003C]/10 transition-all rounded-md" title="Logout">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
 
           <div className="w-full flex items-center justify-between px-3 py-2 bg-[#111] border border-[#222]">
-             <span className="flex items-center gap-2 text-[9px] font-bold text-[#888] uppercase tracking-[0.2em]">
+             <span className="flex items-center gap-2 text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.2em]">
                 <Radio className={`w-3 h-3 ${isLivePricesLoading ? 'text-[#FFD700] animate-pulse' : 'text-[#00FF41]'}`} />
                 API Feed
              </span>
@@ -1001,12 +1006,12 @@ export default function ExpertTerminal() {
           <div className="flex items-center gap-8">
             <div className="text-right flex items-center gap-8">
               <div>
-                  <p className="text-[9px] text-[#888] font-bold uppercase tracking-[0.2em] mb-1">Total Kas Likuid</p>
+                  <p className="text-[9px] text-[#A1A1AA] font-bold uppercase tracking-[0.2em] mb-1">Total Kas Likuid</p>
                   <p className="text-white font-mono font-black text-lg">{maskRp(cashBalance)}</p>
               </div>
               <div className="h-8 w-px bg-[#333]"></div>
               <div>
-                  <p className="text-[9px] text-[#888] font-bold uppercase tracking-[0.2em] mb-1">Valuasi Investasi</p>
+                  <p className="text-[9px] text-[#A1A1AA] font-bold uppercase tracking-[0.2em] mb-1">Valuasi Investasi</p>
                   <div className="flex items-center gap-2 justify-end">
                       <p className="text-[#00FF41] font-mono font-black text-xl">{maskRp(totalAssetValue)}</p>
                       {isLivePricesLoading && <Orbit className="w-3.5 h-3.5 text-[#00FF41] animate-spin" />}
@@ -1028,15 +1033,15 @@ export default function ExpertTerminal() {
               
               {activePortfolio.length === 0 ? (
                   <div className="bg-[#0D0D0D] border border-[#222] p-12 flex flex-col items-center justify-center text-center">
-                      <Layers className="w-8 h-8 text-[#333] mb-4" />
+                      <Layers className="w-8 h-8 text-[#555] mb-4" />
                       <h3 className="text-sm font-black text-white mb-2 uppercase tracking-widest">Tidak Ada Data</h3>
-                      <p className="text-[#666] text-xs max-w-sm uppercase tracking-wider">Silakan catat investasi di aplikasi mobile terlebih dahulu.</p>
+                      <p className="text-[#A1A1AA] text-xs max-w-sm uppercase tracking-wider">Silakan catat investasi di aplikasi mobile terlebih dahulu.</p>
                   </div>
               ) : (
                   <>
                       <div className="bg-[#0D0D0D] border border-[#222] overflow-x-auto custom-scrollbar pb-2">
                         <table className="w-full text-left">
-                          <thead className="bg-[#111] text-[#888] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
+                          <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
                             <tr>
                               <th className="px-6 py-4 border-r border-[#222] sticky left-0 bg-[#111] z-10">Kategori</th>
                               <th className="px-6 py-4 text-white whitespace-nowrap">Tunai (IDR)</th>
@@ -1046,7 +1051,7 @@ export default function ExpertTerminal() {
                                     <th key={p.symbol} className="px-6 py-4 whitespace-nowrap">
                                        <div className="flex items-center gap-2 cursor-pointer hover:text-white transition-colors" onClick={() => setAssetDetailModal(p)}>
                                            {p.symbol} 
-                                           <span className="text-[8px] bg-[#222] border border-[#333] px-1.5 py-0.5 text-[#888]">{p.activeTicker}</span>
+                                           <span className="text-[8px] bg-[#222] border border-[#333] px-1.5 py-0.5 text-[#A1A1AA]">{p.activeTicker}</span>
                                            <ScanSearch className="w-3 h-3 text-[#00E5FF]" />
                                            {isError && (
                                               <button onClick={(e) => { e.stopPropagation(); setTempTicker(p.activeTicker); setEditTickerModal(p.symbol); }} className="text-[#FF003C] hover:text-white bg-[#FF003C]/10 border border-[#FF003C]/30 px-1.5 py-0.5 flex items-center gap-1">
@@ -1061,7 +1066,7 @@ export default function ExpertTerminal() {
                           </thead>
                           <tbody className="text-white font-mono text-xs">
                             <tr className="border-b border-[#222] hover:bg-[#111] transition-colors">
-                              <td className="px-6 py-4 font-sans font-bold text-[#888] uppercase tracking-wider sticky left-0 bg-[#0D0D0D] border-r border-[#222] z-10">Valuasi Live</td>
+                              <td className="px-6 py-4 font-sans font-bold text-[#A1A1AA] uppercase tracking-wider sticky left-0 bg-[#0D0D0D] border-r border-[#222] z-10">Valuasi Live</td>
                               <td className="px-6 py-4">{maskRp(cashBalance)}</td>
                               {activePortfolio.map((p: any) => {
                                 const livePriceAPI = livePrices[p.activeTicker];
@@ -1070,7 +1075,7 @@ export default function ExpertTerminal() {
                               })}
                             </tr>
                             <tr className="bg-[#00FF41]/5 hover:bg-[#00FF41]/10 transition-colors">
-                              <td className="px-6 py-4 font-sans font-bold text-[#888] uppercase tracking-wider sticky left-0 bg-[#0D0D0D] border-r border-[#222] z-10">Persentase</td>
+                              <td className="px-6 py-4 font-sans font-bold text-[#A1A1AA] uppercase tracking-wider sticky left-0 bg-[#0D0D0D] border-r border-[#222] z-10">Persentase</td>
                               <td className="px-6 py-4 text-[#00FF41] font-black">{totalWealth > 0 ? formatPct(cashBalance / totalWealth) : '0%'}</td>
                               {activePortfolio.map((p: any) => {
                                  const livePriceAPI = livePrices[p.activeTicker];
@@ -1095,7 +1100,7 @@ export default function ExpertTerminal() {
                         </div>
                         <div className="flex flex-wrap gap-6 justify-center mt-6">
                             {pieData.map((d: any, i: number) => (
-                                <div key={d.name} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.1em] text-[#888] uppercase">
+                                <div key={d.name} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.1em] text-[#D4D4D8] uppercase">
                                    <span className="w-3 h-3" style={{backgroundColor: COLORS[i % COLORS.length]}}></span>
                                    {d.name}
                                 </div>
@@ -1114,13 +1119,13 @@ export default function ExpertTerminal() {
                 <div>
                   <h2 className="text-lg font-black text-white uppercase tracking-tight mb-2">Performa Waktu Nyata</h2>
                   <div className="flex items-center gap-2">
-                      <button onClick={() => setSelectedYear(selectedYear - 1)} className="text-[9px] uppercase tracking-[0.15em] font-bold text-[#888] hover:text-white bg-[#111] px-3 py-1.5 border border-[#333] transition-colors flex items-center gap-1"><ChevronUp className="w-3 h-3" /> Tahun {selectedYear - 1}</button>
-                      <button onClick={() => setSelectedYear(selectedYear + 1)} className="text-[9px] uppercase tracking-[0.15em] font-bold text-[#888] hover:text-white bg-[#111] px-3 py-1.5 border border-[#333] transition-colors flex items-center gap-1">Tahun {selectedYear + 1} <ChevronUp className="w-3 h-3 rotate-180" /></button>
+                      <button onClick={() => setSelectedYear(selectedYear - 1)} className="text-[9px] uppercase tracking-[0.15em] font-bold text-[#A1A1AA] hover:text-white bg-[#111] px-3 py-1.5 border border-[#333] transition-colors flex items-center gap-1"><ChevronUp className="w-3 h-3" /> Tahun {selectedYear - 1}</button>
+                      <button onClick={() => setSelectedYear(selectedYear + 1)} className="text-[9px] uppercase tracking-[0.15em] font-bold text-[#A1A1AA] hover:text-white bg-[#111] px-3 py-1.5 border border-[#333] transition-colors flex items-center gap-1">Tahun {selectedYear + 1} <ChevronUp className="w-3 h-3 rotate-180" /></button>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
                    <div className="text-right mr-4">
-                       <p className="text-[9px] text-[#888] font-bold uppercase tracking-[0.2em] mb-1">Laba/Rugi Kumulatif</p>
+                       <p className="text-[9px] text-[#A1A1AA] font-bold uppercase tracking-[0.2em] mb-1">Laba/Rugi Kumulatif</p>
                        <div className={`font-mono font-black text-2xl ${totalProfitLoss >= 0 ? 'text-[#00FF41]' : 'text-[#FF003C]'} flex items-center gap-1 justify-end`}>
                            {totalProfitLoss >= 0 ? <ArrowUpRight className="w-5 h-5"/> : <ArrowDownRight className="w-5 h-5"/>}
                            {maskRp(Math.abs(totalProfitLoss))}
@@ -1135,7 +1140,7 @@ export default function ExpertTerminal() {
               {/* 🚀 TABEL BULANAN */}
               <div className="bg-[#0D0D0D] border border-[#222] overflow-x-auto custom-scrollbar mb-8">
                 <table className="w-full text-left">
-                  <thead className="bg-[#111] text-[#888] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
+                  <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
                     <tr>
                       <th className="px-6 py-4 border-r border-[#222] sticky left-0 bg-[#111] z-10 text-[#00E5FF]">Bulan ({selectedYear})</th>
                       {activePortfolio.map((p: any) => (
@@ -1148,20 +1153,20 @@ export default function ExpertTerminal() {
                   </thead>
                   <tbody className="text-[#E4E4E7] font-mono text-xs">
                     {availableMonths.length === 0 ? (
-                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-8 text-center text-[#666] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
+                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
                     ) : (
                        availableMonths.map((m) => {
                           const data = getMonthData(m.monthNum, selectedYear);
                           const details = data.details as Record<string, {invested: number, valuasi: number, qty: number}>;
                           
                           return (
-                             <tr key={m.name} className={`border-b border-[#222] hover:bg-[#111] transition-colors ${!data.isSaved ? 'opacity-70' : ''}`}>
-                                <td className="px-6 py-4 font-sans font-bold text-[#888] sticky left-0 bg-[#0D0D0D] border-r border-[#222] z-10 flex items-center justify-between">
+                             <tr key={m.name} className={`border-b border-[#222] hover:bg-[#111] transition-colors ${!data.isSaved ? 'opacity-80' : ''}`}>
+                                <td className="px-6 py-4 font-sans font-bold text-[#D4D4D8] sticky left-0 bg-[#0D0D0D] border-r border-[#222] z-10 flex items-center justify-between">
                                     {m.name.toUpperCase()} {!data.isSaved && <span className="text-[7px] tracking-[0.2em] font-black bg-[#222] text-[#00FF41] px-1.5 py-0.5 ml-2">AUTO</span>}
                                 </td>
                                 {activePortfolio.map((p: any) => {
                                     const assetSnap = details[p.symbol] || { invested: 0, valuasi: 0, qty: 0 };
-                                    if (assetSnap.qty === 0) return <td key={p.symbol} className="px-6 py-4 text-[#333] text-center">-</td>;
+                                    if (assetSnap.qty === 0) return <td key={p.symbol} className="px-6 py-4 text-[#555] text-center">-</td>;
                                     
                                     const plAmount = assetSnap.valuasi - assetSnap.invested;
                                     const plPct = (plAmount / assetSnap.invested);
@@ -1174,7 +1179,7 @@ export default function ExpertTerminal() {
                                 })}
                                 <td className="px-6 py-4 bg-[#111]">
                                     {(() => {
-                                        if (data.investValue === 0) return <span className="text-[#333]">-</span>;
+                                        if (data.investValue === 0) return <span className="text-[#555]">-</span>;
                                         const plTotalAmount = data.totalValue - data.investValue;
                                         return (
                                             <div className={plTotalAmount >= 0 ? 'text-[#00FF41]' : 'text-[#FF003C]'}>
@@ -1195,7 +1200,7 @@ export default function ExpertTerminal() {
               {/* 🚀 TABEL TAHUNAN */}
               <div className="bg-[#0D0D0D] border border-[#222] overflow-x-auto custom-scrollbar">
                 <table className="w-full text-left">
-                  <thead className="bg-[#111] text-[#888] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
+                  <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
                     <tr>
                       <th className="px-6 py-4 border-r border-[#222] sticky left-0 bg-[#111] z-10 text-[#FFD700]">Tahun</th>
                       {activePortfolio.map((p: any) => (
@@ -1208,7 +1213,7 @@ export default function ExpertTerminal() {
                   </thead>
                   <tbody className="text-[#E4E4E7] font-mono text-xs">
                     {availableYears.length === 0 ? (
-                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-8 text-center text-[#666] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
+                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
                     ) : (
                        availableYears.map((y) => {
                           const data = getYearData(y);
@@ -1221,7 +1226,7 @@ export default function ExpertTerminal() {
                                 </td>
                                 {activePortfolio.map((p: any) => {
                                     const assetSnap = details[p.symbol] || { invested: 0, valuasi: 0, qty: 0 };
-                                    if (assetSnap.qty === 0) return <td key={`yr-${y}-${p.symbol}`} className="px-6 py-4 text-[#333] text-center">-</td>;
+                                    if (assetSnap.qty === 0) return <td key={`yr-${y}-${p.symbol}`} className="px-6 py-4 text-[#555] text-center">-</td>;
                                     
                                     const plAmount = assetSnap.valuasi - assetSnap.invested;
                                     const plPct = (plAmount / assetSnap.invested);
@@ -1234,7 +1239,7 @@ export default function ExpertTerminal() {
                                 })}
                                 <td className="px-6 py-4 bg-[#111]">
                                     {(() => {
-                                        if (data.investValue === 0) return <span className="text-[#333]">-</span>;
+                                        if (data.investValue === 0) return <span className="text-[#555]">-</span>;
                                         const plTotalAmount = data.totalValue - data.investValue;
                                         return (
                                             <div className={plTotalAmount >= 0 ? 'text-[#00FF41]' : 'text-[#FF003C]'}>
@@ -1257,12 +1262,12 @@ export default function ExpertTerminal() {
                 <div className="flex justify-between items-center mb-6 border-b border-[#222] pb-4">
                   <h3 className="font-black text-white uppercase tracking-tight text-lg">Chart Historis Teragregasi</h3>
                   <div className="flex bg-[#111] border border-[#333]">
-                     <button onClick={() => setChartTimeframe('1D')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1D'?'bg-[#00FF41] text-black':'text-[#888] hover:text-white'}`}>1D</button>
-                     <button onClick={() => setChartTimeframe('1W')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1W'?'bg-[#00FF41] text-black':'text-[#888] hover:text-white'}`}>1W</button>
-                     <button onClick={() => setChartTimeframe('1M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1M'?'bg-[#00FF41] text-black':'text-[#888] hover:text-white'}`}>1M</button>
-                     <button onClick={() => setChartTimeframe('3M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='3M'?'bg-[#00FF41] text-black':'text-[#888] hover:text-white'}`}>3M</button>
-                     <button onClick={() => setChartTimeframe('1Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1Y'?'bg-[#00FF41] text-black':'text-[#888] hover:text-white'}`}>1Y</button>
-                     <button onClick={() => setChartTimeframe('5Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='5Y'?'bg-[#00FF41] text-black':'text-[#888] hover:text-white'}`}>5Y</button>
+                     <button onClick={() => setChartTimeframe('1D')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1D'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1D</button>
+                     <button onClick={() => setChartTimeframe('1W')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1W'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1W</button>
+                     <button onClick={() => setChartTimeframe('1M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1M</button>
+                     <button onClick={() => setChartTimeframe('3M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='3M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>3M</button>
+                     <button onClick={() => setChartTimeframe('1Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1Y</button>
+                     <button onClick={() => setChartTimeframe('5Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='5Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>5Y</button>
                   </div>
                 </div>
                 <div className="h-[350px] w-full">
@@ -1275,11 +1280,11 @@ export default function ExpertTerminal() {
                                   <stop offset="95%" stopColor="#00FF41" stopOpacity={0}/>
                                 </linearGradient>
                              </defs>
-                             <XAxis dataKey="name" stroke="#555" fontSize={10} fontFamily="JetBrains Mono" tickLine={false} axisLine={false} minTickGap={30} />
+                             <XAxis dataKey="name" stroke="#64748B" fontSize={10} fontFamily="JetBrains Mono" tickLine={false} axisLine={false} minTickGap={30} />
                              <YAxis 
                                 domain={['dataMin', 'dataMax']} 
                                 padding={{ top: 20, bottom: 20 }}
-                                stroke="#555" 
+                                stroke="#64748B" 
                                 fontSize={10} 
                                 fontFamily="JetBrains Mono"
                                 tickLine={false} 
@@ -1290,11 +1295,11 @@ export default function ExpertTerminal() {
                              <Tooltip formatter={(val: number) => maskRp(val)} contentStyle={{backgroundColor: '#000', borderColor: '#333', borderRadius: '0', color: '#fff', fontFamily: 'JetBrains Mono'}} />
                              <CartesianGrid stroke="#222" strokeDasharray="3 3" vertical={false} />
                              
-                             <Line type="stepAfter" dataKey="Investasi" stroke="#666" strokeWidth={1.5} dot={false} strokeDasharray="4 4" name="Modal Aktif" />
+                             <Line type="stepAfter" dataKey="Investasi" stroke="#94A3B8" strokeWidth={1.5} dot={false} strokeDasharray="4 4" name="Modal Aktif" />
                              <Area type="monotone" dataKey="Total" stroke="#00FF41" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" dot={false} name="Valuasi Total" />
                           </AreaChart>
                        </ResponsiveContainer>
-                    ) : <div className="w-full h-full flex items-center justify-center text-[#333] text-[10px] font-bold uppercase tracking-[0.2em]">Memuat Data Historis...</div>}
+                    ) : <div className="w-full h-full flex items-center justify-center text-[#555] text-[10px] font-bold uppercase tracking-[0.2em]">Memuat Data Historis...</div>}
                 </div>
               </div>
             </div>
@@ -1310,7 +1315,7 @@ export default function ExpertTerminal() {
 
               <div className="bg-[#0D0D0D] border border-[#222] overflow-hidden">
                 <table className="w-full text-left">
-                  <thead className="bg-[#111] text-[#888] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
+                  <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
                     <tr>
                       <th className="px-6 py-4 border-r border-[#222]">Timestamp</th>
                       <th className="px-6 py-4">Instrumen</th>
@@ -1321,7 +1326,7 @@ export default function ExpertTerminal() {
                   </thead>
                   <tbody className="text-white font-mono text-xs">
                     {realizedTrades.length === 0 ? (
-                      <tr><td colSpan={5} className="px-6 py-12 text-center text-[#666] font-sans font-bold uppercase tracking-widest text-[10px]">No Realized Trades</td></tr>
+                      <tr><td colSpan={5} className="px-6 py-12 text-center text-[#A1A1AA] font-sans font-bold uppercase tracking-widest text-[10px]">No Realized Trades</td></tr>
                     ) : (
                       realizedTrades.map((t: any) => {
                         const isLivePriceReady = t.livePriceIDR > 0;
@@ -1332,22 +1337,22 @@ export default function ExpertTerminal() {
 
                         return (
                           <tr key={t.id} className="border-b border-[#222] hover:bg-[#111] transition-colors">
-                            <td className="px-6 py-4 text-[#888] font-sans uppercase text-[10px] border-r border-[#222]">
+                            <td className="px-6 py-4 text-[#D4D4D8] font-sans uppercase text-[10px] border-r border-[#222]">
                                 {new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </td>
                             <td className="px-6 py-4 font-sans font-black flex items-center gap-2">
                                {t.symbol} 
-                               <span className="text-[8px] bg-[#222] border border-[#333] text-[#888] px-1.5 py-0.5">{t.activeTicker}</span>
+                               <span className="text-[8px] bg-[#222] border border-[#333] text-[#A1A1AA] px-1.5 py-0.5">{t.activeTicker}</span>
                             </td>
                             <td className="px-6 py-4">
                                <span className="text-white">{maskRp(t.amount)}</span> <br/>
-                               <span className="text-[9px] text-[#666] font-sans font-bold">@ {maskRp(sellPricePerShareIDR)}</span>
+                               <span className="text-[9px] text-[#A1A1AA] font-sans font-bold">@ {maskRp(sellPricePerShareIDR)}</span>
                             </td>
                             <td className="px-6 py-4 text-[#00E5FF]">
-                               {isLivePricesLoading && !isLivePriceReady ? <span className="text-[9px] text-[#FFD700] uppercase tracking-widest animate-pulse">Loading...</span> : (isLivePriceReady ? maskRp(livePricePerShareIDR) : <span className="text-[#333]">-</span>)}
+                               {isLivePricesLoading && !isLivePriceReady ? <span className="text-[9px] text-[#FFD700] uppercase tracking-widest animate-pulse">Loading...</span> : (isLivePriceReady ? maskRp(livePricePerShareIDR) : <span className="text-[#555]">-</span>)}
                             </td>
                             <td className="px-6 py-4 text-right font-sans">
-                              {!isLivePriceReady ? <span className="text-[9px] text-[#666] uppercase tracking-[0.2em] font-bold">Menunggu...</span> : isGoodSell ? (
+                              {!isLivePriceReady ? <span className="text-[9px] text-[#A1A1AA] uppercase tracking-[0.2em] font-bold">Menunggu...</span> : isGoodSell ? (
                                 <span className="text-[9px] font-black uppercase tracking-wider text-[#00FF41] bg-[#00FF41]/10 border border-[#00FF41]/30 px-2 py-1">Tepat Waktu</span>
                               ) : (
                                 <span className="text-[9px] font-black uppercase tracking-wider text-[#FF003C] bg-[#FF003C]/10 border border-[#FF003C]/30 px-2 py-1">Terlalu Cepat</span>
@@ -1377,7 +1382,7 @@ export default function ExpertTerminal() {
 
                  {activePortfolio.length === 0 ? (
                      <div className="bg-[#0D0D0D] border border-[#222] p-12 flex flex-col items-center justify-center text-center">
-                         <Calculator className="w-8 h-8 text-[#333] mb-4" />
+                         <Calculator className="w-8 h-8 text-[#555] mb-4" />
                          <h3 className="text-sm font-black text-white mb-2 uppercase tracking-widest">Tidak Ada Portofolio Aktif</h3>
                      </div>
                  ) : (
@@ -1389,18 +1394,18 @@ export default function ExpertTerminal() {
                                  <div className="absolute -right-20 -bottom-20 w-48 h-48 bg-[#00FF41]/5 rounded-full blur-3xl pointer-events-none"></div>
                                  
                                  <div>
-                                     <h3 className="text-[#888] font-bold text-[10px] uppercase tracking-[0.2em] mb-2">Total Estimasi Portofolio Berdasarkan Maks Horizon ({grandTotalSimulation.maxHorizon} Thn)</h3>
+                                     <h3 className="text-[#A1A1AA] font-bold text-[10px] uppercase tracking-[0.2em] mb-2">Total Estimasi Portofolio Berdasarkan Maks Horizon ({grandTotalSimulation.maxHorizon} Thn)</h3>
                                      <div className="flex items-end gap-6">
                                          <p className="mono-font text-4xl font-black text-[#00FF41] leading-none">
                                              {maskRp(grandTotalSimulation.totalAkhir)}
                                          </p>
-                                         <p className="mono-font text-xs font-bold text-[#666] mb-1">
-                                             Modal Keseluruhan: <span className="text-[#888]">{maskRp(grandTotalSimulation.totalModal)}</span>
+                                         <p className="mono-font text-xs font-bold text-[#A1A1AA] mb-1">
+                                             Modal Keseluruhan: <span className="text-white">{maskRp(grandTotalSimulation.totalModal)}</span>
                                          </p>
                                      </div>
                                  </div>
                                  <div className="text-right">
-                                     <p className="text-[#888] font-bold text-[10px] uppercase tracking-[0.2em] mb-2">Proyeksi Laba Bersih</p>
+                                     <p className="text-[#A1A1AA] font-bold text-[10px] uppercase tracking-[0.2em] mb-2">Proyeksi Laba Bersih</p>
                                      <p className="mono-font text-2xl font-black text-[#00E5FF] leading-none">
                                          +{maskRp(grandTotalSimulation.laba)}
                                      </p>
@@ -1428,24 +1433,24 @@ export default function ExpertTerminal() {
                                                  </div>
                                                  <div className="flex-1 grid grid-cols-4 gap-4 items-center">
                                                      <div>
-                                                         <p className="text-[9px] text-[#888] font-bold uppercase tracking-[0.2em] mb-1">Instrumen</p>
+                                                         <p className="text-[9px] text-[#A1A1AA] font-bold uppercase tracking-[0.2em] mb-1">Instrumen</p>
                                                          <p className="font-black text-white text-base">{asset.symbol}</p>
                                                      </div>
                                                      <div>
-                                                         <p className="text-[9px] text-[#888] font-bold uppercase tracking-[0.2em] mb-1">Base Modal</p>
+                                                         <p className="text-[9px] text-[#A1A1AA] font-bold uppercase tracking-[0.2em] mb-1">Base Modal</p>
                                                          <p className="font-mono text-sm text-[#00FF41]">{formatRp(params.modalAwal || asset.totalModalIDR)}</p>
                                                      </div>
                                                      <div>
-                                                         <p className="text-[9px] text-[#888] font-bold uppercase tracking-[0.2em] mb-1">Horizon Target</p>
+                                                         <p className="text-[9px] text-[#A1A1AA] font-bold uppercase tracking-[0.2em] mb-1">Horizon Target</p>
                                                          <p className="font-mono text-sm text-white">{params.horizonWaktu || 5} THN</p>
                                                      </div>
                                                      <div>
-                                                         <p className="text-[9px] text-[#888] font-bold uppercase tracking-[0.2em] mb-1">Data Model</p>
+                                                         <p className="text-[9px] text-[#A1A1AA] font-bold uppercase tracking-[0.2em] mb-1">Data Model</p>
                                                          <p className="font-mono text-xs text-[#FFD700] uppercase">Tersinkronisasi</p>
                                                      </div>
                                                  </div>
                                              </div>
-                                             <div className={`p-2 transition-transform duration-300 ${isExpanded ? 'text-[#00E5FF] rotate-180' : 'text-[#666]'}`}>
+                                             <div className={`p-2 transition-transform duration-300 ${isExpanded ? 'text-[#00E5FF] rotate-180' : 'text-[#888]'}`}>
                                                  <ChevronDown className="w-5 h-5" />
                                              </div>
                                          </div>
@@ -1459,7 +1464,7 @@ export default function ExpertTerminal() {
                                                      {/* Chart */}
                                                      <div className="h-[300px] w-full bg-[#000] border border-[#222] p-4 relative">
                                                         <div className="absolute top-4 left-4 z-10">
-                                                            <h4 className="text-[10px] font-bold text-[#888] uppercase tracking-[0.15em]">Proyeksi Ekstrapolasi Harga (IDR)</h4>
+                                                            <h4 className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Proyeksi Ekstrapolasi Harga (IDR)</h4>
                                                         </div>
                                                         <ResponsiveContainer width="100%" height="100%">
                                                             <LineChart data={currentSimData.chartData} margin={{ top: 30, right: 10, left: 10, bottom: 0 }}>
@@ -1471,7 +1476,7 @@ export default function ExpertTerminal() {
                                                                     labelFormatter={(label) => `Bulan ${label}`}
                                                                     contentStyle={{backgroundColor: '#000', borderColor: '#333', borderRadius: '0', color: '#fff', fontFamily: 'JetBrains Mono'}}
                                                                 />
-                                                                <Legend wrapperStyle={{ fontSize: '10px', fontFamily: 'Inter', textTransform: 'uppercase', letterSpacing: '0.1em', paddingTop: '10px' }} />
+                                                                <Legend wrapperStyle={{ fontSize: '10px', fontFamily: 'Plus Jakarta Sans', textTransform: 'uppercase', letterSpacing: '0.1em', paddingTop: '10px' }} />
                                                                 <Line type="monotone" dataKey="LumpSum" name="Lump Sum" stroke="#0055FF" strokeWidth={2} dot={false} />
                                                                 <Line type="monotone" dataKey="DCA" name="Dollar Cost Avg" stroke="#00FF41" strokeWidth={2} dot={false} />
                                                                 <Line type="monotone" dataKey="ValueAveraging" name="Value Averaging" stroke="#FFD700" strokeWidth={2} dot={false} />
@@ -1482,7 +1487,7 @@ export default function ExpertTerminal() {
                                                      {/* Result Table */}
                                                      <div className="bg-[#000] border border-[#222]">
                                                         <table className="w-full text-left">
-                                                            <thead className="bg-[#111] text-[#888] font-bold uppercase tracking-[0.15em] text-[9px] border-b border-[#333]">
+                                                            <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[9px] border-b border-[#333]">
                                                                 <tr>
                                                                     <th className="px-5 py-3 border-r border-[#222]">Metode</th>
                                                                     <th className="px-5 py-3">Total Injeksi Modal</th>
@@ -1496,7 +1501,7 @@ export default function ExpertTerminal() {
                                                                     const isBest = currentSimData.bestStrategy.name === str.name;
                                                                     return (
                                                                         <tr key={str.name} className={`border-b border-[#222] ${isBest ? 'bg-[#00E5FF]/10' : 'hover:bg-[#111]'}`}>
-                                                                            <td className={`px-5 py-4 border-r border-[#222] font-sans font-black uppercase text-[10px] tracking-wider ${isBest ? 'text-[#00E5FF]' : 'text-[#888]'}`}>{str.name}</td>
+                                                                            <td className={`px-5 py-4 border-r border-[#222] font-sans font-black uppercase text-[10px] tracking-wider ${isBest ? 'text-[#00E5FF]' : 'text-[#A1A1AA]'}`}>{str.name}</td>
                                                                             <td className="px-5 py-4">{formatRp(str.modal)}</td>
                                                                             <td className="px-5 py-4 text-[#00FF41] font-bold">{formatRp(str.akhir)}</td>
                                                                             <td className="px-5 py-4 text-[#00E5FF]">{formatRp(str.laba)}</td>
@@ -1509,7 +1514,7 @@ export default function ExpertTerminal() {
                                                         
                                                         <div className="bg-[#111] p-4 flex items-center justify-between border-t border-[#333]">
                                                             <div>
-                                                                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#666] mb-1">Rekomendasi Algoritma</p>
+                                                                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#A1A1AA] mb-1">Rekomendasi Algoritma</p>
                                                                 <p className="text-sm font-black uppercase text-[#00E5FF]">{currentSimData.bestStrategy.name}</p>
                                                             </div>
                                                         </div>
@@ -1522,7 +1527,7 @@ export default function ExpertTerminal() {
                                                      
                                                      <div>
                                                          <div className="flex justify-between items-center mb-2">
-                                                             <label className="text-[9px] font-bold text-[#888] uppercase tracking-[0.15em]">Modal Awal (IDR)</label>
+                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Modal Awal (IDR)</label>
                                                              <span className="text-[11px] font-mono text-[#00FF41]">{formatRp(params.modalAwal)}</span>
                                                          </div>
                                                          <input 
@@ -1535,7 +1540,7 @@ export default function ExpertTerminal() {
 
                                                      <div>
                                                          <div className="flex justify-between items-center mb-2">
-                                                             <label className="text-[9px] font-bold text-[#888] uppercase tracking-[0.15em]">Suntikan Rutin/Bulan</label>
+                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Suntikan Rutin/Bulan</label>
                                                              <span className="text-[11px] font-mono text-[#00E5FF]">{formatRp(params.kontribusiBulanan)}</span>
                                                          </div>
                                                          <input 
@@ -1548,7 +1553,7 @@ export default function ExpertTerminal() {
 
                                                      <div>
                                                          <div className="flex justify-between items-center mb-2">
-                                                             <label className="text-[9px] font-bold text-[#888] uppercase tracking-[0.15em]">Horizon Investasi</label>
+                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Horizon Investasi</label>
                                                              <span className="text-[11px] font-mono text-white">{params.horizonWaktu} THN</span>
                                                          </div>
                                                          <input 
@@ -1563,7 +1568,7 @@ export default function ExpertTerminal() {
 
                                                      <div>
                                                          <div className="flex justify-between items-center mb-2">
-                                                             <label className="text-[9px] font-bold text-[#888] uppercase tracking-[0.15em]">Hist. CAGR / Return</label>
+                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Hist. CAGR / Return</label>
                                                              <span className="text-[11px] font-mono text-[#FFD700]">{params.ekspektasiReturn}%</span>
                                                          </div>
                                                          <input 
@@ -1576,7 +1581,7 @@ export default function ExpertTerminal() {
 
                                                      <div>
                                                          <div className="flex justify-between items-center mb-2">
-                                                             <label className="text-[9px] font-bold text-[#888] uppercase tracking-[0.15em]">Risk / Volatility</label>
+                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Risk / Volatility</label>
                                                              <span className="text-[11px] font-mono text-[#FF003C]">{params.volatilitas}%</span>
                                                          </div>
                                                          <input 
@@ -1589,7 +1594,7 @@ export default function ExpertTerminal() {
 
                                                      <div>
                                                          <div className="flex justify-between items-center mb-2">
-                                                             <label className="text-[9px] font-bold text-[#888] uppercase tracking-[0.15em]">Inflasi Setoran / Thn</label>
+                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Inflasi Setoran / Thn</label>
                                                              <span className="text-[11px] font-mono text-[#B500FF]">{params.kenaikanSetoran}%</span>
                                                          </div>
                                                          <input 
