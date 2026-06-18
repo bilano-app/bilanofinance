@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { 
   Fingerprint, Layers, Radar, Scale, VenetianMask, ShieldAlert,
-  ArrowUpRight, ArrowDownRight, ChevronUp, Orbit, Database, X, Wrench, ScanSearch, Radio
+  ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, Orbit, Database, X, Wrench, ScanSearch, Radio, LogOut, Calculator, Settings2
 } from "lucide-react";
 import { useUser, useInvestments, useTransactions, useLiveQuotes, useHistoricalQuotes, usePortfolioSnapshots, useSaveSnapshot } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
-import { PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line } from 'recharts';
+import { PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line, LineChart, Legend } from 'recharts';
 import { useQuery } from "@tanstack/react-query";
+import { auth } from "@/lib/firebase";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 // Tema warna profesional (High Contrast & Neon)
 const COLORS = ['#22C55E', '#06B6D4', '#8B5CF6', '#F59E0B', '#F43F5E', '#6366f1', '#EAB308'];
@@ -14,26 +16,38 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Se
 
 export default function ExpertTerminal() {
   const { toast } = useToast();
+  
+  // State Autentikasi Terminal
+  const [isTerminalAuth, setIsTerminalAuth] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem("bilano_auth") === "true";
+    return false;
+  });
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+
+  // Data Hooks
   const { data: user } = useUser();
   const { data: investments = [] } = useInvestments();
   const { data: transactions = [] } = useTransactions();
   const { data: snapshots = [] } = usePortfolioSnapshots();
   const saveSnapshotMutation = useSaveSnapshot();
 
-  const [activeTab, setActiveTab] = useState<'alokasi' | 'pantauan' | 'terealisasi'>('alokasi');
-  
+  const [activeTab, setActiveTab] = useState<'alokasi' | 'pantauan' | 'terealisasi' | 'simulator'>('alokasi');
   const [showProfit, setShowProfit] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | '5Y'>('1M');
 
-  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const { data: forexRates = {} } = useQuery({
       queryKey: ['forexRates', currentUserEmail],
       queryFn: async () => {
           const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": currentUserEmail } });
           return res.json();
       },
-      enabled: !!currentUserEmail
+      enabled: !!currentUserEmail && isTerminalAuth
   });
 
   const [tickerOverrides, setTickerOverrides] = useState<Record<string, string>>(() => {
@@ -96,8 +110,17 @@ export default function ExpertTerminal() {
     return Array.from(tickers);
   }, [investments, chronologicalTxs, tickerOverrides]);
 
+  const apiRange = useMemo(() => {
+      if (chartTimeframe === '1D') return '1d';
+      if (chartTimeframe === '1W') return '5d'; 
+      if (chartTimeframe === '1M') return '1mo';
+      if (chartTimeframe === '3M') return '3mo';
+      if (chartTimeframe === '1Y') return '1y';
+      return '5y';
+  }, [chartTimeframe]);
+
   const { data: livePrices = {}, isLoading: isLivePricesLoading } = useLiveQuotes(uniqueTickersToFetch);
-  const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
+  const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, apiRange);
 
   const getPriceForDate = useCallback((ticker: string, targetTs: number) => {
       const hist = historyPrices[ticker];
@@ -107,7 +130,7 @@ export default function ExpertTerminal() {
       let closestPrice = null; 
       
       for(let i = hist.timestamps.length-1; i >= 0; i--) {
-          if (hist.timestamps[i] <= targetSec + 86400) { 
+          if (hist.timestamps[i] <= targetSec) { 
               if (hist.close[i] !== null && hist.close[i] !== undefined) {
                   closestPrice = hist.close[i];
                   break;
@@ -158,6 +181,184 @@ export default function ExpertTerminal() {
     
     return Object.values(agg).filter((p: any) => p.qty > 0);
   }, [investments, tickerOverrides, getHistoricalRate]);
+
+  // =========================================================================
+  // 🚀 ENGINE SIMULATOR STRATEGI (GBM + Value Averaging)
+  // =========================================================================
+  const [expandedSimAsset, setExpandedSimAsset] = useState<string | null>(null);
+  const [simParams, setSimParams] = useState<Record<string, any>>({});
+
+  const extractHistoricalStats = useCallback((ticker: string) => {
+      const hist = historyPrices[ticker];
+      if (!hist || !hist.timestamps || hist.timestamps.length < 2) return { cagr: 0.12, volatility: 0.15 }; 
+      
+      const closes = hist.close.filter((c: number) => c !== null && c !== undefined);
+      if (closes.length < 2) return { cagr: 0.12, volatility: 0.15 };
+
+      const firstPrice = closes[0];
+      const lastPrice = closes[closes.length - 1];
+      const days = (hist.timestamps[hist.timestamps.length - 1] - hist.timestamps[0]) / (24 * 3600);
+      const years = Math.max(days / 365, 0.1); 
+
+      // CAGR
+      let cagr = Math.pow((lastPrice / firstPrice), (1 / years)) - 1;
+      
+      // Volatility (Stdev of daily returns * sqrt(252))
+      let returns = [];
+      for(let i=1; i<closes.length; i++) {
+          returns.push((closes[i] - closes[i-1]) / closes[i-1]);
+      }
+      const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+      const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
+      let volatility = Math.sqrt(variance) * Math.sqrt(252);
+
+      // Sanity bounds
+      if (cagr > 1.0) cagr = 0.5; if (cagr < -0.5) cagr = -0.1;
+      if (volatility > 1.0) volatility = 0.8; if (volatility < 0.05) volatility = 0.05;
+
+      return { cagr, volatility };
+  }, [historyPrices]);
+
+  const handleExpandSim = (asset: any) => {
+      if (expandedSimAsset === asset.symbol) {
+          setExpandedSimAsset(null);
+          return;
+      }
+      
+      if (!simParams[asset.symbol]) {
+          const stats = extractHistoricalStats(asset.activeTicker);
+          const livePriceAPI = livePrices[asset.activeTicker];
+          const liveValuationIDR = livePriceAPI ? (asset.qty * livePriceAPI * asset.liveMultiplier) : asset.totalModalIDR;
+          
+          setSimParams(prev => ({
+              ...prev,
+              [asset.symbol]: {
+                  modalAwal: asset.currency === 'USD' ? (liveValuationIDR / (Number(forexRates['USD'])||16200)) : liveValuationIDR,
+                  kontribusiBulanan: asset.currency === 'USD' ? 50 : 1000000,
+                  horizonWaktu: 5,
+                  kenaikanSetoran: 10,
+                  ekspektasiReturn: Number((stats.cagr * 100).toFixed(1)),
+                  volatilitas: Number((stats.volatility * 100).toFixed(1))
+              }
+          }));
+      }
+      setExpandedSimAsset(asset.symbol);
+  };
+
+  const currentSimData = useMemo(() => {
+      if (!expandedSimAsset || !simParams[expandedSimAsset]) return null;
+      const params = simParams[expandedSimAsset];
+      const asset = activePortfolio.find((a: any) => a.symbol === expandedSimAsset);
+      if (!asset) return null;
+
+      const isUSD = asset.currency === 'USD';
+      
+      const S0 = 100; // Index base
+      const mu = params.ekspektasiReturn / 100;
+      const sigma = params.volatilitas / 100;
+      const months = params.horizonWaktu * 12;
+      const dt = 1 / 12;
+
+      // 1. Generate GBM Path (Pseudo-Random seeded by asset to avoid jitter)
+      let pricePath = [S0];
+      // Deterministik pseudo-random agar chart tidak goyang tiap slider geser
+      const seededRandom = (seed: number) => {
+          let x = Math.sin(seed++) * 10000;
+          return x - Math.floor(x);
+      }
+      let seed = asset.symbol.charCodeAt(0) + params.horizonWaktu;
+      
+      for (let i = 1; i <= months; i++) {
+          let u = 0, v = 0;
+          while(u === 0) u = seededRandom(seed++);
+          while(v === 0) v = seededRandom(seed++);
+          let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+          
+          let drift = (mu - 0.5 * sigma * sigma) * dt;
+          let shock = sigma * Math.sqrt(dt) * z;
+          pricePath.push(pricePath[i-1] * Math.exp(drift + shock));
+      }
+
+      // 2. Simulate Strategies
+      const chartData = [];
+      let lsShares = params.modalAwal / pricePath[0];
+      let lsModal = params.modalAwal;
+
+      let dcaShares = params.modalAwal / pricePath[0];
+      let dcaModal = params.modalAwal;
+
+      let vaShares = params.modalAwal / pricePath[0];
+      let vaModal = params.modalAwal;
+      let vaTarget = params.modalAwal;
+
+      chartData.push({
+          month: 0,
+          LumpSum: params.modalAwal,
+          DCA: params.modalAwal,
+          ValueAveraging: params.modalAwal
+      });
+
+      for (let m = 1; m <= months; m++) {
+          const currentPrice = pricePath[m];
+          const yearIndex = Math.floor((m-1)/12);
+          const currentMonthlyContrib = params.kontribusiBulanan * Math.pow(1 + (params.kenaikanSetoran/100), yearIndex);
+
+          // Lump Sum (Hold)
+          const valLS = lsShares * currentPrice;
+
+          // DCA (Buy every month regardless of price)
+          dcaShares += currentMonthlyContrib / currentPrice;
+          dcaModal += currentMonthlyContrib;
+          const valDCA = dcaShares * currentPrice;
+
+          // Value Averaging
+          vaTarget = vaTarget * (1 + (mu/12)) + currentMonthlyContrib;
+          const currentVaVal = vaShares * currentPrice;
+          const shortfall = vaTarget - currentVaVal;
+          
+          if (shortfall > 0) {
+              // Harus tambah modal
+              vaShares += shortfall / currentPrice;
+              vaModal += shortfall;
+          } else {
+              // Jika shortfall < 0, kita biarkan saja (strict VA tanpa sell) untuk adil ke modal
+          }
+          const valVA = vaShares * currentPrice;
+
+          chartData.push({
+              month: m,
+              LumpSum: valLS,
+              DCA: valDCA,
+              ValueAveraging: valVA
+          });
+      }
+
+      const finalLS = chartData[months].LumpSum;
+      const finalDCA = chartData[months].DCA;
+      const finalVA = chartData[months].ValueAveraging;
+
+      // 3. Forex IDR Projection
+      const currentUSDIDR = Number(forexRates['USD']) || 16200;
+      // Proyeksi depresiasi IDR 3% per tahun
+      const projectedIDR = currentUSDIDR * Math.pow(1.03, params.horizonWaktu);
+
+      const strategies = [
+          { name: 'Lump Sum', modal: lsModal, akhir: finalLS, laba: finalLS - lsModal, roi: ((finalLS - lsModal)/lsModal)*100 },
+          { name: 'DCA', modal: dcaModal, akhir: finalDCA, laba: finalDCA - dcaModal, roi: ((finalDCA - dcaModal)/dcaModal)*100 },
+          { name: 'Value Averaging', modal: vaModal, akhir: finalVA, laba: finalVA - vaModal, roi: ((finalVA - vaModal)/vaModal)*100 }
+      ];
+
+      const best = strategies.reduce((prev, curr) => (curr.roi > prev.roi ? curr : prev));
+
+      return {
+          chartData,
+          strategies,
+          bestStrategy: best,
+          isUSD,
+          projectedIDR
+      };
+  }, [expandedSimAsset, simParams, activePortfolio, forexRates]);
+
 
   const realizedTradesBase = useMemo(() => {
     return chronologicalTxs.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
@@ -392,78 +593,71 @@ export default function ExpertTerminal() {
          const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
          const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
          const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
-         
-         const date = new Date(t.date);
-         const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-         return { ...t, parsedSymbol: sym, parsedQty: qty, dateStr };
+         return { ...t, parsedSymbol: sym, parsedQty: qty };
      });
 
      const firstDate = firstInvestmentDate.getTime();
-     const ONE_DAY = 24 * 60 * 60 * 1000;
      const now = new Date().getTime();
 
      let startTimeframe = firstDate;
-     if (chartTimeframe === '1D') startTimeframe = now - 1 * ONE_DAY;
-     if (chartTimeframe === '1W') startTimeframe = now - 7 * ONE_DAY;
-     if (chartTimeframe === '1M') startTimeframe = now - 30 * ONE_DAY;
-     if (chartTimeframe === '3M') startTimeframe = now - 90 * ONE_DAY;
-     if (chartTimeframe === '1Y') startTimeframe = Math.max(firstDate, now - 365 * ONE_DAY);
-     if (chartTimeframe === '5Y') startTimeframe = Math.max(firstDate, now - 1825 * ONE_DAY);
+     let stepSize = 24 * 60 * 60 * 1000; 
      
-     let currentTs = new Date(startTimeframe).setHours(0,0,0,0);
-     const endTs = new Date().setHours(0,0,0,0);
-
-     const txByDate: Record<string, any[]> = {};
-     parsedInvestTxs.forEach((t: any) => {
-         if (!txByDate[t.dateStr]) txByDate[t.dateStr] = [];
-         txByDate[t.dateStr].push(t);
-     });
-
-     let currentQty: Record<string, number> = {};
-     let currentInvestedIDR: Record<string, number> = {};
+     if (chartTimeframe === '1D') {
+         startTimeframe = now - 1 * 24 * 60 * 60 * 1000;
+         stepSize = 15 * 60 * 1000; 
+     } else if (chartTimeframe === '1W') {
+         startTimeframe = now - 7 * 24 * 60 * 60 * 1000;
+         stepSize = 2 * 60 * 60 * 1000; 
+     } else if (chartTimeframe === '1M') {
+         startTimeframe = now - 30 * 24 * 60 * 60 * 1000;
+         stepSize = 24 * 60 * 60 * 1000; 
+     } else if (chartTimeframe === '3M') {
+         startTimeframe = now - 90 * 24 * 60 * 60 * 1000;
+         stepSize = 24 * 60 * 60 * 1000; 
+     } else if (chartTimeframe === '1Y') {
+         startTimeframe = Math.max(firstDate, now - 365 * 24 * 60 * 60 * 1000);
+         stepSize = 24 * 60 * 60 * 1000; 
+     } else if (chartTimeframe === '5Y') {
+         startTimeframe = Math.max(firstDate, now - 1825 * 24 * 60 * 60 * 1000);
+         stepSize = 7 * 24 * 60 * 60 * 1000; 
+     }
      
-     Object.keys(setupAwalBases).forEach(sym => {
-         if (setupAwalBases[sym].date.getTime() < currentTs) {
-             currentQty[sym] = setupAwalBases[sym].qty;
-             currentInvestedIDR[sym] = setupAwalBases[sym].invested;
-         }
-     });
+     let currentTs = startTimeframe;
+     if (chartTimeframe === '1D' || chartTimeframe === '1W') {
+         currentTs = new Date(currentTs).setMinutes(0, 0, 0);
+     } else {
+         currentTs = new Date(currentTs).setHours(0, 0, 0, 0);
+     }
 
-     parsedInvestTxs.forEach((t: any) => {
-         if (new Date(t.date).getTime() < currentTs) {
-             if (!currentQty[t.parsedSymbol]) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
-             if (t.type === 'invest_buy') {
-                 currentQty[t.parsedSymbol] += t.parsedQty;
-                 currentInvestedIDR[t.parsedSymbol] += t.amount;
-             } else {
-                 currentQty[t.parsedSymbol] -= t.parsedQty;
-                 currentInvestedIDR[t.parsedSymbol] -= t.amount;
-                 if (currentQty[t.parsedSymbol] <= 0) {
-                     currentQty[t.parsedSymbol] = 0;
-                     currentInvestedIDR[t.parsedSymbol] = 0;
-                 }
-             }
-         }
-     });
-
+     const endTs = now;
      const dailyData = [];
 
      while(currentTs <= endTs) {
          const dateObj = new Date(currentTs);
-         const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+         let dateLabel = '';
          
+         if (chartTimeframe === '1D') {
+             dateLabel = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+         } else if (chartTimeframe === '1W') {
+             dateLabel = dateObj.toLocaleDateString('id-ID', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+         } else if (chartTimeframe === '5Y') {
+             dateLabel = dateObj.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
+         } else {
+             dateLabel = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+         }
+
+         let currentQty: Record<string, number> = {};
+         let currentInvestedIDR: Record<string, number> = {};
+
          Object.keys(setupAwalBases).forEach(sym => {
-             const setupDateStr = `${setupAwalBases[sym].date.getFullYear()}-${String(setupAwalBases[sym].date.getMonth() + 1).padStart(2, '0')}-${String(setupAwalBases[sym].date.getDate()).padStart(2, '0')}`;
-             if (setupDateStr === dateStr) {
-                 if (!currentQty[sym]) { currentQty[sym] = 0; currentInvestedIDR[sym] = 0; }
-                 currentQty[sym] += setupAwalBases[sym].qty;
-                 currentInvestedIDR[sym] += setupAwalBases[sym].invested;
+             if (setupAwalBases[sym].date.getTime() <= currentTs) {
+                 currentQty[sym] = setupAwalBases[sym].qty;
+                 currentInvestedIDR[sym] = setupAwalBases[sym].invested;
              }
          });
 
-         const dayTxs = txByDate[dateStr];
-         if (dayTxs) {
-             dayTxs.forEach(t => {
+         parsedInvestTxs.forEach((t: any) => {
+             if (new Date(t.date).getTime() <= currentTs) {
                  if (!currentQty[t.parsedSymbol]) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
                  if (t.type === 'invest_buy') {
                      currentQty[t.parsedSymbol] += t.parsedQty;
@@ -476,8 +670,8 @@ export default function ExpertTerminal() {
                          currentInvestedIDR[t.parsedSymbol] = 0;
                      }
                  }
-             });
-         }
+             }
+         });
 
          let dailyValuation = 0;
          let dailyInvested = 0;
@@ -496,19 +690,66 @@ export default function ExpertTerminal() {
              }
          });
 
+         if (currentTs + stepSize > endTs) {
+             dailyValuation = 0;
+             Object.keys(currentQty).forEach(sym => {
+                 if (currentQty[sym] > 0) {
+                     const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
+                     const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
+                     const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
+
+                     const livePrice = livePrices[ticker];
+                     const price = livePrice || getPriceForDate(ticker, currentTs);
+                     if (price) dailyValuation += currentQty[sym] * price * multiplier;
+                     else dailyValuation += currentInvestedIDR[sym]; 
+                 }
+             });
+         }
+
          dailyData.push({
-             name: dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
+             name: dateLabel,
              Total: dailyValuation,
              Investasi: dailyInvested
          });
 
-         currentTs += ONE_DAY;
+         currentTs += stepSize;
      }
 
      return dailyData;
-  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate]);
+  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices]);
+
+  // AKSI AUTENTIKASI TERMINAL
+  const handleTerminalLogin = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoginError("");
+      setIsLoggingIn(true);
+      try {
+          const cleanEmail = loginEmail.trim().toLowerCase();
+          await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
+          localStorage.setItem("bilano_auth", "true");
+          localStorage.setItem("bilano_email", cleanEmail);
+          
+          window.location.reload(); 
+      } catch (error: any) {
+          if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+              setLoginError("unregistered");
+          } else {
+              setLoginError(error.message || "Gagal masuk. Silakan coba lagi.");
+          }
+      } finally {
+          setIsLoggingIn(false);
+      }
+  };
+
+  const handleLogout = async () => {
+      await signOut(auth);
+      localStorage.removeItem("bilano_auth");
+      localStorage.removeItem("bilano_email");
+      window.location.reload();
+  };
 
   const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
+  const formatSimCurrency = (num: number, isUSD: boolean) => new Intl.NumberFormat(isUSD ? "en-US" : "id-ID", { style: "currency", currency: isUSD ? "USD" : "IDR", maximumFractionDigits: 0 }).format(num);
   const maskRp = (num: number) => showProfit ? formatRp(num) : "Rp ••••••••";
   const formatPct = (num: number) => `${num > 0 ? '+' : ''}${(num * 100).toFixed(2)}%`;
 
@@ -550,6 +791,67 @@ export default function ExpertTerminal() {
         {showProfit ? <><VenetianMask className="w-4 h-4"/> Mode Privasi Mati</> : <><ShieldAlert className="w-4 h-4"/> Nominal Ditutupi</>}
     </button>
   );
+
+  // RENDER: HALAMAN LOGIN JIKA BELUM AUTENTIKASI
+  if (!isTerminalAuth) {
+      return (
+          <div className="flex h-screen bg-[#060913] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0f172a] via-[#060913] to-black items-center justify-center p-4">
+              <div className="bg-[#0A0F1C] border border-emerald-900/50 rounded-[32px] p-8 max-w-md w-full shadow-[0_0_40px_rgba(34,197,94,0.15)] relative">
+                  <div className="text-center mb-8">
+                      <img src="/BILANO-ICON.png" alt="BILANO" className="w-16 h-16 object-contain mx-auto mb-4 drop-shadow-[0_0_12px_rgba(34,197,94,0.6)]" />
+                      <h2 className="text-2xl font-black text-white tracking-tight drop-shadow-md">EXPERT TERMINAL</h2>
+                      <p className="text-xs text-emerald-400 font-black uppercase tracking-widest mt-1">Authorized Access Only</p>
+                  </div>
+                  
+                  <form onSubmit={handleTerminalLogin} className="space-y-5">
+                      <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Email Terdaftar</label>
+                          <input 
+                              type="email" 
+                              value={loginEmail} 
+                              onChange={e => setLoginEmail(e.target.value)} 
+                              className="w-full bg-[#060913] border border-slate-700 rounded-xl px-4 py-3.5 text-white font-bold outline-none focus:border-emerald-500 transition-colors" 
+                              placeholder="nama@email.com" 
+                              required 
+                          />
+                      </div>
+                      <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                          <input 
+                              type="password" 
+                              value={loginPassword} 
+                              onChange={e => setLoginPassword(e.target.value)} 
+                              className="w-full bg-[#060913] border border-slate-700 rounded-xl px-4 py-3.5 text-white font-bold outline-none focus:border-emerald-500 transition-colors" 
+                              placeholder="••••••••" 
+                              required 
+                          />
+                      </div>
+
+                      {loginError && (
+                          <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-xl text-sm font-medium text-rose-400 leading-relaxed text-center">
+                              {loginError === 'unregistered' ? (
+                                  <span>
+                                      Email tidak terdaftar atau kredensial salah.<br/>
+                                      Belum punya akun? <a href="https://bilano.app" target="_blank" rel="noopener noreferrer" className="text-white font-bold underline hover:text-emerald-400 transition-colors">Daftar dulu di sini</a>.
+                                  </span>
+                              ) : (
+                                  <span>{loginError}</span>
+                              )}
+                          </div>
+                      )}
+
+                      <button 
+                          disabled={isLoggingIn} 
+                          type="submit" 
+                          className="w-full mt-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black tracking-wider py-4 rounded-full transition-all active:scale-95 shadow-[0_0_20px_rgba(34,197,94,0.4)] flex items-center justify-center gap-2"
+                      >
+                          {isLoggingIn ? <Orbit className="w-5 h-5 animate-spin" /> : "MASUK TERMINAL"}
+                      </button>
+                  </form>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <div className="flex h-screen bg-[#060913] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0f172a] via-[#060913] to-black text-slate-300 font-sans overflow-hidden selection:bg-emerald-500/30">
@@ -649,9 +951,42 @@ export default function ExpertTerminal() {
           <button onClick={() => setActiveTab('terealisasi')} className={`w-full flex items-center gap-3 px-3 py-3.5 rounded-xl transition-all text-sm font-bold ${activeTab === 'terealisasi' ? 'bg-gradient-to-r from-emerald-600/20 to-transparent text-emerald-400 border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}>
             <Scale className="w-4 h-4" /> Investasi Terealisasi
           </button>
+          
+          <div className="h-px bg-slate-800/50 my-4 mx-2"></div>
+          
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 px-2 flex items-center gap-1.5"><Settings2 className="w-3.5 h-3.5"/> AI Kuantitatif</p>
+          <button onClick={() => setActiveTab('simulator')} className={`w-full flex items-center gap-3 px-3 py-3.5 rounded-xl transition-all text-sm font-bold ${activeTab === 'simulator' ? 'bg-gradient-to-r from-indigo-600/20 to-transparent text-indigo-400 border-l-2 border-indigo-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}>
+            <Calculator className="w-4 h-4" /> Simulator Strategi
+          </button>
         </nav>
 
-        <div className="p-4 border-t border-slate-800/60">
+        {/* PROFIL & LOGOUT */}
+        <div className="p-4 border-t border-slate-800/60 mt-auto flex flex-col gap-4">
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-700 bg-slate-800 shrink-0 shadow-md">
+              {user?.profilePicture ? (
+                <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-emerald-400 font-black text-lg">
+                  {(user?.firstName || currentUserEmail || "U").charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-[13px] font-bold text-white truncate leading-tight">
+                {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Terminal User'}
+              </p>
+              <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">{currentUserEmail}</p>
+            </div>
+            <button 
+                onClick={handleLogout} 
+                className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all" 
+                title="Keluar dari Terminal"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+
           <div className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-slate-400 bg-[#060913] text-[10px] font-black tracking-widest uppercase border border-slate-800/50">
              <span className="flex items-center gap-2">
                 <Radio className={`w-3.5 h-3.5 ${isLivePricesLoading ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`} />
@@ -940,7 +1275,7 @@ export default function ExpertTerminal() {
                 </table>
               </div>
 
-              {/* 🚀 GRAFIK AREA (DISEMPURNAKAN DENGAN SKALA Y DINAMIS) */}
+              {/* 🚀 GRAFIK AREA (DISEMPURNAKAN DENGAN SKALA Y DINAMIS & INTRADAY) */}
               <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-slate-800/60 rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)] mt-6 relative">
                 <div className="flex justify-between items-center mb-6 relative z-10">
                   <h3 className="font-black text-white tracking-tight drop-shadow-md">Grafik Kinerja Historis</h3>
@@ -964,7 +1299,6 @@ export default function ExpertTerminal() {
                                 </linearGradient>
                              </defs>
                              <XAxis dataKey="name" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} minTickGap={30} fontWeight={900} />
-                             {/* 🚀 PERBAIKAN Y-AXIS: Domain dinamis & toFixed(2) untuk menangkap fluktuasi */}
                              <YAxis 
                                 domain={['dataMin', 'dataMax']} 
                                 padding={{ top: 20, bottom: 20 }}
@@ -1054,6 +1388,242 @@ export default function ExpertTerminal() {
                 </table>
               </div>
             </div>
+          )}
+
+          {/* ================= TAB 4: SIMULATOR STRATEGI (AI QUANTITATIVE) ================= */}
+          {activeTab === 'simulator' && (
+             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+                 <div className="flex justify-between items-center mb-6">
+                     <div>
+                         <h2 className="text-2xl font-black text-white tracking-tight drop-shadow-lg flex items-center gap-3">
+                             <Calculator className="w-6 h-6 text-indigo-400" /> Simulator Strategi Investasi
+                         </h2>
+                         <p className="text-xs text-indigo-300/80 mt-1 font-bold tracking-wider uppercase">Proyeksi Kuantitatif Berbasis Data Historis (GBM Model)</p>
+                     </div>
+                 </div>
+
+                 {activePortfolio.length === 0 ? (
+                     <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-slate-800/60 rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                         <div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mb-4 border border-slate-700"><Layers className="w-8 h-8 text-slate-500" /></div>
+                         <h3 className="text-lg font-black text-white mb-2 tracking-tight">Belum Ada Investasi</h3>
+                         <p className="text-slate-400 text-sm max-w-sm leading-relaxed">Catat pembelian aset pertama Anda di fitur Investasi pada aplikasi PWA, lalu kembali ke sini untuk melakukan simulasi pintar.</p>
+                     </div>
+                 ) : (
+                     <div className="space-y-4">
+                         {activePortfolio.map((asset: any) => {
+                             const isExpanded = expandedSimAsset === asset.symbol;
+                             const params = simParams[asset.symbol] || {};
+                             
+                             return (
+                                 <div key={asset.symbol} className="bg-[#0A0F1C]/90 backdrop-blur-md border border-slate-800/60 rounded-[24px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all">
+                                     {/* Accordion Header */}
+                                     <div 
+                                         onClick={() => handleExpandSim(asset)}
+                                         className="p-6 flex items-center justify-between cursor-pointer hover:bg-slate-800/30 transition-colors"
+                                     >
+                                         <div className="flex items-center gap-6 flex-1">
+                                             <div className="w-14 h-14 bg-indigo-900/30 rounded-2xl border border-indigo-500/30 flex items-center justify-center shadow-inner">
+                                                 <span className="font-black text-indigo-400 text-lg">{asset.symbol.substring(0, 3)}</span>
+                                             </div>
+                                             <div className="flex-1 grid grid-cols-4 gap-4 items-center">
+                                                 <div>
+                                                     <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Aset</p>
+                                                     <p className="font-black text-white text-lg">{asset.symbol}</p>
+                                                 </div>
+                                                 <div>
+                                                     <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Modal Awal Simulasi</p>
+                                                     <p className="font-bold text-slate-300">{formatSimCurrency(params.modalAwal || asset.totalModalIDR, asset.currency === 'USD')}</p>
+                                                 </div>
+                                                 <div>
+                                                     <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Horizon Waktu</p>
+                                                     <p className="font-bold text-slate-300">{params.horizonWaktu || 5} Tahun</p>
+                                                 </div>
+                                                 <div>
+                                                     <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Status Data Historis</p>
+                                                     <p className="font-bold text-emerald-400 drop-shadow-[0_0_4px_rgba(34,197,94,0.4)] flex items-center gap-1.5"><ScanSearch className="w-3.5 h-3.5"/> Terhubung</p>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                         <div className={`p-2 rounded-full transition-transform duration-300 ${isExpanded ? 'bg-indigo-500/20 text-indigo-400 rotate-180' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
+                                             <ChevronDown className="w-5 h-5" />
+                                         </div>
+                                     </div>
+
+                                     {/* Accordion Body (Expanded View) */}
+                                     {isExpanded && currentSimData && (
+                                         <div className="p-6 border-t border-slate-800/60 bg-[#060913]/50 flex flex-col xl:flex-row gap-8 animate-in slide-in-from-top-4 duration-500">
+                                             
+                                             {/* LEFT: Chart & Table */}
+                                             <div className="flex-1 space-y-6">
+                                                 {/* Chart */}
+                                                 <div className="h-[300px] w-full bg-[#0A0F1C] border border-slate-800 rounded-2xl p-4 shadow-inner relative">
+                                                    <div className="absolute top-4 left-4 z-10">
+                                                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Proyeksi Nilai Portofolio ({asset.currency})</h4>
+                                                    </div>
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <LineChart data={currentSimData.chartData} margin={{ top: 30, right: 10, left: 10, bottom: 0 }}>
+                                                            <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" vertical={false} />
+                                                            <XAxis dataKey="month" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `Bln ${v}`} />
+                                                            <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => asset.currency === 'USD' ? `$${(v/1000).toFixed(0)}k` : `Rp${(v/1000000).toFixed(0)}M`} width={60} />
+                                                            <Tooltip 
+                                                                formatter={(val: number) => formatSimCurrency(val, asset.currency === 'USD')}
+                                                                labelFormatter={(label) => `Bulan ke-${label}`}
+                                                                contentStyle={{backgroundColor: '#060913', borderColor: '#1E293B', borderRadius: '12px', color: '#fff', fontWeight: '900', boxShadow: '0 8px 32px rgba(0,0,0,0.5)'}}
+                                                            />
+                                                            <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '10px' }} />
+                                                            <Line type="monotone" dataKey="LumpSum" name="Lump Sum" stroke="#2563EB" strokeWidth={3} dot={false} />
+                                                            <Line type="monotone" dataKey="DCA" name="Dollar Cost Averaging" stroke="#10B981" strokeWidth={3} dot={false} />
+                                                            <Line type="monotone" dataKey="ValueAveraging" name="Value Averaging" stroke="#F59E0B" strokeWidth={3} dot={false} />
+                                                        </LineChart>
+                                                    </ResponsiveContainer>
+                                                 </div>
+
+                                                 {/* Result Table */}
+                                                 <div className="bg-[#0A0F1C] border border-slate-800 rounded-2xl overflow-hidden">
+                                                    <table className="w-full text-sm text-left">
+                                                        <thead className="bg-[#0F1524] text-slate-400 font-black uppercase tracking-widest text-[10px]">
+                                                            <tr>
+                                                                <th className="px-5 py-4 border-b border-slate-800">Strategi</th>
+                                                                <th className="px-5 py-4 border-b border-slate-800">Total Modal</th>
+                                                                <th className="px-5 py-4 border-b border-slate-800">Hasil Akhir</th>
+                                                                <th className="px-5 py-4 border-b border-slate-800">Laba Bersih</th>
+                                                                <th className="px-5 py-4 border-b border-slate-800">ROI</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="font-bold text-slate-300">
+                                                            {currentSimData.strategies.map((str: any) => {
+                                                                const isBest = currentSimData.bestStrategy.name === str.name;
+                                                                return (
+                                                                    <tr key={str.name} className={`border-b border-slate-800/50 ${isBest ? 'bg-indigo-900/20' : 'hover:bg-slate-800/30'}`}>
+                                                                        <td className={`px-5 py-4 ${isBest ? 'text-indigo-400 font-black' : ''}`}>{str.name}</td>
+                                                                        <td className="px-5 py-4">{formatSimCurrency(str.modal, asset.currency === 'USD')}</td>
+                                                                        <td className="px-5 py-4 text-emerald-400">{formatSimCurrency(str.akhir, asset.currency === 'USD')}</td>
+                                                                        <td className="px-5 py-4 text-cyan-400">{formatSimCurrency(str.laba, asset.currency === 'USD')}</td>
+                                                                        <td className="px-5 py-4">{str.roi.toFixed(2)}%</td>
+                                                                    </tr>
+                                                                )
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                    
+                                                    {/* Table Footer Recommendation */}
+                                                    <div className="bg-slate-900/50 p-5 flex items-center justify-between border-t border-slate-800">
+                                                        <div>
+                                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Rekomendasi Strategi (ROI Tertinggi)</p>
+                                                            <p className="text-lg font-black text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]">{currentSimData.bestStrategy.name}</p>
+                                                        </div>
+                                                        {currentSimData.isUSD && (
+                                                            <div className="text-right">
+                                                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-500/80 mb-1 flex items-center justify-end gap-1"><Settings2 className="w-3 h-3"/> Proyeksi Valuasi Akhir (IDR)</p>
+                                                                <p className="text-base font-black text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">~ {formatRp(currentSimData.bestStrategy.akhir * currentSimData.projectedIDR)}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                 </div>
+                                             </div>
+
+                                             {/* RIGHT: Input Parameters */}
+                                             <div className="w-full xl:w-80 bg-[#0A0F1C] border border-slate-800 rounded-2xl p-6 flex flex-col gap-6">
+                                                 <h3 className="font-black text-white tracking-tight border-b border-slate-800 pb-4">Parameter Simulasi</h3>
+                                                 
+                                                 {/* Modal Awal */}
+                                                 <div>
+                                                     <div className="flex justify-between items-center mb-2">
+                                                         <label className="text-xs font-bold text-slate-400">Modal Awal ({asset.currency})</label>
+                                                         <span className="text-xs font-black text-emerald-400">{formatSimCurrency(params.modalAwal, asset.currency === 'USD')}</span>
+                                                     </div>
+                                                     <input 
+                                                         type="range" min={0} max={params.modalAwal * 5} step={asset.currency === 'USD' ? 100 : 1000000}
+                                                         value={params.modalAwal} 
+                                                         onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, modalAwal: Number(e.target.value)}})}
+                                                         className="w-full accent-emerald-500"
+                                                     />
+                                                 </div>
+
+                                                 {/* Kontribusi Bulanan */}
+                                                 <div>
+                                                     <div className="flex justify-between items-center mb-2">
+                                                         <label className="text-xs font-bold text-slate-400">Kontribusi Bulanan ({asset.currency})</label>
+                                                         <span className="text-xs font-black text-emerald-400">{formatSimCurrency(params.kontribusiBulanan, asset.currency === 'USD')}</span>
+                                                     </div>
+                                                     <input 
+                                                         type="range" min={0} max={asset.currency === 'USD' ? 5000 : 50000000} step={asset.currency === 'USD' ? 50 : 500000}
+                                                         value={params.kontribusiBulanan} 
+                                                         onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, kontribusiBulanan: Number(e.target.value)}})}
+                                                         className="w-full accent-emerald-500"
+                                                     />
+                                                 </div>
+
+                                                 {/* Horizon Waktu */}
+                                                 <div>
+                                                     <div className="flex justify-between items-center mb-2">
+                                                         <label className="text-xs font-bold text-slate-400">Horizon Waktu (Tahun)</label>
+                                                         <span className="text-xs font-black text-white">{params.horizonWaktu} Thn</span>
+                                                     </div>
+                                                     <input 
+                                                         type="range" min={1} max={30} step={1}
+                                                         value={params.horizonWaktu} 
+                                                         onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, horizonWaktu: Number(e.target.value)}})}
+                                                         className="w-full accent-indigo-500"
+                                                     />
+                                                 </div>
+
+                                                 <div className="h-px bg-slate-800 w-full my-1"></div>
+
+                                                 {/* Ekspektasi Return */}
+                                                 <div>
+                                                     <div className="flex justify-between items-center mb-2">
+                                                         <label className="text-xs font-bold text-slate-400" title="Rata-rata pertumbuhan tahunan (CAGR) historis">Ekspektasi Return (%)</label>
+                                                         <span className="text-xs font-black text-amber-400">{params.ekspektasiReturn}%</span>
+                                                     </div>
+                                                     <input 
+                                                         type="range" min={-20} max={50} step={0.5}
+                                                         value={params.ekspektasiReturn} 
+                                                         onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, ekspektasiReturn: Number(e.target.value)}})}
+                                                         className="w-full accent-amber-500"
+                                                     />
+                                                 </div>
+
+                                                 {/* Volatilitas */}
+                                                 <div>
+                                                     <div className="flex justify-between items-center mb-2">
+                                                         <label className="text-xs font-bold text-slate-400" title="Simpangan baku pergerakan harga historis">Volatilitas Pasar (%)</label>
+                                                         <span className="text-xs font-black text-rose-400">{params.volatilitas}%</span>
+                                                     </div>
+                                                     <input 
+                                                         type="range" min={1} max={100} step={1}
+                                                         value={params.volatilitas} 
+                                                         onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, volatilitas: Number(e.target.value)}})}
+                                                         className="w-full accent-rose-500"
+                                                     />
+                                                 </div>
+
+                                                 {/* Kenaikan Setoran */}
+                                                 <div>
+                                                     <div className="flex justify-between items-center mb-2">
+                                                         <label className="text-xs font-bold text-slate-400">Kenaikan Setoran Tahunan (%)</label>
+                                                         <span className="text-xs font-black text-cyan-400">{params.kenaikanSetoran}%</span>
+                                                     </div>
+                                                     <input 
+                                                         type="range" min={0} max={50} step={1}
+                                                         value={params.kenaikanSetoran} 
+                                                         onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, kenaikanSetoran: Number(e.target.value)}})}
+                                                         className="w-full accent-cyan-500"
+                                                     />
+                                                 </div>
+                                                 
+                                                 <p className="text-[10px] text-slate-500 font-medium leading-relaxed mt-2 text-center bg-slate-900 p-3 rounded-xl border border-slate-800">
+                                                     Baseline Return ({params.ekspektasiReturn}%) & Volatilitas ({params.volatilitas}%) ditarik otomatis dari riwayat harga asli <b>{asset.activeTicker}</b>.
+                                                 </p>
+                                             </div>
+                                         </div>
+                                     )}
+                                 </div>
+                             );
+                         })}
+                     </div>
+                 )}
+             </div>
           )}
         </div>
       </main>
