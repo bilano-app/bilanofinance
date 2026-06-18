@@ -407,8 +407,8 @@ export default function ExpertTerminal() {
      if (chartTimeframe === '1W') startTimeframe = now - 7 * ONE_DAY;
      if (chartTimeframe === '1M') startTimeframe = now - 30 * ONE_DAY;
      if (chartTimeframe === '3M') startTimeframe = now - 90 * ONE_DAY;
-     if (chartTimeframe === '1Y') Math.max(firstDate, now - 365 * ONE_DAY);
-     if (chartTimeframe === '5Y') Math.max(firstDate, now - 1825 * ONE_DAY);
+     if (chartTimeframe === '1Y') startTimeframe = Math.max(firstDate, now - 365 * ONE_DAY);
+     if (chartTimeframe === '5Y') startTimeframe = Math.max(firstDate, now - 1825 * ONE_DAY);
      
      let currentTs = new Date(startTimeframe).setHours(0,0,0,0);
      const endTs = new Date().setHours(0,0,0,0);
@@ -940,7 +940,7 @@ export default function ExpertTerminal() {
                 </table>
               </div>
 
-              {/* 🚀 GRAFIK AREA */}
+              {/* 🚀 GRAFIK AREA (DISEMPURNAKAN DENGAN SKALA Y DINAMIS) */}
               <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-slate-800/60 rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)] mt-6 relative">
                 <div className="flex justify-between items-center mb-6 relative z-10">
                   <h3 className="font-black text-white tracking-tight drop-shadow-md">Grafik Kinerja Historis</h3>
@@ -964,7 +964,18 @@ export default function ExpertTerminal() {
                                 </linearGradient>
                              </defs>
                              <XAxis dataKey="name" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} minTickGap={30} fontWeight={900} />
-                             <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(0)}M` : `•••`} fontWeight={900} orientation="right" />
+                             {/* 🚀 PERBAIKAN Y-AXIS: Domain dinamis & toFixed(2) untuk menangkap fluktuasi */}
+                             <YAxis 
+                                domain={['dataMin', 'dataMax']} 
+                                padding={{ top: 20, bottom: 20 }}
+                                stroke="#475569" 
+                                fontSize={10} 
+                                tickLine={false} 
+                                axisLine={false} 
+                                tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(2)}M` : `•••`} 
+                                fontWeight={900} 
+                                orientation="right" 
+                             />
                              <Tooltip formatter={(val: number) => maskRp(val)} contentStyle={{backgroundColor: '#060913', borderColor: '#1E293B', borderRadius: '12px', color: '#fff', fontWeight: '900', boxShadow: '0 8px 32px rgba(0,0,0,0.5)'}} />
                              <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" vertical={false} />
                              
@@ -1006,8 +1017,6 @@ export default function ExpertTerminal() {
                     ) : (
                       realizedTrades.map((t: any) => {
                         const isLivePriceReady = t.livePriceIDR > 0;
-                        
-                        // 🚀 PERBAIKAN: Gunakan harga per lembar/unit murni tanpa membaginya atau mengalikannya lagi
                         const livePricePerShareIDR = t.livePriceIDR;
                         const sellPricePerShareIDR = t.sellPriceIDR;
                         
@@ -1025,11 +1034,9 @@ export default function ExpertTerminal() {
                             </td>
                             <td className="px-6 py-5">
                                <span className="font-black text-slate-200">{maskRp(t.amount)}</span> <br/>
-                               {/* 🚀 PERBAIKAN: Tampilkan sellPricePerShareIDR secara murni */}
                                <span className="text-[10px] text-slate-500 tracking-wider font-bold">Modal Asli: @ {maskRp(sellPricePerShareIDR)}</span>
                             </td>
                             <td className="px-6 py-5 text-cyan-400 font-black drop-shadow-[0_0_4px_rgba(6,182,212,0.4)]">
-                               {/* 🚀 PERBAIKAN: Tampilkan livePricePerShareIDR secara murni */}
                                {isLivePricesLoading && !isLivePriceReady ? <Orbit className="w-4 h-4 animate-spin text-cyan-500"/> : (isLivePriceReady ? maskRp(livePricePerShareIDR) : <span className="text-slate-600">N/A</span>)}
                             </td>
                             <td className="px-6 py-5 text-right">
