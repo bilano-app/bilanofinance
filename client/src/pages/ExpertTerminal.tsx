@@ -183,7 +183,7 @@ export default function ExpertTerminal() {
   }, [investments, tickerOverrides, getHistoricalRate]);
 
   // =========================================================================
-  // 🚀 ENGINE SIMULATOR STRATEGI (GBM + Value Averaging)
+  // 🚀 ENGINE SIMULATOR STRATEGI (GBM + Value Averaging) DALAM RUPIAH (IDR)
   // =========================================================================
   const [expandedSimAsset, setExpandedSimAsset] = useState<string | null>(null);
   const [simParams, setSimParams] = useState<Record<string, any>>({});
@@ -200,10 +200,8 @@ export default function ExpertTerminal() {
       const days = (hist.timestamps[hist.timestamps.length - 1] - hist.timestamps[0]) / (24 * 3600);
       const years = Math.max(days / 365, 0.1); 
 
-      // CAGR
       let cagr = Math.pow((lastPrice / firstPrice), (1 / years)) - 1;
       
-      // Volatility (Stdev of daily returns * sqrt(252))
       let returns = [];
       for(let i=1; i<closes.length; i++) {
           returns.push((closes[i] - closes[i-1]) / closes[i-1]);
@@ -212,7 +210,6 @@ export default function ExpertTerminal() {
       const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
       let volatility = Math.sqrt(variance) * Math.sqrt(252);
 
-      // Sanity bounds
       if (cagr > 1.0) cagr = 0.5; if (cagr < -0.5) cagr = -0.1;
       if (volatility > 1.0) volatility = 0.8; if (volatility < 0.05) volatility = 0.05;
 
@@ -228,13 +225,14 @@ export default function ExpertTerminal() {
       if (!simParams[asset.symbol]) {
           const stats = extractHistoricalStats(asset.activeTicker);
           const livePriceAPI = livePrices[asset.activeTicker];
+          // Valuasi murni dalam IDR (Tidak perlu dikonversi ke USD lagi karena API sudah return IDR)
           const liveValuationIDR = livePriceAPI ? (asset.qty * livePriceAPI * asset.liveMultiplier) : asset.totalModalIDR;
           
           setSimParams(prev => ({
               ...prev,
               [asset.symbol]: {
-                  modalAwal: asset.currency === 'USD' ? (liveValuationIDR / (Number(forexRates['USD'])||16200)) : liveValuationIDR,
-                  kontribusiBulanan: asset.currency === 'USD' ? 50 : 1000000,
+                  modalAwal: liveValuationIDR,
+                  kontribusiBulanan: 1000000,
                   horizonWaktu: 5,
                   kenaikanSetoran: 10,
                   ekspektasiReturn: Number((stats.cagr * 100).toFixed(1)),
@@ -251,17 +249,13 @@ export default function ExpertTerminal() {
       const asset = activePortfolio.find((a: any) => a.symbol === expandedSimAsset);
       if (!asset) return null;
 
-      const isUSD = asset.currency === 'USD';
-      
-      const S0 = 100; // Index base
+      const S0 = 100; // Index base untuk price multiplier
       const mu = params.ekspektasiReturn / 100;
       const sigma = params.volatilitas / 100;
       const months = params.horizonWaktu * 12;
       const dt = 1 / 12;
 
-      // 1. Generate GBM Path (Pseudo-Random seeded by asset to avoid jitter)
       let pricePath = [S0];
-      // Deterministik pseudo-random agar chart tidak goyang tiap slider geser
       const seededRandom = (seed: number) => {
           let x = Math.sin(seed++) * 10000;
           return x - Math.floor(x);
@@ -279,7 +273,6 @@ export default function ExpertTerminal() {
           pricePath.push(pricePath[i-1] * Math.exp(drift + shock));
       }
 
-      // 2. Simulate Strategies
       const chartData = [];
       let lsShares = params.modalAwal / pricePath[0];
       let lsModal = params.modalAwal;
@@ -303,25 +296,19 @@ export default function ExpertTerminal() {
           const yearIndex = Math.floor((m-1)/12);
           const currentMonthlyContrib = params.kontribusiBulanan * Math.pow(1 + (params.kenaikanSetoran/100), yearIndex);
 
-          // Lump Sum (Hold)
           const valLS = lsShares * currentPrice;
 
-          // DCA (Buy every month regardless of price)
           dcaShares += currentMonthlyContrib / currentPrice;
           dcaModal += currentMonthlyContrib;
           const valDCA = dcaShares * currentPrice;
 
-          // Value Averaging
           vaTarget = vaTarget * (1 + (mu/12)) + currentMonthlyContrib;
           const currentVaVal = vaShares * currentPrice;
           const shortfall = vaTarget - currentVaVal;
           
           if (shortfall > 0) {
-              // Harus tambah modal
               vaShares += shortfall / currentPrice;
               vaModal += shortfall;
-          } else {
-              // Jika shortfall < 0, kita biarkan saja (strict VA tanpa sell) untuk adil ke modal
           }
           const valVA = vaShares * currentPrice;
 
@@ -337,11 +324,6 @@ export default function ExpertTerminal() {
       const finalDCA = chartData[months].DCA;
       const finalVA = chartData[months].ValueAveraging;
 
-      // 3. Forex IDR Projection
-      const currentUSDIDR = Number(forexRates['USD']) || 16200;
-      // Proyeksi depresiasi IDR 3% per tahun
-      const projectedIDR = currentUSDIDR * Math.pow(1.03, params.horizonWaktu);
-
       const strategies = [
           { name: 'Lump Sum', modal: lsModal, akhir: finalLS, laba: finalLS - lsModal, roi: ((finalLS - lsModal)/lsModal)*100 },
           { name: 'DCA', modal: dcaModal, akhir: finalDCA, laba: finalDCA - dcaModal, roi: ((finalDCA - dcaModal)/dcaModal)*100 },
@@ -353,11 +335,9 @@ export default function ExpertTerminal() {
       return {
           chartData,
           strategies,
-          bestStrategy: best,
-          isUSD,
-          projectedIDR
+          bestStrategy: best
       };
-  }, [expandedSimAsset, simParams, activePortfolio, forexRates]);
+  }, [expandedSimAsset, simParams, activePortfolio]);
 
 
   const realizedTradesBase = useMemo(() => {
@@ -584,7 +564,6 @@ export default function ExpertTerminal() {
       return getSnapshotAtDate(endOfYear, isCurrentYear);
   }, [getSnapshotAtDate]);
 
-
   const chartDataDaily = useMemo(() => {
      if (activePortfolio.length === 0 || Object.keys(historyPrices).length === 0) return [];
 
@@ -749,7 +728,6 @@ export default function ExpertTerminal() {
   };
 
   const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
-  const formatSimCurrency = (num: number, isUSD: boolean) => new Intl.NumberFormat(isUSD ? "en-US" : "id-ID", { style: "currency", currency: isUSD ? "USD" : "IDR", maximumFractionDigits: 0 }).format(num);
   const maskRp = (num: number) => showProfit ? formatRp(num) : "Rp ••••••••";
   const formatPct = (num: number) => `${num > 0 ? '+' : ''}${(num * 100).toFixed(2)}%`;
 
@@ -1306,7 +1284,7 @@ export default function ExpertTerminal() {
                                 fontSize={10} 
                                 tickLine={false} 
                                 axisLine={false} 
-                                tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(2)}M` : `•••`} 
+                                tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(0)}M` : `•••`} 
                                 fontWeight={900} 
                                 orientation="right" 
                              />
@@ -1432,7 +1410,8 @@ export default function ExpertTerminal() {
                                                  </div>
                                                  <div>
                                                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Modal Awal Simulasi</p>
-                                                     <p className="font-bold text-slate-300">{formatSimCurrency(params.modalAwal || asset.totalModalIDR, asset.currency === 'USD')}</p>
+                                                     {/* 🚀 PERBAIKAN: Memaksa format murni IDR menggunakan formatRp */}
+                                                     <p className="font-bold text-slate-300">{formatRp(params.modalAwal || asset.totalModalIDR)}</p>
                                                  </div>
                                                  <div>
                                                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Horizon Waktu</p>
@@ -1458,15 +1437,16 @@ export default function ExpertTerminal() {
                                                  {/* Chart */}
                                                  <div className="h-[300px] w-full bg-[#0A0F1C] border border-slate-800 rounded-2xl p-4 shadow-inner relative">
                                                     <div className="absolute top-4 left-4 z-10">
-                                                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Proyeksi Nilai Portofolio ({asset.currency})</h4>
+                                                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Proyeksi Nilai Portofolio (IDR)</h4>
                                                     </div>
                                                     <ResponsiveContainer width="100%" height="100%">
                                                         <LineChart data={currentSimData.chartData} margin={{ top: 30, right: 10, left: 10, bottom: 0 }}>
                                                             <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" vertical={false} />
                                                             <XAxis dataKey="month" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `Bln ${v}`} />
-                                                            <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => asset.currency === 'USD' ? `$${(v/1000).toFixed(0)}k` : `Rp${(v/1000000).toFixed(0)}M`} width={60} />
+                                                            {/* 🚀 PERBAIKAN: Format Label Y-Axis murni IDR */}
+                                                            <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `Rp${(v/1000000).toFixed(0)}M`} width={60} />
                                                             <Tooltip 
-                                                                formatter={(val: number) => formatSimCurrency(val, asset.currency === 'USD')}
+                                                                formatter={(val: number) => formatRp(val)}
                                                                 labelFormatter={(label) => `Bulan ke-${label}`}
                                                                 contentStyle={{backgroundColor: '#060913', borderColor: '#1E293B', borderRadius: '12px', color: '#fff', fontWeight: '900', boxShadow: '0 8px 32px rgba(0,0,0,0.5)'}}
                                                             />
@@ -1496,9 +1476,10 @@ export default function ExpertTerminal() {
                                                                 return (
                                                                     <tr key={str.name} className={`border-b border-slate-800/50 ${isBest ? 'bg-indigo-900/20' : 'hover:bg-slate-800/30'}`}>
                                                                         <td className={`px-5 py-4 ${isBest ? 'text-indigo-400 font-black' : ''}`}>{str.name}</td>
-                                                                        <td className="px-5 py-4">{formatSimCurrency(str.modal, asset.currency === 'USD')}</td>
-                                                                        <td className="px-5 py-4 text-emerald-400">{formatSimCurrency(str.akhir, asset.currency === 'USD')}</td>
-                                                                        <td className="px-5 py-4 text-cyan-400">{formatSimCurrency(str.laba, asset.currency === 'USD')}</td>
+                                                                        {/* 🚀 PERBAIKAN: Format data murni Rupiah */}
+                                                                        <td className="px-5 py-4">{formatRp(str.modal)}</td>
+                                                                        <td className="px-5 py-4 text-emerald-400">{formatRp(str.akhir)}</td>
+                                                                        <td className="px-5 py-4 text-cyan-400">{formatRp(str.laba)}</td>
                                                                         <td className="px-5 py-4">{str.roi.toFixed(2)}%</td>
                                                                     </tr>
                                                                 )
@@ -1512,12 +1493,6 @@ export default function ExpertTerminal() {
                                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Rekomendasi Strategi (ROI Tertinggi)</p>
                                                             <p className="text-lg font-black text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]">{currentSimData.bestStrategy.name}</p>
                                                         </div>
-                                                        {currentSimData.isUSD && (
-                                                            <div className="text-right">
-                                                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-500/80 mb-1 flex items-center justify-end gap-1"><Settings2 className="w-3 h-3"/> Proyeksi Valuasi Akhir (IDR)</p>
-                                                                <p className="text-base font-black text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">~ {formatRp(currentSimData.bestStrategy.akhir * currentSimData.projectedIDR)}</p>
-                                                            </div>
-                                                        )}
                                                     </div>
                                                  </div>
                                              </div>
@@ -1529,11 +1504,12 @@ export default function ExpertTerminal() {
                                                  {/* Modal Awal */}
                                                  <div>
                                                      <div className="flex justify-between items-center mb-2">
-                                                         <label className="text-xs font-bold text-slate-400">Modal Awal ({asset.currency})</label>
-                                                         <span className="text-xs font-black text-emerald-400">{formatSimCurrency(params.modalAwal, asset.currency === 'USD')}</span>
+                                                         {/* 🚀 PERBAIKAN: Label dirubah ke IDR dan Slider mengikuti rentang IDR */}
+                                                         <label className="text-xs font-bold text-slate-400">Modal Awal (IDR)</label>
+                                                         <span className="text-xs font-black text-emerald-400">{formatRp(params.modalAwal)}</span>
                                                      </div>
                                                      <input 
-                                                         type="range" min={0} max={params.modalAwal * 5} step={asset.currency === 'USD' ? 100 : 1000000}
+                                                         type="range" min={0} max={Math.max(params.modalAwal * 5, 50000000)} step={100000}
                                                          value={params.modalAwal} 
                                                          onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, modalAwal: Number(e.target.value)}})}
                                                          className="w-full accent-emerald-500"
@@ -1543,11 +1519,11 @@ export default function ExpertTerminal() {
                                                  {/* Kontribusi Bulanan */}
                                                  <div>
                                                      <div className="flex justify-between items-center mb-2">
-                                                         <label className="text-xs font-bold text-slate-400">Kontribusi Bulanan ({asset.currency})</label>
-                                                         <span className="text-xs font-black text-emerald-400">{formatSimCurrency(params.kontribusiBulanan, asset.currency === 'USD')}</span>
+                                                         <label className="text-xs font-bold text-slate-400">Kontribusi Bulanan (IDR)</label>
+                                                         <span className="text-xs font-black text-emerald-400">{formatRp(params.kontribusiBulanan)}</span>
                                                      </div>
                                                      <input 
-                                                         type="range" min={0} max={asset.currency === 'USD' ? 5000 : 50000000} step={asset.currency === 'USD' ? 50 : 500000}
+                                                         type="range" min={0} max={50000000} step={500000}
                                                          value={params.kontribusiBulanan} 
                                                          onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, kontribusiBulanan: Number(e.target.value)}})}
                                                          className="w-full accent-emerald-500"
