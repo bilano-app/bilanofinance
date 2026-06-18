@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { 
   Fingerprint, Layers, Radar, Scale, VenetianMask, ShieldAlert,
-  ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, Orbit, Database, X, Wrench, ScanSearch, Radio, LogOut, Calculator, Settings2, Hourglass
+  ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, Orbit, Database, X, Wrench, ScanSearch, Radio, LogOut, Calculator, Settings2, Hourglass,
+  Target, Globe, Newspaper
 } from "lucide-react";
 import { useUser, useInvestments, useTransactions, useLiveQuotes, useHistoricalQuotes, usePortfolioSnapshots, useSaveSnapshot } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
@@ -36,7 +37,7 @@ export default function ExpertTerminal() {
   const { data: snapshots = [] } = usePortfolioSnapshots();
   const saveSnapshotMutation = useSaveSnapshot();
 
-  const [activeTab, setActiveTab] = useState<'alokasi' | 'pantauan' | 'terealisasi' | 'simulator'>('alokasi');
+  const [activeTab, setActiveTab] = useState<'alokasi' | 'pantauan' | 'terealisasi' | 'simulator' | 'intel'>('alokasi');
   const [showProfit, setShowProfit] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | '5Y'>('1M');
@@ -122,6 +123,25 @@ export default function ExpertTerminal() {
   const { data: livePrices = {}, isLoading: isLivePricesLoading } = useLiveQuotes(uniqueTickersToFetch);
   const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, apiRange);
   const { data: simHistoryPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
+
+  // =========================================================================
+  // 🚀 HOOK MARKET INTEL (Fetch saat tab intel aktif saja)
+  // =========================================================================
+  const { data: marketIntelData, isLoading: isIntelLoading, refetch: refetchIntel } = useQuery({
+      queryKey: ['marketIntel', uniqueTickersToFetch.join(',')],
+      queryFn: async () => {
+          if (uniqueTickersToFetch.length === 0) return null;
+          const res = await fetch(`/api/finance/intel`, {
+              method: 'POST',
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ symbols: uniqueTickersToFetch })
+          });
+          if (!res.ok) throw new Error("Gagal menarik data intel.");
+          return res.json();
+      },
+      enabled: !!currentUserEmail && isTerminalAuth && activeTab === 'intel',
+      staleTime: 1000 * 60 * 15, // Cache 15 menit agar tidak memboroskan API
+  });
 
   const getPriceForDate = useCallback((ticker: string, targetTs: number) => {
       const hist = historyPrices[ticker];
@@ -1046,6 +1066,11 @@ export default function ExpertTerminal() {
           <button onClick={() => setActiveTab('simulator')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'simulator' ? 'bg-[#111] text-[#00E5FF] border-l-2 border-[#00E5FF]' : 'text-[#D4D4D8] hover:bg-[#111] hover:text-white'}`}>
             <Calculator className="w-4 h-4" /> Simulator
           </button>
+
+          <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.2em] mt-6 mb-4 px-2 flex items-center gap-1.5"><Globe className="w-3.5 h-3.5"/> Makroekonomi</p>
+          <button onClick={() => setActiveTab('intel')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'intel' ? 'bg-[#111] text-[#FFD700] border-l-2 border-[#FFD700]' : 'text-[#D4D4D8] hover:bg-[#111] hover:text-white'}`}>
+            <Newspaper className="w-4 h-4" /> Market Intel
+          </button>
         </nav>
 
         {/* PROFIL & LOGOUT */}
@@ -1766,6 +1791,107 @@ export default function ExpertTerminal() {
                      </>
                  )}
              </div>
+          )}
+
+          {/* ================= TAB 5: MARKET INTEL & NEWS ================= */}
+          {activeTab === 'intel' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+              <div className="flex justify-between items-center border-b border-[#222] pb-4">
+                  <div>
+                      <h2 className="text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
+                          <Globe className="w-5 h-5 text-[#FFD700]" /> Intelligence Center
+                      </h2>
+                      <p className="text-[10px] text-[#A1A1AA] uppercase tracking-[0.15em] mt-1 font-bold">
+                          Pemindaian Isu Makroekonomi Terhadap Portofolio Aktif
+                      </p>
+                  </div>
+                  <button onClick={() => refetchIntel()} className="text-[9px] uppercase tracking-[0.2em] font-bold text-[#A1A1AA] hover:text-[#00E5FF] bg-[#111] px-4 py-2 border border-[#333] transition-colors flex items-center gap-2">
+                     <Orbit className={`w-3.5 h-3.5 ${isIntelLoading ? 'animate-spin text-[#FFD700]' : ''}`}/> Sinkronisasi Ulang
+                  </button>
+              </div>
+
+              {activePortfolio.length === 0 ? (
+                  <div className="bg-[#0D0D0D] border border-[#222] p-12 flex flex-col items-center justify-center text-center">
+                      <Newspaper className="w-8 h-8 text-[#555] mb-4" />
+                      <h3 className="text-sm font-black text-white mb-2 uppercase tracking-widest">Tidak Ada Portofolio</h3>
+                      <p className="text-[#A1A1AA] text-xs max-w-sm uppercase tracking-wider">Radar AI membutuhkan minimal satu aset untuk dianalisis.</p>
+                  </div>
+              ) : isIntelLoading && !marketIntelData ? (
+                  <div className="flex flex-col items-center justify-center py-20">
+                      <Orbit className="w-12 h-12 text-[#FFD700] animate-spin mb-4" />
+                      <p className="text-[10px] font-bold text-[#FFD700] uppercase tracking-[0.2em] animate-pulse">Menarik Data Agregator Web & Analisis Sentimen...</p>
+                  </div>
+              ) : marketIntelData && marketIntelData.analysis ? (
+                  <div className="space-y-6">
+                      {/* 🚀 PANEL SENTIMEN AI */}
+                      <div className="bg-[#050505] border border-[#333] p-6 relative overflow-hidden">
+                          <div className={`absolute top-0 left-0 w-1.5 h-full ${marketIntelData.analysis.overallSentiment === 'BULLISH' ? 'bg-[#00FF41]' : marketIntelData.analysis.overallSentiment === 'BEARISH' ? 'bg-[#FF003C]' : 'bg-[#FFD700]'}`}></div>
+                          
+                          <div className="flex justify-between items-start mb-6 border-b border-[#222] pb-4">
+                              <div>
+                                  <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.2em] mb-1">Agregasi Sentimen (AI Engine)</p>
+                                  <h3 className={`font-black text-2xl uppercase tracking-widest ${marketIntelData.analysis.overallSentiment === 'BULLISH' ? 'text-[#00FF41]' : marketIntelData.analysis.overallSentiment === 'BEARISH' ? 'text-[#FF003C]' : 'text-[#FFD700]'}`}>
+                                      {marketIntelData.analysis.overallSentiment}
+                                  </h3>
+                              </div>
+                              <div className="text-right">
+                                  <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.2em] mb-1">Confidence Score</p>
+                                  <p className="font-mono text-xl font-black text-white">{marketIntelData.analysis.confidenceScore}%</p>
+                              </div>
+                          </div>
+
+                          <div className="mb-6">
+                              <p className="text-sm text-[#D4D4D8] leading-relaxed font-sans">
+                                  {marketIntelData.analysis.marketSummary}
+                              </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {marketIntelData.analysis.actionableInsights.map((insight: any, idx: number) => (
+                                  <div key={idx} className="bg-[#111] border border-[#222] p-4">
+                                      <div className="flex justify-between items-center mb-2">
+                                          <span className="text-[10px] font-black text-white uppercase tracking-wider">{insight.sector}</span>
+                                          <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 border ${insight.sentiment.toLowerCase() === 'positif' ? 'text-[#00FF41] border-[#00FF41]/30 bg-[#00FF41]/10' : insight.sentiment.toLowerCase() === 'negatif' ? 'text-[#FF003C] border-[#FF003C]/30 bg-[#FF003C]/10' : 'text-[#FFD700] border-[#FFD700]/30 bg-[#FFD700]/10'}`}>
+                                              {insight.sentiment}
+                                          </span>
+                                      </div>
+                                      <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
+                                          {insight.insight}
+                                      </p>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+
+                      {/* 🚀 DAFTAR BERITA RAW */}
+                      <h3 className="font-black text-white text-sm uppercase tracking-widest mt-8 border-b border-[#222] pb-3">Sumber Berita Tersaring</h3>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          {marketIntelData.articles && marketIntelData.articles.map((article: any, idx: number) => (
+                              <a key={idx} href={article.url} target="_blank" rel="noopener noreferrer" className="block bg-[#0D0D0D] border border-[#222] p-5 hover:bg-[#111] hover:border-[#FFD700]/50 transition-all group">
+                                  <div className="flex justify-between items-start mb-3">
+                                      <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#00E5FF] bg-[#00E5FF]/10 px-2 py-1">
+                                          {article.source.name}
+                                      </span>
+                                      <span className="text-[10px] text-[#666] font-mono">
+                                          {new Date(article.publishedAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                      </span>
+                                  </div>
+                                  <h4 className="text-sm font-bold text-white leading-snug group-hover:text-[#FFD700] transition-colors line-clamp-2">
+                                      {article.title}
+                                  </h4>
+                                  <div className="mt-3 flex items-center justify-end text-[9px] text-[#A1A1AA] font-bold uppercase tracking-widest group-hover:text-white transition-colors">
+                                      Buka Sumber <ArrowUpRight className="w-3 h-3 ml-1" />
+                                  </div>
+                              </a>
+                          ))}
+                      </div>
+                  </div>
+              ) : (
+                  <div className="bg-[#FF003C]/10 border border-[#FF003C]/30 p-4 text-[11px] font-medium text-[#FF003C] leading-relaxed uppercase tracking-wider text-center">
+                      Terjadi kesalahan saat memproses agregasi berita atau kunci API belum terpasang.
+                  </div>
+              )}
+            </div>
           )}
         </div>
       </main>

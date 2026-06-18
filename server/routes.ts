@@ -1327,6 +1327,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses gambar." }); }
   });
 
+  // =====================================================================
+  // 🚀 FITUR EXPERT TERMINAL: MARKET INTEL & NEWS AGGREGATOR (DYNAMIC AI)
+  // =====================================================================
+  app.post("/api/finance/intel", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { symbols } = req.body; 
+          if (!symbols || !Array.isArray(symbols) || symbols.length === 0) {
+              return res.status(400).json({ error: "Tidak ada portofolio aktif untuk dianalisis." });
+          }
+
+          const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
+          if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
+
+          const cleanedSymbols = symbols.map((s: string) => s.replace('.JK', '').toUpperCase());
+
+          // -----------------------------------------------------------------
+          // 🤖 LANGKAH 1: AI KEYWORD GENERATOR (Mencari Isu Berdasarkan Saham)
+          // -----------------------------------------------------------------
+          const prompt1 = `
+          Pengguna memiliki portofolio saham/aset berikut di IHSG atau pasar global: ${cleanedSymbols.join(", ")}.
+          Tugasmu: Hasilkan MAKSIMAL 4 frasa kata kunci pencarian berita makroekonomi, komoditas, kebijakan, atau sektoral (Bukan nama perusahaannya) yang saat ini paling mempengaruhi harga aset-aset tersebut.
+          
+          Aturan Wajib:
+          1. Wajib dalam Bahasa Indonesia.
+          2. Pisahkan antar frasa HANYA dengan kata " OR ".
+          3. Jangan gunakan tanda kutip, bullet point, atau kalimat awalan/akhiran. Murni hanya string query.
+          Contoh murni jika asetnya perbankan dan tambang: Suku Bunga BI OR Harga Batu Bara Acuan OR Likuiditas Bank
+          `;
+
+          const aiKeywordRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt1 }] }], generationConfig: { temperature: 0.2 } })
+          });
+
+          // Fallback bawaan jika AI pertama gagal merespons
+          let query = cleanedSymbols.slice(0, 3).join(" OR "); 
+          
+          if (aiKeywordRes.ok) {
+              const keywordData = await aiKeywordRes.json();
+              if (keywordData.candidates?.[0]?.content?.parts?.[0]?.text) {
+                  query = keywordData.candidates[0].content.parts[0].text.trim().replace(/\n/g, "");
+              }
+          }
+
+          // -----------------------------------------------------------------
+          // 📰 LANGKAH 2: TARIK BERITA MENGGUNAKAN GNEWS DENGAN QUERY DINAMIS
+          // -----------------------------------------------------------------
+          const gnewsKey = (process.env.GNEWS_API_KEY || "").trim();
+          let newsItems = [];
+          
+          if (gnewsKey) {
+              const newsRes = await fetch(`https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=id&country=id&max=6&sortby=publishedAt&apikey=${gnewsKey}`);
+              if (newsRes.ok) {
+                  const newsData = await newsRes.json();
+                  newsItems = newsData.articles || [];
+              }
+          }
+
+          if (newsItems.length === 0) {
+              return res.json({ success: true, articles: [], analysis: null });
+          }
+
+          // -----------------------------------------------------------------
+          // 🧠 LANGKAH 3: AI SENTIMENT ANALYSIS UNTUK EXPERT TERMINAL
+          // -----------------------------------------------------------------
+          const newsContext = newsItems.map((n: any, i: number) => `[${i+1}] ${n.title} (Sumber: ${n.source.name})`).join("\n");
+          
+          const prompt2 = `
+          Kamu adalah AI Market Analyst di aplikasi BILANO. 
+          Baca judul-judul berita teraktual berikut dan hasilkan evaluasi sentimen murni berformat JSON untuk portofolio ini: ${cleanedSymbols.join(", ")}.
+          Fokus pada dampaknya untuk swing trading dan akumulasi aset.
+          
+          BERITA TERKINI:
+          ${newsContext}
+          
+          OUTPUT WAJIB JSON MURNI (tanpa markdown/blockquote):
+          {
+             "marketSummary": "1 kalimat tajam tentang kondisi makro hari ini terhadap portofolio pengguna.",
+             "overallSentiment": "BULLISH" | "BEARISH" | "NEUTRAL",
+             "confidenceScore": 85,
+             "actionableInsights": [
+                {"sector": "Sektor Terkait", "sentiment": "Positif/Negatif", "insight": "Alasan singkat untuk hold, buy, atau sell"}
+             ]
+          }
+          `;
+
+          const aiSentRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                  contents: [{ role: "user", parts: [{ text: prompt2 }] }], 
+                  generationConfig: { temperature: 0.1, response_mime_type: "application/json" } 
+              })
+          });
+
+          const aiSentData = await aiSentRes.json();
+          const resultText = aiSentData.candidates[0].content.parts[0].text;
+          
+          let parsedAI;
+          try { 
+              parsedAI = JSON.parse(resultText); 
+          } catch (e) { 
+              parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
+          }
+
+          res.json({ success: true, articles: newsItems, analysis: parsedAI });
+
+      } catch (error: any) { 
+          res.status(500).json({ error: error.message || "Gagal memproses Market Intel." }); 
+      }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
