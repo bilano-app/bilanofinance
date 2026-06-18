@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { 
   Fingerprint, Layers, Radar, Scale, VenetianMask, ShieldAlert,
-  ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, Orbit, Database, X, Wrench, ScanSearch, Radio, LogOut, Calculator, Settings2
+  ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, Orbit, Database, X, Wrench, ScanSearch, Radio, LogOut, Calculator, Settings2, Target
 } from "lucide-react";
 import { useUser, useInvestments, useTransactions, useLiveQuotes, useHistoricalQuotes, usePortfolioSnapshots, useSaveSnapshot } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
@@ -10,12 +10,14 @@ import { useQuery } from "@tanstack/react-query";
 import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 
+// Skema Warna Terminal Profesional (High Contrast Neons)
 const COLORS = ['#00FF41', '#00E5FF', '#FF003C', '#FFD700', '#B500FF', '#FF8C00', '#FFFFFF'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
 
 export default function ExpertTerminal() {
   const { toast } = useToast();
   
+  // State Autentikasi Terminal
   const [isTerminalAuth, setIsTerminalAuth] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem("bilano_auth") === "true";
     return false;
@@ -27,6 +29,7 @@ export default function ExpertTerminal() {
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
+  // Data Hooks
   const { data: user } = useUser();
   const { data: investments = [] } = useInvestments();
   const { data: transactions = [] } = useTransactions();
@@ -118,6 +121,8 @@ export default function ExpertTerminal() {
 
   const { data: livePrices = {}, isLoading: isLivePricesLoading } = useLiveQuotes(uniqueTickersToFetch);
   const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, apiRange);
+  // 🚀 FETCH SPESIFIK 5 TAHUN UNTUK AKURASI SIMULATOR (Tidak terpengaruh filter chart timeframe)
+  const { data: simHistoryPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
 
   const getPriceForDate = useCallback((ticker: string, targetTs: number) => {
       const hist = historyPrices[ticker];
@@ -180,25 +185,28 @@ export default function ExpertTerminal() {
   }, [investments, tickerOverrides, getHistoricalRate]);
 
   // =========================================================================
-  // 🚀 ENGINE SIMULATOR STRATEGI (DENGAN KALKULASI GRAND TOTAL OTOMATIS)
+  // 🚀 ENGINE SIMULATOR STRATEGI (MURNI HISTORICAL DRIVEN & PROGRESS TRACKER)
   // =========================================================================
   const [expandedSimAsset, setExpandedSimAsset] = useState<string | null>(null);
   const [simParams, setSimParams] = useState<Record<string, any>>({});
 
   const extractHistoricalStats = useCallback((ticker: string) => {
-      const hist = historyPrices[ticker];
-      if (!hist || !hist.timestamps || hist.timestamps.length < 2) return { cagr: 0.12, volatility: 0.15 }; 
+      const hist = simHistoryPrices[ticker];
+      // Fallback jika API belum memuat data historis 5 tahun
+      if (!hist || !hist.timestamps || hist.timestamps.length < 2) return { cagr: 12, volatility: 15, isReady: false }; 
       
       const closes = hist.close.filter((c: number) => c !== null && c !== undefined);
-      if (closes.length < 2) return { cagr: 0.12, volatility: 0.15 };
+      if (closes.length < 2) return { cagr: 12, volatility: 15, isReady: false };
 
       const firstPrice = closes[0];
       const lastPrice = closes[closes.length - 1];
       const days = (hist.timestamps[hist.timestamps.length - 1] - hist.timestamps[0]) / (24 * 3600);
       const years = Math.max(days / 365, 0.1); 
 
+      // Kalkulasi Murni Compound Annual Growth Rate (CAGR)
       let cagr = Math.pow((lastPrice / firstPrice), (1 / years)) - 1;
       
+      // Kalkulasi Historical Volatility (Standar Deviasi)
       let returns = [];
       for(let i=1; i<closes.length; i++) {
           returns.push((closes[i] - closes[i-1]) / closes[i-1]);
@@ -207,30 +215,35 @@ export default function ExpertTerminal() {
       const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
       let volatility = Math.sqrt(variance) * Math.sqrt(252);
 
-      if (cagr > 1.0) cagr = 0.5; if (cagr < -0.5) cagr = -0.1;
-      if (volatility > 1.0) volatility = 0.8; if (volatility < 0.05) volatility = 0.05;
+      // Batasan wajar agar simulator tidak rusak karena anomali data (max 50% CAGR, max 80% risk)
+      if (cagr > 0.5) cagr = 0.5; if (cagr < -0.1) cagr = -0.1;
+      if (volatility > 0.8) volatility = 0.8; if (volatility < 0.05) volatility = 0.05;
 
-      return { cagr, volatility };
-  }, [historyPrices]);
+      return { cagr: cagr * 100, volatility: volatility * 100, isReady: true };
+  }, [simHistoryPrices]);
 
-  // PRE-POPULATE DATA: Hitung parameter awal semua aset
+  // PRE-POPULATE DATA: Akan update otomatis ketika `simHistoryPrices` selesai di-load
   useEffect(() => {
       if (activePortfolio.length > 0 && Object.keys(livePrices).length > 0) {
           setSimParams(prev => {
               const newParams = { ...prev };
               let hasChanges = false;
               activePortfolio.forEach(asset => {
-                  if (!newParams[asset.symbol]) {
-                      const stats = extractHistoricalStats(asset.activeTicker);
+                  const stats = extractHistoricalStats(asset.activeTicker);
+                  const currentParam = newParams[asset.symbol];
+                  
+                  // Perbarui parameter HANYA jika data historis baru siap (isReady berubah) atau belum ada
+                  if (!currentParam || (!currentParam._isReady && stats.isReady)) {
                       const livePriceAPI = livePrices[asset.activeTicker];
                       const liveValuationIDR = livePriceAPI ? (asset.qty * livePriceAPI * asset.liveMultiplier) : asset.totalModalIDR;
                       newParams[asset.symbol] = {
-                          modalAwal: liveValuationIDR,
-                          kontribusiBulanan: 1000000,
-                          horizonWaktu: 5,
-                          kenaikanSetoran: 10,
-                          ekspektasiReturn: Number((stats.cagr * 100).toFixed(1)),
-                          volatilitas: Number((stats.volatility * 100).toFixed(1))
+                          modalAwal: currentParam?.modalAwal ?? liveValuationIDR,
+                          kontribusiBulanan: currentParam?.kontribusiBulanan ?? 1000000,
+                          horizonWaktu: currentParam?.horizonWaktu ?? 5,
+                          kenaikanSetoran: currentParam?.kenaikanSetoran ?? 10,
+                          ekspektasiReturn: Number((stats.cagr).toFixed(1)),
+                          volatilitas: Number((stats.volatility).toFixed(1)),
+                          _isReady: stats.isReady
                       };
                       hasChanges = true;
                   }
@@ -320,7 +333,10 @@ export default function ExpertTerminal() {
           { name: 'Value Averaging', modal: vaModal, akhir: finalVA, laba: finalVA - vaModal, roi: ((finalVA - vaModal)/vaModal)*100 }
       ];
 
-      return { chartData, strategies, bestStrategy: strategies.reduce((p, c) => (c.roi > p.roi ? c : p)) };
+      // 🚀 PERBAIKAN: Memilih bestStrategy berdasarkan Valuasi Akhir Tertinggi, bukan ROI persentase.
+      const bestStrategy = strategies.reduce((p, c) => (c.akhir > p.akhir ? c : p));
+
+      return { chartData, strategies, bestStrategy };
   }, []);
 
   const grandTotalSimulation = useMemo(() => {
@@ -344,6 +360,7 @@ export default function ExpertTerminal() {
 
       return { totalModal, totalAkhir, maxHorizon, laba: totalAkhir - totalModal };
   }, [activePortfolio, simParams, getSimDataForAsset]);
+
 
   const realizedTradesBase = useMemo(() => {
     return chronologicalTxs.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
@@ -847,6 +864,12 @@ export default function ExpertTerminal() {
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 0; }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
+        /* Hilangkan panah spinner di input type number */
+        input[type='number']::-webkit-inner-spin-button, 
+        input[type='number']::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
     `}} />
     
     <div className="flex h-screen bg-[#000000] text-[#E4E4E7] font-sans overflow-hidden selection:bg-[#00FF41]/30">
@@ -1387,28 +1410,41 @@ export default function ExpertTerminal() {
                      </div>
                  ) : (
                      <>
-                         {/* 🚀 Grand Total Summary Panel */}
+                         {/* 🚀 Grand Total Summary Panel + Progress Tracker */}
                          {grandTotalSimulation && (
-                             <div className="bg-[#0D0D0D] border border-[#333] p-8 flex justify-between items-center relative overflow-hidden">
+                             <div className="bg-[#0D0D0D] border border-[#333] p-8 flex flex-col gap-6 relative overflow-hidden">
                                  <div className="absolute left-0 top-0 w-1.5 h-full bg-[#00FF41]"></div>
                                  <div className="absolute -right-20 -bottom-20 w-48 h-48 bg-[#00FF41]/5 rounded-full blur-3xl pointer-events-none"></div>
                                  
-                                 <div>
-                                     <h3 className="text-[#A1A1AA] font-bold text-[10px] uppercase tracking-[0.2em] mb-2">Total Estimasi Portofolio Berdasarkan Maks Horizon ({grandTotalSimulation.maxHorizon} Thn)</h3>
-                                     <div className="flex items-end gap-6">
-                                         <p className="mono-font text-4xl font-black text-[#00FF41] leading-none">
-                                             {maskRp(grandTotalSimulation.totalAkhir)}
-                                         </p>
-                                         <p className="mono-font text-xs font-bold text-[#A1A1AA] mb-1">
-                                             Modal Keseluruhan: <span className="text-white">{maskRp(grandTotalSimulation.totalModal)}</span>
+                                 <div className="flex justify-between items-center z-10">
+                                     <div>
+                                         <h3 className="text-[#A1A1AA] font-bold text-[10px] uppercase tracking-[0.2em] mb-2">Total Estimasi Portofolio Berdasarkan Maks Horizon ({grandTotalSimulation.maxHorizon} Thn)</h3>
+                                         <div className="flex items-end gap-6">
+                                             <p className="mono-font text-4xl font-black text-[#00FF41] leading-none">
+                                                 {maskRp(grandTotalSimulation.totalAkhir)}
+                                             </p>
+                                             <p className="mono-font text-xs font-bold text-[#A1A1AA] mb-1">
+                                                 Modal Keseluruhan: <span className="text-white">{maskRp(grandTotalSimulation.totalModal)}</span>
+                                             </p>
+                                         </div>
+                                     </div>
+                                     <div className="text-right">
+                                         <p className="text-[#A1A1AA] font-bold text-[10px] uppercase tracking-[0.2em] mb-2">Proyeksi Laba Bersih</p>
+                                         <p className="mono-font text-2xl font-black text-[#00E5FF] leading-none">
+                                             +{maskRp(grandTotalSimulation.laba)}
                                          </p>
                                      </div>
                                  </div>
-                                 <div className="text-right">
-                                     <p className="text-[#A1A1AA] font-bold text-[10px] uppercase tracking-[0.2em] mb-2">Proyeksi Laba Bersih</p>
-                                     <p className="mono-font text-2xl font-black text-[#00E5FF] leading-none">
-                                         +{maskRp(grandTotalSimulation.laba)}
-                                     </p>
+
+                                 {/* Progress Bar UI */}
+                                 <div className="z-10 w-full bg-[#111] p-5 border border-[#222]">
+                                     <div className="flex justify-between text-[10px] font-bold uppercase tracking-[0.15em] text-[#888] mb-3">
+                                         <span>Pencapaian Saat Ini ({Math.min((totalAssetValue / grandTotalSimulation.totalAkhir) * 100, 100).toFixed(2)}%)</span>
+                                         <span className="text-[#00FF41] font-mono tracking-normal">{maskRp(totalAssetValue)} <span className="text-[#555]">/ {maskRp(grandTotalSimulation.totalAkhir)}</span></span>
+                                     </div>
+                                     <div className="w-full h-2.5 bg-[#000] rounded-full overflow-hidden border border-[#333]">
+                                         <div className="h-full bg-[#00FF41] transition-all duration-1000 shadow-[0_0_10px_#00FF41]" style={{ width: `${Math.min((totalAssetValue / grandTotalSimulation.totalAkhir) * 100, 100)}%` }}></div>
+                                     </div>
                                  </div>
                              </div>
                          )}
@@ -1446,7 +1482,9 @@ export default function ExpertTerminal() {
                                                      </div>
                                                      <div>
                                                          <p className="text-[9px] text-[#A1A1AA] font-bold uppercase tracking-[0.2em] mb-1">Data Model</p>
-                                                         <p className="font-mono text-xs text-[#FFD700] uppercase">Tersinkronisasi</p>
+                                                         <p className={`font-mono text-xs uppercase ${params._isReady ? 'text-[#FFD700]' : 'text-[#888] animate-pulse'}`}>
+                                                             {params._isReady ? 'Tersinkronisasi' : 'Menghitung...'}
+                                                         </p>
                                                      </div>
                                                  </div>
                                              </div>
@@ -1514,7 +1552,7 @@ export default function ExpertTerminal() {
                                                         
                                                         <div className="bg-[#111] p-4 flex items-center justify-between border-t border-[#333]">
                                                             <div>
-                                                                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#A1A1AA] mb-1">Rekomendasi Algoritma</p>
+                                                                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#A1A1AA] mb-1">Rekomendasi Algoritma (Hasil Akhir Rupiah Tertinggi)</p>
                                                                 <p className="text-sm font-black uppercase text-[#00E5FF]">{currentSimData.bestStrategy.name}</p>
                                                             </div>
                                                         </div>
@@ -1525,13 +1563,34 @@ export default function ExpertTerminal() {
                                                  <div className="w-full xl:w-80 bg-[#000] border border-[#222] p-6 flex flex-col gap-6">
                                                      <h3 className="font-black text-white text-sm uppercase tracking-widest border-b border-[#222] pb-3">Parameter Tuning</h3>
                                                      
+                                                     {/* 🚀 AUTO-CALCULATED RETURN & RISK */}
+                                                     <div className="flex justify-between items-center bg-[#111] border border-[#222] p-3 rounded-sm">
+                                                         <div>
+                                                             <p className="text-[9px] font-bold text-[#888] uppercase tracking-[0.15em] mb-1">Historikal CAGR</p>
+                                                             <p className="text-xs font-mono text-[#FFD700]">{params.ekspektasiReturn}% / Thn</p>
+                                                         </div>
+                                                         <div className="text-right">
+                                                             <p className="text-[9px] font-bold text-[#888] uppercase tracking-[0.15em] mb-1">Volatilitas (Risk)</p>
+                                                             <p className="text-xs font-mono text-[#FF003C]">{params.volatilitas}%</p>
+                                                         </div>
+                                                     </div>
+                                                     <p className="text-[9px] text-[#666] leading-relaxed -mt-4 text-center px-2">Data historis di atas dihitung murni menggunakan pergerakan harga 5 tahun terakhir oleh sistem.</p>
+
+                                                     <div className="h-px bg-[#222] w-full mt-1 mb-1"></div>
+
+                                                     {/* 🚀 HYBRID INPUTS (Slider + Number Typing) */}
                                                      <div>
                                                          <div className="flex justify-between items-center mb-2">
                                                              <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Modal Awal (IDR)</label>
-                                                             <span className="text-[11px] font-mono text-[#00FF41]">{formatRp(params.modalAwal)}</span>
+                                                             <input 
+                                                                 type="number" 
+                                                                 value={params.modalAwal} 
+                                                                 onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, modalAwal: Number(e.target.value)}})}
+                                                                 className="bg-[#111] border border-[#333] text-[#00FF41] text-[10px] font-mono p-1.5 rounded outline-none text-right w-28 appearance-none focus:border-[#00FF41] transition-colors"
+                                                             />
                                                          </div>
                                                          <input 
-                                                             type="range" min={0} max={Math.max(params.modalAwal * 5, 50000000)} step={100000}
+                                                             type="range" min={0} max={Math.max(params.modalAwal * 2, 50000000)} step={100000}
                                                              value={params.modalAwal} 
                                                              onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, modalAwal: Number(e.target.value)}})}
                                                              className="w-full accent-[#00FF41]"
@@ -1540,11 +1599,16 @@ export default function ExpertTerminal() {
 
                                                      <div>
                                                          <div className="flex justify-between items-center mb-2">
-                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Suntikan Rutin/Bulan</label>
-                                                             <span className="text-[11px] font-mono text-[#00E5FF]">{formatRp(params.kontribusiBulanan)}</span>
+                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Suntikan/Bulan</label>
+                                                             <input 
+                                                                 type="number" 
+                                                                 value={params.kontribusiBulanan} 
+                                                                 onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, kontribusiBulanan: Number(e.target.value)}})}
+                                                                 className="bg-[#111] border border-[#333] text-[#00E5FF] text-[10px] font-mono p-1.5 rounded outline-none text-right w-28 appearance-none focus:border-[#00E5FF] transition-colors"
+                                                             />
                                                          </div>
                                                          <input 
-                                                             type="range" min={0} max={50000000} step={500000}
+                                                             type="range" min={0} max={Math.max(params.kontribusiBulanan * 3, 50000000)} step={100000}
                                                              value={params.kontribusiBulanan} 
                                                              onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, kontribusiBulanan: Number(e.target.value)}})}
                                                              className="w-full accent-[#00E5FF]"
@@ -1553,8 +1617,16 @@ export default function ExpertTerminal() {
 
                                                      <div>
                                                          <div className="flex justify-between items-center mb-2">
-                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Horizon Investasi</label>
-                                                             <span className="text-[11px] font-mono text-white">{params.horizonWaktu} THN</span>
+                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Horizon Target</label>
+                                                             <div className="relative">
+                                                                <input 
+                                                                    type="number" 
+                                                                    value={params.horizonWaktu} 
+                                                                    onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, horizonWaktu: Number(e.target.value)}})}
+                                                                    className="bg-[#111] border border-[#333] text-white text-[10px] font-mono p-1.5 pr-6 rounded outline-none text-right w-16 appearance-none focus:border-white transition-colors"
+                                                                />
+                                                                <span className="absolute right-2 top-1.5 text-[9px] text-[#666] font-bold">TH</span>
+                                                             </div>
                                                          </div>
                                                          <input 
                                                              type="range" min={1} max={30} step={1}
@@ -1564,38 +1636,18 @@ export default function ExpertTerminal() {
                                                          />
                                                      </div>
 
-                                                     <div className="h-px bg-[#222] w-full my-1"></div>
-
                                                      <div>
                                                          <div className="flex justify-between items-center mb-2">
-                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Hist. CAGR / Return</label>
-                                                             <span className="text-[11px] font-mono text-[#FFD700]">{params.ekspektasiReturn}%</span>
-                                                         </div>
-                                                         <input 
-                                                             type="range" min={-20} max={50} step={0.5}
-                                                             value={params.ekspektasiReturn} 
-                                                             onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, ekspektasiReturn: Number(e.target.value)}})}
-                                                             className="w-full accent-[#FFD700]"
-                                                         />
-                                                     </div>
-
-                                                     <div>
-                                                         <div className="flex justify-between items-center mb-2">
-                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Risk / Volatility</label>
-                                                             <span className="text-[11px] font-mono text-[#FF003C]">{params.volatilitas}%</span>
-                                                         </div>
-                                                         <input 
-                                                             type="range" min={1} max={100} step={1}
-                                                             value={params.volatilitas} 
-                                                             onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, volatilitas: Number(e.target.value)}})}
-                                                             className="w-full accent-[#FF003C]"
-                                                         />
-                                                     </div>
-
-                                                     <div>
-                                                         <div className="flex justify-between items-center mb-2">
-                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Inflasi Setoran / Thn</label>
-                                                             <span className="text-[11px] font-mono text-[#B500FF]">{params.kenaikanSetoran}%</span>
+                                                             <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Inflasi Setoran</label>
+                                                             <div className="relative">
+                                                                <input 
+                                                                    type="number" 
+                                                                    value={params.kenaikanSetoran} 
+                                                                    onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, kenaikanSetoran: Number(e.target.value)}})}
+                                                                    className="bg-[#111] border border-[#333] text-[#B500FF] text-[10px] font-mono p-1.5 pr-4 rounded outline-none text-right w-16 appearance-none focus:border-[#B500FF] transition-colors"
+                                                                />
+                                                                <span className="absolute right-2 top-1.5 text-[9px] text-[#666] font-bold">%</span>
+                                                             </div>
                                                          </div>
                                                          <input 
                                                              type="range" min={0} max={50} step={1}
