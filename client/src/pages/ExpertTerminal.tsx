@@ -1,15 +1,15 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { 
-  LayoutDashboard, PieChart as PieIcon, TrendingUp, History, Eye, EyeOff, Search,
-  ArrowUpRight, ArrowDownRight, ChevronUp, Loader2, Save, X, Edit3, Info, LockKeyhole
+  Fingerprint, Layers, Radar, Scale, VenetianMask, ShieldAlert,
+  ArrowUpRight, ArrowDownRight, ChevronUp, Orbit, Database, X, Wrench, ScanSearch, Radio
 } from "lucide-react";
 import { useUser, useInvestments, useTransactions, useLiveQuotes, useHistoricalQuotes, usePortfolioSnapshots, useSaveSnapshot } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
-import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line } from 'recharts';
 import { useQuery } from "@tanstack/react-query";
 
-// Tema warna profesional (High Contrast)
-const COLORS = ['#10B981', '#06B6D4', '#6366f1', '#F59E0B', '#F43F5E', '#8B5CF6', '#EAB308'];
+// Tema warna profesional (High Contrast & Neon)
+const COLORS = ['#22C55E', '#06B6D4', '#8B5CF6', '#F59E0B', '#F43F5E', '#6366f1', '#EAB308'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
 
 export default function ExpertTerminal() {
@@ -22,11 +22,9 @@ export default function ExpertTerminal() {
 
   const [activeTab, setActiveTab] = useState<'alokasi' | 'pantauan' | 'terealisasi'>('alokasi');
   
-  // 🚀 STATE PRIVASI GLOBAL
   const [showProfit, setShowProfit] = useState(true);
-  
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [chartTimeframe, setChartTimeframe] = useState<'1M' | '3M' | '1Y' | 'ALL'>('1M');
+  const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | '5Y'>('1M');
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const { data: forexRates = {} } = useQuery({
@@ -56,9 +54,6 @@ export default function ExpertTerminal() {
       return [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [transactions]);
 
-  // ====================================================================
-  // LOGIKA PINTAR: Isolasi Ticker Dulu Agar Tidak Terjadi Circular Dependency
-  // ====================================================================
   const uniqueTickersToFetch = useMemo(() => {
     const tickers = new Set<string>();
     tickers.add("IDR=X");
@@ -104,33 +99,31 @@ export default function ExpertTerminal() {
   const { data: livePrices = {}, isLoading: isLivePricesLoading } = useLiveQuotes(uniqueTickersToFetch);
   const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
 
-  // ====================================================================
-  // LOGIKA PINTAR: Fungsi Kalkulasi Kurs Historis
-  // ====================================================================
+  const getPriceForDate = useCallback((ticker: string, targetTs: number) => {
+      const hist = historyPrices[ticker];
+      if (!hist || !hist.timestamps || hist.timestamps.length === 0) return null;
+      
+      const targetSec = targetTs / 1000;
+      let closestPrice = null; 
+      
+      for(let i = hist.timestamps.length-1; i >= 0; i--) {
+          if (hist.timestamps[i] <= targetSec + 86400) { 
+              if (hist.close[i] !== null && hist.close[i] !== undefined) {
+                  closestPrice = hist.close[i];
+                  break;
+              }
+          }
+      }
+      return closestPrice;
+  }, [historyPrices]);
+
   const getHistoricalRate = useCallback((targetTs: number, currency: string) => {
       if (currency === 'IDR') return 1;
       const liveRateFallback = Number(forexRates[currency]) || 16200;
       if (currency !== 'USD') return liveRateFallback;
+      return getPriceForDate('IDR=X', targetTs) || liveRateFallback;
+  }, [forexRates, getPriceForDate]);
 
-      const hist = historyPrices['IDR=X'];
-      if (!hist || !hist.timestamps || hist.timestamps.length === 0) return liveRateFallback;
-      
-      const targetSec = targetTs / 1000;
-      let closestPrice = hist.close[hist.close.length - 1]; 
-      
-      for(let i = hist.timestamps.length-1; i >= 0; i--) {
-          if (hist.timestamps[i] <= targetSec + 86400) { 
-              closestPrice = hist.close[i];
-              break;
-          }
-      }
-      return closestPrice || liveRateFallback;
-  }, [historyPrices, forexRates]);
-
-
-  // ====================================================================
-  // RE-BUILD: Portofolio Aktif dengan Perhitungan Unrealized Forex
-  // ====================================================================
   const activePortfolio = useMemo(() => {
     const agg: Record<string, { qty: number, totalModalIDR: number, symbol: string, currency: string, activeTicker: string, liveMultiplier: number, isStock: boolean, isIDR: boolean, createdAt: string }> = {};
     
@@ -166,9 +159,6 @@ export default function ExpertTerminal() {
     return Object.values(agg).filter((p: any) => p.qty > 0);
   }, [investments, tickerOverrides, getHistoricalRate]);
 
-  // ====================================================================
-  // RE-BUILD: Investasi Terealisasi (Evaluasi Historis Forex & Saham)
-  // ====================================================================
   const realizedTradesBase = useMemo(() => {
     return chronologicalTxs.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
       const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
@@ -222,9 +212,6 @@ export default function ExpertTerminal() {
     })
   ].filter((d: any) => d.value > 0);
 
-  // ====================================================================
-  // Isolasi Setup Awal vs Transaksi Historis
-  // ====================================================================
   const firstInvestmentDate = useMemo(() => {
       let earliest = new Date();
       let found = false;
@@ -285,39 +272,17 @@ export default function ExpertTerminal() {
       return bases;
   }, [chronologicalTxs, activePortfolio]);
 
-  const availableMonths = useMemo(() => {
-      const currentYear = new Date().getFullYear();
-      const currentMonth = new Date().getMonth();
-      if (selectedYear > currentYear) return [];
-      
-      let start = 0;
-      if (selectedYear === firstInvestmentDate.getFullYear()) start = firstInvestmentDate.getMonth();
-      else if (selectedYear < firstInvestmentDate.getFullYear()) return []; 
-      
-      let end = 11;
-      if (selectedYear === currentYear) end = currentMonth;
-      
-      return MONTH_NAMES.map((name, idx) => ({ name, monthNum: idx + 1 })).slice(start, end + 1);
-  }, [selectedYear, firstInvestmentDate]);
-
-  const getMonthData = useCallback((monthNum: number, year: number) => {
-      const snap = snapshots.find((s: any) => s.month === monthNum && s.year === year);
-      if (snap) {
-          let details = {};
-          try { details = JSON.parse(snap.assetsDetail || "{}"); } catch(e) {}
-          return { isSaved: true, totalValue: snap.totalValue, investValue: snap.investValue, details };
-      }
-      
-      const endOfMonth = new Date(year, monthNum, 0, 23, 59, 59);
+  const getSnapshotAtDate = useCallback((targetDate: Date, isCurrent: boolean) => {
       const qtyMap: Record<string, { qty: number, investedIDR: number }> = {};
+      const targetTs = targetDate.getTime();
       
       Object.keys(setupAwalBases).forEach(sym => {
-          if (setupAwalBases[sym].date <= endOfMonth) {
+          if (setupAwalBases[sym].date.getTime() <= targetTs) {
               qtyMap[sym] = { qty: setupAwalBases[sym].qty, investedIDR: setupAwalBases[sym].invested };
           }
       });
 
-      const pastTx = chronologicalTxs.filter((t:any) => new Date(t.date) <= endOfMonth);
+      const pastTx = chronologicalTxs.filter((t:any) => new Date(t.date).getTime() <= targetTs);
       pastTx.forEach((t:any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
               const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
@@ -353,9 +318,16 @@ export default function ExpertTerminal() {
               const currentAsset = activePortfolio.find((p: any) => p.symbol === sym);
               const activeTicker = currentAsset ? currentAsset.activeTicker : (tickerOverrides[sym] || sym);
               const liveMultiplier = currentAsset ? currentAsset.liveMultiplier : 1;
-              const livePriceAPI = livePrices[activeTicker];
               
-              const valuasi = livePriceAPI ? (qtyMap[sym].qty * livePriceAPI * liveMultiplier) : qtyMap[sym].investedIDR;
+              let price = qtyMap[sym].investedIDR / (qtyMap[sym].qty * liveMultiplier); 
+              if (isCurrent) {
+                  price = livePrices[activeTicker] || price;
+              } else {
+                  const histPrice = getPriceForDate(activeTicker, targetTs);
+                  price = histPrice || price;
+              }
+              
+              const valuasi = price ? (qtyMap[sym].qty * price * liveMultiplier) : qtyMap[sym].investedIDR;
               details[sym] = { invested: qtyMap[sym].investedIDR, valuasi, qty: qtyMap[sym].qty };
               totalInv += qtyMap[sym].investedIDR;
               totalVal += valuasi;
@@ -364,8 +336,53 @@ export default function ExpertTerminal() {
           }
       });
       
-      return { isSaved: false, totalValue: totalVal, investValue: totalInv, details };
-  }, [snapshots, chronologicalTxs, activePortfolio, livePrices, tickerOverrides, setupAwalBases]);
+      return { totalValue: totalVal, investValue: totalInv, details };
+  }, [setupAwalBases, chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate]);
+
+  const availableMonths = useMemo(() => {
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth();
+      if (selectedYear > currentYear) return [];
+      
+      let start = 0;
+      if (selectedYear === firstInvestmentDate.getFullYear()) start = firstInvestmentDate.getMonth();
+      else if (selectedYear < firstInvestmentDate.getFullYear()) return []; 
+      
+      let end = 11;
+      if (selectedYear === currentYear) end = currentMonth;
+      
+      return MONTH_NAMES.map((name, idx) => ({ name, monthNum: idx + 1 })).slice(start, end + 1);
+  }, [selectedYear, firstInvestmentDate]);
+
+  const getMonthData = useCallback((monthNum: number, year: number) => {
+      const snap = snapshots.find((s: any) => s.month === monthNum && s.year === year);
+      if (snap) {
+          let details = {};
+          try { details = JSON.parse(snap.assetsDetail || "{}"); } catch(e) {}
+          return { isSaved: true, totalValue: snap.totalValue, investValue: snap.investValue, details };
+      }
+      
+      const isCurrentMonth = year === new Date().getFullYear() && monthNum === new Date().getMonth() + 1;
+      const endOfMonth = isCurrentMonth ? new Date() : new Date(year, monthNum, 0, 23, 59, 59);
+      
+      const calcData = getSnapshotAtDate(endOfMonth, isCurrentMonth);
+      return { isSaved: false, ...calcData };
+  }, [snapshots, getSnapshotAtDate]);
+
+  const availableYears = useMemo(() => {
+      const startYear = firstInvestmentDate.getFullYear();
+      const currentYear = new Date().getFullYear();
+      const years = [];
+      for (let y = startYear; y <= currentYear; y++) years.push(y);
+      return years;
+  }, [firstInvestmentDate]);
+
+  const getYearData = useCallback((year: number) => {
+      const isCurrentYear = year === new Date().getFullYear();
+      const endOfYear = isCurrentYear ? new Date() : new Date(year, 11, 31, 23, 59, 59);
+      return getSnapshotAtDate(endOfYear, isCurrentYear);
+  }, [getSnapshotAtDate]);
+
 
   const chartDataDaily = useMemo(() => {
      if (activePortfolio.length === 0 || Object.keys(historyPrices).length === 0) return [];
@@ -386,9 +403,12 @@ export default function ExpertTerminal() {
      const now = new Date().getTime();
 
      let startTimeframe = firstDate;
+     if (chartTimeframe === '1D') startTimeframe = now - 1 * ONE_DAY;
+     if (chartTimeframe === '1W') startTimeframe = now - 7 * ONE_DAY;
      if (chartTimeframe === '1M') startTimeframe = now - 30 * ONE_DAY;
      if (chartTimeframe === '3M') startTimeframe = now - 90 * ONE_DAY;
-     if (chartTimeframe === '1Y') startTimeframe = Math.max(firstDate, now - 365 * ONE_DAY);
+     if (chartTimeframe === '1Y') Math.max(firstDate, now - 365 * ONE_DAY);
+     if (chartTimeframe === '5Y') Math.max(firstDate, now - 1825 * ONE_DAY);
      
      let currentTs = new Date(startTimeframe).setHours(0,0,0,0);
      const endTs = new Date().setHours(0,0,0,0);
@@ -427,20 +447,6 @@ export default function ExpertTerminal() {
      });
 
      const dailyData = [];
-
-     const getPriceForDate = (ticker: string, targetTs: number) => {
-         const hist = historyPrices[ticker];
-         if (!hist || !hist.timestamps || hist.timestamps.length === 0) return null;
-         const targetSec = targetTs / 1000;
-         let closestPrice = hist.close[hist.close.length - 1]; 
-         for(let i = hist.timestamps.length-1; i >= 0; i--) {
-             if (hist.timestamps[i] <= targetSec + 86400) { 
-                 closestPrice = hist.close[i];
-                 break;
-             }
-         }
-         return closestPrice;
-     };
 
      while(currentTs <= endTs) {
          const dateObj = new Date(currentTs);
@@ -500,9 +506,8 @@ export default function ExpertTerminal() {
      }
 
      return dailyData;
-  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases]);
+  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate]);
 
-  // 🚀 FUNGSI FORMATTING DAN MASKING
   const formatRp = (num: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num);
   const maskRp = (num: number) => showProfit ? formatRp(num) : "Rp ••••••••";
   const formatPct = (num: number) => `${num > 0 ? '+' : ''}${(num * 100).toFixed(2)}%`;
@@ -533,30 +538,29 @@ export default function ExpertTerminal() {
       }
   };
 
-  // Komponen Toggle Privasi yang Elegan
   const PrivacyToggle = () => (
     <button 
         onClick={() => setShowProfit(!showProfit)} 
         className={`ml-4 px-4 py-2 rounded-full border transition-all flex items-center gap-2 text-xs font-black uppercase tracking-wider ${
             showProfit 
             ? 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700' 
-            : 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]'
+            : 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]'
         }`}
     >
-        {showProfit ? <><EyeOff className="w-4 h-4"/> Sembunyikan Nominal</> : <><LockKeyhole className="w-4 h-4"/> Nominal Ditutupi</>}
+        {showProfit ? <><VenetianMask className="w-4 h-4"/> Mode Privasi Mati</> : <><ShieldAlert className="w-4 h-4"/> Nominal Ditutupi</>}
     </button>
   );
 
   return (
-    <div className="flex h-screen bg-[#060913] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0f172a] via-[#060913] to-black text-slate-300 font-sans overflow-hidden selection:bg-indigo-500/30">
+    <div className="flex h-screen bg-[#060913] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0f172a] via-[#060913] to-black text-slate-300 font-sans overflow-hidden selection:bg-emerald-500/30">
       
       {/* MODAL AUDIT HARGA & KOREKSI TICKER */}
       {editTickerModal && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in p-4">
-             <div className="bg-[#0A0F1C] border border-indigo-900/50 rounded-[32px] p-8 max-w-md w-full shadow-[0_0_40px_rgba(79,70,229,0.2)] relative">
+             <div className="bg-[#0A0F1C] border border-emerald-900/50 rounded-[32px] p-8 max-w-md w-full shadow-[0_0_40px_rgba(34,197,94,0.15)] relative">
                 <button onClick={() => setEditTickerModal(null)} className="absolute top-6 right-6 text-slate-400 hover:text-white"><X className="w-6 h-6"/></button>
                 <div className="w-16 h-16 bg-amber-500/20 rounded-2xl flex items-center justify-center mb-6 border border-amber-500/30">
-                    <Edit3 className="w-8 h-8 text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]"/>
+                    <Wrench className="w-8 h-8 text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]"/>
                 </div>
                 <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Koreksi Ticker Aset</h2>
                 <p className="text-sm text-slate-400 mb-6 leading-relaxed">
@@ -569,23 +573,23 @@ export default function ExpertTerminal() {
                        value={tempTicker} 
                        onChange={e => setTempTicker(e.target.value)}
                        placeholder="Cth: ANTM.JK / BTC-USD / QQQM"
-                       className="w-full bg-[#060913] border border-slate-700 rounded-xl px-4 py-3.5 text-white font-bold outline-none focus:border-indigo-500 uppercase transition-colors"
+                       className="w-full bg-[#060913] border border-slate-700 rounded-xl px-4 py-3.5 text-white font-bold outline-none focus:border-emerald-500 uppercase transition-colors"
                    />
                 </div>
-                <button onClick={saveTickerOverride} className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-black tracking-wider py-4 rounded-full transition-all active:scale-95 shadow-[0_0_20px_rgba(79,70,229,0.4)]">
+                <button onClick={saveTickerOverride} className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black tracking-wider py-4 rounded-full transition-all active:scale-95 shadow-[0_0_20px_rgba(34,197,94,0.4)]">
                    SIMPAN & HUBUNGKAN
                 </button>
              </div>
          </div>
       )}
 
-      {/* MODAL CEK RINCIAN HARGA (POPUP AUDIT TRANSPARANSI) */}
+      {/* MODAL CEK RINCIAN HARGA */}
       {assetDetailModal && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in p-4">
-             <div className="bg-[#0A0F1C] border border-indigo-900/50 rounded-[32px] p-8 max-w-md w-full shadow-[0_0_40px_rgba(79,70,229,0.2)] relative">
+             <div className="bg-[#0A0F1C] border border-cyan-900/50 rounded-[32px] p-8 max-w-md w-full shadow-[0_0_40px_rgba(6,182,212,0.15)] relative">
                 <button onClick={() => setAssetDetailModal(null)} className="absolute top-6 right-6 text-slate-400 hover:text-white"><X className="w-6 h-6"/></button>
                 <div className="w-16 h-16 bg-cyan-500/20 rounded-2xl flex items-center justify-center mb-6 border border-cyan-500/30">
-                    <Info className="w-8 h-8 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]"/>
+                    <ScanSearch className="w-8 h-8 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]"/>
                 </div>
                 <h2 className="text-2xl font-black text-white mb-1 tracking-tight">Rincian Kalkulasi Live</h2>
                 <p className="text-sm text-slate-400 mb-6 font-medium">Audit transparansi perhitungan untuk <b className="text-white">{assetDetailModal.symbol}</b></p>
@@ -612,7 +616,7 @@ export default function ExpertTerminal() {
                     </div>
                     <div className="flex justify-between items-center pt-1">
                         <span className="text-slate-500 text-xs font-bold uppercase tracking-wider">Total Valuasi Saat Ini</span>
-                        <span className="text-emerald-400 font-black text-lg drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">
+                        <span className="text-emerald-400 font-black text-lg drop-shadow-[0_0_8px_rgba(34,197,94,0.4)]">
                            {maskRp(assetDetailModal.qty * (livePrices[assetDetailModal.activeTicker] || 0) * assetDetailModal.liveMultiplier)}
                         </span>
                     </div>
@@ -624,47 +628,44 @@ export default function ExpertTerminal() {
          </div>
       )}
 
-      {/* SIDEBAR SANGAT PROFESIONAL */}
-      <aside className="w-64 bg-[#0A0F1C]/90 backdrop-blur-2xl border-r border-indigo-900/30 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.5)] z-20">
-        <div className="p-6 flex items-center gap-3 border-b border-indigo-900/30">
-          <img src="/BILANO-ICON.png" alt="BILANO" className="w-9 h-9 object-contain drop-shadow-[0_0_12px_rgba(79,70,229,0.6)]" />
+      {/* SIDEBAR */}
+      <aside className="w-64 bg-[#0A0F1C]/90 backdrop-blur-2xl border-r border-slate-800/60 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.5)] z-20">
+        <div className="p-6 flex items-center gap-3 border-b border-slate-800/60">
+          <img src="/BILANO-ICON.png" alt="BILANO" className="w-9 h-9 object-contain drop-shadow-[0_0_12px_rgba(34,197,94,0.6)]" />
           <div>
             <h1 className="text-white font-black text-xl tracking-tight leading-none drop-shadow-md">BILANO</h1>
-            <p className="text-[10px] text-cyan-400 font-black uppercase tracking-widest mt-1 drop-shadow-[0_0_4px_rgba(6,182,212,0.5)]">Expert Terminal</p>
+            <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mt-1 drop-shadow-[0_0_4px_rgba(34,197,94,0.5)]">Expert Terminal</p>
           </div>
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-2">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 px-2">Analisis & Laporan</p>
-          <button onClick={() => setActiveTab('alokasi')} className={`w-full flex items-center gap-3 px-3 py-3.5 rounded-xl transition-all text-sm font-bold ${activeTab === 'alokasi' ? 'bg-gradient-to-r from-indigo-600/20 to-transparent text-indigo-300 border-l-2 border-indigo-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}>
-            <PieIcon className="w-4 h-4" /> Alokasi Aset
+          <button onClick={() => setActiveTab('alokasi')} className={`w-full flex items-center gap-3 px-3 py-3.5 rounded-xl transition-all text-sm font-bold ${activeTab === 'alokasi' ? 'bg-gradient-to-r from-emerald-600/20 to-transparent text-emerald-400 border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}>
+            <Layers className="w-4 h-4" /> Alokasi Aset
           </button>
-          <button onClick={() => setActiveTab('pantauan')} className={`w-full flex items-center gap-3 px-3 py-3.5 rounded-xl transition-all text-sm font-bold ${activeTab === 'pantauan' ? 'bg-gradient-to-r from-indigo-600/20 to-transparent text-indigo-300 border-l-2 border-indigo-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}>
-            <TrendingUp className="w-4 h-4" /> Pantauan Portofolio
+          <button onClick={() => setActiveTab('pantauan')} className={`w-full flex items-center gap-3 px-3 py-3.5 rounded-xl transition-all text-sm font-bold ${activeTab === 'pantauan' ? 'bg-gradient-to-r from-emerald-600/20 to-transparent text-emerald-400 border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}>
+            <Radar className="w-4 h-4" /> Pantauan Portofolio
           </button>
-          <button onClick={() => setActiveTab('terealisasi')} className={`w-full flex items-center gap-3 px-3 py-3.5 rounded-xl transition-all text-sm font-bold ${activeTab === 'terealisasi' ? 'bg-gradient-to-r from-indigo-600/20 to-transparent text-indigo-300 border-l-2 border-indigo-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}>
-            <History className="w-4 h-4" /> Investasi Terealisasi
+          <button onClick={() => setActiveTab('terealisasi')} className={`w-full flex items-center gap-3 px-3 py-3.5 rounded-xl transition-all text-sm font-bold ${activeTab === 'terealisasi' ? 'bg-gradient-to-r from-emerald-600/20 to-transparent text-emerald-400 border-l-2 border-emerald-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}>
+            <Scale className="w-4 h-4" /> Investasi Terealisasi
           </button>
         </nav>
 
-        <div className="p-4 border-t border-indigo-900/30">
+        <div className="p-4 border-t border-slate-800/60">
           <div className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-slate-400 bg-[#060913] text-[10px] font-black tracking-widest uppercase border border-slate-800/50">
              <span className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                   {isLivePricesLoading ? <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span> : <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
-                   <span className={`relative inline-flex rounded-full h-2 w-2 ${isLivePricesLoading ? 'bg-amber-500' : 'bg-emerald-500 drop-shadow-[0_0_6px_rgba(52,211,153,1)]'}`}></span>
-                </span>
+                <Radio className={`w-3.5 h-3.5 ${isLivePricesLoading ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`} />
                 Data Market
              </span>
-             <span className={isLivePricesLoading ? 'text-amber-400' : 'text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.5)]'}>{isLivePricesLoading ? 'Syncing...' : 'LIVE'}</span>
+             <span className={isLivePricesLoading ? 'text-amber-400' : 'text-emerald-400 drop-shadow-[0_0_6px_rgba(34,197,94,0.5)]'}>{isLivePricesLoading ? 'Syncing...' : 'LIVE'}</span>
           </div>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col relative overflow-hidden">
         
-        {/* HEADER ATAS */}
-        <header className="h-20 border-b border-indigo-900/30 flex items-center justify-between px-8 bg-[#0A0F1C]/80 backdrop-blur-md z-10 shadow-lg">
+        {/* HEADER */}
+        <header className="h-20 border-b border-slate-800/60 flex items-center justify-between px-8 bg-[#0A0F1C]/80 backdrop-blur-md z-10 shadow-lg">
           <div>
               <h2 className="text-lg font-black text-white tracking-tight drop-shadow-md">Status Portofolio</h2>
               <div className="flex items-center gap-2 mt-0.5">
@@ -686,8 +687,8 @@ export default function ExpertTerminal() {
               <div>
                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-0.5">Total Aset Investasi</p>
                   <div className="flex items-center gap-2 justify-end">
-                      <p className="text-indigo-300 font-black text-xl drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]">{maskRp(totalAssetValue)}</p>
-                      {isLivePricesLoading && <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin" />}
+                      <p className="text-emerald-400 font-black text-xl drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]">{maskRp(totalAssetValue)}</p>
+                      {isLivePricesLoading && <Orbit className="w-3.5 h-3.5 text-emerald-400 animate-spin" />}
                   </div>
               </div>
             </div>
@@ -707,27 +708,27 @@ export default function ExpertTerminal() {
               </div>
               
               {activePortfolio.length === 0 ? (
-                  <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-indigo-900/40 rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-                      <div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mb-4 border border-slate-700"><PieIcon className="w-8 h-8 text-slate-500" /></div>
+                  <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-slate-800/60 rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                      <div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mb-4 border border-slate-700"><Layers className="w-8 h-8 text-slate-500" /></div>
                       <h3 className="text-lg font-black text-white mb-2 tracking-tight">Belum Ada Investasi</h3>
                       <p className="text-slate-400 text-sm max-w-sm leading-relaxed">Catat pembelian aset pertama Anda di fitur Investasi pada aplikasi PWA, dan sistem ini akan menyedot datanya secara otomatis.</p>
                   </div>
               ) : (
                   <>
-                      <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-indigo-900/40 rounded-2xl overflow-x-auto shadow-[0_8px_32px_rgba(0,0,0,0.4)] custom-scrollbar pb-2">
+                      <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-slate-800/60 rounded-2xl overflow-x-auto shadow-[0_8px_32px_rgba(0,0,0,0.4)] custom-scrollbar pb-2">
                         <table className="w-full text-sm text-left">
-                          <thead className="bg-gradient-to-r from-[#0F1524] to-[#0A0F1C] text-indigo-300 font-black uppercase tracking-widest text-[10px]">
+                          <thead className="bg-gradient-to-r from-[#0F1524] to-[#0A0F1C] text-emerald-400 font-black uppercase tracking-widest text-[10px]">
                             <tr>
-                              <th className="px-6 py-5 border-b border-indigo-900/40 whitespace-nowrap sticky left-0 bg-[#0F1524] z-10">Kategori</th>
-                              <th className="px-6 py-5 border-b border-indigo-900/40 text-emerald-400 drop-shadow-[0_0_4px_rgba(52,211,153,0.5)] whitespace-nowrap">Cash (Tunai)</th>
+                              <th className="px-6 py-5 border-b border-slate-800/60 whitespace-nowrap sticky left-0 bg-[#0F1524] z-10">Kategori</th>
+                              <th className="px-6 py-5 border-b border-slate-800/60 text-emerald-300 drop-shadow-[0_0_4px_rgba(110,231,183,0.5)] whitespace-nowrap">Cash (Tunai)</th>
                               {activePortfolio.map((p: any) => {
                                  const isError = livePrices[p.activeTicker] === undefined && !isLivePricesLoading;
                                  return (
-                                    <th key={p.symbol} className="px-6 py-5 border-b border-indigo-900/40 whitespace-nowrap group">
+                                    <th key={p.symbol} className="px-6 py-5 border-b border-slate-800/60 whitespace-nowrap group">
                                        <div className="flex items-center gap-2 cursor-pointer hover:text-white transition-colors" onClick={() => setAssetDetailModal(p)}>
                                            {p.symbol} 
                                            <span className="text-[9px] bg-[#060913] border border-slate-700 px-1.5 py-0.5 rounded text-slate-400 font-bold tracking-widest">{p.activeTicker}</span>
-                                           <Info className="w-3 h-3 text-cyan-500 drop-shadow-[0_0_4px_rgba(6,182,212,0.8)]" />
+                                           <ScanSearch className="w-3 h-3 text-cyan-500 drop-shadow-[0_0_4px_rgba(6,182,212,0.8)]" />
                                            {isError && (
                                               <button onClick={(e) => { e.stopPropagation(); setTempTicker(p.activeTicker); setEditTickerModal(p.symbol); }} className="text-rose-400 hover:text-white transition-colors bg-rose-500/20 border border-rose-500/50 px-1.5 py-0.5 rounded flex items-center gap-1 drop-shadow-[0_0_4px_rgba(244,63,94,0.6)]" title="Perbaiki Ticker">
                                                  ⚠️ Error
@@ -749,9 +750,9 @@ export default function ExpertTerminal() {
                                 return <td key={p.symbol} className="px-6 py-5">{maskRp(liveValuationIDR)}</td>
                               })}
                             </tr>
-                            <tr className="hover:bg-slate-800/30 transition-colors bg-indigo-900/5">
+                            <tr className="hover:bg-slate-800/30 transition-colors bg-emerald-900/5">
                               <td className="px-6 py-5 font-black text-slate-400 sticky left-0 bg-[#0A0F1C] z-10 border-r border-slate-800/50">Persentase</td>
-                              <td className="px-6 py-5 text-emerald-400 font-black drop-shadow-[0_0_6px_rgba(52,211,153,0.4)] text-base">{totalWealth > 0 ? formatPct(cashBalance / totalWealth) : '0%'}</td>
+                              <td className="px-6 py-5 text-emerald-400 font-black drop-shadow-[0_0_6px_rgba(34,197,94,0.4)] text-base">{totalWealth > 0 ? formatPct(cashBalance / totalWealth) : '0%'}</td>
                               {activePortfolio.map((p: any) => {
                                  const livePriceAPI = livePrices[p.activeTicker];
                                  const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
@@ -762,8 +763,8 @@ export default function ExpertTerminal() {
                         </table>
                       </div>
 
-                      <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-indigo-900/40 rounded-2xl p-8 flex flex-col items-center justify-center min-h-[350px] shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative">
-                        <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/5 to-transparent rounded-2xl pointer-events-none"></div>
+                      <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-slate-800/60 rounded-2xl p-8 flex flex-col items-center justify-center min-h-[350px] shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative">
+                        <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent rounded-2xl pointer-events-none"></div>
                         <div className="w-full max-w-sm h-64 relative">
                            <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
@@ -798,39 +799,39 @@ export default function ExpertTerminal() {
                       <PrivacyToggle />
                   </div>
                   <div className="mt-3 flex items-center gap-4">
-                      <button onClick={() => setSelectedYear(selectedYear - 1)} className="flex items-center gap-1 text-[11px] uppercase tracking-widest font-black text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/30"><ChevronUp className="w-4 h-4" /> Data Tahun ({selectedYear - 1})</button>
-                      <button onClick={() => setSelectedYear(selectedYear + 1)} className="flex items-center gap-1 text-[11px] uppercase tracking-widest font-black text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/30">Data Lanjutan ({selectedYear + 1}) <ChevronUp className="w-4 h-4 rotate-180" /></button>
+                      <button onClick={() => setSelectedYear(selectedYear - 1)} className="flex items-center gap-1 text-[11px] uppercase tracking-widest font-black text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/30"><ChevronUp className="w-4 h-4" /> Data Tahun ({selectedYear - 1})</button>
+                      <button onClick={() => setSelectedYear(selectedYear + 1)} className="flex items-center gap-1 text-[11px] uppercase tracking-widest font-black text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/30">Data Lanjutan ({selectedYear + 1}) <ChevronUp className="w-4 h-4 rotate-180" /></button>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                   {/* INDIKATOR LABA RUGI TANPA MATA */}
-                   <div className="bg-[#0A0F1C]/80 backdrop-blur-md px-6 py-3 rounded-2xl border border-indigo-900/40 shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+                   <div className="bg-[#0A0F1C]/80 backdrop-blur-md px-6 py-3 rounded-2xl border border-slate-800/60 shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Laba/Rugi Total</p>
-                       <div className={`font-black text-2xl drop-shadow-lg ${totalProfitLoss >= 0 ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]' : 'text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.4)]'} flex items-center gap-1 justify-end`}>
+                       <div className={`font-black text-2xl drop-shadow-lg ${totalProfitLoss >= 0 ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.4)]'} flex items-center gap-1 justify-end`}>
                            {totalProfitLoss >= 0 ? <ArrowUpRight className="w-5 h-5"/> : <ArrowDownRight className="w-5 h-5"/>}
                            {maskRp(Math.abs(totalProfitLoss))}
                        </div>
                    </div>
-                   <button onClick={handleSaveSnapshot} disabled={saveSnapshotMutation.isPending || activePortfolio.length === 0} className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 disabled:opacity-50 text-white text-[11px] uppercase tracking-widest font-black px-5 py-4 rounded-2xl shadow-[0_0_20px_rgba(79,70,229,0.3)] flex items-center gap-2 transition-all active:scale-95">
-                       {saveSnapshotMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4" />} Simpan Permanen
+                   <button onClick={handleSaveSnapshot} disabled={saveSnapshotMutation.isPending || activePortfolio.length === 0} className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white text-[11px] uppercase tracking-widest font-black px-5 py-4 rounded-2xl shadow-[0_0_20px_rgba(34,197,94,0.3)] flex items-center gap-2 transition-all active:scale-95">
+                       {saveSnapshotMutation.isPending ? <Orbit className="w-4 h-4 animate-spin"/> : <Database className="w-4 h-4" />} Simpan Permanen
                    </button>
                 </div>
               </div>
 
-              <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-indigo-900/40 rounded-2xl overflow-x-auto shadow-[0_8px_32px_rgba(0,0,0,0.4)] custom-scrollbar">
+              {/* 🚀 TABEL BULANAN */}
+              <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-slate-800/60 rounded-2xl overflow-x-auto shadow-[0_8px_32px_rgba(0,0,0,0.4)] custom-scrollbar mb-8">
                 <table className="w-full text-sm text-left">
-                  <thead className="bg-gradient-to-r from-[#0F1524] to-[#0A0F1C] text-indigo-300 font-black uppercase tracking-widest text-[10px]">
+                  <thead className="bg-gradient-to-r from-[#0F1524] to-[#0A0F1C] text-emerald-400 font-black uppercase tracking-widest text-[10px]">
                     <tr>
-                      <th className="px-6 py-5 border-b border-indigo-900/40 sticky left-0 bg-[#0F1524] z-10">Bulan ({selectedYear})</th>
+                      <th className="px-6 py-5 border-b border-slate-800/60 sticky left-0 bg-[#0F1524] z-10 text-cyan-400">BULANAN ({selectedYear})</th>
                       {activePortfolio.map((p: any) => (
-                          <th key={p.symbol} onClick={() => setAssetDetailModal(p)} className="px-6 py-5 border-b border-indigo-900/40 whitespace-nowrap cursor-pointer hover:text-white transition-colors">
+                          <th key={p.symbol} onClick={() => setAssetDetailModal(p)} className="px-6 py-5 border-b border-slate-800/60 whitespace-nowrap cursor-pointer hover:text-white transition-colors">
                               <div className="flex items-center gap-1">
-                                  {p.symbol} L/R
-                                  <Info className="w-3 h-3 text-cyan-500 drop-shadow-[0_0_4px_rgba(6,182,212,0.6)]" />
+                                  {p.symbol}
+                                  <ScanSearch className="w-3 h-3 text-emerald-500 drop-shadow-[0_0_4px_rgba(34,197,94,0.6)]" />
                               </div>
                           </th>
                       ))}
-                      <th className="px-6 py-5 border-b border-indigo-900/40 text-cyan-400 drop-shadow-[0_0_4px_rgba(6,182,212,0.5)] whitespace-nowrap">Portfolio Wtd</th>
+                      <th className="px-6 py-5 border-b border-slate-800/60 text-cyan-400 drop-shadow-[0_0_4px_rgba(6,182,212,0.5)] whitespace-nowrap">Portfolio Wtd</th>
                     </tr>
                   </thead>
                   <tbody className="text-slate-300 font-bold">
@@ -844,11 +845,10 @@ export default function ExpertTerminal() {
                           return (
                              <tr key={m.name} className={`border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors ${!data.isSaved ? 'opacity-80' : ''}`}>
                                 <td className="px-6 py-5 font-black text-slate-200 sticky left-0 bg-[#0A0F1C] z-10 border-r border-slate-800/50 flex items-center justify-between">
-                                    {m.name} {!data.isSaved && <span className="text-[8px] tracking-widest font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded ml-2 drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]" title="Belum Disimpan (Dihitung Otomatis dari Transaksi Lalu)">AUTO</span>}
+                                    {m.name} {!data.isSaved && <span className="text-[8px] tracking-widest font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded ml-2 drop-shadow-[0_0_4px_rgba(34,197,94,0.5)]" title="Evaluasi Otomatis (Live/Historis API)">AUTO</span>}
                                 </td>
                                 {activePortfolio.map((p: any) => {
                                     const assetSnap = details[p.symbol] || { invested: 0, valuasi: 0, qty: 0 };
-                                    
                                     if (assetSnap.qty === 0) return <td key={p.symbol} className="px-6 py-5 text-slate-600 text-center">-</td>;
                                     
                                     const plAmount = assetSnap.valuasi - assetSnap.invested;
@@ -860,12 +860,12 @@ export default function ExpertTerminal() {
                                         </td>
                                     );
                                 })}
-                                <td className="px-6 py-5 font-black bg-indigo-900/5">
+                                <td className="px-6 py-5 font-black bg-emerald-900/5">
                                     {(() => {
                                         if (data.investValue === 0) return <span className="text-slate-600">-</span>;
                                         const plTotalAmount = data.totalValue - data.investValue;
                                         return (
-                                            <div className={plTotalAmount >= 0 ? 'text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.4)]' : 'text-rose-400 drop-shadow-[0_0_6px_rgba(244,63,94,0.4)]'}>
+                                            <div className={plTotalAmount >= 0 ? 'text-emerald-400 drop-shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'text-rose-400 drop-shadow-[0_0_6px_rgba(244,63,94,0.4)]'}>
                                                 <div className="text-base">{maskRp(plTotalAmount)}</div>
                                                 <div className="text-[11px] opacity-90 tracking-wider mt-0.5">{formatPct(plTotalAmount / data.investValue)}</div>
                                             </div>
@@ -880,30 +880,97 @@ export default function ExpertTerminal() {
                 </table>
               </div>
 
-              <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-indigo-900/40 rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)] mt-6 relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none rounded-2xl"></div>
+              {/* 🚀 TABEL TAHUNAN */}
+              <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-slate-800/60 rounded-2xl overflow-x-auto shadow-[0_8px_32px_rgba(0,0,0,0.4)] custom-scrollbar">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gradient-to-r from-[#0F1524] to-[#0A0F1C] text-emerald-400 font-black uppercase tracking-widest text-[10px]">
+                    <tr>
+                      <th className="px-6 py-5 border-b border-slate-800/60 sticky left-0 bg-[#0F1524] z-10 text-amber-400">REKAP TAHUNAN</th>
+                      {activePortfolio.map((p: any) => (
+                          <th key={`yr-${p.symbol}`} className="px-6 py-5 border-b border-slate-800/60 whitespace-nowrap">
+                              {p.symbol}
+                          </th>
+                      ))}
+                      <th className="px-6 py-5 border-b border-slate-800/60 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.5)] whitespace-nowrap">Portfolio Tahunan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-slate-300 font-bold">
+                    {availableYears.length === 0 ? (
+                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-12 text-center text-slate-500 italic font-medium">Belum ada rekam jejak tahunan.</td></tr>
+                    ) : (
+                       availableYears.map((y) => {
+                          const data = getYearData(y);
+                          const details = data.details as Record<string, {invested: number, valuasi: number, qty: number}>;
+                          
+                          return (
+                             <tr key={`yr-row-${y}`} className={`border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors`}>
+                                <td className="px-6 py-5 font-black text-amber-300 sticky left-0 bg-[#0A0F1C] z-10 border-r border-slate-800/50 flex items-center justify-between">
+                                    TAHUN {y}
+                                </td>
+                                {activePortfolio.map((p: any) => {
+                                    const assetSnap = details[p.symbol] || { invested: 0, valuasi: 0, qty: 0 };
+                                    if (assetSnap.qty === 0) return <td key={`yr-${y}-${p.symbol}`} className="px-6 py-5 text-slate-600 text-center">-</td>;
+                                    
+                                    const plAmount = assetSnap.valuasi - assetSnap.invested;
+                                    const plPct = (plAmount / assetSnap.invested);
+                                    return (
+                                        <td key={`yr-${y}-${p.symbol}`} className={`px-6 py-5 ${plAmount >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            <div className="font-black drop-shadow-md text-[13px]">{maskRp(plAmount)}</div>
+                                            <div className="text-[11px] opacity-90 font-black tracking-wider mt-0.5">{formatPct(plPct)}</div>
+                                        </td>
+                                    );
+                                })}
+                                <td className="px-6 py-5 font-black bg-amber-900/5">
+                                    {(() => {
+                                        if (data.investValue === 0) return <span className="text-slate-600">-</span>;
+                                        const plTotalAmount = data.totalValue - data.investValue;
+                                        return (
+                                            <div className={plTotalAmount >= 0 ? 'text-emerald-400 drop-shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'text-rose-400 drop-shadow-[0_0_6px_rgba(244,63,94,0.4)]'}>
+                                                <div className="text-base">{maskRp(plTotalAmount)}</div>
+                                                <div className="text-[11px] opacity-90 tracking-wider mt-0.5">{formatPct(plTotalAmount / data.investValue)}</div>
+                                            </div>
+                                        );
+                                    })()}
+                                </td>
+                             </tr>
+                          )
+                       })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 🚀 GRAFIK AREA */}
+              <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-slate-800/60 rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)] mt-6 relative">
                 <div className="flex justify-between items-center mb-6 relative z-10">
                   <h3 className="font-black text-white tracking-tight drop-shadow-md">Grafik Kinerja Historis</h3>
                   <div className="flex gap-2 bg-[#060913] p-1 rounded-lg border border-slate-800">
-                     <button onClick={() => setChartTimeframe('1M')} className={`px-4 py-1.5 rounded-md text-[10px] uppercase tracking-widest font-black transition-all ${chartTimeframe==='1M'?'bg-indigo-600 text-white shadow-[0_0_10px_rgba(79,70,229,0.5)]':'text-slate-500 hover:text-slate-300'}`}>1B</button>
-                     <button onClick={() => setChartTimeframe('3M')} className={`px-4 py-1.5 rounded-md text-[10px] uppercase tracking-widest font-black transition-all ${chartTimeframe==='3M'?'bg-indigo-600 text-white shadow-[0_0_10px_rgba(79,70,229,0.5)]':'text-slate-500 hover:text-slate-300'}`}>3B</button>
-                     <button onClick={() => setChartTimeframe('1Y')} className={`px-4 py-1.5 rounded-md text-[10px] uppercase tracking-widest font-black transition-all ${chartTimeframe==='1Y'?'bg-indigo-600 text-white shadow-[0_0_10px_rgba(79,70,229,0.5)]':'text-slate-500 hover:text-slate-300'}`}>1T</button>
+                     <button onClick={() => setChartTimeframe('1D')} className={`px-4 py-1.5 rounded-md text-[10px] uppercase tracking-widest font-black transition-all ${chartTimeframe==='1D'?'bg-emerald-600 text-white shadow-[0_0_10px_rgba(34,197,94,0.5)]':'text-slate-500 hover:text-slate-300'}`}>1H</button>
+                     <button onClick={() => setChartTimeframe('1W')} className={`px-4 py-1.5 rounded-md text-[10px] uppercase tracking-widest font-black transition-all ${chartTimeframe==='1W'?'bg-emerald-600 text-white shadow-[0_0_10px_rgba(34,197,94,0.5)]':'text-slate-500 hover:text-slate-300'}`}>1M</button>
+                     <button onClick={() => setChartTimeframe('1M')} className={`px-4 py-1.5 rounded-md text-[10px] uppercase tracking-widest font-black transition-all ${chartTimeframe==='1M'?'bg-emerald-600 text-white shadow-[0_0_10px_rgba(34,197,94,0.5)]':'text-slate-500 hover:text-slate-300'}`}>1B</button>
+                     <button onClick={() => setChartTimeframe('3M')} className={`px-4 py-1.5 rounded-md text-[10px] uppercase tracking-widest font-black transition-all ${chartTimeframe==='3M'?'bg-emerald-600 text-white shadow-[0_0_10px_rgba(34,197,94,0.5)]':'text-slate-500 hover:text-slate-300'}`}>3B</button>
+                     <button onClick={() => setChartTimeframe('1Y')} className={`px-4 py-1.5 rounded-md text-[10px] uppercase tracking-widest font-black transition-all ${chartTimeframe==='1Y'?'bg-emerald-600 text-white shadow-[0_0_10px_rgba(34,197,94,0.5)]':'text-slate-500 hover:text-slate-300'}`}>1T</button>
+                     <button onClick={() => setChartTimeframe('5Y')} className={`px-4 py-1.5 rounded-md text-[10px] uppercase tracking-widest font-black transition-all ${chartTimeframe==='5Y'?'bg-emerald-600 text-white shadow-[0_0_10px_rgba(34,197,94,0.5)]':'text-slate-500 hover:text-slate-300'}`}>5T</button>
                   </div>
                 </div>
                 <div className="h-72 w-full relative z-10">
                     {chartDataDaily.length > 0 ? (
                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={chartDataDaily}>
+                          <AreaChart data={chartDataDaily}>
+                             <defs>
+                                <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#22C55E" stopOpacity={0.3}/>
+                                  <stop offset="95%" stopColor="#22C55E" stopOpacity={0}/>
+                                </linearGradient>
+                             </defs>
                              <XAxis dataKey="name" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} minTickGap={30} fontWeight={900} />
-                             {/* Karena YAxis memunculkan angka, ini juga disembunyikan jika showProfit false */}
-                             <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(0)}M` : `•••`} fontWeight={900} />
+                             <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(0)}M` : `•••`} fontWeight={900} orientation="right" />
                              <Tooltip formatter={(val: number) => maskRp(val)} contentStyle={{backgroundColor: '#060913', borderColor: '#1E293B', borderRadius: '12px', color: '#fff', fontWeight: '900', boxShadow: '0 8px 32px rgba(0,0,0,0.5)'}} />
                              <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" vertical={false} />
-                             {/* Garis Total sangat tajam (Cyan Glow) */}
-                             <Line type="monotone" dataKey="Total" stroke="#06B6D4" strokeWidth={4} dot={false} activeDot={{r: 6, fill: '#06B6D4', stroke: '#fff', strokeWidth: 2}} name="Valuasi Total" style={{ filter: 'drop-shadow(0px 4px 8px rgba(6,182,212,0.6))' }} />
-                             {/* Garis Investasi tajam (Emerald Glow) */}
-                             <Line type="monotone" dataKey="Investasi" stroke="#10B981" strokeWidth={2} dot={false} strokeDasharray="5 5" name="Modal Diinvestasikan" style={{ filter: 'drop-shadow(0px 2px 4px rgba(16,185,129,0.4))' }} />
-                          </LineChart>
+                             
+                             <Line type="monotone" dataKey="Investasi" stroke="#64748B" strokeWidth={2} dot={false} strokeDasharray="5 5" name="Modal Diinvestasikan" />
+                             <Area type="monotone" dataKey="Total" stroke="#22C55E" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" dot={false} activeDot={{r: 6, fill: '#22C55E', stroke: '#fff', strokeWidth: 2}} name="Valuasi Total" style={{ filter: 'drop-shadow(0px 4px 8px rgba(34,197,94,0.4))' }} />
+                          </AreaChart>
                        </ResponsiveContainer>
                     ) : <div className="w-full h-full flex items-center justify-center border-2 border-dashed border-slate-800 rounded-xl text-slate-500 text-sm font-bold uppercase tracking-widest">Menunggu sinkronisasi data riwayat...</div>}
                 </div>
@@ -917,20 +984,20 @@ export default function ExpertTerminal() {
               <div className="flex justify-between items-center">
                   <div>
                       <h2 className="text-2xl font-black text-white tracking-tight drop-shadow-lg">Investasi Terealisasi</h2>
-                      <p className="text-xs text-indigo-300/80 mt-1 font-bold tracking-wider uppercase">Evaluasi Keputusan Penjualan Historis</p>
+                      <p className="text-xs text-emerald-300/80 mt-1 font-bold tracking-wider uppercase">Evaluasi Keputusan Penjualan Historis</p>
                   </div>
                   <PrivacyToggle />
               </div>
 
-              <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-indigo-900/40 rounded-2xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+              <div className="bg-[#0A0F1C]/80 backdrop-blur-md border border-slate-800/60 rounded-2xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                 <table className="w-full text-sm text-left">
-                  <thead className="bg-gradient-to-r from-[#0F1524] to-[#0A0F1C] text-indigo-300 font-black uppercase tracking-widest text-[10px]">
+                  <thead className="bg-gradient-to-r from-[#0F1524] to-[#0A0F1C] text-emerald-400 font-black uppercase tracking-widest text-[10px]">
                     <tr>
-                      <th className="px-6 py-5 border-b border-indigo-900/40">Tanggal Jual</th>
-                      <th className="px-6 py-5 border-b border-indigo-900/40">Aset</th>
-                      <th className="px-6 py-5 border-b border-indigo-900/40">Nilai Penjualan</th>
-                      <th className="px-6 py-5 border-b border-indigo-900/40 text-cyan-400 drop-shadow-[0_0_4px_rgba(6,182,212,0.5)]">Harga Live Saat Ini</th>
-                      <th className="px-6 py-5 border-b border-indigo-900/40 text-right">Status Keputusan</th>
+                      <th className="px-6 py-5 border-b border-slate-800/60">Tanggal Jual</th>
+                      <th className="px-6 py-5 border-b border-slate-800/60">Aset</th>
+                      <th className="px-6 py-5 border-b border-slate-800/60">Nilai Penjualan</th>
+                      <th className="px-6 py-5 border-b border-slate-800/60 text-cyan-400 drop-shadow-[0_0_4px_rgba(6,182,212,0.5)]">Harga Live Saat Ini</th>
+                      <th className="px-6 py-5 border-b border-slate-800/60 text-right">Status Keputusan</th>
                     </tr>
                   </thead>
                   <tbody className="text-slate-300 font-bold">
@@ -939,10 +1006,10 @@ export default function ExpertTerminal() {
                     ) : (
                       realizedTrades.map((t: any) => {
                         const isLivePriceReady = t.livePriceIDR > 0;
-                        const livePricePerShareIDR = t.livePriceIDR;
                         
-                        const multiplier = (t.isStock && t.isIDR && !t.isGold) ? 100 : 1; 
-                        const sellPricePerShareIDR = t.sellPriceIDR / multiplier;
+                        // 🚀 PERBAIKAN: Gunakan harga per lembar/unit murni tanpa membaginya atau mengalikannya lagi
+                        const livePricePerShareIDR = t.livePriceIDR;
+                        const sellPricePerShareIDR = t.sellPriceIDR;
                         
                         const isGoodSell = isLivePriceReady && livePricePerShareIDR < sellPricePerShareIDR;
 
@@ -958,14 +1025,16 @@ export default function ExpertTerminal() {
                             </td>
                             <td className="px-6 py-5">
                                <span className="font-black text-slate-200">{maskRp(t.amount)}</span> <br/>
+                               {/* 🚀 PERBAIKAN: Tampilkan sellPricePerShareIDR secara murni */}
                                <span className="text-[10px] text-slate-500 tracking-wider font-bold">Modal Asli: @ {maskRp(sellPricePerShareIDR)}</span>
                             </td>
                             <td className="px-6 py-5 text-cyan-400 font-black drop-shadow-[0_0_4px_rgba(6,182,212,0.4)]">
-                               {isLivePricesLoading && !isLivePriceReady ? <Loader2 className="w-4 h-4 animate-spin text-cyan-500"/> : (isLivePriceReady ? maskRp(livePricePerShareIDR * multiplier) : <span className="text-slate-600">N/A</span>)}
+                               {/* 🚀 PERBAIKAN: Tampilkan livePricePerShareIDR secara murni */}
+                               {isLivePricesLoading && !isLivePriceReady ? <Orbit className="w-4 h-4 animate-spin text-cyan-500"/> : (isLivePriceReady ? maskRp(livePricePerShareIDR) : <span className="text-slate-600">N/A</span>)}
                             </td>
                             <td className="px-6 py-5 text-right">
                               {!isLivePriceReady ? <span className="text-[10px] text-slate-600 uppercase tracking-widest font-black">Menunggu...</span> : isGoodSell ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-full drop-shadow-[0_0_4px_rgba(52,211,153,0.4)]">✅ Tepat Waktu</span>
+                                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-full drop-shadow-[0_0_4px_rgba(34,197,94,0.4)]">✅ Tepat Waktu</span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-rose-400 bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 rounded-full drop-shadow-[0_0_4px_rgba(244,63,94,0.4)]">❌ Terlalu Cepat</span>
                               )}
