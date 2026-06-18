@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { 
   Fingerprint, Layers, Radar, Scale, VenetianMask, ShieldAlert,
-  ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, Orbit, Database, X, Wrench, ScanSearch, Radio, LogOut, Calculator, Settings2, Target
+  ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, Orbit, Database, X, Wrench, ScanSearch, Radio, LogOut, Calculator, Settings2, Hourglass
 } from "lucide-react";
 import { useUser, useInvestments, useTransactions, useLiveQuotes, useHistoricalQuotes, usePortfolioSnapshots, useSaveSnapshot } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
@@ -121,7 +121,6 @@ export default function ExpertTerminal() {
 
   const { data: livePrices = {}, isLoading: isLivePricesLoading } = useLiveQuotes(uniqueTickersToFetch);
   const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, apiRange);
-  // 🚀 FETCH SPESIFIK 5 TAHUN UNTUK AKURASI SIMULATOR (Tidak terpengaruh filter chart timeframe)
   const { data: simHistoryPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
 
   const getPriceForDate = useCallback((ticker: string, targetTs: number) => {
@@ -185,14 +184,62 @@ export default function ExpertTerminal() {
   }, [investments, tickerOverrides, getHistoricalRate]);
 
   // =========================================================================
-  // 🚀 ENGINE SIMULATOR STRATEGI (MURNI HISTORICAL DRIVEN & PROGRESS TRACKER)
+  // 🚀 LOGIKA BARU: MENGHITUNG TANGGAL MULAI VALID (MENGABAIKAN HOLD < 1 TAHUN)
+  // =========================================================================
+  const validFirstBuyDate = useMemo(() => {
+      const symbolData: Record<string, { firstBuy: number, lastSell: number, currentQty: number }> = {};
+
+      chronologicalTxs.forEach((t: any) => {
+          if (t.type === 'invest_buy' || t.type === 'invest_sell') {
+              const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+              const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
+              const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
+              const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
+              const ts = new Date(t.date).getTime();
+
+              if (!symbolData[sym]) {
+                  symbolData[sym] = { firstBuy: Infinity, lastSell: 0, currentQty: 0 };
+              }
+
+              if (t.type === 'invest_buy') {
+                  if (ts < symbolData[sym].firstBuy) symbolData[sym].firstBuy = ts;
+                  symbolData[sym].currentQty += qty;
+              } else if (t.type === 'invest_sell') {
+                  if (ts > symbolData[sym].lastSell) symbolData[sym].lastSell = ts;
+                  symbolData[sym].currentQty -= qty;
+              }
+          }
+      });
+
+      let earliestValidTs = Infinity;
+      const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+
+      Object.keys(symbolData).forEach(sym => {
+          const data = symbolData[sym];
+          if (data.firstBuy !== Infinity) {
+              const isHeldActive = data.currentQty > 0.0001;
+              const isHeldLongTerm = (data.lastSell - data.firstBuy) >= ONE_YEAR_MS;
+
+              // Filter: Masuk hitungan jika sedang dihold ATAU pernah dihold lebih dari 1 tahun
+              if (isHeldActive || isHeldLongTerm) {
+                  if (data.firstBuy < earliestValidTs) {
+                      earliestValidTs = data.firstBuy;
+                  }
+              }
+          }
+      });
+
+      return earliestValidTs === Infinity ? new Date() : new Date(earliestValidTs);
+  }, [chronologicalTxs]);
+
+  // =========================================================================
+  // 🚀 ENGINE SIMULATOR STRATEGI (GBM)
   // =========================================================================
   const [expandedSimAsset, setExpandedSimAsset] = useState<string | null>(null);
   const [simParams, setSimParams] = useState<Record<string, any>>({});
 
   const extractHistoricalStats = useCallback((ticker: string) => {
       const hist = simHistoryPrices[ticker];
-      // Fallback jika API belum memuat data historis 5 tahun
       if (!hist || !hist.timestamps || hist.timestamps.length < 2) return { cagr: 12, volatility: 15, isReady: false }; 
       
       const closes = hist.close.filter((c: number) => c !== null && c !== undefined);
@@ -203,10 +250,8 @@ export default function ExpertTerminal() {
       const days = (hist.timestamps[hist.timestamps.length - 1] - hist.timestamps[0]) / (24 * 3600);
       const years = Math.max(days / 365, 0.1); 
 
-      // Kalkulasi Murni Compound Annual Growth Rate (CAGR)
       let cagr = Math.pow((lastPrice / firstPrice), (1 / years)) - 1;
       
-      // Kalkulasi Historical Volatility (Standar Deviasi)
       let returns = [];
       for(let i=1; i<closes.length; i++) {
           returns.push((closes[i] - closes[i-1]) / closes[i-1]);
@@ -215,14 +260,12 @@ export default function ExpertTerminal() {
       const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
       let volatility = Math.sqrt(variance) * Math.sqrt(252);
 
-      // Batasan wajar agar simulator tidak rusak karena anomali data (max 50% CAGR, max 80% risk)
       if (cagr > 0.5) cagr = 0.5; if (cagr < -0.1) cagr = -0.1;
       if (volatility > 0.8) volatility = 0.8; if (volatility < 0.05) volatility = 0.05;
 
       return { cagr: cagr * 100, volatility: volatility * 100, isReady: true };
   }, [simHistoryPrices]);
 
-  // PRE-POPULATE DATA: Akan update otomatis ketika `simHistoryPrices` selesai di-load
   useEffect(() => {
       if (activePortfolio.length > 0 && Object.keys(livePrices).length > 0) {
           setSimParams(prev => {
@@ -232,7 +275,6 @@ export default function ExpertTerminal() {
                   const stats = extractHistoricalStats(asset.activeTicker);
                   const currentParam = newParams[asset.symbol];
                   
-                  // Perbarui parameter HANYA jika data historis baru siap (isReady berubah) atau belum ada
                   if (!currentParam || (!currentParam._isReady && stats.isReady)) {
                       const livePriceAPI = livePrices[asset.activeTicker];
                       const liveValuationIDR = livePriceAPI ? (asset.qty * livePriceAPI * asset.liveMultiplier) : asset.totalModalIDR;
@@ -333,7 +375,6 @@ export default function ExpertTerminal() {
           { name: 'Value Averaging', modal: vaModal, akhir: finalVA, laba: finalVA - vaModal, roi: ((finalVA - vaModal)/vaModal)*100 }
       ];
 
-      // 🚀 PERBAIKAN: Memilih bestStrategy berdasarkan Valuasi Akhir Tertinggi, bukan ROI persentase.
       const bestStrategy = strategies.reduce((p, c) => (c.akhir > p.akhir ? c : p));
 
       return { chartData, strategies, bestStrategy };
@@ -360,6 +401,35 @@ export default function ExpertTerminal() {
 
       return { totalModal, totalAkhir, maxHorizon, laba: totalAkhir - totalModal };
   }, [activePortfolio, simParams, getSimDataForAsset]);
+
+  // =========================================================================
+  // 🚀 LOGIKA BARU: HITUNG MUNDUR KE TARGET (TAHUN, BULAN, HARI)
+  // =========================================================================
+  const countdownToTarget = useMemo(() => {
+      if (!grandTotalSimulation || grandTotalSimulation.maxHorizon === 0) return null;
+      
+      const targetDate = new Date(validFirstBuyDate);
+      targetDate.setFullYear(targetDate.getFullYear() + grandTotalSimulation.maxHorizon);
+
+      const now = new Date();
+      if (targetDate <= now) return { y: 0, m: 0, d: 0, isReached: true };
+
+      let y = targetDate.getFullYear() - now.getFullYear();
+      let m = targetDate.getMonth() - now.getMonth();
+      let d = targetDate.getDate() - now.getDate();
+
+      if (d < 0) {
+          m -= 1;
+          const prevMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0); 
+          d += prevMonth.getDate();
+      }
+      if (m < 0) {
+          y -= 1;
+          m += 12;
+      }
+
+      return { y, m, d, isReached: false };
+  }, [validFirstBuyDate, grandTotalSimulation]);
 
 
   const realizedTradesBase = useMemo(() => {
@@ -1410,21 +1480,23 @@ export default function ExpertTerminal() {
                      </div>
                  ) : (
                      <>
-                         {/* 🚀 Grand Total Summary Panel + Progress Tracker */}
+                         {/* 🚀 Grand Total Summary Panel + Progress Tracker + Countdown */}
                          {grandTotalSimulation && (
-                             <div className="bg-[#0D0D0D] border border-[#333] p-8 flex flex-col gap-6 relative overflow-hidden">
+                             <div className="bg-[#0D0D0D] border border-[#333] p-8 flex flex-col gap-6 relative overflow-hidden shadow-2xl">
                                  <div className="absolute left-0 top-0 w-1.5 h-full bg-[#00FF41]"></div>
                                  <div className="absolute -right-20 -bottom-20 w-48 h-48 bg-[#00FF41]/5 rounded-full blur-3xl pointer-events-none"></div>
                                  
                                  <div className="flex justify-between items-center z-10">
                                      <div>
-                                         <h3 className="text-[#A1A1AA] font-bold text-[10px] uppercase tracking-[0.2em] mb-2">Total Estimasi Portofolio Berdasarkan Maks Horizon ({grandTotalSimulation.maxHorizon} Thn)</h3>
+                                         <h3 className="text-[#A1A1AA] font-bold text-[10px] uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                                            <Target className="w-4 h-4 text-[#00FF41]"/> Target Kekayaan Maksimal ({grandTotalSimulation.maxHorizon} Thn)
+                                         </h3>
                                          <div className="flex items-end gap-6">
                                              <p className="mono-font text-4xl font-black text-[#00FF41] leading-none">
                                                  {maskRp(grandTotalSimulation.totalAkhir)}
                                              </p>
                                              <p className="mono-font text-xs font-bold text-[#A1A1AA] mb-1">
-                                                 Modal Keseluruhan: <span className="text-white">{maskRp(grandTotalSimulation.totalModal)}</span>
+                                                 Modal Terserap: <span className="text-white">{maskRp(grandTotalSimulation.totalModal)}</span>
                                              </p>
                                          </div>
                                      </div>
@@ -1446,6 +1518,34 @@ export default function ExpertTerminal() {
                                          <div className="h-full bg-[#00FF41] transition-all duration-1000 shadow-[0_0_10px_#00FF41]" style={{ width: `${Math.min((totalAssetValue / grandTotalSimulation.totalAkhir) * 100, 100)}%` }}></div>
                                      </div>
                                  </div>
+
+                                 {/* 🚀 COUNTDOWN UI */}
+                                 {countdownToTarget && (
+                                     <div className="flex justify-between items-center z-10 pt-4 border-t border-[#222]">
+                                         <div>
+                                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A1A1AA] mb-1 flex items-center gap-1.5">
+                                                 <Hourglass className="w-3.5 h-3.5"/> Countdown Menuju Target
+                                             </p>
+                                             <p className="text-xs text-[#666]">
+                                                Dihitung mundur sejak pembelian aset pertama: <span className="text-white font-mono ml-1">{validFirstBuyDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</span>
+                                             </p>
+                                         </div>
+                                         <div className="flex gap-3 text-center">
+                                             <div className="bg-[#111] border border-[#333] rounded-sm p-3 min-w-[70px]">
+                                                 <p className="font-mono text-2xl font-black text-[#FFD700] leading-none">{countdownToTarget.y}</p>
+                                                 <p className="text-[8px] uppercase tracking-widest text-[#888] mt-1.5">Tahun</p>
+                                             </div>
+                                             <div className="bg-[#111] border border-[#333] rounded-sm p-3 min-w-[70px]">
+                                                 <p className="font-mono text-2xl font-black text-[#FFD700] leading-none">{countdownToTarget.m}</p>
+                                                 <p className="text-[8px] uppercase tracking-widest text-[#888] mt-1.5">Bulan</p>
+                                             </div>
+                                             <div className="bg-[#111] border border-[#333] rounded-sm p-3 min-w-[70px]">
+                                                 <p className="font-mono text-2xl font-black text-[#FFD700] leading-none">{countdownToTarget.d}</p>
+                                                 <p className="text-[8px] uppercase tracking-widest text-[#888] mt-1.5">Hari</p>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 )}
                              </div>
                          )}
 
