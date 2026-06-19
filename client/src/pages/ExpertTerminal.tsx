@@ -43,7 +43,6 @@ export default function ExpertTerminal() {
   const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | '5Y'>('1M');
   
   // Indikator Progres Interaktif
-  const [intelProgress, setIntelProgress] = useState(0);
   const [intelStatus, setIntelStatus] = useState("Membangun koneksi ke server agregator...");
 
   const { data: forexRates = {} } = useQuery({
@@ -145,32 +144,28 @@ export default function ExpertTerminal() {
       },
       enabled: !!currentUserEmail && isTerminalAuth && activeTab === 'intel',
       staleTime: 1000 * 60 * 15,
+      // 🚀 Mencegah reset saat pindah tab agar progres terus berjalan
+      refetchOnWindowFocus: false, 
   });
 
-  // Simulasi persentase pemrosesan data intelijen pasar secara asinkronus
+  // Efek untuk teks status loading Market Intel (Tanpa Persentase)
   useEffect(() => {
       let interval: NodeJS.Timeout;
       
       if (isIntelLoading) {
-          setIntelProgress(0);
-          setIntelStatus("Membangun koneksi ke server agregator...");
+          let tick = 0;
+          setIntelStatus("Menginisiasi pemindai makro global...");
           
           interval = setInterval(() => {
-              setIntelProgress(prev => {
-                  if (prev >= 98) return 98; 
-                  
-                  const next = prev + Math.floor(Math.random() * 5) + 1;
-                  
-                  if (next > 10 && next < 35) setIntelStatus("Memetakan ticker ke entitas makroekonomi...");
-                  else if (next >= 35 && next < 65) setIntelStatus("Menyaring jaringan berita global & regional...");
-                  else if (next >= 65 && next < 85) setIntelStatus("Mengkalkulasi matriks sentimen & korelasi aset...");
-                  else if (next >= 85) setIntelStatus("Merakit laporan intelijen pasar...");
-                  
-                  return next;
-              });
-          }, 350);
+              tick++;
+              if (tick === 2) setIntelStatus("Memetakan portofolio ke mesin pencari...");
+              else if (tick === 5) setIntelStatus("Menarik puluhan artikel berita terbaru hari ini...");
+              else if (tick === 8) setIntelStatus("Menyaring relevansi data dengan aset...");
+              else if (tick === 12) setIntelStatus("Mengekstrak sentimen pasar secara real-time...");
+              else if (tick === 16) setIntelStatus("Menyusun laporan intelijen komprehensif...");
+              else if (tick === 22) setIntelStatus("Sintesis data masif sedang berlangsung, mohon tunggu...");
+          }, 1000); 
       } else if (marketIntelData) {
-          setIntelProgress(100);
           setIntelStatus("Sinkronisasi data selesai.");
       }
       
@@ -216,7 +211,7 @@ export default function ExpertTerminal() {
       const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
       const multiplier = (isStock && isIDR && !isGold) ? 100 : 1; 
 
-      const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', QQQM => 'QQQM', 'IVV', 'VOO', 'SPY'];
+      const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
       let defaultTicker = sym;
       if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
       
@@ -1828,33 +1823,27 @@ export default function ExpertTerminal() {
                       <h3 className="text-sm font-black text-white mb-2 uppercase tracking-widest">Tidak Ada Portofolio</h3>
                       <p className="text-[#A1A1AA] text-xs max-w-sm uppercase tracking-wider">Radar algoritma membutuhkan minimal satu aset untuk dianalisis.</p>
                   </div>
-              ) : isIntelLoading || (intelProgress < 100 && !marketIntelData) ? (
+              ) : isIntelLoading && !marketIntelData ? (
                   <div className="bg-[#0D0D0D] border border-[#222] flex flex-col items-center justify-center py-24 px-8 relative overflow-hidden">
+                      {/* Efek Garis Radar Latar Belakang */}
                       <div className="absolute top-0 left-0 w-full h-full bg-[linear-gradient(to_bottom,#FFD700_1px,transparent_1px)] bg-[size:100%_4px] opacity-[0.03] pointer-events-none"></div>
                       
-                      <div className="w-full max-w-lg relative z-10">
-                          <div className="flex justify-between items-end mb-3">
-                              <div className="flex items-center gap-3">
-                                  <Orbit className="w-5 h-5 text-[#FFD700] animate-spin" />
-                                  <p className="text-[10px] font-bold text-[#FFD700] uppercase tracking-[0.2em] animate-pulse">
-                                      {intelStatus}
-                                  </p>
-                              </div>
-                              <p className="font-mono text-3xl font-black text-[#FFD700] leading-none drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]">
-                                  {intelProgress}%
+                      <div className="w-full max-w-lg relative z-10 flex flex-col items-center text-center">
+                          <Orbit className="w-12 h-12 text-[#FFD700] animate-spin mb-6 drop-shadow-[0_0_12px_rgba(255,215,0,0.4)]" />
+                          
+                          <h3 className="font-mono text-xl font-black text-[#FFD700] drop-shadow-[0_0_8px_rgba(255,215,0,0.5)] mb-2 uppercase tracking-widest">
+                              MENGUMPULKAN DATA MASIF
+                          </h3>
+                          <p className="text-[10px] font-bold text-white uppercase tracking-[0.2em] mb-8 animate-pulse">
+                              {intelStatus}
+                          </p>
+
+                          {/* Kotak Estimasi Waktu */}
+                          <div className="bg-[#111] border border-[#333] px-6 py-4 rounded-sm shadow-xl w-full text-left">
+                              <p className="text-[#A1A1AA] text-[10px] uppercase tracking-widest leading-relaxed">
+                                  ⚠️ Proses pemindaian global ini dapat memakan waktu <b className="text-[#FFD700]">sekitar 15 hingga 30 detik</b> karena sistem menarik puluhan berita paling mutakhir. Anda bisa meninggalkan tab ini sementara proses berjalan di latar belakang.
                               </p>
                           </div>
-                          
-                          <div className="w-full h-2.5 bg-[#111] border border-[#333] rounded-full overflow-hidden relative">
-                              <div 
-                                  className="h-full bg-[#FFD700] transition-all duration-300 ease-out shadow-[0_0_12px_#FFD700]" 
-                                  style={{ width: `${intelProgress}%` }}
-                              ></div>
-                          </div>
-                          
-                          <p className="text-center text-[#555] text-[8px] font-mono mt-6 uppercase tracking-widest">
-                              Bypass Delay Protocol • Global Net Search • Matrix Grounding
-                          </p>
                       </div>
                   </div>
               ) : marketIntelData && marketIntelData.analysis ? (
@@ -1900,7 +1889,10 @@ export default function ExpertTerminal() {
                       </div>
 
                       {/* DAFTAR BERITA RAW */}
-                      <h3 className="font-black text-white text-sm uppercase tracking-widest mt-8 border-b border-[#222] pb-3">Sumber Berita Tersaring</h3>
+                      <h3 className="font-black text-white text-sm uppercase tracking-widest mt-8 border-b border-[#222] pb-3 flex items-center justify-between">
+                          Sumber Berita Tersaring
+                          <span className="text-[10px] text-[#666] normal-case tracking-normal">({marketIntelData.articles?.length || 0} Artikel)</span>
+                      </h3>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                           {marketIntelData.articles && marketIntelData.articles.map((article: any, idx: number) => (
                               <a key={idx} href={article.url} target="_blank" rel="noopener noreferrer" className="block bg-[#0D0D0D] border border-[#222] p-5 hover:bg-[#111] hover:border-[#FFD700]/50 transition-all group">
@@ -1924,7 +1916,7 @@ export default function ExpertTerminal() {
                   </div>
               ) : (
                   <div className="bg-[#FF003C]/10 border border-[#FF003C]/30 p-4 text-[11px] font-medium text-[#FF003C] leading-relaxed uppercase tracking-wider text-center">
-                      Terjadi kesalahan saat memproses agregasi berita atau kunci konfigurasi belum terpasang.
+                      Terjadi kesalahan saat memproses agregasi berita atau koneksi API terputus.
                   </div>
               )}
             </div>

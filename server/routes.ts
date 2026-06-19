@@ -176,7 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           try {
               const existing = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE LOWER(TRIM(email)) = ${cleanEmail}`);
-              const rows = Array.isArray(existing) ? existing : (existing as any).rows || [];
+              const rows = Array.isArray(result) ? result : (result as any).rows || [];
               if (rows.length > 0) {
                   const createdAt = new Date(rows[0].created_at).getTime();
                   if (Date.now() - createdAt < 300000) otp = rows[0].code;
@@ -1206,7 +1206,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               try {
                   let symbol = rawSymbol.toUpperCase().trim();
                   
-                  // 🚀 EMAS OTOMATIS: Dikonversi dari harga Global USD per Troy Ounce ke IDR per Gram
                   const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
                   const fetchSymbol = isGold ? 'GC=F' : symbol;
                   
@@ -1225,7 +1224,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                          const usdToIdr = cachedRates['USD'] || 16200;
 
                          if (isGold) {
-                             // Rumus Emas: (Harga / 31.1034768) * Kurs USD
                              finalPrice = (price / 31.1034768) * usdToIdr;
                          } else if (currency !== "IDR" && currency !== "Rp") {
                              const rate = cachedRates[currency as keyof typeof cachedRates] || usdToIdr;
@@ -1328,10 +1326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // =====================================================================
-  // 🚀 FITUR EXPERT TERMINAL: MARKET INTEL & NEWS AGGREGATOR (DYNAMIC AI)
-  // =====================================================================
-  // =====================================================================
-  // 🚀 FITUR EXPERT TERMINAL: MARKET INTEL & NEWS AGGREGATOR (DYNAMIC AI)
+  // 🚀 FITUR EXPERT TERMINAL: MARKET INTEL & NEWS AGGREGATOR (DYNAMIC SEARCH)
   // =====================================================================
   app.post("/api/finance/intel", async (req: any, res: any) => {
       try {
@@ -1346,54 +1341,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
           if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
 
-          // Membersihkan ticker (misal menghapus .JK agar AI bisa melihat simbol aslinya)
           const cleanedSymbols = symbols.map((s: string) => s.replace('.JK', '').toUpperCase());
 
-          // 🚀 PROMPT BARU: Skala Global, Jumlah Masif, Relevansi Ketat per Aset
-          const prompt = `Kamu adalah analis intelijen pasar global untuk terminal trading institusional.
-Klien memiliki portofolio dengan instrumen/ticker berikut: ${cleanedSymbols.join(', ')}.
+          // Mendapatkan tanggal hari ini secara otomatis di server
+          const todayDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-Tugas Analisis & Pencarian Web-mu:
-1. TELITI SETIAP TICKER DAHULU: Identifikasi mana yang merupakan saham Indonesia (IHSG), saham Amerika (Wall Street/Global), atau aset komoditas/valas.
-2. CARI BERITA SEBANYAK MUNGKIN (WAJIB berikan minimal 15 hingga 25 artikel berita).
-   - Untuk saham US/Global, carikan berita dari portal internasional (Bloomberg, CNBC, Reuters, Yahoo Finance, dll) berbahasa Inggris atau Indonesia.
-   - Untuk saham lokal, gunakan sumber portal ekonomi Indonesia yang terpercaya.
-   - PASTIKAN setiap berita yang kamu tarik berhubungan LANGSUNG atau TIDAK LANGSUNG dengan minimal satu aset dari daftar portofolio klien. Jangan masukkan berita yang tidak relevan.
-3. Lakukan agregasi sentimen pasar dari semua berita yang berhasil kamu kumpulkan.
+          const prompt = `Kamu adalah analis intelijen pasar global untuk terminal trading institusional.
+Tanggal Hari Ini: ${todayDate}.
+Portofolio klien: ${cleanedSymbols.join(', ')}.
+
+Tugas Analisis Mendalam:
+1. Pindai (Google Search) berita makro global & lokal HANYA YANG TERBARU UNTUK HARI INI (${todayDate}) atau 24 jam terakhir. Jangan berikan berita kadaluarsa.
+2. Tarik BERITA SEBANYAK MUNGKIN (Target: 20 hingga 30 artikel). 
+   - Jika ada saham US/Global, tarik berita dari portal internasional terpercaya (Bloomberg, Reuters, CNBC, Yahoo Finance, dll). 
+   - Jika saham lokal, tarik berita dari portal Indonesia terpercaya (CNBC Indonesia, Kontan, Bisnis Indonesia, dll).
+   - Semua berita harus relevan secara langsung/tidak langsung dengan portofolio klien.
+3. Ekstraksi sentimen pasar dari puluhan berita tersebut.
 
 Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini:
 {
   "analysis": {
     "overallSentiment": "BULLISH" | "BEARISH" | "NEUTRAL",
-    "confidenceScore": <angka 1-100 berdasarkan dominasi berita>,
-    "marketSummary": "Ringkasan mendalam tentang kondisi makro global dan lokal hari ini serta dampaknya pada keseluruhan portofolio klien.",
+    "confidenceScore": 85,
+    "marketSummary": "2-3 kalimat ringkasan tajam kondisi makro hari ini terhadap portofolio.",
     "actionableInsights": [
       {
-        "sector": "Nama Ticker atau Sektor dari portofolio klien",
+        "sector": "Ticker/Sektor",
         "sentiment": "Positif" | "Negatif" | "Netral",
-        "insight": "Alasan logis berdasarkan agregasi berita yang ditarik"
+        "insight": "1 kalimat alasan logis"
       }
     ]
   },
   "articles": [
     {
-      "title": "Judul artikel asli dari sumber berita",
+      "title": "Judul asli berita",
       "url": "Link URL asli yang valid",
-      "source": { "name": "Nama portal berita (misal: Bloomberg, CNBC Indonesia)" },
+      "source": { "name": "Nama portal berita" },
       "publishedAt": "2026-06-19T10:00:00Z"
     }
   ]
 }`;
 
-          // MENGGUNAKAN GEMINI 2.5 FLASH UNTUK PENCARIAN MASIF
           const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
               method: "POST", 
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
-                  tools: [{ googleSearch: {} }], // Mengaktifkan pencarian Google Real-Time
+                  tools: [{ googleSearch: {} }],
                   generationConfig: { 
-                      temperature: 0.2 // Dibuat sedikit kreatif agar bisa mencari sudut pandang isu yang lebih luas
+                      temperature: 0.15
                   } 
               })
           });
@@ -1408,7 +1404,6 @@ Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini
           
           if (!resultText) throw new Error("Respon AI kosong.");
 
-          // Ekstraksi Regex JSON yang kebal terhadap sisa teks halusinasi
           let parsedAI;
           try { 
               const jsonMatch = resultText.match(/\{[\s\S]*\}/);
@@ -1418,7 +1413,7 @@ Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini
                   parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
               }
           } catch (e) { 
-              throw new Error("Gagal melakukan parsing JSON. AI tidak mengembalikan format yang sesuai.");
+              throw new Error("Gagal melakukan parsing JSON dari Gemini.");
           }
 
           const articles = parsedAI.articles || [];
