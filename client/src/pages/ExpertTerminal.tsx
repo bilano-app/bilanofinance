@@ -41,6 +41,10 @@ export default function ExpertTerminal() {
   const [showProfit, setShowProfit] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | '5Y'>('1M');
+  
+  // Indikator Progres Interaktif
+  const [intelProgress, setIntelProgress] = useState(0);
+  const [intelStatus, setIntelStatus] = useState("Membangun koneksi ke server agregator...");
 
   const { data: forexRates = {} } = useQuery({
       queryKey: ['forexRates', currentUserEmail],
@@ -125,7 +129,7 @@ export default function ExpertTerminal() {
   const { data: simHistoryPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
 
   // =========================================================================
-  // 🚀 HOOK MARKET INTEL (Fetch saat tab intel aktif saja)
+  // 🚀 HOOK MARKET INTEL (Mengambil data ketika tab aktif)
   // =========================================================================
   const { data: marketIntelData, isLoading: isIntelLoading, refetch: refetchIntel } = useQuery({
       queryKey: ['marketIntel', uniqueTickersToFetch.join(',')],
@@ -140,8 +144,38 @@ export default function ExpertTerminal() {
           return res.json();
       },
       enabled: !!currentUserEmail && isTerminalAuth && activeTab === 'intel',
-      staleTime: 1000 * 60 * 15, // Cache 15 menit agar tidak memboroskan API
+      staleTime: 1000 * 60 * 15,
   });
+
+  // Simulasi persentase pemrosesan data intelijen pasar secara asinkronus
+  useEffect(() => {
+      let interval: NodeJS.Timeout;
+      
+      if (isIntelLoading) {
+          setIntelProgress(0);
+          setIntelStatus("Membangun koneksi ke server agregator...");
+          
+          interval = setInterval(() => {
+              setIntelProgress(prev => {
+                  if (prev >= 98) return 98; 
+                  
+                  const next = prev + Math.floor(Math.random() * 5) + 1;
+                  
+                  if (next > 10 && next < 35) setIntelStatus("Memetakan ticker ke entitas makroekonomi...");
+                  else if (next >= 35 && next < 65) setIntelStatus("Menyaring jaringan berita global & regional...");
+                  else if (next >= 65 && next < 85) setIntelStatus("Mengkalkulasi matriks sentimen & korelasi aset...");
+                  else if (next >= 85) setIntelStatus("Merakit laporan intelijen pasar...");
+                  
+                  return next;
+              });
+          }, 350);
+      } else if (marketIntelData) {
+          setIntelProgress(100);
+          setIntelStatus("Sinkronisasi data selesai.");
+      }
+      
+      return () => clearInterval(interval);
+  }, [isIntelLoading, marketIntelData]);
 
   const getPriceForDate = useCallback((ticker: string, targetTs: number) => {
       const hist = historyPrices[ticker];
@@ -182,7 +216,7 @@ export default function ExpertTerminal() {
       const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
       const multiplier = (isStock && isIDR && !isGold) ? 100 : 1; 
 
-      const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
+      const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', QQQM => 'QQQM', 'IVV', 'VOO', 'SPY'];
       let defaultTicker = sym;
       if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
       
@@ -203,9 +237,6 @@ export default function ExpertTerminal() {
     return Object.values(agg).filter((p: any) => p.qty > 0);
   }, [investments, tickerOverrides, getHistoricalRate]);
 
-  // =========================================================================
-  // 🚀 LOGIKA BARU: MENGHITUNG TANGGAL MULAI VALID (MENGABAIKAN HOLD < 1 TAHUN)
-  // =========================================================================
   const validFirstBuyDate = useMemo(() => {
       const symbolData: Record<string, { firstBuy: number, lastSell: number, currentQty: number }> = {};
 
@@ -240,7 +271,6 @@ export default function ExpertTerminal() {
               const isHeldActive = data.currentQty > 0.0001;
               const isHeldLongTerm = (data.lastSell - data.firstBuy) >= ONE_YEAR_MS;
 
-              // Filter: Masuk hitungan jika sedang dihold ATAU pernah dihold lebih dari 1 tahun
               if (isHeldActive || isHeldLongTerm) {
                   if (data.firstBuy < earliestValidTs) {
                       earliestValidTs = data.firstBuy;
@@ -422,9 +452,6 @@ export default function ExpertTerminal() {
       return { totalModal, totalAkhir, maxHorizon, laba: totalAkhir - totalModal };
   }, [activePortfolio, simParams, getSimDataForAsset]);
 
-  // =========================================================================
-  // 🚀 LOGIKA BARU: HITUNG MUNDUR KE TARGET (TAHUN, BULAN, HARI)
-  // =========================================================================
   const countdownToTarget = useMemo(() => {
       if (!grandTotalSimulation || grandTotalSimulation.maxHorizon === 0) return null;
       
@@ -451,13 +478,12 @@ export default function ExpertTerminal() {
       return { y, m, d, isReached: false };
   }, [validFirstBuyDate, grandTotalSimulation]);
 
-
   const realizedTradesBase = useMemo(() => {
     return chronologicalTxs.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
       const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
       const symbol = match ? match[1].toUpperCase().trim() : 'Unknown';
       
-      const sellPriceMatch = t.description?.match(/@\s*(?:(?:Rp|USD|US\$)\s*)?([0-9.,]+)/i);
+      const sellPriceMatch = t.description?.match(/@\s*(?:?:Rp|USD|US\$)\s*)?([0-9.,]+)/i);
       const sellPriceRaw = sellPriceMatch ? parseFloat(sellPriceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
 
       const isUSD = t.description?.includes('USD') || t.description?.includes('US$');
@@ -616,8 +642,8 @@ export default function ExpertTerminal() {
               if (isCurrent) {
                   price = livePrices[activeTicker] || price;
               } else {
-                  const histPrice = getPriceForDate(activeTicker, targetTs);
-                  price = histPrice || price;
+                  const htmlPrice = getPriceForDate(activeTicker, targetTs);
+                  price = htmlPrice || price;
               }
               
               const valuasi = price ? (qtyMap[sym].qty * price * liveMultiplier) : qtyMap[sym].investedIDR;
@@ -954,7 +980,6 @@ export default function ExpertTerminal() {
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 0; }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
-        /* Hilangkan panah spinner di input type number */
         input[type='number']::-webkit-inner-spin-button, 
         input[type='number']::-webkit-outer-spin-button { 
             -webkit-appearance: none; 
@@ -983,7 +1008,7 @@ export default function ExpertTerminal() {
                        value={tempTicker} 
                        onChange={e => setTempTicker(e.target.value)}
                        placeholder="Cth: ANTM.JK / BTC-USD"
-                       className="w-full bg-[#000] border border-[#333] px-4 py-3 text-white font-mono outline-none focus:border-[#FFD700] uppercase transition-colors"
+                       className="w-full bg-[#00] border border-[#333] px-4 py-3 text-white font-mono outline-none focus:border-[#FFD700] uppercase transition-colors"
                    />
                 </div>
                 <button onClick={saveTickerOverride} className="w-full bg-[#FFD700] hover:bg-[#CCAA00] text-black font-black tracking-[0.15em] py-3 transition-all active:scale-95 uppercase">
@@ -1004,7 +1029,7 @@ export default function ExpertTerminal() {
                 <h2 className="text-xl font-black text-white mb-1 uppercase tracking-tight">Audit Kalkulasi API</h2>
                 <p className="text-xs text-[#A1A1AA] mb-6 uppercase tracking-wider">Aset: <b className="text-white">{assetDetailModal.symbol}</b></p>
                 
-                <div className="space-y-4 bg-[#000] p-5 border border-[#222]">
+                <div className="space-y-4 bg-[#00] p-5 border border-[#222]">
                     <div className="flex justify-between items-center border-b border-[#222] pb-3">
                         <span className="text-[#A1A1AA] text-[10px] font-bold uppercase tracking-[0.15em]">Ticker Target</span>
                         <div className="flex items-center gap-2">
@@ -1062,7 +1087,7 @@ export default function ExpertTerminal() {
           
           <div className="h-px bg-[#222] my-4 mx-2"></div>
           
-          <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.2em] mb-4 px-2 flex items-center gap-1.5"><Settings2 className="w-3.5 h-3.5"/> AI Quantitative</p>
+          <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.2em] mb-4 px-2 flex items-center gap-1.5"><Settings2 className="w-3.5 h-3.5"/> Kuantitatif Sistem</p>
           <button onClick={() => setActiveTab('simulator')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'simulator' ? 'bg-[#111] text-[#00E5FF] border-l-2 border-[#00E5FF]' : 'text-[#D4D4D8] hover:bg-[#111] hover:text-white'}`}>
             <Calculator className="w-4 h-4" /> Simulator
           </button>
@@ -1255,7 +1280,7 @@ export default function ExpertTerminal() {
                 </div>
               </div>
 
-              {/* 🚀 TABEL BULANAN */}
+              {/* TABEL BULANAN */}
               <div className="bg-[#0D0D0D] border border-[#222] overflow-x-auto custom-scrollbar mb-8">
                 <table className="w-full text-left">
                   <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
@@ -1315,7 +1340,7 @@ export default function ExpertTerminal() {
                 </table>
               </div>
 
-              {/* 🚀 TABEL TAHUNAN */}
+              {/* TABEL TAHUNAN */}
               <div className="bg-[#0D0D0D] border border-[#222] overflow-x-auto custom-scrollbar">
                 <table className="w-full text-left">
                   <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
@@ -1375,7 +1400,7 @@ export default function ExpertTerminal() {
                 </table>
               </div>
 
-              {/* 🚀 GRAFIK AREA INTRADAY */}
+              {/* GRAFIK AREA INTRADAY */}
               <div className="bg-[#0D0D0D] border border-[#222] p-6 mt-6 relative">
                 <div className="flex justify-between items-center mb-6 border-b border-[#222] pb-4">
                   <h3 className="font-black text-white uppercase tracking-tight text-lg">Chart Historis Teragregasi</h3>
@@ -1486,7 +1511,7 @@ export default function ExpertTerminal() {
             </div>
           )}
 
-          {/* ================= TAB 4: SIMULATOR STRATEGI (AI QUANTITATIVE) ================= */}
+          {/* ================= TAB 4: SIMULATOR STRATEGI ================= */}
           {activeTab === 'simulator' && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
                  
@@ -1505,7 +1530,6 @@ export default function ExpertTerminal() {
                      </div>
                  ) : (
                      <>
-                         {/* 🚀 Grand Total Summary Panel + Progress Tracker + Countdown */}
                          {grandTotalSimulation && (
                              <div className="bg-[#0D0D0D] border border-[#333] p-8 flex flex-col gap-6 relative overflow-hidden shadow-2xl">
                                  <div className="absolute left-0 top-0 w-1.5 h-full bg-[#00FF41]"></div>
@@ -1533,7 +1557,6 @@ export default function ExpertTerminal() {
                                      </div>
                                  </div>
 
-                                 {/* Progress Bar UI */}
                                  <div className="z-10 w-full bg-[#111] p-5 border border-[#222]">
                                      <div className="flex justify-between text-[10px] font-bold uppercase tracking-[0.15em] text-[#888] mb-3">
                                          <span>Pencapaian Saat Ini ({Math.min((totalAssetValue / grandTotalSimulation.totalAkhir) * 100, 100).toFixed(2)}%)</span>
@@ -1544,7 +1567,6 @@ export default function ExpertTerminal() {
                                      </div>
                                  </div>
 
-                                 {/* 🚀 COUNTDOWN UI */}
                                  {countdownToTarget && (
                                      <div className="flex justify-between items-center z-10 pt-4 border-t border-[#222]">
                                          <div>
@@ -1574,7 +1596,6 @@ export default function ExpertTerminal() {
                              </div>
                          )}
 
-                         {/* Individual Asset Simulators */}
                          <div className="space-y-4">
                              {activePortfolio.map((asset: any) => {
                                  const isExpanded = expandedSimAsset === asset.symbol;
@@ -1583,7 +1604,6 @@ export default function ExpertTerminal() {
                                  
                                  return (
                                      <div key={asset.symbol} className="bg-[#0D0D0D] border border-[#222] transition-all">
-                                         {/* Accordion Header */}
                                          <div 
                                              onClick={() => handleExpandSim(asset)}
                                              className="p-6 flex items-center justify-between cursor-pointer hover:bg-[#111] transition-colors"
@@ -1618,13 +1638,9 @@ export default function ExpertTerminal() {
                                              </div>
                                          </div>
 
-                                         {/* Accordion Body (Expanded View) */}
                                          {isExpanded && currentSimData && (
                                              <div className="p-6 border-t border-[#222] bg-[#050505] flex flex-col xl:flex-row gap-8">
-                                                 
-                                                 {/* LEFT: Chart & Table */}
                                                  <div className="flex-1 space-y-6">
-                                                     {/* Chart */}
                                                      <div className="h-[300px] w-full bg-[#000] border border-[#222] p-4 relative">
                                                         <div className="absolute top-4 left-4 z-10">
                                                             <h4 className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Proyeksi Ekstrapolasi Harga (IDR)</h4>
@@ -1647,7 +1663,6 @@ export default function ExpertTerminal() {
                                                         </ResponsiveContainer>
                                                      </div>
 
-                                                     {/* Result Table */}
                                                      <div className="bg-[#000] border border-[#222]">
                                                         <table className="w-full text-left">
                                                             <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[9px] border-b border-[#333]">
@@ -1684,11 +1699,9 @@ export default function ExpertTerminal() {
                                                      </div>
                                                  </div>
 
-                                                 {/* RIGHT: Input Parameters */}
                                                  <div className="w-full xl:w-80 bg-[#000] border border-[#222] p-6 flex flex-col gap-6">
                                                      <h3 className="font-black text-white text-sm uppercase tracking-widest border-b border-[#222] pb-3">Parameter Tuning</h3>
                                                      
-                                                     {/* 🚀 AUTO-CALCULATED RETURN & RISK */}
                                                      <div className="flex justify-between items-center bg-[#111] border border-[#222] p-3 rounded-sm">
                                                          <div>
                                                              <p className="text-[9px] font-bold text-[#888] uppercase tracking-[0.15em] mb-1">Historikal CAGR</p>
@@ -1703,7 +1716,6 @@ export default function ExpertTerminal() {
 
                                                      <div className="h-px bg-[#222] w-full mt-1 mb-1"></div>
 
-                                                     {/* 🚀 HYBRID INPUTS (Slider + Number Typing) */}
                                                      <div>
                                                          <div className="flex justify-between items-center mb-2">
                                                              <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Modal Awal (IDR)</label>
@@ -1814,22 +1826,46 @@ export default function ExpertTerminal() {
                   <div className="bg-[#0D0D0D] border border-[#222] p-12 flex flex-col items-center justify-center text-center">
                       <Newspaper className="w-8 h-8 text-[#555] mb-4" />
                       <h3 className="text-sm font-black text-white mb-2 uppercase tracking-widest">Tidak Ada Portofolio</h3>
-                      <p className="text-[#A1A1AA] text-xs max-w-sm uppercase tracking-wider">Radar AI membutuhkan minimal satu aset untuk dianalisis.</p>
+                      <p className="text-[#A1A1AA] text-xs max-w-sm uppercase tracking-wider">Radar algoritma membutuhkan minimal satu aset untuk dianalisis.</p>
                   </div>
-              ) : isIntelLoading && !marketIntelData ? (
-                  <div className="flex flex-col items-center justify-center py-20">
-                      <Orbit className="w-12 h-12 text-[#FFD700] animate-spin mb-4" />
-                      <p className="text-[10px] font-bold text-[#FFD700] uppercase tracking-[0.2em] animate-pulse">Menarik Data Agregator Web & Analisis Sentimen...</p>
+              ) : isIntelLoading || (intelProgress < 100 && !marketIntelData) ? (
+                  <div className="bg-[#0D0D0D] border border-[#222] flex flex-col items-center justify-center py-24 px-8 relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-full h-full bg-[linear-gradient(to_bottom,#FFD700_1px,transparent_1px)] bg-[size:100%_4px] opacity-[0.03] pointer-events-none"></div>
+                      
+                      <div className="w-full max-w-lg relative z-10">
+                          <div className="flex justify-between items-end mb-3">
+                              <div className="flex items-center gap-3">
+                                  <Orbit className="w-5 h-5 text-[#FFD700] animate-spin" />
+                                  <p className="text-[10px] font-bold text-[#FFD700] uppercase tracking-[0.2em] animate-pulse">
+                                      {intelStatus}
+                                  </p>
+                              </div>
+                              <p className="font-mono text-3xl font-black text-[#FFD700] leading-none drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]">
+                                  {intelProgress}%
+                              </p>
+                          </div>
+                          
+                          <div className="w-full h-2.5 bg-[#111] border border-[#333] rounded-full overflow-hidden relative">
+                              <div 
+                                  className="h-full bg-[#FFD700] transition-all duration-300 ease-out shadow-[0_0_12px_#FFD700]" 
+                                  style={{ width: `${intelProgress}%` }}
+                              ></div>
+                          </div>
+                          
+                          <p className="text-center text-[#555] text-[8px] font-mono mt-6 uppercase tracking-widest">
+                              Bypass Delay Protocol • Global Net Search • Matrix Grounding
+                          </p>
+                      </div>
                   </div>
               ) : marketIntelData && marketIntelData.analysis ? (
                   <div className="space-y-6">
-                      {/* 🚀 PANEL SENTIMEN AI */}
+                      {/* PANEL SENTIMEN */}
                       <div className="bg-[#050505] border border-[#333] p-6 relative overflow-hidden">
                           <div className={`absolute top-0 left-0 w-1.5 h-full ${marketIntelData.analysis.overallSentiment === 'BULLISH' ? 'bg-[#00FF41]' : marketIntelData.analysis.overallSentiment === 'BEARISH' ? 'bg-[#FF003C]' : 'bg-[#FFD700]'}`}></div>
                           
                           <div className="flex justify-between items-start mb-6 border-b border-[#222] pb-4">
                               <div>
-                                  <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.2em] mb-1">Agregasi Sentimen (AI Engine)</p>
+                                  <p className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.2em] mb-1">Kalkulasi Sentimen Agregat</p>
                                   <h3 className={`font-black text-2xl uppercase tracking-widest ${marketIntelData.analysis.overallSentiment === 'BULLISH' ? 'text-[#00FF41]' : marketIntelData.analysis.overallSentiment === 'BEARISH' ? 'text-[#FF003C]' : 'text-[#FFD700]'}`}>
                                       {marketIntelData.analysis.overallSentiment}
                                   </h3>
@@ -1863,14 +1899,14 @@ export default function ExpertTerminal() {
                           </div>
                       </div>
 
-                      {/* 🚀 DAFTAR BERITA RAW */}
+                      {/* DAFTAR BERITA RAW */}
                       <h3 className="font-black text-white text-sm uppercase tracking-widest mt-8 border-b border-[#222] pb-3">Sumber Berita Tersaring</h3>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                           {marketIntelData.articles && marketIntelData.articles.map((article: any, idx: number) => (
                               <a key={idx} href={article.url} target="_blank" rel="noopener noreferrer" className="block bg-[#0D0D0D] border border-[#222] p-5 hover:bg-[#111] hover:border-[#FFD700]/50 transition-all group">
                                   <div className="flex justify-between items-start mb-3">
                                       <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#00E5FF] bg-[#00E5FF]/10 px-2 py-1">
-                                          {article.source.name}
+                                          {article.source?.name || "Global Source"}
                                       </span>
                                       <span className="text-[10px] text-[#666] font-mono">
                                           {new Date(article.publishedAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -1888,7 +1924,7 @@ export default function ExpertTerminal() {
                   </div>
               ) : (
                   <div className="bg-[#FF003C]/10 border border-[#FF003C]/30 p-4 text-[11px] font-medium text-[#FF003C] leading-relaxed uppercase tracking-wider text-center">
-                      Terjadi kesalahan saat memproses agregasi berita atau kunci API belum terpasang.
+                      Terjadi kesalahan saat memproses agregasi berita atau kunci konfigurasi belum terpasang.
                   </div>
               )}
             </div>

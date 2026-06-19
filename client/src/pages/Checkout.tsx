@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { ArrowLeft, CreditCard, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CreditCard, ShieldCheck, CheckCircle, Download } from "lucide-react";
 
 export default function Checkout() {
   const [, setLocation] = useLocation();
   const [billingPlan, setBillingPlan] = useState<"monthly" | "yearly">("yearly");
   const [loading, setLoading] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false); // Mode Layar Sukses
   
   // State Form User
   const [formData, setFormData] = useState({
@@ -14,7 +15,31 @@ export default function Checkout() {
     phone: ""
   });
 
-  // Penentuan Harga Terdaftar Berdasarkan Pilihan Plan (Syarat Duitku)
+  // Logika PWA Installer Native
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault(); 
+      setDeferredPrompt(e); 
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        console.log('BILANO sedang diinstall...');
+      }
+      setDeferredPrompt(null);
+    } else {
+      alert("PEMBERITAHUAN:\n\nSistem perangkat Anda mungkin memblokir popup otomatis atau aplikasi sudah terpasang. Silakan buka menu browser (titik tiga atau ikon Share) lalu pilih 'Install App' atau 'Tambahkan ke Layar Utama' (Add to Home Screen) untuk memasang BILANO.");
+    }
+  };
+
   const plans = {
     monthly: {
       name: "Paket Bulanan Premium",
@@ -41,36 +66,69 @@ export default function Checkout() {
 
     setLoading(true);
 
-    // ==========================================================
-    // 🚀 SIMULASI CHECKOUT UNTUK DEMO VIDEO DUITKU
-    // ==========================================================
-    // Kita buat delay pura-pura selama 1.5 detik seolah-olah sedang 
-    // memproses ke Duitku, lalu langsung arahkan ke Install App
+    // Simulasi jeda pemrosesan ke Duitku
     setTimeout(() => {
       setLoading(false);
-      // Pindah ke halaman install app
-      setLocation('/onboarding');
+      // Ubah layar menjadi mode sukses pembayaran
+      setPaymentSuccess(true);
     }, 1500); 
   };
 
+  // =========================================================
+  // 🟢 LAYAR 2: SUKSES & INSTALL APLIKASI
+  // =========================================================
+  if (paymentSuccess) {
+    return (
+      <div className="min-h-[100dvh] bg-[#0a1128] text-white font-sans flex flex-col items-center justify-center p-6 relative overflow-hidden text-center animate-in fade-in duration-500">
+        <div className="absolute top-[10%] w-96 h-96 bg-emerald-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+        
+        <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 animate-bounce">
+          <CheckCircle className="w-10 h-10 text-emerald-500" />
+        </div>
+        
+        <h2 className="text-3xl font-black tracking-tight mb-3">Pembayaran Berhasil!</h2>
+        <p className="text-slate-400 text-sm max-w-sm mb-8 leading-relaxed">
+          Akun Premium BILANO Anda sudah aktif. Tahap terakhir, silakan install aplikasi ke perangkat Anda untuk melacak keuangan secara brutal.
+        </p>
+
+        <button
+          onClick={handleInstallApp}
+          className="w-full max-w-[320px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-lg py-4 px-6 rounded-2xl shadow-[0_10px_30px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[4px] border-amber-600 active:border-b-0 active:translate-y-[4px]"
+        >
+          <Download strokeWidth={3} className="w-6 h-6" />
+          INSTALL BILANO SEKARANG
+        </button>
+
+        <button 
+          onClick={() => setLocation('/dashboard')}
+          className="mt-6 text-slate-500 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors"
+        >
+          Masuk via Web Browser Saja
+        </button>
+      </div>
+    );
+  }
+
+  // =========================================================
+  // 🟡 LAYAR 1: FORM CHECKOUT DUITKU
+  // =========================================================
   return (
     <div className="min-h-[100dvh] bg-[#0a1128] text-white font-sans flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
 
-      <div className="w-full max-w-[500px] bg-[#121c3a]/90 backdrop-blur-md border border-white/10 rounded-[32px] p-6 lg:p-8 shadow-2xl relative z-10">
+      <div className="w-full max-w-[500px] bg-[#121c3a]/90 backdrop-blur-md border border-white/10 rounded-[32px] p-6 lg:p-8 shadow-2xl relative z-10 animate-in slide-in-from-bottom-4">
         
-        {/* Tombol Kembali */}
         <button 
-          onClick={() => setLocation('/')}
+          onClick={() => setLocation(-1)} // Kembali ke halaman sebelumnya (Paywall/Onboarding)
           className="inline-flex items-center gap-2 text-slate-400 hover:text-white text-sm font-semibold mb-6 transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" /> Kembali ke Utama
+          <ArrowLeft className="w-4 h-4" /> Kembali
         </button>
 
-        <h2 className="text-2xl font-black tracking-tight mb-2">Pilih Metode & Paket Anda</h2>
-        <p className="text-slate-400 text-xs mb-6">Selesaikan registrasi akun premium Anda secara aman melalui Sandbox Gateway.</p>
+        <h2 className="text-2xl font-black tracking-tight mb-2">Checkout Premium</h2>
+        <p className="text-slate-400 text-xs mb-6">Selesaikan registrasi akun Anda. Pembayaran diamankan oleh Duitku.</p>
 
-        {/* 🔄 SWITCH PILIHAN PLAN */}
+        {/* 🔄 SWITCH PILIHAN PLAN (Bisa disembunyikan nanti jika data dikirim dari Onboarding) */}
         <div className="grid grid-cols-2 bg-[#040814] p-1.5 rounded-2xl border border-white/5 mb-6">
           <button
             type="button"
@@ -152,7 +210,6 @@ export default function Checkout() {
           </button>
         </form>
 
-        {/* Label Proteksi Keamanan */}
         <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-500 mt-5">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
           Koneksi Enkripsi Sandbox Aktif & Terlindungi
