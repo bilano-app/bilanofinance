@@ -19,8 +19,14 @@ export default function Onboarding() {
     q4: 0
   });
 
-  // State untuk popup pricing
+  // State untuk popup pricing & Form Data Diri
   const [selectedPlan, setSelectedPlan] = useState<"year" | "month" | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: ""
+  });
 
   // =======================================================
   // 🚀 LOGIKA PWA INSTALLER NATIVE
@@ -65,13 +71,30 @@ export default function Onboarding() {
     }, 300);
   };
 
-  const handleBayar = () => {
-    setSelectedPlan(null); // Tutup popup
-    setFade(false);
+  // =======================================================
+  // 🚀 FUNGSI SUBMIT FORM PEMBAYARAN DI DALAM MODAL
+  // =======================================================
+  const handleCheckoutSubmit = (e: React.FormEvent) => {
+    e.preventDefault(); // Mencegah reload halaman
+    
+    if (!formData.name || !formData.email || !formData.phone) {
+      alert("Harap lengkapi semua data pembeli!");
+      return;
+    }
+
+    setLoading(true);
+
+    // Simulasi jeda pemrosesan ke Duitku
     setTimeout(() => {
-      setStep(6); // Lanjut ke halaman Install PWA
-      setFade(true);
-    }, 300);
+      setLoading(false);
+      setSelectedPlan(null); // Tutup popup modal
+      setFade(false);
+      
+      setTimeout(() => {
+        setStep(6); // Lanjut ke halaman Sukses & Install PWA
+        setFade(true);
+      }, 300);
+    }, 1500);
   };
 
   // =======================================================
@@ -82,32 +105,25 @@ export default function Onboarding() {
     const score = Number(q4);
     const yesCount = [q1, q2, q3].filter(a => a === 'Ya').length;
 
-    // KONDISI 1: Niat kuat, siap eksekusi
     if (yesCount === 3 && score >= 8) {
       return {
         title: "Profil: Eksekutor Visioner",
         desc: `Kalkulasi menunjukkan sinkronisasi sempurna antara visi dan kesiapan mental (Skor Urgensi: ${score}/10). Anda tidak butuh motivasi dasar; Anda butuh alat presisi. Bilano akan langsung bekerja sebagai sistem pemantauan brutal untuk memastikan aset Anda terakumulasi sesuai rencana, tanpa kompromi.`,
         icon: <Target className="w-8 h-8" />
       };
-    } 
-    // KONDISI 2: Kurang konsisten/jelas, tapi mau berusaha
-    else if (yesCount >= 2 && score >= 6) {
+    } else if (yesCount >= 2 && score >= 6) {
       return {
         title: "Profil: Pembangun Sistem",
         desc: `Anda memiliki kesadaran finansial yang logis (Skor Urgensi: ${score}/10) dan kemauan membangun kebiasaan, meski visi masa depan Anda mungkin belum 100% presisi. Ini adalah pijakan ideal. Bilano akan bertindak sebagai kerangka otomatis Anda—mengunci pengeluaran impulsif dan menuntut Anda disiplin setiap hari.`,
         icon: <Fingerprint className="w-8 h-8" />
       };
-    } 
-    // KONDISI 3: Tahu penting (skor tinggi), tapi malas gerak (Q3 = Tidak)
-    else if (q3 === 'Tidak' && score >= 7) {
+    } else if (q3 === 'Tidak' && score >= 7) {
       return {
         title: "Profil: Paradoks Analitis",
         desc: `Data menunjukkan anomali logis: Anda tahu target keuangan itu sangat penting (Skor: ${score}/10), tapi Anda menolak membangun kebiasaan kecil. Niat tanpa eksekusi adalah ilusi matematis. Bilano didesain untuk mendobrak kepasifan ini dengan menyajikan realita arus kas Anda secara brutal dan transparan.`,
         icon: <Activity className="w-8 h-8" />
       };
-    } 
-    // KONDISI 4: Skor rendah atau mayoritas Tidak
-    else {
+    } else {
       return {
         title: "Profil: Pengamat Pasif",
         desc: `Skor kalkulasi Anda (${score}/10) menunjukkan Anda belum sepenuhnya menyadari bahaya kebocoran finansial, atau masih meraba-raba tujuan. Tidak masalah. Daripada menebak, gunakan Bilano sebagai cermin realita. Biarkan data murni yang membuktikan seberapa banyak uang Anda yang menguap tanpa jejak bulan ini.`,
@@ -306,11 +322,13 @@ export default function Onboarding() {
       </div>
 
       {/* =========================================
-          MODAL POPUP DETAIL PEMBAYARAN
+          MODAL POPUP DETAIL PEMBAYARAN & FORM DATA DIRI
       ========================================= */}
       {selectedPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200">
+            
+            {/* Tombol Close Popup */}
             <button 
               onClick={() => setSelectedPlan(null)}
               className="absolute top-5 right-5 text-slate-400 hover:text-white"
@@ -318,9 +336,10 @@ export default function Onboarding() {
               <X className="w-6 h-6" />
             </button>
             
-            <h3 className="text-xl font-black mb-6 pr-8">Konfirmasi Pembayaran</h3>
+            <h3 className="text-xl font-black mb-4 pr-8">Konfirmasi Pembayaran</h3>
             
-            <div className="bg-[#0a1128] rounded-2xl p-4 mb-6 border border-white/5">
+            {/* Kotak Info Harga */}
+            <div className="bg-[#0a1128] rounded-2xl p-4 mb-5 border border-white/5">
               <div className="flex justify-between items-center mb-3">
                 <span className="text-slate-400 text-sm">Paket Dipilih</span>
                 <span className="font-bold text-white text-sm">
@@ -329,19 +348,49 @@ export default function Onboarding() {
               </div>
               <div className="h-[1px] w-full bg-white/10 mb-3"></div>
               <div className="flex justify-between items-end">
-                <span className="text-slate-300 font-medium">Total Tagihan</span>
+                <span className="text-slate-300 font-medium text-sm">Total Tagihan</span>
                 <span className="text-2xl font-black text-amber-400">
                   {selectedPlan === 'year' ? 'Rp99.000' : 'Rp14.900'}
                 </span>
               </div>
             </div>
 
-            <button 
-              onClick={handleBayar}
-              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95"
-            >
-              BAYAR SEKARANG
-            </button>
+            {/* Form Input Syarat Duitku */}
+            <form onSubmit={handleCheckoutSubmit} className="flex flex-col gap-3">
+              <input
+                type="text"
+                required
+                placeholder="Nama Lengkap"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors"
+              />
+              <input
+                type="email"
+                required
+                placeholder="Alamat Email"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors"
+              />
+              <input
+                type="tel"
+                required
+                placeholder="Nomor Telepon"
+                value={formData.phone}
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors mb-2"
+              />
+
+              <button 
+                type="submit"
+                disabled={loading}
+                className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center"
+              >
+                {loading ? "MEMPROSES..." : "BAYAR SEKARANG"}
+              </button>
+            </form>
+
           </div>
         </div>
       )}
