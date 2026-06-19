@@ -1330,6 +1330,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =====================================================================
   // 🚀 FITUR EXPERT TERMINAL: MARKET INTEL & NEWS AGGREGATOR (DYNAMIC AI)
   // =====================================================================
+  // =====================================================================
+  // 🚀 FITUR EXPERT TERMINAL: MARKET INTEL & NEWS AGGREGATOR (DYNAMIC AI)
+  // =====================================================================
   app.post("/api/finance/intel", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1343,27 +1346,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
           if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
 
+          // Membersihkan ticker (misal menghapus .JK agar AI bisa melihat simbol aslinya)
           const cleanedSymbols = symbols.map((s: string) => s.replace('.JK', '').toUpperCase());
 
-          const prompt = `Kamu adalah analis kuantitatif makroekonomi senior untuk terminal trading.
-Klien saat ini memiliki portofolio aset dengan instrumen/ticker berikut: ${cleanedSymbols.join(', ')}.
+          // 🚀 PROMPT BARU: Skala Global, Jumlah Masif, Relevansi Ketat per Aset
+          const prompt = `Kamu adalah analis intelijen pasar global untuk terminal trading institusional.
+Klien memiliki portofolio dengan instrumen/ticker berikut: ${cleanedSymbols.join(', ')}.
 
-Tugasmu:
-1. Identifikasi sektor industri dari ticker tersebut (misal: PTRO adalah batubara/energi, BBNI adalah perbankan).
-2. Gunakan tools pencarian (Google Search) untuk mencari 4-6 berita makroekonomi, geopolitik, atau isu sektoral paling aktual HARI INI yang berdampak langsung atau tidak langsung pada aset-aset tersebut.
-3. Analisis sentimen agregat berdasarkan berita yang ditemukan.
+Tugas Analisis & Pencarian Web-mu:
+1. TELITI SETIAP TICKER DAHULU: Identifikasi mana yang merupakan saham Indonesia (IHSG), saham Amerika (Wall Street/Global), atau aset komoditas/valas.
+2. CARI BERITA SEBANYAK MUNGKIN (WAJIB berikan minimal 15 hingga 25 artikel berita).
+   - Untuk saham US/Global, carikan berita dari portal internasional (Bloomberg, CNBC, Reuters, Yahoo Finance, dll) berbahasa Inggris atau Indonesia.
+   - Untuk saham lokal, gunakan sumber portal ekonomi Indonesia yang terpercaya.
+   - PASTIKAN setiap berita yang kamu tarik berhubungan LANGSUNG atau TIDAK LANGSUNG dengan minimal satu aset dari daftar portofolio klien. Jangan masukkan berita yang tidak relevan.
+3. Lakukan agregasi sentimen pasar dari semua berita yang berhasil kamu kumpulkan.
 
 Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini:
 {
   "analysis": {
     "overallSentiment": "BULLISH" | "BEARISH" | "NEUTRAL",
-    "confidenceScore": 85,
-    "marketSummary": "Ringkasan sentimen pasar hari ini dan kaitannya dengan portofolio.",
+    "confidenceScore": <angka 1-100 berdasarkan dominasi berita>,
+    "marketSummary": "Ringkasan mendalam tentang kondisi makro global dan lokal hari ini serta dampaknya pada keseluruhan portofolio klien.",
     "actionableInsights": [
       {
-        "sector": "Sektor Terkait",
+        "sector": "Nama Ticker atau Sektor dari portofolio klien",
         "sentiment": "Positif" | "Negatif" | "Netral",
-        "insight": "Alasan singkat untuk hold, buy, atau sell"
+        "insight": "Alasan logis berdasarkan agregasi berita yang ditarik"
       }
     ]
   },
@@ -1371,22 +1379,21 @@ Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini
     {
       "title": "Judul artikel asli dari sumber berita",
       "url": "Link URL asli yang valid",
-      "source": { "name": "Nama portal berita" },
+      "source": { "name": "Nama portal berita (misal: Bloomberg, CNBC Indonesia)" },
       "publishedAt": "2026-06-19T10:00:00Z"
     }
   ]
 }`;
 
-          // MENGGUNAKAN GEMINI 2.5 FLASH AGAR LEBIH CEPAT & TIDAK TIMEOUT DI VERCEL
+          // MENGGUNAKAN GEMINI 2.5 FLASH UNTUK PENCARIAN MASIF
           const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
               method: "POST", 
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
-                  tools: [{ googleSearch: {} }],
-                  // 🚀 PERBAIKAN: Menghapus response_mime_type karena sering bentrok dengan fitur googleSearch pada versi REST API tertentu.
+                  tools: [{ googleSearch: {} }], // Mengaktifkan pencarian Google Real-Time
                   generationConfig: { 
-                      temperature: 0.1
+                      temperature: 0.2 // Dibuat sedikit kreatif agar bisa mencari sudut pandang isu yang lebih luas
                   } 
               })
           });
@@ -1401,7 +1408,7 @@ Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini
           
           if (!resultText) throw new Error("Respon AI kosong.");
 
-          // 🚀 PERBAIKAN: Ekstraksi Regex JSON yang kebal terhadap sisa teks markdown atau halusinasi teks.
+          // Ekstraksi Regex JSON yang kebal terhadap sisa teks halusinasi
           let parsedAI;
           try { 
               const jsonMatch = resultText.match(/\{[\s\S]*\}/);
@@ -1411,10 +1418,9 @@ Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini
                   parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
               }
           } catch (e) { 
-              throw new Error("Gagal melakukan parsing JSON dari Gemini.");
+              throw new Error("Gagal melakukan parsing JSON. AI tidak mengembalikan format yang sesuai.");
           }
 
-          // Untuk mencocokkan format return ke frontend
           const articles = parsedAI.articles || [];
           const analysis = parsedAI.analysis || parsedAI;
 

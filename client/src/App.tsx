@@ -77,7 +77,6 @@ XMLHttpRequest.prototype.send = function(...args: any[]) {
 // 🚀 PAYWALL LOCK ALERT — Checkpoint Perjalanan
 // =========================================================================
 function PaywallLockAlert({ onClose, onUpgrade, onDismiss }: { onClose: () => void; onUpgrade: () => void; onDismiss: () => void; }) {
-  // 🚀 PERBAIKAN: Menghapus destructuring "transactions" yang salah dari useUser()
   const txCount = parseInt(localStorage.getItem("bilano_cached_tx_count") || "0");
   const daysPassed = parseInt(localStorage.getItem("bilano_trial_days_passed") || "0");
   const hasTarget = localStorage.getItem("bilano_has_target") === "true";
@@ -199,6 +198,7 @@ import Amal from "@/pages/Amal";
 import Retained from "@/pages/Retained";
 import ExpertTerminal from "@/pages/ExpertTerminal"; 
 import Onboarding from "@/pages/Onboarding"; 
+import Checkout from "@/pages/Checkout"; // 🔥 Import Checkout ditambahkan di sini
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -385,6 +385,9 @@ function Router() {
         
         {/* 🚀 PERBAIKAN: Rute onboarding HARUS berada di atas NotFound */}
         <Route path="/onboarding" component={Onboarding} />
+        
+        {/* 🔥 Route Checkout ditambahkan di sini */}
+        <Route path="/checkout" component={Checkout} />
 
         {/* 🚀 PERBAIKAN: NotFound HARUS diletakkan paling ujung sebagai Catch-All */}
         <Route component={NotFound} />
