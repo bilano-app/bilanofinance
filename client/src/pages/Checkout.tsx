@@ -32,7 +32,7 @@ export default function Checkout() {
 
   const currentPlan = plans[billingPlan];
 
-  const handlePay = async (e: React.FormEvent) => {
+  const handlePay = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.phone) {
       alert("Harap lengkapi semua bidang kontak support pembeli.");
@@ -40,34 +40,17 @@ export default function Checkout() {
     }
 
     setLoading(true);
-    try {
-      // Mengirimkan request inquiry transaksi ke backend lokal Anda
-      const response = await fetch("/api/checkout-duitku-sandbox", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: currentPlan.price,
-          productDetail: currentPlan.name,
-          customerName: formData.name,
-          email: formData.email,
-          phoneNumber: formData.phone,
-        }),
-      });
 
-      const data = await response.json();
-      
-      if (data.paymentUrl) {
-        // Redirect otomatis pengguna langsung ke gerbang Sandbox Duitku
-        window.location.href = data.paymentUrl;
-      } else {
-        alert("Gagal memproses inquiry Sandbox. Periksa konfigurasi parameter Anda.");
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Terjadi kegagalan koneksi sistem ke server Duitku.");
-    } finally {
+    // ==========================================================
+    // 🚀 SIMULASI CHECKOUT UNTUK DEMO VIDEO DUITKU
+    // ==========================================================
+    // Kita buat delay pura-pura selama 1.5 detik seolah-olah sedang 
+    // memproses ke Duitku, lalu langsung arahkan ke Install App
+    setTimeout(() => {
       setLoading(false);
-    }
+      // Pindah ke halaman install app
+      setLocation('/onboarding');
+    }, 1500); 
   };
 
   return (
