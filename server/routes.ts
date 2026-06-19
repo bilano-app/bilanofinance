@@ -1353,7 +1353,7 @@ Tugasmu:
 2. Gunakan tools pencarian (Google Search) untuk mencari 4-6 berita makroekonomi, geopolitik, atau isu sektoral paling aktual HARI INI yang berdampak langsung atau tidak langsung pada aset-aset tersebut.
 3. Analisis sentimen agregat berdasarkan berita yang ditemukan.
 
-Kembalikan response dalam format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini:
+Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini:
 {
   "analysis": {
     "overallSentiment": "BULLISH" | "BEARISH" | "NEUTRAL",
@@ -1372,38 +1372,46 @@ Kembalikan response dalam format JSON MURNI dengan struktur yang MESTI PERSIS se
       "title": "Judul artikel asli dari sumber berita",
       "url": "Link URL asli yang valid",
       "source": { "name": "Nama portal berita" },
-      "publishedAt": "Waktu rilis berita"
+      "publishedAt": "2026-06-19T10:00:00Z"
     }
   ]
 }`;
 
-          // Kita gunakan native fetch ke Gemini 1.5 Pro yang mendukung googleSearch
-          const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
+          // MENGGUNAKAN GEMINI 2.5 FLASH AGAR LEBIH CEPAT & TIDAK TIMEOUT DI VERCEL
+          const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
               method: "POST", 
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
+                  // 🚀 PERBAIKAN: Menghapus response_mime_type karena sering bentrok dengan fitur googleSearch pada versi REST API tertentu.
                   generationConfig: { 
-                      temperature: 0.2, 
-                      response_mime_type: "application/json" 
+                      temperature: 0.1
                   } 
               })
           });
 
           if (!aiRes.ok) {
               const err = await aiRes.text();
-              throw new Error(`Gagal menarik data dari AI: ${err}`);
+              throw new Error(`API Gemini Menolak: ${err}`);
           }
 
           const aiData = await aiRes.json();
-          const resultText = aiData.candidates[0].content.parts[0].text;
+          const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
           
+          if (!resultText) throw new Error("Respon AI kosong.");
+
+          // 🚀 PERBAIKAN: Ekstraksi Regex JSON yang kebal terhadap sisa teks markdown atau halusinasi teks.
           let parsedAI;
           try { 
-              parsedAI = JSON.parse(resultText); 
+              const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                  parsedAI = JSON.parse(jsonMatch[0]);
+              } else {
+                  parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
+              }
           } catch (e) { 
-              parsedAI = JSON.parse(resultText.replace(/```json\n?/g, '').replace(/```/g, '').trim()); 
+              throw new Error("Gagal melakukan parsing JSON dari Gemini.");
           }
 
           // Untuk mencocokkan format return ke frontend
@@ -1413,7 +1421,7 @@ Kembalikan response dalam format JSON MURNI dengan struktur yang MESTI PERSIS se
           res.json({ success: true, articles: articles, analysis: analysis });
 
       } catch (error: any) { 
-          console.error("Market Intel Error:", error);
+          console.error("Market Intel API Error:", error.message);
           res.status(500).json({ error: error.message || "Gagal memproses Market Intel." }); 
       }
   });
