@@ -285,13 +285,15 @@ function Router() {
   useEffect(() => {
     const isAuth = localStorage.getItem("bilano_auth");
     
-    if (!isAuth && location !== "/auth") {
+    // Tambahkan && location !== "/terminal" di sini
+    if (!isAuth && location !== "/auth" && location !== "/terminal") {
       if (isStandalone) {
         setLocation("/auth");
       } else if (location !== "/") {
         setLocation("/auth");
       }
     }
+    // ...
 
     const handleOffline = () => setIsOffline(true);
     const handleOnline = () => setIsOffline(false);
