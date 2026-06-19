@@ -18,10 +18,9 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Se
 export default function ExpertTerminal() {
   const { toast } = useToast();
   
-  // State Autentikasi Terminal
-  // State Autentikasi Terminal (Diisolasi dari PWA biasa)
+  // State Autentikasi Terminal (Menggunakan Gembok Terminal Unlocked)
   const [isTerminalAuth, setIsTerminalAuth] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem("bilano_terminal_auth") === "true";
+    if (typeof window !== 'undefined') return localStorage.getItem("bilano_terminal_unlocked") === "true";
     return false;
   });
   const [loginEmail, setLoginEmail] = useState("");
@@ -29,8 +28,8 @@ export default function ExpertTerminal() {
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-// Mengambil email khusus sesi terminal
-  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_terminal_email") || "" : "";
+  // Mengambil email dari session key utama agar hooks use-finance tidak null
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
   // Data Hooks
   const { data: user } = useUser();
@@ -133,7 +132,7 @@ export default function ExpertTerminal() {
   const activeSymbolsForIntel = useMemo(() => {
       const tickers = new Set<string>();
       investments.forEach((inv: any) => {
-          if (inv.quantity > 0) { // Pastikan hanya aset yang belum habis terjual
+          if (inv.quantity > 0) { 
               const parts = (inv.symbol || "").split('|');
               const sym = parts[0].trim().toUpperCase();
               const curr = parts[1] || 'IDR';
@@ -163,14 +162,13 @@ export default function ExpertTerminal() {
           const res = await fetch(`/api/finance/intel`, {
               method: 'POST',
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ symbols: activeSymbolsForIntel }) // <-- HANYA MENGIRIM ASET AKTIF
+              body: JSON.stringify({ symbols: activeSymbolsForIntel }) 
           });
           if (!res.ok) throw new Error("Gagal menarik data intel.");
           return res.json();
       },
       enabled: !!currentUserEmail && isTerminalAuth && activeTab === 'intel',
       staleTime: 1000 * 60 * 15,
-      // 🚀 Mencegah reset saat pindah tab agar progres terus berjalan
       refetchOnWindowFocus: false, 
   });
 
@@ -856,6 +854,9 @@ export default function ExpertTerminal() {
      return dailyData;
   }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices]);
 
+  // =========================================================================
+  // 🛡️ REFORMASI LOGIKA LOGIN & RE-FRESH SESSION KUNCI UTAMA PWA
+  // =========================================================================
   const handleTerminalLogin = async (e: React.FormEvent) => {
       e.preventDefault();
       setLoginError("");
@@ -864,9 +865,11 @@ export default function ExpertTerminal() {
           const cleanEmail = loginEmail.trim().toLowerCase();
           await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
         
-        // Simpan ke session key khusus terminal
-          localStorage.setItem("bilano_terminal_auth", "true");
-          localStorage.setItem("bilano_terminal_email", cleanEmail);
+          // 1. Buka kunci gerbang UI Terminal
+          localStorage.setItem("bilano_terminal_unlocked", "true");
+          // 2. Pasang token & email standar PWA agar hooks internal use-finance berfungsi normal
+          localStorage.setItem("bilano_auth", "true");
+          localStorage.setItem("bilano_email", cleanEmail);
          
           window.location.reload(); 
       } catch (error: any) {
@@ -882,8 +885,10 @@ export default function ExpertTerminal() {
 
   const handleLogout = async () => {
       await signOut(auth);
-      localStorage.removeItem("bilano_terminal_auth");
-      localStorage.removeItem("bilano_terminal_email");
+      // Hapus seluruh jejak session cache saat keluar dari terminal
+      localStorage.removeItem("bilano_terminal_unlocked");
+      localStorage.removeItem("bilano_auth");
+      localStorage.removeItem("bilano_email");
       window.location.reload();
   };
 
@@ -930,6 +935,9 @@ export default function ExpertTerminal() {
     </button>
   );
 
+  // =========================================================================
+  // 🚀 INTERFACE GERBANG AUTH EXPORT TERMINAL (CYBERPUNK NEON VIEW)
+  // =========================================================================
   if (!isTerminalAuth) {
       return (
           <>
@@ -945,12 +953,11 @@ export default function ExpertTerminal() {
           `}} />
           <div className="flex h-screen bg-[#000000] terminal-grid items-center justify-center p-4 font-mono text-[#E4E4E7] relative overflow-hidden">
             
-              {/* Efek Garis Scanline Pemanis Khas Monitor CRT */}
+              {/* Efek Garis Scanline Monitor CRT */}
               <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[size:100%_4px,3px_100%] z-50"></div>
  
               <div className="bg-[#050505] border-2 border-[#27272A] p-8 max-w-md w-full shadow-[0_0_40px_rgba(0,255,65,0.05)] relative z-10 before:content-[''] before:absolute before:top-0 before:left-0 before:w-full before:h-[2px] before:bg-[#00FF41]">
                 
-                  {/* Ornamen Sudut Terminal Komersial */}
                   <div className="absolute top-2 left-2 text-[8px] text-[#333] font-bold">SYS.LOG // B_CORE_V2</div>
                   <div className="absolute top-2 right-2 text-[8px] text-[#00FF41] font-bold animate-pulse">● SECURE</div>
 
@@ -1002,7 +1009,7 @@ export default function ExpertTerminal() {
                               {loginError === 'unregistered' ? (
                                   <span>
                                       [TERMINAL_ERR]: AKUN TIDAK DIKENALI.<br/>
-                                      SILAKAN REgistrasi DI: <a href="https://bilano.app" target="_blank" rel="noopener noreferrer" className="text-white underline hover:text-[#00E5FF] transition-colors ml-1">BILANO.APP</a>
+                                      SILAKAN REGISTRASI DI: <a href="https://bilano.app" target="_blank" rel="noopener noreferrer" className="text-white underline hover:text-[#00E5FF] transition-colors ml-1">BILANO.APP</a>
                                   </span>
                               ) : (
                                   <span>[ERR_SIG]: {loginError}</span>
@@ -1037,6 +1044,9 @@ export default function ExpertTerminal() {
       );
   }
 
+  // =========================================================================
+  // 🚀 MAIN INTERFACE EXPERT TERMINAL
+  // =========================================================================
   return (
     <>
     <style dangerouslySetInnerHTML={{__html: `
@@ -1897,7 +1907,6 @@ export default function ExpertTerminal() {
                   </div>
               ) : isIntelLoading && !marketIntelData ? (
                   <div className="bg-[#0D0D0D] border border-[#222] flex flex-col items-center justify-center py-24 px-8 relative overflow-hidden">
-                      {/* Efek Garis Radar Latar Belakang */}
                       <div className="absolute top-0 left-0 w-full h-full bg-[linear-gradient(to_bottom,#FFD700_1px,transparent_1px)] bg-[size:100%_4px] opacity-[0.03] pointer-events-none"></div>
                       
                       <div className="w-full max-w-lg relative z-10 flex flex-col items-center text-center">
@@ -1910,7 +1919,6 @@ export default function ExpertTerminal() {
                               {intelStatus}
                           </p>
 
-                          {/* Kotak Estimasi Waktu */}
                           <div className="bg-[#111] border border-[#333] px-6 py-4 rounded-sm shadow-xl w-full text-left">
                               <p className="text-[#A1A1AA] text-[10px] uppercase tracking-widest leading-relaxed">
                                   ⚠️ Proses pemindaian global ini dapat memakan waktu <b className="text-[#FFD700]">sekitar 15 hingga 30 detik</b> karena sistem menarik puluhan berita paling mutakhir. Anda bisa meninggalkan tab ini sementara proses berjalan di latar belakang.
