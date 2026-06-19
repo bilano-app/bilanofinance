@@ -127,17 +127,41 @@ export default function ExpertTerminal() {
   const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, apiRange);
   const { data: simHistoryPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
 
+  // 🚀 MEMISAHKAN TICKER KHUSUS UNTUK INTEL (HANYA ASET YANG MASIH DIPEGANG)
+  const activeSymbolsForIntel = useMemo(() => {
+      const tickers = new Set<string>();
+      investments.forEach((inv: any) => {
+          if (inv.quantity > 0) { // Pastikan hanya aset yang belum habis terjual
+              const parts = (inv.symbol || "").split('|');
+              const sym = parts[0].trim().toUpperCase();
+              const curr = parts[1] || 'IDR';
+              const isIDR = curr === 'IDR';
+              const typeLower = (inv.type || 'saham').toLowerCase();
+              
+              const isStock = typeLower === 'saham' || (!inv.type && sym.length === 4);
+              const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
+              
+              const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
+              let defaultTicker = sym;
+              if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
+              
+              tickers.add(tickerOverrides[sym] || defaultTicker);
+          }
+      });
+      return Array.from(tickers);
+  }, [investments, tickerOverrides]);
+
   // =========================================================================
   // 🚀 HOOK MARKET INTEL (Mengambil data ketika tab aktif)
   // =========================================================================
   const { data: marketIntelData, isLoading: isIntelLoading, refetch: refetchIntel } = useQuery({
-      queryKey: ['marketIntel', uniqueTickersToFetch.join(',')],
+      queryKey: ['marketIntel', activeSymbolsForIntel.join(',')],
       queryFn: async () => {
-          if (uniqueTickersToFetch.length === 0) return null;
+          if (activeSymbolsForIntel.length === 0) return null;
           const res = await fetch(`/api/finance/intel`, {
               method: 'POST',
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ symbols: uniqueTickersToFetch })
+              body: JSON.stringify({ symbols: activeSymbolsForIntel }) // <-- HANYA MENGIRIM ASET AKTIF
           });
           if (!res.ok) throw new Error("Gagal menarik data intel.");
           return res.json();
