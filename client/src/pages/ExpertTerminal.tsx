@@ -19,8 +19,9 @@ export default function ExpertTerminal() {
   const { toast } = useToast();
   
   // State Autentikasi Terminal
+  // State Autentikasi Terminal (Diisolasi dari PWA biasa)
   const [isTerminalAuth, setIsTerminalAuth] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem("bilano_auth") === "true";
+    if (typeof window !== 'undefined') return localStorage.getItem("bilano_terminal_auth") === "true";
     return false;
   });
   const [loginEmail, setLoginEmail] = useState("");
@@ -28,7 +29,8 @@ export default function ExpertTerminal() {
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+// Mengambil email khusus sesi terminal
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_terminal_email") || "" : "";
 
   // Data Hooks
   const { data: user } = useUser();
@@ -861,9 +863,11 @@ export default function ExpertTerminal() {
       try {
           const cleanEmail = loginEmail.trim().toLowerCase();
           await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
-          localStorage.setItem("bilano_auth", "true");
-          localStorage.setItem("bilano_email", cleanEmail);
-          
+        
+        // Simpan ke session key khusus terminal
+          localStorage.setItem("bilano_terminal_auth", "true");
+          localStorage.setItem("bilano_terminal_email", cleanEmail);
+         
           window.location.reload(); 
       } catch (error: any) {
           if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
@@ -878,8 +882,8 @@ export default function ExpertTerminal() {
 
   const handleLogout = async () => {
       await signOut(auth);
-      localStorage.removeItem("bilano_auth");
-      localStorage.removeItem("bilano_email");
+      localStorage.removeItem("bilano_terminal_auth");
+      localStorage.removeItem("bilano_terminal_email");
       window.location.reload();
   };
 
@@ -929,60 +933,104 @@ export default function ExpertTerminal() {
   if (!isTerminalAuth) {
       return (
           <>
-          <style dangerouslySetInnerHTML={{__html: `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;700;800&display=swap');`}} />
-          <div className="flex h-screen bg-[#000000] items-center justify-center p-4 font-sans text-[#E4E4E7]">
-              <div className="bg-[#09090B] border border-[#27272A] p-10 max-w-md w-full shadow-2xl relative">
-                  <div className="text-center mb-8">
-                      <img src="/BILANO-ICON.png" alt="BILANO" className="w-16 h-16 mx-auto mb-4 object-contain drop-shadow-[0_0_8px_rgba(0,255,65,0.4)]" />
-                      <h2 className="text-2xl font-black text-white tracking-tight uppercase">EXPERT TERMINAL</h2>
-                      <p className="text-[10px] text-[#00E5FF] font-bold uppercase tracking-[0.2em] mt-1">Authorized Access Only</p>
-                  </div>
-                  
-                  <form onSubmit={handleTerminalLogin} className="space-y-6">
-                      <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Email Terdaftar</label>
-                          <input 
-                              type="email" 
-                              value={loginEmail} 
-                              onChange={e => setLoginEmail(e.target.value)} 
-                              className="w-full bg-[#000000] border border-[#27272A] px-4 py-3 text-white font-mono text-sm outline-none focus:border-[#00FF41] transition-colors" 
-                              placeholder="nama@email.com" 
-                              required 
-                          />
+          <style dangerouslySetInnerHTML={{__html: `
+              @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&family=JetBrains+Mono:wght@400;700;800&display=swap');
+              .font-mono { font-family: 'JetBrains Mono', monospace; }
+              .font-sans { font-family: 'Plus Jakarta Sans', sans-serif; }
+              .terminal-grid {
+                  background-size: 20px 20px;
+                  background-image: linear-gradient(to right, rgba(0, 255, 65, 0.02) 1px, transparent 1px),
+                                    linear-gradient(to bottom, rgba(0, 255, 65, 0.02) 1px, transparent 1px);
+              }
+          `}} />
+          <div className="flex h-screen bg-[#000000] terminal-grid items-center justify-center p-4 font-mono text-[#E4E4E7] relative overflow-hidden">
+            
+              {/* Efek Garis Scanline Pemanis Khas Monitor CRT */}
+              <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[size:100%_4px,3px_100%] z-50"></div>
+ 
+              <div className="bg-[#050505] border-2 border-[#27272A] p-8 max-w-md w-full shadow-[0_0_40px_rgba(0,255,65,0.05)] relative z-10 before:content-[''] before:absolute before:top-0 before:left-0 before:w-full before:h-[2px] before:bg-[#00FF41]">
+                
+                  {/* Ornamen Sudut Terminal Komersial */}
+                  <div className="absolute top-2 left-2 text-[8px] text-[#333] font-bold">SYS.LOG // B_CORE_V2</div>
+                  <div className="absolute top-2 right-2 text-[8px] text-[#00FF41] font-bold animate-pulse">● SECURE</div>
+
+                  <div className="text-center mb-8 pt-4">
+                      <img src="/BILANO-ICON.png" alt="BILANO" className="w-14 h-14 mx-auto mb-4 object-contain drop-shadow-[0_0_10px_rgba(0,255,65,0.5)]" />
+                      <h2 className="text-xl font-black text-white tracking-wider uppercase font-sans">BILANO EXPERT</h2>
+                      <div className="inline-block bg-[#00E5FF]/10 border border-[#00E5FF]/30 px-3 py-1 rounded-sm mt-2">
+                          <p className="text-[9px] text-[#00E5FF] font-bold uppercase tracking-[0.25em]">QUANT INSTITUTIONAL PORTAL</p>
                       </div>
+                  </div>
+                
+                  <form onSubmit={handleTerminalLogin} className="space-y-5">
                       <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Password</label>
-                          <input 
-                              type="password" 
-                              value={loginPassword} 
-                              onChange={e => setLoginPassword(e.target.value)} 
-                              className="w-full bg-[#000000] border border-[#27272A] px-4 py-3 text-white font-mono text-sm outline-none focus:border-[#00FF41] transition-colors" 
-                              placeholder="••••••••" 
-                              required 
-                          />
+                          <label className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em] flex items-center gap-1.5">
+                              <span>[01]</span> USER_IDENTIFIER (EMAIL)
+                          </label>
+                          <div className="relative">
+                              <span className="absolute left-4 top-3 text-[#333] font-bold">&gt;</span>
+                              <input 
+                                  type="email" 
+                                  value={loginEmail} 
+                                  onChange={e => setLoginEmail(e.target.value)} 
+                                  className="w-full bg-[#000000] border border-[#27272A] pl-9 pr-4 py-3 text-[#00FF41] text-sm outline-none focus:border-[#00FF41] focus:shadow-[0_0_10px_rgba(0,255,65,0.2)] transition-all rounded-sm tracking-wide" 
+                                  placeholder="name@domain.com" 
+                                  required 
+                              />
+                          </div>
+                      </div>
+
+                      <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em] flex items-center gap-1.5">
+                              <span>[02]</span> ACCESS_CRYPTOGRAPH (PASSWORD)
+                          </label>
+                          <div className="relative">
+                              <span className="absolute left-4 top-3 text-[#333] font-bold">#</span>
+                              <input 
+                                  type="password" 
+                                  value={loginPassword} 
+                                  onChange={e => setLoginPassword(e.target.value)} 
+                                  className="w-full bg-[#000000] border border-[#27272A] pl-9 pr-4 py-3 text-[#00FF41] text-sm outline-none focus:border-[#00FF41] focus:shadow-[0_0_10px_rgba(0,255,65,0.2)] transition-all rounded-sm tracking-wide" 
+                                  placeholder="••••••••" 
+                                  required 
+                              />
+                          </div>
                       </div>
 
                       {loginError && (
-                          <div className="bg-[#FF003C]/10 border border-[#FF003C]/30 p-4 text-[11px] font-medium text-[#FF003C] leading-relaxed text-center uppercase tracking-wider">
+                          <div className="bg-[#FF003C]/5 border border-[#FF003C]/40 p-4 text-[10px] font-bold text-[#FF003C] leading-relaxed text-center uppercase tracking-wider bg-black">
                               {loginError === 'unregistered' ? (
                                   <span>
-                                      Akses Ditolak.<br/>
-                                      <a href="https://bilano.app" target="_blank" rel="noopener noreferrer" className="text-white font-bold underline hover:text-[#00FF41] transition-colors">Daftar di Bilano.app</a>
+                                      [TERMINAL_ERR]: AKUN TIDAK DIKENALI.<br/>
+                                      SILAKAN REgistrasi DI: <a href="https://bilano.app" target="_blank" rel="noopener noreferrer" className="text-white underline hover:text-[#00E5FF] transition-colors ml-1">BILANO.APP</a>
                                   </span>
                               ) : (
-                                  <span>{loginError}</span>
+                                  <span>[ERR_SIG]: {loginError}</span>
                               )}
                           </div>
                       )}
-
+  
                       <button 
                           disabled={isLoggingIn} 
                           type="submit" 
-                          className="w-full mt-4 bg-[#00FF41] hover:bg-[#00CC33] text-black font-black uppercase tracking-[0.15em] py-4 transition-all active:scale-95 flex items-center justify-center gap-2"
+                          className="w-full mt-2 bg-[#00FF41] hover:bg-[#00CC33] disabled:bg-[#111] disabled:text-[#333] text-black font-black uppercase tracking-[0.2em] text-xs py-4 transition-all active:scale-[0.98] flex items-center justify-center gap-2 rounded-sm border border-[#00FF41]/50 shadow-[0_0_15px_rgba(0,255,65,0.2)]"
                       >
-                          {isLoggingIn ? <Orbit className="w-5 h-5 animate-spin" /> : "MASUK TERMINAL"}
+                          {isLoggingIn ? (
+                              <>
+                                  <Orbit className="w-4 h-4 animate-spin text-black" />
+                                  <span>DECRYPTING SESSIONS...</span>
+                              </>
+                          ) : (
+                              "INITIALIZE TERMINAL"
+                          )}
                       </button>
                   </form>
+
+                  <div className="mt-6 border-t border-[#1a1a1a] pt-4 text-center">
+                      <p className="text-[8px] text-[#555] uppercase tracking-widest">
+                          SECURE SHELL // END-TO-END ENCRYPTED QUANT FEED
+                      </p>
+                  </div>
               </div>
           </div>
           </>
