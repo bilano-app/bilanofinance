@@ -277,6 +277,35 @@ export default function Landing() {
             </div>
           </section>
 
+          {/* 🔥 4. SECTION HARGA & CHECKOUT (SYARAT DUITKU) */}
+          <section className="w-full max-w-4xl mx-auto mt-12 animate-in slide-in-from-bottom-10 fade-in duration-700">
+            <div className="bg-gradient-to-br from-[#121c3a] to-[#080d20] border border-amber-500/30 p-8 rounded-[32px] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
+              {/* Dekorasi Background */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-[80px] pointer-events-none"></div>
+              
+              <div className="flex-1 z-10 text-center md:text-left">
+                <h3 className="text-2xl lg:text-3xl font-black text-white mb-2">
+                  Akses Penuh <span className="text-amber-400">BILANO</span>
+                </h3>
+                <p className="text-slate-400 text-sm md:text-base leading-relaxed mb-4">
+                  Dapatkan seluruh fitur pelacakan brutal, konsultasi AI, dan laporan PDF tanpa batas. Lisensi seumur hidup, tanpa biaya bulanan terselubung.
+                </p>
+                <div className="text-4xl font-black text-white tracking-tight">
+                  Rp 99.000 <span className="text-sm text-slate-500 font-medium tracking-normal">/ selamanya</span>
+                </div>
+              </div>
+
+              <div className="w-full md:w-auto z-10">
+                <button
+                  onClick={() => setLocation('/checkout')} 
+                  className="w-full md:w-auto bg-amber-500 hover:bg-amber-400 text-[#0a1128] font-black text-[1.1rem] py-4 px-8 rounded-full shadow-[0_10px_30px_rgba(251,191,36,0.3)] transition-all flex items-center justify-center gap-2"
+                >
+                  Beli Sekarang
+                </button>
+              </div>
+            </div>
+          </section>
+
         </main>
 
         {/* 🟡 STICKY TOMBOL HP */}
@@ -290,9 +319,28 @@ export default function Landing() {
           </button>
         </div>
 
-        <footer className="mt-auto pb-10 pt-10 text-center relative z-10 border-t border-white/5 w-full">
-            <img src="/Bilano_horiz_rbg.png" alt="Bilano" className="h-5 mx-auto mb-4 opacity-50 grayscale mix-blend-screen" />
-            <p className="text-[10px] md:text-xs text-slate-600 mt-1 font-medium">© {new Date().getFullYear()} Bilano Official</p>
+        {/* 🔥 FOOTER & KONTAK SUPPORT (SYARAT DUITKU) */}
+        <footer className="mt-16 pb-10 pt-10 px-6 w-full max-w-7xl mx-auto border-t border-white/10 relative z-10 flex flex-col md:flex-row justify-between items-center md:items-start gap-8">
+          <div className="flex flex-col items-center md:items-start text-center md:text-left">
+            <img src="/Bilano_horiz_rbg.png" alt="Bilano" className="h-6 mb-4 opacity-80" />
+            <p className="text-slate-400 text-xs max-w-xs leading-relaxed">
+              Aplikasi personal finance untuk tracking brutal dan menyelamatkan masa depan finansial Anda.
+            </p>
+          </div>
+
+          <div className="flex flex-col items-center md:items-end text-center md:text-right">
+            <h4 className="text-white font-bold text-sm mb-3">Layanan Pelanggan (Support)</h4>
+            <p className="text-slate-400 text-xs mb-1">
+              <span className="font-semibold text-slate-300">Email:</span> bilanotech@gmail.com
+            </p>
+            <p className="text-slate-400 text-xs mb-1">
+              <span className="font-semibold text-slate-300">Telepon/WA:</span> +6289688113210
+            </p>
+            <p className="text-slate-400 text-xs max-w-[250px] mt-2 leading-relaxed">
+              <span className="font-semibold text-slate-300">Alamat Usaha:</span><br/>
+              Jl. [Nama Jalan/Kelurahan], RT.XX/RW.XX, [Kecamatan], Jakarta [Timur/Selatan/dll], 12345
+            </p>
+          </div>
         </footer>
 
       </div>
