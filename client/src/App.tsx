@@ -27,7 +27,7 @@ const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : (input as Request).url;
   const method = init.method ? init.method.toUpperCase() : 'GET';
-  const email = localStorage.getItem("bilano_email");
+  const email = localStorage.getItem("bilano_terminal_email") || localStorage.getItem("bilano_email");
 
   const newHeaders = new Headers(init.headers);
   if (email && url.includes('/api')) {
@@ -64,7 +64,7 @@ XMLHttpRequest.prototype.open = function(method: string, url: string, ...args: a
 // @ts-ignore
 XMLHttpRequest.prototype.send = function(...args: any[]) {
     if ((this as any)._url && typeof (this as any)._url === 'string' && (this as any)._url.includes('/api')) {
-        const email = localStorage.getItem("bilano_email");
+        const email = localStorage.getItem("bilano_terminal_email") || localStorage.getItem("bilano_email");
         if (email) {
             this.setRequestHeader('x-user-email', email);
         }
@@ -231,7 +231,7 @@ function Router() {
   }, []);
 
   const { data: user } = useUser();
-  const currentUserEmail = localStorage.getItem("bilano_email") || "";
+  const currentUserEmail = localStorage.getItem("bilano_terminal_email") || localStorage.getItem("bilano_email") || "";
 
   useEffect(() => {
       const vipEmails = [
