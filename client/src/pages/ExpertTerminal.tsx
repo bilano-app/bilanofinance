@@ -483,7 +483,7 @@ export default function ExpertTerminal() {
       const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
       const symbol = match ? match[1].toUpperCase().trim() : 'Unknown';
       
-      const sellPriceMatch = t.description?.match(/@\s*(?:?:Rp|USD|US\$)\s*)?([0-9.,]+)/i);
+      const sellPriceMatch = t.description?.match(/@\s*(?:Rp|USD|US\$)?\s*([0-9.,]+)/i);
       const sellPriceRaw = sellPriceMatch ? parseFloat(sellPriceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
 
       const isUSD = t.description?.includes('USD') || t.description?.includes('US$');
