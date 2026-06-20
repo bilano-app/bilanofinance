@@ -175,7 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await ensureOtpTable();
 
           try {
-              const existing = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE LOWER(TRIM(email)) = ${cleanEmail}`);
+              const result = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE LOWER(TRIM(email)) = ${cleanEmail}`);
               const rows = Array.isArray(result) ? result : (result as any).rows || [];
               if (rows.length > 0) {
                   const createdAt = new Date(rows[0].created_at).getTime();
@@ -203,6 +203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // 🚀 PERBAIKAN: UNDO LOGIC DIPERKUAT (TANPA BATAS & MELIPUTI SELURUH APLIKASI)
   app.post("/api/transactions/undo", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -214,6 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const isValas = lastTx.category?.includes('Valas');
 
+          // Kembalikan Rupiah Kas
           if (!isValas) {
               if (lastTx.type === 'income') newBalance -= amt;
               else if (lastTx.type === 'expense') newBalance += amt;
@@ -228,6 +230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           else if (lastTx.type === 'forex_buy') newBalance += amt;
           else if (lastTx.type === 'forex_sell') newBalance -= amt;
 
+          // Kembalikan Aset Valas
           if (lastTx.type === 'forex_buy' || lastTx.type === 'forex_sell') {
               const desc = lastTx.description || "";
               const match = desc.match(/(Beli|Jual)\s+([0-9.]+)\s+([A-Z]{3})/i);
@@ -238,10 +241,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   if (existing) {
                       const reverseQty = (lastTx.type === 'forex_buy') ? (existing.amount - qty) : (existing.amount + qty);
                       await storage.updateForexAsset(existing.id, Math.max(0, reverseQty));
+                  } else if (lastTx.type === 'forex_sell') {
+                      await storage.createForexAsset(user!.id, { currency: curr, amount: qty } as any);
                   }
               }
           }
 
+          // Kembalikan Aset Investasi (Beli & Jual)
           if (lastTx.type === 'invest_buy') {
               const desc = lastTx.description || "";
               const match = desc.match(/([0-9.]+)\s+lot\/unit\s+([A-Z0-9]+)/i);
@@ -253,6 +259,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       const newQty = inv.quantity - qty;
                       if (newQty <= 0) await storage.deleteInvestment(inv.id);
                       else await storage.updateInvestment(inv.id, newQty, inv.avgPrice);
+                  }
+              }
+          } else if (lastTx.type === 'invest_sell') {
+              const desc = lastTx.description || "";
+              const match = desc.match(/([0-9.]+)\s+lot\/unit\s+([A-Z0-9|]+)/i);
+              if (match) {
+                  const qty = parseFloat(match[1]);
+                  const symbol = match[2].toUpperCase();
+                  const inv = await storage.getInvestmentBySymbol(user!.id, symbol);
+                  if (inv) {
+                      await storage.updateInvestment(inv.id, inv.quantity + qty, inv.avgPrice);
+                  } else {
+                      const priceMatch = desc.match(/@ Rp ([0-9.]+)/i);
+                      const price = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '')) : 0;
+                      await storage.createInvestment(user!.id, { userId: user!.id, symbol: symbol, quantity: qty, avgPrice: price, type: 'saham' } as any);
                   }
               }
           }
@@ -1343,7 +1364,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const cleanedSymbols = symbols.map((s: string) => s.replace('.JK', '').toUpperCase());
 
-          // Mendapatkan tanggal hari ini secara otomatis di server
           const todayDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
           const prompt = `Kamu adalah analis intelijen pasar global untuk terminal trading institusional.

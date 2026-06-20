@@ -380,34 +380,6 @@ export default function Reports() {
       return archives.reverse(); 
   };
 
-  const drawLineChart = (doc: jsPDF, title: string, chartData: any[], startY: number, lineColor: number[]) => {
-      const chartHeight = 35; const chartWidth = 170; const startX = 20;
-      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold"); doc.text(title, startX, startY - 3);
-
-      let maxVal = Math.max(...chartData.map(d => d.value), 0);
-      let minVal = Math.min(...chartData.map(d => d.value), 0);
-      if (maxVal > 0) maxVal = maxVal * 1.3; 
-      if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
-      let range = maxVal - minVal; if (range === 0) range = 1;
-
-      const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
-      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY);
-
-      const pointGap = chartWidth / Math.max(1, chartData.length - 1); 
-      doc.setDrawColor(lineColor[0], lineColor[1], lineColor[2]); doc.setFillColor(lineColor[0], lineColor[1], lineColor[2]); doc.setLineWidth(0.8);
-
-      let prevX = -1, prevY = -1;
-      chartData.forEach((item, i) => {
-          const x = startX + (i * pointGap); const valH = ((item.value - minVal) / range) * chartHeight; const y = startY + chartHeight - valH;
-          if (prevX !== -1) doc.line(prevX, prevY, x, y); 
-          doc.circle(x, y, 1.2, 'FD');
-          doc.setFontSize(5); doc.setTextColor(lineColor[0], lineColor[1], lineColor[2]); doc.setFont("helvetica", "bold"); doc.text(formatRpPendek(item.value), x, y - 2.5, { align: 'center' });
-          doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal"); doc.text(item.label, x, startY + chartHeight + 6, { align: 'center' });
-          prevX = x; prevY = y;
-      });
-      return startY + chartHeight + 15;
-  };
-
   const drawLollipopChart = (doc: jsPDF, title: string, chartData: any[], startY: number, color: number[]) => {
       const chartHeight = 35; const chartWidth = 170; const startX = 20;
       doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold"); doc.text(title, startX, startY - 3);
@@ -450,7 +422,7 @@ export default function Reports() {
 
       chartData.forEach((item, i) => {
           const x = startX + (i * (barWidth + barGap)) + barGap / 2; const valH = (Math.abs(item.value) / range) * chartHeight; const barY = item.value >= 0 ? zeroY - valH : zeroY;
-          if (title.includes("Arus Kas")) doc.setFillColor(item.value >= 0 ? 16 : 244, item.value >= 0 ? 185 : 63, item.value >= 0 ? 129 : 94);
+          if (title.includes("Arus Kas")) doc.setFillColor(item.value >= 0 ? 15 : 220, item.value >= 0 ? 23 : 38, item.value >= 0 ? 42 : 38);
           else doc.setFillColor(barColor[0], barColor[1], barColor[2]);
           doc.rect(x, barY, barWidth, valH, 'F');
           doc.setFontSize(5); doc.setTextColor(80, 80, 80); doc.setFont("helvetica", "bold"); doc.text(formatRpPendek(item.value), x + (barWidth / 2), item.value >= 0 ? barY - 2 : barY + valH + 3, { align: 'center' });
@@ -539,9 +511,9 @@ export default function Reports() {
 
             try {
                 if (logoBase64) doc.addImage(logoBase64, 'PNG', 14, 10, 35, 12);
-                else { doc.setTextColor(79, 70, 229); doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("BILANO", 14, 20); }
+                else { doc.setTextColor(30, 58, 138); doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("BILANO", 14, 20); }
             } catch (e) {
-                doc.setTextColor(79, 70, 229); doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("BILANO", 14, 20);
+                doc.setTextColor(30, 58, 138); doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("BILANO", 14, 20);
             }
 
             doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
@@ -549,7 +521,7 @@ export default function Reports() {
             doc.text(`Dicetak Oleh: ${user.firstName || 'Pengguna'} ${user.lastName || ''}`, 196, 19, { align: 'right' });
 
             doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.5); doc.line(14, 26, 196, 26);
-            doc.setFillColor(79, 70, 229); doc.rect(14, 32, 182, 14, 'F');
+            doc.setFillColor(15, 23, 42); doc.rect(14, 32, 182, 14, 'F');
             doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(14);
             doc.text(isYearly ? "ANNUAL WEALTH MANAGEMENT REPORT" : "WEALTH MANAGEMENT REPORT", 20, 41);
 
@@ -557,13 +529,13 @@ export default function Reports() {
             const checkPageBreak = (neededSpace: number) => { if (currentY + neededSpace > 280) { doc.addPage(); currentY = 20; } };
 
             doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.text("TOTAL KEKAYAAN BERSIH (NET WORTH)", 14, 60);
-            doc.setTextColor(16, 185, 129); doc.setFontSize(26); doc.text(formatRp(snapData.archiveNetWorth), 14, 70);
+            doc.setTextColor(30, 58, 138); doc.setFontSize(26); doc.text(formatRp(snapData.archiveNetWorth), 14, 70);
             doc.setDrawColor(226, 232, 240); doc.line(14, 78, 196, 78);
             
             doc.setTextColor(50, 50, 50); doc.setFontSize(10); doc.setFont("helvetica", "bold");
             doc.text(`Ringkasan Arus Kas Murni (${periodName})`, 14, 88);
-            doc.setFont("helvetica", "normal"); doc.setTextColor(16, 185, 129); doc.text(`Pemasukan: + ${formatRp(snapData.totalIncome)}`, 14, 95);
-            doc.setTextColor(244, 63, 94); doc.text(`Pengeluaran: - ${formatRp(snapData.totalExpense)}`, 80, 95);
+            doc.setFont("helvetica", "normal"); doc.setTextColor(51, 65, 85); doc.text(`Pemasukan: + ${formatRp(snapData.totalIncome)}`, 14, 95);
+            doc.setTextColor(220, 38, 38); doc.text(`Pengeluaran: - ${formatRp(snapData.totalExpense)}`, 80, 95);
 
             if (!isYearly && targetData && targetData.targetAmount > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Performa Pencapaian Target", 14, currentY);
@@ -573,11 +545,11 @@ export default function Reports() {
                 doc.text(`Target Impian: ${formatRp(targetData.targetAmount)}`, 14, currentY + 6);
                 doc.text(`Terkumpul saat ini: ${formatRp(snapData.archiveNetWorth)} (${progress.toFixed(1)}%)`, 14, currentY + 11);
                 
-                if (sisa > 0) { doc.setTextColor(244, 63, 94); doc.text(`Kekurangan: ${formatRp(sisa)}`, 14, currentY + 16); } 
-                else { doc.setTextColor(16, 185, 129); doc.setFont("helvetica", "bold"); doc.text(`Tercapai! Anda berhasil mencapai target.`, 14, currentY + 16); }
+                if (sisa > 0) { doc.setTextColor(220, 38, 38); doc.text(`Kekurangan: ${formatRp(sisa)}`, 14, currentY + 16); } 
+                else { doc.setTextColor(51, 65, 85); doc.setFont("helvetica", "bold"); doc.text(`Tercapai! Anda berhasil mencapai target.`, 14, currentY + 16); }
 
                 doc.setFillColor(226, 232, 240); doc.roundedRect(14, currentY + 20, 182, 4, 2, 2, 'F');
-                if (progress > 0) { doc.setFillColor(16, 185, 129); doc.roundedRect(14, currentY + 20, (progress / 100) * 182, 4, 2, 2, 'F'); }
+                if (progress > 0) { doc.setFillColor(30, 58, 138); doc.roundedRect(14, currentY + 20, (progress / 100) * 182, 4, 2, 2, 'F'); }
                 currentY += 32; 
             }
 
@@ -593,42 +565,42 @@ export default function Reports() {
                 ["Piutang Aktif (Uang di Pihak Lain)", formatRp(snapData.archivePiutang)],
                 ["Hutang (Kewajiban)", `(${formatRp(snapData.archiveDebt)})`]
               ],
-              theme: 'grid', headStyles: { fillColor: [79, 70, 229], fontSize: 10 }, columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }, alternateRowStyles: { fillColor: [248, 250, 252] },
+              theme: 'grid', headStyles: { fillColor: [15, 23, 42], fontSize: 10 }, columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }, alternateRowStyles: { fillColor: [248, 250, 252] },
             });
             currentY = (doc as any).lastAutoTable.finalY + 15;
 
             if (snapData.forexRows && snapData.forexRows.length > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Detail Kepemilikan Valas (Berdasarkan Kurs Live)", 14, currentY);
                 const formattedForex = snapData.forexRows.map((r:any) => [r[0], r[1], formatRp(r[2]), formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 5, head: [['Mata Uang', 'Jumlah Kepemilikan', 'Kurs Saat Ini', 'Estimasi Nilai IDR']], body: formattedForex, theme: 'striped', headStyles: { fillColor: [14, 165, 233] }, columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' } } });
+                autoTable(doc, { startY: currentY + 5, head: [['Mata Uang', 'Jumlah Kepemilikan', 'Kurs Saat Ini', 'Estimasi Nilai IDR']], body: formattedForex, theme: 'striped', headStyles: { fillColor: [30, 58, 138] }, columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' } } });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
             if (snapData.invRows && snapData.invRows.length > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text(`Detail Kepemilikan Investasi`, 14, currentY);
                 const formattedInv = snapData.invRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 5, head: [['Tanggal Masuk', 'Tindakan', 'Detail Aset', 'Total Nilai (IDR)']], body: formattedInv, theme: 'grid', headStyles: { fillColor: [16, 185, 129] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } } });
+                autoTable(doc, { startY: currentY + 5, head: [['Tanggal Masuk', 'Tindakan', 'Detail Aset', 'Total Nilai (IDR)']], body: formattedInv, theme: 'grid', headStyles: { fillColor: [51, 65, 85] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } } });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
             if (snapData.invTxRows && snapData.invTxRows.length > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text(`Riwayat Transaksi Investasi (${periodName})`, 14, currentY);
                 const formattedInvTx = snapData.invTxRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Tindakan', 'Detail Aset (Volume & Harga/Unit)', 'Total Nilai (IDR)']], body: formattedInvTx, theme: 'grid', headStyles: { fillColor: [16, 185, 129] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } }, didParseCell: function(data) { if (data.section === 'body' && data.column.index === 2 && typeof data.cell.raw === 'string') { if (data.cell.raw.includes('(P/L: +')) { data.cell.styles.textColor = [16, 185, 129]; } else if (data.cell.raw.includes('(P/L: -')) { data.cell.styles.textColor = [244, 63, 94]; } } } });
+                autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Tindakan', 'Detail Aset (Volume & Harga/Unit)', 'Total Nilai (IDR)']], body: formattedInvTx, theme: 'grid', headStyles: { fillColor: [51, 65, 85] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } }, didParseCell: function(data) { if (data.section === 'body' && data.column.index === 2 && typeof data.cell.raw === 'string') { if (data.cell.raw.includes('(P/L: +')) { data.cell.styles.textColor = [30, 58, 138]; } else if (data.cell.raw.includes('(P/L: -')) { data.cell.styles.textColor = [220, 38, 38]; } } } });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
             if (snapData.debtRows && snapData.debtRows.length > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Daftar Rincian Hutang & Piutang Berjalan", 14, currentY);
                 const formattedDebt = snapData.debtRows.map((r:any) => [r[0], r[1], r[2] !== 'IDR' ? `${r[2]} (Sisa: ${formatRp(r[3])})` : formatRp(r[3]), r[4] ? new Date(r[4]).toLocaleDateString('id-ID') : 'Tanpa Tenggat', 'Belum Lunas']);
-                autoTable(doc, { startY: currentY + 5, head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']], body: formattedDebt, theme: 'grid', headStyles: { fillColor: [236, 72, 153] }, columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } } });
+                autoTable(doc, { startY: currentY + 5, head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']], body: formattedDebt, theme: 'grid', headStyles: { fillColor: [71, 85, 105] }, columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } } });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
             if (snapData.amalRows && snapData.amalRows.length > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text(`Catatan Amal & Sedekah (${periodName})`, 14, currentY);
                 const formattedAmal = snapData.amalRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Tipe', 'Tujuan / Catatan', 'Nominal']], body: formattedAmal, theme: 'grid', headStyles: { fillColor: [16, 185, 129] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold', textColor: [16, 185, 129] }, 3: { halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] } } });
+                autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Tipe', 'Tujuan / Catatan', 'Nominal']], body: formattedAmal, theme: 'grid', headStyles: { fillColor: [51, 65, 85] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold', textColor: [51, 65, 85] }, 3: { halign: 'right', fontStyle: 'bold', textColor: [51, 65, 85] } } });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
@@ -638,7 +610,7 @@ export default function Reports() {
             if (formattedTx.length === 0) {
                 doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(150, 150, 150); doc.text("Tidak ada catatan pengeluaran/pemasukan murni di periode ini.", 14, currentY + 10); currentY += 20;
             } else {
-                autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Arus', 'Kategori', 'Catatan', 'Nominal']], body: formattedTx, theme: 'grid', headStyles: { fillColor: [249, 115, 22] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } }, didParseCell: function (data) { if (data.section === 'body' && data.column.index === 1) { if (data.cell.raw === 'Masuk') data.cell.styles.textColor = [16, 185, 129]; if (data.cell.raw === 'Keluar') data.cell.styles.textColor = [244, 63, 94]; } } });
+                autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Arus', 'Kategori', 'Catatan', 'Nominal']], body: formattedTx, theme: 'grid', headStyles: { fillColor: [15, 23, 42] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } }, didParseCell: function (data) { if (data.section === 'body' && data.column.index === 1) { if (data.cell.raw === 'Masuk') data.cell.styles.textColor = [51, 65, 85]; if (data.cell.raw === 'Keluar') data.cell.styles.textColor = [220, 38, 38]; } } });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
@@ -655,19 +627,13 @@ export default function Reports() {
             }
 
             if (snapData.totalPemutihanGain > 0) {
-                doc.setFillColor(209, 250, 229); doc.setDrawColor(52, 211, 153); doc.rect(14, graphY, 182, 22, 'FD');
-                doc.setTextColor(5, 150, 105); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Pencatatan Keuntungan (Pemutihan Hutang)", 18, graphY + 7);
-                doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(6, 95, 70); doc.text(`Total Hutang Diputihkan / Dibebaskan: ${formatRp(snapData.totalPemutihanGain)}`, 18, graphY + 13);
+                doc.setFillColor(241, 245, 249); doc.setDrawColor(148, 163, 184); doc.rect(14, graphY, 182, 22, 'FD');
+                doc.setTextColor(30, 58, 138); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Pencatatan Keuntungan (Pemutihan Hutang)", 18, graphY + 7);
+                doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(51, 65, 85); doc.text(`Total Hutang Diputihkan / Dibebaskan: ${formatRp(snapData.totalPemutihanGain)}`, 18, graphY + 13);
                 doc.setFontSize(8); doc.text("*Nilai ini telah ditambahkan ke Net Worth sebagai keuntungan pembebasan hutang (Non-Kas).", 18, graphY + 18);
                 graphY += 35;
             }
 
-            const chartAsset = paddedData.map((d:any) => {
-                const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, ''); 
-                const override = localStorage.getItem(`override_asset_${cleanLabel}`);
-                return { label: d.label, value: override ? parseFloat(override) : d.asset };
-            });
-            
             const pdfUserEmail = data.user?.email || localStorage.getItem("bilano_email") || "";
             
             const chartCash = paddedData.map((d:any) => {
@@ -681,9 +647,8 @@ export default function Reports() {
             
             const chartNetFlow = paddedData.map((d:any) => ({ label: d.label, value: d.netFlow || 0 }));
 
-            graphY = drawLineChart(doc, "1. Grafik Kekayaan Bersih (Line Chart) - Akumulasi", chartAsset, graphY, [79, 70, 229]); graphY += 10;
-            graphY = drawLollipopChart(doc, "2. Grafik Kas Tunai (Lollipop Chart) - Akumulasi", chartCash, graphY, [14, 165, 233]); graphY += 10;
-            drawBarChart(doc, isYearly ? `3. Arus Kas Bersih Tahunan (Bar Chart)` : "3. Arus Kas Bersih Bulanan (Bar Chart)", chartNetFlow, graphY, [16, 185, 129]);
+            graphY = drawLollipopChart(doc, "1. Grafik Kas Tunai (Lollipop Chart) - Akumulasi", chartCash, graphY, [30, 58, 138]); graphY += 10;
+            drawBarChart(doc, isYearly ? `2. Arus Kas Bersih Tahunan (Bar Chart)` : "2. Arus Kas Bersih Bulanan (Bar Chart)", chartNetFlow, graphY, [30, 58, 138]);
 
             for (let i = 1; i <= (doc as any).internal.getNumberOfPages(); i++) {
                 doc.setPage(i); doc.setFontSize(8); doc.setTextColor(150, 150, 150); doc.setFont("helvetica", "italic");

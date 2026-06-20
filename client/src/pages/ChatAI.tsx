@@ -3,10 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { Send, Bot, User, Loader2, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { 
-    useUser, useTransactions, useForexAssets, 
-    useInvestments, useTarget 
-} from "@/hooks/use-finance"; 
+import { useUser } from "@/hooks/use-finance"; 
 
 interface Message {
     id: number;
@@ -17,10 +14,6 @@ interface Message {
 
 export default function ChatAI() {
     const { data: user, isLoading: isUserLoading } = useUser();
-    const { data: transactions } = useTransactions();
-    const { data: forexAssets } = useForexAssets();
-    const { data: investments } = useInvestments();
-    const { data: target } = useTarget();
 
     const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     
@@ -93,7 +86,8 @@ export default function ChatAI() {
             time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
         };
 
-        setMessages(prev => [...prev, userMsg]);
+        const currentMessages = [...messages, userMsg];
+        setMessages(currentMessages);
         setInputText("");
         setIsTyping(true);
 
@@ -103,42 +97,11 @@ export default function ChatAI() {
             if (currentUserEmail) localStorage.setItem(`bilano_chat_usage_${currentUserEmail}`, newCount.toString());
         }
 
-        const totalCash = user?.cashBalance || 0;
-        const txSummary = transactions?.slice(0, 10).map(t => `${new Date(t.date).toISOString().split('T')[0]} - ${t.type} - ${t.category}: Rp${t.amount}`).join(" | ") || "Belum ada transaksi";
-        const forexSummary = forexAssets?.map(f => `${f.amount} ${f.currency}`).join(", ") || "Tidak ada valas";
-        const investSummary = investments?.map(i => `${i.quantity} ${i.symbol}`).join(", ") || "Tidak ada investasi";
-        const targetSummary = target ? `Target: Rp${target.targetAmount}, Limit Keluar: Rp${target.monthlyBudget} (${target.budgetType})` : "Tidak ada target";
-
-        // 🚀 FIX: DOKTRIN LOGIKA AKUNTANSI DIMASUKKAN!
-        const bilanoKnowledgeBase = `
-        [PANDUAN LOGIKA KEUANGAN BILANO - WAJIB PATUH 1000%]
-        1. KAS vs KEKAYAAN BERSIH: 
-           - "Saldo Kas" = Uang tunai riil (IDR) yang likuid.
-           - "Kekayaan Bersih" = Kas + Valas + Investasi + Piutang - Hutang.
-        2. LOGIKA PIUTANG (Write-off): 
-           - Piutang itu BUKAN Kas. 
-           - Jika pengguna mengikhlaskan (write-off) piutang, Saldo Kas TETAP (TIDAK BERKURANG). Yang berkurang adalah Kekayaan Bersih (karena dicatat sebagai kerugian/Beban Penghapusan Piutang).
-        3. LOGIKA VALAS/INVESTASI:
-           - Naik turunnya harga aset Valas/Saham di pasar TIDAK mengubah Kas, hanya mengubah Kekayaan Bersih. Kas hanya berubah jika aset dijual (Kas naik) atau dibeli (Kas turun).
-        `;
-
-        const systemContext = `[ATURAN MUTLAK SISTEM AI]
-        Kamu adalah BILANO Intelligence, konsultan keuangan elit.
-        
-        PERATURAN SIKAP:
-        1. FOKUS 100% pada analisis keuangan, strategi finansial, evaluasi kelayakan belanja, dan kesehatan dompet user.
-        2. DILARANG KERAS MENGGURU MENGENAI CARA PAKAI APLIKASI KECUALI DITANYA SECARA EKSPLISIT.
-
-        ${bilanoKnowledgeBase}
-
-        DATA RINGKAS USER: 
-        - Kas Tunai IDR: Rp ${totalCash.toLocaleString('id-ID')}
-        - Valas: ${forexSummary}
-        - Investasi: ${investSummary}
-        - Target: ${targetSummary}
-        - History Tx Terakhir: ${txSummary}
-
-        Pertanyaan User: ${userMsg.text}`;
+        // 🚀 MENGIRIM HISTORY CHAT KE BACKEND AGAR AI INGAT KONTEKS
+        const historyToSend = currentMessages.slice(-6).map(m => ({
+            role: m.sender,
+            text: m.text
+        }));
 
         try {
             const res = await fetch("/api/chat/ask", {
@@ -147,7 +110,7 @@ export default function ChatAI() {
                     "Content-Type": "application/json",
                     "x-user-email": currentUserEmail
                 },
-                body: JSON.stringify({ message: systemContext }) 
+                body: JSON.stringify({ message: inputText, history: historyToSend }) 
             });
 
             if (!res.ok) throw new Error("Server Error");

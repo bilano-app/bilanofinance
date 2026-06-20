@@ -12,7 +12,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
-  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass 
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, Target as TargetIcon 
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -55,6 +55,7 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileZoomed, setIsProfileZoomed] = useState(false);
   const [showTargetModal, setShowTargetModal] = useState(false); 
+  const [pendingFeatureModal, setPendingFeatureModal] = useState<{title: string, desc: string} | null>(null);
 
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -197,9 +198,14 @@ export default function Home() {
       try {
           await undoTx.mutateAsync();
           toast({ title: "Berhasil!", description: "Transaksi terakhir telah dibatalkan." });
+          window.location.reload(); 
       } catch (e: any) {
           toast({ title: "Gagal Undo", description: e.message, variant: "destructive" });
       }
+  };
+
+  const handleRefresh = () => {
+      window.location.reload();
   };
 
   const userEmail = rawEmail || "Pengguna";
@@ -284,7 +290,6 @@ export default function Home() {
 
   const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
 
-  // Alur Tol Satu Arah: Hanya mengarahkan ke pembuatan target jika data kosong
   useEffect(() => {
       if (!isUserLoading && !isTargetLoading && target !== undefined) {
           if (isTargetEmpty) {
@@ -504,6 +509,31 @@ export default function Home() {
 
   return (
     <MobileLayout>
+      {/* POPUP PENDING FEATURES */}
+      {pendingFeatureModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-indigo-500/30">
+                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+                  
+                  <button onClick={() => setPendingFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
+                  
+                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10 animate-bounce">
+                      <Rocket className="w-10 h-10 text-amber-950"/>
+                  </div>
+                  
+                  <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Segera Hadir! 🚀</h2>
+                  <p className="text-sm text-indigo-200 mb-6 leading-relaxed px-2 font-medium">
+                      Fitur <b className="text-amber-400">{pendingFeatureModal.title}</b> saat ini sedang dalam perakitan tahap akhir oleh tim kami. <br/><br/>
+                      {pendingFeatureModal.desc}
+                  </p>
+                  
+                  <Button onClick={() => setPendingFeatureModal(null)} className="w-full h-14 bg-white hover:bg-slate-100 text-indigo-950 rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
+                      <CheckCircle2 className="w-5 h-5"/> SAYA MENGERTI
+                  </Button>
+              </div>
+          </div>
+      )}
+
       <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
           {showGuideTooltip && (
               <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-slate-900 p-4 rounded-[20px] shadow-[6px_6px_0px_#0f172a] animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
@@ -699,6 +729,14 @@ export default function Home() {
 
             <div className="flex items-center gap-2">
                 <button 
+                    onClick={handleRefresh}
+                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-indigo-500 hover:text-indigo-700 active:scale-90 transition-all"
+                    title="Refresh Aplikasi"
+                >
+                    <RefreshCcw className="w-5 h-5"/>
+                </button>
+
+                <button 
                     onClick={handleUndo}
                     disabled={undoTx.isPending}
                     className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all"
@@ -753,6 +791,30 @@ export default function Home() {
            <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
            <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
            <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
+        </div>
+
+        {/* 🚀 BOX BARU: STRATEGI PEMASUKAN */}
+        <div className="px-1 mt-[-10px]">
+            <div 
+                onClick={() => setPendingFeatureModal({ title: "Strategi Pemasukan", desc: "AI BILANO akan segera dapat menganalisis data keuanganmu untuk memberikan rekomendasi konkrit cara meningkatkan penghasilan secara cerdas." })}
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-[24px] p-5 shadow-lg border border-emerald-400 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group"
+            >
+                <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:bg-white/20 transition-colors"></div>
+                <div className="flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-white/20 border border-white/30 flex items-center justify-center">
+                            <TargetIcon className="w-6 h-6 text-white"/>
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-black text-white text-base">Strategi Pemasukan</h3>
+                            </div>
+                            <p className="text-[11px] text-emerald-100 font-medium">Analisis cerdas untuk cetak profit.</p>
+                        </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-emerald-200 group-hover:text-white transition-colors"/>
+                </div>
+            </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 px-1">
@@ -816,7 +878,14 @@ export default function Home() {
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
                         <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-emerald-500" label="Amal" />
                         <MenuIconBox href="/retained" icon={Hourglass} bg="bg-amber-500" label="Tertahan" />
-                        <MenuIconBox href="/cicilan" icon={CreditCard} bg="bg-slate-800" label="Cicilan" />
+                        
+                        {/* 🚀 PERUBAHAN: Cicilan memunculkan Popup Pending */}
+                        <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
+                            <div className={`bg-slate-800 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
+                                <CreditCard className="w-6 h-6"/>
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">Cicilan</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -829,7 +898,8 @@ export default function Home() {
 
         <div className="px-1 mt-4 mb-2">
             <h3 className="font-bold text-slate-800 text-sm mb-2 px-1 uppercase tracking-widest text-[11px]">Eksklusif Premium</h3>
-            <Link href="/academy">
+            {/* 🚀 PERUBAHAN: BILANO Academy memunculkan Popup Pending */}
+            <div onClick={() => setPendingFeatureModal({ title: "BILANO Academy", desc: "Materi eksklusif seputar pengelolaan portofolio, analisis bandarmologi, dan edukasi finansial profesional sedang disiapkan." })}>
                 <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
                     <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
                     <div className="flex items-center justify-between relative z-10">
@@ -847,7 +917,7 @@ export default function Home() {
                         <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-amber-400 transition-colors"/>
                     </div>
                 </div>
-            </Link>
+            </div>
         </div>
 
         <div className="flex flex-col gap-4 mt-2 px-1">
@@ -893,7 +963,7 @@ export default function Home() {
   );
 }
 
-function MenuIconBox({ href, icon: Icon, bg, label }) {
+function MenuIconBox({ href, icon: Icon, bg, label }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
