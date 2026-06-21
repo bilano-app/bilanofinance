@@ -81,6 +81,9 @@ export default function Reports() {
       const allForexAssets = dbData.forexAssets || [];
       const allRetained = dbData.retained || []; 
 
+      const now = new Date();
+      const isCurrentPeriod = isYearly ? targetYear === now.getFullYear() : (targetMonth === now.getMonth() && targetYear === now.getFullYear());
+
       let appStartDate = new Date();
       if (user.createdAt) appStartDate = new Date(user.createdAt);
       else if (allTxs && allTxs.length > 0) appStartDate = new Date(Math.min(...allTxs.map((t:any) => new Date(t.date).getTime())));
@@ -101,6 +104,32 @@ export default function Reports() {
             : new Date(safeTargetYear, targetMonth + 1, 0, 23, 59, 59);
 
       const getSnapshotAt = (targetDate: Date) => {
+          if (isCurrentPeriod) {
+              const snapCash = liveCash;
+              const snapForex = allForexAssets.reduce((acc: number, f: any) => acc + (f.amount * getRate(f.currency)), 0);
+              const snapInvest = allInvestments.reduce((acc: number, inv: any) => {
+                  const parts = (inv.symbol || "").split('|');
+                  const sym = parts[0] || "";
+                  const curr = parts[1] || 'IDR';
+                  const rate = getRate(curr);
+                  const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
+                  const m = (isSaham && curr === 'IDR') ? 100 : 1;
+                  return acc + (inv.quantity * inv.avgPrice * m * rate);
+              }, 0);
+              const snapRetained = allRetained.reduce((acc: number, r: any) => acc + (r.amount * getRate(r.currency)), 0);
+              
+              let snapPiutang = 0; let snapDebt = 0;
+              allDebts.filter((d:any) => !d.isPaid).forEach((d:any) => {
+                  const curr = (d.name || "").split('|')[1] || 'IDR';
+                  const rate = getRate(curr);
+                  if (d.type === 'piutang') snapPiutang += (d.amount * rate);
+                  else if (d.type === 'hutang') snapDebt += (d.amount * rate);
+              });
+
+              return { cash: snapCash, invest: snapInvest, forex: snapForex, piutang: snapPiutang, debt: snapDebt, netWorth: snapCash + snapInvest + snapForex + snapRetained + snapPiutang - snapDebt };
+          }
+
+          // KONDISI PAST PERIOD (History Recovery)
           let snapCash = liveCash; 
           allTxs.filter((t:any) => new Date(t.date) > targetDate).forEach((t:any) => {
               const amt = Number(t.amount) || 0;
@@ -207,15 +236,66 @@ export default function Reports() {
       
       const thisPeriodTxs = allTxs.filter((t:any) => isTargetInPeriod(new Date(t.date)));
 
-      const pureTransactions = thisPeriodTxs.filter((t:any) => 
-          !['Penyesuaian Sistem', 'Sistem: Auto-Fix Valas', 'Penghapusan Piutang', 'Pemutihan Hutang', 'Cairkan Valas', 'Tukar Valas', 'Investasi Valas', 'Piutang Valas Dibayar', 'Bayar Hutang Valas', 'Beli Aset Valas', 'Jual Aset Valas'].includes(t.category) 
-          && ['income', 'expense', 'debt_receive', 'debt_pay', 'debt_borrow', 'debt_lend'].includes(t.type) 
-          && !(t.description||'').includes('[Valas ')
-          && !(t.description||'').includes('(Potong Dompet Valas)')
+      // 🔥 LOGIKA ARUS KAS MURNI 100% DISINKRONKAN DENGAN PERFORMANCE.TSX
+      const baseIncomeTxs = thisPeriodTxs.filter((t:any) => 
+          (t.type === 'income' || t.type === 'piutang_record') && 
+          !t.description?.includes('[Offset') && 
+          !t.description?.includes('[WRITE_OFF]') && 
+          !t.description?.includes('[Catat Awal]') && 
+          !t.description?.includes('[Valas Masuk') && 
+          t.category !== 'Penyesuaian Sistem' && 
+          t.category !== 'Sistem: Auto-Fix Valas' &&
+          t.category !== 'Sistem: Auto-Fix Valas v2' &&
+          t.category !== 'Pemutihan Hutang' &&
+          t.category !== 'Beli Aset Valas' &&
+          t.category !== 'Jual Aset Valas' &&
+          !(t.category || '').includes('Piutang Dibayar') &&
+          !(t.category || '').includes('Dapat Pinjaman')
       );
-      
-      const totalIncome = pureTransactions.filter((t:any) => ['income', 'debt_receive', 'debt_borrow'].includes(t.type)).reduce((acc:number, t:any) => acc + (Number(t.amount) || 0), 0);
-      const totalExpense = pureTransactions.filter((t:any) => ['expense', 'debt_pay', 'debt_lend'].includes(t.type) && t.category !== 'Amal').reduce((acc:number, t:any) => acc + (Number(t.amount) || 0), 0);
+
+      const baseExpenseTxs = thisPeriodTxs.filter((t:any) => 
+          (t.type === 'expense' || t.type === 'hutang_record') && 
+          !(t.category || '').toLowerCase().includes('invest') && 
+          !t.description?.includes('[Offset') && 
+          !t.description?.includes('[WRITE_OFF]') && 
+          !t.description?.includes('[Catat Awal]') && 
+          !t.description?.includes('[Valas Keluar') && 
+          t.category !== 'Penyesuaian Sistem' && 
+          t.category !== 'Sistem: Auto-Fix Valas' &&
+          t.category !== 'Sistem: Auto-Fix Valas v2' &&
+          t.category !== 'Penghapusan Piutang' &&
+          t.category !== 'Beli Aset Valas' &&
+          t.category !== 'Jual Aset Valas' &&
+          t.category !== 'Amal' && 
+          !(t.category || '').includes('Bayar Hutang') &&
+          !(t.category || '').includes('Beri Pinjaman')
+      );
+
+      const virtualPLTxs: any[] = [];
+      thisPeriodTxs.filter((t:any) => t.type === 'invest_sell' || t.type === 'forex_sell').forEach((t:any) => {
+          if (t.description && t.description.includes('P/L:')) {
+              const plString = t.description.split('P/L:')[1];
+              if (plString) {
+                  const cleanString = plString.replace(/[^0-9-]/g, '');
+                  const plValue = parseInt(cleanString, 10);
+                  if (!isNaN(plValue) && plValue !== 0) {
+                      virtualPLTxs.push({
+                          ...t, 
+                          type: plValue > 0 ? 'income' : 'expense',
+                          amount: Math.abs(plValue),
+                          category: plValue > 0 ? (t.type === 'forex_sell' ? 'Profit Valas' : 'Profit Investasi') : (t.type === 'forex_sell' ? 'Rugi Valas' : 'Rugi Investasi'),
+                          description: `Realisasi: ${t.description.split('@')[0].trim()}`
+                      });
+                  }
+              }
+          }
+      });
+
+      const allIncomeTxs = [...baseIncomeTxs, ...virtualPLTxs.filter(v => v.type === 'income')];
+      const allExpenseTxs = [...baseExpenseTxs, ...virtualPLTxs.filter(v => v.type === 'expense')];
+
+      const totalIncome = allIncomeTxs.reduce((acc:number, t:any) => acc + (Number(t.amount) || 0), 0);
+      const totalExpense = allExpenseTxs.reduce((acc:number, t:any) => acc + (Number(t.amount) || 0), 0);
       
       const writeOffTransactions = allTxs.filter((t:any) => t.category === 'Penghapusan Piutang' && new Date(t.date) <= reportDateEnd);
       const totalWriteOffLoss = writeOffTransactions.reduce((sum: number, t:any) => sum + (Number(t.amount) || 0), 0);
@@ -306,7 +386,9 @@ export default function Reports() {
       }).filter(Boolean);
 
       const amalRows = thisPeriodTxs.filter((t:any) => t.category === 'Amal').map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), "Kebaikan", t.description || "Amal / Sedekah", t.amount ]);
-      const txRows = pureTransactions.map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), (['income', 'debt_receive', 'debt_borrow'].includes(t.type)) ? 'Masuk' : 'Keluar', t.category || "-", t.description || "-", t.amount ]);
+      
+      const sortedFlows = [...allIncomeTxs, ...allExpenseTxs].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const txRows = sortedFlows.map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), t.type === 'income' ? 'Masuk' : 'Keluar', t.category || "-", t.description || "-", t.amount ]);
       
       const invTxRows = thisPeriodTxs.filter((t:any) => ['invest_buy', 'invest_sell', 'forex_buy', 'forex_sell'].includes(t.type)).map((t: any) => {
           let action = t.type.includes('buy') ? 'Beli Aset' : 'Jual Aset';
@@ -422,7 +504,7 @@ export default function Reports() {
 
       chartData.forEach((item, i) => {
           const x = startX + (i * (barWidth + barGap)) + barGap / 2; const valH = (Math.abs(item.value) / range) * chartHeight; const barY = item.value >= 0 ? zeroY - valH : zeroY;
-          if (title.includes("Arus Kas")) doc.setFillColor(item.value >= 0 ? 15 : 220, item.value >= 0 ? 23 : 38, item.value >= 0 ? 42 : 38);
+          if (title.includes("Arus Kas")) doc.setFillColor(item.value >= 0 ? 16 : 244, item.value >= 0 ? 185 : 63, item.value >= 0 ? 129 : 94);
           else doc.setFillColor(barColor[0], barColor[1], barColor[2]);
           doc.rect(x, barY, barWidth, valH, 'F');
           doc.setFontSize(5); doc.setTextColor(80, 80, 80); doc.setFont("helvetica", "bold"); doc.text(formatRpPendek(item.value), x + (barWidth / 2), item.value >= 0 ? barY - 2 : barY + valH + 3, { align: 'center' });
@@ -521,7 +603,7 @@ export default function Reports() {
             doc.text(`Dicetak Oleh: ${user.firstName || 'Pengguna'} ${user.lastName || ''}`, 196, 19, { align: 'right' });
 
             doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.5); doc.line(14, 26, 196, 26);
-            doc.setFillColor(15, 23, 42); doc.rect(14, 32, 182, 14, 'F');
+            doc.setFillColor(30, 58, 138); doc.rect(14, 32, 182, 14, 'F');
             doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(14);
             doc.text(isYearly ? "ANNUAL WEALTH MANAGEMENT REPORT" : "WEALTH MANAGEMENT REPORT", 20, 41);
 
@@ -534,8 +616,8 @@ export default function Reports() {
             
             doc.setTextColor(50, 50, 50); doc.setFontSize(10); doc.setFont("helvetica", "bold");
             doc.text(`Ringkasan Arus Kas Murni (${periodName})`, 14, 88);
-            doc.setFont("helvetica", "normal"); doc.setTextColor(51, 65, 85); doc.text(`Pemasukan: + ${formatRp(snapData.totalIncome)}`, 14, 95);
-            doc.setTextColor(220, 38, 38); doc.text(`Pengeluaran: - ${formatRp(snapData.totalExpense)}`, 80, 95);
+            doc.setFont("helvetica", "normal"); doc.setTextColor(16, 185, 129); doc.text(`Pemasukan: + ${formatRp(snapData.totalIncome)}`, 14, 95);
+            doc.setTextColor(244, 63, 94); doc.text(`Pengeluaran: - ${formatRp(snapData.totalExpense)}`, 80, 95);
 
             if (!isYearly && targetData && targetData.targetAmount > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Performa Pencapaian Target", 14, currentY);
@@ -545,8 +627,8 @@ export default function Reports() {
                 doc.text(`Target Impian: ${formatRp(targetData.targetAmount)}`, 14, currentY + 6);
                 doc.text(`Terkumpul saat ini: ${formatRp(snapData.archiveNetWorth)} (${progress.toFixed(1)}%)`, 14, currentY + 11);
                 
-                if (sisa > 0) { doc.setTextColor(220, 38, 38); doc.text(`Kekurangan: ${formatRp(sisa)}`, 14, currentY + 16); } 
-                else { doc.setTextColor(51, 65, 85); doc.setFont("helvetica", "bold"); doc.text(`Tercapai! Anda berhasil mencapai target.`, 14, currentY + 16); }
+                if (sisa > 0) { doc.setTextColor(244, 63, 94); doc.text(`Kekurangan: ${formatRp(sisa)}`, 14, currentY + 16); } 
+                else { doc.setTextColor(16, 185, 129); doc.setFont("helvetica", "bold"); doc.text(`Tercapai! Anda berhasil mencapai target.`, 14, currentY + 16); }
 
                 doc.setFillColor(226, 232, 240); doc.roundedRect(14, currentY + 20, 182, 4, 2, 2, 'F');
                 if (progress > 0) { doc.setFillColor(30, 58, 138); doc.roundedRect(14, currentY + 20, (progress / 100) * 182, 4, 2, 2, 'F'); }
@@ -565,42 +647,55 @@ export default function Reports() {
                 ["Piutang Aktif (Uang di Pihak Lain)", formatRp(snapData.archivePiutang)],
                 ["Hutang (Kewajiban)", `(${formatRp(snapData.archiveDebt)})`]
               ],
-              theme: 'grid', headStyles: { fillColor: [15, 23, 42], fontSize: 10 }, columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }, alternateRowStyles: { fillColor: [248, 250, 252] },
+              theme: 'grid', headStyles: { fillColor: [30, 58, 138], fontSize: 10 }, columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }, alternateRowStyles: { fillColor: [248, 250, 252] },
             });
             currentY = (doc as any).lastAutoTable.finalY + 15;
 
             if (snapData.forexRows && snapData.forexRows.length > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Detail Kepemilikan Valas (Berdasarkan Kurs Live)", 14, currentY);
                 const formattedForex = snapData.forexRows.map((r:any) => [r[0], r[1], formatRp(r[2]), formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 5, head: [['Mata Uang', 'Jumlah Kepemilikan', 'Kurs Saat Ini', 'Estimasi Nilai IDR']], body: formattedForex, theme: 'striped', headStyles: { fillColor: [30, 58, 138] }, columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' } } });
+                autoTable(doc, { startY: currentY + 5, head: [['Mata Uang', 'Jumlah Kepemilikan', 'Kurs Saat Ini', 'Estimasi Nilai IDR']], body: formattedForex, theme: 'striped', headStyles: { fillColor: [14, 165, 233] }, columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' } } });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
             if (snapData.invRows && snapData.invRows.length > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text(`Detail Kepemilikan Investasi`, 14, currentY);
                 const formattedInv = snapData.invRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 5, head: [['Tanggal Masuk', 'Tindakan', 'Detail Aset', 'Total Nilai (IDR)']], body: formattedInv, theme: 'grid', headStyles: { fillColor: [51, 65, 85] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } } });
+                autoTable(doc, { startY: currentY + 5, head: [['Tanggal Masuk', 'Tindakan', 'Detail Aset', 'Total Nilai (IDR)']], body: formattedInv, theme: 'grid', headStyles: { fillColor: [16, 185, 129] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } } });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
             if (snapData.invTxRows && snapData.invTxRows.length > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text(`Riwayat Transaksi Investasi (${periodName})`, 14, currentY);
                 const formattedInvTx = snapData.invTxRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Tindakan', 'Detail Aset (Volume & Harga/Unit)', 'Total Nilai (IDR)']], body: formattedInvTx, theme: 'grid', headStyles: { fillColor: [51, 65, 85] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } }, didParseCell: function(data) { if (data.section === 'body' && data.column.index === 2 && typeof data.cell.raw === 'string') { if (data.cell.raw.includes('(P/L: +')) { data.cell.styles.textColor = [30, 58, 138]; } else if (data.cell.raw.includes('(P/L: -')) { data.cell.styles.textColor = [220, 38, 38]; } } } });
+                autoTable(doc, { 
+                    startY: currentY + 5, 
+                    head: [['Tanggal', 'Tindakan', 'Detail Aset (Volume & Harga/Unit)', 'Total Nilai (IDR)']], 
+                    body: formattedInvTx, 
+                    theme: 'grid', 
+                    headStyles: { fillColor: [139, 92, 246] }, 
+                    columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } }, 
+                    didParseCell: function(data) { 
+                        if (data.section === 'body' && data.column.index === 2 && typeof data.cell.raw === 'string') { 
+                            if (data.cell.raw.includes('(P/L: +')) { data.cell.styles.textColor = [16, 185, 129]; } 
+                            else if (data.cell.raw.includes('(P/L: -')) { data.cell.styles.textColor = [244, 63, 94]; } 
+                        } 
+                    } 
+                });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
             if (snapData.debtRows && snapData.debtRows.length > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Daftar Rincian Hutang & Piutang Berjalan", 14, currentY);
                 const formattedDebt = snapData.debtRows.map((r:any) => [r[0], r[1], r[2] !== 'IDR' ? `${r[2]} (Sisa: ${formatRp(r[3])})` : formatRp(r[3]), r[4] ? new Date(r[4]).toLocaleDateString('id-ID') : 'Tanpa Tenggat', 'Belum Lunas']);
-                autoTable(doc, { startY: currentY + 5, head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']], body: formattedDebt, theme: 'grid', headStyles: { fillColor: [71, 85, 105] }, columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } } });
+                autoTable(doc, { startY: currentY + 5, head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']], body: formattedDebt, theme: 'grid', headStyles: { fillColor: [236, 72, 153] }, columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } } });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
             if (snapData.amalRows && snapData.amalRows.length > 0) {
                 checkPageBreak(40); doc.setTextColor(50, 50, 50); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text(`Catatan Amal & Sedekah (${periodName})`, 14, currentY);
                 const formattedAmal = snapData.amalRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Tipe', 'Tujuan / Catatan', 'Nominal']], body: formattedAmal, theme: 'grid', headStyles: { fillColor: [51, 65, 85] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold', textColor: [51, 65, 85] }, 3: { halign: 'right', fontStyle: 'bold', textColor: [51, 65, 85] } } });
+                autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Tipe', 'Tujuan / Catatan', 'Nominal']], body: formattedAmal, theme: 'grid', headStyles: { fillColor: [245, 158, 11] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold', textColor: [245, 158, 11] }, 3: { halign: 'right', fontStyle: 'bold', textColor: [245, 158, 11] } } });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
@@ -610,7 +705,7 @@ export default function Reports() {
             if (formattedTx.length === 0) {
                 doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(150, 150, 150); doc.text("Tidak ada catatan pengeluaran/pemasukan murni di periode ini.", 14, currentY + 10); currentY += 20;
             } else {
-                autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Arus', 'Kategori', 'Catatan', 'Nominal']], body: formattedTx, theme: 'grid', headStyles: { fillColor: [15, 23, 42] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } }, didParseCell: function (data) { if (data.section === 'body' && data.column.index === 1) { if (data.cell.raw === 'Masuk') data.cell.styles.textColor = [51, 65, 85]; if (data.cell.raw === 'Keluar') data.cell.styles.textColor = [220, 38, 38]; } } });
+                autoTable(doc, { startY: currentY + 5, head: [['Tanggal', 'Arus', 'Kategori', 'Catatan', 'Nominal']], body: formattedTx, theme: 'grid', headStyles: { fillColor: [249, 115, 22] }, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } }, didParseCell: function (data) { if (data.section === 'body' && data.column.index === 1) { if (data.cell.raw === 'Masuk') data.cell.styles.textColor = [16, 185, 129]; if (data.cell.raw === 'Keluar') data.cell.styles.textColor = [244, 63, 94]; } } });
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
@@ -627,9 +722,9 @@ export default function Reports() {
             }
 
             if (snapData.totalPemutihanGain > 0) {
-                doc.setFillColor(241, 245, 249); doc.setDrawColor(148, 163, 184); doc.rect(14, graphY, 182, 22, 'FD');
-                doc.setTextColor(30, 58, 138); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Pencatatan Keuntungan (Pemutihan Hutang)", 18, graphY + 7);
-                doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(51, 65, 85); doc.text(`Total Hutang Diputihkan / Dibebaskan: ${formatRp(snapData.totalPemutihanGain)}`, 18, graphY + 13);
+                doc.setFillColor(209, 250, 229); doc.setDrawColor(52, 211, 153); doc.rect(14, graphY, 182, 22, 'FD');
+                doc.setTextColor(5, 150, 105); doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text("Pencatatan Keuntungan (Pemutihan Hutang)", 18, graphY + 7);
+                doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(6, 95, 70); doc.text(`Total Hutang Diputihkan / Dibebaskan: ${formatRp(snapData.totalPemutihanGain)}`, 18, graphY + 13);
                 doc.setFontSize(8); doc.text("*Nilai ini telah ditambahkan ke Net Worth sebagai keuntungan pembebasan hutang (Non-Kas).", 18, graphY + 18);
                 graphY += 35;
             }

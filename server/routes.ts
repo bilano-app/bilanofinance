@@ -203,7 +203,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // 🚀 PERBAIKAN: UNDO LOGIC DIPERKUAT (TANPA BATAS & MELIPUTI SELURUH APLIKASI)
   app.post("/api/transactions/undo", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -215,7 +214,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const isValas = lastTx.category?.includes('Valas');
 
-          // Kembalikan Rupiah Kas
           if (!isValas) {
               if (lastTx.type === 'income') newBalance -= amt;
               else if (lastTx.type === 'expense') newBalance += amt;
@@ -230,7 +228,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           else if (lastTx.type === 'forex_buy') newBalance += amt;
           else if (lastTx.type === 'forex_sell') newBalance -= amt;
 
-          // Kembalikan Aset Valas
           if (lastTx.type === 'forex_buy' || lastTx.type === 'forex_sell') {
               const desc = lastTx.description || "";
               const match = desc.match(/(Beli|Jual)\s+([0-9.]+)\s+([A-Z]{3})/i);
@@ -241,13 +238,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   if (existing) {
                       const reverseQty = (lastTx.type === 'forex_buy') ? (existing.amount - qty) : (existing.amount + qty);
                       await storage.updateForexAsset(existing.id, Math.max(0, reverseQty));
-                  } else if (lastTx.type === 'forex_sell') {
-                      await storage.createForexAsset(user!.id, { currency: curr, amount: qty } as any);
                   }
               }
           }
 
-          // Kembalikan Aset Investasi (Beli & Jual)
           if (lastTx.type === 'invest_buy') {
               const desc = lastTx.description || "";
               const match = desc.match(/([0-9.]+)\s+lot\/unit\s+([A-Z0-9]+)/i);
@@ -259,21 +253,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       const newQty = inv.quantity - qty;
                       if (newQty <= 0) await storage.deleteInvestment(inv.id);
                       else await storage.updateInvestment(inv.id, newQty, inv.avgPrice);
-                  }
-              }
-          } else if (lastTx.type === 'invest_sell') {
-              const desc = lastTx.description || "";
-              const match = desc.match(/([0-9.]+)\s+lot\/unit\s+([A-Z0-9|]+)/i);
-              if (match) {
-                  const qty = parseFloat(match[1]);
-                  const symbol = match[2].toUpperCase();
-                  const inv = await storage.getInvestmentBySymbol(user!.id, symbol);
-                  if (inv) {
-                      await storage.updateInvestment(inv.id, inv.quantity + qty, inv.avgPrice);
-                  } else {
-                      const priceMatch = desc.match(/@ Rp ([0-9.]+)/i);
-                      const price = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '')) : 0;
-                      await storage.createInvestment(user!.id, { userId: user!.id, symbol: symbol, quantity: qty, avgPrice: price, type: 'saham' } as any);
                   }
               }
           }
@@ -409,58 +388,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await getUser(req);
       if (!user) return res.status(401).json({ reply: "Sesi berakhir. Login dulu ya." });
       
-      const { message, history } = req.body; 
-
-      const [transactions, target, investments, debts, forexAssets, subscriptions] = await Promise.all([
-          storage.getTransactions(user.id), storage.getTarget(user.id), storage.getInvestments(user.id),
-          storage.getDebts(user.id), storage.getForexAssets(user.id), storage.getSubscriptions(user.id)
-      ]);
-
-      const saldoTunai = user.cashBalance || 0;
-      const totalInvestasi = investments.reduce((acc: any, inv: any) => acc + (inv.quantity * inv.avgPrice * (inv.type === 'saham' || (inv.symbol.length === 4 && inv.type !== 'crypto') ? 100 : 1)), 0);
-      const activeDebts = debts.filter((d: any) => !d.isPaid);
-      const listHutang = activeDebts.filter((d: any) => d.type === 'hutang').map((d: any) => `${d.amount} ${(d.name.split('|')[1] || 'IDR')}`).join(', ') || '0';
-      const listPiutang = activeDebts.filter((d: any) => d.type === 'piutang').map((d: any) => `${d.amount} ${(d.name.split('|')[1] || 'IDR')}`).join(', ') || '0';
-      const listValas = forexAssets.map((f: any) => `${f.amount} ${f.currency}`).join(', ') || '0';
-      const listSubs = subscriptions.filter((s: any) => s.isActive).map((s: any) => `${s.name} (${s.cost})`).join(', ') || 'Tidak ada';
-
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      
-      const txBulanIni = transactions.filter((t: any) => {
-          const d = new Date(t.date);
-          return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-      });
-
-      const pengeluaranBulanIni = txBulanIni.filter((t: any) => t.type === 'expense' && t.category !== 'Amal').reduce((acc: any, t: any) => acc + t.amount, 0);
-      const totalAmalBulanIni = txBulanIni.filter((t: any) => t.category === 'Amal').reduce((acc: any, t: any) => acc + t.amount, 0);
-      
-      let sisaBudget = "Tidak dibatasi";
-      if (target && target.monthlyBudget > 0) sisaBudget = `Rp ${(target.monthlyBudget - pengeluaranBulanIni).toLocaleString('id-ID')}`;
+      const { message, history, financialContext } = req.body; 
 
       const systemPrompt = `
-      Kamu adalah BILANO Intelligence.
+      Kamu adalah BILANO Intelligence, konsultan keuangan elit dan profesional.
       PERATURAN SIKAP & LOGIKA KEUANGAN (MUTLAK):
       1. INGAT KONTEKS: Kamu menerima riwayat percakapan. Jika pengguna bertanya hal lanjutan, jawablah menyambung dengan topik sebelumnya tanpa kebingungan.
       2. MENTOR PROAKTIF: Jadilah mentor yang peduli dan cerdas. SETIAP KALI selesai memberikan jawaban/analisis, kamu WAJIB mengakhirinya dengan sebuah pertanyaan penawaran bantuan.
-      3. HUKUM AKUNTANSI BILANO: 
-         - Menghapus/Ikhlas Piutang (Write-off) TIDAK mengurangi Kas likuid, hanya mengurangi Kekayaan Bersih (Net Worth).
-         - Amal/Sedekah dianggap pengeluaran positif, tidak digabungkan dengan limit budget konsumtif.
-      4. PEMISAHAN WAKTU: Perhatikan pertanyaan pengguna! Jika bertanya "bulan ini", gunakan data [BULAN INI]. Jika bertanya secara utuh, gunakan data [KESELURUHAN].
+      3. PEMISAHAN WAKTU: Perhatikan pertanyaan pengguna! Jika bertanya "bulan ini", gunakan data [DATA BULAN INI KHUSUS]. Jika bertanya "kekayaan" atau "keseluruhan", gunakan data [DATA KESELURUHAN (TOTAL)].
       
-      --- DATA KEUANGAN PENGGUNA ---
-      [DATA KESELURUHAN (HARTA & KEWAJIBAN TOTAL)]
-      - Saldo Kas Tunai (IDR): Rp ${saldoTunai.toLocaleString('id-ID')}
-      - Aset Investasi: Rp ${totalInvestasi.toLocaleString('id-ID')}
-      - Hutang Pribadi (Kewajiban): ${listHutang}
-      - Piutang (Uang di orang lain): ${listPiutang}
-      - Valuta Asing (Valas): ${listValas}
-      - Tagihan Langganan Aktif: ${listSubs}
-      
-      [DATA BULAN INI SAJA]
-      - Pengeluaran Konsumtif Bulan Ini: Rp ${pengeluaranBulanIni.toLocaleString('id-ID')}
-      - Total Amal/Sedekah Bulan Ini: Rp ${totalAmalBulanIni.toLocaleString('id-ID')}
-      - Sisa Limit Budget Bulan Ini: ${sisaBudget}
+      --- DATA KEUANGAN PENGGUNA SAAT INI (AKURAT & LIVE) ---
+      ${financialContext}
       
       Jawab dengan format Markdown yang rapi, berwibawa, langsung ke intinya (No Yapping), dan tutup dengan pertanyaan proaktif!
       `;
@@ -1309,6 +1247,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses history aset." }); }
   });
 
+  // 🚀 PERBAIKAN: SCAN GAMBAR MULTIPLE STRUK
   app.post("/api/vision/scan", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1327,7 +1266,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return { inline_data: { mime_type: mimeType, data: base64Data } };
           });
 
-          const systemPrompt = `Kamu adalah Asisten Finansial BILANO yang cerdas. Tugasmu membaca struk belanja. Cari TOTAL akhir. Output WAJIB JSON MURNI: {"totalAmount": 150000, "currency": "IDR", "category": "Makan/Minum", "description": "Makan di Resto A"}`;
+          const systemPrompt = `Kamu adalah Asisten Finansial BILANO yang cerdas. Tugasmu membaca struk belanja/dokumen keuangan dari SATU ATAU BANYAK GAMBAR.
+          Tugas:
+          1. Rekap TOTAL KESELURUHAN dari semua gambar yang diunggah.
+          2. Buat rincian detail gabungan dari semua struk (Pisahkan dengan baris baru \n).
+          3. Tentukan jenis transaksi (expense/income).
+          4. Tentukan mata uangnya (IDR, USD, dll).
+          Output WAJIB JSON MURNI: {"totalAmount": 150000, "currency": "IDR", "category": "Makan/Minum", "type": "expense", "description": "- Struk 1: Nasi Goreng Rp 25.000\\n- Struk 2: Bensin Rp 25.000\\n- Total gabungan: Rp 50.000"}`;
 
           const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
               method: "POST", headers: { "Content-Type": "application/json" },
@@ -1346,9 +1291,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses gambar." }); }
   });
 
-  // =====================================================================
-  // 🚀 FITUR EXPERT TERMINAL: MARKET INTEL & NEWS AGGREGATOR (DYNAMIC SEARCH)
-  // =====================================================================
+  // 🚀 PERBAIKAN: SCAN SUARA MULTIPLE TRANSAKSI MENGGUNAKAN AI
+  app.post("/api/voice/scan", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { text } = req.body; 
+          if (!text) return res.status(400).json({ error: "Tidak ada suara yang ditangkap." });
+
+          const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
+          if (!apiKey) return res.status(500).json({ error: "Sistem AI belum dikonfigurasi di server." });
+
+          const systemPrompt = `Kamu adalah Asisten Finansial BILANO yang cerdas. Pengguna akan memberikan rekaman suara tentang catatan keuangannya. Bisa jadi ada LEBIH DARI SATU transaksi yang disebutkan.
+          Tugasmu:
+          1. Hitung TOTAL AKHIR KESELURUHAN secara matematis dari semua angka/transaksi yang disebutkan.
+          2. Buat daftar RINCIAN ITEM berserta harganya (Pisahkan dengan baris baru \\n).
+          3. Tentukan kategori umum (Misal: Makan/Minum, Transportasi, Belanja, dll).
+          4. Tentukan jenis transaksi (income / expense / debt / receivable). Jika ada pemasukan dan pengeluaran, gunakan arus utamanya (jika dominan pengeluaran, set expense).
+          5. Output HANYA dalam format JSON MURNI tanpa embel-embel markdown.
+          Format JSON: {"totalAmount": 150000, "currency": "IDR", "category": "Belanja", "type": "expense", "description": "- Makan Siang: Rp 50.000\\n- Beli Kuota: Rp 100.000"}`;
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                  contents: [{ role: "user", parts: [{ text: systemPrompt }, { text: text }] }], 
+                  generationConfig: { temperature: 0.1, response_mime_type: "application/json" } 
+              })
+          });
+
+          if (!response.ok) throw new Error("Detail Error AI: Timeout");
+
+          const aiData = await response.json();
+          const resultText = aiData.candidates[0].content.parts[0].text;
+          
+          let parsedResult;
+          try { parsedResult = JSON.parse(resultText); } 
+          catch (e) { parsedResult = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); }
+          res.json({ success: true, data: parsedResult });
+      } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses suara." }); }
+  });
+
   app.post("/api/finance/intel", async (req: any, res: any) => {
       try {
           const user = await getUser(req);

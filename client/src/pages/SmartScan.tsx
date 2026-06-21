@@ -41,7 +41,6 @@ export default function SmartScan() {
     const [emergencyDetails, setEmergencyDetails] = useState({ deficit: 0, nextMonthLimit: 0 });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Cek Status Setup & State Modal Pop-up
     const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
     const [showSetupPrompt, setShowSetupPrompt] = useState(false);
@@ -104,77 +103,44 @@ export default function SmartScan() {
 
     const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
 
-    const processTextLogic = (text: string) => {
-        const lower = text.toLowerCase();
-        
-        if (lower.includes("saham") || lower.includes("reksa") || lower.includes("crypto") || lower.includes("invest")) {
-            alert("⚠️ Transaksi Investasi harap diinput manual di menu Investasi."); 
-            setIsListening(false); setIsScanning(false); return;
-        }
-
-        let newType: any = 'expense';
-        if (lower.includes("terima") || lower.includes("dapat") || lower.includes("dikasih") || lower.includes("masuk") || lower.includes("gaji") || lower.includes("transfer dari") || lower.includes("berhasil top up")) {
-            newType = 'income';
-        } else if (lower.includes("utang") || lower.includes("pinjam")) {
-            newType = lower.includes("saya") || lower.includes("aku") ? 'debt' : 'receivable';
-        }
-
-        let isPending = false;
-        if (lower.includes("nanti") || lower.includes("belum bayar") || lower.includes("belum dibayar") || lower.includes("ngutang") || lower.includes("piutang") || lower.includes("bon")) {
-            isPending = true;
-        }
-        setPaymentMode(isPending ? 'pending' : 'cash');
-
-        let newIsForex = false;
-        let newCurrency = "USD";
-        const currencyMap: Record<string, string> = {
-            'ringgit': 'MYR', 'myr': 'MYR', 'yen': 'JPY', 'jpy': 'JPY', 'won': 'KRW', 'krw': 'KRW',
-            'real': 'SAR', 'riyal': 'SAR', 'sar': 'SAR', 'euro': 'EUR', 'eur': 'EUR', 'yuro': 'EUR', 'uro': 'EUR',
-            'singapura': 'SGD', 'sgd': 'SGD', 'pound': 'GBP', 'sterling': 'GBP', 'dolar': 'USD', 'dollar': 'USD', 'usd': 'USD'
-        };
-
-        for (const [key, code] of Object.entries(currencyMap)) {
-            if (lower.includes(key)) { newIsForex = true; newCurrency = code; break; }
-        }
-        
-        let newAmount = 0;
-        const lines = text.split(/\r?\n/);
-        const candidates: number[] = [];
-        
-        lines.forEach(line => {
-            const l = line.toLowerCase();
-            if (l.includes("ref") || l.includes("id") || l.includes("kode") || l.includes("no.")) return; 
-            const nums = line.match(/\d+[.,\d]*/g) || [];
-            nums.forEach(raw => {
-                let clean = raw.replace(/\./g, "").replace(/,/g, ".");
-                if (l.includes("juta")) clean = (parseFloat(clean) * 1000000).toString();
-                else if (l.includes("ribu")) clean = (parseFloat(clean) * 1000).toString();
-                const val = parseFloat(clean);
-                if (!isNaN(val)) {
-                    if (val > 1000000000000) return; 
-                    if (raw.startsWith("202") && raw.length >= 8) return;
-                    if (newIsForex) { if (val > 0) candidates.push(val); }
-                    else { if (val >= 500) candidates.push(val); }
-                }
+    // 🚀 LOGIKA BARU MENGGUNAKAN AI UNTUK VOICE SCAN MULTI-TRANSAKSI
+    const processAudioWithAI = async (text: string) => {
+        setIsScanning(true);
+        setScanStatus("AI sedang menganalisa transaksi...");
+        try {
+            const response = await fetch("/api/voice/scan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                body: JSON.stringify({ text })
             });
-        });
-        if (candidates.length > 0) newAmount = Math.max(...candidates);
+            
+            const resData = await response.json();
+            if (!response.ok) throw new Error(resData.error || "Gagal memproses suara.");
+            
+            const aiData = resData.data;
 
-        let newCategory = "Lainnya";
-        if (lower.includes("makan") || lower.includes("kopi") || lower.includes("resto") || lower.includes("food")) newCategory = "Makan/Minum";
-        else if (lower.includes("gojek") || lower.includes("grab") || lower.includes("bensin") || lower.includes("transport")) newCategory = "Transport";
-        else if (lower.includes("pln") || lower.includes("listrik") || lower.includes("token")) newCategory = "Tagihan Bulanan";
-        else if (lower.includes("belanja") || lower.includes("minimarket") || lower.includes("indomaret") || lower.includes("alfamart")) newCategory = "Belanja";
-
-        setDetectedType(newType);
-        setIsForex(newIsForex);
-        setCurrency(newCurrency);
-        setAmount(newAmount > 0 ? formatNum(newAmount.toString().replace(".", ",")) : ""); 
-        setCategory(newCategory);
-        setDesc(transcript || text);
-        if (newIsForex && liveRates[newCurrency]) setRate(formatNum(Math.floor(liveRates[newCurrency]).toString()));
-
-        setShowResultForm(true);
+            setDetectedType(aiData.type || 'expense');
+            setPaymentMode('cash');
+            
+            const currCode = (aiData.currency || "IDR").toUpperCase();
+            if (currCode !== "IDR") {
+                setIsForex(true); setCurrency(currCode);
+                if (liveRates[currCode]) setRate(formatNum(Math.floor(liveRates[currCode]).toString()));
+            } else {
+                setIsForex(false); setCurrency("IDR");
+            }
+            
+            setAmount(aiData.totalAmount ? formatNum(aiData.totalAmount.toString()) : "");
+            setCategory(aiData.category || "Lainnya");
+            setDesc(aiData.description || text);
+            
+            toast({ title: "Analisa Berhasil", description: "Rincian dan total tagihan telah direkap otomatis." });
+            setShowResultForm(true);
+        } catch (error: any) {
+            toast({ title: "Gagal Menganalisa", description: error.message, variant: "destructive" });
+        } finally {
+            setIsScanning(false);
+        }
     };
 
     const startListening = () => {
@@ -187,16 +153,22 @@ export default function SmartScan() {
             recognitionRef.current.lang = 'id-ID'; 
             recognitionRef.current.onstart = () => setIsListening(true);
             recognitionRef.current.onend = () => setIsListening(false);
-            recognitionRef.current.onresult = (e: any) => {
+            
+            // Saat user selesai bicara, langsung kirim teks ke AI
+            recognitionRef.current.onresult = async (e: any) => {
                 const text = e.results[0][0].transcript;
                 setTranscript(text);
-                processTextLogic(text);
+                stopListening();
+                await processAudioWithAI(text);
             };
+            
             recognitionRef.current.start();
         } catch (e) { toast({ title: "Mic Error", variant: "destructive" }); }
     };
+    
     const stopListening = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
 
+    // 🚀 LOGIKA IMAGE SCAN (MENANGANI BANYAK STRUK SEKALIGUS)
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (isLocked) { window.dispatchEvent(new Event('trigger-paywall-lock')); return; }
 
@@ -241,7 +213,7 @@ export default function SmartScan() {
             }
 
             setImagePreviews(previews);
-            setScanStatus("Sistem sedang memproses struk Anda...");
+            setScanStatus("Sistem sedang membaca seluruh struk...");
 
             const response = await fetch("/api/vision/scan", {
                 method: "POST",
@@ -257,7 +229,7 @@ export default function SmartScan() {
 
             const aiData = resData.data; 
 
-            setDetectedType('expense'); 
+            setDetectedType(aiData.type || 'expense'); 
             setPaymentMode('cash');
             
             const currCode = (aiData.currency || "IDR").toUpperCase();
@@ -274,7 +246,7 @@ export default function SmartScan() {
             setCategory(aiData.category || "Belanja");
             setDesc(aiData.description || `Hasil pindai otomatis.`);
 
-            toast({ title: "Scan Berhasil", description: "Data otomatis terisi." });
+            toast({ title: "Scan Berhasil", description: "Data otomatis terisi & ditotal." });
             setShowResultForm(true);
 
         } catch (error: any) {
@@ -465,8 +437,8 @@ export default function SmartScan() {
                 {!showResultForm && (
                     <div className="space-y-8 animate-in fade-in">
                         <div className="flex flex-col items-center justify-center bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 mx-4 text-center">
-                            <h3 className="text-lg font-bold text-slate-800 mb-1">Perintah Suara</h3>
-                            <p className="text-xs text-slate-400 mb-6">"Dapat penjualan 300 ribu tapi dibayar nanti"</p>
+                            <h3 className="text-lg font-bold text-slate-800 mb-1">Dikte Multi-Transaksi</h3>
+                            <p className="text-xs text-slate-400 mb-6 px-4">"Beli bensin 25 ribu, terus bayar makan siang 50 ribu, eh sama beli kopi 15 ribu."</p>
                             <div className="relative flex items-center justify-center">
                                 {isListening && <span className="absolute inset-0 rounded-full bg-rose-400 opacity-20 animate-ping scale-150"></span>}
                                 <button onClick={isListening ? stopListening : startListening} className={`w-20 h-20 rounded-full flex items-center justify-center shadow-xl transition-all active:scale-95 ${isListening ? 'bg-rose-500 text-white scale-110' : 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white hover:shadow-indigo-200'}`}>
@@ -487,8 +459,8 @@ export default function SmartScan() {
                             <button onClick={() => fileInputRef.current?.click()} className="w-full py-6 bg-white border-2 border-dashed border-indigo-200 rounded-3xl flex flex-col items-center justify-center gap-3 hover:bg-indigo-50/30 active:scale-[0.98] transition-all group relative overflow-hidden">
                                 <div className="bg-indigo-50 text-indigo-600 p-4 rounded-full group-hover:scale-110 transition-transform shadow-sm"><ImagePlus className="w-6 h-6"/></div>
                                 <div>
-                                    <span className="font-bold text-slate-700 block text-sm mb-0.5">Scan Bukti / Struk</span>
-                                    <span className="text-[10px] text-slate-400">Otomatis baca nominal & valas</span>
+                                    <span className="font-bold text-slate-700 block text-sm mb-0.5">Scan Banyak Struk Sekaligus</span>
+                                    <span className="text-[10px] text-slate-400">Pilih beberapa foto, AI akan merekap semuanya</span>
                                 </div>
                             </button>
                         </div>
@@ -497,7 +469,7 @@ export default function SmartScan() {
                             <div className="fixed inset-0 z-[60] bg-slate-900/90 flex flex-col items-center justify-center text-white backdrop-blur-md p-6 text-center">
                                 <Loader2 className="w-12 h-12 text-indigo-400 animate-spin mb-4"/>
                                 <p className="font-bold text-xl mb-1">{scanStatus}</p>
-                                <p className="text-xs text-slate-400 mb-6">Membaca karakter dan merekap total angka...</p>
+                                <p className="text-xs text-slate-400 mb-6">Membaca data dan merekap total angka...</p>
                                 
                                 <div className="flex gap-2 overflow-x-auto max-w-full pb-4">
                                     {imagePreviews.map((src, i) => (
@@ -513,14 +485,14 @@ export default function SmartScan() {
                     <Card className="p-5 border-t-4 border-t-indigo-500 animate-in slide-in-from-bottom-10 shadow-2xl pb-24">
                         <div className="flex justify-between mb-4">
                             <div>
-                                <h3 className="font-bold text-lg text-slate-800">Konfirmasi</h3>
+                                <h3 className="font-bold text-lg text-slate-800">Rekapitulasi Total</h3>
                                 <div className="flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-hide">
                                     {['income','expense','debt','receivable'].map(t => (
                                         <button key={t} onClick={() => { setDetectedType(t as any); setPaymentMode('cash'); }} className={`px-3 py-1 text-[10px] rounded-full border font-bold transition-colors ${detectedType === t ? 'bg-indigo-600 text-white border-indigo-600' : 'text-slate-500 border-slate-200'}`}>{t.toUpperCase()}</button>
                                     ))}
                                 </div>
                             </div>
-                            <button onClick={() => {setShowResultForm(false); setImagePreviews([]);}} className="bg-slate-100 p-2 rounded-full h-fit hover:bg-rose-100 hover:text-rose-500"><X className="w-5 h-5"/></button>
+                            <button onClick={() => {setShowResultForm(false); setImagePreviews([]); setTranscript("");}} className="bg-slate-100 p-2 rounded-full h-fit hover:bg-rose-100 hover:text-rose-500"><X className="w-5 h-5"/></button>
                         </div>
 
                         <div className="space-y-4">
@@ -554,7 +526,7 @@ export default function SmartScan() {
                                 </div>
                             )}
 
-                            <div><label className="text-xs font-bold text-slate-500 block mb-1">Nominal {isForex ? currency : '(IDR)'}</label><Input type="text" inputMode="decimal" value={amount} onChange={e => setAmount(formatNum(e.target.value))} className="text-2xl font-bold text-slate-800 bg-slate-50 border-slate-200 h-12" placeholder="0"/></div>
+                            <div><label className="text-xs font-bold text-slate-500 block mb-1">Total Nominal Keseluruhan {isForex ? currency : '(IDR)'}</label><Input type="text" inputMode="decimal" value={amount} onChange={e => setAmount(formatNum(e.target.value))} className="text-2xl font-bold text-slate-800 bg-slate-50 border-slate-200 h-12" placeholder="0"/></div>
 
                             {(detectedType === 'debt' || detectedType === 'receivable' || paymentMode === 'pending') && (
                                 <div className="animate-in fade-in slide-in-from-top-2">
@@ -566,10 +538,10 @@ export default function SmartScan() {
                             )}
                             
                             {(detectedType === 'income' || detectedType === 'expense') && (
-                                <div><label className="text-xs font-bold text-slate-500 block mb-1">Kategori / Topik</label><Input value={category} onChange={e => setCategory(e.target.value)} className="h-12"/></div>
+                                <div><label className="text-xs font-bold text-slate-500 block mb-1">Kategori / Topik Utama</label><Input value={category} onChange={e => setCategory(e.target.value)} className="h-12"/></div>
                             )}
                             
-                            <div><label className="text-xs font-bold text-slate-500 block mb-1">Catatan (Rincian Struk)</label><textarea value={desc} onChange={e => setDesc(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-sm h-32 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"></textarea></div>
+                            <div><label className="text-xs font-bold text-slate-500 block mb-1">Rincian Lengkap per Item</label><textarea value={desc} onChange={e => setDesc(e.target.value)} className="w-full border border-slate-200 rounded-xl p-3 text-sm h-32 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"></textarea></div>
                         </div>
 
                         <Button 
@@ -578,29 +550,11 @@ export default function SmartScan() {
                             className="w-full mt-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200 font-bold h-12 rounded-xl text-sm disabled:opacity-50"
                         >
                             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : (isDataLoaded ? <Check className="w-4 h-4 mr-2"/> : <RefreshCw className="w-4 h-4 mr-2 animate-spin"/>)}
-                            {isSubmitting ? "MEMPROSES..." : (isDataLoaded ? "SIMPAN DATA" : "Memuat Budget...")}
+                            {isSubmitting ? "MEMPROSES..." : (isDataLoaded ? "SIMPAN TOTAL DATA" : "Memuat Budget...")}
                         </Button>
                     </Card>
                 )}
             </div>
-            {/* 🚀 Pop-up Penghalang Submit (Belum Setup) */}
-            {showSetupPrompt && (
-                <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-                    <div className="bg-white rounded-[32px] p-6 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
-                        <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5">
-                            <AlertCircle className="w-10 h-10" />
-                        </div>
-                        <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Aksi Tertahan</h2>
-                        <p className="text-[13px] text-slate-500 mb-6 leading-relaxed">
-                            Untuk memastikan laporan tetap akurat, Anda harus menyelesaikan Setup Saldo Awal sebelum mencatat transaksi.
-                        </p>
-                        <div className="space-y-3">
-                            <Button onClick={() => window.location.href = '/target'} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-full shadow-lg">LAKUKAN SETUP SEKARANG</Button>
-                            <Button variant="ghost" onClick={() => setShowSetupPrompt(false)} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 rounded-full">Tutup</Button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </MobileLayout>
     );
 }

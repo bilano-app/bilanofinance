@@ -3,7 +3,11 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { Send, Bot, User, Loader2, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { useUser } from "@/hooks/use-finance"; 
+import { useQuery } from "@tanstack/react-query";
+import { 
+    useUser, useTransactions, useForexAssets, 
+    useInvestments, useTarget 
+} from "@/hooks/use-finance"; 
 
 interface Message {
     id: number;
@@ -14,9 +18,41 @@ interface Message {
 
 export default function ChatAI() {
     const { data: user, isLoading: isUserLoading } = useUser();
+    const { data: transactions } = useTransactions();
+    const { data: forexAssetsData } = useForexAssets();
+    const { data: investments } = useInvestments();
+    const { data: target } = useTarget();
 
     const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     
+    // 🔥 AMBIL DATA VALAS & HUTANG SECARA LIVE (Agar AI tidak salah baca angka)
+    const { data: forexRates = {} } = useQuery({
+        queryKey: ['forexRates', currentUserEmail],
+        queryFn: async () => {
+            const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": currentUserEmail } });
+            return res.json();
+        },
+        enabled: !!currentUserEmail
+    });
+
+    const { data: debtsData = [] } = useQuery({
+        queryKey: ['debts', currentUserEmail],
+        queryFn: async () => {
+            const res = await fetch(`/api/debts`, { headers: { "x-user-email": currentUserEmail } });
+            return res.json();
+        },
+        enabled: !!currentUserEmail
+    });
+
+    const { data: retainedData = [] } = useQuery({
+        queryKey: ['retained', currentUserEmail],
+        queryFn: async () => {
+            const res = await fetch(`/api/retained`, { headers: { "x-user-email": currentUserEmail } });
+            return res.json();
+        },
+        enabled: !!currentUserEmail
+    });
+
     const isPro = user?.isPro || false;
     const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
     
@@ -97,20 +133,93 @@ export default function ChatAI() {
             if (currentUserEmail) localStorage.setItem(`bilano_chat_usage_${currentUserEmail}`, newCount.toString());
         }
 
-        // 🚀 MENGIRIM HISTORY CHAT KE BACKEND AGAR AI INGAT KONTEKS
-        const historyToSend = currentMessages.slice(-6).map(m => ({
-            role: m.sender,
-            text: m.text
-        }));
+        // 🚀 KALKULASI DATA LIVE YANG SANGAT AKURAT (Seperti Performance.tsx)
+        const cashReal = (user?.cashBalance || 0); 
+        const forexValue = Array.isArray(forexAssetsData) ? forexAssetsData.reduce((acc: number, asset: any) => {
+            const curr = asset.currency;
+            const rate = forexRates[curr] || 15000;
+            return acc + (asset.amount * rate);
+        }, 0) : 0;
+
+        const investmentReal = Array.isArray(investments) ? investments.reduce((acc, inv) => {
+            const parts = (inv.symbol || "").split('|');
+            const sym = parts[0] || "";
+            const curr = parts[1];
+            const actualCurr = curr || 'IDR';
+            const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || 15000);
+            const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
+            const m = (isSaham && actualCurr === 'IDR') ? 100 : 1;
+            return acc + (inv.quantity * inv.avgPrice * m * rate);
+        }, 0) : 0;
+
+        const retainedReal = Array.isArray(retainedData) ? retainedData.reduce((acc: number, r: any) => {
+            const curr = r.currency;
+            const rate = curr === 'IDR' ? 1 : (forexRates[curr] || 15000);
+            return acc + (r.amount * rate);
+        }, 0) : 0;
+
+        let piutangReal = 0; let hutangReal = 0;
+        if (Array.isArray(debtsData)) {
+            debtsData.forEach((d: any) => {
+                if (d.isPaid) return;
+                const curr = (d.name || "").split('|')[1] || 'IDR';
+                const rate = curr === 'IDR' ? 1 : (forexRates[curr] || 15000);
+                if (d.type === 'piutang') piutangReal += (d.amount * rate);
+                else if (d.type === 'hutang') hutangReal += (d.amount * rate);
+            });
+        }
+
+        const currentWealth = cashReal + investmentReal + forexValue + retainedReal + piutangReal - hutangReal;
+
+        const now = new Date();
+        const currentMonthIdx = now.getMonth();
+        const currentYear = now.getFullYear();
+        const thisMonthTx = Array.isArray(transactions) ? transactions.filter(t => new Date(t.date).getMonth() === currentMonthIdx && new Date(t.date).getFullYear() === currentYear) : [];
+
+        const totalAmal = thisMonthTx.filter(t => t.category === 'Amal').reduce((acc, t) => acc + t.amount, 0);
+
+        const baseIncomeTxs = thisMonthTx.filter(t => (t.type === 'income' || t.type === 'piutang_record') && !t.description?.includes('[Offset') && !t.description?.includes('[WRITE_OFF]') && !t.description?.includes('[Catat Awal]') && !t.description?.includes('[Valas Masuk') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Pemutihan Hutang' && !t.category?.includes('Sistem:') && !t.category?.includes('Beli Aset') && !t.category?.includes('Jual Aset') && !(t.category || '').includes('Piutang Dibayar') && !(t.category || '').includes('Dapat Pinjaman'));
+        const baseExpenseTxs = thisMonthTx.filter(t => (t.type === 'expense' || t.type === 'hutang_record') && !(t.category || '').toLowerCase().includes('invest') && !t.description?.includes('[Offset') && !t.description?.includes('[WRITE_OFF]') && !t.description?.includes('[Catat Awal]') && !t.description?.includes('[Valas Keluar') && t.category !== 'Penyesuaian Sistem' && t.category !== 'Penghapusan Piutang' && !t.category?.includes('Sistem:') && !t.category?.includes('Beli Aset') && !t.category?.includes('Jual Aset') && t.category !== 'Amal' && !(t.category || '').includes('Bayar Hutang') && !(t.category || '').includes('Beri Pinjaman'));
+
+        const virtualPLTxs: any[] = [];
+        thisMonthTx.filter(t => t.type === 'invest_sell' || t.type === 'forex_sell').forEach(t => {
+            if (t.description && t.description.includes('P/L:')) {
+                const plString = t.description.split('P/L:')[1];
+                if (plString) {
+                    const plValue = parseInt(plString.replace(/[^0-9-]/g, ''), 10);
+                    if (!isNaN(plValue) && plValue !== 0) virtualPLTxs.push({ amount: Math.abs(plValue), type: plValue > 0 ? 'income' : 'expense' });
+                }
+            }
+        });
+
+        const monthlyIncome = baseIncomeTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'income').reduce((acc, v) => acc + v.amount, 0);
+        const monthlyExpense = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'expense').reduce((acc, v) => acc + v.amount, 0);
+
+        const financialContext = `
+        [DATA KESELURUHAN (TOTAL HARTAMU SAAT INI)]
+        - Kekayaan Bersih (Net Worth): Rp ${currentWealth.toLocaleString('id-ID')}
+        - Kas Tunai (Uang Likuid): Rp ${cashReal.toLocaleString('id-ID')}
+        - Aset Investasi: Rp ${investmentReal.toLocaleString('id-ID')}
+        - Valuta Asing (Valas): Rp ${forexValue.toLocaleString('id-ID')}
+        - Saldo Tertahan: Rp ${retainedReal.toLocaleString('id-ID')}
+        - Total Piutang: Rp ${piutangReal.toLocaleString('id-ID')}
+        - Total Hutang: Rp ${hutangReal.toLocaleString('id-ID')}
+
+        [DATA BULAN INI KHUSUS (${now.toLocaleDateString('id-ID', {month:'long', year:'numeric'})})]
+        - Pemasukan Murni Bulan Ini: Rp ${monthlyIncome.toLocaleString('id-ID')}
+        - Pengeluaran Murni Bulan Ini: Rp ${monthlyExpense.toLocaleString('id-ID')}
+        - Pengeluaran Amal/Sedekah Bulan Ini: Rp ${totalAmal.toLocaleString('id-ID')}
+        - Net Cashflow Bulan Ini: Rp ${(monthlyIncome - monthlyExpense).toLocaleString('id-ID')}
+        - Sisa Target Budget Pengeluaran: Rp ${target?.monthlyBudget ? (target.monthlyBudget - monthlyExpense).toLocaleString('id-ID') : 'Tanpa batas'}
+        `;
+
+        const historyToSend = currentMessages.slice(-6).map(m => ({ role: m.sender, text: m.text }));
 
         try {
             const res = await fetch("/api/chat/ask", {
                 method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "x-user-email": currentUserEmail
-                },
-                body: JSON.stringify({ message: inputText, history: historyToSend }) 
+                headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                body: JSON.stringify({ message: inputText, history: historyToSend, financialContext }) 
             });
 
             if (!res.ok) throw new Error("Server Error");
