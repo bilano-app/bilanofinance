@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { 
   Fingerprint, Layers, Radar, Scale, VenetianMask, ShieldAlert,
   ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, Orbit, Database, X, Wrench, ScanSearch, Radio, LogOut, Calculator, Settings2, Hourglass,
-  Target, Globe, Newspaper
+  Target, Globe, Newspaper, Search
 } from "lucide-react";
 import { useUser, useInvestments, useTransactions, useLiveQuotes, useHistoricalQuotes, usePortfolioSnapshots, useSaveSnapshot } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +10,7 @@ import { PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, Tooltip, Responsive
 import { useQuery } from "@tanstack/react-query";
 import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import UniversalNewsScanner from "./UniversalNewsScanner";
 
 // Skema Warna Terminal Profesional (High Contrast Neons)
 const COLORS = ['#00FF41', '#00E5FF', '#FF003C', '#FFD700', '#B500FF', '#FF8C00', '#FFFFFF'];
@@ -38,7 +39,7 @@ export default function ExpertTerminal() {
   const { data: snapshots = [] } = usePortfolioSnapshots();
   const saveSnapshotMutation = useSaveSnapshot();
 
-  const [activeTab, setActiveTab] = useState<'alokasi' | 'pantauan' | 'terealisasi' | 'simulator' | 'intel'>('alokasi');
+  const [activeTab, setActiveTab] = useState<'alokasi' | 'pantauan' | 'terealisasi' | 'simulator' | 'intel' | 'scanner'>('alokasi');
   const [showProfit, setShowProfit] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | '5Y'>('1M');
@@ -1173,6 +1174,9 @@ export default function ExpertTerminal() {
           <button onClick={() => setActiveTab('intel')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'intel' ? 'bg-[#111] text-[#FFD700] border-l-2 border-[#FFD700]' : 'text-[#D4D4D8] hover:bg-[#111] hover:text-white'}`}>
             <Newspaper className="w-4 h-4" /> Market Intel
           </button>
+          <button onClick={() => setActiveTab('scanner')} className={`w-full flex items-center gap-3 px-3 py-3 rounded-sm transition-all text-xs font-bold tracking-wide uppercase ${activeTab === 'scanner' ? 'bg-[#111] text-[#B500FF] border-l-2 border-[#B500FF]' : 'text-[#D4D4D8] hover:bg-[#111] hover:text-white'}`}>
+            <Search className="w-4 h-4" /> Global Scanner
+          </button>
         </nav>
 
         {/* PROFIL & LOGOUT */}
@@ -1351,7 +1355,7 @@ export default function ExpertTerminal() {
                            {maskRp(Math.abs(totalProfitLoss))}
                        </div>
                    </div>
-                   <button onClick={handleSaveSnapshot} disabled={saveSnapshotMutation.isPending || activePortfolio.length === 0} className="bg-[#00FF41] hover:bg-[#00CC33] disabled:bg-[#333] disabled:text-[#666] text-black text-[10px] uppercase tracking-[0.15em] font-black px-6 py-3 transition-all flex items-center gap-2">
+                   <button onClick={handleSaveSnapshot} disabled={saveSnapshotMutation.isPending || activePortfolio.length === 0} className="bg-[#00FF41] hover:bg-[#00CC33] disabled:bg-[#333] disabled:text-[#666] text-[10px] text-black uppercase tracking-[0.15em] font-black px-6 py-3 transition-all flex items-center gap-2">
                        {saveSnapshotMutation.isPending ? <Orbit className="w-4 h-4 animate-spin"/> : <Database className="w-4 h-4" />} Snapshot DB
                    </button>
                 </div>
@@ -2000,6 +2004,11 @@ export default function ExpertTerminal() {
                   </div>
               )}
             </div>
+          )}
+
+          {/* ================= TAB 6: GLOBAL SCANNER ================= */}
+          {activeTab === 'scanner' && (
+             <UniversalNewsScanner currentUserEmail={currentUserEmail} />
           )}
         </div>
       </main>

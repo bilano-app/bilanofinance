@@ -1148,9 +1148,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch(e:any) { res.status(500).json({ error: e.message }); }
   });
 
-  // =====================================================================
-  // 🚀 FITUR EXPERT TERMINAL: INTEGRASI DATA HARGA LIVE & HISTORICAL CHART
-  // =====================================================================
   app.post("/api/finance/quotes", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1247,7 +1244,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses history aset." }); }
   });
 
-  // 🚀 PERBAIKAN: SCAN GAMBAR MULTIPLE STRUK
   app.post("/api/vision/scan", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1291,7 +1287,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses gambar." }); }
   });
 
-  // 🚀 PERBAIKAN: SCAN SUARA MULTIPLE TRANSAKSI MENGGUNAKAN AI
   app.post("/api/voice/scan", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1346,7 +1341,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
 
           const cleanedSymbols = symbols.map((s: string) => s.replace('.JK', '').toUpperCase());
-
           const todayDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
           const prompt = `Kamu adalah analis intelijen pasar global untuk terminal trading institusional.
@@ -1391,16 +1385,11 @@ Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
-                  generationConfig: { 
-                      temperature: 0.15
-                  } 
+                  generationConfig: { temperature: 0.15 } 
               })
           });
 
-          if (!aiRes.ok) {
-              const err = await aiRes.text();
-              throw new Error(`API Gemini Menolak: ${err}`);
-          }
+          if (!aiRes.ok) throw new Error(`API Gemini Menolak: ${await aiRes.text()}`);
 
           const aiData = await aiRes.json();
           const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -1410,24 +1399,127 @@ Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini
           let parsedAI;
           try { 
               const jsonMatch = resultText.match(/\{[\s\S]*\}/);
-              if (jsonMatch) {
-                  parsedAI = JSON.parse(jsonMatch[0]);
-              } else {
-                  parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
-              }
-          } catch (e) { 
-              throw new Error("Gagal melakukan parsing JSON dari Gemini.");
-          }
+              if (jsonMatch) parsedAI = JSON.parse(jsonMatch[0]);
+              else parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
+          } catch (e) { throw new Error("Gagal melakukan parsing JSON dari Gemini."); }
 
-          const articles = parsedAI.articles || [];
-          const analysis = parsedAI.analysis || parsedAI;
+          res.json({ success: true, articles: parsedAI.articles || [], analysis: parsedAI.analysis || parsedAI });
 
-          res.json({ success: true, articles: articles, analysis: analysis });
+      } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses Market Intel." }); }
+  });
 
-      } catch (error: any) { 
-          console.error("Market Intel API Error:", error.message);
-          res.status(500).json({ error: error.message || "Gagal memproses Market Intel." }); 
-      }
+  // =========================================================================
+  // 🚀 ENDPOINT BARU: UNIVERSAL NEWS & DEEP SCAN
+  // =========================================================================
+  app.post("/api/finance/universal-news", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { market } = req.body;
+          const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
+          if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
+
+          const marketContext = market === 'US' ? 'Pasar Saham Wall Street (US Market)' : 'Pasar Saham Indonesia (IHSG)';
+          
+          const prompt = `Kamu adalah mesin pencari berita universal real-time.
+Tugas: Cari berita ekonomi, bisnis, atau spesifik saham untuk ${marketContext}.
+Tanggal Wajib Hari Ini: 22 Juni 2026. HANYA ambil berita dari tanggal ini atau 24 jam terakhir. Jangan merekayasa berita yang tidak ada. Jika hanya sedikit, tampilkan apa adanya (tetapi usahakan cari sebanyak mungkin dari berbagai portal terpercaya).
+
+Organisasikan berita menjadi beberapa "klotters" (batch/kelompok).
+Dalam setiap klotter, cantumkan daftar saham (ticker) yang diindikasikan atau berdampak oleh berita-berita di klotter tersebut.
+
+Kembalikan HANYA format JSON MURNI:
+{
+  "klotters": [
+    {
+      "implicatedStocks": ["BBNI.JK", "BBKP.JK"],
+      "articles": [
+        { "title": "Judul 1", "url": "URL Valid 1", "source": "CNBC", "time": "1 Jam Lalu" },
+        { "title": "Judul 2", "url": "URL Valid 2", "source": "Bloomberg", "time": "2 Jam Lalu" }
+      ]
+    }
+  ]
+}`;
+
+          const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                  contents: [{ role: "user", parts: [{ text: prompt }] }],
+                  tools: [{ googleSearch: {} }],
+                  generationConfig: { temperature: 0.1 } 
+              })
+          });
+
+          if (!aiRes.ok) throw new Error("API Gemini Menolak.");
+
+          const aiData = await aiRes.json();
+          const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          
+          let parsedAI;
+          try { 
+              const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+              if (jsonMatch) parsedAI = JSON.parse(jsonMatch[0]);
+              else parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
+          } catch (e) { throw new Error("Gagal parsing JSON."); }
+
+          res.json({ success: true, data: parsedAI });
+
+      } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/finance/deep-scan", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { ticker } = req.body;
+          if (!ticker) return res.status(400).json({ error: "Ticker tidak diberikan." });
+
+          const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
+          if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
+
+          const prompt = `Lakukan Deep Scan dan Momentum Analysis jangka pendek terhadap saham: ${ticker}.
+Tanggal pencarian: HARI INI, 22 Juni 2026.
+Tugas:
+1. Cari berita AKTUAL dan NYATA hari ini mengenai ${ticker} atau industri terkait secara langsung/tidak langsung menggunakan Google Search.
+2. Analisis sentimen berita-berita tersebut untuk memberikan "verdict" momentum pembelian JANGKA PENDEK. (STRONG BUY, BUY, HOLD, atau SELL).
+3. Buat uraian analisis fundamental/sentimen sekomprehensif dan sedalam mungkin (berikan paragraf atau poin-poin yang panjang).
+
+Kembalikan HANYA format JSON MURNI:
+{
+  "ticker": "${ticker}",
+  "verdict": "STRONG BUY",
+  "reasoning": "Uraian analisis lengkap yang sangat panjang dan komprehensif...",
+  "articles": [
+    { "title": "Judul", "url": "URL", "source": "Sumber", "time": "Waktu rilis" }
+  ]
+}`;
+
+          const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                  contents: [{ role: "user", parts: [{ text: prompt }] }],
+                  tools: [{ googleSearch: {} }],
+                  generationConfig: { temperature: 0.1 } 
+              })
+          });
+
+          if (!aiRes.ok) throw new Error("API Gemini Menolak.");
+
+          const aiData = await aiRes.json();
+          const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          
+          let parsedAI;
+          try { 
+              const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+              if (jsonMatch) parsedAI = JSON.parse(jsonMatch[0]);
+              else parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
+          } catch (e) { throw new Error("Gagal parsing JSON."); }
+
+          res.json({ success: true, data: parsedAI });
+
+      } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
 
   const httpServer = createServer(app);
