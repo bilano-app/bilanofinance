@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 
 const COMMON_TICKERS = [
-  // IHSG (Preferensi Pengguna)
+  // IHSG
   "PTRO.JK", "BBNI.JK", "BBKP.JK", "BBCA.JK", "BBRI.JK", "BMRI.JK", "ASII.JK", "TLKM.JK", "GOTO.JK", "AMMN.JK", "BREN.JK", "DEWA.JK",
   // US Wall Street
   "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B", "JPM", "V"
@@ -91,6 +91,21 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
     } finally {
       setIsScanning(false);
     }
+  };
+
+  // Helper pewarnaan untuk Sentimen Positif/Negatif
+  const getVerdictColorText = (verdict: string) => {
+      const v = (verdict || "").toUpperCase();
+      if (v.includes('POSITIF')) return 'text-[#00FF41]';
+      if (v.includes('NEGATIF')) return 'text-[#FF003C]';
+      return 'text-[#FFD700]';
+  };
+  
+  const getVerdictColorBg = (verdict: string) => {
+      const v = (verdict || "").toUpperCase();
+      if (v.includes('POSITIF')) return 'bg-[#00FF41]';
+      if (v.includes('NEGATIF')) return 'bg-[#FF003C]';
+      return 'bg-[#FFD700]';
   };
 
   return (
@@ -296,12 +311,12 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
               
               {/* Hasil Verdict Momentum */}
               <div className="bg-[#050505] border border-[#333] p-8 relative overflow-hidden shadow-lg">
-                <div className={`absolute top-0 left-0 w-2 h-full ${scanResult.verdict.includes('BUY') ? 'bg-[#00FF41]' : scanResult.verdict.includes('SELL') ? 'bg-[#FF003C]' : 'bg-[#FFD700]'}`}></div>
+                <div className={`absolute top-0 left-0 w-2 h-full ${getVerdictColorBg(scanResult.verdict)}`}></div>
                 
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <p className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.2em] mb-2">Verdict Momentum (Short-Term)</p>
-                    <h1 className={`text-4xl font-black uppercase tracking-tight ${scanResult.verdict.includes('BUY') ? 'text-[#00FF41]' : scanResult.verdict.includes('SELL') ? 'text-[#FF003C]' : 'text-[#FFD700]'}`}>
+                    <p className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.2em] mb-2">Indikator Sentimen Sentral</p>
+                    <h1 className={`text-4xl font-black uppercase tracking-tight ${getVerdictColorText(scanResult.verdict)}`}>
                       {scanResult.verdict}
                     </h1>
                   </div>
@@ -313,7 +328,7 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
 
                 <div className="border-t border-[#222] pt-6 mt-6">
                   <p className="text-[10px] font-bold text-[#00E5FF] uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                    <Newspaper className="w-4 h-4"/> Uraian Analisis Lengkap
+                    <Newspaper className="w-4 h-4"/> Uraian Analisis Sentimen
                   </p>
                   <div className="text-sm text-[#D4D4D8] leading-relaxed font-sans space-y-4 whitespace-pre-wrap">
                     {scanResult.reasoning}

@@ -1357,7 +1357,7 @@ Tugas Analisis Mendalam:
 Kembalikan HANYA format JSON MURNI tanpa markdown \`\`\`json. Struktur harus:
 {
   "analysis": {
-    "overallSentiment": "BULLISH" | "BEARISH" | "NEUTRAL",
+    "overallSentiment": "SANGAT POSITIF" | "POSITIF" | "NETRAL" | "NEGATIF" | "SANGAT NEGATIF",
     "confidenceScore": 85,
     "marketSummary": "Ringkasan tajam kondisi makro.",
     "actionableInsights": [
@@ -1371,7 +1371,7 @@ Kembalikan HANYA format JSON MURNI tanpa markdown \`\`\`json. Struktur harus:
   "articles": [
     {
       "title": "Judul asli berita",
-      "url": "Link URL",
+      "url": "PASTIKAN INI ADALAH URL ASLI PUBLISHER (Misal: https://www.cnbcindonesia.com/... atau https://www.bloomberg.com/...). DILARANG KERAS memberikan link redirect internal seperti vertexaisearch.cloud.google.com atau link yang terpotong.",
       "source": "Nama portal berita",
       "time": "Waktu tayang"
     }
@@ -1429,7 +1429,12 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
     {
       "implicatedStocks": ["BBNI.JK", "BBKP.JK"],
       "articles": [
-        { "title": "Judul 1", "url": "URL Valid 1", "source": "CNBC", "time": "1 Jam Lalu" }
+        { 
+          "title": "Judul Berita", 
+          "url": "PASTIKAN INI ADALAH URL ASLI PUBLISHER. DILARANG KERAS memberikan link redirect internal seperti vertexaisearch.cloud.google.com atau link root domain biasa.", 
+          "source": "Nama Media", 
+          "time": "Waktu Rilis" 
+        }
       ]
     }
   ]
@@ -1472,19 +1477,24 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
           if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
 
-          const prompt = `Lakukan Deep Scan dan Momentum Analysis jangka pendek terhadap saham: ${ticker}.
+          const prompt = `Lakukan Deep Scan dan Analisis Sentimen jangka pendek terhadap saham: ${ticker}.
 Tugas:
 1. Pindai Google Search untuk berita AKTUAL dan NYATA paling terbaru mengenai ${ticker} atau industri terkait. Abaikan tahun di kalendermu, cukup cari data real-time saat ini.
-2. Analisis sentimen berita-berita tersebut untuk memberikan "verdict" momentum pembelian JANGKA PENDEK. (STRONG BUY, BUY, HOLD, atau SELL).
+2. Analisis sentimen berita-berita tersebut untuk memberikan "verdict" atau kesimpulan sentimen momentum JANGKA PENDEK. (Pilih SALAH SATU: SANGAT POSITIF, POSITIF, NETRAL, NEGATIF, SANGAT NEGATIF). Dilarang menggunakan istilah Buy/Sell/Hold.
 3. Buat uraian analisis fundamental/sentimen sekomprehensif mungkin berdasarkan berita tersebut.
 
 Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
 {
   "ticker": "${ticker}",
-  "verdict": "STRONG BUY",
-  "reasoning": "Uraian analisis lengkap yang sangat panjang dan komprehensif...",
+  "verdict": "POSITIF",
+  "reasoning": "Uraian analisis lengkap sentimen saham ini...",
   "articles": [
-    { "title": "Judul", "url": "URL", "source": "Sumber", "time": "Waktu rilis" }
+    { 
+      "title": "Judul Berita", 
+      "url": "PASTIKAN INI ADALAH URL ASLI PUBLISHER KEPADA ARTIKEL LANGSUNG. DILARANG KERAS memberikan link redirect internal seperti vertexaisearch.cloud.google.com.", 
+      "source": "Nama Media", 
+      "time": "Waktu rilis" 
+    }
   ]
 }`;
 
@@ -1517,3 +1527,4 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
   const httpServer = createServer(app);
   return httpServer;
 }
+
