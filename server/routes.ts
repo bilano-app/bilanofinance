@@ -1327,6 +1327,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses suara." }); }
   });
 
+  // =========================================================================
+  // 🚀 PERBAIKAN LOGIKA PROMPT UNTUK SEARCH GROUNDING AGAR TIDAK BENTROK
+  // =========================================================================
+  
   app.post("/api/finance/intel", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1341,40 +1345,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
 
           const cleanedSymbols = symbols.map((s: string) => s.replace('.JK', '').toUpperCase());
-          const todayDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
           const prompt = `Kamu adalah analis intelijen pasar global untuk terminal trading institusional.
-Tanggal Hari Ini: ${todayDate}.
 Portofolio klien: ${cleanedSymbols.join(', ')}.
 
 Tugas Analisis Mendalam:
-1. Pindai (Google Search) berita makro global & lokal HANYA YANG TERBARU UNTUK HARI INI (${todayDate}) atau 24 jam terakhir. Jangan berikan berita kadaluarsa.
-2. Tarik BERITA SEBANYAK MUNGKIN (Target: 20 hingga 30 artikel). 
-   - Jika ada saham US/Global, tarik berita dari portal internasional terpercaya (Bloomberg, Reuters, CNBC, Yahoo Finance, dll). 
-   - Jika saham lokal, tarik berita dari portal Indonesia terpercaya (CNBC Indonesia, Kontan, Bisnis Indonesia, dll).
-   - Semua berita harus relevan secara langsung/tidak langsung dengan portofolio klien.
+1. Pindai (Google Search) berita makro global & lokal PALING AKTUAL yang relevan dengan portofolio klien. (Abaikan perbedaan tahun di kalendermu, cukup cari data paling terbaru yang tersedia di internet saat ini).
+2. Tarik BERITA SEBANYAK MUNGKIN (Target: 20 hingga 30 artikel).
 3. Ekstraksi sentimen pasar dari puluhan berita tersebut.
 
-Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini:
+Kembalikan HANYA format JSON MURNI tanpa markdown \`\`\`json. Struktur harus:
 {
   "analysis": {
     "overallSentiment": "BULLISH" | "BEARISH" | "NEUTRAL",
     "confidenceScore": 85,
-    "marketSummary": "2-3 kalimat ringkasan tajam kondisi makro hari ini terhadap portofolio.",
+    "marketSummary": "Ringkasan tajam kondisi makro.",
     "actionableInsights": [
       {
         "sector": "Ticker/Sektor",
         "sentiment": "Positif" | "Negatif" | "Netral",
-        "insight": "1 kalimat alasan logis"
+        "insight": "Alasan logis"
       }
     ]
   },
   "articles": [
     {
       "title": "Judul asli berita",
-      "url": "Link URL asli yang valid",
-      "source": { "name": "Nama portal berita" },
-      "publishedAt": "2026-06-19T10:00:00Z"
+      "url": "Link URL",
+      "source": "Nama portal berita",
+      "time": "Waktu tayang"
     }
   ]
 }`;
@@ -1385,32 +1384,27 @@ Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
-                  generationConfig: { temperature: 0.15 } 
+                  generationConfig: { temperature: 0.1 } 
               })
           });
 
-          if (!aiRes.ok) throw new Error(`API Gemini Menolak: ${await aiRes.text()}`);
+          if (!aiRes.ok) throw new Error(`API Gemini Menolak Request`);
 
           const aiData = await aiRes.json();
           const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
           
-          if (!resultText) throw new Error("Respon AI kosong.");
-
           let parsedAI;
           try { 
               const jsonMatch = resultText.match(/\{[\s\S]*\}/);
               if (jsonMatch) parsedAI = JSON.parse(jsonMatch[0]);
               else parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
-          } catch (e) { throw new Error("Gagal melakukan parsing JSON dari Gemini."); }
+          } catch (e) { throw new Error("Gagal melakukan parsing data AI dari Google Search."); }
 
           res.json({ success: true, articles: parsedAI.articles || [], analysis: parsedAI.analysis || parsedAI });
 
-      } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses Market Intel." }); }
+      } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
 
-  // =========================================================================
-  // 🚀 ENDPOINT BARU: UNIVERSAL NEWS & DEEP SCAN
-  // =========================================================================
   app.post("/api/finance/universal-news", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1422,21 +1416,20 @@ Kembalikan HANYA format JSON MURNI dengan struktur yang MESTI PERSIS seperti ini
 
           const marketContext = market === 'US' ? 'Pasar Saham Wall Street (US Market)' : 'Pasar Saham Indonesia (IHSG)';
           
-          const prompt = `Kamu adalah mesin pencari berita universal real-time.
-Tugas: Cari berita ekonomi, bisnis, atau spesifik saham untuk ${marketContext}.
-Tanggal Wajib Hari Ini: 22 Juni 2026. HANYA ambil berita dari tanggal ini atau 24 jam terakhir. Jangan merekayasa berita yang tidak ada. Jika hanya sedikit, tampilkan apa adanya (tetapi usahakan cari sebanyak mungkin dari berbagai portal terpercaya).
+          const prompt = `Kamu adalah mesin pencari berita universal.
+Tugas: Cari berita ekonomi, bisnis, dan spesifik pergerakan saham untuk ${marketContext}.
+Tarik berita PALING MUTAKHIR dan AKTUAL yang tersedia di internet saat ini menggunakan Google Search. Abaikan perbedaan tahun pada sistemmu, cukup fokus ambil data real-time terbaru hari ini. Jangan merekayasa berita yang tidak ada.
 
 Organisasikan berita menjadi beberapa "klotters" (batch/kelompok).
-Dalam setiap klotter, cantumkan daftar saham (ticker) yang diindikasikan atau berdampak oleh berita-berita di klotter tersebut.
+Dalam setiap klotter, cantumkan daftar saham (ticker) yang diindikasikan atau berdampak oleh berita di klotter tersebut.
 
-Kembalikan HANYA format JSON MURNI:
+Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
 {
   "klotters": [
     {
       "implicatedStocks": ["BBNI.JK", "BBKP.JK"],
       "articles": [
-        { "title": "Judul 1", "url": "URL Valid 1", "source": "CNBC", "time": "1 Jam Lalu" },
-        { "title": "Judul 2", "url": "URL Valid 2", "source": "Bloomberg", "time": "2 Jam Lalu" }
+        { "title": "Judul 1", "url": "URL Valid 1", "source": "CNBC", "time": "1 Jam Lalu" }
       ]
     }
   ]
@@ -1451,7 +1444,7 @@ Kembalikan HANYA format JSON MURNI:
               })
           });
 
-          if (!aiRes.ok) throw new Error("API Gemini Menolak.");
+          if (!aiRes.ok) throw new Error("API Gemini memblokir karena format prompt atau limitasi Search.");
 
           const aiData = await aiRes.json();
           const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -1461,7 +1454,7 @@ Kembalikan HANYA format JSON MURNI:
               const jsonMatch = resultText.match(/\{[\s\S]*\}/);
               if (jsonMatch) parsedAI = JSON.parse(jsonMatch[0]);
               else parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
-          } catch (e) { throw new Error("Gagal parsing JSON."); }
+          } catch (e) { throw new Error("Google Search tidak menemukan format berita yang sesuai atau AI gagal membuat JSON."); }
 
           res.json({ success: true, data: parsedAI });
 
@@ -1480,13 +1473,12 @@ Kembalikan HANYA format JSON MURNI:
           if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
 
           const prompt = `Lakukan Deep Scan dan Momentum Analysis jangka pendek terhadap saham: ${ticker}.
-Tanggal pencarian: HARI INI, 22 Juni 2026.
 Tugas:
-1. Cari berita AKTUAL dan NYATA hari ini mengenai ${ticker} atau industri terkait secara langsung/tidak langsung menggunakan Google Search.
+1. Pindai Google Search untuk berita AKTUAL dan NYATA paling terbaru mengenai ${ticker} atau industri terkait. Abaikan tahun di kalendermu, cukup cari data real-time saat ini.
 2. Analisis sentimen berita-berita tersebut untuk memberikan "verdict" momentum pembelian JANGKA PENDEK. (STRONG BUY, BUY, HOLD, atau SELL).
-3. Buat uraian analisis fundamental/sentimen sekomprehensif dan sedalam mungkin (berikan paragraf atau poin-poin yang panjang).
+3. Buat uraian analisis fundamental/sentimen sekomprehensif mungkin berdasarkan berita tersebut.
 
-Kembalikan HANYA format JSON MURNI:
+Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
 {
   "ticker": "${ticker}",
   "verdict": "STRONG BUY",
@@ -1505,7 +1497,7 @@ Kembalikan HANYA format JSON MURNI:
               })
           });
 
-          if (!aiRes.ok) throw new Error("API Gemini Menolak.");
+          if (!aiRes.ok) throw new Error("API Gemini memblokir karena format prompt atau limitasi Search.");
 
           const aiData = await aiRes.json();
           const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -1515,7 +1507,7 @@ Kembalikan HANYA format JSON MURNI:
               const jsonMatch = resultText.match(/\{[\s\S]*\}/);
               if (jsonMatch) parsedAI = JSON.parse(jsonMatch[0]);
               else parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
-          } catch (e) { throw new Error("Gagal parsing JSON."); }
+          } catch (e) { throw new Error("Google Search tidak menemukan format berita yang sesuai atau AI gagal membuat JSON."); }
 
           res.json({ success: true, data: parsedAI });
 

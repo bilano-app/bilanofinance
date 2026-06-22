@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { 
-  Globe, Search, Zap, Crosshair, TrendingUp, TrendingDown, 
-  Minus, ArrowUpRight, Newspaper, Radar, Orbit
+  Globe, Search, Zap, Crosshair, ArrowUpRight, Newspaper, Radar, Orbit, AlertTriangle
 } from 'lucide-react';
 
 const COMMON_TICKERS = [
-  // IHSG (Dengan preferensi pengguna)
+  // IHSG (Preferensi Pengguna)
   "PTRO.JK", "BBNI.JK", "BBKP.JK", "BBCA.JK", "BBRI.JK", "BMRI.JK", "ASII.JK", "TLKM.JK", "GOTO.JK", "AMMN.JK", "BREN.JK", "DEWA.JK",
   // US Wall Street
   "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B", "JPM", "V"
@@ -19,6 +17,7 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
   const [marketType, setMarketType] = useState<'ID' | 'US'>('ID');
   const [isFetchingNews, setIsFetchingNews] = useState(false);
   const [universalData, setUniversalData] = useState<any>(null);
+  const [universalError, setUniversalError] = useState("");
 
   // State Deep Scan
   const [searchQuery, setSearchQuery] = useState("");
@@ -26,6 +25,7 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
   const [selectedTicker, setSelectedTicker] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<any>(null);
+  const [scanError, setScanError] = useState("");
 
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -46,17 +46,23 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
 
   const handleFetchUniversal = async () => {
     setIsFetchingNews(true);
+    setUniversalError("");
+    setUniversalData(null);
     try {
       const res = await fetch('/api/finance/universal-news', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-email': currentUserEmail },
         body: JSON.stringify({ market: marketType })
       });
-      if (!res.ok) throw new Error("Gagal menarik data berita.");
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menarik data berita.");
+      if (!data.data || !data.data.klotters || data.data.klotters.length === 0) {
+          throw new Error("Pencarian Google tidak mengembalikan hasil berita yang valid hari ini.");
+      }
       setUniversalData(data.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      setUniversalError(error.message);
     } finally {
       setIsFetchingNews(false);
     }
@@ -65,6 +71,7 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
   const handleDeepScan = async () => {
     if (!selectedTicker) return;
     setIsScanning(true);
+    setScanError("");
     setScanResult(null);
     try {
       const res = await fetch('/api/finance/deep-scan', {
@@ -72,11 +79,15 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
         headers: { 'Content-Type': 'application/json', 'x-user-email': currentUserEmail },
         body: JSON.stringify({ ticker: selectedTicker })
       });
-      if (!res.ok) throw new Error("Gagal melakukan deep scan.");
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal melakukan deep scan.");
+      if (!data.data || !data.data.verdict) {
+          throw new Error("Sistem gagal menganalisis ticker ini karena minimnya sentimen berita.");
+      }
       setScanResult(data.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      setScanError(error.message);
     } finally {
       setIsScanning(false);
     }
@@ -143,14 +154,20 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
                <Orbit className="w-10 h-10 text-[#00E5FF] animate-spin mb-4" />
                <p className="text-[10px] text-[#00E5FF] font-bold uppercase tracking-[0.2em] animate-pulse">Menyaring Ribuan Berita Harian...</p>
             </div>
+          ) : universalError ? (
+            <div className="bg-[#FF003C]/10 border border-[#FF003C]/30 p-8 flex flex-col items-center justify-center text-center">
+               <AlertTriangle className="w-10 h-10 text-[#FF003C] mb-4" />
+               <h3 className="text-sm font-black text-white mb-2 uppercase tracking-widest">Sistem Gagal Merespon</h3>
+               <p className="text-[#A1A1AA] text-xs max-w-md uppercase tracking-wider">{universalError}</p>
+            </div>
           ) : universalData && universalData.klotters ? (
             <div className="space-y-8">
               {universalData.klotters.map((klotter: any, index: number) => (
-                <div key={index} className="bg-[#09090B] border border-[#333] relative overflow-hidden">
+                <div key={index} className="bg-[#09090B] border border-[#333] relative overflow-hidden shadow-lg">
                   <div className="absolute top-0 left-0 w-1.5 h-full bg-[#00E5FF]"></div>
                   <div className="p-4 border-b border-[#222] bg-[#111]">
                     <h3 className="text-xs font-black text-white uppercase tracking-widest">
-                      Klotter {index + 1}
+                      Klotter Berita {index + 1}
                     </h3>
                   </div>
                   
@@ -160,8 +177,8 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
                       <a key={aIdx} href={article.url} target="_blank" rel="noopener noreferrer" className="min-w-[280px] w-[280px] bg-[#050505] border border-[#222] p-4 snap-start hover:border-[#00E5FF]/50 transition-colors group flex flex-col justify-between">
                         <div>
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-[8px] font-bold bg-[#00E5FF]/10 text-[#00E5FF] px-1.5 py-0.5 uppercase tracking-wider">{article.source}</span>
-                            <span className="text-[8px] text-[#666] font-mono">{article.time}</span>
+                            <span className="text-[8px] font-bold bg-[#00E5FF]/10 text-[#00E5FF] px-1.5 py-0.5 uppercase tracking-wider">{article.source || "Global News"}</span>
+                            <span className="text-[8px] text-[#666] font-mono">{article.time || "Baru saja"}</span>
                           </div>
                           <h4 className="text-xs font-bold text-white leading-relaxed group-hover:text-[#00E5FF] transition-colors line-clamp-3">
                             {article.title}
@@ -179,11 +196,14 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
                       <Crosshair className="w-3 h-3 text-[#00FF41]"/> Indikasi Saham Terkait
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {klotter.implicatedStocks.map((stock: string, sIdx: number) => (
+                      {(klotter.implicatedStocks || []).map((stock: string, sIdx: number) => (
                         <span key={sIdx} className="text-xs font-mono font-black text-[#00FF41] bg-[#00FF41]/10 border border-[#00FF41]/30 px-2 py-1">
                           {stock}
                         </span>
                       ))}
+                      {(!klotter.implicatedStocks || klotter.implicatedStocks.length === 0) && (
+                         <span className="text-[10px] text-[#666] font-mono italic">Belum ada identifikasi saham spesifik</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -198,7 +218,7 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
       {/* ======================================= */}
       {activeMode === 'deepscan' && (
         <div className="space-y-6">
-          <div className="bg-[#050505] border border-[#222] p-6 max-w-2xl" ref={wrapperRef}>
+          <div className="bg-[#050505] border border-[#222] p-6 max-w-2xl shadow-lg" ref={wrapperRef}>
             <label className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-widest block mb-2">Target Ticker Analysis</label>
             <div className="relative">
               <div className="flex items-center border border-[#333] bg-[#000] focus-within:border-[#FFD700] transition-colors">
@@ -265,11 +285,17 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
                <Zap className="w-12 h-12 text-[#FFD700] animate-bounce mb-4" />
                <p className="text-[10px] text-[#FFD700] font-bold uppercase tracking-[0.2em] animate-pulse">Menyelami Data Fundamental & Sentimen {selectedTicker}...</p>
             </div>
+          ) : scanError ? (
+            <div className="bg-[#FF003C]/10 border border-[#FF003C]/30 p-8 flex flex-col items-center justify-center text-center">
+               <AlertTriangle className="w-10 h-10 text-[#FF003C] mb-4" />
+               <h3 className="text-sm font-black text-white mb-2 uppercase tracking-widest">Deep Scan Gagal</h3>
+               <p className="text-[#A1A1AA] text-xs max-w-md uppercase tracking-wider">{scanError}</p>
+            </div>
           ) : scanResult ? (
             <div className="space-y-6">
               
               {/* Hasil Verdict Momentum */}
-              <div className="bg-[#050505] border border-[#333] p-8 relative overflow-hidden">
+              <div className="bg-[#050505] border border-[#333] p-8 relative overflow-hidden shadow-lg">
                 <div className={`absolute top-0 left-0 w-2 h-full ${scanResult.verdict.includes('BUY') ? 'bg-[#00FF41]' : scanResult.verdict.includes('SELL') ? 'bg-[#FF003C]' : 'bg-[#FFD700]'}`}></div>
                 
                 <div className="flex justify-between items-start mb-6">
@@ -300,16 +326,16 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
                 <Globe className="w-4 h-4 text-[#FFD700]" /> Sumber Berita Penggerak Sentimen
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {scanResult.articles.map((article: any, idx: number) => (
+                {(scanResult.articles || []).map((article: any, idx: number) => (
                   <a key={idx} href={article.url} target="_blank" rel="noopener noreferrer" className="bg-[#0D0D0D] border border-[#222] p-5 hover:bg-[#111] hover:border-[#FFD700]/50 transition-all group flex flex-col justify-between h-full">
                     <div>
                       <div className="flex justify-between items-center mb-3">
                         <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#FFD700] bg-[#FFD700]/10 px-2 py-1">
-                          {article.source}
+                          {article.source || "Finance Source"}
                         </span>
                         {article.time && <span className="text-[9px] text-[#666] font-mono">{article.time}</span>}
                       </div>
-                      <h4 className="text-sm font-bold text-white leading-snug group-hover:text-[#FFD700] transition-colors mb-4">
+                      <h4 className="text-sm font-bold text-white leading-snug group-hover:text-[#FFD700] transition-colors mb-4 line-clamp-3">
                         {article.title}
                       </h4>
                     </div>
