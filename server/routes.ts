@@ -10,6 +10,7 @@ import { users } from "../shared/schema.js";
 import { eq, desc, isNotNull } from "drizzle-orm";
 import admin from "firebase-admin"; 
 import nodemailer from "nodemailer";
+import crypto from "crypto";
 
 let firebaseAdminInitialized = false;
 try {
@@ -1023,6 +1024,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
               else return res.status(400).json({ error: "Mayar sukses tapi link pembayaran tidak ditemukan." });
           } catch (parseErr) { return res.status(500).json({ error: "Gagal memproses balasan dari Mayar." }); }
       } catch (error: any) { res.status(500).json({ error: "SERVER CRASH: " + error.message }); }
+  });
+
+  // =========================================================================
+  // 🚀 INTEGRASI DUITKU SANDBOX (ONBOARDING SYARAT)
+  // =========================================================================
+  app.post("/api/payment/duitku-sandbox", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { price, productDetail, customerName, email, phone } = req.body;
+
+          // ⚠️ PENTING: Ganti dengan kredensial Sandbox Anda dari Dashboard Duitku
+          // Bisa didapatkan di menu: Proyek Saya -> Sandbox -> Detail
+          const merchantCode = process.env.DUITKU_MERCHANT_CODE || 'DS32094'; 
+          const merchantKey = process.env.DUITKU_MERCHANT_KEY || '709318bc2d71f3c29ac8b14130bf27b7';
+
+          // Buat Order ID Unik
+          const merchantOrderId = 'BILANO-' + Date.now();
+          const paymentAmount = parseInt(price);
+
+          // Buat Signature MD5 sesuai standar Duitku
+          const signatureRaw = merchantCode + merchantOrderId + paymentAmount + merchantKey;
+          const signature = crypto.createHash('md5').update(signatureRaw).digest('hex');
+
+          // Susun Payload
+          const payload = {
+              merchantCode: merchantCode,
+              paymentAmount: paymentAmount,
+              merchantOrderId: merchantOrderId,
+              productDetails: productDetail,
+              email: email,
+              phoneNumber: phone,
+              customerVaName: customerName,
+              itemDetails: [{ name: productDetail, price: paymentAmount, quantity: 1 }],
+              // URL kembalian setelah simulasi dibayar di halaman Duitku
+              returnUrl: 'https://bilano.app/onboarding?payment=success',
+              // URL callback webhook (Bisa diisi dummy dulu untuk onboarding)
+              callbackUrl: 'https://bilano.app/api/payment/duitku-webhook',
+              signature: signature
+          };
+
+          // Tembak API Sandbox Duitku menggunakan fetch
+          const duitkuRes = await fetch('https://sandbox.duitku.com/webapi/api/merchant/v2/inquiry', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+          });
+
+          const data = await duitkuRes.json();
+
+          if (data && data.paymentUrl) {
+              // Jika sukses, kirim paymentUrl ke Frontend React
+              res.json({ paymentUrl: data.paymentUrl });
+          } else {
+              console.error("Duitku Sandbox Error:", data);
+              res.status(400).json({ error: "Gagal mendapatkan URL Pembayaran dari Duitku." });
+          }
+
+      } catch (error: any) {
+          console.error("Server Crash Duitku:", error.message);
+          res.status(500).json({ error: 'Internal Server Error' });
+      }
   });
 
   app.post("/api/payment/mayar/webhook", async (req: any, res: any) => {

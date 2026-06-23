@@ -29,6 +29,19 @@ export default function Onboarding() {
   });
 
   // =======================================================
+  // 🚀 LOGIKA REDIRECT DARI SANDBOX DUITKU
+  // =======================================================
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment') === 'success') {
+      // Jika kembali dari Duitku dengan status success, langsung arahkan ke halaman 6
+      setStep(6);
+      // Bersihkan URL agar terlihat rapi kembali
+      window.history.replaceState({}, '', '/onboarding');
+    }
+  }, []);
+
+  // =======================================================
   // 🚀 LOGIKA PWA INSTALLER NATIVE
   // =======================================================
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -72,10 +85,10 @@ export default function Onboarding() {
   };
 
   // =======================================================
-  // 🚀 FUNGSI SUBMIT FORM PEMBAYARAN DI DALAM MODAL
+  // 🚀 FUNGSI SUBMIT FORM PEMBAYARAN KE BACKEND
   // =======================================================
-  const handleCheckoutSubmit = (e: React.FormEvent) => {
-    e.preventDefault(); // Mencegah reload halaman
+  const handleCheckoutSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); 
     
     if (!formData.name || !formData.email || !formData.phone) {
       alert("Harap lengkapi semua data pembeli!");
@@ -84,17 +97,40 @@ export default function Onboarding() {
 
     setLoading(true);
 
-    // Simulasi jeda pemrosesan ke Duitku
-    setTimeout(() => {
+    try {
+      // Tentukan harga berdasarkan pilihan plan
+      const price = selectedPlan === 'year' ? 99000 : 14900;
+      const productDetail = selectedPlan === 'year' ? 'Paket Tahunan BILANO' : 'Paket Bulanan BILANO';
+
+      // Panggil Backend Anda
+      const response = await fetch('/api/payment/duitku-sandbox', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          price,
+          productDetail,
+          customerName: formData.name,
+          email: formData.email,
+          phone: formData.phone
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.paymentUrl) {
+        // Redirect user ke gerbang pembayaran Sandbox Duitku
+        window.location.href = data.paymentUrl;
+      } else {
+        alert("Gagal terhubung ke Sandbox Duitku. Periksa konfigurasi Backend Anda.");
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Terjadi kesalahan jaringan.");
       setLoading(false);
-      setSelectedPlan(null); // Tutup popup modal
-      setFade(false);
-      
-      setTimeout(() => {
-        setStep(6); // Lanjut ke halaman Sukses & Install PWA
-        setFade(true);
-      }, 300);
-    }, 1500);
+    }
   };
 
   // =======================================================
@@ -277,8 +313,8 @@ export default function Onboarding() {
               </div>
               <h3 className="text-xl font-black text-white mb-1">Paket Akses Setahun</h3>
               <div className="flex items-end gap-1 mb-4">
-                <span className="text-3xl font-black text-amber-400">Rp8.250</span>
-                <span className="text-slate-400 text-sm mb-1">/ bulan</span>
+                <span className="text-3xl font-black text-amber-400">Rp99.000</span>
+                <span className="text-slate-400 text-sm mb-1">/ selamanya</span>
               </div>
               <ul className="space-y-2">
                 <li className="flex items-center gap-2 text-sm text-slate-300"><CheckCircle2 className="w-4 h-4 text-emerald-400"/> Akses penuh 12 Bulan</li>
