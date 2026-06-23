@@ -313,8 +313,8 @@ export default function Onboarding() {
               </div>
               <h3 className="text-xl font-black text-white mb-1">Paket Akses Setahun</h3>
               <div className="flex items-end gap-1 mb-4">
-                <span className="text-3xl font-black text-amber-400">Rp99.000</span>
-                <span className="text-slate-400 text-sm mb-1">/ selamanya</span>
+                <span className="text-3xl font-black text-amber-400">Rp8.250</span>
+                <span className="text-slate-400 text-sm mb-1">/ bulan</span>
               </div>
               <ul className="space-y-2">
                 <li className="flex items-center gap-2 text-sm text-slate-300"><CheckCircle2 className="w-4 h-4 text-emerald-400"/> Akses penuh 12 Bulan</li>
