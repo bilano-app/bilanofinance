@@ -1036,10 +1036,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const { price, productDetail, customerName, email, phone } = req.body;
 
-          // ⚠️ PENTING: Ganti dengan kredensial Sandbox Anda dari Dashboard Duitku
-          // Bisa didapatkan di menu: Proyek Saya -> Sandbox -> Detail
-          const merchantCode = process.env.DUITKU_MERCHANT_CODE || 'DS32094'; 
-          const merchantKey = process.env.DUITKU_MERCHANT_KEY || '709318bc2d71f3c29ac8b14130bf27b7';
+          const merchantCode = process.env.DUITKU_MERCHANT_CODE || ''; 
+          const merchantKey = process.env.DUITKU_MERCHANT_KEY || '';
 
           // Buat Order ID Unik
           const merchantOrderId = 'BILANO-' + Date.now();
@@ -1059,14 +1057,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               phoneNumber: phone,
               customerVaName: customerName,
               itemDetails: [{ name: productDetail, price: paymentAmount, quantity: 1 }],
-              // URL kembalian setelah simulasi dibayar di halaman Duitku
               returnUrl: 'https://bilano.app/onboarding?payment=success',
-              // URL callback webhook (Bisa diisi dummy dulu untuk onboarding)
               callbackUrl: 'https://bilano.app/api/payment/duitku-webhook',
-              signature: signature
+              signature: signature,
+              paymentMethod: "" // <--- INI SOLUSINYA AGAR LOLOS ERROR 'paymentMethod is mandatory'
           };
 
-          // Tembak API Sandbox Duitku menggunakan fetch
+          // Tembak API Sandbox Duitku
           const duitkuRes = await fetch('https://sandbox.duitku.com/webapi/api/merchant/v2/inquiry', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
