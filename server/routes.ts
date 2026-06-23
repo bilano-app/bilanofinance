@@ -1060,8 +1060,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               returnUrl: 'https://bilano.app/onboarding?payment=success',
               callbackUrl: 'https://bilano.app/api/payment/duitku-webhook',
               signature: signature,
-              paymentMethod: "" // <--- INI SOLUSINYA AGAR LOLOS ERROR 'paymentMethod is mandatory'
-          };
+              paymentMethod: "BC" // <--- INI SOLUSINYA AGAR LOLOS ERROR 'paymentMethod is mandatory'
+              
+            };
 
           // Tembak API Sandbox Duitku
           const duitkuRes = await fetch('https://sandbox.duitku.com/webapi/api/merchant/v2/inquiry', {
