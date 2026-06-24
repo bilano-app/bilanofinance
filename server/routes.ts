@@ -1029,10 +1029,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =========================================================================
   // 🚀 INTEGRASI DUITKU SANDBOX (ONBOARDING SYARAT)
   // =========================================================================
+  // =========================================================================
+  // 🚀 INTEGRASI DUITKU SANDBOX (ONBOARDING SYARAT)
+  // =========================================================================
   app.post("/api/payment/duitku-sandbox", async (req: any, res: any) => {
       try {
-          const user = await getUser(req);
-          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+          // 🚀 PERBAIKAN: Hapus pengecekan 'getUser' agar public / incognito bisa akses
+          // const user = await getUser(req);
+          // if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
           const { price, productDetail, customerName, email, phone } = req.body;
 
@@ -1061,7 +1065,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               callbackUrl: 'https://bilano.app/api/payment/duitku-webhook',
               signature: signature,
               paymentMethod: "BC" // <--- INI SOLUSINYA AGAR LOLOS ERROR 'paymentMethod is mandatory'
-              
             };
 
           // Tembak API Sandbox Duitku
