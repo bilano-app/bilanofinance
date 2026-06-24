@@ -285,15 +285,18 @@ function Router() {
   useEffect(() => {
     const isAuth = localStorage.getItem("bilano_auth");
     
-    // Tambahkan && location !== "/terminal" di sini
-    if (!isAuth && location !== "/auth" && location !== "/terminal") {
-      if (isStandalone) {
+    // 🚀 PERBAIKAN: Daftar rute publik yang bebas diakses tanpa login
+    const publicRoutes = ["/", "/auth", "/terminal", "/onboarding", "/checkout"];
+
+    if (!isAuth) {
+      if (isStandalone && location !== "/auth") {
+        // Jika buka via aplikasi PWA (Standalone) tapi belum login -> Wajib ke Auth
         setLocation("/auth");
-      } else if (location !== "/") {
+      } else if (!isStandalone && !publicRoutes.includes(location)) {
+        // Jika buka via Browser biasa, tapi maksa masuk ke dashboard -> Wajib ke Auth
         setLocation("/auth");
       }
     }
-    // ...
 
     const handleOffline = () => setIsOffline(true);
     const handleOnline = () => setIsOffline(false);

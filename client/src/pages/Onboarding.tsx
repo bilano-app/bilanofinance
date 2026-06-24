@@ -28,6 +28,9 @@ export default function Onboarding() {
     phone: ""
   });
 
+  // State untuk kontrol modal panduan instalasi manual PWA
+  const [showManualInstall, setShowManualInstall] = useState(false);
+
   // =======================================================
   // 🚀 LOGIKA REDIRECT DARI SANDBOX DUITKU
   // =======================================================
@@ -64,7 +67,8 @@ export default function Onboarding() {
       }
       setDeferredPrompt(null);
     } else {
-      alert("PEMBERITAHUAN:\n\nSistem perangkat Anda memblokir popup otomatis. Silakan buka menu browser (titik tiga atau ikon Share) lalu pilih 'Install App' atau 'Tambahkan ke Layar Utama' (Add to Home Screen) untuk memasang BILANO.");
+      // Ganti alert kaku dengan modal UI yang elegan
+      setShowManualInstall(true);
     }
   };
 
@@ -427,6 +431,41 @@ export default function Onboarding() {
               </button>
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* =========================================
+          MODAL PANDUAN INSTALL MANUAL (FALLBACK)
+      ========================================= */}
+      {showManualInstall && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200 text-center">
+            <button 
+              onClick={() => setShowManualInstall(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Download className="w-8 h-8" />
+            </div>
+            
+            <h3 className="text-xl font-black mb-3">Install Manual</h3>
+            <p className="text-sm text-slate-300 mb-6 leading-relaxed text-left">
+              Browser Anda saat ini membatasi instalasi otomatis (biasanya terjadi pada mode penyamaran/Incognito, atau jika aplikasi sudah terpasang di perangkat). Untuk memasang BILANO:
+              <br/><br/>
+              1. Ketuk ikon <strong>Titik Tiga (⋮)</strong> atau <strong>Share</strong> di ujung browser Anda.<br/>
+              2. Pilih opsi <strong>"Tambahkan ke Layar Utama"</strong> (Add to Home Screen) atau <strong>"Install App"</strong>.<br/>
+            </p>
+
+            <button 
+              onClick={() => setShowManualInstall(false)}
+              className="w-full bg-slate-100 hover:bg-white text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center"
+            >
+              SAYA MENGERTI
+            </button>
           </div>
         </div>
       )}
