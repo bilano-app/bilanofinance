@@ -1412,11 +1412,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 Portofolio klien: ${cleanedSymbols.join(', ')}.
 
 Tugas Analisis Mendalam:
-1. Pindai (Google Search) berita makro global & lokal PALING AKTUAL yang relevan dengan portofolio klien. (Abaikan perbedaan tahun di kalendermu, cukup cari data paling terbaru yang tersedia di internet saat ini).
-2. Tarik BERITA SEBANYAK MUNGKIN (Target: 20 hingga 30 artikel).
-3. Ekstraksi sentimen pasar dari puluhan berita tersebut.
+1. Pindai (Google Search) berita makro global & lokal PALING AKTUAL.
+2. Ekstraksi sentimen pasar.
 
-Kembalikan HANYA format JSON MURNI tanpa markdown \`\`\`json. Struktur harus:
+Kembalikan HANYA format JSON MURNI tanpa markdown:
 {
   "analysis": {
     "overallSentiment": "SANGAT POSITIF" | "POSITIF" | "NETRAL" | "NEGATIF" | "SANGAT NEGATIF",
@@ -1429,15 +1428,7 @@ Kembalikan HANYA format JSON MURNI tanpa markdown \`\`\`json. Struktur harus:
         "insight": "Alasan logis"
       }
     ]
-  },
-  "articles": [
-    {
-      "title": "Judul asli berita",
-      "url": "PASTIKAN INI ADALAH URL ASLI PUBLISHER (Misal: https://www.cnbcindonesia.com/... atau https://www.bloomberg.com/...). DILARANG KERAS memberikan link redirect internal seperti vertexaisearch.cloud.google.com atau link yang terpotong.",
-      "source": "Nama portal berita",
-      "time": "Waktu tayang"
-    }
-  ]
+  }
 }`;
 
           const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -1446,27 +1437,49 @@ Kembalikan HANYA format JSON MURNI tanpa markdown \`\`\`json. Struktur harus:
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
-                  generationConfig: { temperature: 0.1 } 
+                  // 🚀 FIX 1: Paksa API mengembalikan struktur JSON yang valid
+                  generationConfig: { temperature: 0.1, response_mime_type: "application/json" } 
               })
           });
 
           if (!aiRes.ok) throw new Error(`API Gemini Menolak Request`);
 
           const aiData = await aiRes.json();
-          const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
           
           let parsedAI;
           try { 
-              const jsonMatch = resultText.match(/\{[\s\S]*\}/);
-              if (jsonMatch) parsedAI = JSON.parse(jsonMatch[0]);
-              else parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
+              let cleanText = resultText.replace(/```json/gi, '').replace(/```/g, '').trim();
+              const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+              if (jsonMatch) cleanText = jsonMatch[0];
+              parsedAI = JSON.parse(cleanText);
           } catch (e) { throw new Error("Gagal melakukan parsing data AI dari Google Search."); }
 
-          res.json({ success: true, articles: parsedAI.articles || [], analysis: parsedAI.analysis || parsedAI });
+          // 🚀 FIX 2: Ekstrak sumber asli langsung dari metadata grounding untuk menghindari URL mati
+          const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+          const realArticles = chunks
+              .map((c: any) => c.web)
+              .filter(Boolean)
+              .map((web: any) => {
+                  let sourceName = "Global News";
+                  try { sourceName = new URL(web.uri).hostname.replace('www.', ''); } catch(e){}
+                  return {
+                      title: web.title,
+                      url: web.uri,
+                      source: sourceName,
+                      time: "Terkini"
+                  };
+              });
+
+          res.json({ 
+              success: true, 
+              articles: realArticles.length > 0 ? realArticles : [], 
+              analysis: parsedAI.analysis || parsedAI 
+          });
 
       } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
-
+  
   app.post("/api/finance/universal-news", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1479,13 +1492,9 @@ Kembalikan HANYA format JSON MURNI tanpa markdown \`\`\`json. Struktur harus:
           const marketContext = market === 'US' ? 'Pasar Saham Wall Street (US Market)' : 'Pasar Saham Indonesia (IHSG)';
           
           const prompt = `Kamu adalah mesin pencari berita universal.
-Tugas: Cari berita ekonomi, bisnis, dan spesifik pergerakan saham untuk ${marketContext}.
-Tarik berita PALING MUTAKHIR dan AKTUAL yang tersedia di internet saat ini menggunakan Google Search. Abaikan perbedaan tahun pada sistemmu, cukup fokus ambil data real-time terbaru hari ini. Jangan merekayasa berita yang tidak ada.
+Tugas: Cari berita ekonomi, bisnis, dan saham PALING AKTUAL untuk ${marketContext}.
 
-Organisasikan berita menjadi beberapa "klotters" (batch/kelompok).
-Dalam setiap klotter, cantumkan daftar saham (ticker) yang diindikasikan atau berdampak oleh berita di klotter tersebut.
-
-Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
+Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
 {
   "klotters": [
     {
@@ -1493,7 +1502,7 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
       "articles": [
         { 
           "title": "Judul Berita", 
-          "url": "PASTIKAN INI ADALAH URL ASLI PUBLISHER. DILARANG KERAS memberikan link redirect internal seperti vertexaisearch.cloud.google.com atau link root domain biasa.", 
+          "url": "Tinggalkan kosong atau isi URL asli", 
           "source": "Nama Media", 
           "time": "Waktu Rilis" 
         }
@@ -1507,21 +1516,42 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
-                  generationConfig: { temperature: 0.1 } 
+                  generationConfig: { temperature: 0.1, response_mime_type: "application/json" } 
               })
           });
 
-          if (!aiRes.ok) throw new Error("API Gemini memblokir karena format prompt atau limitasi Search.");
+          if (!aiRes.ok) throw new Error("API Gemini memblokir request pencarian.");
 
           const aiData = await aiRes.json();
-          const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
           
           let parsedAI;
           try { 
-              const jsonMatch = resultText.match(/\{[\s\S]*\}/);
-              if (jsonMatch) parsedAI = JSON.parse(jsonMatch[0]);
-              else parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
-          } catch (e) { throw new Error("Google Search tidak menemukan format berita yang sesuai atau AI gagal membuat JSON."); }
+              let cleanText = resultText.replace(/```json/gi, '').replace(/```/g, '').trim();
+              const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+              if (jsonMatch) cleanText = jsonMatch[0];
+              parsedAI = JSON.parse(cleanText);
+          } catch (e) { throw new Error("Gagal parsing JSON."); }
+
+          // 🚀 FIX 3: Validasi URL. Jika URL halusinasi (vertex), fallback ke Google News Tracker!
+          const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+          const realWebs = chunks.map((c: any) => c.web).filter(Boolean);
+
+          if (parsedAI.klotters) {
+              parsedAI.klotters.forEach((klotter: any) => {
+                  if (klotter.articles) {
+                      klotter.articles.forEach((article: any) => {
+                          const match = realWebs.find((w: any) => w.title.toLowerCase().includes(article.title.toLowerCase().substring(0, 15)));
+                          if (match) {
+                              article.url = match.uri;
+                              try { article.source = new URL(match.uri).hostname.replace('www.', ''); } catch(e){}
+                          } else if (!article.url || article.url.includes('vertexaisearch') || !article.url.startsWith('http')) {
+                              article.url = `https://news.google.com/search?q=${encodeURIComponent(article.title)}`;
+                          }
+                      });
+                  }
+              });
+          }
 
           res.json({ success: true, data: parsedAI });
 
@@ -1539,13 +1569,10 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
           if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
 
-          const prompt = `Lakukan Deep Scan dan Analisis Sentimen jangka pendek terhadap saham: ${ticker}.
-Tugas:
-1. Pindai Google Search untuk berita AKTUAL dan NYATA paling terbaru mengenai ${ticker} atau industri terkait. Abaikan tahun di kalendermu, cukup cari data real-time saat ini.
-2. Analisis sentimen berita-berita tersebut untuk memberikan "verdict" atau kesimpulan sentimen momentum JANGKA PENDEK. (Pilih SALAH SATU: SANGAT POSITIF, POSITIF, NETRAL, NEGATIF, SANGAT NEGATIF). Dilarang menggunakan istilah Buy/Sell/Hold.
-3. Buat uraian analisis fundamental/sentimen sekomprehensif mungkin berdasarkan berita tersebut.
+          const prompt = `Lakukan Deep Scan dan Analisis Sentimen saham: ${ticker}.
+Tugas: Pindai Google Search untuk berita AKTUAL paling terbaru mengenai ${ticker}.
 
-Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
+Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
 {
   "ticker": "${ticker}",
   "verdict": "POSITIF",
@@ -1553,7 +1580,7 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
   "articles": [
     { 
       "title": "Judul Berita", 
-      "url": "PASTIKAN INI ADALAH URL ASLI PUBLISHER KEPADA ARTIKEL LANGSUNG. DILARANG KERAS memberikan link redirect internal seperti vertexaisearch.cloud.google.com.", 
+      "url": "Isi dengan link", 
       "source": "Nama Media", 
       "time": "Waktu rilis" 
     }
@@ -1565,21 +1592,38 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown \`\`\`json.
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
-                  generationConfig: { temperature: 0.1 } 
+                  generationConfig: { temperature: 0.1, response_mime_type: "application/json" } 
               })
           });
 
-          if (!aiRes.ok) throw new Error("API Gemini memblokir karena format prompt atau limitasi Search.");
+          if (!aiRes.ok) throw new Error("API Gemini memblokir pencarian.");
 
           const aiData = await aiRes.json();
-          const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
           
           let parsedAI;
           try { 
-              const jsonMatch = resultText.match(/\{[\s\S]*\}/);
-              if (jsonMatch) parsedAI = JSON.parse(jsonMatch[0]);
-              else parsedAI = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); 
-          } catch (e) { throw new Error("Google Search tidak menemukan format berita yang sesuai atau AI gagal membuat JSON."); }
+              let cleanText = resultText.replace(/```json/gi, '').replace(/```/g, '').trim();
+              const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+              if (jsonMatch) cleanText = jsonMatch[0];
+              parsedAI = JSON.parse(cleanText);
+          } catch (e) { throw new Error("Gagal parsing JSON hasil analisa."); }
+
+          // 🚀 FIX 4: Gunakan link asli atau Fallback Google News
+          const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+          const realWebs = chunks.map((c: any) => c.web).filter(Boolean);
+
+          if (parsedAI.articles) {
+              parsedAI.articles.forEach((article: any) => {
+                  const match = realWebs.find((w: any) => w.title.toLowerCase().includes(article.title.toLowerCase().substring(0, 15)));
+                  if (match) {
+                      article.url = match.uri;
+                      try { article.source = new URL(match.uri).hostname.replace('www.', ''); } catch(e){}
+                  } else if (!article.url || article.url.includes('vertexaisearch') || !article.url.startsWith('http')) {
+                      article.url = `https://news.google.com/search?q=${encodeURIComponent(article.title)}`;
+                  }
+              });
+          }
 
           res.json({ success: true, data: parsedAI });
 
