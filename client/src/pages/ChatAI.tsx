@@ -9,6 +9,11 @@ import {
     useInvestments, useTarget 
 } from "@/hooks/use-finance"; 
 
+const DEFAULT_RATES: Record<string, number> = {
+    "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
+    "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
+};
+
 interface Message {
     id: number;
     sender: 'user' | 'ai';
@@ -133,11 +138,11 @@ export default function ChatAI() {
             if (currentUserEmail) localStorage.setItem(`bilano_chat_usage_${currentUserEmail}`, newCount.toString());
         }
 
-        // 🚀 KALKULASI DATA LIVE YANG SANGAT AKURAT (Seperti Performance.tsx)
+        // 🚀 KALKULASI DATA LIVE YANG SANGAT AKURAT
         const cashReal = (user?.cashBalance || 0); 
         const forexValue = Array.isArray(forexAssetsData) ? forexAssetsData.reduce((acc: number, asset: any) => {
             const curr = asset.currency;
-            const rate = forexRates[curr] || 15000;
+            const rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
             return acc + (asset.amount * rate);
         }, 0) : 0;
 
@@ -146,7 +151,7 @@ export default function ChatAI() {
             const sym = parts[0] || "";
             const curr = parts[1];
             const actualCurr = curr || 'IDR';
-            const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || 15000);
+            const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_RATES[actualCurr] || 15000);
             const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
             const m = (isSaham && actualCurr === 'IDR') ? 100 : 1;
             return acc + (inv.quantity * inv.avgPrice * m * rate);
@@ -154,7 +159,7 @@ export default function ChatAI() {
 
         const retainedReal = Array.isArray(retainedData) ? retainedData.reduce((acc: number, r: any) => {
             const curr = r.currency;
-            const rate = curr === 'IDR' ? 1 : (forexRates[curr] || 15000);
+            const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 15000);
             return acc + (r.amount * rate);
         }, 0) : 0;
 
@@ -163,7 +168,7 @@ export default function ChatAI() {
             debtsData.forEach((d: any) => {
                 if (d.isPaid) return;
                 const curr = (d.name || "").split('|')[1] || 'IDR';
-                const rate = curr === 'IDR' ? 1 : (forexRates[curr] || 15000);
+                const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 15000);
                 if (d.type === 'piutang') piutangReal += (d.amount * rate);
                 else if (d.type === 'hutang') hutangReal += (d.amount * rate);
             });
@@ -195,6 +200,14 @@ export default function ChatAI() {
         const monthlyIncome = baseIncomeTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'income').reduce((acc, v) => acc + v.amount, 0);
         const monthlyExpense = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'expense').reduce((acc, v) => acc + v.amount, 0);
 
+        // 🔥 MENYIAPKAN DETAIL PORTFOLIO UNTUK AI
+        const activeDebts = Array.isArray(debtsData) ? debtsData.filter((d: any) => !d.isPaid) : [];
+        const hutangList = activeDebts.filter((d: any) => d.type === 'hutang').map((d: any) => `- ${d.name.split('|')[0]} (${d.name.split('|')[1] || 'IDR'}): ${d.amount.toLocaleString('id-ID')} (Jatuh tempo: ${d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tidak diset'})`).join('\n');
+        const piutangList = activeDebts.filter((d: any) => d.type === 'piutang').map((d: any) => `- ${d.name.split('|')[0]} (${d.name.split('|')[1] || 'IDR'}): ${d.amount.toLocaleString('id-ID')} (Jatuh tempo: ${d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tidak diset'})`).join('\n');
+
+        const invList = Array.isArray(investments) ? investments.map((i: any) => `- ${i.symbol.split('|')[0]} (${i.symbol.split('|')[1] || 'IDR'}): ${i.quantity} lot/unit @ ${i.avgPrice}`).join('\n') : '';
+        const forexList = Array.isArray(forexAssetsData) ? forexAssetsData.map((f: any) => `- ${f.currency}: ${f.amount}`).join('\n') : '';
+
         const financialContext = `
         [DATA KESELURUHAN (TOTAL HARTAMU SAAT INI)]
         - Kekayaan Bersih (Net Worth): Rp ${currentWealth.toLocaleString('id-ID')}
@@ -204,6 +217,20 @@ export default function ChatAI() {
         - Saldo Tertahan: Rp ${retainedReal.toLocaleString('id-ID')}
         - Total Piutang: Rp ${piutangReal.toLocaleString('id-ID')}
         - Total Hutang: Rp ${hutangReal.toLocaleString('id-ID')}
+
+        [RINCIAN HUTANG & PIUTANG AKTIF]
+        Hutang (Kewajiban kepada pihak lain):
+        ${hutangList || '- Tidak ada hutang'}
+        
+        Piutang (Uang di pihak lain):
+        ${piutangList || '- Tidak ada piutang'}
+
+        [RINCIAN ASET & VALAS]
+        Investasi Berjalan:
+        ${invList || '- Tidak ada aset investasi'}
+        
+        Valas Berjalan:
+        ${forexList || '- Tidak ada aset valas'}
 
         [DATA BULAN INI KHUSUS (${now.toLocaleDateString('id-ID', {month:'long', year:'numeric'})})]
         - Pemasukan Murni Bulan Ini: Rp ${monthlyIncome.toLocaleString('id-ID')}

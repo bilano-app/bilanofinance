@@ -106,8 +106,8 @@ export default function Reports() {
       const getSnapshotAt = (targetDate: Date) => {
           if (isCurrentPeriod) {
               const snapCash = liveCash;
-              const snapForex = allForexAssets.reduce((acc: number, f: any) => acc + (f.amount * getRate(f.currency)), 0);
-              const snapInvest = allInvestments.reduce((acc: number, inv: any) => {
+              const snapForex = Math.round(allForexAssets.reduce((acc: number, f: any) => acc + (f.amount * getRate(f.currency)), 0));
+              const snapInvest = Math.round(allInvestments.reduce((acc: number, inv: any) => {
                   const parts = (inv.symbol || "").split('|');
                   const sym = parts[0] || "";
                   const curr = parts[1] || 'IDR';
@@ -115,8 +115,8 @@ export default function Reports() {
                   const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
                   const m = (isSaham && curr === 'IDR') ? 100 : 1;
                   return acc + (inv.quantity * inv.avgPrice * m * rate);
-              }, 0);
-              const snapRetained = allRetained.reduce((acc: number, r: any) => acc + (r.amount * getRate(r.currency)), 0);
+              }, 0));
+              const snapRetained = Math.round(allRetained.reduce((acc: number, r: any) => acc + (r.amount * getRate(r.currency)), 0));
               
               let snapPiutang = 0; let snapDebt = 0;
               allDebts.filter((d:any) => !d.isPaid).forEach((d:any) => {
@@ -126,7 +126,14 @@ export default function Reports() {
                   else if (d.type === 'hutang') snapDebt += (d.amount * rate);
               });
 
-              return { cash: snapCash, invest: snapInvest, forex: snapForex, piutang: snapPiutang, debt: snapDebt, netWorth: snapCash + snapInvest + snapForex + snapRetained + snapPiutang - snapDebt };
+              return { 
+                  cash: Math.round(snapCash), 
+                  invest: snapInvest, 
+                  forex: snapForex, 
+                  piutang: Math.round(snapPiutang), 
+                  debt: Math.round(snapDebt), 
+                  netWorth: Math.round(snapCash + snapInvest + snapForex + snapRetained + snapPiutang - snapDebt) 
+              };
           }
 
           // KONDISI PAST PERIOD (History Recovery)
@@ -194,7 +201,7 @@ export default function Reports() {
                       if (t.type === 'forex_sell' || t.category === 'Jual Aset Valas' || (t.type === 'expense' && desc.includes('[Valas Keluar'))) liveAmt += txQty;
                       if (t.type === 'forex_buy' || t.category === 'Beli Aset Valas' || (t.type === 'income' && desc.includes('[Valas Masuk'))) liveAmt -= txQty;
                   });
-                  snapForex += Math.max(0, liveAmt) * getRate(curr);
+                  snapForex += Math.round(Math.max(0, liveAmt) * getRate(curr));
               }
           });
 
@@ -224,11 +231,18 @@ export default function Reports() {
                       }
                       if (t.type === 'invest_buy') liveAmt -= amt;
                   });
-                  snapInvest += Math.max(0, liveAmt);
+                  snapInvest += Math.round(Math.max(0, liveAmt));
               }
           });
 
-          return { cash: Math.max(0, snapCash), invest: snapInvest, forex: snapForex, piutang: snapPiutang, debt: snapDebt, netWorth: Math.max(0, snapCash) + snapInvest + snapForex + snapPiutang - snapDebt };
+          return { 
+              cash: Math.round(Math.max(0, snapCash)), 
+              invest: Math.round(snapInvest), 
+              forex: Math.round(snapForex), 
+              piutang: Math.round(snapPiutang), 
+              debt: Math.round(snapDebt), 
+              netWorth: Math.round(Math.max(0, snapCash) + snapInvest + snapForex + snapPiutang - snapDebt) 
+          };
       };
 
       const archiveSnap = getSnapshotAt(reportDateEnd);
@@ -236,7 +250,6 @@ export default function Reports() {
       
       const thisPeriodTxs = allTxs.filter((t:any) => isTargetInPeriod(new Date(t.date)));
 
-      // 🔥 LOGIKA ARUS KAS MURNI 100% DISINKRONKAN DENGAN PERFORMANCE.TSX
       const baseIncomeTxs = thisPeriodTxs.filter((t:any) => 
           (t.type === 'income' || t.type === 'piutang_record') && 
           !t.description?.includes('[Offset') && 
@@ -302,10 +315,10 @@ export default function Reports() {
       const pemutihanTransactions = allTxs.filter((t:any) => t.category === 'Pemutihan Hutang' && new Date(t.date) <= reportDateEnd);
       const totalPemutihanGain = pemutihanTransactions.reduce((sum: number, t:any) => sum + (Number(t.amount) || 0), 0);
 
-      const snapRetained = allRetained.reduce((acc: number, r:any) => {
+      const snapRetained = Math.round(allRetained.reduce((acc: number, r:any) => {
           const rate = r.currency === 'IDR' ? 1 : getRate(r.currency);
           return acc + (r.amount * rate);
-      }, 0);
+      }, 0));
 
       const forexRows = Array.from(new Set(allForexAssets.map((f:any) => f.currency))).map((curr: any) => {
           const relatedFx = allForexAssets.find((f:any) => f.currency === curr);
@@ -330,7 +343,7 @@ export default function Reports() {
           });
           if (liveAmt <= 0.001) return null; 
           const rate = getRate(curr);
-          return [curr, liveAmt.toLocaleString('id-ID', {maximumFractionDigits: 2}), rate, liveAmt * rate];
+          return [curr, liveAmt.toLocaleString('id-ID', {maximumFractionDigits: 2}), rate, Math.round(liveAmt * rate)];
       }).filter(Boolean);
 
       const invRows = Array.from(allUniqueSymbols).map((symbolRaw: any) => {
@@ -357,7 +370,7 @@ export default function Reports() {
               if (t.type === 'invest_buy') liveAmt -= amt;
           });
           if (liveAmt <= 0) return null; 
-          return [new Date(firstDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), 'Kepemilikan Aset', sym, liveAmt];
+          return [new Date(firstDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), 'Kepemilikan Aset', sym, Math.round(liveAmt)];
       }).filter(Boolean);
 
       const debtRows = Array.from(new Set(allDebts.map((d:any) => d.name))).map((name: any) => {
@@ -382,18 +395,18 @@ export default function Reports() {
               }
           });
           if (liveAmt <= 0) return null;
-          return [isHutang ? 'HUTANG' : 'PIUTANG', name.split('|')[0], actualCurr, liveAmt, relatedDebts[0].dueDate];
+          return [isHutang ? 'HUTANG' : 'PIUTANG', name.split('|')[0], actualCurr, Math.round(liveAmt), relatedDebts[0].dueDate];
       }).filter(Boolean);
 
-      const amalRows = thisPeriodTxs.filter((t:any) => t.category === 'Amal').map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), "Kebaikan", t.description || "Amal / Sedekah", t.amount ]);
+      const amalRows = thisPeriodTxs.filter((t:any) => t.category === 'Amal').map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), "Kebaikan", t.description || "Amal / Sedekah", Math.round(t.amount) ]);
       
       const sortedFlows = [...allIncomeTxs, ...allExpenseTxs].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      const txRows = sortedFlows.map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), t.type === 'income' ? 'Masuk' : 'Keluar', t.category || "-", t.description || "-", t.amount ]);
+      const txRows = sortedFlows.map((t: any) => [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), t.type === 'income' ? 'Masuk' : 'Keluar', t.category || "-", t.description || "-", Math.round(t.amount) ]);
       
       const invTxRows = thisPeriodTxs.filter((t:any) => ['invest_buy', 'invest_sell', 'forex_buy', 'forex_sell'].includes(t.type)).map((t: any) => {
           let action = t.type.includes('buy') ? 'Beli Aset' : 'Jual Aset';
           if (t.type.includes('forex')) action = t.type.includes('buy') ? 'Beli Valas' : 'Jual Valas';
-          return [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), action, t.description, t.amount ];
+          return [ new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), action, t.description, Math.round(t.amount) ];
       });
 
       return {
