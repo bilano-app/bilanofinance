@@ -35,8 +35,7 @@ export default function Expense() {
   const currentYear = now.getFullYear();
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   
-  // 🚀 PENAMBAHAN: Cek Setup Selesai & State Pop-up
-  const isSetupCompleted = currentUserEmail ? localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true" : false;
+  // 🚀 PENAMBAHAN: Cek Setup Selesai & State Pop-u
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   let remainingBudget = 0;     
@@ -72,11 +71,6 @@ export default function Expense() {
 
   const handleSubmit = async (isEmergencyOverride = false) => {
       // 🚀 PENAMBAHAN: BLOKIR JIKA BELUM SETUP
-      if (!isSetupCompleted) {
-          setShowSetupPrompt(true);
-          return;
-      }
-
       const nominal = parseNumber(amountStr);
       if (!nominal || nominal <= 0) {
           toast({ title: "Error", description: "Isi nominal pengeluaran!", variant: "destructive" });

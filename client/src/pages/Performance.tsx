@@ -126,30 +126,6 @@ export default function Performance() {
       );
   }
 
-  const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
-  
-  if (!isSetupCompleted) {
-      return (
-          <MobileLayout title="Analisa Performa" showBack>
-              <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center animate-in fade-in zoom-in-95">
-                  <div className="bg-amber-100 p-5 rounded-full mb-6 shadow-sm">
-                      <AlertCircle className="w-10 h-10 text-amber-600" />
-                  </div>
-                  <h2 className="text-xl font-extrabold text-slate-800 mb-2">Lengkapi Data Keuangan</h2>
-                  <p className="text-slate-500 text-sm mb-8 leading-relaxed font-medium">
-                      Analisa performa target, rasio tabungan, dan skor kesehatan AI memerlukan saldo riil yang pasti. Silakan selesaikan Setup Keuangan Akurat terlebih dahulu.
-                  </p>
-                  <Button 
-                      onClick={() => setLocation('/target')} 
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3.5 rounded-full text-sm font-extrabold shadow-lg shadow-indigo-200 active:scale-95 transition-all w-full"
-                  >
-                      SETUP AKURAT SEKARANG
-                  </Button>
-              </div>
-          </MobileLayout>
-      );
-  }
-
   if (locked) {
       return (
           <MobileLayout title="Analisa Performa" showBack>

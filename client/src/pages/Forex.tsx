@@ -73,7 +73,7 @@ export default function Forex() {
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   // Cek Status Setup & State Modal Pop-up
-  const isSetupCompleted = currentUserEmail ? localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true" : false;
+  
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   const formatIdr = (val: string) => {
@@ -205,10 +205,6 @@ export default function Forex() {
   };
 
   const handleExchange = async () => {
-      if (!isSetupCompleted) {
-          setShowSetupPrompt(true);
-          return;
-      }
 
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));
@@ -271,10 +267,6 @@ export default function Forex() {
   };
 
   const handleMutation = async () => {
-      if (!isSetupCompleted) {
-          setShowSetupPrompt(true);
-          return;
-      }
 
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));

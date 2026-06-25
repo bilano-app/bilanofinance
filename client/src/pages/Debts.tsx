@@ -44,7 +44,6 @@ export default function Debts() {
   // 🚨 DEKLARASI HANYA SATU KALI DI SINI (Error Vercel sudah diperbaiki)
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
-  const isSetupCompleted = currentUserEmail ? localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true" : false;
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   const formatNum = (val: string, isForeign: boolean = false) => {
@@ -107,11 +106,6 @@ export default function Debts() {
   };
 
   const handleAdd = async () => {
-      // 🚀 BLOKIR JIKA BELUM SETUP
-      if (!isSetupCompleted) {
-          setShowSetupPrompt(true);
-          return;
-      }
       
       if (checkPaywall()) return;
       const isForeign = currency !== 'IDR';
@@ -149,11 +143,6 @@ export default function Debts() {
 
   const handlePay = async () => {
       // 🚀 BLOKIR JIKA BELUM SETUP
-      if (!isSetupCompleted) {
-          setShowSetupPrompt(true);
-          return;
-      }
-
       if (checkPaywall() || !selectedDebt) return;
       
       if (!selectedDebt.id) {
@@ -193,12 +182,6 @@ export default function Debts() {
   };
 
   const handleWriteOff = async (debtToProcess: DebtItem) => {
-      // 🚀 BLOKIR JIKA BELUM SETUP
-      if (!isSetupCompleted) {
-          setShowSetupPrompt(true);
-          return;
-      }
-
       if (checkPaywall() || !debtToProcess) return;
       
       if (!debtToProcess.id) {

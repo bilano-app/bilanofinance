@@ -46,7 +46,6 @@ export default function Retained() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     // Cek Status Setup & State Modal Pop-up
     const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-    const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
     const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
     const { data: forexRates = {} } = useQuery({
@@ -128,10 +127,6 @@ export default function Retained() {
     const totalRetainedIDR = items.reduce((acc, item) => acc + (item.amount * getRate(item.currency)), 0);
 
     const handleAdd = async () => {
-        if (!isSetupCompleted) {
-            setShowSetupPrompt(true);
-            return;
-        }
         if (!tempSource || !tempAmount) return toast({ title: "Error", description: "Sumber & Nominal wajib diisi", variant: "destructive" });
         setIsSubmitting(true);
         try {

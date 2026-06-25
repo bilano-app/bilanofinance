@@ -24,7 +24,6 @@ export default function Income() {
   
   // 🚨 PERBAIKAN: Pastikan 3 baris ini HANYA MUNCUL SATU KALI di seluruh file ini!
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,10 +38,6 @@ export default function Income() {
 
   const handleSubmit = async () => {
     // 🚀 BLOKIR JIKA BELUM SETUP
-    if (!isSetupCompleted) {
-        setShowSetupPrompt(true);
-        return;
-    }
 
     const cleanAmount = parseInt(amountStr.replace(/\./g, ""), 10);
 

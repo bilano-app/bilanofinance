@@ -29,7 +29,6 @@ export default function Subscriptions() {
   
   // Cek Status Setup & State Modal Pop-up
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   const { toast } = useToast();
@@ -56,10 +55,6 @@ export default function Subscriptions() {
   });
 
   const handleAdd = async () => {
-      if (!isSetupCompleted) {
-          setShowSetupPrompt(true);
-          return;
-      }
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));
           return;

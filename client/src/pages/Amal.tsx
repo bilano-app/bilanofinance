@@ -28,7 +28,6 @@ export default function Amal() {
   const [excessData, setExcessData] = useState<{amount: number, excess: number, desc: string} | null>(null);
   // Cek Status Setup & State Modal Pop-up
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   useEffect(() => {
@@ -49,10 +48,6 @@ export default function Amal() {
   const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
 
   const handleSaveSettings = () => {
-      if (!isSetupCompleted) {
-          setShowSetupPrompt(true);
-          return;
-      }
       const newPct = parseFloat(tempPct);
       if (isNaN(newPct) || newPct < 0 || newPct > 100) {
           toast({ title: "Error", description: "Masukkan persentase valid (0-100).", variant: "destructive" });

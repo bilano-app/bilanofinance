@@ -42,7 +42,6 @@ export default function SmartScan() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-    const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
     const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
     const recognitionRef = useRef<any>(null);
@@ -259,10 +258,6 @@ export default function SmartScan() {
     };
 
     const handleSave = async (isEmergencyOverride = false) => {
-        if (!isSetupCompleted) {
-            setShowSetupPrompt(true);
-            return;
-        }
         if (isLocked) { window.dispatchEvent(new Event('trigger-paywall-lock')); return; }
 
         if (!amount) { toast({title: "Nominal kosong", variant:"destructive"}); return; }

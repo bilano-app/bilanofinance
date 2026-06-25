@@ -22,7 +22,6 @@ export default function Investment() {
   const [proFeatureModal, setProFeatureModal] = useState<{title: string, desc: string} | null>(null);
   
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isSetupCompleted = localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) === "true";
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
   const { data: user, isLoading: isUserLoading } = useUser();
@@ -121,10 +120,6 @@ export default function Investment() {
   };
 
   const handleTransaction = async () => {
-    if (!isSetupCompleted) {
-        setShowSetupPrompt(true);
-        return;
-    }
     if (!inputPrice || !inputQty) return;
     
     const price = parseNum(inputPrice);
