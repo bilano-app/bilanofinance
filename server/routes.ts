@@ -107,6 +107,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`ALTER TABLE subscriptions ALTER COLUMN cost TYPE BIGINT;`);
           await db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (id VARCHAR(255) PRIMARY KEY, user_id INTEGER, email TEXT, name TEXT, subject TEXT, message TEXT, status TEXT, date TIMESTAMP DEFAULT NOW());`);
           
+          await db.execute(sql`CREATE TABLE IF NOT EXISTS tracking_events (id SERIAL PRIMARY KEY, anonymous_id TEXT NOT NULL, user_id INTEGER, event_name TEXT NOT NULL, properties TEXT, created_at TIMESTAMP DEFAULT NOW());`);
+          
           await ensureOtpTable();
           await ensureRetainedTable();
 
