@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { ShieldCheck, Users, TrendingUp, Lock, Mail, Smartphone, ArrowRight } from "lucide-react";
+import { ShieldCheck, Users, TrendingUp, Lock, Mail } from "lucide-react";
 
 export default function Manager() {
   const [, setLocation] = useLocation();
@@ -10,14 +10,13 @@ export default function Manager() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  // State untuk Autentikasi Keamanan
+  // State untuk Autentikasi Keamanan (Tanpa OTP)
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [authStep, setAuthStep] = useState<"login" | "otp">("login");
-  const [credentials, setCredentials] = useState({ email: "", password: "", otp: "" });
+  const [credentials, setCredentials] = useState({ email: "", password: "" });
   const [authLoading, setAuthLoading] = useState(false);
 
   // =========================================================================
-  // 🚀 LOGIKA LOGIN DAN OTP
+  // 🚀 LOGIKA LOGIN LANGSUNG
   // =========================================================================
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,32 +29,10 @@ export default function Manager() {
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        setAuthStep("otp");
-      } else {
-        alert(json.error || "Akses ditolak.");
-      }
-    } catch (e) {
-      alert("Terjadi kesalahan jaringan.");
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleOtpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading(true);
-    try {
-      const res = await fetch("/api/admin/manager-verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otp: credentials.otp })
-      });
-      const json = await res.json();
-      if (res.ok && json.success) {
         setIsAuthorized(true);
-        fetchDashboardStats(); // Langsung ambil data jika sukses
+        fetchDashboardStats(); // Langsung tarik data setelah sukses
       } else {
-        alert(json.error || "OTP Salah.");
+        alert(json.error || "Kredensial salah.");
       }
     } catch (e) {
       alert("Terjadi kesalahan jaringan.");
@@ -65,7 +42,7 @@ export default function Manager() {
   };
 
   // =========================================================================
-  // 🚀 MENGAMBIL DATA DASHBOARD (DIPANGGIL HANYA JIKA LULUS LOGIN)
+  // 🚀 MENGAMBIL DATA DASHBOARD
   // =========================================================================
   const fetchDashboardStats = async () => {
     setLoading(true);
@@ -86,7 +63,7 @@ export default function Manager() {
   };
 
   // =========================================================================
-  // 🖥️ UI: LAYAR LOGIN ADMIN (TERKUNCI)
+  // 🖥️ UI: LAYAR LOGIN ADMIN
   // =========================================================================
   if (!isAuthorized) {
     return (
@@ -101,53 +78,34 @@ export default function Manager() {
           <h1 className="text-2xl font-black text-center mb-2">Akses Terbatas</h1>
           <p className="text-slate-400 text-sm text-center mb-8">Pusat Data Intelijen BILANO</p>
 
-          {authStep === "login" ? (
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                <input
-                  type="email" required placeholder="Email Admin"
-                  value={credentials.email} onChange={(e) => setCredentials({...credentials, email: e.target.value})}
-                  className="w-full bg-[#0a1128] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm focus:border-amber-400 focus:outline-none transition-colors"
-                />
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                <input
-                  type="password" required placeholder="Kata Sandi"
-                  value={credentials.password} onChange={(e) => setCredentials({...credentials, password: e.target.value})}
-                  className="w-full bg-[#0a1128] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm focus:border-amber-400 focus:outline-none transition-colors"
-                />
-              </div>
-              <button disabled={authLoading} type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-4 rounded-xl mt-4 active:scale-95 transition-all">
-                {authLoading ? "Memvalidasi..." : "MASUK KE TERMINAL"}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleOtpSubmit} className="space-y-4 animate-in slide-in-from-right-4">
-              <div className="bg-[#0a1128] p-4 rounded-xl border border-white/5 mb-6 text-center">
-                <Smartphone className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
-                <p className="text-xs text-slate-400">Kode Keamanan telah dikirim ke nomor:</p>
-                <p className="text-sm font-bold text-white tracking-widest mt-1">+6289678200870</p>
-                <p className="text-[10px] text-amber-500 mt-2 font-medium">(Cek Terminal Vercel Anda saat ini untuk melihat Simulasi SMS)</p>
-              </div>
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
               <input
-                type="text" required placeholder="Masukkan 6 Digit OTP" maxLength={6}
-                value={credentials.otp} onChange={(e) => setCredentials({...credentials, otp: e.target.value})}
-                className="w-full bg-[#0a1128] border border-white/10 rounded-xl px-4 py-4 text-center text-xl tracking-[0.5em] font-black focus:border-amber-400 focus:outline-none transition-colors"
+                type="email" required placeholder="Email Admin"
+                value={credentials.email} onChange={(e) => setCredentials({...credentials, email: e.target.value})}
+                className="w-full bg-[#0a1128] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm focus:border-amber-400 focus:outline-none transition-colors"
               />
-              <button disabled={authLoading} type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-4 rounded-xl active:scale-95 transition-all flex justify-center items-center gap-2">
-                {authLoading ? "Mengecek..." : "VERIFIKASI"} <ArrowRight className="w-5 h-5" />
-              </button>
-            </form>
-          )}
+            </div>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <input
+                type="password" required placeholder="Kata Sandi"
+                value={credentials.password} onChange={(e) => setCredentials({...credentials, password: e.target.value})}
+                className="w-full bg-[#0a1128] border border-white/10 rounded-xl pl-12 pr-4 py-3.5 text-sm focus:border-amber-400 focus:outline-none transition-colors"
+              />
+            </div>
+            <button disabled={authLoading} type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black py-4 rounded-xl mt-4 active:scale-95 transition-all">
+              {authLoading ? "MEMVALIDASI..." : "MASUK KE TERMINAL"}
+            </button>
+          </form>
         </div>
       </div>
     );
   }
 
   // =========================================================================
-  // 🖥️ UI: LAYAR DASHBOARD MANAGER (HANYA TERLIHAT JIKA LULUS)
+  // 🖥️ UI: LAYAR DASHBOARD MANAGER
   // =========================================================================
   if (loading || !data) return <div className="min-h-screen bg-[#040814] text-white flex items-center justify-center font-bold">Memuat Intelijen Data...</div>;
 

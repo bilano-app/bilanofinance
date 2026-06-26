@@ -201,51 +201,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/manager-login", async (req: any, res: any) => {
       const { email, password } = req.body;
 
-      // HARDCODE: Sesuai instruksi Anda (Bisa dipindah ke .env nantinya agar lebih aman)
+      // Cek kredensial admin secara langsung
       if (email === "bilanotech@gmail.com" && password === "Bilano6676") {
-          // Buat 6 digit OTP acak
-          const otp = Math.floor(100000 + Math.random() * 900000).toString();
-          
-          try {
-              await ensureOtpTable();
-              // Hapus sesi OTP admin sebelumnya jika ada
-              await db.execute(sql`DELETE FROM otp_sessions WHERE email = 'admin_auth_phone'`);
-              // Simpan OTP baru ke database
-              await db.execute(sql`INSERT INTO otp_sessions (email, code, created_at) VALUES ('admin_auth_phone', ${otp}, NOW())`);
-              
-              // ⚠️ TEMPAT INTEGRASI SMS/WA API ⚠️
-              // Di sinilah nanti Anda memasukkan kode fetch() ke Fonnte/Wablas/Twilio.
-              // Untuk saat ini, kita simulasikan dengan mencetaknya di console server:
-              console.log(`\n=========================================`);
-              console.log(`📱 SIMULASI SMS KE: +6289678200870`);
-              console.log(`🔐 KODE OTP ADMIN BILANO: ${otp}`);
-              console.log(`=========================================\n`);
-
-              return res.json({ success: true, message: "OTP telah dikirim ke nomor Anda." });
-          } catch (e: any) {
-              return res.status(500).json({ error: "Gagal membuat sesi OTP di Database." });
-          }
+          return res.json({ success: true, token: "admin_authorized_session" });
       }
       
       return res.status(401).json({ error: "Kredensial Admin Salah atau Tidak Dikenal!" });
   });
 
-  app.post("/api/admin/manager-verify", async (req: any, res: any) => {
-      const { otp } = req.body;
-      try {
-          const result = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE email = 'admin_auth_phone'`);
-          const rows = Array.isArray(result) ? result : (result as any).rows || [];
-          
-          if (rows.length > 0 && rows[0].code.trim() === otp.trim()) {
-              // Jika benar, hapus OTP agar tidak bisa dipakai 2x
-              await db.execute(sql`DELETE FROM otp_sessions WHERE email = 'admin_auth_phone'`);
-              return res.json({ success: true, token: "admin_authorized_session" });
-          }
-          return res.status(400).json({ error: "Kode OTP Salah atau Sudah Kadaluarsa!" });
-      } catch (e) {
-          return res.status(500).json({ error: "Terjadi kesalahan sistem saat memverifikasi." });
-      }
-  });
+  
 
 // =========================================================================
 // 🚀 ENDPOINT UNTUK DASHBOARD MANAGER (BILANO.APP/MANAGER)
