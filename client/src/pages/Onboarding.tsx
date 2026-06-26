@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { 
   ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar 
 } from "lucide-react";
+import { trackEvent } from "@/lib/tracking"; // 🔥 Import Helper Tracking Internal
 
 export default function Onboarding() {
   const [, setLocation] = useLocation();
@@ -30,112 +31,6 @@ export default function Onboarding() {
 
   // State untuk kontrol modal panduan instalasi manual PWA
   const [showManualInstall, setShowManualInstall] = useState(false);
-
-  // =======================================================
-  // 🚀 LOGIKA REDIRECT DARI SANDBOX DUITKU
-  // =======================================================
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('payment') === 'success') {
-      // Jika kembali dari Duitku dengan status success, langsung arahkan ke halaman 6
-      setStep(6);
-      // Bersihkan URL agar terlihat rapi kembali
-      window.history.replaceState({}, '', '/onboarding');
-    }
-  }, []);
-
-  // =======================================================
-  // 🚀 LOGIKA PWA INSTALLER NATIVE
-  // =======================================================
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
-  useEffect(() => {
-    const handler = (e: any) => {
-      e.preventDefault(); 
-      setDeferredPrompt(e); 
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const handlePwaInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        console.log('BILANO sedang diinstall...');
-      }
-      setDeferredPrompt(null);
-    } else {
-      // Ganti alert kaku dengan modal UI yang elegan
-      setShowManualInstall(true);
-    }
-  };
-
-  // =======================================================
-  // 🚀 FUNGSI TRANSISI PERTANYAAN
-  // =======================================================
-  const handleAnswer = (key: string, value: any) => {
-    setAnswers(prev => ({ ...prev, [key]: value }));
-    
-    // Trigger fade out
-    setFade(false);
-    
-    // Ganti pertanyaan saat layar sedang transparan, lalu fade in lagi
-    setTimeout(() => {
-      setStep(prev => prev + 1);
-      setFade(true);
-    }, 300);
-  };
-
-  // =======================================================
-  // 🚀 FUNGSI SUBMIT FORM PEMBAYARAN KE BACKEND
-  // =======================================================
-  const handleCheckoutSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); 
-    
-    if (!formData.name || !formData.email || !formData.phone) {
-      alert("Harap lengkapi semua data pembeli!");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // Tentukan harga berdasarkan pilihan plan
-      const price = selectedPlan === 'year' ? 99000 : 14900;
-      const productDetail = selectedPlan === 'year' ? 'Paket Tahunan BILANO' : 'Paket Bulanan BILANO';
-
-      // Panggil Backend Anda
-      const response = await fetch('/api/payment/duitku-sandbox', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          price,
-          productDetail,
-          customerName: formData.name,
-          email: formData.email,
-          phone: formData.phone
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.paymentUrl) {
-        // Redirect user ke gerbang pembayaran Sandbox Duitku
-        window.location.href = data.paymentUrl;
-      } else {
-        alert("Gagal terhubung ke Sandbox Duitku. Periksa konfigurasi Backend Anda.");
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Terjadi kesalahan jaringan.");
-      setLoading(false);
-    }
-  };
 
   // =======================================================
   // 🚀 MESIN DIAGNOSTIK PROFIL FINANSIAL
@@ -175,8 +70,122 @@ export default function Onboarding() {
   const assessment = getAssessment();
 
   // =======================================================
-  // 🚀 RENDERER HALAMAN
+  // 🚀 🔥 TRACKING FUNNEL UTAMA BERDASARKAN PERPINDAHAN STEP
   // =======================================================
+  useEffect(() => {
+    if (step === 0) trackEvent("onboarding_started");
+    else if (step === 4) trackEvent("assessment_viewed", { profile: assessment.title });
+    else if (step === 5) trackEvent("pricing_viewed");
+    else if (step === 6) trackEvent("success_page_viewed");
+  }, [step, assessment.title]);
+
+  // =======================================================
+  // 🚀 LOGIKA REDIRECT DARI SANDBOX DUITKU
+  // =======================================================
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment') === 'success') {
+      trackEvent("payment_success"); // 🔥 TRACKING: Sukses bayar via Duitku sandbox
+      setStep(6);
+      window.history.replaceState({}, '', '/onboarding');
+    }
+  }, []);
+
+  // =======================================================
+  // 🚀 LOGIKA PWA INSTALLER NATIVE
+  // =======================================================
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault(); 
+      setDeferredPrompt(e); 
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handlePwaInstall = async () => {
+    trackEvent("pwa_install_prompted"); // 🔥 TRACKING: Klik pasang aplikasi otomatis
+    
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        console.log('BILANO sedang diinstall...');
+        trackEvent("pwa_install_accepted"); // 🔥 TRACKING: Berhasil dipasang ke perangkat
+      } else {
+        trackEvent("pwa_install_dismissed"); // 🔥 TRACKING: Gagal/membatalkan dialog PWA
+      }
+      setDeferredPrompt(null);
+    } else {
+      setShowManualInstall(true);
+      trackEvent("pwa_manual_install_viewed"); // 🔥 TRACKING: Mengakses panduan manual karena limitasi browser
+    }
+  };
+
+  // =======================================================
+  // 🚀 FUNGSI TRANSISI PERTANYAAN
+  // =======================================================
+  const handleAnswer = (key: string, value: any) => {
+    trackEvent("quiz_step_answered", { question: key, answer: value }); // 🔥 TRACKING: Mengirim detail jawaban tiap step kuis ke DB
+    
+    setAnswers(prev => ({ ...prev, [key]: value }));
+    setFade(false);
+    
+    setTimeout(() => {
+      setStep(prev => prev + 1);
+      setFade(true);
+    }, 300);
+  };
+
+  // =======================================================
+  // 🚀 FUNGSI SUBMIT FORM PEMBAYARAN KE BACKEND
+  // =======================================================
+  const handleCheckoutSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); 
+    
+    if (!formData.name || !formData.email || !formData.phone) {
+      alert("Harap lengkapi semua data pembeli!");
+      return;
+    }
+
+    setLoading(true);
+    trackEvent("checkout_initiated", { plan: selectedPlan }); // 🔥 TRACKING: Inisiasi klik tombol pembayaran data lengkap
+
+    try {
+      const price = selectedPlan === 'year' ? 99000 : 14900;
+      const productDetail = selectedPlan === 'year' ? 'Paket Tahunan BILANO' : 'Paket Bulanan BILANO';
+
+      const response = await fetch('/api/payment/duitku-sandbox', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          price,
+          productDetail,
+          customerName: formData.name,
+          email: formData.email,
+          phone: formData.phone
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else {
+        alert("Gagal terhubung ke Sandbox Duitku. Periksa konfigurasi Backend Anda.");
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Terjadi kesalahan jaringan.");
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-[100dvh] bg-[#040814] w-full text-white font-sans flex flex-col items-center justify-center p-6 relative overflow-hidden">
       
@@ -309,7 +318,10 @@ export default function Onboarding() {
 
             {/* Paket Utama (1 Tahun) */}
             <button 
-              onClick={() => setSelectedPlan('year')}
+              onClick={() => {
+                trackEvent("plan_selected", { type: "year" }); // 🔥 TRACKING: Paket tahunan dipilih
+                setSelectedPlan('year');
+              }}
               className="relative w-full bg-[#121c3a] border-2 border-amber-400/80 rounded-[28px] p-6 text-left hover:bg-[#172447] hover:border-amber-400 transition-all mb-6 group overflow-hidden"
             >
               <div className="absolute top-0 right-0 bg-amber-400 text-black text-[10px] font-black px-4 py-1.5 rounded-bl-xl rounded-tr-[24px] uppercase tracking-wider">
@@ -328,7 +340,10 @@ export default function Onboarding() {
 
             {/* Opsi Coba Dulu (1 Bulan) */}
             <button 
-              onClick={() => setSelectedPlan('month')}
+              onClick={() => {
+                trackEvent("plan_selected", { type: "month" }); // 🔥 TRACKING: Paket bulanan dipilih
+                setSelectedPlan('month');
+              }}
               className="text-slate-400 text-sm font-semibold hover:text-white transition-colors underline decoration-slate-600 underline-offset-4"
             >
               "Saya mau coba dulu" (Paket Sebulan Rp14.900)
@@ -368,7 +383,6 @@ export default function Onboarding() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200">
             
-            {/* Tombol Close Popup */}
             <button 
               onClick={() => setSelectedPlan(null)}
               className="absolute top-5 right-5 text-slate-400 hover:text-white"
@@ -378,7 +392,6 @@ export default function Onboarding() {
             
             <h3 className="text-xl font-black mb-4 pr-8">Konfirmasi Pembayaran</h3>
             
-            {/* Kotak Info Harga */}
             <div className="bg-[#0a1128] rounded-2xl p-4 mb-5 border border-white/5">
               <div className="flex justify-between items-center mb-3">
                 <span className="text-slate-400 text-sm">Paket Dipilih</span>
@@ -395,7 +408,6 @@ export default function Onboarding() {
               </div>
             </div>
 
-            {/* Form Input Syarat Duitku */}
             <form onSubmit={handleCheckoutSubmit} className="flex flex-col gap-3">
               <input
                 type="text"

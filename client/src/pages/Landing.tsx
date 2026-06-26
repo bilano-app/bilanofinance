@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
-  ShieldCheck, ChevronDown, Star, LayoutDashboard, Download 
+  ShieldCheck, ChevronDown, Star, LayoutDashboard, Download, Mail, Phone, MapPin 
 } from "lucide-react";
+import { trackEvent } from "@/lib/tracking";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
@@ -31,32 +32,15 @@ export default function Landing() {
     return () => clearInterval(interval);
   }, []);
 
-  // =======================================================
-  // 🚀 DATA NARASI MULTI-TARGET
-  // =======================================================
-  const narratives = [
-    {
-      badge: "Untuk Mahasiswa & Fresh Graduate",
-      title: "Lulus S1 = Pengangguran Tanpa Tabungan?",
-      desc: "Realita kerja brutal. Tanpa 'Dana Darurat Pasca-Kampus', Anda tak punya biaya untuk bertahan hidup saat mencari kerja. BILANO memandu Anda men-set target 'Dana Lulus' sejak awal, sementara Konsultan AI akan merem pengeluaran nongkrong Anda secara rasional.",
-      img: "https://images.unsplash.com/photo-1629904869392-ae2a682d4d01?q=80&w=800&auto=format&fit=crop"
-    },
-    {
-      badge: "Untuk Pekerja & Profesional",
-      title: "Jebakan Self-Reward & Kebocoran Halus",
-      desc: "Menabung di awal bulan tapi aset stagnan? Anda mungkin buta terhadap akumulasi pengeluaran kecil (micro-transactions) dan dalih self-reward. BILANO merekam kebocoran ini tanpa ampun, dan AI akan memberikan teguran logis berbasis hitungan kerugian masa depan.",
-      img: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=800&auto=format&fit=crop"
-    },
-    {
-      badge: "Untuk Keluarga & Umum",
-      title: "Lubang Hitam Pengeluaran Siluman",
-      desc: "Uang belanja sering bocor tanpa jejak ke iuran dadakan atau jajan, memicu argumen keluarga. Jadikan BILANO buku besar (ledger) yang 100% transparan. AI akan memberi peringatan dini jika tren pengeluaran mengancam target krusial seperti Dana Pendidikan Anak.",
-      img: "https://images.unsplash.com/photo-1604594849809-dfedbc827105?q=80&w=800&auto=format&fit=crop"
-    }
-  ];
+  // 🔥 TRACKING: Mencatat Kunjungan Halaman Pertama Kali Berdasarkan Device
+  useEffect(() => {
+    trackEvent("landing_page_viewed", { 
+      device: typeof window !== 'undefined' && window.innerWidth < 1024 ? "mobile" : "desktop" 
+    });
+  }, []);
 
   const faqs = [
-    { q: "Mengapa aplikasi ini tidak ada di Play Store?", a: "BILANO menggunakan teknologi masa depan berbasis PWA (Progressive Web App). Anda tidak perlu mengunduh file APK yang berat or menunggu update dari Play Store. Aplikasi langsung terhubung, lebih cepat, dan sangat hemat memori HP." },
+    { q: "Mengapa aplikasi ini tidak ada di Play Store?", a: "BILANO menggunakan teknologi masa depan berbasis PWA (Progressive Web App). Anda tidak perlu mengunduh file APK yang berat atau menunggu update dari Play Store. Aplikasi langsung terhubung, lebih cepat, dan sangat hemat memori HP." },
     { q: "Apakah data keuangan saya aman di sini?", a: "Sangat aman. BILANO berfungsi sebagai jurnal cerdas pribadi. Kami menggunakan enkripsi penuh dan TIDAK terhubung langsung ke rekening asli Anda untuk mencegah risiko peretasan saldo." },
     { q: "Apakah aplikasi ini benar-benar gratis?", a: "Ya! Jurnal pencatatan arus kas dan fitur dasar gratis selamanya. Anda hanya perlu upgrade jika ingin membuka Asisten AI, Portofolio Valas, dan akses ke Pustaka E-book Finansial." }
   ];
@@ -100,7 +84,6 @@ export default function Landing() {
 
             {/* KANAN/BAWAH: FOTO & LABEL BRUTALIST */}
             <div className="flex-1 relative w-full flex justify-center lg:justify-end z-10 -mt-6 md:-mt-8 lg:mt-0">
-              
               <div className="relative inline-flex flex-col items-center w-full max-w-[460px]">
                   <img 
                     src="/adrienfandra_photos.png" 
@@ -111,22 +94,16 @@ export default function Landing() {
                   <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#080d20] to-transparent z-20 pointer-events-none"></div>
                   
                   <div className="absolute bottom-[5%] right-[0%] lg:right-[5%] flex flex-col items-start animate-in zoom-in slide-in-from-bottom-6 fade-in duration-700 delay-500 z-30 hover:scale-105 transition-transform cursor-default scale-[0.75] origin-bottom-right lg:scale-100">
-                    
                     <div className="bg-[#1111aa] text-white px-5 py-2 lg:px-6 lg:py-3 shadow-xl relative z-10 translate-y-1.5 -translate-x-3 border border-blue-900/50">
-                      <p className="text-[20px] lg:text-[24px] font-black tracking-wide">
-                        Adrien Fandra
-                      </p>
+                      <p className="text-[20px] lg:text-[24px] font-black tracking-wide">Adrien Fandra</p>
                     </div>
-                    
                     <div className="bg-[#ffcc44] text-[#0a1128] px-5 py-2.5 lg:px-6 lg:py-3 shadow-2xl relative z-0 border border-amber-500/50">
                       <p className="text-[14px] lg:text-[16px] font-extrabold tracking-wide">
                         Content Creator & <br className="lg:hidden" />Founder BILANO
                       </p>
                     </div>
-
                   </div>
               </div>
-
             </div>
 
           </section>
@@ -183,7 +160,16 @@ export default function Landing() {
               <div className="space-y-3 lg:space-y-4">
                   {faqs.map((faq, idx) => (
                       <div key={idx} className="bg-[#121c3a] border border-white/5 rounded-2xl overflow-hidden transition-all hover:border-white/10">
-                          <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full text-left p-4 flex items-center justify-between font-bold text-sm text-slate-200 lg:p-5 lg:text-base">
+                          <button 
+                            onClick={() => {
+                              const isOpening = openFaq !== idx;
+                              setOpenFaq(isOpening ? idx : null);
+                              if (isOpening) {
+                                trackEvent("faq_toggled", { question: faq.q });
+                              }
+                            }} 
+                            className="w-full text-left p-4 flex items-center justify-between font-bold text-sm text-slate-200 lg:p-5 lg:text-base"
+                          >
                               {faq.q}
                               <ChevronDown className={`w-4 h-4 lg:w-5 lg:h-5 transition-transform duration-300 ${openFaq === idx ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} />
                           </button>
@@ -201,7 +187,10 @@ export default function Landing() {
           {/* 🔥 6. TOMBOL INSTALL DESKTOP (MENGARAH KE ONBOARDING) */}
           <div className="hidden lg:flex w-full flex-col items-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-500 fill-mode-both">
             <button
-              onClick={() => setLocation('/onboarding')}
+              onClick={() => {
+                trackEvent("cta_landing_clicked", { placement: "desktop_bottom" });
+                setLocation('/onboarding');
+              }}
               className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
             >
               <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
@@ -214,7 +203,10 @@ export default function Landing() {
         {/* 🟡 STICKY TOMBOL HP (MENGARAH KE ONBOARDING) */}
         <div className="lg:hidden sticky bottom-6 px-6 z-50 animate-in slide-in-from-bottom-12 fade-in duration-700 delay-700 fill-mode-both">
           <button
-            onClick={() => setLocation('/onboarding')}
+            onClick={() => {
+              trackEvent("cta_landing_clicked", { placement: "mobile_sticky" });
+              setLocation('/onboarding');
+            }}
             className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] tracking-wide py-4 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
           >
             <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
@@ -222,9 +214,26 @@ export default function Landing() {
           </button>
         </div>
 
-        <footer className="mt-auto pb-10 pt-10 text-center relative z-10 border-t border-white/5 w-full">
-            <img src="/Bilano_horiz_rbg.png" alt="Bilano" className="h-5 mx-auto mb-4 opacity-50 grayscale mix-blend-screen" />
-            <p className="text-[10px] md:text-xs text-slate-600 mt-1 font-medium">© {new Date().getFullYear()} Bilano Official</p>
+        {/* 🚀 FOOTER DENGAN KONTAK */}
+        <footer className="mt-auto pb-10 pt-10 text-center relative z-10 border-t border-white/5 w-full flex flex-col items-center px-4">
+            <img src="/Bilano_horiz_rbg.png" alt="Bilano" className="h-5 mx-auto mb-6 opacity-50 grayscale mix-blend-screen" />
+            
+            <div className="flex flex-col md:flex-row justify-center items-center gap-3 md:gap-8 mb-8 text-slate-400 text-xs md:text-[13px] font-medium">
+              <div className="flex items-center gap-2 hover:text-amber-400 transition-colors cursor-default">
+                <Mail className="w-4 h-4 text-slate-500" />
+                <span>bilanotech@gmail.com</span>
+              </div>
+              <div className="flex items-center gap-2 hover:text-amber-400 transition-colors cursor-default">
+                <Phone className="w-4 h-4 text-slate-500" />
+                <span>+6289688113210</span>
+              </div>
+              <div className="flex items-center gap-2 hover:text-amber-400 transition-colors cursor-default">
+                <MapPin className="w-4 h-4 text-slate-500" />
+                <span>Jakarta, Indonesia</span>
+              </div>
+            </div>
+
+            <p className="text-[10px] md:text-xs text-slate-600 font-medium">© {new Date().getFullYear()} Bilano Official</p>
         </footer>
 
       </div>
@@ -232,7 +241,6 @@ export default function Landing() {
   );
 }
 
-// Sub-komponen yang dibutuhkan
 function FeatureCard({ imgUrl, title, desc }: any) {
   return (
     <div className="bg-[#121c3a]/80 backdrop-blur-sm border border-white/5 p-4 md:p-5 lg:p-6 rounded-[24px] shadow-lg hover:bg-[#172447] hover:border-white/10 hover:scale-[1.03] transition-all cursor-pointer flex flex-col">

@@ -157,3 +157,16 @@ export type InsertForexAsset = typeof forexAssets.$inferInsert;
 
 export type PortfolioSnapshot = typeof portfolioSnapshots.$inferSelect;
 export type InsertPortfolioSnapshot = typeof portfolioSnapshots.$inferInsert;
+
+// --- 11. TRACKING EVENTS ---
+export const trackingEvents = pgTable("tracking_events", {
+  id: serial("id").primaryKey(),
+  anonymousId: text("anonymous_id").notNull(), // ID unik per browser/device
+  userId: integer("user_id"), // Terisi otomatis jika user sudah login/daftar
+  eventName: text("event_name").notNull(), // Contoh: 'quiz_answered', 'landing_viewed'
+  properties: text("properties"), // Menyimpan JSON string (contoh: { step: 1, answer: 'Ya' })
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type TrackingEvent = typeof trackingEvents.$inferSelect;
+export type InsertTrackingEvent = typeof trackingEvents.$inferInsert;

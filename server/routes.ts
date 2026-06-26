@@ -11,6 +11,7 @@ import { eq, desc, isNotNull } from "drizzle-orm";
 import admin from "firebase-admin"; 
 import nodemailer from "nodemailer";
 import crypto from "crypto";
+import { trackingEvents } from "../shared/schema.js";
 
 let firebaseAdminInitialized = false;
 try {
@@ -166,6 +167,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  app.post("/api/track", async (req: any, res: any) => {
+      try {
+          const { anonymousId, eventName, properties } = req.body;
+        
+        // Coba deteksi email user jika sedang login
+          const email = req.headers["x-user-email"];
+          let userId = null;
+          if (email && email !== "guest") {
+              const user = await storage.getUserByUsername(email as string);
+              if (user) userId = user.id;
+          }
+
+          await db.insert(trackingEvents).values({
+              anonymousId: anonymousId || 'unknown',
+              userId: userId,
+              eventName,
+              properties: properties ? JSON.stringify(properties) : null
+          });
+
+          res.json({ success: true });
+      } catch (e) {
+          // Gagal tracking tidak boleh membuat aplikasi crash, biarkan lewat
+          res.status(200).json({ success: false, message: "Tracking failed silently" });
+      }
+  });
+
+  // =========================================================================
+  // 🚀 ENDPOINT LOGIN ADMIN KHUSUS (MANAGER.TSX)
+  // =========================================================================
+  app.post("/api/admin/manager-login", async (req: any, res: any) => {
+      const { email, password } = req.body;
+
+      // HARDCODE: Sesuai instruksi Anda (Bisa dipindah ke .env nantinya agar lebih aman)
+      if (email === "bilanotech@gmail.com" && password === "Bilano6676") {
+          // Buat 6 digit OTP acak
+          const otp = Math.floor(100000 + Math.random() * 900000).toString();
+          
+          try {
+              await ensureOtpTable();
+              // Hapus sesi OTP admin sebelumnya jika ada
+              await db.execute(sql`DELETE FROM otp_sessions WHERE email = 'admin_auth_phone'`);
+              // Simpan OTP baru ke database
+              await db.execute(sql`INSERT INTO otp_sessions (email, code, created_at) VALUES ('admin_auth_phone', ${otp}, NOW())`);
+              
+              // ⚠️ TEMPAT INTEGRASI SMS/WA API ⚠️
+              // Di sinilah nanti Anda memasukkan kode fetch() ke Fonnte/Wablas/Twilio.
+              // Untuk saat ini, kita simulasikan dengan mencetaknya di console server:
+              console.log(`\n=========================================`);
+              console.log(`📱 SIMULASI SMS KE: +6289678200870`);
+              console.log(`🔐 KODE OTP ADMIN BILANO: ${otp}`);
+              console.log(`=========================================\n`);
+
+              return res.json({ success: true, message: "OTP telah dikirim ke nomor Anda." });
+          } catch (e: any) {
+              return res.status(500).json({ error: "Gagal membuat sesi OTP di Database." });
+          }
+      }
+      
+      return res.status(401).json({ error: "Kredensial Admin Salah atau Tidak Dikenal!" });
+  });
+
+  app.post("/api/admin/manager-verify", async (req: any, res: any) => {
+      const { otp } = req.body;
+      try {
+          const result = await db.execute(sql`SELECT code, created_at FROM otp_sessions WHERE email = 'admin_auth_phone'`);
+          const rows = Array.isArray(result) ? result : (result as any).rows || [];
+          
+          if (rows.length > 0 && rows[0].code.trim() === otp.trim()) {
+              // Jika benar, hapus OTP agar tidak bisa dipakai 2x
+              await db.execute(sql`DELETE FROM otp_sessions WHERE email = 'admin_auth_phone'`);
+              return res.json({ success: true, token: "admin_authorized_session" });
+          }
+          return res.status(400).json({ error: "Kode OTP Salah atau Sudah Kadaluarsa!" });
+      } catch (e) {
+          return res.status(500).json({ error: "Terjadi kesalahan sistem saat memverifikasi." });
+      }
+  });
+
+// =========================================================================
+// 🚀 ENDPOINT UNTUK DASHBOARD MANAGER (BILANO.APP/MANAGER)
+// =========================================================================
+  app.get("/api/admin/tracking-stats", async (req: any, res: any) => {
+      // Proteksi: Hanya admin yang bisa akses
+      const emailAdmin = req.headers["x-user-email"] as string;
+      const isAdminValid = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(emailAdmin);
+      if (!isAdminValid) return res.status(403).json({ error: "Akses Ditolak" });
+
+      try {
+          const allEventsRes = await db.execute(sql`SELECT * FROM tracking_events ORDER BY created_at DESC`);
+          const allEvents = Array.isArray(allEventsRes) ? allEventsRes : (allEventsRes as any).rows || [];
+
+          // Kalkulasi Funnel Umum
+          const uniqueVisitors = new Set(allEvents.filter(e => e.event_name === 'landing_page_viewed').map(e => e.anonymous_id)).size;
+          const checkoutInitiated = new Set(allEvents.filter(e => e.event_name === 'checkout_initiated').map(e => e.anonymous_id)).size;
+        
+          // Kalkulasi Spesifik Kuis (Untuk Pie Chart)
+          const quizData = {
+              q1: { ya: 0, tidak: 0, total: 0 },
+              q2: { ya: 0, tidak: 0, total: 0 },
+              q3: { ya: 0, tidak: 0, total: 0 },
+              q4: { scores: {} as Record<string, number>, total: 0 }
+          };
+
+          allEvents.filter(e => e.event_name === 'quiz_step_answered').forEach(e => {
+              if (!e.properties) return;
+              try {
+                  const props = JSON.parse(e.properties);
+                  if (props.question === 'q1') {
+                      if (props.answer === 'Ya') quizData.q1.ya++; else quizData.q1.tidak++;
+                      quizData.q1.total++;
+                  }
+                  if (props.question === 'q2') {
+                      if (props.answer === 'Ya') quizData.q2.ya++; else quizData.q2.tidak++;
+                      quizData.q2.total++;
+                  }
+                  if (props.question === 'q3') {
+                      if (props.answer === 'Ya') quizData.q3.ya++; else quizData.q3.tidak++;
+                      quizData.q3.total++;
+                  }
+                  if (props.question === 'q4') {
+                      const score = String(props.answer);
+                      quizData.q4.scores[score] = (quizData.q4.scores[score] || 0) + 1;
+                      quizData.q4.total++;
+                  }
+              } catch (err) {}
+          });
+
+          res.json({ success: true, funnel: { uniqueVisitors, checkoutInitiated }, quizData });
+      } catch (e: any) {
+          res.status(500).json({ error: e.message });
+      }
+  });
+
   app.post("/api/auth/send-otp-reset", async (req: any, res: any) => {
       if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
       const cleanEmail = (req.body.email || "").trim().toLowerCase();
@@ -203,6 +337,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           else res.status(500).json({ error: `Gagal Kirim Email: ${errMsg.substring(0, 100)}` });
       }
   });
+
+  
 
   app.post("/api/transactions/undo", async (req: any, res: any) => {
       try {
