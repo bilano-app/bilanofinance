@@ -198,7 +198,8 @@ import Amal from "@/pages/Amal";
 import Retained from "@/pages/Retained";
 import ExpertTerminal from "@/pages/ExpertTerminal"; 
 import Onboarding from "@/pages/Onboarding"; 
-import Checkout from "@/pages/Checkout"; // 🔥 Import Checkout ditambahkan di sini
+import Checkout from "@/pages/Checkout";
+import Manager from "@/pages/Manager"; // 🔥 Import Manager ditambahkan di sini
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -286,7 +287,7 @@ function Router() {
     const isAuth = localStorage.getItem("bilano_auth");
     
     // 🚀 PERBAIKAN: Daftar rute publik yang bebas diakses tanpa login
-    const publicRoutes = ["/", "/auth", "/terminal", "/onboarding", "/checkout"];
+    const publicRoutes = ["/", "/auth", "/terminal", "/onboarding", "/checkout", "/manager"]; // 🔥 /manager ditambahkan sebagai rute publik (karena punya login sendiri)
 
     if (!isAuth) {
       if (isStandalone && location !== "/auth") {
@@ -387,12 +388,11 @@ function Router() {
         <Route path="/guide" component={Guide} />
         <Route path="/amal" component={Amal} /> 
         <Route path="/retained" component={Retained} />
-        
-        {/* 🚀 PERBAIKAN: Rute onboarding HARUS berada di atas NotFound */}
         <Route path="/onboarding" component={Onboarding} />
-        
-        {/* 🔥 Route Checkout ditambahkan di sini */}
         <Route path="/checkout" component={Checkout} />
+        
+        {/* 🔥 Route Manager ditambahkan di sini */}
+        <Route path="/manager" component={Manager} />
 
         {/* 🚀 PERBAIKAN: NotFound HARUS diletakkan paling ujung sebagai Catch-All */}
         <Route component={NotFound} />
