@@ -85,7 +85,16 @@ export default function Onboarding() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('payment') === 'success') {
-      trackEvent("payment_success"); // 🔥 TRACKING: Sukses bayar via Duitku sandbox
+      
+      // 🔥 AMBIL DATA FORM DARI STORAGE
+      const pendingDataStr = localStorage.getItem('bilano_pending_checkout');
+      const pendingData = pendingDataStr ? JSON.parse(pendingDataStr) : {};
+      
+      // Kirim event bayar SUKSES lengkap dengan nama, email, hp, harga, paket
+      trackEvent("payment_success", pendingData); 
+      
+      localStorage.removeItem('bilano_pending_checkout'); // Bersihkan storage
+
       setStep(6);
       window.history.replaceState({}, '', '/onboarding');
     }
@@ -151,10 +160,20 @@ export default function Onboarding() {
     }
 
     setLoading(true);
+    const price = selectedPlan === 'year' ? 99000 : 14900;
+
+    // 🔥 SIMPAN SEMENTARA DATA FORM SEBELUM KE GATEWAY
+    localStorage.setItem('bilano_pending_checkout', JSON.stringify({
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      plan: selectedPlan,
+      amount: price
+    }));
+
     trackEvent("checkout_initiated", { plan: selectedPlan }); // 🔥 TRACKING: Inisiasi klik tombol pembayaran data lengkap
 
     try {
-      const price = selectedPlan === 'year' ? 99000 : 14900;
       const productDetail = selectedPlan === 'year' ? 'Paket Tahunan BILANO' : 'Paket Bulanan BILANO';
 
       const response = await fetch('/api/payment/duitku-sandbox', {
