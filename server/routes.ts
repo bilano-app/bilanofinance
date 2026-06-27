@@ -221,6 +221,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!isAdminValid) return res.status(403).json({ error: "Akses Ditolak" });
 
       try {
+          // 🚀 FIX: Otomatis buat tabel jika belum ada agar tidak crash!
+          await db.execute(sql`CREATE TABLE IF NOT EXISTS tracking_events (id SERIAL PRIMARY KEY, anonymous_id TEXT NOT NULL, user_id INTEGER, event_name TEXT NOT NULL, properties TEXT, created_at TIMESTAMP DEFAULT NOW());`);
+
           const allEventsRes = await db.execute(sql`SELECT * FROM tracking_events ORDER BY created_at DESC`);
           const allEvents = Array.isArray(allEventsRes) ? allEventsRes : (allEventsRes as any).rows || [];
 
