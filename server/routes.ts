@@ -215,55 +215,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
 // 🚀 ENDPOINT UNTUK DASHBOARD MANAGER (BILANO.APP/MANAGER)
 // =========================================================================
   app.get("/api/admin/tracking-stats", async (req: any, res: any) => {
-      // Proteksi: Hanya admin yang bisa akses
+      // Proteksi Akses
       const emailAdmin = req.headers["x-user-email"] as string;
       const isAdminValid = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(emailAdmin);
       if (!isAdminValid) return res.status(403).json({ error: "Akses Ditolak" });
 
       try {
-          // 🚀 FIX: Otomatis buat tabel jika belum ada agar tidak crash!
+          // Pastikan tabel ada
           await db.execute(sql`CREATE TABLE IF NOT EXISTS tracking_events (id SERIAL PRIMARY KEY, anonymous_id TEXT NOT NULL, user_id INTEGER, event_name TEXT NOT NULL, properties TEXT, created_at TIMESTAMP DEFAULT NOW());`);
 
           const allEventsRes = await db.execute(sql`SELECT * FROM tracking_events ORDER BY created_at DESC`);
           const allEvents = Array.isArray(allEventsRes) ? allEventsRes : (allEventsRes as any).rows || [];
 
-          // Kalkulasi Funnel Umum
-          const uniqueVisitors = new Set(allEvents.filter(e => e.event_name === 'landing_page_viewed').map(e => e.anonymous_id)).size;
-          const checkoutInitiated = new Set(allEvents.filter(e => e.event_name === 'checkout_initiated').map(e => e.anonymous_id)).size;
-        
-          // Kalkulasi Spesifik Kuis (Untuk Pie Chart)
-          const quizData = {
-              q1: { ya: 0, tidak: 0, total: 0 },
-              q2: { ya: 0, tidak: 0, total: 0 },
-              q3: { ya: 0, tidak: 0, total: 0 },
-              q4: { scores: {} as Record<string, number>, total: 0 }
+          // Container untuk Aggregasi
+          const metrics = {
+            landing_viewed: 0, faq_toggled: 0, cta_clicked: 0,
+            quiz_started: 0, quiz_completed: 0,
+            pricing_viewed: 0, checkout_initiated: 0, payment_attempted: 0, payment_success: 0,
+            pwa_installed: 0
           };
 
-          allEvents.filter(e => e.event_name === 'quiz_step_answered').forEach(e => {
-              if (!e.properties) return;
-              try {
-                  const props = JSON.parse(e.properties);
-                  if (props.question === 'q1') {
-                      if (props.answer === 'Ya') quizData.q1.ya++; else quizData.q1.tidak++;
-                      quizData.q1.total++;
-                  }
-                  if (props.question === 'q2') {
-                      if (props.answer === 'Ya') quizData.q2.ya++; else quizData.q2.tidak++;
-                      quizData.q2.total++;
-                  }
-                  if (props.question === 'q3') {
-                      if (props.answer === 'Ya') quizData.q3.ya++; else quizData.q3.tidak++;
-                      quizData.q3.total++;
-                  }
-                  if (props.question === 'q4') {
-                      const score = String(props.answer);
-                      quizData.q4.scores[score] = (quizData.q4.scores[score] || 0) + 1;
-                      quizData.q4.total++;
-                  }
-              } catch (err) {}
+          const plans = { year: 0, month: 0 };
+          const devices = { desktop: 0, mobile: 0 };
+          const quizData = { 
+              q1: {ya:0, tidak:0}, q2: {ya:0, tidak:0}, 
+              q3: {ya:0, tidak:0}, q4: {scores:{} as Record<string, number>} 
+          };
+
+          const uniqueVisitors = new Set();
+
+          // Loop untuk menghitung semua metrics & metadata
+          allEvents.forEach(e => {
+              const props = e.properties ? JSON.parse(e.properties) : {};
+              uniqueVisitors.add(e.anonymous_id);
+
+              if (e.event_name === 'landing_page_viewed') {
+                  metrics.landing_viewed++;
+                  if (props.device === 'mobile') devices.mobile++; else devices.desktop++;
+              }
+              if (e.event_name === 'faq_toggled') metrics.faq_toggled++;
+              if (e.event_name === 'cta_landing_clicked') metrics.cta_clicked++;
+              
+              if (e.event_name === 'onboarding_started') metrics.quiz_started++;
+              if (e.event_name === 'assessment_viewed') metrics.quiz_completed++;
+              
+              if (e.event_name === 'pricing_viewed') metrics.pricing_viewed++;
+              if (e.event_name === 'plan_selected') {
+                  if (props.type === 'year' || props.plan === 'year') plans.year++;
+                  else plans.month++;
+              }
+              if (e.event_name === 'checkout_initiated') metrics.checkout_initiated++;
+              if (e.event_name === 'payment_attempted') metrics.payment_attempted++;
+              if (e.event_name === 'payment_success') metrics.payment_success++;
+              
+              if (e.event_name === 'pwa_install_accepted') metrics.pwa_installed++;
+
+              // Spesifik Drop-off Kuis
+              if (e.event_name === 'quiz_step_answered') {
+                 if (props.question === 'q1') { if (props.answer === 'Ya') quizData.q1.ya++; else quizData.q1.tidak++; }
+                 if (props.question === 'q2') { if (props.answer === 'Ya') quizData.q2.ya++; else quizData.q2.tidak++; }
+                 if (props.question === 'q3') { if (props.answer === 'Ya') quizData.q3.ya++; else quizData.q3.tidak++; }
+                 if (props.question === 'q4') { 
+                     const score = String(props.answer); 
+                     quizData.q4.scores[score] = (quizData.q4.scores[score] || 0) + 1; 
+                 }
+              }
           });
 
-          res.json({ success: true, funnel: { uniqueVisitors, checkoutInitiated }, quizData });
+          // Funnel Konversi Berdasarkan Unique Anonymous ID (Sangat Akurat)
+          const funnel = {
+             landing: new Set(allEvents.filter(e => e.event_name === 'landing_page_viewed').map(e => e.anonymous_id)).size,
+             quiz_started: new Set(allEvents.filter(e => e.event_name === 'onboarding_started').map(e => e.anonymous_id)).size,
+             quiz_completed: new Set(allEvents.filter(e => e.event_name === 'assessment_viewed').map(e => e.anonymous_id)).size,
+             checkout: new Set(allEvents.filter(e => e.event_name === 'checkout_initiated').map(e => e.anonymous_id)).size,
+             paid: new Set(allEvents.filter(e => e.event_name === 'payment_success').map(e => e.anonymous_id)).size,
+          };
+
+          res.json({ 
+              success: true, 
+              totalUnique: uniqueVisitors.size, 
+              metrics, plans, devices, quizData, funnel 
+          });
+
       } catch (e: any) {
           res.status(500).json({ error: e.message });
       }
