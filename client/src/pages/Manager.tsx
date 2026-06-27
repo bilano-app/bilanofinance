@@ -51,13 +51,22 @@ export default function Manager() {
       const res = await fetch("/api/admin/tracking-stats", {
         headers: { "x-user-email": "bilanotech@gmail.com" }
       });
+      
+      const json = await res.json();
+      
       if (res.ok) {
-        const json = await res.json();
         setData(json);
+      } else {
+        // Jika API menolak (misal error 403), lempar kembali ke halaman login admin
+        alert(json.error || "Gagal memuat data intelijen.");
+        setIsAuthorized(false); 
       }
     } catch (e) {
       console.error(e);
+      alert("Terjadi kesalahan jaringan.");
+      setIsAuthorized(false); 
     } finally {
+      // Apapun yang terjadi (sukses/gagal), loading wajib dimatikan
       setLoading(false);
     }
   };

@@ -31,7 +31,10 @@ window.fetch = async (input, init = {}) => {
 
   const newHeaders = new Headers(init.headers);
   if (email && url.includes('/api')) {
-    newHeaders.set('x-user-email', email);
+    // KUNCI PERBAIKAN: Hanya timpa email jika header x-user-email belum disetel secara manual
+    if (!newHeaders.has('x-user-email')) {
+      newHeaders.set('x-user-email', email);
+    }
   }
   init.headers = newHeaders;
 
