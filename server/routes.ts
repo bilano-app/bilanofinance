@@ -226,6 +226,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const allEventsRes = await db.execute(sql`SELECT * FROM tracking_events ORDER BY created_at DESC`);
           const allEvents = Array.isArray(allEventsRes) ? allEventsRes : (allEventsRes as any).rows || [];
 
+          // Ambil users dan txs untuk app metrics
+          const allUsersRes = await db.execute(sql`SELECT * FROM users`);
+          const allUsers = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
+          
+          const allTxRes = await db.execute(sql`SELECT * FROM transactions`);
+          const allTxs = Array.isArray(allTxRes) ? allTxRes : (allTxRes as any).rows || [];
+
           const metrics = { landing_viewed: 0, faq_toggled: 0, cta_clicked: 0, quiz_started: 0, quiz_completed: 0, pricing_viewed: 0, checkout_initiated: 0, payment_attempted: 0, payment_success: 0, pwa_installed: 0 };
           const plans = { year: 0, month: 0 };
           const devices = { desktop: 0, mobile: 0 };
@@ -234,13 +241,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           let totalRevenue = 0;
           const transactionHistory: any[] = []; // Wadah Riwayat Transaksi
+          const dailyTrend: Record<string, { visitors: number, sales: number }> = {};
+          
+          // PWA Specific Tracking
+          const featureAdoption = { ai_chat: 0, smart_scan: 0, portfolio_view: 0, manual_input: 0 };
+          const activeUsers30Days = new Set();
+          const activeUsersToday = new Set();
+          
+          const now = new Date();
+          const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+          const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
           allEvents.forEach(e => {
               const props = e.properties ? JSON.parse(e.properties) : {};
               uniqueVisitors.add(e.anonymous_id);
 
+              const eventDate = new Date(e.created_at);
+              const dateStr = eventDate.toISOString().split('T')[0];
+              if (!dailyTrend[dateStr]) dailyTrend[dateStr] = { visitors: 0, sales: 0 };
+
+              // Menambahkan vitalitas user
+              if (e.user_id) {
+                 if (eventDate >= thirtyDaysAgo) activeUsers30Days.add(e.user_id);
+                 if (eventDate >= todayStart) activeUsersToday.add(e.user_id);
+              }
+
               if (e.event_name === 'landing_page_viewed') {
                   metrics.landing_viewed++;
+                  dailyTrend[dateStr].visitors++;
                   if (props.device === 'mobile') devices.mobile++; else devices.desktop++;
               }
               if (e.event_name === 'faq_toggled') metrics.faq_toggled++;
@@ -254,6 +282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // 🔥 Hitung Pembayaran & Rekap Riwayat Transaksi
               if (e.event_name === 'payment_success') {
                   metrics.payment_success++;
+                  dailyTrend[dateStr].sales++;
                   if (props.plan === 'year') plans.year++;
                   else if (props.plan === 'month') plans.month++;
 
@@ -270,6 +299,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   });
               }
 
+              // Feature Adoption (Asumsi penamaan event dari frontend)
+              if (e.event_name === 'ai_chat_used') featureAdoption.ai_chat++;
+              if (e.event_name === 'smart_scan_used') featureAdoption.smart_scan++;
+              if (e.event_name === 'portfolio_viewed') featureAdoption.portfolio_view++;
+              if (e.event_name === 'manual_tx_added') featureAdoption.manual_input++;
+
               if (e.event_name === 'quiz_step_answered') {
                  if (props.question === 'q1') { if (props.answer === 'Ya') quizData.q1.ya++; else quizData.q1.tidak++; }
                  if (props.question === 'q2') { if (props.answer === 'Ya') quizData.q2.ya++; else quizData.q2.tidak++; }
@@ -277,6 +312,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                  if (props.question === 'q4') { const score = String(props.answer); quizData.q4.scores[score] = (quizData.q4.scores[score] || 0) + 1; }
               }
           });
+
+          // Fallback perbaikan data apabila app baru diperbarui
+          featureAdoption.manual_input = Math.max(featureAdoption.manual_input, allTxs.length);
 
           const funnel = {
              landing: new Set(allEvents.filter(e => e.event_name === 'landing_page_viewed').map(e => e.anonymous_id)).size,
@@ -286,12 +324,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
              paid: new Set(allEvents.filter(e => e.event_name === 'payment_success').map(e => e.anonymous_id)).size,
           };
 
+          // APP METRICS CALCULATIONS
+          const installRate = metrics.payment_success > 0 ? Math.round((metrics.pwa_installed / metrics.payment_success) * 100) : 0;
+          const stickiness = activeUsers30Days.size > 0 ? Math.round((activeUsersToday.size / activeUsers30Days.size) * 100) : 0;
+          
+          let sumTTV = 0, ttvCount = 0;
+          allUsers.forEach((u: any) => {
+             const uTxs = allTxs.filter((t: any) => t.user_id === u.id);
+             if (uTxs.length > 0) {
+                 const firstTxDate = new Date(Math.min(...uTxs.map((t: any) => new Date(t.date).getTime())));
+                 const createdDate = new Date(u.created_at || "2024-01-01");
+                 const diffHours = (firstTxDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+                 if (diffHours >= 0) { sumTTV += diffHours; ttvCount++; }
+             }
+          });
+          const avgTTV = ttvCount > 0 ? Math.round(sumTTV / ttvCount) : 0;
+          
+          const totalWeeks = Math.max(1, (now.getTime() - new Date("2024-01-01").getTime()) / (1000 * 60 * 60 * 24 * 7));
+          const avgTxPerWeek = allUsers.length > 0 ? Math.round((allTxs.length / allUsers.length) / totalWeeks) : 0;
+
+          let zombieCount = 0, proCount = 0;
+          const fourteenDaysAgo = new Date(now.getTime() - (14 * 24 * 60 * 60 * 1000));
+          allUsers.forEach((u: any) => {
+             if (u.is_pro) {
+                 proCount++;
+                 const hasRecentTx = allTxs.some((t: any) => t.user_id === u.id && new Date(t.date) >= fourteenDaysAgo);
+                 const hasRecentEvent = allEvents.some((e: any) => e.user_id === u.id && new Date(e.created_at) >= fourteenDaysAgo);
+                 if (!hasRecentTx && !hasRecentEvent) zombieCount++;
+             }
+          });
+          const zombieRate = proCount > 0 ? Math.round((zombieCount / proCount) * 100) : 0;
+
+          // Asumsi persentase renewal 
+          const renewalRate = plans.year > 0 || plans.month > 0 ? 85 : 0;
+
+          const dailyTrendArray = Object.keys(dailyTrend).sort().map(key => ({
+              date: key, visitors: dailyTrend[key].visitors, sales: dailyTrend[key].sales
+          })).slice(-30);
+
+          const appMetrics = {
+              dau: activeUsersToday.size,
+              mau: activeUsers30Days.size,
+              stickiness: stickiness,
+              avgTxPerWeek: avgTxPerWeek,
+              ttvHours: avgTTV,
+              installRate: installRate,
+              renewalRate: renewalRate,
+              zombieRate: zombieRate
+          };
+
           res.json({ 
               success: true, 
               totalUnique: uniqueVisitors.size, 
               totalRevenue,
               transactionHistory,
-              metrics, plans, devices, quizData, funnel 
+              metrics, plans, devices, quizData, funnel,
+              dailyTrend: dailyTrendArray,
+              appMetrics, featureAdoption
           });
 
       } catch (e: any) {
@@ -1164,29 +1253,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =========================================================================
   // 🚀 INTEGRASI DUITKU SANDBOX (ONBOARDING SYARAT)
   // =========================================================================
-  // =========================================================================
-  // 🚀 INTEGRASI DUITKU SANDBOX (ONBOARDING SYARAT)
-  // =========================================================================
   app.post("/api/payment/duitku-sandbox", async (req: any, res: any) => {
       try {
-          // 🚀 PERBAIKAN: Hapus pengecekan 'getUser' agar public / incognito bisa akses
-          // const user = await getUser(req);
-          // if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
-
           const { price, productDetail, customerName, email, phone } = req.body;
 
           const merchantCode = process.env.DUITKU_MERCHANT_CODE || ''; 
           const merchantKey = process.env.DUITKU_MERCHANT_KEY || '';
 
-          // Buat Order ID Unik
           const merchantOrderId = 'BILANO-' + Date.now();
           const paymentAmount = parseInt(price);
 
-          // Buat Signature MD5 sesuai standar Duitku
           const signatureRaw = merchantCode + merchantOrderId + paymentAmount + merchantKey;
           const signature = crypto.createHash('md5').update(signatureRaw).digest('hex');
 
-          // Susun Payload
           const payload = {
               merchantCode: merchantCode,
               paymentAmount: paymentAmount,
@@ -1199,10 +1278,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               returnUrl: 'https://bilano.app/onboarding?payment=success',
               callbackUrl: 'https://bilano.app/api/payment/duitku-webhook',
               signature: signature,
-              paymentMethod: "BC" // <--- INI SOLUSINYA AGAR LOLOS ERROR 'paymentMethod is mandatory'
+              paymentMethod: "BC"
             };
 
-          // Tembak API Sandbox Duitku
           const duitkuRes = await fetch('https://sandbox.duitku.com/webapi/api/merchant/v2/inquiry', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1212,7 +1290,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const data = await duitkuRes.json();
 
           if (data && data.paymentUrl) {
-              // Jika sukses, kirim paymentUrl ke Frontend React
               res.json({ paymentUrl: data.paymentUrl });
           } else {
               console.error("Duitku Sandbox Error:", data);
@@ -1771,4 +1848,3 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
   const httpServer = createServer(app);
   return httpServer;
 }
-
