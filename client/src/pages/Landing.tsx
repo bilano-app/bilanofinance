@@ -227,9 +227,9 @@ export default function Landing() {
                 <Phone className="w-4 h-4 text-slate-500" />
                 <span>+6289688113210</span>
               </div>
-              <div className="flex items-center gap-2 hover:text-amber-400 transition-colors cursor-default">
-                <MapPin className="w-4 h-4 text-slate-500" />
-                <span className="leading-5">
+              <div className="flex items-start gap-2 hover:text-amber-400 transition-colors cursor-default">
+                <MapPin className="mt-1 w-4 h-4 text-slate-500" />
+                <span className="leading-5 text-left">
                   Jl. Melati Raya No. 3, Bumi Malaka Asri 1<br />
                   Duren Sawit, Jakarta Timur<br />
                   13460
