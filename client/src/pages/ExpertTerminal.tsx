@@ -718,7 +718,8 @@ export default function ExpertTerminal() {
 
   const getYearData = useCallback((year: number) => {
       const isCurrentYear = year === new Date().getFullYear();
-      const endOfYear = isCurrentYear ? new Date(year, 11, 31, 23, 59, 59);
+      // PERBAIKAN: Menambahkan "new Date() :" untuk melengkapi syntax pengecekan
+      const endOfYear = isCurrentYear ? new Date() : new Date(year, 11, 31, 23, 59, 59);
       return getSnapshotAtDate(endOfYear, isCurrentYear);
   }, [getSnapshotAtDate]);
 
