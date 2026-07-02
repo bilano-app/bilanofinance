@@ -229,7 +229,10 @@ export default function Landing() {
               </div>
               <div className="flex items-center gap-2 hover:text-amber-400 transition-colors cursor-default">
                 <MapPin className="w-4 h-4 text-slate-500" />
-                <span>Jakarta, Indonesia</span>
+                <span>Jl. Melati Raya No. 3, Bumi Malaka Asri 1
+                  Duren Sawit, Jakarta Timur
+                  13460
+                </span>
               </div>
             </div>
 
