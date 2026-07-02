@@ -43,12 +43,7 @@ export default function ExpertTerminal() {
   const [showProfit, setShowProfit] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | '5Y'>('1M');
-  const [chartAssetFilter, setChartAssetFilter] = useState<string>('ALL');
-  const [chartMetrics, setChartMetrics] = useState({
-      marketValue: true,
-      modal: true,
-      dividend: true
-  });
+  
   // Indikator Progres Interaktif
   const [intelStatus, setIntelStatus] = useState("Membangun koneksi ke server agregator...");
 
@@ -134,6 +129,7 @@ export default function ExpertTerminal() {
   const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, apiRange);
   const { data: simHistoryPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
 
+  // 🚀 MEMISAHKAN TICKER KHUSUS UNTUK INTEL (HANYA ASET YANG MASIH DIPEGANG)
   const activeSymbolsForIntel = useMemo(() => {
       const tickers = new Set<string>();
       investments.forEach((inv: any) => {
@@ -157,6 +153,9 @@ export default function ExpertTerminal() {
       return Array.from(tickers);
   }, [investments, tickerOverrides]);
 
+  // =========================================================================
+  // 🚀 HOOK MARKET INTEL (Mengambil data ketika tab aktif)
+  // =========================================================================
   const { data: marketIntelData, isLoading: isIntelLoading, refetch: refetchIntel } = useQuery({
       queryKey: ['marketIntel', activeSymbolsForIntel.join(',')],
       queryFn: async () => {
@@ -174,6 +173,7 @@ export default function ExpertTerminal() {
       refetchOnWindowFocus: false, 
   });
 
+  // Efek untuk teks status loading Market Intel (Tanpa Persentase)
   useEffect(() => {
       let interval: NodeJS.Timeout;
       
@@ -718,7 +718,6 @@ export default function ExpertTerminal() {
 
   const getYearData = useCallback((year: number) => {
       const isCurrentYear = year === new Date().getFullYear();
-      // PERBAIKAN: Menambahkan "new Date() :" untuk melengkapi syntax pengecekan
       const endOfYear = isCurrentYear ? new Date() : new Date(year, 11, 31, 23, 59, 59);
       return getSnapshotAtDate(endOfYear, isCurrentYear);
   }, [getSnapshotAtDate]);
@@ -813,11 +812,8 @@ export default function ExpertTerminal() {
 
          let dailyValuation = 0;
          let dailyInvested = 0;
-         let currentTotalDividend = 0; 
 
-         const targetSymbols = Object.keys(currentQty).filter(sym => chartAssetFilter === 'ALL' || sym === chartAssetFilter);
-
-         targetSymbols.forEach(sym => {
+         Object.keys(currentQty).forEach(sym => {
              if (currentQty[sym] > 0) {
                  const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
                  const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
@@ -828,34 +824,12 @@ export default function ExpertTerminal() {
                  else dailyValuation += currentInvestedIDR[sym]; 
                  
                  dailyInvested += currentInvestedIDR[sym];
-
-                 const assetHistory = historyPrices[ticker];
-                 if (assetHistory && assetHistory.dividends) {
-                     Object.values(assetHistory.dividends).forEach((divEvent: any) => {
-                         if (divEvent.date <= (currentTs / 1000)) {
-                             let qtyAtDiv = 0;
-                             if (setupAwalBases[sym] && setupAwalBases[sym].date.getTime() <= (divEvent.date * 1000)) {
-                                 qtyAtDiv += setupAwalBases[sym].qty;
-                             }
-                             parsedInvestTxs.forEach((t: any) => {
-                                 if (t.parsedSymbol === sym && new Date(t.date).getTime() <= (divEvent.date * 1000)) {
-                                     if (t.type === 'invest_buy') qtyAtDiv += t.parsedQty;
-                                     else qtyAtDiv -= t.parsedQty;
-                                 }
-                             });
-                             
-                             if (qtyAtDiv > 0) {
-                                 currentTotalDividend += (divEvent.amount * qtyAtDiv * multiplier);
-                             }
-                         }
-                     });
-                 }
              }
          });
 
          if (currentTs + stepSize > endTs) {
              dailyValuation = 0;
-             targetSymbols.forEach(sym => {
+             Object.keys(currentQty).forEach(sym => {
                  if (currentQty[sym] > 0) {
                      const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
                      const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
@@ -872,16 +846,18 @@ export default function ExpertTerminal() {
          dailyData.push({
              name: dateLabel,
              Total: dailyValuation,
-             Investasi: dailyInvested,
-             Dividen: currentTotalDividend 
+             Investasi: dailyInvested
          });
 
          currentTs += stepSize;
      }
 
      return dailyData;
-  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices, chartAssetFilter]);
+  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices]);
 
+  // =========================================================================
+  // 🛡️ REFORMASI LOGIKA LOGIN & RE-FRESH SESSION KUNCI UTAMA PWA
+  // =========================================================================
   const handleTerminalLogin = async (e: React.FormEvent) => {
       e.preventDefault();
       setLoginError("");
@@ -890,7 +866,9 @@ export default function ExpertTerminal() {
           const cleanEmail = loginEmail.trim().toLowerCase();
           await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
         
+          // 1. Buka kunci gerbang UI Terminal
           localStorage.setItem("bilano_terminal_unlocked", "true");
+          // 2. Pasang token & email standar PWA agar hooks internal use-finance berfungsi normal
           localStorage.setItem("bilano_auth", "true");
           localStorage.setItem("bilano_email", cleanEmail);
          
@@ -908,6 +886,7 @@ export default function ExpertTerminal() {
 
   const handleLogout = async () => {
       await signOut(auth);
+      // Hapus seluruh jejak session cache saat keluar dari terminal
       localStorage.removeItem("bilano_terminal_unlocked");
       localStorage.removeItem("bilano_auth");
       localStorage.removeItem("bilano_email");
@@ -957,36 +936,9 @@ export default function ExpertTerminal() {
     </button>
   );
 
-  const getAggregatedMonthlyData = useCallback((monthNum: number) => {
-      const isCurrentMonth = selectedYear === new Date().getFullYear() && monthNum === new Date().getMonth() + 1;
-      const targetDate = isCurrentMonth ? new Date() : new Date(selectedYear, monthNum, 0, 23, 59, 59);
-      return getSnapshotAtDate(targetDate, isCurrentMonth);
-  }, [selectedYear, getSnapshotAtDate]);
-
-  const getAggregatedYearlyData = useCallback((yearNum: number) => {
-      const isCurrentYear = yearNum === new Date().getFullYear();
-      const targetDate = isCurrentYear ? new Date() : new Date(yearNum, 11, 31, 23, 59, 59);
-      return getSnapshotAtDate(targetDate, isCurrentYear);
-  }, [getSnapshotAtDate]);
-
-  const getAssetMonthlyData = useCallback((symbol: string, monthNum: number) => {
-      const isCurrentMonth = selectedYear === new Date().getFullYear() && monthNum === new Date().getMonth() + 1;
-      const targetDate = isCurrentMonth ? new Date() : new Date(selectedYear, monthNum, 0, 23, 59, 59);
-      const data = getSnapshotAtDate(targetDate, isCurrentMonth);
-      const detail = data.details[symbol];
-      if (!detail || detail.qty === 0) return { totalValue: 0, investValue: 0 };
-      return { totalValue: detail.valuasi, investValue: detail.invested };
-  }, [selectedYear, getSnapshotAtDate]);
-
-  const getAssetYearlyData = useCallback((symbol: string, yearNum: number) => {
-      const isCurrentYear = yearNum === new Date().getFullYear();
-      const targetDate = isCurrentYear ? new Date() : new Date(yearNum, 11, 31, 23, 59, 59);
-      const data = getSnapshotAtDate(targetDate, isCurrentYear);
-      const detail = data.details[symbol];
-      if (!detail || detail.qty === 0) return { totalValue: 0, investValue: 0 };
-      return { totalValue: detail.valuasi, investValue: detail.invested };
-  }, [getSnapshotAtDate]);
-
+  // =========================================================================
+  // 🚀 INTERFACE GERBANG AUTH EXPORT TERMINAL (CYBERPUNK NEON VIEW)
+  // =========================================================================
   if (!isTerminalAuth) {
       return (
           <>
@@ -1001,10 +953,15 @@ export default function ExpertTerminal() {
               }
           `}} />
           <div className="flex h-screen bg-[#000000] terminal-grid items-center justify-center p-4 font-mono text-[#E4E4E7] relative overflow-hidden">
+            
+              {/* Efek Garis Scanline Monitor CRT */}
               <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[size:100%_4px,3px_100%] z-50"></div>
+ 
               <div className="bg-[#050505] border-2 border-[#27272A] p-8 max-w-md w-full shadow-[0_0_40px_rgba(0,255,65,0.05)] relative z-10 before:content-[''] before:absolute before:top-0 before:left-0 before:w-full before:h-[2px] before:bg-[#00FF41]">
+                
                   <div className="absolute top-2 left-2 text-[8px] text-[#333] font-bold">SYS.LOG // B_CORE_V2</div>
                   <div className="absolute top-2 right-2 text-[8px] text-[#00FF41] font-bold animate-pulse">● SECURE</div>
+
                   <div className="text-center mb-8 pt-4">
                       <img src="/BILANO-ICON.png" alt="BILANO" className="w-14 h-14 mx-auto mb-4 object-contain drop-shadow-[0_0_10px_rgba(0,255,65,0.5)]" />
                       <h2 className="text-xl font-black text-white tracking-wider uppercase font-sans">BILANO EXPERT</h2>
@@ -1012,6 +969,7 @@ export default function ExpertTerminal() {
                           <p className="text-[9px] text-[#00E5FF] font-bold uppercase tracking-[0.25em]">QUANT INSTITUTIONAL PORTAL</p>
                       </div>
                   </div>
+                
                   <form onSubmit={handleTerminalLogin} className="space-y-5">
                       <div className="space-y-2">
                           <label className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em] flex items-center gap-1.5">
@@ -1029,6 +987,7 @@ export default function ExpertTerminal() {
                               />
                           </div>
                       </div>
+
                       <div className="space-y-2">
                           <label className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em] flex items-center gap-1.5">
                               <span>[02]</span> ACCESS_CRYPTOGRAPH (PASSWORD)
@@ -1045,6 +1004,7 @@ export default function ExpertTerminal() {
                               />
                           </div>
                       </div>
+
                       {loginError && (
                           <div className="bg-[#FF003C]/5 border border-[#FF003C]/40 p-4 text-[10px] font-bold text-[#FF003C] leading-relaxed text-center uppercase tracking-wider bg-black">
                               {loginError === 'unregistered' ? (
@@ -1057,6 +1017,7 @@ export default function ExpertTerminal() {
                               )}
                           </div>
                       )}
+  
                       <button 
                           disabled={isLoggingIn} 
                           type="submit" 
@@ -1072,6 +1033,7 @@ export default function ExpertTerminal() {
                           )}
                       </button>
                   </form>
+
                   <div className="mt-6 border-t border-[#1a1a1a] pt-4 text-center">
                       <p className="text-[8px] text-[#555] uppercase tracking-widest">
                           SECURE SHELL // END-TO-END ENCRYPTED QUANT FEED
@@ -1083,6 +1045,9 @@ export default function ExpertTerminal() {
       );
   }
 
+  // =========================================================================
+  // 🚀 MAIN INTERFACE EXPERT TERMINAL
+  // =========================================================================
   return (
     <>
     <style dangerouslySetInnerHTML={{__html: `
@@ -1214,6 +1179,7 @@ export default function ExpertTerminal() {
           </button>
         </nav>
 
+        {/* PROFIL & LOGOUT */}
         <div className="p-4 border-t border-[#27272A] mt-auto flex flex-col gap-4 bg-[#050505]">
           <div className="flex items-center gap-3 px-2">
             <div className="w-10 h-10 border-2 border-[#333] rounded-full overflow-hidden bg-[#111] flex items-center justify-center shrink-0 shadow-md">
@@ -1309,7 +1275,7 @@ export default function ExpertTerminal() {
                                     <th key={p.symbol} className="px-6 py-4 whitespace-nowrap">
                                        <div className="flex items-center gap-2 cursor-pointer hover:text-white transition-colors" onClick={() => setAssetDetailModal(p)}>
                                            {p.symbol} 
-                                           <span className="text-[8px] bg-[#222] border border-[#333] text-[#A1A1AA] px-1.5 py-0.5">{p.activeTicker}</span>
+                                           <span className="text-[8px] bg-[#222] border border-[#333] px-1.5 py-0.5 text-[#A1A1AA]">{p.activeTicker}</span>
                                            <ScanSearch className="w-3 h-3 text-[#00E5FF]" />
                                            {isError && (
                                               <button onClick={(e) => { e.stopPropagation(); setTempTicker(p.activeTicker); setEditTickerModal(p.symbol); }} className="text-[#FF003C] hover:text-white bg-[#FF003C]/10 border border-[#FF003C]/30 px-1.5 py-0.5 flex items-center gap-1">
@@ -1372,266 +1338,194 @@ export default function ExpertTerminal() {
 
           {/* ================= TAB 2: PANTAUAN PORTOFOLIO ================= */}
           {activeTab === 'pantauan' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              
-              {/* ================= TABEL PERFORMA BULANAN ================= */}
-              <div className="bg-[#0D0D0D] border border-[#222] overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-max">
-                  <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
-                    <tr>
-                      <th className="px-6 py-4 border-r border-[#222] sticky left-0 bg-[#111] z-10 text-[#00E5FF]">Bulan (Tahun Ini)</th>
-                      {activePortfolio.map((p: any) => (
-                        <th key={p.symbol} className="px-6 py-4 whitespace-nowrap">{p.symbol}</th>
-                      ))}
-                      {/* Kolom Total Modal & Agregat */}
-                      <th className="px-6 py-4 text-[#94A3B8] whitespace-nowrap border-l border-[#222] bg-[#111]">Total Modal</th>
-                      <th className="px-6 py-4 text-[#00FF41] whitespace-nowrap bg-[#111]">Aggregated P/L</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-[12px] font-medium text-[#D4D4D8] divide-y divide-[#222]">
-                    {availableMonths.map((m: any) => {
-                      const data = getAggregatedMonthlyData(m.monthNum);
-                      return (
-                        <tr key={m.monthNum} className="hover:bg-[#1A1A1A] transition-colors group">
-                          <td className="px-6 py-4 border-r border-[#222] sticky left-0 bg-[#0D0D0D] group-hover:bg-[#1A1A1A] z-10 uppercase tracking-wider font-bold text-[#A1A1AA]">
-                            {m.name}
-                          </td>
-                          {activePortfolio.map((p: any) => {
-                            const assetData = getAssetMonthlyData(p.symbol, m.monthNum);
-                            return (
-                              <td key={p.symbol} className="px-6 py-4 whitespace-nowrap">
-                                {assetData.investValue === 0 ? <span className="text-[#333]">-</span> : (
-                                  <div>
-                                    <div className="text-white">{maskRp(assetData.totalValue)}</div>
-                                    {assetData.totalValue !== assetData.investValue && (
-                                      <div className={`text-[10px] mt-1 ${assetData.totalValue > assetData.investValue ? 'text-[#00FF41]' : 'text-[#FF003C]'}`}>
-                                        {formatPct((assetData.totalValue - assetData.investValue) / assetData.investValue)}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-                            );
-                          })}
-                          
-                          <td className="px-6 py-4 bg-[#111] border-l border-[#222] whitespace-nowrap">
-                             {data.investValue === 0 ? <span className="text-[#444]">-</span> : (
-                                <span className="font-mono text-[#E2E8F0] tracking-tight">{maskRp(data.investValue)}</span>
-                             )}
-                          </td>
-
-                          <td className="px-6 py-4 bg-[#111] whitespace-nowrap">
-                            {(() => {
-                              if (data.investValue === 0) return <span className="text-[#444]">-</span>;
-                              const plTotalAmount = data.totalValue - data.investValue;
-                              const plTotalPct = plTotalAmount / data.investValue;
-                              return (
-                                <div className={plTotalAmount >= 0 ? 'text-[#00FF41]' : 'text-[#FF003C]'}>
-                                  <div className="font-black text-sm">{maskRp(plTotalAmount)}</div>
-                                  <div className="text-[10px] mt-0.5 tracking-wider font-bold">
-                                    {plTotalAmount >= 0 ? '+' : ''}{formatPct(plTotalPct)}
-                                  </div>
-                                </div>
-                              );
-                            })()}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* ================= TABEL PERFORMA TAHUNAN ================= */}
-              <div className="bg-[#0D0D0D] border border-[#222] overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-max">
-                  <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
-                    <tr>
-                      <th className="px-6 py-4 border-r border-[#222] sticky left-0 bg-[#111] z-10 text-[#00E5FF]">Tahunan</th>
-                      {activePortfolio.map((p: any) => (
-                        <th key={`y-${p.symbol}`} className="px-6 py-4 whitespace-nowrap">{p.symbol}</th>
-                      ))}
-                      <th className="px-6 py-4 text-[#94A3B8] whitespace-nowrap border-l border-[#222] bg-[#111]">Total Modal</th>
-                      <th className="px-6 py-4 text-[#00FF41] whitespace-nowrap bg-[#111]">Aggregated P/L</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-[12px] font-medium text-[#D4D4D8] divide-y divide-[#222]">
-                    {availableYears.map((y: number) => {
-                      const data = getAggregatedYearlyData(y);
-                      return (
-                        <tr key={y} className="hover:bg-[#1A1A1A] transition-colors group">
-                          <td className="px-6 py-4 border-r border-[#222] sticky left-0 bg-[#0D0D0D] group-hover:bg-[#1A1A1A] z-10 uppercase tracking-wider font-black text-white">
-                            {y}
-                          </td>
-                          {activePortfolio.map((p: any) => {
-                            const assetData = getAssetYearlyData(p.symbol, y);
-                            return (
-                              <td key={`yd-${p.symbol}`} className="px-6 py-4 whitespace-nowrap">
-                                {assetData.investValue === 0 ? <span className="text-[#333]">-</span> : (
-                                  <div>
-                                    <div className="text-white font-bold">{maskRp(assetData.totalValue)}</div>
-                                    {assetData.totalValue !== assetData.investValue && (
-                                      <div className={`text-[10px] mt-1 ${assetData.totalValue > assetData.investValue ? 'text-[#00FF41]' : 'text-[#FF003C]'}`}>
-                                        {formatPct((assetData.totalValue - assetData.investValue) / assetData.investValue)}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-                            );
-                          })}
-
-                          <td className="px-6 py-4 bg-[#111] border-l border-[#222] whitespace-nowrap">
-                             {data.investValue === 0 ? <span className="text-[#444]">-</span> : (
-                                <span className="font-mono text-[#E2E8F0] tracking-tight">{maskRp(data.investValue)}</span>
-                             )}
-                          </td>
-
-                          <td className="px-6 py-4 bg-[#111] whitespace-nowrap">
-                            {(() => {
-                              if (data.investValue === 0) return <span className="text-[#444]">-</span>;
-                              const plTotalAmount = data.totalValue - data.investValue;
-                              const plTotalPct = plTotalAmount / data.investValue;
-                              return (
-                                <div className={plTotalAmount >= 0 ? 'text-[#00FF41]' : 'text-[#FF003C]'}>
-                                  <div className="font-black text-sm">{maskRp(plTotalAmount)}</div>
-                                  <div className="text-[10px] mt-0.5 tracking-wider font-bold">
-                                    {plTotalAmount >= 0 ? '+' : ''}{formatPct(plTotalPct)}
-                                  </div>
-                                </div>
-                              );
-                            })()}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* ================= AREA GRAFIK HISTORIS & INTRADAY (PINDAH KE BAWAH) ================= */}
-              <div className="bg-[#0D0D0D] border border-[#222] p-6 relative group overflow-hidden mt-8">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-[#00FF41] opacity-5 blur-[100px] pointer-events-none group-hover:opacity-10 transition-opacity duration-700"></div>
-                
-                {/* Header & Filter System */}
-                <div className="flex flex-col gap-4 mb-6 border-b border-[#222] pb-4 relative z-10">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <Radar className="w-5 h-5 text-[#00E5FF]" />
-                        <h3 className="font-black text-white uppercase tracking-tight text-lg">Chart Historis Teragregasi</h3>
-                    </div>
-                    
-                    <select 
-                      value={chartAssetFilter} 
-                      onChange={(e) => setChartAssetFilter(e.target.value)}
-                      className="bg-[#111] border border-[#333] text-[#00E5FF] text-[10px] font-black uppercase tracking-widest px-3 py-1.5 outline-none focus:border-[#00E5FF] cursor-pointer"
-                    >
-                      <option value="ALL">TOTAL KESELURUHAN</option>
-                      {activePortfolio.map((p: any) => (
-                        <option key={p.symbol} value={p.symbol}>{p.symbol}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => setChartMetrics(p => ({...p, marketValue: !p.marketValue}))} 
-                        className={`px-3 py-1.5 text-[9px] uppercase font-bold border transition-all ${chartMetrics.marketValue ? 'bg-[#00FF41]/20 border-[#00FF41] text-[#00FF41]' : 'bg-[#111] border-[#333] text-[#666] hover:text-[#999]'}`}
-                      >
-                        Nilai Portofolio
-                      </button>
-                      <button 
-                        onClick={() => setChartMetrics(p => ({...p, modal: !p.modal}))} 
-                        className={`px-3 py-1.5 text-[9px] uppercase font-bold border transition-all ${chartMetrics.modal ? 'bg-[#FFFFFF]/20 border-[#FFFFFF] text-[#FFFFFF]' : 'bg-[#111] border-[#333] text-[#666] hover:text-[#999]'}`}
-                      >
-                        Total Modal
-                      </button>
-                      <button 
-                        onClick={() => setChartMetrics(p => ({...p, dividend: !p.dividend}))} 
-                        className={`px-3 py-1.5 text-[9px] uppercase font-bold border transition-all ${chartMetrics.dividend ? 'bg-[#FFD700]/20 border-[#FFD700] text-[#FFD700]' : 'bg-[#111] border-[#333] text-[#666] hover:text-[#999]'}`}
-                      >
-                        Dividen
-                      </button>
-                    </div>
-
-                    <div className="flex bg-[#111] border border-[#333] rounded-sm overflow-hidden">
-                       {['1D', '5D', '1M', '6M', 'YTD', '1Y', '5Y'].map(tf => (
-                           <button 
-                             key={tf}
-                             onClick={() => setChartTimeframe(tf as any)} 
-                             className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe === tf ? 'bg-[#00E5FF] text-black' : 'text-[#A1A1AA] hover:text-white hover:bg-[#222]'}`}
-                           >
-                             {tf}
-                           </button>
-                       ))}
-                    </div>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+              <div className="flex justify-between items-end border-b border-[#222] pb-4">
+                <div>
+                  <h2 className="text-lg font-black text-white uppercase tracking-tight mb-2">Performa Waktu Nyata</h2>
+                  <div className="flex items-center gap-2">
+                      <button onClick={() => setSelectedYear(selectedYear - 1)} className="text-[9px] uppercase tracking-[0.15em] font-bold text-[#A1A1AA] hover:text-white bg-[#111] px-3 py-1.5 border border-[#333] transition-colors flex items-center gap-1"><ChevronUp className="w-3 h-3" /> Tahun {selectedYear - 1}</button>
+                      <button onClick={() => setSelectedYear(selectedYear + 1)} className="text-[9px] uppercase tracking-[0.15em] font-bold text-[#A1A1AA] hover:text-white bg-[#111] px-3 py-1.5 border border-[#333] transition-colors flex items-center gap-1">Tahun {selectedYear + 1} <ChevronUp className="w-3 h-3 rotate-180" /></button>
                   </div>
                 </div>
+                <div className="flex items-center gap-4">
+                   <div className="text-right mr-4">
+                       <p className="text-[9px] text-[#A1A1AA] font-bold uppercase tracking-[0.2em] mb-1">Laba/Rugi Kumulatif</p>
+                       <div className={`font-mono font-black text-2xl ${totalProfitLoss >= 0 ? 'text-[#00FF41]' : 'text-[#FF003C]'} flex items-center gap-1 justify-end`}>
+                           {totalProfitLoss >= 0 ? <ArrowUpRight className="w-5 h-5"/> : <ArrowDownRight className="w-5 h-5"/>}
+                           {maskRp(Math.abs(totalProfitLoss))}
+                       </div>
+                   </div>
+                   <button onClick={handleSaveSnapshot} disabled={saveSnapshotMutation.isPending || activePortfolio.length === 0} className="bg-[#00FF41] hover:bg-[#00CC33] disabled:bg-[#333] disabled:text-[#666] text-[10px] text-black uppercase tracking-[0.15em] font-black px-6 py-3 transition-all flex items-center gap-2">
+                       {saveSnapshotMutation.isPending ? <Orbit className="w-4 h-4 animate-spin"/> : <Database className="w-4 h-4" />} Snapshot DB
+                   </button>
+                </div>
+              </div>
 
-                {/* Render Area/Line Chart */}
-                <div className="h-[450px] w-full relative z-10">
+              {/* TABEL BULANAN */}
+              <div className="bg-[#0D0D0D] border border-[#222] overflow-x-auto custom-scrollbar mb-8">
+                <table className="w-full text-left">
+                  <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
+                    <tr>
+                      <th className="px-6 py-4 border-r border-[#222] sticky left-0 bg-[#111] z-10 text-[#00E5FF]">Bulan ({selectedYear})</th>
+                      {activePortfolio.map((p: any) => (
+                          <th key={p.symbol} className="px-6 py-4 whitespace-nowrap">
+                              {p.symbol}
+                          </th>
+                      ))}
+                      <th className="px-6 py-4 text-[#00E5FF] whitespace-nowrap">Aggregated P/L</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-[#E4E4E7] font-mono text-xs">
+                    {availableMonths.length === 0 ? (
+                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
+                    ) : (
+                       availableMonths.map((m) => {
+                          const data = getMonthData(m.monthNum, selectedYear);
+                          const details = data.details as Record<string, {invested: number, valuasi: number, qty: number}>;
+                          
+                          return (
+                             <tr key={m.name} className={`border-b border-[#222] hover:bg-[#111] transition-colors ${!data.isSaved ? 'opacity-80' : ''}`}>
+                                <td className="px-6 py-4 font-sans font-bold text-[#D4D4D8] sticky left-0 bg-[#0D0D0D] border-r border-[#222] z-10 flex items-center justify-between">
+                                    {m.name.toUpperCase()} {!data.isSaved && <span className="text-[7px] tracking-[0.2em] font-black bg-[#222] text-[#00FF41] px-1.5 py-0.5 ml-2">AUTO</span>}
+                                </td>
+                                {activePortfolio.map((p: any) => {
+                                    const assetSnap = details[p.symbol] || { invested: 0, valuasi: 0, qty: 0 };
+                                    if (assetSnap.qty === 0) return <td key={p.symbol} className="px-6 py-4 text-[#555] text-center">-</td>;
+                                    
+                                    const plAmount = assetSnap.valuasi - assetSnap.invested;
+                                    const plPct = (plAmount / assetSnap.invested);
+                                    return (
+                                        <td key={p.symbol} className={`px-6 py-4 ${plAmount >= 0 ? 'text-[#00FF41]' : 'text-[#FF003C]'}`}>
+                                            <div className="font-bold">{maskRp(plAmount)}</div>
+                                            <div className="text-[10px] mt-1">{formatPct(plPct)}</div>
+                                        </td>
+                                    );
+                                })}
+                                <td className="px-6 py-4 bg-[#111]">
+                                    {(() => {
+                                        if (data.investValue === 0) return <span className="text-[#555]">-</span>;
+                                        const plTotalAmount = data.totalValue - data.investValue;
+                                        return (
+                                            <div className={plTotalAmount >= 0 ? 'text-[#00FF41]' : 'text-[#FF003C]'}>
+                                                <div className="font-black">{maskRp(plTotalAmount)}</div>
+                                                <div className="text-[10px] mt-1">{formatPct(plTotalAmount / data.investValue)}</div>
+                                            </div>
+                                        );
+                                    })()}
+                                </td>
+                             </tr>
+                          )
+                       })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* TABEL TAHUNAN */}
+              <div className="bg-[#0D0D0D] border border-[#222] overflow-x-auto custom-scrollbar">
+                <table className="w-full text-left">
+                  <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[10px] border-b border-[#333]">
+                    <tr>
+                      <th className="px-6 py-4 border-r border-[#222] sticky left-0 bg-[#111] z-10 text-[#FFD700]">Tahun</th>
+                      {activePortfolio.map((p: any) => (
+                          <th key={`yr-${p.symbol}`} className="px-6 py-4 whitespace-nowrap">
+                              {p.symbol}
+                          </th>
+                      ))}
+                      <th className="px-6 py-4 text-[#FFD700] whitespace-nowrap">Yearly P/L</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-[#E4E4E7] font-mono text-xs">
+                    {availableYears.length === 0 ? (
+                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
+                    ) : (
+                       availableYears.map((y) => {
+                          const data = getYearData(y);
+                          const details = data.details as Record<string, {invested: number, valuasi: number, qty: number}>;
+                          
+                          return (
+                             <tr key={`yr-row-${y}`} className={`border-b border-[#222] hover:bg-[#111] transition-colors`}>
+                                <td className="px-6 py-4 font-sans font-bold text-[#FFD700] sticky left-0 bg-[#0D0D0D] border-r border-[#222] z-10">
+                                    {y}
+                                </td>
+                                {activePortfolio.map((p: any) => {
+                                    const assetSnap = details[p.symbol] || { invested: 0, valuasi: 0, qty: 0 };
+                                    if (assetSnap.qty === 0) return <td key={`yr-${y}-${p.symbol}`} className="px-6 py-4 text-[#555] text-center">-</td>;
+                                    
+                                    const plAmount = assetSnap.valuasi - assetSnap.invested;
+                                    const plPct = (plAmount / assetSnap.invested);
+                                    return (
+                                        <td key={`yr-${y}-${p.symbol}`} className={`px-6 py-4 ${plAmount >= 0 ? 'text-[#00FF41]' : 'text-[#FF003C]'}`}>
+                                            <div className="font-bold">{maskRp(plAmount)}</div>
+                                            <div className="text-[10px] mt-1">{formatPct(plPct)}</div>
+                                        </td>
+                                    );
+                                })}
+                                <td className="px-6 py-4 bg-[#111]">
+                                    {(() => {
+                                        if (data.investValue === 0) return <span className="text-[#555]">-</span>;
+                                        const plTotalAmount = data.totalValue - data.investValue;
+                                        return (
+                                            <div className={plTotalAmount >= 0 ? 'text-[#00FF41]' : 'text-[#FF003C]'}>
+                                                <div className="font-black">{maskRp(plTotalAmount)}</div>
+                                                <div className="text-[10px] mt-1">{formatPct(plTotalAmount / data.investValue)}</div>
+                                            </div>
+                                        );
+                                    })()}
+                                </td>
+                             </tr>
+                          )
+                       })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* GRAFIK AREA INTRADAY */}
+              <div className="bg-[#0D0D0D] border border-[#222] p-6 mt-6 relative">
+                <div className="flex justify-between items-center mb-6 border-b border-[#222] pb-4">
+                  <h3 className="font-black text-white uppercase tracking-tight text-lg">Chart Historis Teragregasi</h3>
+                  <div className="flex bg-[#111] border border-[#333]">
+                     <button onClick={() => setChartTimeframe('1D')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1D'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1D</button>
+                     <button onClick={() => setChartTimeframe('1W')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1W'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1W</button>
+                     <button onClick={() => setChartTimeframe('1M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1M</button>
+                     <button onClick={() => setChartTimeframe('3M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='3M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>3M</button>
+                     <button onClick={() => setChartTimeframe('1Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1Y</button>
+                     <button onClick={() => setChartTimeframe('5Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='5Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>5Y</button>
+                  </div>
+                </div>
+                <div className="h-[350px] w-full">
                     {chartDataDaily.length > 0 ? (
                        <ResponsiveContainer width="100%" height="100%">
                           <AreaChart data={chartDataDaily}>
                              <defs>
                                 <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#00FF41" stopOpacity={0.3}/>
+                                  <stop offset="5%" stopColor="#00FF41" stopOpacity={0.2}/>
                                   <stop offset="95%" stopColor="#00FF41" stopOpacity={0}/>
                                 </linearGradient>
                              </defs>
-                             <CartesianGrid stroke="#222" strokeDasharray="3 3" vertical={false} />
-                             <XAxis 
-                               dataKey="name" 
-                               stroke="#64748B" 
-                               fontSize={10} 
-                               fontFamily="JetBrains Mono" 
-                               tickLine={false} 
-                               axisLine={false} 
-                               minTickGap={30} 
-                             />
+                             <XAxis dataKey="name" stroke="#64748B" fontSize={10} fontFamily="JetBrains Mono" tickLine={false} axisLine={false} minTickGap={30} />
                              <YAxis 
-                               domain={[0, 'auto']} 
-                               padding={{ top: 20, bottom: 0 }} 
-                               stroke="#64748B" 
-                               fontSize={10} 
-                               fontFamily="JetBrains Mono" 
-                               tickLine={false} 
-                               axisLine={false} 
-                               tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(0)}M` : `•••`} 
-                               orientation="left" 
+                                domain={['dataMin', 'dataMax']} 
+                                padding={{ top: 20, bottom: 20 }}
+                                stroke="#64748B" 
+                                fontSize={10} 
+                                fontFamily="JetBrains Mono"
+                                tickLine={false} 
+                                axisLine={false} 
+                                tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(0)}M` : `•••`} 
+                                orientation="right" 
                              />
-                             <Tooltip 
-                               formatter={(val: number) => showProfit ? maskRp(val) : '••••••'} 
-                               contentStyle={{backgroundColor: '#0A0A0A', border: '1px solid #333', borderRadius: '4px', color: '#fff', fontFamily: 'JetBrains Mono', fontSize: '11px'}} 
-                               itemStyle={{fontFamily: 'JetBrains Mono', fontWeight: 'bold'}}
-                             />
+                             <Tooltip formatter={(val: number) => maskRp(val)} contentStyle={{backgroundColor: '#000', borderColor: '#333', borderRadius: '0', color: '#fff', fontFamily: 'JetBrains Mono'}} />
+                             <CartesianGrid stroke="#222" strokeDasharray="3 3" vertical={false} />
                              
-                             {/* Garis Akumulasi Dividen (Paling bawah, step) */}
-                             {chartMetrics.dividend && (
-                               <Line type="stepAfter" dataKey="Dividen" stroke="#FFD700" strokeWidth={2} dot={false} name="Dividen" />
-                             )}
-
-                             {/* Garis Total Modal (Linear, Putih seperti referensi gambar) */}
-                             {chartMetrics.modal && (
-                               <Line type="linear" dataKey="Investasi" stroke="#FFFFFF" strokeWidth={2.5} dot={false} name="Total Modal" />
-                             )}
-
-                             {/* Area Market Value (Berfluktuasi) */}
-                             {chartMetrics.marketValue && (
-                               <Area type="monotone" dataKey="Total" stroke="#00FF41" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" dot={false} name="Nilai Portofolio" />
-                             )}
+                             <Line type="stepAfter" dataKey="Investasi" stroke="#94A3B8" strokeWidth={1.5} dot={false} strokeDasharray="4 4" name="Modal Aktif" />
+                             <Area type="monotone" dataKey="Total" stroke="#00FF41" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" dot={false} name="Valuasi Total" />
                           </AreaChart>
                        </ResponsiveContainer>
-                    ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center space-y-4 opacity-50">
-                            <Orbit className="w-8 h-8 text-[#00E5FF] animate-spin-slow" />
-                            <div className="text-[#555] text-[10px] font-bold uppercase tracking-[0.2em]">Sinkronisasi Data Pasar...</div>
-                        </div>
-                    )}
+                    ) : <div className="w-full h-full flex items-center justify-center text-[#555] text-[10px] font-bold uppercase tracking-[0.2em]">Memuat Data Historis...</div>}
                 </div>
               </div>
-
             </div>
           )}
 
@@ -2038,6 +1932,7 @@ export default function ExpertTerminal() {
                   </div>
               ) : marketIntelData && marketIntelData.analysis ? (
                   <div className="space-y-6">
+                      {/* PANEL SENTIMEN */}
                       <div className="bg-[#050505] border border-[#333] p-6 relative overflow-hidden">
                           <div className={`absolute top-0 left-0 w-1.5 h-full ${marketIntelData.analysis.overallSentiment === 'BULLISH' ? 'bg-[#00FF41]' : marketIntelData.analysis.overallSentiment === 'BEARISH' ? 'bg-[#FF003C]' : 'bg-[#FFD700]'}`}></div>
                           
@@ -2077,6 +1972,7 @@ export default function ExpertTerminal() {
                           </div>
                       </div>
 
+                      {/* DAFTAR BERITA RAW */}
                       <h3 className="font-black text-white text-sm uppercase tracking-widest mt-8 border-b border-[#222] pb-3 flex items-center justify-between">
                           Sumber Berita Tersaring
                           <span className="text-[10px] text-[#666] normal-case tracking-normal">({marketIntelData.articles?.length || 0} Artikel)</span>
