@@ -16,10 +16,16 @@ import UniversalNewsScanner from "./UniversalNewsScanner";
 const COLORS = ['#00FF41', '#00E5FF', '#FF003C', '#FFD700', '#B500FF', '#FF8C00', '#FFFFFF'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
 
+// Fungsi Helper Deteksi Aset USD untuk Perbaikan Bug Kalkulasi SPUS/VGT
+const isUSAsset = (sym: string) => {
+    const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY', 'SPUS', 'VGT'];
+    return knownUS.includes(sym.toUpperCase()) || sym.length > 4;
+};
+
 export default function ExpertTerminal() {
   const { toast } = useToast();
   
-  // State Autentikasi Terminal (Menggunakan Gembok Terminal Unlocked)
+  // State Autentikasi Terminal
   const [isTerminalAuth, setIsTerminalAuth] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem("bilano_terminal_unlocked") === "true";
     return false;
@@ -29,7 +35,6 @@ export default function ExpertTerminal() {
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Mengambil email dari session key utama agar hooks use-finance tidak null
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
   // Data Hooks
@@ -44,6 +49,12 @@ export default function ExpertTerminal() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | '5Y'>('1M');
   
+  // Kontrol Tampilan Chart Agregasi (Sesuai Permintaan Peningkatan Visual)
+  const [chartSelectedAsset, setChartSelectedAsset] = useState<string>('ALL');
+  const [chartShowValuasi, setChartShowValuasi] = useState(true);
+  const [chartShowModal, setChartShowModal] = useState(true);
+  const [chartShowDividen, setChartShowDividen] = useState(true);
+
   // Indikator Progres Interaktif
   const [intelStatus, setIntelStatus] = useState("Membangun koneksi ke server agregator...");
 
@@ -88,9 +99,8 @@ export default function ExpertTerminal() {
         const isStock = typeLower === 'saham' || (!inv.type && sym.length === 4);
         const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
         
-        const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
         let defaultTicker = sym;
-        if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
+        if (isIDR && isStock && !isGold && !isUSAsset(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
         
         tickers.add(tickerOverrides[sym] || defaultTicker);
     });
@@ -104,10 +114,9 @@ export default function ExpertTerminal() {
                 const isIDR = !isUSD;
                 const isStock = symbol.length === 4; 
                 const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
-                const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
                 
                 let defaultTicker = symbol;
-                if (isIDR && isStock && !isGold && !knownUS.includes(symbol) && !symbol.endsWith('.JK')) defaultTicker = `${symbol}.JK`;
+                if (isIDR && isStock && !isGold && !isUSAsset(symbol) && !symbol.endsWith('.JK')) defaultTicker = `${symbol}.JK`;
                 tickers.add(tickerOverrides[symbol] || defaultTicker);
             }
         }
@@ -129,7 +138,6 @@ export default function ExpertTerminal() {
   const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, apiRange);
   const { data: simHistoryPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
 
-  // 🚀 MEMISAHKAN TICKER KHUSUS UNTUK INTEL (HANYA ASET YANG MASIH DIPEGANG)
   const activeSymbolsForIntel = useMemo(() => {
       const tickers = new Set<string>();
       investments.forEach((inv: any) => {
@@ -143,9 +151,8 @@ export default function ExpertTerminal() {
               const isStock = typeLower === 'saham' || (!inv.type && sym.length === 4);
               const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
               
-              const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
               let defaultTicker = sym;
-              if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
+              if (isIDR && isStock && !isGold && !isUSAsset(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
               
               tickers.add(tickerOverrides[sym] || defaultTicker);
           }
@@ -153,9 +160,6 @@ export default function ExpertTerminal() {
       return Array.from(tickers);
   }, [investments, tickerOverrides]);
 
-  // =========================================================================
-  // 🚀 HOOK MARKET INTEL (Mengambil data ketika tab aktif)
-  // =========================================================================
   const { data: marketIntelData, isLoading: isIntelLoading, refetch: refetchIntel } = useQuery({
       queryKey: ['marketIntel', activeSymbolsForIntel.join(',')],
       queryFn: async () => {
@@ -173,14 +177,11 @@ export default function ExpertTerminal() {
       refetchOnWindowFocus: false, 
   });
 
-  // Efek untuk teks status loading Market Intel (Tanpa Persentase)
   useEffect(() => {
       let interval: NodeJS.Timeout;
-      
       if (isIntelLoading) {
           let tick = 0;
           setIntelStatus("Menginisiasi pemindai makro global...");
-          
           interval = setInterval(() => {
               tick++;
               if (tick === 2) setIntelStatus("Memetakan portofolio ke mesin pencari...");
@@ -193,7 +194,6 @@ export default function ExpertTerminal() {
       } else if (marketIntelData) {
           setIntelStatus("Sinkronisasi data selesai.");
       }
-      
       return () => clearInterval(interval);
   }, [isIntelLoading, marketIntelData]);
 
@@ -236,9 +236,8 @@ export default function ExpertTerminal() {
       const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
       const multiplier = (isStock && isIDR && !isGold) ? 100 : 1; 
 
-      const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
       let defaultTicker = sym;
-      if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
+      if (isIDR && isStock && !isGold && !isUSAsset(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
       
       const activeTicker = tickerOverrides[sym] || defaultTicker;
       const invDateTs = inv.createdAt ? new Date(inv.createdAt).getTime() : Date.now();
@@ -302,9 +301,6 @@ export default function ExpertTerminal() {
       return earliestValidTs === Infinity ? new Date() : new Date(earliestValidTs);
   }, [chronologicalTxs]);
 
-  // =========================================================================
-  // 🚀 ENGINE SIMULATOR STRATEGI (GBM)
-  // =========================================================================
   const [expandedSimAsset, setExpandedSimAsset] = useState<string | null>(null);
   const [simParams, setSimParams] = useState<Record<string, any>>({});
 
@@ -516,10 +512,9 @@ export default function ExpertTerminal() {
       const sellPriceIDR = sellPriceRaw * historicalRate;
       const isStock = symbol.length === 4; 
       const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
-      const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
       
       let defaultTicker = symbol;
-      if (isIDR && isStock && !isGold && !knownUS.includes(symbol) && !symbol.endsWith('.JK')) defaultTicker = `${symbol}.JK`;
+      if (isIDR && isStock && !isGold && !isUSAsset(symbol) && !symbol.endsWith('.JK')) defaultTicker = `${symbol}.JK`;
       const activeTicker = tickerOverrides[symbol] || defaultTicker;
 
       return { ...t, symbol, currency, sellPriceIDR, activeTicker, isIDR, isStock, isGold };
@@ -573,6 +568,7 @@ export default function ExpertTerminal() {
       return earliest;
   }, [chronologicalTxs, investments]);
 
+  // 🚀 PERBAIKAN: Penyesuaian Setup Basis untuk Aset Luar (Menghindari Lonjakan L/R)
   const setupAwalBases = useMemo(() => {
       const txNetQty: Record<string, {qty: number, invested: number}> = {};
       
@@ -583,13 +579,19 @@ export default function ExpertTerminal() {
               const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i); 
               const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
               
+              // Patch Kalkulasi: Jika ini saham US (seperti SPUS/VGT) dan transaksinya terkesan hanya USD mentah
+              let txAmount = t.amount;
+              if (isUSAsset(sym) && txAmount < 100000) {
+                  txAmount *= getHistoricalRate(new Date(t.date).getTime(), 'USD');
+              }
+              
               if (!txNetQty[sym]) txNetQty[sym] = { qty: 0, invested: 0 };
               if (t.type === 'invest_buy') {
                   txNetQty[sym].qty += qty;
-                  txNetQty[sym].invested += t.amount;
+                  txNetQty[sym].invested += txAmount;
               } else {
                   txNetQty[sym].qty -= qty;
-                  txNetQty[sym].invested -= t.amount;
+                  txNetQty[sym].invested -= txAmount;
               }
           }
       });
@@ -609,8 +611,9 @@ export default function ExpertTerminal() {
           }
       });
       return bases;
-  }, [chronologicalTxs, activePortfolio]);
+  }, [chronologicalTxs, activePortfolio, getHistoricalRate]);
 
+  // 🚀 PERBAIKAN: Fungsi Tarik Snapshot Bulanan (Mencegah Bias USD)
   const getSnapshotAtDate = useCallback((targetDate: Date, isCurrent: boolean) => {
       const qtyMap: Record<string, { qty: number, investedIDR: number }> = {};
       const targetTs = targetDate.getTime();
@@ -630,14 +633,20 @@ export default function ExpertTerminal() {
                   const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
                   const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0; 
                   
+                  // Mengkoreksi input USD yang belum dikonversi di masa lampau
+                  let txAmount = t.amount;
+                  if (isUSAsset(sym) && txAmount < 100000) {
+                      txAmount *= getHistoricalRate(new Date(t.date).getTime(), 'USD');
+                  }
+                  
                   if (!qtyMap[sym]) qtyMap[sym] = { qty: 0, investedIDR: 0 };
                   
                   if (t.type === 'invest_buy') {
                       qtyMap[sym].qty += qty;
-                      qtyMap[sym].investedIDR += t.amount;
+                      qtyMap[sym].investedIDR += txAmount;
                   } else {
                       qtyMap[sym].qty -= qty;
-                      qtyMap[sym].investedIDR -= t.amount;
+                      qtyMap[sym].investedIDR -= txAmount;
                       if (qtyMap[sym].qty <= 0) {
                           qtyMap[sym].qty = 0;
                           qtyMap[sym].investedIDR = 0;
@@ -676,7 +685,7 @@ export default function ExpertTerminal() {
       });
       
       return { totalValue: totalVal, investValue: totalInv, details };
-  }, [setupAwalBases, chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate]);
+  }, [setupAwalBases, chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate, getHistoricalRate]);
 
   const availableMonths = useMemo(() => {
       const currentYear = new Date().getFullYear();
@@ -722,93 +731,110 @@ export default function ExpertTerminal() {
       return getSnapshotAtDate(endOfYear, isCurrentYear);
   }, [getSnapshotAtDate]);
 
+  // =========================================================================
+  // 🚀 ENGINE CHART HISTORIS INTENSIF (Perbaikan Time Complexity O(N))
+  // =========================================================================
   const chartDataDaily = useMemo(() => {
      if (activePortfolio.length === 0 || Object.keys(historyPrices).length === 0) return [];
 
+     // Parsing Setup
      const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => {
          const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
          const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
          const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
          const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
-         return { ...t, parsedSymbol: sym, parsedQty: qty };
+         
+         let adjustedAmount = t.amount;
+         if (isUSAsset(sym) && adjustedAmount < 100000) {
+             adjustedAmount *= getHistoricalRate(new Date(t.date).getTime(), 'USD');
+         }
+
+         return { ...t, parsedSymbol: sym, parsedQty: qty, adjustedAmount };
      });
 
      const firstDate = firstInvestmentDate.getTime();
      const now = new Date().getTime();
 
      let startTimeframe = firstDate;
-     let stepSize = 24 * 60 * 60 * 1000; 
-     
-     if (chartTimeframe === '1D') {
-         startTimeframe = now - 1 * 24 * 60 * 60 * 1000;
-         stepSize = 15 * 60 * 1000; 
-     } else if (chartTimeframe === '1W') {
-         startTimeframe = now - 7 * 24 * 60 * 60 * 1000;
-         stepSize = 2 * 60 * 60 * 1000; 
-     } else if (chartTimeframe === '1M') {
-         startTimeframe = now - 30 * 24 * 60 * 60 * 1000;
-         stepSize = 24 * 60 * 60 * 1000; 
-     } else if (chartTimeframe === '3M') {
-         startTimeframe = now - 90 * 24 * 60 * 60 * 1000;
-         stepSize = 24 * 60 * 60 * 1000; 
-     } else if (chartTimeframe === '1Y') {
-         startTimeframe = Math.max(firstDate, now - 365 * 24 * 60 * 60 * 1000);
-         stepSize = 24 * 60 * 60 * 1000; 
-     } else if (chartTimeframe === '5Y') {
-         startTimeframe = Math.max(firstDate, now - 1825 * 24 * 60 * 60 * 1000);
-         stepSize = 7 * 24 * 60 * 60 * 1000; 
-     }
-     
-     let currentTs = startTimeframe;
-     if (chartTimeframe === '1D' || chartTimeframe === '1W') {
-         currentTs = new Date(currentTs).setMinutes(0, 0, 0);
-     } else {
-         currentTs = new Date(currentTs).setHours(0, 0, 0, 0);
-     }
+     if (chartTimeframe === '1D') startTimeframe = now - 1 * 24 * 60 * 60 * 1000;
+     else if (chartTimeframe === '1W') startTimeframe = now - 7 * 24 * 60 * 60 * 1000;
+     else if (chartTimeframe === '1M') startTimeframe = now - 30 * 24 * 60 * 60 * 1000;
+     else if (chartTimeframe === '3M') startTimeframe = now - 90 * 24 * 60 * 60 * 1000;
+     else if (chartTimeframe === '1Y') startTimeframe = Math.max(firstDate, now - 365 * 24 * 60 * 60 * 1000);
+     else if (chartTimeframe === '5Y') startTimeframe = Math.max(firstDate, now - 1825 * 24 * 60 * 60 * 1000);
 
-     const endTs = now;
-     const dailyData = [];
-
-     while(currentTs <= endTs) {
-         const dateObj = new Date(currentTs);
-         let dateLabel = '';
-         
-         if (chartTimeframe === '1D') {
-             dateLabel = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-         } else if (chartTimeframe === '1W') {
-             dateLabel = dateObj.toLocaleDateString('id-ID', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-         } else if (chartTimeframe === '5Y') {
-             dateLabel = dateObj.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
-         } else {
-             dateLabel = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+     // Mengumpulkan semua titik waktu akurat dari API History (Untuk render grafik live yang halus)
+     let allTimestamps = new Set<number>();
+     
+     Object.keys(historyPrices).forEach(ticker => {
+         const hist = historyPrices[ticker];
+         if (hist && hist.timestamps) {
+             hist.timestamps.forEach((ts: number) => {
+                 const ms = ts * 1000;
+                 if (ms >= startTimeframe && ms <= now) allTimestamps.add(ms);
+             });
          }
+     });
 
-         let currentQty: Record<string, number> = {};
-         let currentInvestedIDR: Record<string, number> = {};
+     parsedInvestTxs.forEach((t: any) => {
+         const ms = new Date(t.date).getTime();
+         if (ms >= startTimeframe && ms <= now) allTimestamps.add(ms);
+     });
 
-         Object.keys(setupAwalBases).forEach(sym => {
-             if (setupAwalBases[sym].date.getTime() <= currentTs) {
-                 currentQty[sym] = setupAwalBases[sym].qty;
-                 currentInvestedIDR[sym] = setupAwalBases[sym].invested;
+     let sortedTs = Array.from(allTimestamps).sort((a, b) => a - b);
+     if (sortedTs.length === 0) return [];
+
+     const dailyData = [];
+     
+     let txIdx = 0;
+     let currentQty: Record<string, number> = {};
+     let currentInvestedIDR: Record<string, number> = {};
+     let accumulatedDividend = 0;
+     let processedDividends = new Set<string>();
+
+     // Tracker indeks per ticker agar tidak O(N^2) saat looping price
+     const currentPriceIndex: Record<string, number> = {};
+     Object.keys(historyPrices).forEach(ticker => currentPriceIndex[ticker] = 0);
+
+     // Setup Bawaan (Basis Modal Awal sebelum Start Timeframe)
+     Object.keys(setupAwalBases).forEach(sym => {
+         if (setupAwalBases[sym].date.getTime() <= startTimeframe) {
+             currentQty[sym] = setupAwalBases[sym].qty;
+             currentInvestedIDR[sym] = setupAwalBases[sym].invested;
+         }
+     });
+
+     // Menyerap seluruh transaksi lampau yang terjadi sebelum Timeframe dimulai
+     while(txIdx < parsedInvestTxs.length && new Date(parsedInvestTxs[txIdx].date).getTime() < startTimeframe) {
+         const t = parsedInvestTxs[txIdx];
+         if (!currentQty[t.parsedSymbol]) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
+         if (t.type === 'invest_buy') {
+             currentQty[t.parsedSymbol] += t.parsedQty;
+             currentInvestedIDR[t.parsedSymbol] += t.adjustedAmount;
+         } else {
+             currentQty[t.parsedSymbol] -= t.parsedQty;
+             currentInvestedIDR[t.parsedSymbol] -= t.adjustedAmount;
+             if (currentQty[t.parsedSymbol] <= 0) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
+         }
+         txIdx++;
+     }
+
+     // Looping melintasi Titik Waktu Live
+     for (const currentTs of sortedTs) {
+         
+         while(txIdx < parsedInvestTxs.length && new Date(parsedInvestTxs[txIdx].date).getTime() <= currentTs) {
+             const t = parsedInvestTxs[txIdx];
+             if (!currentQty[t.parsedSymbol]) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
+             if (t.type === 'invest_buy') {
+                 currentQty[t.parsedSymbol] += t.parsedQty;
+                 currentInvestedIDR[t.parsedSymbol] += t.adjustedAmount;
+             } else {
+                 currentQty[t.parsedSymbol] -= t.parsedQty;
+                 currentInvestedIDR[t.parsedSymbol] -= t.adjustedAmount;
+                 if (currentQty[t.parsedSymbol] <= 0) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
              }
-         });
-
-         parsedInvestTxs.forEach((t: any) => {
-             if (new Date(t.date).getTime() <= currentTs) {
-                 if (!currentQty[t.parsedSymbol]) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
-                 if (t.type === 'invest_buy') {
-                     currentQty[t.parsedSymbol] += t.parsedQty;
-                     currentInvestedIDR[t.parsedSymbol] += t.amount;
-                 } else {
-                     currentQty[t.parsedSymbol] -= t.parsedQty;
-                     currentInvestedIDR[t.parsedSymbol] -= t.amount;
-                     if (currentQty[t.parsedSymbol] <= 0) {
-                         currentQty[t.parsedSymbol] = 0;
-                         currentInvestedIDR[t.parsedSymbol] = 0;
-                     }
-                 }
-             }
-         });
+             txIdx++;
+         }
 
          let dailyValuation = 0;
          let dailyInvested = 0;
@@ -819,41 +845,71 @@ export default function ExpertTerminal() {
                  const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
                  const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
 
-                 const price = getPriceForDate(ticker, currentTs);
-                 if (price) dailyValuation += currentQty[sym] * price * multiplier;
-                 else dailyValuation += currentInvestedIDR[sym]; 
-                 
-                 dailyInvested += currentInvestedIDR[sym];
+                 if (chartSelectedAsset === 'ALL' || chartSelectedAsset === sym) {
+                     
+                     // Optimasi Pengambilan Harga O(N) Tracking
+                     const hist = historyPrices[ticker];
+                     let price = null;
+                     if (hist && hist.timestamps) {
+                         let idx = currentPriceIndex[ticker] || 0;
+                         const targetSec = currentTs / 1000;
+                         while (idx < hist.timestamps.length && hist.timestamps[idx] <= targetSec) {
+                             if (hist.close[idx] !== null && hist.close[idx] !== undefined) price = hist.close[idx];
+                             idx++;
+                         }
+                         currentPriceIndex[ticker] = idx > 0 ? idx - 1 : 0;
+                         if (price === null && currentPriceIndex[ticker] >= 0 && hist.close[currentPriceIndex[ticker]]) {
+                             price = hist.close[currentPriceIndex[ticker]];
+                         }
+                     }
+
+                     if (price) dailyValuation += currentQty[sym] * price * multiplier;
+                     else dailyValuation += currentInvestedIDR[sym]; 
+                     
+                     dailyInvested += currentInvestedIDR[sym];
+
+                     // Ekstraksi Pencairan Dividen Historis
+                     if (hist && hist.dividends) {
+                         Object.keys(hist.dividends).forEach(divTsStr => {
+                             const divTsNum = Number(divTsStr) * 1000;
+                             if (divTsNum <= currentTs) {
+                                 const divKey = `${sym}-${divTsStr}`;
+                                 if (!processedDividends.has(divKey)) {
+                                     const divAmountPerShare = hist.dividends[divTsStr].amount;
+                                     // Kalkulasi riil dividen = Quantity Saat Ini * Multiplier Lot * Nominal Per Lembar
+                                     accumulatedDividend += (currentQty[sym] * multiplier * divAmountPerShare);
+                                     processedDividends.add(divKey);
+                                 }
+                             }
+                         });
+                     }
+                 }
              }
          });
 
-         if (currentTs + stepSize > endTs) {
-             dailyValuation = 0;
-             Object.keys(currentQty).forEach(sym => {
-                 if (currentQty[sym] > 0) {
-                     const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
-                     const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
-                     const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
-
-                     const livePrice = livePrices[ticker];
-                     const price = livePrice || getPriceForDate(ticker, currentTs);
-                     if (price) dailyValuation += currentQty[sym] * price * multiplier;
-                     else dailyValuation += currentInvestedIDR[sym]; 
-                 }
-             });
-         }
+         const dateObj = new Date(currentTs);
+         let dateLabel = '';
+         if (chartTimeframe === '1D') dateLabel = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+         else if (chartTimeframe === '1W') dateLabel = dateObj.toLocaleDateString('id-ID', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+         else if (chartTimeframe === '5Y') dateLabel = dateObj.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
+         else dateLabel = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
 
          dailyData.push({
              name: dateLabel,
              Total: dailyValuation,
-             Investasi: dailyInvested
+             Investasi: dailyInvested,
+             Dividen: accumulatedDividend
          });
-
-         currentTs += stepSize;
      }
 
+     // Filtering agar UI Recharts tidak Hang saat Titik Terlampau Padat
+     if (dailyData.length > 500) {
+         const step = Math.ceil(dailyData.length / 500);
+         return dailyData.filter((_, i) => i % step === 0 || i === dailyData.length - 1);
+     }
+     
      return dailyData;
-  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices]);
+  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getHistoricalRate, chartSelectedAsset]);
 
   // =========================================================================
   // 🛡️ REFORMASI LOGIKA LOGIN & RE-FRESH SESSION KUNCI UTAMA PWA
@@ -866,9 +922,7 @@ export default function ExpertTerminal() {
           const cleanEmail = loginEmail.trim().toLowerCase();
           await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
         
-          // 1. Buka kunci gerbang UI Terminal
           localStorage.setItem("bilano_terminal_unlocked", "true");
-          // 2. Pasang token & email standar PWA agar hooks internal use-finance berfungsi normal
           localStorage.setItem("bilano_auth", "true");
           localStorage.setItem("bilano_email", cleanEmail);
          
@@ -886,7 +940,6 @@ export default function ExpertTerminal() {
 
   const handleLogout = async () => {
       await signOut(auth);
-      // Hapus seluruh jejak session cache saat keluar dari terminal
       localStorage.removeItem("bilano_terminal_unlocked");
       localStorage.removeItem("bilano_auth");
       localStorage.removeItem("bilano_email");
@@ -909,7 +962,7 @@ export default function ExpertTerminal() {
       }, {} as Record<string, {invested: number, valuasi: number, qty: number}>);
 
       saveSnapshotMutation.mutate({
-          month, year, cashBalance, investValue: totalAssetValue, totalValue: totalWealth, assetsDetail: JSON.stringify(assetsDetail)
+          month, year, cashBalance, investValue: totalInvested, totalValue: totalWealth, assetsDetail: JSON.stringify(assetsDetail)
       }, {
           onSuccess: () => toast({ title: "Tersimpan", description: `Data portofolio bulan ${MONTH_NAMES[month-1]} ${year} berhasil direkam permanen.` })
       });
@@ -1372,12 +1425,13 @@ export default function ExpertTerminal() {
                               {p.symbol}
                           </th>
                       ))}
-                      <th className="px-6 py-4 text-[#00E5FF] whitespace-nowrap">Aggregated P/L</th>
+                      <th className="px-6 py-4 text-[#00E5FF] whitespace-nowrap border-l border-[#222]">Aggregated P/L</th>
+                      <th className="px-6 py-4 text-[#FFD700] whitespace-nowrap">Total Modal</th>
                     </tr>
                   </thead>
                   <tbody className="text-[#E4E4E7] font-mono text-xs">
                     {availableMonths.length === 0 ? (
-                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
+                       <tr><td colSpan={activePortfolio.length + 3} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
                     ) : (
                        availableMonths.map((m) => {
                           const data = getMonthData(m.monthNum, selectedYear);
@@ -1401,7 +1455,7 @@ export default function ExpertTerminal() {
                                         </td>
                                     );
                                 })}
-                                <td className="px-6 py-4 bg-[#111]">
+                                <td className="px-6 py-4 bg-[#111] border-l border-[#222]">
                                     {(() => {
                                         if (data.investValue === 0) return <span className="text-[#555]">-</span>;
                                         const plTotalAmount = data.totalValue - data.investValue;
@@ -1412,6 +1466,9 @@ export default function ExpertTerminal() {
                                             </div>
                                         );
                                     })()}
+                                </td>
+                                <td className="px-6 py-4 bg-[#111] text-[#FFD700]">
+                                    {data.investValue > 0 ? maskRp(data.investValue) : <span className="text-[#555]">-</span>}
                                 </td>
                              </tr>
                           )
@@ -1432,12 +1489,13 @@ export default function ExpertTerminal() {
                               {p.symbol}
                           </th>
                       ))}
-                      <th className="px-6 py-4 text-[#FFD700] whitespace-nowrap">Yearly P/L</th>
+                      <th className="px-6 py-4 text-[#FFD700] whitespace-nowrap border-l border-[#222]">Yearly P/L</th>
+                      <th className="px-6 py-4 text-[#FFD700] whitespace-nowrap">Total Modal</th>
                     </tr>
                   </thead>
                   <tbody className="text-[#E4E4E7] font-mono text-xs">
                     {availableYears.length === 0 ? (
-                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
+                       <tr><td colSpan={activePortfolio.length + 3} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
                     ) : (
                        availableYears.map((y) => {
                           const data = getYearData(y);
@@ -1461,7 +1519,7 @@ export default function ExpertTerminal() {
                                         </td>
                                     );
                                 })}
-                                <td className="px-6 py-4 bg-[#111]">
+                                <td className="px-6 py-4 bg-[#111] border-l border-[#222]">
                                     {(() => {
                                         if (data.investValue === 0) return <span className="text-[#555]">-</span>;
                                         const plTotalAmount = data.totalValue - data.investValue;
@@ -1473,6 +1531,9 @@ export default function ExpertTerminal() {
                                         );
                                     })()}
                                 </td>
+                                <td className="px-6 py-4 bg-[#111] text-[#FFD700]">
+                                    {data.investValue > 0 ? maskRp(data.investValue) : <span className="text-[#555]">-</span>}
+                                </td>
                              </tr>
                           )
                        })
@@ -1481,32 +1542,60 @@ export default function ExpertTerminal() {
                 </table>
               </div>
 
-              {/* GRAFIK AREA INTRADAY */}
-              <div className="bg-[#0D0D0D] border border-[#222] p-6 mt-6 relative">
-                <div className="flex justify-between items-center mb-6 border-b border-[#222] pb-4">
-                  <h3 className="font-black text-white uppercase tracking-tight text-lg">Chart Historis Teragregasi</h3>
-                  <div className="flex bg-[#111] border border-[#333]">
-                     <button onClick={() => setChartTimeframe('1D')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1D'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1D</button>
-                     <button onClick={() => setChartTimeframe('1W')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1W'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1W</button>
-                     <button onClick={() => setChartTimeframe('1M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1M</button>
-                     <button onClick={() => setChartTimeframe('3M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='3M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>3M</button>
-                     <button onClick={() => setChartTimeframe('1Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1Y</button>
-                     <button onClick={() => setChartTimeframe('5Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='5Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>5Y</button>
-                  </div>
+              {/* GRAFIK AREA INTRADAY & HISTORICAL AGREGRATION */}
+              <div className="bg-[#0D0D0D] border border-[#222] mt-6 relative">
+                
+                {/* CHART CONTROLS */}
+                <div className="flex justify-between items-center bg-[#111] p-4 border-b border-[#222]">
+                   <div className="flex items-center gap-6">
+                      <select 
+                         value={chartSelectedAsset} 
+                         onChange={e => setChartSelectedAsset(e.target.value)}
+                         className="bg-[#050505] text-[#A1A1AA] text-[10px] font-bold uppercase p-2 border border-[#333] outline-none focus:border-[#00E5FF] cursor-pointer"
+                      >
+                          <option value="ALL">Total Keseluruhan</option>
+                          {activePortfolio.map(p => <option key={p.symbol} value={p.symbol}>{p.symbol}</option>)}
+                      </select>
+                      
+                      <div className="flex items-center gap-4">
+                         <label className="flex items-center gap-1.5 text-[9px] text-[#A1A1AA] uppercase font-bold cursor-pointer hover:text-white transition-colors">
+                            <input type="checkbox" checked={chartShowValuasi} onChange={() => setChartShowValuasi(!chartShowValuasi)} className="accent-[#FF003C] w-3 h-3" />
+                            Market Value
+                         </label>
+                         <label className="flex items-center gap-1.5 text-[9px] text-[#A1A1AA] uppercase font-bold cursor-pointer hover:text-white transition-colors">
+                            <input type="checkbox" checked={chartShowModal} onChange={() => setChartShowModal(!chartShowModal)} className="accent-white w-3 h-3" />
+                            Total Modal
+                         </label>
+                         <label className="flex items-center gap-1.5 text-[9px] text-[#A1A1AA] uppercase font-bold cursor-pointer hover:text-white transition-colors">
+                            <input type="checkbox" checked={chartShowDividen} onChange={() => setChartShowDividen(!chartShowDividen)} className="accent-[#FFD700] w-3 h-3" />
+                            Dividen
+                         </label>
+                      </div>
+                   </div>
+                   
+                   <div className="flex bg-[#050505] border border-[#333]">
+                      <button onClick={() => setChartTimeframe('1D')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1D'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1D</button>
+                      <button onClick={() => setChartTimeframe('1W')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1W'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1W</button>
+                      <button onClick={() => setChartTimeframe('1M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1M</button>
+                      <button onClick={() => setChartTimeframe('3M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='3M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>3M</button>
+                      <button onClick={() => setChartTimeframe('1Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1Y</button>
+                      <button onClick={() => setChartTimeframe('5Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='5Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>5Y</button>
+                   </div>
                 </div>
-                <div className="h-[350px] w-full">
+
+                <div className="h-[450px] w-full p-6 pb-2">
                     {chartDataDaily.length > 0 ? (
                        <ResponsiveContainer width="100%" height="100%">
                           <AreaChart data={chartDataDaily}>
                              <defs>
                                 <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#00FF41" stopOpacity={0.2}/>
-                                  <stop offset="95%" stopColor="#00FF41" stopOpacity={0}/>
+                                  <stop offset="5%" stopColor="#FF003C" stopOpacity={0.2}/>
+                                  <stop offset="95%" stopColor="#FF003C" stopOpacity={0}/>
                                 </linearGradient>
                              </defs>
                              <XAxis dataKey="name" stroke="#64748B" fontSize={10} fontFamily="JetBrains Mono" tickLine={false} axisLine={false} minTickGap={30} />
                              <YAxis 
-                                domain={['dataMin', 'dataMax']} 
+                                domain={['auto', 'auto']} 
                                 padding={{ top: 20, bottom: 20 }}
                                 stroke="#64748B" 
                                 fontSize={10} 
@@ -1516,14 +1605,27 @@ export default function ExpertTerminal() {
                                 tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(0)}M` : `•••`} 
                                 orientation="right" 
                              />
-                             <Tooltip formatter={(val: number) => maskRp(val)} contentStyle={{backgroundColor: '#000', borderColor: '#333', borderRadius: '0', color: '#fff', fontFamily: 'JetBrains Mono'}} />
+                             <Tooltip 
+                                formatter={(val: number, name: string) => [maskRp(val), name.toUpperCase()]} 
+                                contentStyle={{backgroundColor: '#050505', borderColor: '#333', borderRadius: '4px', color: '#fff', fontFamily: 'JetBrains Mono', fontSize: '11px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)'}} 
+                                itemStyle={{fontWeight: 'bold', paddingTop: '4px'}}
+                                labelStyle={{color: '#A1A1AA', paddingBottom: '4px', borderBottom: '1px solid #333'}}
+                             />
                              <CartesianGrid stroke="#222" strokeDasharray="3 3" vertical={false} />
                              
-                             <Line type="stepAfter" dataKey="Investasi" stroke="#94A3B8" strokeWidth={1.5} dot={false} strokeDasharray="4 4" name="Modal Aktif" />
-                             <Area type="monotone" dataKey="Total" stroke="#00FF41" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" dot={false} name="Valuasi Total" />
+                             {/* Render Toggles Garis Sesuai Permintaan */}
+                             {chartShowDividen && (
+                                <Line type="stepAfter" dataKey="Dividen" stroke="#FFD700" strokeWidth={3} dot={false} name="Total Dividen" />
+                             )}
+                             {chartShowModal && (
+                                <Line type="stepAfter" dataKey="Investasi" stroke="#FFFFFF" strokeWidth={3} dot={false} name="Total Modal" />
+                             )}
+                             {chartShowValuasi && (
+                                <Area type="monotone" dataKey="Total" stroke="#FF003C" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" dot={false} name="Nilai Portofolio" />
+                             )}
                           </AreaChart>
                        </ResponsiveContainer>
-                    ) : <div className="w-full h-full flex items-center justify-center text-[#555] text-[10px] font-bold uppercase tracking-[0.2em]">Memuat Data Historis...</div>}
+                    ) : <div className="w-full h-full flex items-center justify-center text-[#555] text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse">Menyelaraskan Titik Koordinat Historis...</div>}
                 </div>
               </div>
             </div>

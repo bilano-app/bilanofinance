@@ -1065,29 +1065,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/investments", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getInvestments(user!.id)); });
   
+  const isUSAsset = (sym: string) => {
+      const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY', 'SPUS', 'VGT'];
+      return knownUS.includes(sym.toUpperCase()) || sym.length > 4;
+  };
+  
   app.post("/api/investments/buy", async (req: any, res: any) => { 
       try {
           const user = await getUser(req); 
           const { symbol, quantity, price, type } = req.body; 
           const typeLower = (type || 'saham').toLowerCase();
-          const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
-          const total = Math.round(quantity*price*m); 
+          const sym = symbol.toUpperCase().trim();
           
-          if(user!.cashBalance < total) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk pembelian ini."}); 
-          await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance - total)); 
-          await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_buy', amount:total, category:'Beli Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}`, date:new Date()} as any); 
-          await storage.createInvestment(user!.id, {userId: user!.id, symbol: symbol.toUpperCase(), quantity, avgPrice:price, type: typeLower} as any); 
+          const isUS = isUSAsset(sym);
+
+          // Tarik kurs live jika perlu
+          const now = Date.now();
+          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
+          const usdRate = cachedRates['USD'] || 16200;
+
+          // Saham lokal (4 huruf) m = 100 (lot), crypto/US stock m = 1
+          const m = (typeLower === 'saham' && !isUS && sym.length === 4 && typeLower !== 'crypto') ? 100 : 1; 
+          
+          let total = quantity * price * m; 
+          let idrPrice = price;
+
+          // Jika ini aset US dan input harganya adalah USD mentah (di bawah 100k)
+          if (isUS && price < 100000) {
+              total = total * usdRate;
+              idrPrice = price * usdRate;
+          }
+
+          const totalIDR = Math.round(total);
+          
+          if(user!.cashBalance < totalIDR) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk pembelian ini."}); 
+          
+          await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance - totalIDR)); 
+          
+          const desc = (isUS && price < 100000) 
+              ? `${quantity} unit ${sym} @ USD ${price} (Rp ${Math.round(idrPrice).toLocaleString('id-ID')})`
+              : `${quantity} lot/unit ${sym} @ Rp ${price.toLocaleString('id-ID')}`;
+
+          await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_buy', amount:totalIDR, category:'Beli Aset', description: desc, date:new Date()} as any); 
+          await storage.createInvestment(user!.id, {userId: user!.id, symbol: sym, quantity, avgPrice:price, type: typeLower} as any); 
           res.json({success:true}); 
       } catch (error: any) { res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menyimpan aset." }); }
   });
 
+  // REVISI: ENDPOINT SELL
   app.post("/api/investments/sell", async (req: any, res: any) => { 
       try {
           const user = await getUser(req); 
           const { symbol, quantity, price, type } = req.body; 
           const typeLower = (type || 'saham').toLowerCase(); 
-          const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
-          const totalSellPrice = Math.round(quantity*price*m); 
+          const sym = symbol.toUpperCase().trim();
+          
+          const isUS = isUSAsset(sym);
+          
+          const now = Date.now();
+          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
+          const usdRate = cachedRates['USD'] || 16200;
+
+          const m = (typeLower === 'saham' && !isUS && sym.length === 4 && typeLower !== 'crypto') ? 100 : 1; 
+          
+          let totalSellValue = quantity * price * m;
+          let idrPrice = price;
+
+          if (isUS && price < 100000) {
+              totalSellValue = totalSellValue * usdRate;
+              idrPrice = price * usdRate;
+          }
+
+          const totalSellPrice = Math.round(totalSellValue); 
           
           const allInvestments = await storage.getInvestments(user!.id);
           const existings = allInvestments.filter((i: any) => i.symbol === symbol); 
@@ -1098,11 +1147,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const existing of existings) {
               if (remainingToSell <= 0) break;
               if (existing.quantity <= remainingToSell) {
-                  totalBuyPrice += existing.quantity * existing.avgPrice * m;
+                  // Hitung modal dasar untuk keperluan display P/L
+                  let buyVal = existing.quantity * existing.avgPrice * m;
+                  if (isUS && existing.avgPrice < 100000) buyVal *= usdRate;
+                  
+                  totalBuyPrice += buyVal;
                   remainingToSell -= existing.quantity;
                   await storage.deleteInvestment(existing.id); 
               } else {
-                  totalBuyPrice += remainingToSell * existing.avgPrice * m;
+                  let buyVal = remainingToSell * existing.avgPrice * m;
+                  if (isUS && existing.avgPrice < 100000) buyVal *= usdRate;
+
+                  totalBuyPrice += buyVal;
                   await storage.updateInvestment(existing.id, existing.quantity - remainingToSell, existing.avgPrice); 
                   remainingToSell = 0;
               }
@@ -1112,7 +1168,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const profitLossText = ` (P/L: ${pl >= 0 ? '+' : ''}Rp ${pl.toLocaleString('id-ID')})`;
 
           await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + totalSellPrice)); 
-          await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_sell', amount:totalSellPrice, category:'Jual Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`, date:new Date()} as any); 
+          
+          const desc = (isUS && price < 100000)
+              ? `${quantity} unit ${sym} @ USD ${price} (Rp ${Math.round(idrPrice).toLocaleString('id-ID')})${profitLossText}`
+              : `${quantity} lot/unit ${sym} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`;
+
+          await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_sell', amount:totalSellPrice, category:'Jual Aset', description: desc, date:new Date()} as any); 
           res.json({success:true}); 
       } catch (error: any) { res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menjual aset." }); }
   });
