@@ -6,25 +6,20 @@ import {
 } from "lucide-react";
 import { useUser, useInvestments, useTransactions, useLiveQuotes, useHistoricalQuotes, usePortfolioSnapshots, useSaveSnapshot } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
-import { PieChart, Pie, Cell, ComposedChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line, Legend, LineChart } from 'recharts';
+import { PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line, LineChart, Legend } from 'recharts';
 import { useQuery } from "@tanstack/react-query";
 import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import UniversalNewsScanner from "./UniversalNewsScanner";
 
-// Skema Warna Terminal Profesional
+// Skema Warna Terminal Profesional (High Contrast Neons)
 const COLORS = ['#00FF41', '#00E5FF', '#FF003C', '#FFD700', '#B500FF', '#FF8C00', '#FFFFFF'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
-
-// Fungsi Deteksi US Asset Universal (Mencegah Anomali Multiplier Lot)
-const isUSAsset = (sym: string) => {
-    const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY', 'SPUS', 'VGT'];
-    return knownUS.includes(sym.toUpperCase()) || sym.length > 4;
-};
 
 export default function ExpertTerminal() {
   const { toast } = useToast();
   
+  // State Autentikasi Terminal (Menggunakan Gembok Terminal Unlocked)
   const [isTerminalAuth, setIsTerminalAuth] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem("bilano_terminal_unlocked") === "true";
     return false;
@@ -34,8 +29,10 @@ export default function ExpertTerminal() {
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
+  // Mengambil email dari session key utama agar hooks use-finance tidak null
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
+  // Data Hooks
   const { data: user } = useUser();
   const { data: investments = [] } = useInvestments();
   const { data: transactions = [] } = useTransactions();
@@ -47,11 +44,7 @@ export default function ExpertTerminal() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | '5Y'>('1M');
   
-  const [chartSelectedAsset, setChartSelectedAsset] = useState<string>('ALL');
-  const [chartShowValuasi, setChartShowValuasi] = useState(true);
-  const [chartShowModal, setChartShowModal] = useState(true);
-  const [chartShowDividen, setChartShowDividen] = useState(true);
-
+  // Indikator Progres Interaktif
   const [intelStatus, setIntelStatus] = useState("Membangun koneksi ke server agregator...");
 
   const { data: forexRates = {} } = useQuery({
@@ -95,8 +88,9 @@ export default function ExpertTerminal() {
         const isStock = typeLower === 'saham' || (!inv.type && sym.length === 4);
         const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
         
+        const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
         let defaultTicker = sym;
-        if (isIDR && isStock && !isGold && !isUSAsset(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
+        if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
         
         tickers.add(tickerOverrides[sym] || defaultTicker);
     });
@@ -110,9 +104,10 @@ export default function ExpertTerminal() {
                 const isIDR = !isUSD;
                 const isStock = symbol.length === 4; 
                 const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
+                const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
                 
                 let defaultTicker = symbol;
-                if (isIDR && isStock && !isGold && !isUSAsset(symbol) && !symbol.endsWith('.JK')) defaultTicker = `${symbol}.JK`;
+                if (isIDR && isStock && !isGold && !knownUS.includes(symbol) && !symbol.endsWith('.JK')) defaultTicker = `${symbol}.JK`;
                 tickers.add(tickerOverrides[symbol] || defaultTicker);
             }
         }
@@ -134,6 +129,7 @@ export default function ExpertTerminal() {
   const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, apiRange);
   const { data: simHistoryPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
 
+  // 🚀 MEMISAHKAN TICKER KHUSUS UNTUK INTEL (HANYA ASET YANG MASIH DIPEGANG)
   const activeSymbolsForIntel = useMemo(() => {
       const tickers = new Set<string>();
       investments.forEach((inv: any) => {
@@ -147,8 +143,9 @@ export default function ExpertTerminal() {
               const isStock = typeLower === 'saham' || (!inv.type && sym.length === 4);
               const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
               
+              const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
               let defaultTicker = sym;
-              if (isIDR && isStock && !isGold && !isUSAsset(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
+              if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
               
               tickers.add(tickerOverrides[sym] || defaultTicker);
           }
@@ -156,6 +153,9 @@ export default function ExpertTerminal() {
       return Array.from(tickers);
   }, [investments, tickerOverrides]);
 
+  // =========================================================================
+  // 🚀 HOOK MARKET INTEL (Mengambil data ketika tab aktif)
+  // =========================================================================
   const { data: marketIntelData, isLoading: isIntelLoading, refetch: refetchIntel } = useQuery({
       queryKey: ['marketIntel', activeSymbolsForIntel.join(',')],
       queryFn: async () => {
@@ -173,11 +173,14 @@ export default function ExpertTerminal() {
       refetchOnWindowFocus: false, 
   });
 
+  // Efek untuk teks status loading Market Intel (Tanpa Persentase)
   useEffect(() => {
       let interval: NodeJS.Timeout;
+      
       if (isIntelLoading) {
           let tick = 0;
           setIntelStatus("Menginisiasi pemindai makro global...");
+          
           interval = setInterval(() => {
               tick++;
               if (tick === 2) setIntelStatus("Memetakan portofolio ke mesin pencari...");
@@ -190,6 +193,7 @@ export default function ExpertTerminal() {
       } else if (marketIntelData) {
           setIntelStatus("Sinkronisasi data selesai.");
       }
+      
       return () => clearInterval(interval);
   }, [isIntelLoading, marketIntelData]);
 
@@ -218,7 +222,6 @@ export default function ExpertTerminal() {
       return getPriceForDate('IDR=X', targetTs) || liveRateFallback;
   }, [forexRates, getPriceForDate]);
 
-  // 🚀 PERBAIKAN: Multiplier Filter
   const activePortfolio = useMemo(() => {
     const agg: Record<string, { qty: number, totalModalIDR: number, symbol: string, currency: string, activeTicker: string, liveMultiplier: number, isStock: boolean, isIDR: boolean, createdAt: string }> = {};
     
@@ -231,13 +234,11 @@ export default function ExpertTerminal() {
       
       const isStock = typeLower === 'saham' || (!inv.type && sym.length === 4);
       const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
-      const isUS = isUSAsset(sym);
-      
-      // Mencegah SPUS/VGT dikali 100 jika tipe IDR ter-set salah dari aplikasi lama
-      const multiplier = (isStock && isIDR && !isGold && !isUS) ? 100 : 1; 
+      const multiplier = (isStock && isIDR && !isGold) ? 100 : 1; 
 
+      const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
       let defaultTicker = sym;
-      if (isIDR && isStock && !isGold && !isUS && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
+      if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
       
       const activeTicker = tickerOverrides[sym] || defaultTicker;
       const invDateTs = inv.createdAt ? new Date(inv.createdAt).getTime() : Date.now();
@@ -301,6 +302,9 @@ export default function ExpertTerminal() {
       return earliestValidTs === Infinity ? new Date() : new Date(earliestValidTs);
   }, [chronologicalTxs]);
 
+  // =========================================================================
+  // 🚀 ENGINE SIMULATOR STRATEGI (GBM)
+  // =========================================================================
   const [expandedSimAsset, setExpandedSimAsset] = useState<string | null>(null);
   const [simParams, setSimParams] = useState<Record<string, any>>({});
 
@@ -512,13 +516,13 @@ export default function ExpertTerminal() {
       const sellPriceIDR = sellPriceRaw * historicalRate;
       const isStock = symbol.length === 4; 
       const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
-      const isUS = isUSAsset(symbol);
+      const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
       
       let defaultTicker = symbol;
-      if (isIDR && isStock && !isGold && !isUS && !symbol.endsWith('.JK')) defaultTicker = `${symbol}.JK`;
+      if (isIDR && isStock && !isGold && !knownUS.includes(symbol) && !symbol.endsWith('.JK')) defaultTicker = `${symbol}.JK`;
       const activeTicker = tickerOverrides[symbol] || defaultTicker;
 
-      return { ...t, symbol, currency, sellPriceIDR, activeTicker, isIDR, isStock, isGold, isUS };
+      return { ...t, symbol, currency, sellPriceIDR, activeTicker, isIDR, isStock, isGold };
     });
   }, [chronologicalTxs, tickerOverrides, getHistoricalRate]);
 
@@ -569,10 +573,53 @@ export default function ExpertTerminal() {
       return earliest;
   }, [chronologicalTxs, investments]);
 
-  // 🚀 PERBAIKAN: Fungsi Forward Tracking untuk P/L Snapshot yang Akurat
+  const setupAwalBases = useMemo(() => {
+      const txNetQty: Record<string, {qty: number, invested: number}> = {};
+      
+      chronologicalTxs.forEach((t: any) => {
+          if (t.type === 'invest_buy' || t.type === 'invest_sell') {
+              const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+              const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
+              const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i); 
+              const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
+              
+              if (!txNetQty[sym]) txNetQty[sym] = { qty: 0, invested: 0 };
+              if (t.type === 'invest_buy') {
+                  txNetQty[sym].qty += qty;
+                  txNetQty[sym].invested += t.amount;
+              } else {
+                  txNetQty[sym].qty -= qty;
+                  txNetQty[sym].invested -= t.amount;
+              }
+          }
+      });
+
+      const bases: Record<string, { qty: number, invested: number, date: Date }> = {};
+      activePortfolio.forEach(p => {
+          const txNet = txNetQty[p.symbol] || { qty: 0, invested: 0 };
+          const setupQty = p.qty - txNet.qty;
+          const setupInvested = p.totalModalIDR - txNet.invested; 
+          
+          if (setupQty > 0.0001) { 
+              bases[p.symbol] = {
+                  qty: setupQty,
+                  invested: setupInvested > 0 ? setupInvested : 0,
+                  date: new Date(p.createdAt || new Date())
+              };
+          }
+      });
+      return bases;
+  }, [chronologicalTxs, activePortfolio]);
+
   const getSnapshotAtDate = useCallback((targetDate: Date, isCurrent: boolean) => {
-      const targetTs = targetDate.getTime();
       const qtyMap: Record<string, { qty: number, investedIDR: number }> = {};
+      const targetTs = targetDate.getTime();
+      
+      Object.keys(setupAwalBases).forEach(sym => {
+          if (setupAwalBases[sym].date.getTime() <= targetTs) {
+              qtyMap[sym] = { qty: setupAwalBases[sym].qty, investedIDR: setupAwalBases[sym].invested };
+          }
+      });
 
       const pastTx = chronologicalTxs.filter((t:any) => new Date(t.date).getTime() <= targetTs);
       pastTx.forEach((t:any) => {
@@ -583,24 +630,19 @@ export default function ExpertTerminal() {
                   const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
                   const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0; 
                   
-                  let txAmount = t.amount;
-                  if (isUSAsset(sym) && txAmount < 100000) {
-                      txAmount *= getHistoricalRate(new Date(t.date).getTime(), 'USD');
-                  }
-                  
                   if (!qtyMap[sym]) qtyMap[sym] = { qty: 0, investedIDR: 0 };
                   
                   if (t.type === 'invest_buy') {
                       qtyMap[sym].qty += qty;
-                      qtyMap[sym].investedIDR += txAmount;
+                      qtyMap[sym].investedIDR += t.amount;
                   } else {
-                      // Rekonstruksi Modal Cost Basis (Mencegah Modal Minus jika untung besar)
-                      const avgCost = qtyMap[sym].qty > 0 ? (qtyMap[sym].investedIDR / qtyMap[sym].qty) : 0;
-                      qtyMap[sym].investedIDR -= (avgCost * qty);
                       qtyMap[sym].qty -= qty;
-                      if (qtyMap[sym].qty <= 0.0001) {
+                      qtyMap[sym].investedIDR -= t.amount;
+                      if (qtyMap[sym].qty <= 0) {
                           qtyMap[sym].qty = 0;
                           qtyMap[sym].investedIDR = 0;
+                      } else {
+                          qtyMap[sym].investedIDR = Math.max(0, qtyMap[sym].investedIDR);
                       }
                   }
               }
@@ -634,7 +676,7 @@ export default function ExpertTerminal() {
       });
       
       return { totalValue: totalVal, investValue: totalInv, details };
-  }, [chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate, getHistoricalRate]);
+  }, [setupAwalBases, chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate]);
 
   const availableMonths = useMemo(() => {
       const currentYear = new Date().getFullYear();
@@ -680,9 +722,6 @@ export default function ExpertTerminal() {
       return getSnapshotAtDate(endOfYear, isCurrentYear);
   }, [getSnapshotAtDate]);
 
-  // =========================================================================
-  // 🚀 ENGINE CHART HISTORIS INTENSIF (COMPOSED CHART - 3 GARIS)
-  // =========================================================================
   const chartDataDaily = useMemo(() => {
      if (activePortfolio.length === 0 || Object.keys(historyPrices).length === 0) return [];
 
@@ -691,74 +730,85 @@ export default function ExpertTerminal() {
          const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
          const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
          const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
-         
-         let adjustedAmount = t.amount;
-         if (isUSAsset(sym) && adjustedAmount < 100000) {
-             adjustedAmount *= getHistoricalRate(new Date(t.date).getTime(), 'USD');
-         }
-
-         return { ...t, parsedSymbol: sym, parsedQty: qty, adjustedAmount, ts: new Date(t.date).getTime() };
+         return { ...t, parsedSymbol: sym, parsedQty: qty };
      });
 
      const firstDate = firstInvestmentDate.getTime();
      const now = new Date().getTime();
 
      let startTimeframe = firstDate;
-     if (chartTimeframe === '1D') startTimeframe = now - 1 * 24 * 60 * 60 * 1000;
-     else if (chartTimeframe === '1W') startTimeframe = now - 7 * 24 * 60 * 60 * 1000;
-     else if (chartTimeframe === '1M') startTimeframe = now - 30 * 24 * 60 * 60 * 1000;
-     else if (chartTimeframe === '3M') startTimeframe = now - 90 * 24 * 60 * 60 * 1000;
-     else if (chartTimeframe === '1Y') startTimeframe = Math.max(firstDate, now - 365 * 24 * 60 * 60 * 1000);
-     else if (chartTimeframe === '5Y') startTimeframe = Math.max(firstDate, now - 1825 * 24 * 60 * 60 * 1000);
-
-     let allTimestamps = new Set<number>();
-     Object.keys(historyPrices).forEach(ticker => {
-         const hist = historyPrices[ticker];
-         if (hist && hist.timestamps) {
-             hist.timestamps.forEach((ts: number) => {
-                 const ms = ts * 1000;
-                 if (ms >= startTimeframe && ms <= now) allTimestamps.add(ms);
-             });
-         }
-     });
-
-     parsedInvestTxs.forEach((t: any) => {
-         if (t.ts >= startTimeframe && t.ts <= now) allTimestamps.add(t.ts);
-     });
-
-     let sortedTs = Array.from(allTimestamps).sort((a, b) => a - b);
-     if (sortedTs.length === 0) return [];
-
-     const dailyData = [];
+     let stepSize = 24 * 60 * 60 * 1000; 
      
-     let txIdx = 0;
-     let currentQty: Record<string, number> = {};
-     let currentInvestedIDR: Record<string, number> = {};
-     let accumulatedDividend = 0;
-     let processedDividends = new Set<string>();
+     if (chartTimeframe === '1D') {
+         startTimeframe = now - 1 * 24 * 60 * 60 * 1000;
+         stepSize = 15 * 60 * 1000; 
+     } else if (chartTimeframe === '1W') {
+         startTimeframe = now - 7 * 24 * 60 * 60 * 1000;
+         stepSize = 2 * 60 * 60 * 1000; 
+     } else if (chartTimeframe === '1M') {
+         startTimeframe = now - 30 * 24 * 60 * 60 * 1000;
+         stepSize = 24 * 60 * 60 * 1000; 
+     } else if (chartTimeframe === '3M') {
+         startTimeframe = now - 90 * 24 * 60 * 60 * 1000;
+         stepSize = 24 * 60 * 60 * 1000; 
+     } else if (chartTimeframe === '1Y') {
+         startTimeframe = Math.max(firstDate, now - 365 * 24 * 60 * 60 * 1000);
+         stepSize = 24 * 60 * 60 * 1000; 
+     } else if (chartTimeframe === '5Y') {
+         startTimeframe = Math.max(firstDate, now - 1825 * 24 * 60 * 60 * 1000);
+         stepSize = 7 * 24 * 60 * 60 * 1000; 
+     }
+     
+     let currentTs = startTimeframe;
+     if (chartTimeframe === '1D' || chartTimeframe === '1W') {
+         currentTs = new Date(currentTs).setMinutes(0, 0, 0);
+     } else {
+         currentTs = new Date(currentTs).setHours(0, 0, 0, 0);
+     }
 
-     const currentPriceIndex: Record<string, number> = {};
-     Object.keys(historyPrices).forEach(ticker => currentPriceIndex[ticker] = 0);
+     const endTs = now;
+     const dailyData = [];
 
-     // Looping melintasi Titik Waktu Live O(N)
-     for (const currentTs of sortedTs) {
+     while(currentTs <= endTs) {
+         const dateObj = new Date(currentTs);
+         let dateLabel = '';
          
-         while(txIdx < parsedInvestTxs.length && parsedInvestTxs[txIdx].ts <= currentTs) {
-             const t = parsedInvestTxs[txIdx];
-             const sym = t.parsedSymbol;
-             if (!currentQty[sym]) { currentQty[sym] = 0; currentInvestedIDR[sym] = 0; }
-             
-             if (t.type === 'invest_buy') {
-                 currentQty[sym] += t.parsedQty;
-                 currentInvestedIDR[sym] += t.adjustedAmount;
-             } else {
-                 const avgCost = currentQty[sym] > 0 ? (currentInvestedIDR[sym] / currentQty[sym]) : 0;
-                 currentInvestedIDR[sym] -= (avgCost * t.parsedQty);
-                 currentQty[sym] -= t.parsedQty;
-                 if (currentQty[sym] <= 0.0001) { currentQty[sym] = 0; currentInvestedIDR[sym] = 0; }
-             }
-             txIdx++;
+         if (chartTimeframe === '1D') {
+             dateLabel = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+         } else if (chartTimeframe === '1W') {
+             dateLabel = dateObj.toLocaleDateString('id-ID', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+         } else if (chartTimeframe === '5Y') {
+             dateLabel = dateObj.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
+         } else {
+             dateLabel = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
          }
+
+         let currentQty: Record<string, number> = {};
+         let currentInvestedIDR: Record<string, number> = {};
+
+         Object.keys(setupAwalBases).forEach(sym => {
+             if (setupAwalBases[sym].date.getTime() <= currentTs) {
+                 currentQty[sym] = setupAwalBases[sym].qty;
+                 currentInvestedIDR[sym] = setupAwalBases[sym].invested;
+             }
+         });
+
+         parsedInvestTxs.forEach((t: any) => {
+             if (new Date(t.date).getTime() <= currentTs) {
+                 if (!currentQty[t.parsedSymbol]) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
+                 if (t.type === 'invest_buy') {
+                     currentQty[t.parsedSymbol] += t.parsedQty;
+                     currentInvestedIDR[t.parsedSymbol] += t.amount;
+                 } else {
+                     currentQty[t.parsedSymbol] -= t.parsedQty;
+                     currentInvestedIDR[t.parsedSymbol] -= t.amount;
+                     if (currentQty[t.parsedSymbol] <= 0) {
+                         currentQty[t.parsedSymbol] = 0;
+                         currentInvestedIDR[t.parsedSymbol] = 0;
+                     }
+                 }
+             }
+         });
 
          let dailyValuation = 0;
          let dailyInvested = 0;
@@ -769,72 +819,45 @@ export default function ExpertTerminal() {
                  const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
                  const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
 
-                 if (chartSelectedAsset === 'ALL' || chartSelectedAsset === sym) {
-                     
-                     const hist = historyPrices[ticker];
-                     let price = null;
-                     if (hist && hist.timestamps) {
-                         let idx = currentPriceIndex[ticker] || 0;
-                         const targetSec = currentTs / 1000;
-                         while (idx < hist.timestamps.length && hist.timestamps[idx] <= targetSec) {
-                             if (hist.close[idx] !== null && hist.close[idx] !== undefined) price = hist.close[idx];
-                             idx++;
-                         }
-                         currentPriceIndex[ticker] = idx > 0 ? idx - 1 : 0;
-                         if (price === null && currentPriceIndex[ticker] >= 0 && hist.close[currentPriceIndex[ticker]]) {
-                             price = hist.close[currentPriceIndex[ticker]];
-                         }
-                     }
-
-                     if (price) dailyValuation += currentQty[sym] * price * multiplier;
-                     else dailyValuation += currentInvestedIDR[sym]; 
-                     
-                     dailyInvested += currentInvestedIDR[sym];
-
-                     if (hist && hist.dividends) {
-                         Object.keys(hist.dividends).forEach(divTsStr => {
-                             const divTsNum = Number(divTsStr) * 1000;
-                             if (divTsNum <= currentTs) {
-                                 const divKey = `${sym}-${divTsStr}`;
-                                 if (!processedDividends.has(divKey)) {
-                                     // Pengguna menerima dividen jika memegang lot saat hari ex-date!
-                                     const divAmountPerShare = hist.dividends[divTsStr].amount;
-                                     accumulatedDividend += (currentQty[sym] * multiplier * divAmountPerShare);
-                                     processedDividends.add(divKey);
-                                 }
-                             }
-                         });
-                     }
-                 }
+                 const price = getPriceForDate(ticker, currentTs);
+                 if (price) dailyValuation += currentQty[sym] * price * multiplier;
+                 else dailyValuation += currentInvestedIDR[sym]; 
+                 
+                 dailyInvested += currentInvestedIDR[sym];
              }
          });
 
-         const dateObj = new Date(currentTs);
-         let dateLabel = '';
-         if (chartTimeframe === '1D') dateLabel = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-         else if (chartTimeframe === '1W') dateLabel = dateObj.toLocaleDateString('id-ID', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-         else if (chartTimeframe === '5Y') dateLabel = dateObj.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
-         else dateLabel = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+         if (currentTs + stepSize > endTs) {
+             dailyValuation = 0;
+             Object.keys(currentQty).forEach(sym => {
+                 if (currentQty[sym] > 0) {
+                     const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
+                     const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
+                     const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
 
-         // Hanya menyimpan titik data jika berada di dalam rentang waktu permintaan
-         if (currentTs >= startTimeframe) {
-             dailyData.push({
-                 name: dateLabel,
-                 Total: dailyValuation,
-                 Investasi: dailyInvested,
-                 Dividen: accumulatedDividend
+                     const livePrice = livePrices[ticker];
+                     const price = livePrice || getPriceForDate(ticker, currentTs);
+                     if (price) dailyValuation += currentQty[sym] * price * multiplier;
+                     else dailyValuation += currentInvestedIDR[sym]; 
+                 }
              });
          }
+
+         dailyData.push({
+             name: dateLabel,
+             Total: dailyValuation,
+             Investasi: dailyInvested
+         });
+
+         currentTs += stepSize;
      }
 
-     if (dailyData.length > 500) {
-         const step = Math.ceil(dailyData.length / 500);
-         return dailyData.filter((_, i) => i % step === 0 || i === dailyData.length - 1);
-     }
-     
      return dailyData;
-  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, getHistoricalRate, chartSelectedAsset]);
+  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices]);
 
+  // =========================================================================
+  // 🛡️ REFORMASI LOGIKA LOGIN & RE-FRESH SESSION KUNCI UTAMA PWA
+  // =========================================================================
   const handleTerminalLogin = async (e: React.FormEvent) => {
       e.preventDefault();
       setLoginError("");
@@ -843,7 +866,9 @@ export default function ExpertTerminal() {
           const cleanEmail = loginEmail.trim().toLowerCase();
           await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
         
+          // 1. Buka kunci gerbang UI Terminal
           localStorage.setItem("bilano_terminal_unlocked", "true");
+          // 2. Pasang token & email standar PWA agar hooks internal use-finance berfungsi normal
           localStorage.setItem("bilano_auth", "true");
           localStorage.setItem("bilano_email", cleanEmail);
          
@@ -861,6 +886,7 @@ export default function ExpertTerminal() {
 
   const handleLogout = async () => {
       await signOut(auth);
+      // Hapus seluruh jejak session cache saat keluar dari terminal
       localStorage.removeItem("bilano_terminal_unlocked");
       localStorage.removeItem("bilano_auth");
       localStorage.removeItem("bilano_email");
@@ -883,7 +909,7 @@ export default function ExpertTerminal() {
       }, {} as Record<string, {invested: number, valuasi: number, qty: number}>);
 
       saveSnapshotMutation.mutate({
-          month, year, cashBalance, investValue: totalInvested, totalValue: totalWealth, assetsDetail: JSON.stringify(assetsDetail)
+          month, year, cashBalance, investValue: totalAssetValue, totalValue: totalWealth, assetsDetail: JSON.stringify(assetsDetail)
       }, {
           onSuccess: () => toast({ title: "Tersimpan", description: `Data portofolio bulan ${MONTH_NAMES[month-1]} ${year} berhasil direkam permanen.` })
       });
@@ -910,6 +936,9 @@ export default function ExpertTerminal() {
     </button>
   );
 
+  // =========================================================================
+  // 🚀 INTERFACE GERBANG AUTH EXPORT TERMINAL (CYBERPUNK NEON VIEW)
+  // =========================================================================
   if (!isTerminalAuth) {
       return (
           <>
@@ -924,8 +953,12 @@ export default function ExpertTerminal() {
               }
           `}} />
           <div className="flex h-screen bg-[#000000] terminal-grid items-center justify-center p-4 font-mono text-[#E4E4E7] relative overflow-hidden">
+            
+              {/* Efek Garis Scanline Monitor CRT */}
               <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[size:100%_4px,3px_100%] z-50"></div>
+ 
               <div className="bg-[#050505] border-2 border-[#27272A] p-8 max-w-md w-full shadow-[0_0_40px_rgba(0,255,65,0.05)] relative z-10 before:content-[''] before:absolute before:top-0 before:left-0 before:w-full before:h-[2px] before:bg-[#00FF41]">
+                
                   <div className="absolute top-2 left-2 text-[8px] text-[#333] font-bold">SYS.LOG // B_CORE_V2</div>
                   <div className="absolute top-2 right-2 text-[8px] text-[#00FF41] font-bold animate-pulse">● SECURE</div>
 
@@ -944,7 +977,14 @@ export default function ExpertTerminal() {
                           </label>
                           <div className="relative">
                               <span className="absolute left-4 top-3 text-[#333] font-bold">&gt;</span>
-                              <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} className="w-full bg-[#000000] border border-[#27272A] pl-9 pr-4 py-3 text-[#00FF41] text-sm outline-none focus:border-[#00FF41] focus:shadow-[0_0_10px_rgba(0,255,65,0.2)] transition-all rounded-sm tracking-wide" placeholder="name@domain.com" required />
+                              <input 
+                                  type="email" 
+                                  value={loginEmail} 
+                                  onChange={e => setLoginEmail(e.target.value)} 
+                                  className="w-full bg-[#000000] border border-[#27272A] pl-9 pr-4 py-3 text-[#00FF41] text-sm outline-none focus:border-[#00FF41] focus:shadow-[0_0_10px_rgba(0,255,65,0.2)] transition-all rounded-sm tracking-wide" 
+                                  placeholder="name@domain.com" 
+                                  required 
+                              />
                           </div>
                       </div>
 
@@ -954,26 +994,50 @@ export default function ExpertTerminal() {
                           </label>
                           <div className="relative">
                               <span className="absolute left-4 top-3 text-[#333] font-bold">#</span>
-                              <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} className="w-full bg-[#000000] border border-[#27272A] pl-9 pr-4 py-3 text-[#00FF41] text-sm outline-none focus:border-[#00FF41] focus:shadow-[0_0_10px_rgba(0,255,65,0.2)] transition-all rounded-sm tracking-wide" placeholder="••••••••" required />
+                              <input 
+                                  type="password" 
+                                  value={loginPassword} 
+                                  onChange={e => setLoginPassword(e.target.value)} 
+                                  className="w-full bg-[#000000] border border-[#27272A] pl-9 pr-4 py-3 text-[#00FF41] text-sm outline-none focus:border-[#00FF41] focus:shadow-[0_0_10px_rgba(0,255,65,0.2)] transition-all rounded-sm tracking-wide" 
+                                  placeholder="••••••••" 
+                                  required 
+                              />
                           </div>
                       </div>
 
                       {loginError && (
                           <div className="bg-[#FF003C]/5 border border-[#FF003C]/40 p-4 text-[10px] font-bold text-[#FF003C] leading-relaxed text-center uppercase tracking-wider bg-black">
                               {loginError === 'unregistered' ? (
-                                  <span>[TERMINAL_ERR]: AKUN TIDAK DIKENALI.<br/>SILAKAN REGISTRASI DI: <a href="https://bilano.app" target="_blank" rel="noopener noreferrer" className="text-white underline hover:text-[#00E5FF] transition-colors ml-1">BILANO.APP</a></span>
+                                  <span>
+                                      [TERMINAL_ERR]: AKUN TIDAK DIKENALI.<br/>
+                                      SILAKAN REGISTRASI DI: <a href="https://bilano.app" target="_blank" rel="noopener noreferrer" className="text-white underline hover:text-[#00E5FF] transition-colors ml-1">BILANO.APP</a>
+                                  </span>
                               ) : (
                                   <span>[ERR_SIG]: {loginError}</span>
                               )}
                           </div>
                       )}
   
-                      <button disabled={isLoggingIn} type="submit" className="w-full mt-2 bg-[#00FF41] hover:bg-[#00CC33] disabled:bg-[#111] disabled:text-[#333] text-black font-black uppercase tracking-[0.2em] text-xs py-4 transition-all active:scale-[0.98] flex items-center justify-center gap-2 rounded-sm border border-[#00FF41]/50 shadow-[0_0_15px_rgba(0,255,65,0.2)]">
-                          {isLoggingIn ? <><Orbit className="w-4 h-4 animate-spin text-black" /><span>DECRYPTING SESSIONS...</span></> : "INITIALIZE TERMINAL"}
+                      <button 
+                          disabled={isLoggingIn} 
+                          type="submit" 
+                          className="w-full mt-2 bg-[#00FF41] hover:bg-[#00CC33] disabled:bg-[#111] disabled:text-[#333] text-black font-black uppercase tracking-[0.2em] text-xs py-4 transition-all active:scale-[0.98] flex items-center justify-center gap-2 rounded-sm border border-[#00FF41]/50 shadow-[0_0_15px_rgba(0,255,65,0.2)]"
+                      >
+                          {isLoggingIn ? (
+                              <>
+                                  <Orbit className="w-4 h-4 animate-spin text-black" />
+                                  <span>DECRYPTING SESSIONS...</span>
+                              </>
+                          ) : (
+                              "INITIALIZE TERMINAL"
+                          )}
                       </button>
                   </form>
+
                   <div className="mt-6 border-t border-[#1a1a1a] pt-4 text-center">
-                      <p className="text-[8px] text-[#555] uppercase tracking-widest">SECURE SHELL // END-TO-END ENCRYPTED QUANT FEED</p>
+                      <p className="text-[8px] text-[#555] uppercase tracking-widest">
+                          SECURE SHELL // END-TO-END ENCRYPTED QUANT FEED
+                      </p>
                   </div>
               </div>
           </div>
@@ -981,6 +1045,9 @@ export default function ExpertTerminal() {
       );
   }
 
+  // =========================================================================
+  // 🚀 MAIN INTERFACE EXPERT TERMINAL
+  // =========================================================================
   return (
     <>
     <style dangerouslySetInnerHTML={{__html: `
@@ -991,11 +1058,16 @@ export default function ExpertTerminal() {
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 0; }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
-        input[type='number']::-webkit-inner-spin-button, input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type='number']::-webkit-inner-spin-button, 
+        input[type='number']::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
     `}} />
     
     <div className="flex h-screen bg-[#000000] text-[#E4E4E7] font-sans overflow-hidden selection:bg-[#00FF41]/30">
       
+      {/* MODAL AUDIT HARGA & KOREKSI TICKER */}
       {editTickerModal && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in p-4">
              <div className="bg-[#09090B] border border-[#27272A] p-8 max-w-md w-full relative">
@@ -1009,13 +1081,22 @@ export default function ExpertTerminal() {
                 </p>
                 <div className="space-y-2 mb-8">
                    <label className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Kode Ticker Baru</label>
-                   <input type="text" value={tempTicker} onChange={e => setTempTicker(e.target.value)} placeholder="Cth: ANTM.JK / BTC-USD" className="w-full bg-[#00] border border-[#333] px-4 py-3 text-white font-mono outline-none focus:border-[#FFD700] uppercase transition-colors" />
+                   <input 
+                       type="text" 
+                       value={tempTicker} 
+                       onChange={e => setTempTicker(e.target.value)}
+                       placeholder="Cth: ANTM.JK / BTC-USD"
+                       className="w-full bg-[#00] border border-[#333] px-4 py-3 text-white font-mono outline-none focus:border-[#FFD700] uppercase transition-colors"
+                   />
                 </div>
-                <button onClick={saveTickerOverride} className="w-full bg-[#FFD700] hover:bg-[#CCAA00] text-black font-black tracking-[0.15em] py-3 transition-all active:scale-95 uppercase">Simpan Ticker</button>
+                <button onClick={saveTickerOverride} className="w-full bg-[#FFD700] hover:bg-[#CCAA00] text-black font-black tracking-[0.15em] py-3 transition-all active:scale-95 uppercase">
+                   Simpan Ticker
+                </button>
              </div>
          </div>
       )}
 
+      {/* MODAL CEK RINCIAN HARGA */}
       {assetDetailModal && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in p-4">
              <div className="bg-[#09090B] border border-[#27272A] p-8 max-w-md w-full relative">
@@ -1053,7 +1134,9 @@ export default function ExpertTerminal() {
                         </span>
                     </div>
                 </div>
-                <button onClick={() => setAssetDetailModal(null)} className="w-full mt-6 bg-[#222] hover:bg-[#333] text-white font-black tracking-[0.15em] py-3 transition-all active:scale-95 uppercase">Tutup Audit</button>
+                <button onClick={() => setAssetDetailModal(null)} className="w-full mt-6 bg-[#222] hover:bg-[#333] text-white font-black tracking-[0.15em] py-3 transition-all active:scale-95 uppercase">
+                   Tutup Audit
+                </button>
              </div>
          </div>
       )}
@@ -1096,6 +1179,7 @@ export default function ExpertTerminal() {
           </button>
         </nav>
 
+        {/* PROFIL & LOGOUT */}
         <div className="p-4 border-t border-[#27272A] mt-auto flex flex-col gap-4 bg-[#050505]">
           <div className="flex items-center gap-3 px-2">
             <div className="w-10 h-10 border-2 border-[#333] rounded-full overflow-hidden bg-[#111] flex items-center justify-center shrink-0 shadow-md">
@@ -1288,13 +1372,12 @@ export default function ExpertTerminal() {
                               {p.symbol}
                           </th>
                       ))}
-                      <th className="px-6 py-4 text-[#00E5FF] whitespace-nowrap border-l border-[#222]">Aggregated P/L</th>
-                      <th className="px-6 py-4 text-[#FFD700] whitespace-nowrap">Total Modal</th>
+                      <th className="px-6 py-4 text-[#00E5FF] whitespace-nowrap">Aggregated P/L</th>
                     </tr>
                   </thead>
                   <tbody className="text-[#E4E4E7] font-mono text-xs">
                     {availableMonths.length === 0 ? (
-                       <tr><td colSpan={activePortfolio.length + 3} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
+                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
                     ) : (
                        availableMonths.map((m) => {
                           const data = getMonthData(m.monthNum, selectedYear);
@@ -1318,7 +1401,7 @@ export default function ExpertTerminal() {
                                         </td>
                                     );
                                 })}
-                                <td className="px-6 py-4 bg-[#111] border-l border-[#222]">
+                                <td className="px-6 py-4 bg-[#111]">
                                     {(() => {
                                         if (data.investValue === 0) return <span className="text-[#555]">-</span>;
                                         const plTotalAmount = data.totalValue - data.investValue;
@@ -1329,9 +1412,6 @@ export default function ExpertTerminal() {
                                             </div>
                                         );
                                     })()}
-                                </td>
-                                <td className="px-6 py-4 bg-[#111] text-[#FFD700]">
-                                    {data.investValue > 0 ? maskRp(data.investValue) : <span className="text-[#555]">-</span>}
                                 </td>
                              </tr>
                           )
@@ -1352,13 +1432,12 @@ export default function ExpertTerminal() {
                               {p.symbol}
                           </th>
                       ))}
-                      <th className="px-6 py-4 text-[#FFD700] whitespace-nowrap border-l border-[#222]">Yearly P/L</th>
-                      <th className="px-6 py-4 text-[#FFD700] whitespace-nowrap">Total Modal</th>
+                      <th className="px-6 py-4 text-[#FFD700] whitespace-nowrap">Yearly P/L</th>
                     </tr>
                   </thead>
                   <tbody className="text-[#E4E4E7] font-mono text-xs">
                     {availableYears.length === 0 ? (
-                       <tr><td colSpan={activePortfolio.length + 3} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
+                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
                     ) : (
                        availableYears.map((y) => {
                           const data = getYearData(y);
@@ -1382,7 +1461,7 @@ export default function ExpertTerminal() {
                                         </td>
                                     );
                                 })}
-                                <td className="px-6 py-4 bg-[#111] border-l border-[#222]">
+                                <td className="px-6 py-4 bg-[#111]">
                                     {(() => {
                                         if (data.investValue === 0) return <span className="text-[#555]">-</span>;
                                         const plTotalAmount = data.totalValue - data.investValue;
@@ -1394,9 +1473,6 @@ export default function ExpertTerminal() {
                                         );
                                     })()}
                                 </td>
-                                <td className="px-6 py-4 bg-[#111] text-[#FFD700]">
-                                    {data.investValue > 0 ? maskRp(data.investValue) : <span className="text-[#555]">-</span>}
-                                </td>
                              </tr>
                           )
                        })
@@ -1405,59 +1481,32 @@ export default function ExpertTerminal() {
                 </table>
               </div>
 
-              {/* GRAFIK COMPOSED INTRADAY & HISTORICAL (TIGA GARIS) */}
-              <div className="bg-[#0D0D0D] border border-[#222] mt-6 relative">
-                
-                <div className="flex justify-between items-center bg-[#111] p-4 border-b border-[#222]">
-                   <div className="flex items-center gap-6">
-                      <select 
-                         value={chartSelectedAsset} 
-                         onChange={e => setChartSelectedAsset(e.target.value)}
-                         className="bg-[#050505] text-[#A1A1AA] text-[10px] font-bold uppercase p-2 border border-[#333] outline-none focus:border-[#00E5FF] cursor-pointer"
-                      >
-                          <option value="ALL">Total Keseluruhan</option>
-                          {activePortfolio.map(p => <option key={p.symbol} value={p.symbol}>{p.symbol}</option>)}
-                      </select>
-                      
-                      <div className="flex items-center gap-4">
-                         <label className="flex items-center gap-1.5 text-[9px] text-[#A1A1AA] uppercase font-bold cursor-pointer hover:text-white transition-colors">
-                            <input type="checkbox" checked={chartShowValuasi} onChange={() => setChartShowValuasi(!chartShowValuasi)} className="accent-[#FF003C] w-3 h-3 cursor-pointer" />
-                            Market Value
-                         </label>
-                         <label className="flex items-center gap-1.5 text-[9px] text-[#A1A1AA] uppercase font-bold cursor-pointer hover:text-white transition-colors">
-                            <input type="checkbox" checked={chartShowModal} onChange={() => setChartShowModal(!chartShowModal)} className="accent-white w-3 h-3 cursor-pointer" />
-                            Total Modal
-                         </label>
-                         <label className="flex items-center gap-1.5 text-[9px] text-[#A1A1AA] uppercase font-bold cursor-pointer hover:text-white transition-colors">
-                            <input type="checkbox" checked={chartShowDividen} onChange={() => setChartShowDividen(!chartShowDividen)} className="accent-[#FFD700] w-3 h-3 cursor-pointer" />
-                            Dividen
-                         </label>
-                      </div>
-                   </div>
-                   
-                   <div className="flex bg-[#050505] border border-[#333]">
-                      <button onClick={() => setChartTimeframe('1D')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1D'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1D</button>
-                      <button onClick={() => setChartTimeframe('1W')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1W'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1W</button>
-                      <button onClick={() => setChartTimeframe('1M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1M</button>
-                      <button onClick={() => setChartTimeframe('3M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='3M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>3M</button>
-                      <button onClick={() => setChartTimeframe('1Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1Y</button>
-                      <button onClick={() => setChartTimeframe('5Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='5Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>5Y</button>
-                   </div>
+              {/* GRAFIK AREA INTRADAY */}
+              <div className="bg-[#0D0D0D] border border-[#222] p-6 mt-6 relative">
+                <div className="flex justify-between items-center mb-6 border-b border-[#222] pb-4">
+                  <h3 className="font-black text-white uppercase tracking-tight text-lg">Chart Historis Teragregasi</h3>
+                  <div className="flex bg-[#111] border border-[#333]">
+                     <button onClick={() => setChartTimeframe('1D')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1D'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1D</button>
+                     <button onClick={() => setChartTimeframe('1W')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1W'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1W</button>
+                     <button onClick={() => setChartTimeframe('1M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1M</button>
+                     <button onClick={() => setChartTimeframe('3M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='3M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>3M</button>
+                     <button onClick={() => setChartTimeframe('1Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1Y</button>
+                     <button onClick={() => setChartTimeframe('5Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='5Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>5Y</button>
+                  </div>
                 </div>
-
-                <div className="h-[450px] w-full p-6 pb-2">
+                <div className="h-[350px] w-full">
                     {chartDataDaily.length > 0 ? (
                        <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={chartDataDaily}>
+                          <AreaChart data={chartDataDaily}>
                              <defs>
                                 <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#FF3333" stopOpacity={0.25}/>
-                                  <stop offset="95%" stopColor="#FF3333" stopOpacity={0.01}/>
+                                  <stop offset="5%" stopColor="#00FF41" stopOpacity={0.2}/>
+                                  <stop offset="95%" stopColor="#00FF41" stopOpacity={0}/>
                                 </linearGradient>
                              </defs>
                              <XAxis dataKey="name" stroke="#64748B" fontSize={10} fontFamily="JetBrains Mono" tickLine={false} axisLine={false} minTickGap={30} />
                              <YAxis 
-                                domain={['auto', 'auto']} 
+                                domain={['dataMin', 'dataMax']} 
                                 padding={{ top: 20, bottom: 20 }}
                                 stroke="#64748B" 
                                 fontSize={10} 
@@ -1467,27 +1516,14 @@ export default function ExpertTerminal() {
                                 tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(0)}M` : `•••`} 
                                 orientation="right" 
                              />
-                             <Tooltip 
-                                formatter={(val: number, name: string) => [maskRp(val), name.toUpperCase()]} 
-                                contentStyle={{backgroundColor: '#050505', borderColor: '#333', borderRadius: '4px', color: '#fff', fontFamily: 'JetBrains Mono', fontSize: '11px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)'}} 
-                                itemStyle={{fontWeight: 'bold', paddingTop: '4px'}}
-                                labelStyle={{color: '#A1A1AA', paddingBottom: '4px', borderBottom: '1px solid #333'}}
-                             />
+                             <Tooltip formatter={(val: number) => maskRp(val)} contentStyle={{backgroundColor: '#000', borderColor: '#333', borderRadius: '0', color: '#fff', fontFamily: 'JetBrains Mono'}} />
                              <CartesianGrid stroke="#222" strokeDasharray="3 3" vertical={false} />
                              
-                             {/* Penggunaan ComposedChart menjamin ke-3 komponen ini dirender tanpa crash */}
-                             {chartShowDividen && (
-                                <Line type="stepAfter" dataKey="Dividen" stroke="#D4AF37" strokeWidth={2.5} dot={false} name="Total Dividen" activeDot={{r: 4}} />
-                             )}
-                             {chartShowModal && (
-                                <Line type="stepAfter" dataKey="Investasi" stroke="#FFFFFF" strokeWidth={2.5} dot={false} name="Total Modal" activeDot={{r: 4}} />
-                             )}
-                             {chartShowValuasi && (
-                                <Area type="linear" dataKey="Total" stroke="#FF3333" strokeWidth={2.5} fillOpacity={1} fill="url(#colorTotal)" dot={false} name="Nilai Portofolio" />
-                             )}
-                          </ComposedChart>
+                             <Line type="stepAfter" dataKey="Investasi" stroke="#94A3B8" strokeWidth={1.5} dot={false} strokeDasharray="4 4" name="Modal Aktif" />
+                             <Area type="monotone" dataKey="Total" stroke="#00FF41" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" dot={false} name="Valuasi Total" />
+                          </AreaChart>
                        </ResponsiveContainer>
-                    ) : <div className="w-full h-full flex items-center justify-center text-[#555] text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse">Menyelaraskan Titik Koordinat Historis...</div>}
+                    ) : <div className="w-full h-full flex items-center justify-center text-[#555] text-[10px] font-bold uppercase tracking-[0.2em]">Memuat Data Historis...</div>}
                 </div>
               </div>
             </div>

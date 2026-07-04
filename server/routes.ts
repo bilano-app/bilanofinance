@@ -172,6 +172,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/track", async (req: any, res: any) => {
       try {
           const { anonymousId, eventName, properties } = req.body;
+        
+        // Coba deteksi email user jika sedang login
           const email = req.headers["x-user-email"];
           let userId = null;
           if (email && email !== "guest") {
@@ -188,19 +190,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           res.json({ success: true });
       } catch (e) {
+          // Gagal tracking tidak boleh membuat aplikasi crash, biarkan lewat
           res.status(200).json({ success: false, message: "Tracking failed silently" });
       }
   });
 
+  // =========================================================================
+  // 🚀 ENDPOINT LOGIN ADMIN KHUSUS (MANAGER.TSX)
+  // =========================================================================
   app.post("/api/admin/manager-login", async (req: any, res: any) => {
       const { email, password } = req.body;
+
+      // Cek kredensial admin secara langsung
       if (email === "bilanotech@gmail.com" && password === "Bilano6676") {
           return res.json({ success: true, token: "admin_authorized_session" });
       }
+      
       return res.status(401).json({ error: "Kredensial Admin Salah atau Tidak Dikenal!" });
   });
 
+  
+
+// =========================================================================
+// 🚀 ENDPOINT UNTUK DASHBOARD MANAGER (BILANO.APP/MANAGER)
+// =========================================================================
   app.get("/api/admin/tracking-stats", async (req: any, res: any) => {
+      // Proteksi Akses
       const emailAdmin = req.headers["x-user-email"] as string;
       const isAdminValid = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(emailAdmin);
       if (!isAdminValid) return res.status(403).json({ error: "Akses Ditolak" });
@@ -211,6 +226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const allEventsRes = await db.execute(sql`SELECT * FROM tracking_events ORDER BY created_at DESC`);
           const allEvents = Array.isArray(allEventsRes) ? allEventsRes : (allEventsRes as any).rows || [];
 
+          // Ambil users dan txs untuk app metrics
           const allUsersRes = await db.execute(sql`SELECT * FROM users`);
           const allUsers = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
           
@@ -224,9 +240,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const uniqueVisitors = new Set();
           
           let totalRevenue = 0;
-          const transactionHistory: any[] = []; 
+          const transactionHistory: any[] = []; // Wadah Riwayat Transaksi
           const dailyTrend: Record<string, { visitors: number, sales: number }> = {};
           
+          // PWA Specific Tracking
           const featureAdoption = { ai_chat: 0, smart_scan: 0, portfolio_view: 0, manual_input: 0 };
           const activeUsers30Days = new Set();
           const activeUsersToday = new Set();
@@ -243,6 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const dateStr = eventDate.toISOString().split('T')[0];
               if (!dailyTrend[dateStr]) dailyTrend[dateStr] = { visitors: 0, sales: 0 };
 
+              // Menambahkan vitalitas user
               if (e.user_id) {
                  if (eventDate >= thirtyDaysAgo) activeUsers30Days.add(e.user_id);
                  if (eventDate >= todayStart) activeUsersToday.add(e.user_id);
@@ -261,6 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (e.event_name === 'checkout_initiated') metrics.checkout_initiated++;
               if (e.event_name === 'pwa_install_accepted') metrics.pwa_installed++;
 
+              // 🔥 Hitung Pembayaran & Rekap Riwayat Transaksi
               if (e.event_name === 'payment_success') {
                   metrics.payment_success++;
                   dailyTrend[dateStr].sales++;
@@ -269,6 +288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                   if (props.amount) totalRevenue += Number(props.amount);
 
+                  // Masukkan ke log tabel Manager
                   transactionHistory.push({
                       date: e.created_at,
                       name: props.name || "Anonim",
@@ -279,6 +299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   });
               }
 
+              // Feature Adoption (Asumsi penamaan event dari frontend)
               if (e.event_name === 'ai_chat_used') featureAdoption.ai_chat++;
               if (e.event_name === 'smart_scan_used') featureAdoption.smart_scan++;
               if (e.event_name === 'portfolio_viewed') featureAdoption.portfolio_view++;
@@ -292,6 +313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           });
 
+          // Fallback perbaikan data apabila app baru diperbarui
           featureAdoption.manual_input = Math.max(featureAdoption.manual_input, allTxs.length);
 
           const funnel = {
@@ -302,6 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
              paid: new Set(allEvents.filter(e => e.event_name === 'payment_success').map(e => e.anonymous_id)).size,
           };
 
+          // APP METRICS CALCULATIONS
           const installRate = metrics.payment_success > 0 ? Math.round((metrics.pwa_installed / metrics.payment_success) * 100) : 0;
           const stickiness = activeUsers30Days.size > 0 ? Math.round((activeUsersToday.size / activeUsers30Days.size) * 100) : 0;
           
@@ -331,6 +354,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
              }
           });
           const zombieRate = proCount > 0 ? Math.round((zombieCount / proCount) * 100) : 0;
+
+          // Asumsi persentase renewal 
           const renewalRate = plans.year > 0 || plans.month > 0 ? 85 : 0;
 
           const dailyTrendArray = Object.keys(dailyTrend).sort().map(key => ({
@@ -401,6 +426,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  
+
   app.post("/api/transactions/undo", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -409,6 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           let newBalance = Math.round(user!.cashBalance);
           const amt = Math.round(lastTx.amount);
+
           const isValas = lastTx.category?.includes('Valas');
 
           if (!isValas) {
@@ -685,6 +713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const tx = await storage.createTransaction(user!.id, { ...parsed.data, userId: user!.id } as any); 
       let newBalance = Math.round(user!.cashBalance); 
+      
       const isValas = parsed.data.category?.includes('Valas');
 
       if (!isValas) {
@@ -733,6 +762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           let newBalance = Math.round(user!.cashBalance);
           const amt = Math.round(txToDelete.amount);
+          
           const isValas = txToDelete.category?.includes('Valas');
 
           if (!isValas) {
@@ -753,7 +783,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const match = desc.match(/Beli\s+([0-9.]+)\s+([A-Z]{3})/i);
                   if (match) {
                       const qty = parseFloat(match[1]);
-                      const curr = match[3].toUpperCase();
+                      const curr = match[2].toUpperCase();
                       const existingForex = await storage.getForexByCurrency(user!.id, curr);
                       if (existingForex) {
                           let newForex = existingForex.amount - qty;
@@ -1065,78 +1095,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/investments", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getInvestments(user!.id)); });
   
-  const isUSAsset = (sym: string) => {
-      const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY', 'SPUS', 'VGT'];
-      return knownUS.includes(sym.toUpperCase()) || sym.length > 4;
-  };
-  
   app.post("/api/investments/buy", async (req: any, res: any) => { 
       try {
           const user = await getUser(req); 
           const { symbol, quantity, price, type } = req.body; 
           const typeLower = (type || 'saham').toLowerCase();
-          const sym = symbol.toUpperCase().trim();
+          const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
+          const total = Math.round(quantity*price*m); 
           
-          const isUS = isUSAsset(sym);
-
-          // Tarik kurs live jika perlu
-          const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-          const usdRate = cachedRates['USD'] || 16200;
-
-          // Saham lokal (4 huruf) m = 100 (lot), crypto/US stock m = 1
-          const m = (typeLower === 'saham' && !isUS && sym.length === 4 && typeLower !== 'crypto') ? 100 : 1; 
-          
-          let total = quantity * price * m; 
-          let idrPrice = price;
-
-          // Jika ini aset US dan input harganya adalah USD mentah (di bawah 100k)
-          if (isUS && price < 100000) {
-              total = total * usdRate;
-              idrPrice = price * usdRate;
-          }
-
-          const totalIDR = Math.round(total);
-          
-          if(user!.cashBalance < totalIDR) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk pembelian ini."}); 
-          
-          await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance - totalIDR)); 
-          
-          const desc = (isUS && price < 100000) 
-              ? `${quantity} unit ${sym} @ USD ${price} (Rp ${Math.round(idrPrice).toLocaleString('id-ID')})`
-              : `${quantity} lot/unit ${sym} @ Rp ${price.toLocaleString('id-ID')}`;
-
-          await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_buy', amount:totalIDR, category:'Beli Aset', description: desc, date:new Date()} as any); 
-          await storage.createInvestment(user!.id, {userId: user!.id, symbol: sym, quantity, avgPrice:price, type: typeLower} as any); 
+          if(user!.cashBalance < total) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk pembelian ini."}); 
+          await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance - total)); 
+          await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_buy', amount:total, category:'Beli Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}`, date:new Date()} as any); 
+          await storage.createInvestment(user!.id, {userId: user!.id, symbol: symbol.toUpperCase(), quantity, avgPrice:price, type: typeLower} as any); 
           res.json({success:true}); 
       } catch (error: any) { res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menyimpan aset." }); }
   });
 
-  // REVISI: ENDPOINT SELL
   app.post("/api/investments/sell", async (req: any, res: any) => { 
       try {
           const user = await getUser(req); 
           const { symbol, quantity, price, type } = req.body; 
           const typeLower = (type || 'saham').toLowerCase(); 
-          const sym = symbol.toUpperCase().trim();
-          
-          const isUS = isUSAsset(sym);
-          
-          const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-          const usdRate = cachedRates['USD'] || 16200;
-
-          const m = (typeLower === 'saham' && !isUS && sym.length === 4 && typeLower !== 'crypto') ? 100 : 1; 
-          
-          let totalSellValue = quantity * price * m;
-          let idrPrice = price;
-
-          if (isUS && price < 100000) {
-              totalSellValue = totalSellValue * usdRate;
-              idrPrice = price * usdRate;
-          }
-
-          const totalSellPrice = Math.round(totalSellValue); 
+          const m = (typeLower==='saham'||(symbol.length===4&&typeLower!=='crypto'))?100:1; 
+          const totalSellPrice = Math.round(quantity*price*m); 
           
           const allInvestments = await storage.getInvestments(user!.id);
           const existings = allInvestments.filter((i: any) => i.symbol === symbol); 
@@ -1147,18 +1128,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const existing of existings) {
               if (remainingToSell <= 0) break;
               if (existing.quantity <= remainingToSell) {
-                  // Hitung modal dasar untuk keperluan display P/L
-                  let buyVal = existing.quantity * existing.avgPrice * m;
-                  if (isUS && existing.avgPrice < 100000) buyVal *= usdRate;
-                  
-                  totalBuyPrice += buyVal;
+                  totalBuyPrice += existing.quantity * existing.avgPrice * m;
                   remainingToSell -= existing.quantity;
                   await storage.deleteInvestment(existing.id); 
               } else {
-                  let buyVal = remainingToSell * existing.avgPrice * m;
-                  if (isUS && existing.avgPrice < 100000) buyVal *= usdRate;
-
-                  totalBuyPrice += buyVal;
+                  totalBuyPrice += remainingToSell * existing.avgPrice * m;
                   await storage.updateInvestment(existing.id, existing.quantity - remainingToSell, existing.avgPrice); 
                   remainingToSell = 0;
               }
@@ -1168,12 +1142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const profitLossText = ` (P/L: ${pl >= 0 ? '+' : ''}Rp ${pl.toLocaleString('id-ID')})`;
 
           await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + totalSellPrice)); 
-          
-          const desc = (isUS && price < 100000)
-              ? `${quantity} unit ${sym} @ USD ${price} (Rp ${Math.round(idrPrice).toLocaleString('id-ID')})${profitLossText}`
-              : `${quantity} lot/unit ${sym} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`;
-
-          await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_sell', amount:totalSellPrice, category:'Jual Aset', description: desc, date:new Date()} as any); 
+          await storage.createTransaction(user!.id, {userId: user!.id, type:'invest_sell', amount:totalSellPrice, category:'Jual Aset', description:`${quantity} lot/unit ${symbol} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`, date:new Date()} as any); 
           res.json({success:true}); 
       } catch (error: any) { res.status(500).json({ message: "Terjadi kesalahan internal pada server saat menjual aset." }); }
   });
@@ -1233,6 +1202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const isMonthly = plan === 'monthly';
           const price = isMonthly ? 14900 : 99000;
           const planName = isMonthly ? "BILANO PRO (1 Bulan)" : "BILANO PRO (1 Tahun)";
+
           const appUrl = req.headers.origin || "https://bilanofinance-dvbi.vercel.app";
 
           const payload = {
@@ -1255,7 +1225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ]
           };
 
-          const mayarRes = await fetch("https://invoice.mayar.id/hl/v1/invoice/create", { 
+          const mayarRes = await fetch("https://api.mayar.id/hl/v1/invoice/create", { 
               method: "POST", 
               headers: { 
                   "Content-Type": "application/json", 
@@ -1265,7 +1235,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           const textData = await mayarRes.text();
+
           if (!mayarRes.ok) {
+              console.log("Response Mayar Gagal:", textData);
               return res.status(400).json({ error: `MAYAR ERROR [${mayarRes.status}]: ${textData}` });
           }
 
@@ -1278,11 +1250,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: "SERVER CRASH: " + error.message }); }
   });
 
+  // =========================================================================
+  // 🚀 INTEGRASI DUITKU SANDBOX (ONBOARDING SYARAT)
+  // =========================================================================
   app.post("/api/payment/duitku-sandbox", async (req: any, res: any) => {
       try {
           const { price, productDetail, customerName, email, phone } = req.body;
+
           const merchantCode = process.env.DUITKU_MERCHANT_CODE || ''; 
           const merchantKey = process.env.DUITKU_MERCHANT_KEY || '';
+
           const merchantOrderId = 'BILANO-' + Date.now();
           const paymentAmount = parseInt(price);
 
@@ -1311,12 +1288,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           const data = await duitkuRes.json();
+
           if (data && data.paymentUrl) {
               res.json({ paymentUrl: data.paymentUrl });
           } else {
+              console.error("Duitku Sandbox Error:", data);
               res.status(400).json({ error: "Gagal mendapatkan URL Pembayaran dari Duitku." });
           }
+
       } catch (error: any) {
+          console.error("Server Crash Duitku:", error.message);
           res.status(500).json({ error: 'Internal Server Error' });
       }
   });
@@ -1325,8 +1306,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
           const payload = req.body || {}; 
           const status = String(payload?.status || payload?.data?.status || "").toUpperCase();
+          
           const amt = payload?.data?.amount || payload?.amount;
           const purchasedPlan = amt == 99000 ? "BILANO-PRO-1Y" : "BILANO-PRO-1M";
+          
           const customerEmail = String(payload?.customer_email || payload?.data?.customer_email || payload?.customer?.email || payload?.data?.customer?.email || payload?.email || payload?.data?.email || "");
 
           if (status === 'SUCCESS' || status === 'PAID' || status === 'SETTLED') {
@@ -1455,10 +1438,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await Promise.all(symbols.map(async (rawSymbol: string) => {
               try {
                   let symbol = rawSymbol.toUpperCase().trim();
+                  
                   const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
                   const fetchSymbol = isGold ? 'GC=F' : symbol;
                   
                   const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=1d&range=1d`);
+                  
                   if (response.ok) {
                       const data = await response.json();
                       let price = data.chart?.result?.[0]?.meta?.regularMarketPrice;
@@ -1466,6 +1451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       if (price) {
                          const currency = data.chart?.result?.[0]?.meta?.currency || "IDR";
                          let finalPrice = price;
+                         
                          const now = Date.now();
                          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
                          const usdToIdr = cachedRates['USD'] || 16200;
@@ -1476,6 +1462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                              const rate = cachedRates[currency as keyof typeof cachedRates] || usdToIdr;
                              finalPrice = price * rate; 
                          }
+
                          results[rawSymbol] = finalPrice;
                       }
                   }
@@ -1486,9 +1473,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses data aset." }); }
   });
 
-  // =========================================================================
-  // 🚀 PERBAIKAN DAN OPTIMASI LIVE DATA INTRADAY & DIVIDEND ACCUMULATION API
-  // =========================================================================
   app.post("/api/finance/history", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1497,21 +1481,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const { symbols, range = '5y' } = req.body; 
           if (!symbols || !Array.isArray(symbols)) return res.status(400).json({ error: "Format pencarian simbol salah." });
 
-          const results: Record<string, { timestamps: number[], close: number[], dividends: Record<string, { amount: number, date: number }> }> = {};
+          const results: Record<string, { timestamps: number[], close: number[] }> = {};
 
           await Promise.all(symbols.map(async (rawSymbol: string) => {
               try {
                   let symbol = rawSymbol.toUpperCase().trim();
+                  
                   const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
                   const fetchSymbol = isGold ? 'GC=F' : symbol;
                   
-                  // 🚀 DINAMIS INTELLIGENT INTERVAL: Ubah ke menit untuk visualisasi pergerakan live jika range jangka pendek
-                  let interval = '1d';
-                  if (range === '1d') interval = '1m';      // Data per 1 menit untuk chart Intraday 1D asli
-                  else if (range === '5d') interval = '15m';  // Data per 15 menit untuk chart 1 Minggu (5D)
-
-                  // Tarik data chart lengkap dengan parameter events=div dari Yahoo Finance Core engine
-                  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=${interval}&range=${range}&events=div`);
+                  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=1d&range=${range}`);
+                  
                   if (response.ok) {
                       const data = await response.json();
                       const result = data.chart?.result?.[0];
@@ -1531,28 +1511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                               close = close.map((p: number) => p ? p * rate : p); 
                           }
 
-                          // 🚀 PROSES EVENT DIVIDEN INSTANT: Ekstrak data aksi korporasi pembagian dividen resmi Emiten
-                          const dividends: Record<string, { amount: number, date: number }> = {};
-                          if (result.events?.dividends) {
-                              Object.keys(result.events.dividends).forEach((tsKey) => {
-                                  const divEvent = result.events.dividends[tsKey];
-                                  let divAmount = divEvent.amount;
-
-                                  if (isGold) {
-                                      divAmount = (divAmount / 31.1034768) * usdToIdr;
-                                  } else if (currency !== "IDR" && currency !== "Rp") {
-                                      const rate = cachedRates[currency as keyof typeof cachedRates] || usdToIdr;
-                                      divAmount = divAmount * rate;
-                                  }
-
-                                  dividends[tsKey] = {
-                                      amount: divAmount,
-                                      date: divEvent.date
-                                  };
-                              });
-                          }
-
-                          results[rawSymbol] = { timestamps, close, dividends };
+                          results[rawSymbol] = { timestamps, close };
                       }
                   }
               } catch(e) {}
@@ -1562,6 +1521,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses history aset." }); }
   });
 
+  app.post("/api/vision/scan", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { images } = req.body; 
+          if (!images || !Array.isArray(images) || images.length === 0) return res.status(400).json({ error: "Tidak ada gambar yang diunggah." });
+
+          const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
+          if (!apiKey) return res.status(500).json({ error: "Sistem AI belum dikonfigurasi di server." });
+
+          const imageParts = images.map((base64Str: string) => {
+              const base64Data = base64Str.replace(/^data:image\/\w+;base64,/, "");
+              const mimeTypeMatch = base64Str.match(/^data:(.*?);base64,/);
+              const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : "image/jpeg";
+              return { inline_data: { mime_type: mimeType, data: base64Data } };
+          });
+
+          const systemPrompt = `Kamu adalah Asisten Finansial BILANO yang cerdas. Tugasmu membaca struk belanja/dokumen keuangan dari SATU ATAU BANYAK GAMBAR.
+          Tugas:
+          1. Rekap TOTAL KESELURUHAN dari semua gambar yang diunggah.
+          2. Buat rincian detail gabungan dari semua struk (Pisahkan dengan baris baru \n).
+          3. Tentukan jenis transaksi (expense/income).
+          4. Tentukan mata uangnya (IDR, USD, dll).
+          Output WAJIB JSON MURNI: {"totalAmount": 150000, "currency": "IDR", "category": "Makan/Minum", "type": "expense", "description": "- Struk 1: Nasi Goreng Rp 25.000\\n- Struk 2: Bensin Rp 25.000\\n- Total gabungan: Rp 50.000"}`;
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: systemPrompt }, ...imageParts] }], generationConfig: { temperature: 0.1, response_mime_type: "application/json" } })
+          });
+
+          if (!response.ok) throw new Error("Detail Error AI: Timeout");
+
+          const aiData = await response.json();
+          const resultText = aiData.candidates[0].content.parts[0].text;
+          
+          let parsedResult;
+          try { parsedResult = JSON.parse(resultText); } 
+          catch (e) { parsedResult = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); }
+          res.json({ success: true, data: parsedResult });
+      } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses gambar." }); }
+  });
+
+  app.post("/api/voice/scan", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { text } = req.body; 
+          if (!text) return res.status(400).json({ error: "Tidak ada suara yang ditangkap." });
+
+          const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
+          if (!apiKey) return res.status(500).json({ error: "Sistem AI belum dikonfigurasi di server." });
+
+          const systemPrompt = `Kamu adalah Asisten Finansial BILANO yang cerdas. Pengguna akan memberikan rekaman suara tentang catatan keuangannya. Bisa jadi ada LEBIH DARI SATU transaksi yang disebutkan.
+          Tugasmu:
+          1. Hitung TOTAL AKHIR KESELURUHAN secara matematis dari semua angka/transaksi yang disebutkan.
+          2. Buat daftar RINCIAN ITEM berserta harganya (Pisahkan dengan baris baru \\n).
+          3. Tentukan kategori umum (Misal: Makan/Minum, Transportasi, Belanja, dll).
+          4. Tentukan jenis transaksi (income / expense / debt / receivable). Jika ada pemasukan dan pengeluaran, gunakan arus utamanya (jika dominan pengeluaran, set expense).
+          5. Output HANYA dalam format JSON MURNI tanpa embel-embel markdown.
+          Format JSON: {"totalAmount": 150000, "currency": "IDR", "category": "Belanja", "type": "expense", "description": "- Makan Siang: Rp 50.000\\n- Beli Kuota: Rp 100.000"}`;
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                  contents: [{ role: "user", parts: [{ text: systemPrompt }, { text: text }] }], 
+                  generationConfig: { temperature: 0.1, response_mime_type: "application/json" } 
+              })
+          });
+
+          if (!response.ok) throw new Error("Detail Error AI: Timeout");
+
+          const aiData = await response.json();
+          const resultText = aiData.candidates[0].content.parts[0].text;
+          
+          let parsedResult;
+          try { parsedResult = JSON.parse(resultText); } 
+          catch (e) { parsedResult = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); }
+          res.json({ success: true, data: parsedResult });
+      } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses suara." }); }
+  });
+
+  // =========================================================================
+  // 🚀 PERBAIKAN LOGIKA PROMPT UNTUK SEARCH GROUNDING AGAR TIDAK BENTROK
+  // =========================================================================
+  
   app.post("/api/finance/intel", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1606,6 +1652,7 @@ Kembalikan HANYA format JSON MURNI tanpa markdown:
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
+                  // 🚀 FIX 1: Paksa API mengembalikan struktur JSON yang valid
                   generationConfig: { temperature: 0.1, response_mime_type: "application/json" } 
               })
           });
@@ -1623,6 +1670,7 @@ Kembalikan HANYA format JSON MURNI tanpa markdown:
               parsedAI = JSON.parse(cleanText);
           } catch (e) { throw new Error("Gagal melakukan parsing data AI dari Google Search."); }
 
+          // 🚀 FIX 2: Ekstrak sumber asli langsung dari metadata grounding untuk menghindari URL mati
           const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
           const realArticles = chunks
               .map((c: any) => c.web)
@@ -1657,6 +1705,7 @@ Kembalikan HANYA format JSON MURNI tanpa markdown:
           if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
 
           const marketContext = market === 'US' ? 'Pasar Saham Wall Street (US Market)' : 'Pasar Saham Indonesia (IHSG)';
+          
           const prompt = `Kamu adalah mesin pencari berita universal.
 Tugas: Cari berita ekonomi, bisnis, dan saham PALING AKTUAL untuk ${marketContext}.
 
@@ -1699,6 +1748,7 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
               parsedAI = JSON.parse(cleanText);
           } catch (e) { throw new Error("Gagal parsing JSON."); }
 
+          // 🚀 FIX 3: Validasi URL. Jika URL halusinasi (vertex), fallback ke Google News Tracker!
           const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
           const realWebs = chunks.map((c: any) => c.web).filter(Boolean);
 
@@ -1774,6 +1824,7 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
               parsedAI = JSON.parse(cleanText);
           } catch (e) { throw new Error("Gagal parsing JSON hasil analisa."); }
 
+          // 🚀 FIX 4: Gunakan link asli atau Fallback Google News
           const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
           const realWebs = chunks.map((c: any) => c.web).filter(Boolean);
 
