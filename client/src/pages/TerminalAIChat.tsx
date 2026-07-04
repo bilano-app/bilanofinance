@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Maximize2, Minus, Send, Bot, User, Orbit } from 'lucide-react';
+import { Minus, Send, Bot, User, Orbit } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import ReactMarkdown from 'react-markdown';
 
 interface ChatMessage {
   sender: 'user' | 'model';
@@ -100,13 +101,13 @@ export default function TerminalAIChat({ financialContext }: TerminalAIChatProps
 
   return (
     <div 
-      className="fixed z-[9999] w-80 md:w-96 bg-[#050505] border border-[#27272A] shadow-2xl overflow-hidden flex flex-col font-sans"
+      className="fixed z-[9999] w-80 md:w-[450px] bg-[#050505] border border-[#27272A] shadow-2xl overflow-hidden flex flex-col font-sans"
       style={{
         bottom: position.y === 0 ? '24px' : 'auto',
         right: position.x === 0 ? '24px' : 'auto',
         transform: (position.x !== 0 || position.y !== 0) ? `translate(${position.x}px, ${position.y}px)` : 'none',
-        height: '500px',
-        maxHeight: '80vh'
+        height: '600px',
+        maxHeight: '85vh'
       }}
     >
       {/* HEADER - Area untuk Dragging */}
@@ -138,12 +139,37 @@ export default function TerminalAIChat({ financialContext }: TerminalAIChatProps
         )}
         {history.map((msg, idx) => (
           <div key={idx} className={`flex gap-3 ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+            
+            {/* Ikon User/AI */}
             <div className={`w-6 h-6 rounded-sm flex items-center justify-center shrink-0 ${msg.sender === 'user' ? 'bg-[#222]' : 'bg-[#00E5FF]/10 border border-[#00E5FF]/30'}`}>
               {msg.sender === 'user' ? <User className="w-3.5 h-3.5 text-white" /> : <Bot className="w-3.5 h-3.5 text-[#00E5FF]" />}
             </div>
-            <div className={`p-3 text-xs leading-relaxed max-w-[75%] ${msg.sender === 'user' ? 'bg-[#111] text-white rounded-l-lg rounded-br-lg border border-[#333]' : 'bg-transparent text-[#D4D4D8]'}`}>
-              {msg.text}
+            
+            {/* Bubble Chat */}
+            <div className={`p-3 text-xs leading-relaxed max-w-[85%] ${
+              msg.sender === 'user' 
+                ? 'bg-[#111] text-white rounded-l-lg rounded-br-lg border border-[#333]' 
+                : 'bg-transparent text-[#D4D4D8] overflow-hidden'
+            }`}>
+              {msg.sender === 'user' ? (
+                msg.text
+              ) : (
+                <ReactMarkdown 
+                  className="
+                    [&>p]:mb-3 last:[&>p]:mb-0 
+                    [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:mb-3 [&>ul]:space-y-1
+                    [&>ol]:list-decimal [&>ol]:pl-5 [&>ol]:mb-3 [&>ol]:space-y-1
+                    [&_strong]:text-[#00E5FF] [&_strong]:font-black
+                    [&_h1]:text-sm [&_h1]:font-black [&_h1]:text-white [&_h1]:mb-2
+                    [&_h2]:text-sm [&_h2]:font-bold [&_h2]:text-white [&_h2]:mb-2
+                    [&_h3]:text-xs [&_h3]:font-bold [&_h3]:text-[#FFD700] [&_h3]:mb-1
+                  "
+                >
+                  {msg.text}
+                </ReactMarkdown>
+              )}
             </div>
+            
           </div>
         ))}
         {isLoading && (
@@ -164,13 +190,13 @@ export default function TerminalAIChat({ financialContext }: TerminalAIChatProps
           value={message}
           onChange={e => setMessage(e.target.value)}
           placeholder="Ketik instruksi atau pertanyaan..."
-          className="flex-1 bg-[#111] border border-[#333] text-white text-xs px-3 py-2 outline-none focus:border-[#00E5FF] transition-colors rounded-sm"
+          className="flex-1 bg-[#111] border border-[#333] text-white text-xs px-3 py-3 outline-none focus:border-[#00E5FF] transition-colors rounded-sm"
           disabled={isLoading}
         />
         <button 
           type="submit" 
           disabled={isLoading || !message.trim()}
-          className="bg-[#00E5FF] hover:bg-[#00B3CC] disabled:bg-[#333] text-black p-2 rounded-sm transition-all"
+          className="bg-[#00E5FF] hover:bg-[#00B3CC] disabled:bg-[#333] text-black px-4 py-2 rounded-sm transition-all flex items-center justify-center"
         >
           <Send className="w-4 h-4" />
         </button>
