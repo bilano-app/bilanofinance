@@ -173,7 +173,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
           const { anonymousId, eventName, properties } = req.body;
         
-        // Coba deteksi email user jika sedang login
           const email = req.headers["x-user-email"];
           let userId = null;
           if (email && email !== "guest") {
@@ -190,32 +189,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           res.json({ success: true });
       } catch (e) {
-          // Gagal tracking tidak boleh membuat aplikasi crash, biarkan lewat
           res.status(200).json({ success: false, message: "Tracking failed silently" });
       }
   });
 
-  // =========================================================================
-  // 🚀 ENDPOINT LOGIN ADMIN KHUSUS (MANAGER.TSX)
-  // =========================================================================
   app.post("/api/admin/manager-login", async (req: any, res: any) => {
       const { email, password } = req.body;
-
-      // Cek kredensial admin secara langsung
       if (email === "bilanotech@gmail.com" && password === "Bilano6676") {
           return res.json({ success: true, token: "admin_authorized_session" });
       }
-      
       return res.status(401).json({ error: "Kredensial Admin Salah atau Tidak Dikenal!" });
   });
 
-  
-
-// =========================================================================
-// 🚀 ENDPOINT UNTUK DASHBOARD MANAGER (BILANO.APP/MANAGER)
-// =========================================================================
   app.get("/api/admin/tracking-stats", async (req: any, res: any) => {
-      // Proteksi Akses
       const emailAdmin = req.headers["x-user-email"] as string;
       const isAdminValid = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(emailAdmin);
       if (!isAdminValid) return res.status(403).json({ error: "Akses Ditolak" });
@@ -226,7 +212,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const allEventsRes = await db.execute(sql`SELECT * FROM tracking_events ORDER BY created_at DESC`);
           const allEvents = Array.isArray(allEventsRes) ? allEventsRes : (allEventsRes as any).rows || [];
 
-          // Ambil users dan txs untuk app metrics
           const allUsersRes = await db.execute(sql`SELECT * FROM users`);
           const allUsers = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
           
@@ -240,10 +225,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const uniqueVisitors = new Set();
           
           let totalRevenue = 0;
-          const transactionHistory: any[] = []; // Wadah Riwayat Transaksi
+          const transactionHistory: any[] = []; 
           const dailyTrend: Record<string, { visitors: number, sales: number }> = {};
           
-          // PWA Specific Tracking
           const featureAdoption = { ai_chat: 0, smart_scan: 0, portfolio_view: 0, manual_input: 0 };
           const activeUsers30Days = new Set();
           const activeUsersToday = new Set();
@@ -260,7 +244,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const dateStr = eventDate.toISOString().split('T')[0];
               if (!dailyTrend[dateStr]) dailyTrend[dateStr] = { visitors: 0, sales: 0 };
 
-              // Menambahkan vitalitas user
               if (e.user_id) {
                  if (eventDate >= thirtyDaysAgo) activeUsers30Days.add(e.user_id);
                  if (eventDate >= todayStart) activeUsersToday.add(e.user_id);
@@ -279,7 +262,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (e.event_name === 'checkout_initiated') metrics.checkout_initiated++;
               if (e.event_name === 'pwa_install_accepted') metrics.pwa_installed++;
 
-              // 🔥 Hitung Pembayaran & Rekap Riwayat Transaksi
               if (e.event_name === 'payment_success') {
                   metrics.payment_success++;
                   dailyTrend[dateStr].sales++;
@@ -288,7 +270,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                   if (props.amount) totalRevenue += Number(props.amount);
 
-                  // Masukkan ke log tabel Manager
                   transactionHistory.push({
                       date: e.created_at,
                       name: props.name || "Anonim",
@@ -299,7 +280,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   });
               }
 
-              // Feature Adoption (Asumsi penamaan event dari frontend)
               if (e.event_name === 'ai_chat_used') featureAdoption.ai_chat++;
               if (e.event_name === 'smart_scan_used') featureAdoption.smart_scan++;
               if (e.event_name === 'portfolio_viewed') featureAdoption.portfolio_view++;
@@ -313,7 +293,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           });
 
-          // Fallback perbaikan data apabila app baru diperbarui
           featureAdoption.manual_input = Math.max(featureAdoption.manual_input, allTxs.length);
 
           const funnel = {
@@ -324,7 +303,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
              paid: new Set(allEvents.filter(e => e.event_name === 'payment_success').map(e => e.anonymous_id)).size,
           };
 
-          // APP METRICS CALCULATIONS
           const installRate = metrics.payment_success > 0 ? Math.round((metrics.pwa_installed / metrics.payment_success) * 100) : 0;
           const stickiness = activeUsers30Days.size > 0 ? Math.round((activeUsersToday.size / activeUsers30Days.size) * 100) : 0;
           
@@ -355,7 +333,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           const zombieRate = proCount > 0 ? Math.round((zombieCount / proCount) * 100) : 0;
 
-          // Asumsi persentase renewal 
           const renewalRate = plans.year > 0 || plans.month > 0 ? 85 : 0;
 
           const dailyTrendArray = Object.keys(dailyTrend).sort().map(key => ({
@@ -425,8 +402,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           else res.status(500).json({ error: `Gagal Kirim Email: ${errMsg.substring(0, 100)}` });
       }
   });
-
-  
 
   app.post("/api/transactions/undo", async (req: any, res: any) => {
       try {
@@ -1250,9 +1225,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: "SERVER CRASH: " + error.message }); }
   });
 
-  // =========================================================================
-  // 🚀 INTEGRASI DUITKU SANDBOX (ONBOARDING SYARAT)
-  // =========================================================================
   app.post("/api/payment/duitku-sandbox", async (req: any, res: any) => {
       try {
           const { price, productDetail, customerName, email, phone } = req.body;
@@ -1521,6 +1493,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses history aset." }); }
   });
 
+  // =========================================================================
+  // 🚀 FITUR BARU: PENARIKAN DATA DIVIDEN (DIVIDEND EVENTS) DARI YAHOO API
+  // =========================================================================
+  app.post("/api/finance/dividends", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { symbols, range = '5y' } = req.body; 
+          if (!symbols || !Array.isArray(symbols)) return res.status(400).json({ error: "Format pencarian simbol salah." });
+
+          const results: Record<string, { date: number, amount: number }[]> = {};
+
+          await Promise.all(symbols.map(async (rawSymbol: string) => {
+              try {
+                  let symbol = rawSymbol.toUpperCase().trim();
+                  
+                  // Emas tidak membagikan dividen, otomatis return array kosong
+                  const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
+                  if (isGold) {
+                      results[rawSymbol] = [];
+                      return;
+                  }
+                  
+                  // Memanggil API chart khusus dengan argumen 'events=div'
+                  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=${range}&events=div`);
+                  
+                  if (response.ok) {
+                      const data = await response.json();
+                      const result = data.chart?.result?.[0];
+                      
+                      // Cek apakah ada record pembagian dividen
+                      if (result && result.events && result.events.dividends) {
+                          const currency = result.meta?.currency || "IDR";
+                          const divs = result.events.dividends;
+                          
+                          const now = Date.now();
+                          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
+                          const usdToIdr = cachedRates['USD'] || 16200;
+
+                          // Konversi besaran dividen ke IDR jika mata uang aslinya valas (misal: VGT, SPUS)
+                          let rate = 1;
+                          if (currency !== "IDR" && currency !== "Rp") {
+                              rate = cachedRates[currency as keyof typeof cachedRates] || usdToIdr;
+                          }
+
+                          results[rawSymbol] = Object.values(divs).map((d: any) => ({
+                              date: d.date, // Dalam wujud timestamp
+                              amount: d.amount * rate
+                          })).sort((a: any, b: any) => a.date - b.date); // Urutkan dari terlama ke terbaru
+                      } else {
+                          results[rawSymbol] = [];
+                      }
+                  } else {
+                      results[rawSymbol] = [];
+                  }
+              } catch(e) {
+                  results[rawSymbol] = [];
+              }
+          }));
+
+          res.json({ success: true, data: results });
+      } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses data dividen." }); }
+  });
+
   app.post("/api/vision/scan", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1604,10 +1641,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses suara." }); }
   });
 
-  // =========================================================================
-  // 🚀 PERBAIKAN LOGIKA PROMPT UNTUK SEARCH GROUNDING AGAR TIDAK BENTROK
-  // =========================================================================
-  
   app.post("/api/finance/intel", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1652,7 +1685,6 @@ Kembalikan HANYA format JSON MURNI tanpa markdown:
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
-                  // 🚀 FIX 1: Paksa API mengembalikan struktur JSON yang valid
                   generationConfig: { temperature: 0.1, response_mime_type: "application/json" } 
               })
           });
@@ -1670,7 +1702,6 @@ Kembalikan HANYA format JSON MURNI tanpa markdown:
               parsedAI = JSON.parse(cleanText);
           } catch (e) { throw new Error("Gagal melakukan parsing data AI dari Google Search."); }
 
-          // 🚀 FIX 2: Ekstrak sumber asli langsung dari metadata grounding untuk menghindari URL mati
           const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
           const realArticles = chunks
               .map((c: any) => c.web)
@@ -1748,7 +1779,6 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
               parsedAI = JSON.parse(cleanText);
           } catch (e) { throw new Error("Gagal parsing JSON."); }
 
-          // 🚀 FIX 3: Validasi URL. Jika URL halusinasi (vertex), fallback ke Google News Tracker!
           const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
           const realWebs = chunks.map((c: any) => c.web).filter(Boolean);
 
@@ -1824,7 +1854,6 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
               parsedAI = JSON.parse(cleanText);
           } catch (e) { throw new Error("Gagal parsing JSON hasil analisa."); }
 
-          // 🚀 FIX 4: Gunakan link asli atau Fallback Google News
           const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
           const realWebs = chunks.map((c: any) => c.web).filter(Boolean);
 
