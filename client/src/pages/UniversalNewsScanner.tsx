@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-  Globe, Search, Zap, Crosshair, ArrowUpRight, Newspaper, Radar, Orbit, AlertTriangle
+  Globe, Search, Zap, Crosshair, ArrowUpRight, Newspaper, Radar, Orbit, AlertTriangle, RefreshCcw
 } from 'lucide-react';
 
 const COMMON_TICKERS = [
@@ -10,7 +10,12 @@ const COMMON_TICKERS = [
   "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B", "JPM", "V"
 ];
 
-export default function UniversalNewsScanner({ currentUserEmail }: { currentUserEmail: string }) {
+interface UniversalNewsScannerProps {
+  currentUserEmail: string;
+  onNewsUpdate?: (newsData: any) => void;
+}
+
+export default function UniversalNewsScanner({ currentUserEmail, onNewsUpdate }: UniversalNewsScannerProps) {
   const [activeMode, setActiveMode] = useState<'universal' | 'deepscan'>('universal');
   
   // State Universal News
@@ -55,11 +60,15 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
         body: JSON.stringify({ market: marketType })
       });
       const data = await res.json();
+      
       if (!res.ok) throw new Error(data.error || "Gagal menarik data berita.");
       if (!data.data || !data.data.klotters || data.data.klotters.length === 0) {
           throw new Error("Pencarian Google tidak mengembalikan hasil berita yang valid hari ini.");
       }
+      
       setUniversalData(data.data);
+      if (onNewsUpdate) onNewsUpdate(data.data); // Update ke Context AI
+      
     } catch (error: any) {
       console.error(error);
       setUniversalError(error.message);
@@ -80,11 +89,15 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
         body: JSON.stringify({ ticker: selectedTicker })
       });
       const data = await res.json();
+      
       if (!res.ok) throw new Error(data.error || "Gagal melakukan deep scan.");
       if (!data.data || !data.data.verdict) {
           throw new Error("Sistem gagal menganalisis ticker ini karena minimnya sentimen berita.");
       }
+      
       setScanResult(data.data);
+      if (onNewsUpdate) onNewsUpdate(data.data); // Update ke Context AI
+
     } catch (error: any) {
       console.error(error);
       setScanError(error.message);
@@ -148,7 +161,7 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
               <select 
                 value={marketType} 
                 onChange={(e) => setMarketType(e.target.value as 'ID' | 'US')}
-                className="bg-[#111] border border-[#333] text-white text-xs px-4 py-2 outline-none focus:border-[#00E5FF] uppercase font-mono"
+                className="bg-[#111] border border-[#333] text-white text-xs px-4 py-2 outline-none focus:border-[#00E5FF] uppercase font-mono cursor-pointer"
               >
                 <option value="ID">Saham Indonesia (IHSG)</option>
                 <option value="US">Saham US (Wall Street)</option>
@@ -173,7 +186,13 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
             <div className="bg-[#FF003C]/10 border border-[#FF003C]/30 p-8 flex flex-col items-center justify-center text-center">
                <AlertTriangle className="w-10 h-10 text-[#FF003C] mb-4" />
                <h3 className="text-sm font-black text-white mb-2 uppercase tracking-widest">Sistem Gagal Merespon</h3>
-               <p className="text-[#A1A1AA] text-xs max-w-md uppercase tracking-wider">{universalError}</p>
+               <p className="text-[#A1A1AA] text-xs max-w-md uppercase tracking-wider mb-6">{universalError}</p>
+               <button 
+                 onClick={handleFetchUniversal}
+                 className="flex items-center gap-2 bg-[#FF003C] hover:bg-[#CC0030] text-white px-6 py-2 text-[10px] font-black uppercase tracking-widest transition-all"
+               >
+                 <RefreshCcw className="w-3 h-3" /> Coba Lagi
+               </button>
             </div>
           ) : universalData && universalData.klotters ? (
             <div className="space-y-8">
@@ -304,7 +323,13 @@ export default function UniversalNewsScanner({ currentUserEmail }: { currentUser
             <div className="bg-[#FF003C]/10 border border-[#FF003C]/30 p-8 flex flex-col items-center justify-center text-center">
                <AlertTriangle className="w-10 h-10 text-[#FF003C] mb-4" />
                <h3 className="text-sm font-black text-white mb-2 uppercase tracking-widest">Deep Scan Gagal</h3>
-               <p className="text-[#A1A1AA] text-xs max-w-md uppercase tracking-wider">{scanError}</p>
+               <p className="text-[#A1A1AA] text-xs max-w-md uppercase tracking-wider mb-6">{scanError}</p>
+               <button 
+                 onClick={handleDeepScan}
+                 className="flex items-center gap-2 bg-[#FF003C] hover:bg-[#CC0030] text-white px-6 py-2 text-[10px] font-black uppercase tracking-widest transition-all"
+               >
+                 <RefreshCcw className="w-3 h-3" /> Coba Lagi Scan
+               </button>
             </div>
           ) : scanResult ? (
             <div className="space-y-6">

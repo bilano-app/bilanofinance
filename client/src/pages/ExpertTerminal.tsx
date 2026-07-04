@@ -11,6 +11,8 @@ import { useQuery } from "@tanstack/react-query";
 import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import UniversalNewsScanner from "./UniversalNewsScanner";
+import { useDebts } from "@/hooks/use-finance"; // 👈 Tambahkan ini
+import TerminalAIChat from "./TerminalAIChat"; // 👈 Pastikan path sesuai
 
 // Skema Warna Terminal Profesional (High Contrast Neons)
 const COLORS = ['#00FF41', '#00E5FF', '#FF003C', '#FFD700', '#B500FF', '#FF8C00', '#FFFFFF'];
@@ -28,6 +30,8 @@ export default function ExpertTerminal() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const { data: debts = [] } = useDebts(); // 👈 Tambahkan ini
+  const [newsContext, setNewsContext] = useState<any>(null); //
 
   // Mengambil email dari session key utama agar hooks use-finance tidak null
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
@@ -1150,6 +1154,28 @@ export default function ExpertTerminal() {
           </>
       );
   }
+  // Engine Konteks AI (Menyatukan semua data live di layar)
+  const expertAIContext = `
+    INFORMASI PENTING UNTUK AI:
+    Pengguna saat ini sedang berada di Expert Terminal BILANO, di tab: [${activeTab.toUpperCase()}].
+
+    --- DATA KEUANGAN PENGGUNA (PERFORMANCE & PORTFOLIO) ---
+    - Total Kas Likuid: Rp ${cashBalance}
+    - Total Valuasi Aset Investasi: Rp ${totalAssetValue}
+    - Laba/Rugi Keseluruhan: Rp ${totalProfitLoss}
+    - Piutang (Uang di orang lain): ${debts.filter((d:any) => d.type === 'piutang').reduce((acc:number, d:any) => acc + d.amount, 0)}
+    - Hutang (Uang pinjaman): ${debts.filter((d:any) => d.type === 'hutang').reduce((acc:number, d:any) => acc + d.amount, 0)}
+    - Aset aktif dipegang: ${activePortfolio.map((p:any) => p.symbol).join(', ') || 'Belum ada'}
+
+    --- KONTEKS BERITA GLOBAL SCANNER (JIKA ADA) ---
+    ${newsContext 
+      ? JSON.stringify(newsContext) 
+      : 'Pengguna belum melakukan scan berita hari ini. Jika mereka bertanya soal berita, informasikan bahwa mereka bisa klik tab "Global Scanner" dan menekan tombol Telusuri/Eksekusi terlebih dahulu agar Anda bisa menganalisisnya secara presisi bersama-sama.'
+    }
+
+    TUGAS UTAMA ANDA: 
+    Anda bebas memberikan saran trading, saran alokasi menunggu piutang cair, atau sentimen pasar berdasar berita di atas. Jangan membatasi imajinasi analitik Anda. Gunakan data di atas sebagai landasan absolut perhitungan Anda.
+  `;
 
   // =========================================================================
   // 🚀 MAIN INTERFACE EXPERT TERMINAL
@@ -2143,7 +2169,12 @@ export default function ExpertTerminal() {
 
           {/* ================= TAB 6: GLOBAL SCANNER ================= */}
           {activeTab === 'scanner' && (
-             <UniversalNewsScanner currentUserEmail={currentUserEmail} />
+             <UniversalNewsScanner currentUserEmail={currentUserEmail} onNewsUpdate={(data) => setNewsContext(data)}/>
+          )}
+
+          {/* KOTAK CHAT AI MENGAMBANG */}
+          {isTerminalAuth && (
+             <TerminalAIChat financialContext={expertAIContext} />
           )}
         </div>
       </main>
