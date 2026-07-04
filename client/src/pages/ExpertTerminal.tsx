@@ -130,6 +130,25 @@ export default function ExpertTerminal() {
   }, [chartTimeframe]);
 
   const { data: livePrices = {}, isLoading: isLivePricesLoading } = useLiveQuotes(uniqueTickersToFetch);
+  // =========================================================================
+  // 🚀 HOOK DIVIDEN REAL-TIME DARI API
+  // =========================================================================
+  const { data: dividendEvents = {} } = useQuery({
+      queryKey: ['dividendEvents', uniqueTickersToFetch.join(',')],
+      queryFn: async () => {
+          if (uniqueTickersToFetch.length === 0) return {};
+          const res = await fetch(`/api/finance/dividends`, {
+              method: 'POST',
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ symbols: uniqueTickersToFetch, range: '5y' }) 
+          });
+          if (!res.ok) throw new Error("Gagal menarik data dividen.");
+          const json = await res.json();
+          return json.data || {};
+      },
+      enabled: !!currentUserEmail && isTerminalAuth,
+      staleTime: 1000 * 60 * 60 * 24 // Cache 1 hari
+  });
   const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, apiRange);
   const { data: simHistoryPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
 
@@ -790,7 +809,6 @@ export default function ExpertTerminal() {
      let startTimeframe = firstDate;
      let stepSize = 24 * 60 * 60 * 1000; 
      
-     // Tingkat kerapatan data poin untuk grafik 'Live'
      if (chartTimeframe === '1D') {
          startTimeframe = now - 1 * 24 * 60 * 60 * 1000;
          stepSize = 5 * 60 * 1000; 
@@ -822,26 +840,51 @@ export default function ExpertTerminal() {
      const dailyData = [];
      let cumulativeDividend = 0;
 
-     const getDividendYield = (sym: string) => {
-         if (['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym)) return 0;
-         if (sym === 'VGT') return 0.008; // Estimasi US Tech
-         if (sym === 'SPUS') return 0.015; // Estimasi US Islamic
-         return 0.04; // Baseline IHSG (4%)
+     // FUNGSI PEMBANTU: Mengecek jumlah lot/qty riil yang dipegang pada waktu (timestamp) tertentu
+     const getQtyAtTime = (sym: string, targetTs: number) => {
+         let q = 0;
+         if (setupAwalBases[sym] && setupAwalBases[sym].date.getTime() <= targetTs) {
+             q = setupAwalBases[sym].qty;
+         }
+         parsedInvestTxs.forEach((t: any) => {
+             if (t.parsedSymbol === sym && new Date(t.date).getTime() <= targetTs) {
+                 if (t.type === 'invest_buy') q += t.parsedQty;
+                 else { q -= t.parsedQty; if (q < 0) q = 0; }
+             }
+         });
+         return q;
      };
 
+     // 1. HITUNG DIVIDEN MASA LALU (Sebelum titik awal grafik agar akumulasinya tidak mulai dari 0)
+     const allTradedSymbols = Array.from(new Set([...Object.keys(setupAwalBases), ...parsedInvestTxs.map((t: any) => t.parsedSymbol)]));
+     
+     allTradedSymbols.forEach(sym => {
+         const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
+         const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
+         const multiplier = assetMeta ? assetMeta.liveMultiplier : (sym.length === 4 ? 100 : 1);
+         const divs = dividendEvents[ticker] || [];
+         
+         divs.forEach((d: any) => {
+             const divTsMs = d.date * 1000; 
+             // Cek jika dividen terjadi SEBELUM grafik ini dimulai
+             if (divTsMs <= currentTs) {
+                 const heldQty = getQtyAtTime(sym, divTsMs);
+                 if (heldQty > 0) {
+                     cumulativeDividend += (d.amount * heldQty * multiplier);
+                 }
+             }
+         });
+     });
+
+     // 2. RENDER TITIK GRAFIK
      while(currentTs <= endTs) {
          const dateObj = new Date(currentTs);
          let dateLabel = '';
          
-         if (chartTimeframe === '1D') {
-             dateLabel = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-         } else if (chartTimeframe === '1W') {
-             dateLabel = dateObj.toLocaleDateString('id-ID', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-         } else if (chartTimeframe === '5Y') {
-             dateLabel = dateObj.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
-         } else {
-             dateLabel = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
-         }
+         if (chartTimeframe === '1D') dateLabel = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+         else if (chartTimeframe === '1W') dateLabel = dateObj.toLocaleDateString('id-ID', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+         else if (chartTimeframe === '5Y') dateLabel = dateObj.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
+         else dateLabel = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
 
          let currentQty: Record<string, number> = {};
          let currentInvestedIDR: Record<string, number> = {};
@@ -881,15 +924,12 @@ export default function ExpertTerminal() {
                  const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
                  const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
 
-                 // Extrapolate price API using target date
                  let price = getPriceForDate(ticker, currentTs);
                  
-                 // If the loop hits the final timestamp, overwrite with livePrice explicitly to make the final tick 100% accurate
                  if (currentTs + stepSize > endTs) {
                      price = livePrices[ticker] || price;
                  }
 
-                 // Fallback to base cost if API history is missing
                  if (!price) {
                      price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier);
                  }
@@ -898,10 +938,14 @@ export default function ExpertTerminal() {
                  dailyValuation += val;
                  dailyInvested += currentInvestedIDR[sym];
 
-                 // Kalkulasi Progresif Dividend berdasarkan hari kepemilikan
-                 const yieldRate = getDividendYield(sym);
-                 const stepFractionOfYear = stepSize / (365 * 24 * 60 * 60 * 1000);
-                 cumulativeDividend += val * yieldRate * stepFractionOfYear;
+                 // CEK EVENT DIVIDEN: Hanya tambah saldo dividen jika ada event real di range waktu/hari ini
+                 const divs = dividendEvents[ticker] || [];
+                 divs.forEach((d: any) => {
+                     const divTsMs = d.date * 1000;
+                     if (divTsMs > currentTs && divTsMs <= (currentTs + stepSize)) {
+                         cumulativeDividend += (d.amount * currentQty[sym] * multiplier);
+                     }
+                 });
              }
          });
 
@@ -916,8 +960,7 @@ export default function ExpertTerminal() {
      }
 
      return dailyData;
-  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices, chartAssetFilter, getHistoricalRate]);
-
+  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices, chartAssetFilter, getHistoricalRate, dividendEvents]); 
   // =========================================================================
   // 🛡️ REFORMASI LOGIKA LOGIN & RE-FRESH SESSION KUNCI UTAMA PWA
   // =========================================================================
