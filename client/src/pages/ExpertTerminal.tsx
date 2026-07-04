@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useUser, useInvestments, useTransactions, useLiveQuotes, useHistoricalQuotes, usePortfolioSnapshots, useSaveSnapshot } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
-import { PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line, LineChart, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ComposedChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line, LineChart, Legend } from 'recharts';
 import { useQuery } from "@tanstack/react-query";
 import { auth } from "@/lib/firebase";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
@@ -43,6 +43,10 @@ export default function ExpertTerminal() {
   const [showProfit, setShowProfit] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | '5Y'>('1M');
+  
+  // Filter Ekstraksi Chart
+  const [chartAssetFilter, setChartAssetFilter] = useState<string>('ALL');
+  const [chartLineFilter, setChartLineFilter] = useState<'ALL' | 'MARKET_VALUE' | 'MODAL' | 'DIVIDEND'>('ALL');
   
   // Indikator Progres Interaktif
   const [intelStatus, setIntelStatus] = useState("Membangun koneksi ke server agregator...");
@@ -173,7 +177,7 @@ export default function ExpertTerminal() {
       refetchOnWindowFocus: false, 
   });
 
-  // Efek untuk teks status loading Market Intel (Tanpa Persentase)
+  // Efek untuk teks status loading Market Intel
   useEffect(() => {
       let interval: NodeJS.Timeout;
       
@@ -573,6 +577,9 @@ export default function ExpertTerminal() {
       return earliest;
   }, [chronologicalTxs, investments]);
 
+  // =========================================================================
+  // 🚀 PERBAIKAN LOGIKA KALKULASI MODAL (SPUS & VGT BUG FIX)
+  // =========================================================================
   const setupAwalBases = useMemo(() => {
       const txNetQty: Record<string, {qty: number, invested: number}> = {};
       
@@ -583,13 +590,26 @@ export default function ExpertTerminal() {
               const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i); 
               const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
               
+              const priceMatch = t.description?.match(/@\s*(?:Rp|USD|US\$)?\s*([0-9.,]+)/i);
+              const rawPrice = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
+
+              const asset = activePortfolio.find((p: any) => p.symbol === sym);
+              const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
+              const multiplier = asset ? asset.liveMultiplier : (sym.length === 4 ? 100 : 1);
+              const rate = currency === 'IDR' ? 1 : getHistoricalRate(new Date(t.date).getTime(), currency);
+
+              let realAmountIDR = rawPrice * qty * multiplier * rate;
+              if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) {
+                  realAmountIDR = t.amount;
+              }
+              
               if (!txNetQty[sym]) txNetQty[sym] = { qty: 0, invested: 0 };
               if (t.type === 'invest_buy') {
                   txNetQty[sym].qty += qty;
-                  txNetQty[sym].invested += t.amount;
+                  txNetQty[sym].invested += realAmountIDR;
               } else {
                   txNetQty[sym].qty -= qty;
-                  txNetQty[sym].invested -= t.amount;
+                  txNetQty[sym].invested -= realAmountIDR;
               }
           }
       });
@@ -609,7 +629,7 @@ export default function ExpertTerminal() {
           }
       });
       return bases;
-  }, [chronologicalTxs, activePortfolio]);
+  }, [chronologicalTxs, activePortfolio, getHistoricalRate]);
 
   const getSnapshotAtDate = useCallback((targetDate: Date, isCurrent: boolean) => {
       const qtyMap: Record<string, { qty: number, investedIDR: number }> = {};
@@ -630,14 +650,27 @@ export default function ExpertTerminal() {
                   const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
                   const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0; 
                   
+                  const priceMatch = t.description?.match(/@\s*(?:Rp|USD|US\$)?\s*([0-9.,]+)/i);
+                  const rawPrice = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
+
+                  const asset = activePortfolio.find((p: any) => p.symbol === sym);
+                  const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
+                  const multiplier = asset ? asset.liveMultiplier : (sym.length === 4 ? 100 : 1);
+                  const rate = currency === 'IDR' ? 1 : getHistoricalRate(new Date(t.date).getTime(), currency);
+
+                  let realAmountIDR = rawPrice * qty * multiplier * rate;
+                  if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) {
+                      realAmountIDR = t.amount;
+                  }
+                  
                   if (!qtyMap[sym]) qtyMap[sym] = { qty: 0, investedIDR: 0 };
                   
                   if (t.type === 'invest_buy') {
                       qtyMap[sym].qty += qty;
-                      qtyMap[sym].investedIDR += t.amount;
+                      qtyMap[sym].investedIDR += realAmountIDR;
                   } else {
                       qtyMap[sym].qty -= qty;
-                      qtyMap[sym].investedIDR -= t.amount;
+                      qtyMap[sym].investedIDR -= realAmountIDR;
                       if (qtyMap[sym].qty <= 0) {
                           qtyMap[sym].qty = 0;
                           qtyMap[sym].investedIDR = 0;
@@ -676,7 +709,7 @@ export default function ExpertTerminal() {
       });
       
       return { totalValue: totalVal, investValue: totalInv, details };
-  }, [setupAwalBases, chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate]);
+  }, [setupAwalBases, chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate, getHistoricalRate]);
 
   const availableMonths = useMemo(() => {
       const currentYear = new Date().getFullYear();
@@ -722,6 +755,9 @@ export default function ExpertTerminal() {
       return getSnapshotAtDate(endOfYear, isCurrentYear);
   }, [getSnapshotAtDate]);
 
+  // =========================================================================
+  // 🚀 ENGINE GENERATOR GRAFIK LIVE (MARKET VALUE, MODAL, DIVIDEND)
+  // =========================================================================
   const chartDataDaily = useMemo(() => {
      if (activePortfolio.length === 0 || Object.keys(historyPrices).length === 0) return [];
 
@@ -730,7 +766,22 @@ export default function ExpertTerminal() {
          const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
          const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
          const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
-         return { ...t, parsedSymbol: sym, parsedQty: qty };
+
+         const priceMatch = t.description?.match(/@\s*(?:Rp|USD|US\$)?\s*([0-9.,]+)/i);
+         const rawPrice = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
+
+         const asset = activePortfolio.find((p: any) => p.symbol === sym);
+         const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
+         const multiplier = asset ? asset.liveMultiplier : (sym.length === 4 ? 100 : 1);
+         const txDateTs = new Date(t.date).getTime();
+         const historicalRate = currency === 'IDR' ? 1 : getHistoricalRate(txDateTs, currency);
+
+         let realAmountIDR = rawPrice * qty * multiplier * historicalRate;
+         if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) {
+             realAmountIDR = t.amount;
+         }
+
+         return { ...t, parsedSymbol: sym, parsedQty: qty, parsedRealAmountIDR: realAmountIDR };
      });
 
      const firstDate = firstInvestmentDate.getTime();
@@ -739,15 +790,16 @@ export default function ExpertTerminal() {
      let startTimeframe = firstDate;
      let stepSize = 24 * 60 * 60 * 1000; 
      
+     // Tingkat kerapatan data poin untuk grafik 'Live'
      if (chartTimeframe === '1D') {
          startTimeframe = now - 1 * 24 * 60 * 60 * 1000;
-         stepSize = 15 * 60 * 1000; 
+         stepSize = 5 * 60 * 1000; 
      } else if (chartTimeframe === '1W') {
          startTimeframe = now - 7 * 24 * 60 * 60 * 1000;
-         stepSize = 2 * 60 * 60 * 1000; 
+         stepSize = 1 * 60 * 60 * 1000; 
      } else if (chartTimeframe === '1M') {
          startTimeframe = now - 30 * 24 * 60 * 60 * 1000;
-         stepSize = 24 * 60 * 60 * 1000; 
+         stepSize = 12 * 60 * 60 * 1000; 
      } else if (chartTimeframe === '3M') {
          startTimeframe = now - 90 * 24 * 60 * 60 * 1000;
          stepSize = 24 * 60 * 60 * 1000; 
@@ -756,7 +808,7 @@ export default function ExpertTerminal() {
          stepSize = 24 * 60 * 60 * 1000; 
      } else if (chartTimeframe === '5Y') {
          startTimeframe = Math.max(firstDate, now - 1825 * 24 * 60 * 60 * 1000);
-         stepSize = 7 * 24 * 60 * 60 * 1000; 
+         stepSize = 3 * 24 * 60 * 60 * 1000; 
      }
      
      let currentTs = startTimeframe;
@@ -768,6 +820,14 @@ export default function ExpertTerminal() {
 
      const endTs = now;
      const dailyData = [];
+     let cumulativeDividend = 0;
+
+     const getDividendYield = (sym: string) => {
+         if (['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym)) return 0;
+         if (sym === 'VGT') return 0.008; // Estimasi US Tech
+         if (sym === 'SPUS') return 0.015; // Estimasi US Islamic
+         return 0.04; // Baseline IHSG (4%)
+     };
 
      while(currentTs <= endTs) {
          const dateObj = new Date(currentTs);
@@ -798,10 +858,10 @@ export default function ExpertTerminal() {
                  if (!currentQty[t.parsedSymbol]) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
                  if (t.type === 'invest_buy') {
                      currentQty[t.parsedSymbol] += t.parsedQty;
-                     currentInvestedIDR[t.parsedSymbol] += t.amount;
+                     currentInvestedIDR[t.parsedSymbol] += t.parsedRealAmountIDR;
                  } else {
                      currentQty[t.parsedSymbol] -= t.parsedQty;
-                     currentInvestedIDR[t.parsedSymbol] -= t.amount;
+                     currentInvestedIDR[t.parsedSymbol] -= t.parsedRealAmountIDR;
                      if (currentQty[t.parsedSymbol] <= 0) {
                          currentQty[t.parsedSymbol] = 0;
                          currentInvestedIDR[t.parsedSymbol] = 0;
@@ -815,45 +875,48 @@ export default function ExpertTerminal() {
 
          Object.keys(currentQty).forEach(sym => {
              if (currentQty[sym] > 0) {
+                 if (chartAssetFilter !== 'ALL' && sym !== chartAssetFilter) return;
+
                  const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
                  const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
                  const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
 
-                 const price = getPriceForDate(ticker, currentTs);
-                 if (price) dailyValuation += currentQty[sym] * price * multiplier;
-                 else dailyValuation += currentInvestedIDR[sym]; 
+                 // Extrapolate price API using target date
+                 let price = getPriceForDate(ticker, currentTs);
                  
+                 // If the loop hits the final timestamp, overwrite with livePrice explicitly to make the final tick 100% accurate
+                 if (currentTs + stepSize > endTs) {
+                     price = livePrices[ticker] || price;
+                 }
+
+                 // Fallback to base cost if API history is missing
+                 if (!price) {
+                     price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier);
+                 }
+
+                 const val = currentQty[sym] * price * multiplier;
+                 dailyValuation += val;
                  dailyInvested += currentInvestedIDR[sym];
+
+                 // Kalkulasi Progresif Dividend berdasarkan hari kepemilikan
+                 const yieldRate = getDividendYield(sym);
+                 const stepFractionOfYear = stepSize / (365 * 24 * 60 * 60 * 1000);
+                 cumulativeDividend += val * yieldRate * stepFractionOfYear;
              }
          });
-
-         if (currentTs + stepSize > endTs) {
-             dailyValuation = 0;
-             Object.keys(currentQty).forEach(sym => {
-                 if (currentQty[sym] > 0) {
-                     const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
-                     const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
-                     const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
-
-                     const livePrice = livePrices[ticker];
-                     const price = livePrice || getPriceForDate(ticker, currentTs);
-                     if (price) dailyValuation += currentQty[sym] * price * multiplier;
-                     else dailyValuation += currentInvestedIDR[sym]; 
-                 }
-             });
-         }
 
          dailyData.push({
              name: dateLabel,
              Total: dailyValuation,
-             Investasi: dailyInvested
+             Investasi: dailyInvested,
+             Dividend: cumulativeDividend
          });
 
          currentTs += stepSize;
      }
 
      return dailyData;
-  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices]);
+  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices, chartAssetFilter, getHistoricalRate]);
 
   // =========================================================================
   // 🛡️ REFORMASI LOGIKA LOGIN & RE-FRESH SESSION KUNCI UTAMA PWA
@@ -1372,12 +1435,13 @@ export default function ExpertTerminal() {
                               {p.symbol}
                           </th>
                       ))}
+                      <th className="px-6 py-4 text-white whitespace-nowrap border-l border-[#333]">Total Modal</th>
                       <th className="px-6 py-4 text-[#00E5FF] whitespace-nowrap">Aggregated P/L</th>
                     </tr>
                   </thead>
                   <tbody className="text-[#E4E4E7] font-mono text-xs">
                     {availableMonths.length === 0 ? (
-                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
+                       <tr><td colSpan={activePortfolio.length + 3} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
                     ) : (
                        availableMonths.map((m) => {
                           const data = getMonthData(m.monthNum, selectedYear);
@@ -1401,6 +1465,9 @@ export default function ExpertTerminal() {
                                         </td>
                                     );
                                 })}
+                                <td className="px-6 py-4 font-bold border-l border-[#333]">
+                                    {data.investValue === 0 ? <span className="text-[#555]">-</span> : maskRp(data.investValue)}
+                                </td>
                                 <td className="px-6 py-4 bg-[#111]">
                                     {(() => {
                                         if (data.investValue === 0) return <span className="text-[#555]">-</span>;
@@ -1432,12 +1499,13 @@ export default function ExpertTerminal() {
                               {p.symbol}
                           </th>
                       ))}
+                      <th className="px-6 py-4 text-white whitespace-nowrap border-l border-[#333]">Total Modal</th>
                       <th className="px-6 py-4 text-[#FFD700] whitespace-nowrap">Yearly P/L</th>
                     </tr>
                   </thead>
                   <tbody className="text-[#E4E4E7] font-mono text-xs">
                     {availableYears.length === 0 ? (
-                       <tr><td colSpan={activePortfolio.length + 2} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
+                       <tr><td colSpan={activePortfolio.length + 3} className="px-6 py-8 text-center text-[#A1A1AA] uppercase tracking-widest text-[10px]">No Data Available</td></tr>
                     ) : (
                        availableYears.map((y) => {
                           const data = getYearData(y);
@@ -1461,6 +1529,9 @@ export default function ExpertTerminal() {
                                         </td>
                                     );
                                 })}
+                                <td className="px-6 py-4 font-bold border-l border-[#333]">
+                                    {data.investValue === 0 ? <span className="text-[#555]">-</span> : maskRp(data.investValue)}
+                                </td>
                                 <td className="px-6 py-4 bg-[#111]">
                                     {(() => {
                                         if (data.investValue === 0) return <span className="text-[#555]">-</span>;
@@ -1481,33 +1552,41 @@ export default function ExpertTerminal() {
                 </table>
               </div>
 
-              {/* GRAFIK AREA INTRADAY */}
-              <div className="bg-[#0D0D0D] border border-[#222] p-6 mt-6 relative">
-                <div className="flex justify-between items-center mb-6 border-b border-[#222] pb-4">
-                  <h3 className="font-black text-white uppercase tracking-tight text-lg">Chart Historis Teragregasi</h3>
-                  <div className="flex bg-[#111] border border-[#333]">
-                     <button onClick={() => setChartTimeframe('1D')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1D'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1D</button>
-                     <button onClick={() => setChartTimeframe('1W')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1W'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1W</button>
-                     <button onClick={() => setChartTimeframe('1M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1M</button>
-                     <button onClick={() => setChartTimeframe('3M')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='3M'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>3M</button>
-                     <button onClick={() => setChartTimeframe('1Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='1Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>1Y</button>
-                     <button onClick={() => setChartTimeframe('5Y')} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe==='5Y'?'bg-[#00FF41] text-black':'text-[#A1A1AA] hover:text-white'}`}>5Y</button>
+              {/* GRAFIK INTRADAY / HISTORIS KOMPREHENSIF */}
+              <div className="bg-[#0D0D0D] border border-[#222] p-6 mt-6 relative shadow-2xl">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-[#222] pb-4 gap-4">
+                  <div>
+                    <h3 className="font-black text-white uppercase tracking-tight text-lg">Chart Historis Teragregasi</h3>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                       <button onClick={() => setChartAssetFilter('ALL')} className={`px-3 py-1.5 text-[9px] uppercase tracking-[0.1em] font-bold border transition-colors ${chartAssetFilter === 'ALL' ? 'bg-[#FFD700] text-black border-[#FFD700]' : 'bg-[#111] text-[#888] border-[#333] hover:text-white'}`}>TOTAL KESELURUHAN</button>
+                       {activePortfolio.map((p: any) => (
+                           <button key={p.symbol} onClick={() => setChartAssetFilter(p.symbol)} className={`px-3 py-1.5 text-[9px] uppercase tracking-[0.1em] font-bold border transition-colors ${chartAssetFilter === p.symbol ? 'bg-[#FFD700] text-black border-[#FFD700]' : 'bg-[#111] text-[#888] border-[#333] hover:text-white'}`}>{p.symbol}</button>
+                       ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 items-end">
+                      <div className="flex bg-[#111] border border-[#333]">
+                         {['1D', '1W', '1M', '3M', '1Y', '5Y'].map(tf => (
+                             <button key={tf} onClick={() => setChartTimeframe(tf as any)} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe===tf?'bg-[#00E5FF] text-black':'text-[#A1A1AA] hover:text-white'}`}>{tf}</button>
+                         ))}
+                      </div>
+                      <div className="flex bg-[#111] border border-[#333]">
+                         <button onClick={() => setChartLineFilter('ALL')} className={`px-3 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='ALL'?'bg-[#333] text-white':'text-[#666] hover:text-white'}`}>SEMUA GARIS</button>
+                         <button onClick={() => setChartLineFilter('MARKET_VALUE')} className={`px-3 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='MARKET_VALUE'?'bg-[#FF003C] text-white':'text-[#666] hover:text-white'}`}>MARKET VALUE</button>
+                         <button onClick={() => setChartLineFilter('MODAL')} className={`px-3 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='MODAL'?'bg-[#FFF] text-black':'text-[#666] hover:text-white'}`}>TOTAL MODAL</button>
+                         <button onClick={() => setChartLineFilter('DIVIDEND')} className={`px-3 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='DIVIDEND'?'bg-[#FFD700] text-black':'text-[#666] hover:text-white'}`}>DIVIDEND</button>
+                      </div>
                   </div>
                 </div>
-                <div className="h-[350px] w-full">
+                
+                <div className="h-[400px] w-full">
                     {chartDataDaily.length > 0 ? (
                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={chartDataDaily}>
-                             <defs>
-                                <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#00FF41" stopOpacity={0.2}/>
-                                  <stop offset="95%" stopColor="#00FF41" stopOpacity={0}/>
-                                </linearGradient>
-                             </defs>
-                             <XAxis dataKey="name" stroke="#64748B" fontSize={10} fontFamily="JetBrains Mono" tickLine={false} axisLine={false} minTickGap={30} />
+                          <ComposedChart data={chartDataDaily} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
+                             <XAxis dataKey="name" stroke="#64748B" fontSize={10} fontFamily="JetBrains Mono" tickLine={false} axisLine={false} minTickGap={40} />
                              <YAxis 
                                 domain={['dataMin', 'dataMax']} 
-                                padding={{ top: 20, bottom: 20 }}
                                 stroke="#64748B" 
                                 fontSize={10} 
                                 fontFamily="JetBrains Mono"
@@ -1516,14 +1595,27 @@ export default function ExpertTerminal() {
                                 tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(0)}M` : `•••`} 
                                 orientation="right" 
                              />
-                             <Tooltip formatter={(val: number) => maskRp(val)} contentStyle={{backgroundColor: '#000', borderColor: '#333', borderRadius: '0', color: '#fff', fontFamily: 'JetBrains Mono'}} />
+                             <Tooltip 
+                                formatter={(val: number, name: string) => [maskRp(val), name === 'Total' ? 'Nilai Portofolio (Market)' : name]} 
+                                contentStyle={{backgroundColor: '#000', borderColor: '#333', borderRadius: '0', color: '#fff', fontFamily: 'JetBrains Mono'}} 
+                                itemStyle={{fontWeight: 'bold', fontSize: '11px'}}
+                             />
                              <CartesianGrid stroke="#222" strokeDasharray="3 3" vertical={false} />
                              
-                             <Line type="stepAfter" dataKey="Investasi" stroke="#94A3B8" strokeWidth={1.5} dot={false} strokeDasharray="4 4" name="Modal Aktif" />
-                             <Area type="monotone" dataKey="Total" stroke="#00FF41" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" dot={false} name="Valuasi Total" />
-                          </AreaChart>
+                             {(chartLineFilter === 'ALL' || chartLineFilter === 'DIVIDEND') && (
+                                 <Area type="stepAfter" dataKey="Dividend" name="Total Dividend" stroke="#FFD700" strokeWidth={2} fillOpacity={0.15} fill="#FFD700" isAnimationActive={false} />
+                             )}
+
+                             {(chartLineFilter === 'ALL' || chartLineFilter === 'MODAL') && (
+                                 <Line type="stepAfter" dataKey="Investasi" name="Total Modal" stroke="#FFFFFF" strokeWidth={3} dot={false} isAnimationActive={false} />
+                             )}
+                             
+                             {(chartLineFilter === 'ALL' || chartLineFilter === 'MARKET_VALUE') && (
+                                 <Line type="linear" dataKey="Total" name="Nilai Portofolio" stroke="#FF003C" strokeWidth={2} dot={false} activeDot={{ r: 6, fill: '#FF003C', stroke: '#000', strokeWidth: 2 }} isAnimationActive={false} />
+                             )}
+                          </ComposedChart>
                        </ResponsiveContainer>
-                    ) : <div className="w-full h-full flex items-center justify-center text-[#555] text-[10px] font-bold uppercase tracking-[0.2em]">Memuat Data Historis...</div>}
+                    ) : <div className="w-full h-full flex items-center justify-center text-[#555] text-[10px] font-bold uppercase tracking-[0.2em]">{isLivePricesLoading ? 'Sinkronisasi Harga Live...' : 'Memuat Data Historis...'}</div>}
                 </div>
               </div>
             </div>
