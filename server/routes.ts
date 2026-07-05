@@ -1685,7 +1685,8 @@ Kembalikan HANYA format JSON MURNI tanpa markdown:
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
-                  generationConfig: { temperature: 0.1, response_mime_type: "application/json" } 
+                  // HAPUS response_mime_type
+                  generationConfig: { temperature: 0.1 } 
               })
           });
 
@@ -1762,10 +1763,10 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
-                  generationConfig: { temperature: 0.1, response_mime_type: "application/json" } 
+                  // HAPUS response_mime_type
+                  generationConfig: { temperature: 0.1 } 
               })
           });
-
           if (!aiRes.ok) throw new Error("API Gemini memblokir request pencarian.");
 
           const aiData = await aiRes.json();
@@ -1837,10 +1838,11 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
-                  generationConfig: { temperature: 0.1, response_mime_type: "application/json" } 
+                  // HAPUS response_mime_type
+                  generationConfig: { temperature: 0.1 } 
               })
           });
-
+          
           if (!aiRes.ok) throw new Error("API Gemini memblokir pencarian.");
 
           const aiData = await aiRes.json();
