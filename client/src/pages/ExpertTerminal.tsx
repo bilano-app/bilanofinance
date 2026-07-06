@@ -1636,15 +1636,13 @@ export default function ExpertTerminal() {
                              {/* ==================== FIX 1 DI SINI ==================== */}
                              <YAxis 
                                 domain={[
-                                  (dataMin: number, dataMax: number) => {
+                                  (dataMin: number) => {
                                     if (!isFinite(dataMin) || isNaN(dataMin)) return 0;
-                                    const range = dataMax - dataMin;
-                                    return range > 0 ? dataMin - range * 0.05 : (dataMin === 0 ? 0 : dataMin * 0.95);
+                                    return dataMin > 0 ? dataMin * 0.95 : 0;
                                   },
-                                  (dataMin: number, dataMax: number) => {
+                                  (dataMax: number) => {
                                     if (!isFinite(dataMax) || isNaN(dataMax)) return 100;
-                                    const range = dataMax - dataMin;
-                                    return range > 0 ? dataMax + range * 0.05 : (dataMax === 0 ? 100 : dataMax * 1.05);
+                                    return dataMax > 0 ? dataMax * 1.05 : 100;
                                   }
                                 ]} 
                                 allowDataOverflow={true}
@@ -1653,7 +1651,7 @@ export default function ExpertTerminal() {
                                 fontFamily="JetBrains Mono"
                                 tickLine={false} 
                                 axisLine={false} 
-                                tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(0)}M` : `•••`} 
+                                tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(1)}M` : `•••`} 
                                 orientation="right" 
                              />
                              {/* ======================================================= */}
