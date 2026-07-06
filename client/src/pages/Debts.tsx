@@ -105,6 +105,8 @@ export default function Debts() {
       return false;
   };
 
+  const isSetupCompleted = typeof window !== 'undefined' ? !!localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) : false;
+
   const handleAdd = async () => {
       
       if (checkPaywall()) return;
@@ -223,10 +225,6 @@ export default function Debts() {
 
   const handleRestore = async (debtId: number) => {
       // 🚀 BLOKIR JIKA BELUM SETUP
-      if (!isSetupCompleted) {
-          setShowSetupPrompt(true);
-          return;
-      }
 
       if (checkPaywall()) return;
       if (!confirm("Pulihkan tagihan ini? Saldo dan transaksi akan dikembalikan seperti semula.")) return;

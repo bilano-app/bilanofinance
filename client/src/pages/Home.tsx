@@ -223,9 +223,9 @@ export default function Home() {
       const todayStr = new Date().toISOString().split('T')[0];
       
       const due = subscriptions.find(sub => {
-          if (!sub.isActive || sub.category !== 'dinamis') return false;
+          if (!sub.isActive || sub.cycle !== 'dinamis') return false;
           
-          const nextDate = new Date(sub.nextPaymentDate);
+          const nextDate = new Date(sub.nextBilling || sub.nextPaymentDate || '');
           const today = new Date();
           today.setHours(0,0,0,0);
           nextDate.setHours(0,0,0,0);
@@ -270,7 +270,7 @@ export default function Home() {
                   cycle: dueDynamicSub.cycle, 
                   nextPaymentDate: nextDate.toISOString(), 
                   nextBilling: nextDate.toISOString(), 
-                  category: dueDynamicSub.category, 
+                  category: dueDynamicSub.category || 'statis', 
                   isActive: true 
               })
           });

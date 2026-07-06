@@ -228,18 +228,30 @@ export default function ExpertTerminal() {
       const hist = historyPrices[ticker];
       if (!hist || !hist.timestamps || hist.timestamps.length === 0) return null;
       
-      const targetSec = targetTs / 1000;
-      let closestPrice = null; 
-      
-      for(let i = hist.timestamps.length-1; i >= 0; i--) {
-          if (hist.timestamps[i] <= targetSec) { 
-              if (hist.close[i] !== null && hist.close[i] !== undefined) {
-                  closestPrice = hist.close[i];
-                  break;
-              }
+      const targetSec = Math.floor(targetTs / 1000);
+      let closestPrice = null;
+
+      for (let i = hist.timestamps.length - 1; i >= 0; i--) {
+          const ts = hist.timestamps[i];
+          const price = hist.close[i];
+          if (price === null || price === undefined || !Number.isFinite(price)) continue;
+
+          if (ts <= targetSec) {
+              closestPrice = price;
+              break;
           }
       }
-      return closestPrice;
+
+      if (closestPrice !== null) return closestPrice;
+
+      for (let i = 0; i < hist.timestamps.length; i++) {
+          const price = hist.close[i];
+          if (price !== null && price !== undefined && Number.isFinite(price)) {
+              return price;
+          }
+      }
+
+      return null;
   }, [historyPrices]);
 
   const getHistoricalRate = useCallback((targetTs: number, currency: string) => {
@@ -851,6 +863,7 @@ export default function ExpertTerminal() {
      const endTs = now;
      const dailyData = [];
      let cumulativeDividend = 0;
+     const lastKnownPrices: Record<string, number | null> = {};
 
      // FUNGSI PEMBANTU: Mengecek jumlah lot/qty riil yang dipegang pada waktu (timestamp) tertentu
      const getQtyAtTime = (sym: string, targetTs: number) => {
@@ -939,18 +952,29 @@ export default function ExpertTerminal() {
                  const isIntradayView = chartTimeframe === '1D' || chartTimeframe === '1W';
 
                  let price = getPriceForDate(ticker, currentTs);
-                 if ((!price || price === 0) && livePriceFallback) {
-                     price = livePriceFallback;
-                 }
-                 if (isIntradayView && (currentTs + stepSize > endTs || !getPriceForDate(ticker, currentTs))) {
-                     price = livePriceFallback || price;
+                 if (isIntradayView) {
+                     if ((!price || !Number.isFinite(price)) && Number.isFinite(livePriceFallback)) {
+                         price = livePriceFallback;
+                     }
+                     if (currentTs + stepSize > endTs || !getPriceForDate(ticker, currentTs)) {
+                         price = Number.isFinite(livePriceFallback) ? livePriceFallback : price;
+                     }
                  }
 
                  if (!price || !Number.isFinite(price)) {
-                     const fallback = currentQty[sym] * multiplier;
-                     price = fallback > 0 ? (currentInvestedIDR[sym] / fallback) : 0;
+                     const lastPrice = Number.isFinite(lastKnownPrices[sym] || NaN) ? lastKnownPrices[sym] : null;
+                     if (lastPrice && Number.isFinite(lastPrice)) {
+                         price = lastPrice;
+                     } else if (!isIntradayView && currentQty[sym] > 0 && Number.isFinite(currentInvestedIDR[sym]) && currentQty[sym] * multiplier > 0) {
+                         price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier);
+                     }
                  }
 
+                 if (!price || !Number.isFinite(price)) {
+                     return;
+                 }
+
+                 lastKnownPrices[sym] = price;
                  const val = currentQty[sym] * price * multiplier;
                  dailyValuation += Number.isFinite(val) ? val : 0;
                  dailyInvested += Number.isFinite(currentInvestedIDR[sym]) ? currentInvestedIDR[sym] : 0;

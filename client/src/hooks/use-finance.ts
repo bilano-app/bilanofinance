@@ -105,7 +105,7 @@ export function useTransactions() {
 export function useAddTransaction() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (tx: InsertTransaction) => {
+    mutationFn: async (tx: Omit<InsertTransaction, 'userId'>) => {
       const res = await fetch("/api/transactions", { method: "POST", headers: getHeaders(), body: JSON.stringify(tx) });
       if (!res.ok) throw new Error("Gagal buat transaksi");
       return res.json();

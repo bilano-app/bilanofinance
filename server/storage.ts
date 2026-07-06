@@ -274,7 +274,11 @@ export class DatabaseStorage implements IStorage {
   
   async createSubscription(userId: number, sub: InsertSubscription): Promise<Subscription> {
       const [newSub] = await db.insert(subscriptions).values({
-          ...sub, userId, isActive: true, nextBilling: sub.nextBilling ? new Date(sub.nextBilling) : null
+          ...sub,
+          userId,
+          isActive: true,
+          nextBilling: sub.nextBilling ? new Date(sub.nextBilling) : null,
+          nextPaymentDate: sub.nextPaymentDate ? new Date(sub.nextPaymentDate) : null,
       }).returning();
       return newSub;
   }

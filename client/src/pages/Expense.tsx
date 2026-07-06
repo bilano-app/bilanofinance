@@ -109,7 +109,7 @@ export default function Expense() {
                   amount: spendingAmount, 
                   category: category,
                   description: desc || "Pengeluaran Rutin",
-                  date: new Date().toISOString()
+                  date: new Date()
               });
 
               if (isEmergencyOverride) {
@@ -141,7 +141,7 @@ export default function Expense() {
                   amount: spendingAmount, 
                   category: `Hutang: ${category}`, 
                   description: `Belum Dibayar - ${debtName}`, 
-                  date: new Date().toISOString() 
+                  date: new Date() 
               });
           }
 

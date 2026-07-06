@@ -5,15 +5,17 @@ interface LayoutProps {
   children: React.ReactNode;
   title?: string;
   showBack?: boolean;
+  hideNav?: boolean;
 }
 
-export function MobileLayout({ children, title, showBack = false }: LayoutProps) {
+export function MobileLayout({ children, title, showBack = false, hideNav = false }: LayoutProps) {
   return (
     // WRAPPER UTAMA: Kunci tinggi layar (h-screen) tapi konten boleh scroll
     <div className="h-screen bg-slate-50 text-foreground font-sans flex flex-col mx-auto max-w-md shadow-2xl border-x border-slate-200 overflow-hidden relative">
       
       {/* --- HEADER (LOGO TENGAH) --- */}
-      <header className="shrink-0 h-16 bg-white/95 backdrop-blur-md border-b border-slate-100 flex items-center justify-center relative z-40 px-4">
+      {!hideNav && (
+        <header className="shrink-0 h-16 bg-white/95 backdrop-blur-md border-b border-slate-100 flex items-center justify-center relative z-40 px-4">
         
         {/* Tombol Back (Hanya muncul di sub-halaman) */}
         {showBack && (
@@ -39,6 +41,7 @@ export function MobileLayout({ children, title, showBack = false }: LayoutProps)
            )}
         </div>
       </header>
+      )}
 
       {/* --- CONTENT AREA --- */}
       {/* flex-1 & overflow-y-auto: Agar konten mengisi sisa ruang & bisa discroll jika panjang */}

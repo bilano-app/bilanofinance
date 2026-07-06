@@ -72,6 +72,8 @@ export const subscriptions = pgTable("subscriptions", {
   cost: bigint("cost", { mode: "number" }).notNull(),
   cycle: text("cycle").default('bulanan'),
   nextBilling: timestamp("next_billing"),
+  nextPaymentDate: timestamp("next_payment_date"),
+  category: text("category").default('statis'),
   isActive: boolean("is_active").default(true),
 });
 
@@ -123,7 +125,7 @@ export const insertTransactionSchema = createInsertSchema(transactions, { date: 
 export const insertInvestmentSchema = createInsertSchema(investments).omit({ id: true, userId: true, createdAt: true });
 export const insertTargetSchema = createInsertSchema(targets).omit({ id: true, userId: true });
 export const insertDebtSchema = createInsertSchema(debts, { dueDate: z.coerce.date() }).omit({ id: true, userId: true, createdAt: true });
-export const insertSubscriptionSchema = createInsertSchema(subscriptions, { nextBilling: z.coerce.date() }).omit({ id: true, userId: true });
+export const insertSubscriptionSchema = createInsertSchema(subscriptions, { nextBilling: z.coerce.date(), nextPaymentDate: z.coerce.date() }).omit({ id: true, userId: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, userId: true });
 export const insertForexAssetSchema = createInsertSchema(forexAssets).omit({ id: true, userId: true, createdAt: true });
 export const insertOtpSessionSchema = createInsertSchema(otpSessions).omit({ id: true, createdAt: true });
