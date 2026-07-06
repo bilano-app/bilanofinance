@@ -1663,7 +1663,17 @@ export default function ExpertTerminal() {
                           <ComposedChart data={chartDataDaily} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
                              <XAxis dataKey="name" stroke="#64748B" fontSize={10} fontFamily="JetBrains Mono" tickLine={false} axisLine={false} minTickGap={40} />
                              <YAxis 
-                                domain={['dataMin', 'dataMax']} 
+                                domain={[
+                                  (dataMin: number, dataMax: number) => {
+                                    const range = dataMax - dataMin;
+                                    return range > 0 ? dataMin - range * 0.02 : dataMin * 0.98;
+                                  },
+                                  (dataMin: number, dataMax: number) => {
+                                    const range = dataMax - dataMin;
+                                    return range > 0 ? dataMax + range * 0.02 : dataMax * 1.02;
+                                  }
+                                ]} 
+                                allowDataOverflow={true}
                                 stroke="#64748B" 
                                 fontSize={10} 
                                 fontFamily="JetBrains Mono"
