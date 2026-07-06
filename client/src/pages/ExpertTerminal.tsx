@@ -1636,13 +1636,39 @@ export default function ExpertTerminal() {
                              {/* ==================== FIX 1 DI SINI ==================== */}
                              <YAxis 
                                 domain={[
-                                  (dataMin: number) => {
-                                    if (!isFinite(dataMin) || isNaN(dataMin)) return 0;
-                                    return dataMin > 0 ? dataMin * 0.95 : 0;
+                                  () => {
+                                    let min = Infinity, max = -Infinity;
+                                    chartDataDaily.forEach((d: any) => {
+                                       const vals = [];
+                                       if (chartLineFilter === 'ALL' || chartLineFilter === 'MARKET_VALUE') vals.push(d.Total);
+                                       if (chartLineFilter === 'ALL' || chartLineFilter === 'MODAL') vals.push(d.Investasi);
+                                       if (chartLineFilter === 'DIVIDEND') vals.push(d.Dividend);
+                                       
+                                       vals.forEach(v => {
+                                          if (v > 0 && v < min) min = v;
+                                          if (v > max) max = v;
+                                       });
+                                    });
+                                    if (min === Infinity) return 0;
+                                    if (min === max) return min * 0.98;
+                                    return Math.max(0, min - (max - min) * 0.15); // Auto-zoom batas bawah dengan 15% ruang kosong
                                   },
-                                  (dataMax: number) => {
-                                    if (!isFinite(dataMax) || isNaN(dataMax)) return 100;
-                                    return dataMax > 0 ? dataMax * 1.05 : 100;
+                                  () => {
+                                    let min = Infinity, max = -Infinity;
+                                    chartDataDaily.forEach((d: any) => {
+                                       const vals = [];
+                                       if (chartLineFilter === 'ALL' || chartLineFilter === 'MARKET_VALUE') vals.push(d.Total);
+                                       if (chartLineFilter === 'ALL' || chartLineFilter === 'MODAL') vals.push(d.Investasi);
+                                       if (chartLineFilter === 'DIVIDEND') vals.push(d.Dividend);
+                                       
+                                       vals.forEach(v => {
+                                          if (v > 0 && v < min) min = v;
+                                          if (v > max) max = v;
+                                       });
+                                    });
+                                    if (max === -Infinity) return 100;
+                                    if (min === max) return max * 1.02;
+                                    return max + (max - min) * 0.15; // Auto-zoom batas atas dengan 15% ruang kosong
                                   }
                                 ]} 
                                 allowDataOverflow={true}
