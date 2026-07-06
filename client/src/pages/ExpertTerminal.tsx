@@ -225,34 +225,37 @@ export default function ExpertTerminal() {
   }, [isIntelLoading, marketIntelData]);
 
   const getPriceForDate = useCallback((ticker: string, targetTs: number) => {
-      const hist = historyPrices[ticker];
-      if (!hist || !hist.timestamps || hist.timestamps.length === 0) return null;
-      
-      const targetSec = Math.floor(targetTs / 1000);
-      let closestPrice = null;
+      const hist = historyPrices[ticker] || simHistoryPrices[ticker];
+      if (hist && hist.timestamps && hist.timestamps.length > 0) {
+          const targetSec = Math.floor(targetTs / 1000);
+          let closestPrice = null;
 
-      for (let i = hist.timestamps.length - 1; i >= 0; i--) {
-          const ts = hist.timestamps[i];
-          const price = hist.close[i];
-          if (price === null || price === undefined || !Number.isFinite(price)) continue;
+          for (let i = hist.timestamps.length - 1; i >= 0; i--) {
+              const ts = hist.timestamps[i];
+              const price = hist.close[i];
+              if (price === null || price === undefined || !Number.isFinite(price)) continue;
 
-          if (ts <= targetSec) {
-              closestPrice = price;
-              break;
+              if (ts <= targetSec) {
+                  closestPrice = price;
+                  break;
+              }
+          }
+
+          if (closestPrice !== null) return closestPrice;
+
+          for (let i = 0; i < hist.timestamps.length; i++) {
+              const price = hist.close[i];
+              if (price !== null && price !== undefined && Number.isFinite(price)) {
+                  return price;
+              }
           }
       }
 
-      if (closestPrice !== null) return closestPrice;
-
-      for (let i = 0; i < hist.timestamps.length; i++) {
-          const price = hist.close[i];
-          if (price !== null && price !== undefined && Number.isFinite(price)) {
-              return price;
-          }
-      }
+      const livePrice = Number(livePrices[ticker]);
+      if (Number.isFinite(livePrice) && livePrice > 0) return livePrice;
 
       return null;
-  }, [historyPrices]);
+  }, [historyPrices, livePrices, simHistoryPrices]);
 
   const getHistoricalRate = useCallback((targetTs: number, currency: string) => {
       if (currency === 'IDR') return 1;
@@ -794,7 +797,7 @@ export default function ExpertTerminal() {
   // 🚀 ENGINE GENERATOR GRAFIK LIVE (MARKET VALUE, MODAL, DIVIDEND)
   // =========================================================================
   const chartDataDaily = useMemo(() => {
-     if (activePortfolio.length === 0 || Object.keys(historyPrices).length === 0) return [];
+     if (activePortfolio.length === 0) return [];
 
      const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => {
          const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
@@ -965,12 +968,12 @@ export default function ExpertTerminal() {
                      const lastPrice = Number.isFinite(lastKnownPrices[sym] || NaN) ? lastKnownPrices[sym] : null;
                      if (lastPrice && Number.isFinite(lastPrice)) {
                          price = lastPrice;
-                     } else if (!isIntradayView && currentQty[sym] > 0 && Number.isFinite(currentInvestedIDR[sym]) && currentQty[sym] * multiplier > 0) {
+                     } else if (currentQty[sym] > 0 && Number.isFinite(currentInvestedIDR[sym]) && currentQty[sym] * multiplier > 0) {
                          price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier);
                      }
                  }
 
-                 if (!price || !Number.isFinite(price)) {
+                 if (!price || !Number.isFinite(price) || price <= 0) {
                      return;
                  }
 
@@ -1744,7 +1747,16 @@ export default function ExpertTerminal() {
                              )}
                           </ComposedChart>
                        </ResponsiveContainer>
-                    ) : <div className="w-full h-full flex items-center justify-center text-[#555] text-[10px] font-bold uppercase tracking-[0.2em]">{isLivePricesLoading ? 'Sinkronisasi Harga Live...' : 'Memuat Data Historis...'}</div>}
+                    ) : <div className="w-full h-full flex flex-col items-center justify-center text-[#555] text-[10px] font-bold uppercase tracking-[0.2em] gap-3">
+                        <div className="text-center">
+                           <div className="text-[#00E5FF] mb-2">Grafik portfolio belum bisa dibangun dari data harga.</div>
+                           <div className="text-[#888]">Menampilkan fallback nilai berdasarkan modal portofolio dan data aset yang tersedia.</div>
+                        </div>
+                        <div className="flex items-center gap-3 text-[#00FF41]">
+                           {isLivePricesLoading ? <Orbit className="w-4 h-4 animate-spin" /> : <Radio className="w-4 h-4" />}
+                           <span>{isLivePricesLoading ? 'Sinkronisasi Harga Live...' : 'Fallback Data Portofolio Aktif'}</span>
+                        </div>
+                    </div>}
                 </div>
               </div>
             </div>
