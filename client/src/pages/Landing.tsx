@@ -109,7 +109,7 @@ export default function Landing() {
           </section>
 
           {/* 🔥 3. KARTU BENEFIT */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 lg:gap-6 animate-in slide-in-from-bottom-8 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
+          <section className="grid grid-cols-3 gap-3 lg:gap-6 animate-in slide-in-from-bottom-8 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
             <FeatureCard imgUrl="https://img.icons8.com/color/96/artificial-intelligence.png" title="Konsultasi AI" desc="Strategi cerdas pelunasan hutang." />
             <FeatureCard imgUrl="https://img.icons8.com/color/96/barcode-scanner.png" title="Smart Scanner" desc="Foto struk, saldo auto-potong." />
             <FeatureCard imgUrl="https://img.icons8.com/color/96/business-report.png" title="Laporan PDF" desc="Cetak neraca akurasi tinggi." />
