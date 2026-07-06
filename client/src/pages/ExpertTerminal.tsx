@@ -229,20 +229,29 @@ export default function ExpertTerminal() {
       if (!hist || !hist.timestamps || hist.timestamps.length === 0) return null;
       
       const targetSec = Math.floor(targetTs / 1000);
-      let closestPrice = null; 
-      
-      for(let i = hist.timestamps.length-1; i >= 0; i--) {
-          if (hist.timestamps[i] <= targetSec) { 
-              const price = hist.close[i];
-              if (price !== null && price !== undefined && Number.isFinite(price)) {
-                  closestPrice = price;
-                  break;
-              }
+      let closestPrice = null;
+
+      for (let i = hist.timestamps.length - 1; i >= 0; i--) {
+          const ts = hist.timestamps[i];
+          const price = hist.close[i];
+          if (price === null || price === undefined || !Number.isFinite(price)) continue;
+
+          if (ts <= targetSec) {
+              closestPrice = price;
+              break;
           }
       }
+
       if (closestPrice !== null) return closestPrice;
-      const firstPrice = hist.close[0];
-      return firstPrice !== null && firstPrice !== undefined && Number.isFinite(firstPrice) ? firstPrice : null;
+
+      for (let i = 0; i < hist.timestamps.length; i++) {
+          const price = hist.close[i];
+          if (price !== null && price !== undefined && Number.isFinite(price)) {
+              return price;
+          }
+      }
+
+      return null;
   }, [historyPrices]);
 
   const getHistoricalRate = useCallback((targetTs: number, currency: string) => {
