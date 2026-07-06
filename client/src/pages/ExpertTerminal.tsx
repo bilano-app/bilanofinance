@@ -851,6 +851,7 @@ export default function ExpertTerminal() {
      const endTs = now;
      const dailyData = [];
      let cumulativeDividend = 0;
+     const lastKnownPrices: Record<string, number | null> = {};
 
      // FUNGSI PEMBANTU: Mengecek jumlah lot/qty riil yang dipegang pada waktu (timestamp) tertentu
      const getQtyAtTime = (sym: string, targetTs: number) => {
@@ -939,18 +940,27 @@ export default function ExpertTerminal() {
                  const isIntradayView = chartTimeframe === '1D' || chartTimeframe === '1W';
 
                  let price = getPriceForDate(ticker, currentTs);
-                 if ((!price || price === 0) && livePriceFallback) {
+                 if ((!price || !Number.isFinite(price)) && Number.isFinite(livePriceFallback)) {
                      price = livePriceFallback;
                  }
                  if (isIntradayView && (currentTs + stepSize > endTs || !getPriceForDate(ticker, currentTs))) {
-                     price = livePriceFallback || price;
+                     price = Number.isFinite(livePriceFallback) ? livePriceFallback : price;
                  }
 
                  if (!price || !Number.isFinite(price)) {
-                     const fallback = currentQty[sym] * multiplier;
-                     price = fallback > 0 ? (currentInvestedIDR[sym] / fallback) : 0;
+                     const lastPrice = Number.isFinite(lastKnownPrices[sym] || NaN) ? lastKnownPrices[sym] : null;
+                     if (lastPrice && Number.isFinite(lastPrice)) {
+                         price = lastPrice;
+                     } else if (currentQty[sym] > 0 && Number.isFinite(currentInvestedIDR[sym]) && currentQty[sym] * multiplier > 0) {
+                         price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier);
+                     }
                  }
 
+                 if (!price || !Number.isFinite(price)) {
+                     return;
+                 }
+
+                 lastKnownPrices[sym] = price;
                  const val = currentQty[sym] * price * multiplier;
                  dailyValuation += Number.isFinite(val) ? val : 0;
                  dailyInvested += Number.isFinite(currentInvestedIDR[sym]) ? currentInvestedIDR[sym] : 0;
