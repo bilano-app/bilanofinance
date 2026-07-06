@@ -105,8 +105,6 @@ export default function Debts() {
       return false;
   };
 
-  const isSetupCompleted = typeof window !== 'undefined' ? !!localStorage.getItem(`bilano_setup_completed_${currentUserEmail}`) : false;
-
   const handleAdd = async () => {
       
       if (checkPaywall()) return;

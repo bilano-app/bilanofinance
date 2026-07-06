@@ -233,8 +233,8 @@ export default function Reports() {
                       if (t.type === 'invest_sell') {
                           let pl = 0;
                           if (t.description?.includes('P/L:')) pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, '')) || 0;
-                          // P/L text is already in IDR, so only convert the transaction amount to IDR if needed
-                          liveAmt += (amt * rate) - pl;
+                          // HARUS DIKALI RATE AGAR MATCH DENGAN PERFORMANCE!
+                          liveAmt += (amt - (pl * rate));
                       }
                       if (t.type === 'invest_buy') liveAmt -= amt;
                   });
@@ -309,7 +309,7 @@ export default function Reports() {
                           }
                       }
                       
-                      const convertedPlValue = Math.round(plValue); // P/L text is already in IDR
+                      const convertedPlValue = Math.round(plValue * rate);
                       
                       virtualPLTxs.push({
                           ...t, 

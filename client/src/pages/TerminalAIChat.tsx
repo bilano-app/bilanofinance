@@ -154,7 +154,8 @@ export default function TerminalAIChat({ financialContext }: TerminalAIChatProps
               {msg.sender === 'user' ? (
                 msg.text
               ) : (
-                <div className="
+                <ReactMarkdown 
+                  className="
                     [&>p]:mb-3 last:[&>p]:mb-0 
                     [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:mb-3 [&>ul]:space-y-1
                     [&>ol]:list-decimal [&>ol]:pl-5 [&>ol]:mb-3 [&>ol]:space-y-1
@@ -162,9 +163,10 @@ export default function TerminalAIChat({ financialContext }: TerminalAIChatProps
                     [&_h1]:text-sm [&_h1]:font-black [&_h1]:text-white [&_h1]:mb-2
                     [&_h2]:text-sm [&_h2]:font-bold [&_h2]:text-white [&_h2]:mb-2
                     [&_h3]:text-xs [&_h3]:font-bold [&_h3]:text-[#FFD700] [&_h3]:mb-1
-                  ">
-                  <ReactMarkdown>{msg.text}</ReactMarkdown>
-                </div>
+                  "
+                >
+                  {msg.text}
+                </ReactMarkdown>
               )}
             </div>
             

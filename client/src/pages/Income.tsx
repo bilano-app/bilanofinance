@@ -59,7 +59,7 @@ export default function Income() {
               type: "income", 
               category, 
               description: description || "Pemasukan Rutin", 
-              date: new Date() 
+              date: new Date().toISOString() 
           });
       } else {
           await fetch("/api/debts", {
@@ -80,7 +80,7 @@ export default function Income() {
               type: "piutang_record", 
               category: `Piutang: ${category}`, 
               description: `[PIUTANG_PENDAPATAN] Belum Dibayar - ${debtName}`, 
-              date: new Date() 
+              date: new Date().toISOString() 
           });
       }
       
