@@ -228,18 +228,21 @@ export default function ExpertTerminal() {
       const hist = historyPrices[ticker];
       if (!hist || !hist.timestamps || hist.timestamps.length === 0) return null;
       
-      const targetSec = targetTs / 1000;
+      const targetSec = Math.floor(targetTs / 1000);
       let closestPrice = null; 
       
       for(let i = hist.timestamps.length-1; i >= 0; i--) {
           if (hist.timestamps[i] <= targetSec) { 
-              if (hist.close[i] !== null && hist.close[i] !== undefined) {
-                  closestPrice = hist.close[i];
+              const price = hist.close[i];
+              if (price !== null && price !== undefined && Number.isFinite(price)) {
+                  closestPrice = price;
                   break;
               }
           }
       }
-      return closestPrice;
+      if (closestPrice !== null) return closestPrice;
+      const firstPrice = hist.close[0];
+      return firstPrice !== null && firstPrice !== undefined && Number.isFinite(firstPrice) ? firstPrice : null;
   }, [historyPrices]);
 
   const getHistoricalRate = useCallback((targetTs: number, currency: string) => {
@@ -940,18 +943,20 @@ export default function ExpertTerminal() {
                  const isIntradayView = chartTimeframe === '1D' || chartTimeframe === '1W';
 
                  let price = getPriceForDate(ticker, currentTs);
-                 if ((!price || !Number.isFinite(price)) && Number.isFinite(livePriceFallback)) {
-                     price = livePriceFallback;
-                 }
-                 if (isIntradayView && (currentTs + stepSize > endTs || !getPriceForDate(ticker, currentTs))) {
-                     price = Number.isFinite(livePriceFallback) ? livePriceFallback : price;
+                 if (isIntradayView) {
+                     if ((!price || !Number.isFinite(price)) && Number.isFinite(livePriceFallback)) {
+                         price = livePriceFallback;
+                     }
+                     if (currentTs + stepSize > endTs || !getPriceForDate(ticker, currentTs)) {
+                         price = Number.isFinite(livePriceFallback) ? livePriceFallback : price;
+                     }
                  }
 
                  if (!price || !Number.isFinite(price)) {
                      const lastPrice = Number.isFinite(lastKnownPrices[sym] || NaN) ? lastKnownPrices[sym] : null;
                      if (lastPrice && Number.isFinite(lastPrice)) {
                          price = lastPrice;
-                     } else if (currentQty[sym] > 0 && Number.isFinite(currentInvestedIDR[sym]) && currentQty[sym] * multiplier > 0) {
+                     } else if (!isIntradayView && currentQty[sym] > 0 && Number.isFinite(currentInvestedIDR[sym]) && currentQty[sym] * multiplier > 0) {
                          price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier);
                      }
                  }
