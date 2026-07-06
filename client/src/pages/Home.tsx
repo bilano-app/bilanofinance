@@ -12,7 +12,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
-  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, Target as TargetIcon 
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass 
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -793,31 +793,7 @@ export default function Home() {
            <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
         </div>
 
-        {/* 🚀 BOX BARU: STRATEGI PEMASUKAN */}
-        <div className="px-1 mt-[-10px]">
-            <div 
-                onClick={() => setPendingFeatureModal({ title: "Strategi Pemasukan", desc: "AI BILANO akan segera dapat menganalisis data keuanganmu untuk memberikan rekomendasi konkrit cara meningkatkan penghasilan secara cerdas." })}
-                className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-[24px] p-5 shadow-lg border border-emerald-400 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group"
-            >
-                <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:bg-white/20 transition-colors"></div>
-                <div className="flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-white/20 border border-white/30 flex items-center justify-center">
-                            <TargetIcon className="w-6 h-6 text-white"/>
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-black text-white text-base">Strategi Pemasukan</h3>
-                            </div>
-                            <p className="text-[11px] text-emerald-100 font-medium">Analisis cerdas untuk cetak profit.</p>
-                        </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-emerald-200 group-hover:text-white transition-colors"/>
-                </div>
-            </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 px-1">
+        <div className="grid grid-cols-2 gap-3 px-1 mt-2">
            <Link href="/income">
                <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
                     <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">

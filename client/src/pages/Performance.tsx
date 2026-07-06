@@ -258,8 +258,20 @@ export default function Performance() {
           if (plString) {
               const plValue = parseInt(plString.replace(/[^0-9-]/g, ''), 10);
               if (!isNaN(plValue)) {
-                  totalCuanJual += plValue;
-                  totalModalTerpakai += (t.amount - plValue); 
+                  let rate = 1;
+                  if (t.type === 'invest_sell') {
+                      const match = t.description.match(/lot\/unit\s+([A-Z0-9|]+)/i);
+                      if (match) {
+                          const curr = match[1].split('|')[1];
+                          if (curr && curr !== 'IDR') rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+                      }
+                  }
+                  
+                  const actualPl = plValue * rate;
+                  const actualAmt = t.amount * rate;
+                  
+                  totalCuanJual += actualPl;
+                  totalModalTerpakai += (actualAmt - actualPl); 
               }
           }
       }
@@ -355,11 +367,22 @@ export default function Performance() {
               const plValue = parseInt(cleanString, 10);
               
               if (!isNaN(plValue) && plValue !== 0) {
+                  let rate = 1;
+                  if (t.type === 'invest_sell') {
+                      const match = t.description.match(/lot\/unit\s+([A-Z0-9|]+)/i);
+                      if (match) {
+                          const curr = match[1].split('|')[1];
+                          if (curr && curr !== 'IDR') rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+                      }
+                  }
+                  
+                  const convertedPlValue = Math.round(plValue * rate);
+                  
                   virtualPLTxs.push({
                       ...t, 
-                      type: plValue > 0 ? 'income' : 'expense',
-                      amount: Math.abs(plValue),
-                      category: plValue > 0 ? (t.type === 'forex_sell' ? 'Profit Valas' : 'Profit Investasi') : (t.type === 'forex_sell' ? 'Rugi Valas' : 'Rugi Investasi'),
+                      type: convertedPlValue > 0 ? 'income' : 'expense',
+                      amount: Math.abs(convertedPlValue),
+                      category: convertedPlValue > 0 ? (t.type === 'forex_sell' ? 'Profit Valas' : 'Profit Investasi') : (t.type === 'forex_sell' ? 'Rugi Valas' : 'Rugi Investasi'),
                       description: `Realisasi: ${t.description.split('@')[0].trim()}`
                   });
               }

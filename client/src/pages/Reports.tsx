@@ -103,6 +103,12 @@ export default function Reports() {
             ? new Date(safeTargetYear, 11, 31, 23, 59, 59) 
             : new Date(safeTargetYear, targetMonth + 1, 0, 23, 59, 59);
 
+      // Hitung retained balance sekali saja di awal untuk menghindari double counting
+      const globalSnapRetained = Math.round(allRetained.reduce((acc: number, r:any) => {
+          const rate = r.currency === 'IDR' ? 1 : getRate(r.currency);
+          return acc + (r.amount * rate);
+      }, 0));
+
       const getSnapshotAt = (targetDate: Date) => {
           if (isCurrentPeriod) {
               const snapCash = liveCash;
@@ -116,7 +122,6 @@ export default function Reports() {
                   const m = (isSaham && curr === 'IDR') ? 100 : 1;
                   return acc + (inv.quantity * inv.avgPrice * m * rate);
               }, 0));
-              const snapRetained = Math.round(allRetained.reduce((acc: number, r: any) => acc + (r.amount * getRate(r.currency)), 0));
               
               let snapPiutang = 0; let snapDebt = 0;
               allDebts.filter((d:any) => !d.isPaid).forEach((d:any) => {
@@ -132,7 +137,8 @@ export default function Reports() {
                   forex: snapForex, 
                   piutang: Math.round(snapPiutang), 
                   debt: Math.round(snapDebt), 
-                  netWorth: Math.round(snapCash + snapInvest + snapForex + snapRetained + snapPiutang - snapDebt) 
+                  retained: globalSnapRetained,
+                  netWorth: Math.round(snapCash + snapInvest + snapForex + globalSnapRetained + snapPiutang - snapDebt) 
               };
           }
 
@@ -227,7 +233,8 @@ export default function Reports() {
                       if (t.type === 'invest_sell') {
                           let pl = 0;
                           if (t.description?.includes('P/L:')) pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, '')) || 0;
-                          liveAmt += (amt - pl);
+                          // HARUS DIKALI RATE AGAR MATCH DENGAN PERFORMANCE!
+                          liveAmt += (amt - (pl * rate));
                       }
                       if (t.type === 'invest_buy') liveAmt -= amt;
                   });
@@ -240,8 +247,9 @@ export default function Reports() {
               invest: Math.round(snapInvest), 
               forex: Math.round(snapForex), 
               piutang: Math.round(snapPiutang), 
-              debt: Math.round(snapDebt), 
-              netWorth: Math.round(Math.max(0, snapCash) + snapInvest + snapForex + snapPiutang - snapDebt) 
+              debt: Math.round(snapDebt),
+              retained: globalSnapRetained,
+              netWorth: Math.round(Math.max(0, snapCash) + snapInvest + snapForex + snapPiutang - snapDebt + globalSnapRetained) 
           };
       };
 
@@ -292,11 +300,22 @@ export default function Reports() {
                   const cleanString = plString.replace(/[^0-9-]/g, '');
                   const plValue = parseInt(cleanString, 10);
                   if (!isNaN(plValue) && plValue !== 0) {
+                      let rate = 1;
+                      if (t.type === 'invest_sell') {
+                          const match = t.description.match(/lot\/unit\s+([A-Z0-9|]+)/i);
+                          if (match) {
+                              const curr = match[1].split('|')[1];
+                              if (curr && curr !== 'IDR') rate = getRate(curr);
+                          }
+                      }
+                      
+                      const convertedPlValue = Math.round(plValue * rate);
+                      
                       virtualPLTxs.push({
                           ...t, 
-                          type: plValue > 0 ? 'income' : 'expense',
-                          amount: Math.abs(plValue),
-                          category: plValue > 0 ? (t.type === 'forex_sell' ? 'Profit Valas' : 'Profit Investasi') : (t.type === 'forex_sell' ? 'Rugi Valas' : 'Rugi Investasi'),
+                          type: convertedPlValue > 0 ? 'income' : 'expense',
+                          amount: Math.abs(convertedPlValue),
+                          category: convertedPlValue > 0 ? (t.type === 'forex_sell' ? 'Profit Valas' : 'Profit Investasi') : (t.type === 'forex_sell' ? 'Rugi Valas' : 'Rugi Investasi'),
                           description: `Realisasi: ${t.description.split('@')[0].trim()}`
                       });
                   }
@@ -314,11 +333,6 @@ export default function Reports() {
       const totalWriteOffLoss = writeOffTransactions.reduce((sum: number, t:any) => sum + (Number(t.amount) || 0), 0);
       const pemutihanTransactions = allTxs.filter((t:any) => t.category === 'Pemutihan Hutang' && new Date(t.date) <= reportDateEnd);
       const totalPemutihanGain = pemutihanTransactions.reduce((sum: number, t:any) => sum + (Number(t.amount) || 0), 0);
-
-      const snapRetained = Math.round(allRetained.reduce((acc: number, r:any) => {
-          const rate = r.currency === 'IDR' ? 1 : getRate(r.currency);
-          return acc + (r.amount * rate);
-      }, 0));
 
       const forexRows = Array.from(new Set(allForexAssets.map((f:any) => f.currency))).map((curr: any) => {
           const relatedFx = allForexAssets.find((f:any) => f.currency === curr);
@@ -365,7 +379,8 @@ export default function Reports() {
               if (t.type === 'invest_sell') {
                   let pl = 0;
                   if (t.description?.includes('P/L:')) pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, '')) || 0;
-                  liveAmt += (amt - pl);
+                  // HARUS DIKALI RATE
+                  liveAmt += (amt - (pl * rate));
               }
               if (t.type === 'invest_buy') liveAmt -= amt;
           });
@@ -410,7 +425,13 @@ export default function Reports() {
       });
 
       return {
-          archiveCash: archiveSnap.cash, archiveInvest: archiveSnap.invest, archiveForex: archiveSnap.forex, archivePiutang: archiveSnap.piutang, archiveDebt: archiveSnap.debt, archiveRetained: snapRetained, archiveNetWorth: archiveSnap.netWorth + snapRetained,
+          archiveCash: archiveSnap.cash, 
+          archiveInvest: archiveSnap.invest, 
+          archiveForex: archiveSnap.forex, 
+          archivePiutang: archiveSnap.piutang, 
+          archiveDebt: archiveSnap.debt, 
+          archiveRetained: archiveSnap.retained, 
+          archiveNetWorth: archiveSnap.netWorth, // Dihitung di dalam fungsi snapshot agar tidak double
           totalIncome, totalExpense, totalWriteOffLoss, totalPemutihanGain,
           forexRows, invRows, debtRows, amalRows, txRows, invTxRows
       };
@@ -525,9 +546,6 @@ export default function Reports() {
       });
       return startY + chartHeight + 15;
   };
-
-  const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-
 
   const generatePDF = async (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
     
