@@ -267,7 +267,7 @@ export default function Performance() {
                       }
                   }
                   
-                  const actualPl = plValue * rate;
+                  const actualPl = plValue; // P/L in description is already expressed in IDR
                   const actualAmt = t.amount * rate;
                   
                   totalCuanJual += actualPl;
@@ -376,7 +376,7 @@ export default function Performance() {
                       }
                   }
                   
-                  const convertedPlValue = Math.round(plValue * rate);
+                  const convertedPlValue = Math.round(plValue); // P/L text is already in IDR
                   
                   virtualPLTxs.push({
                       ...t, 

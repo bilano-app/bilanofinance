@@ -800,11 +800,15 @@ export default function ExpertTerminal() {
          const historicalRate = currency === 'IDR' ? 1 : getHistoricalRate(txDateTs, currency);
 
          let realAmountIDR = rawPrice * qty * multiplier * historicalRate;
-         if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) {
-             realAmountIDR = t.amount;
+         if (!Number.isFinite(realAmountIDR) || realAmountIDR === 0) {
+             realAmountIDR = Number.isFinite(t.amount) ? t.amount : 0;
+         }
+         if (!Number.isFinite(realAmountIDR)) {
+             realAmountIDR = 0;
          }
 
-         return { ...t, parsedSymbol: sym, parsedQty: qty, parsedRealAmountIDR: realAmountIDR };
+         const safeQty = Number.isFinite(qty) ? qty : 0;
+         return { ...t, parsedSymbol: sym, parsedQty: safeQty, parsedRealAmountIDR: realAmountIDR };
      });
 
      const firstDate = firstInvestmentDate.getTime();
@@ -942,20 +946,22 @@ export default function ExpertTerminal() {
                      price = livePriceFallback || price;
                  }
 
-                 if (!price) {
-                     price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier);
+                 if (!price || !Number.isFinite(price)) {
+                     const fallback = currentQty[sym] * multiplier;
+                     price = fallback > 0 ? (currentInvestedIDR[sym] / fallback) : 0;
                  }
 
                  const val = currentQty[sym] * price * multiplier;
-                 dailyValuation += val;
-                 dailyInvested += currentInvestedIDR[sym];
+                 dailyValuation += Number.isFinite(val) ? val : 0;
+                 dailyInvested += Number.isFinite(currentInvestedIDR[sym]) ? currentInvestedIDR[sym] : 0;
 
                  // CEK EVENT DIVIDEN: Hanya tambah saldo dividen jika ada event real di range waktu/hari ini
                  const divs = dividendEvents[ticker] || [];
                  divs.forEach((d: any) => {
                      const divTsMs = d.date * 1000;
                      if (divTsMs > currentTs && divTsMs <= (currentTs + stepSize)) {
-                         cumulativeDividend += (d.amount * currentQty[sym] * multiplier);
+                         const divValue = d.amount * currentQty[sym] * multiplier;
+                         cumulativeDividend += Number.isFinite(divValue) ? divValue : 0;
                      }
                  });
              }
@@ -963,15 +969,20 @@ export default function ExpertTerminal() {
 
          dailyData.push({
              name: dateLabel,
-             Total: dailyValuation,
-             Investasi: dailyInvested,
-             Dividend: cumulativeDividend
+             Total: Number.isFinite(dailyValuation) ? dailyValuation : 0,
+             Investasi: Number.isFinite(dailyInvested) ? dailyInvested : 0,
+             Dividend: Number.isFinite(cumulativeDividend) ? cumulativeDividend : 0
          });
 
          currentTs += stepSize;
      }
 
-     return dailyData;
+     return dailyData.map(point => ({
+         name: point.name || '',
+         Total: Number.isFinite(point.Total) ? point.Total : 0,
+         Investasi: Number.isFinite(point.Investasi) ? point.Investasi : 0,
+         Dividend: Number.isFinite(point.Dividend) ? point.Dividend : 0,
+     }));
   }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices, chartAssetFilter, getHistoricalRate, dividendEvents]); 
   // =========================================================================
   // 🛡️ REFORMASI LOGIKA LOGIN & RE-FRESH SESSION KUNCI UTAMA PWA
@@ -1664,13 +1675,17 @@ export default function ExpertTerminal() {
                              <XAxis dataKey="name" stroke="#64748B" fontSize={10} fontFamily="JetBrains Mono" tickLine={false} axisLine={false} minTickGap={40} />
                              <YAxis 
                                 domain={[
-                                  (dataMin: number, dataMax: number) => {
-                                    const range = dataMax - dataMin;
-                                    return range > 0 ? dataMin - range * 0.02 : dataMin * 0.98;
+                                  (dataMin: number = 0, dataMax: number = 0) => {
+                                    const min = Number.isFinite(dataMin) ? dataMin : 0;
+                                    const max = Number.isFinite(dataMax) ? dataMax : 0;
+                                    const range = max - min;
+                                    return range > 0 ? min - range * 0.02 : min * 0.98;
                                   },
-                                  (dataMin: number, dataMax: number) => {
-                                    const range = dataMax - dataMin;
-                                    return range > 0 ? dataMax + range * 0.02 : dataMax * 1.02;
+                                  (dataMin: number = 0, dataMax: number = 0) => {
+                                    const min = Number.isFinite(dataMin) ? dataMin : 0;
+                                    const max = Number.isFinite(dataMax) ? dataMax : 0;
+                                    const range = max - min;
+                                    return range > 0 ? max + range * 0.02 : max * 1.02;
                                   }
                                 ]} 
                                 allowDataOverflow={true}
@@ -1679,7 +1694,10 @@ export default function ExpertTerminal() {
                                 fontFamily="JetBrains Mono"
                                 tickLine={false} 
                                 axisLine={false} 
-                                tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(0)}M` : `•••`} 
+                                tickFormatter={(val) => {
+                                    const num = Number(val);
+                                    return showProfit ? `Rp${(Number.isFinite(num) ? (num / 1000000).toFixed(0) : '0')}M` : `•••`;
+                                }} 
                                 orientation="right" 
                              />
                              <Tooltip 
