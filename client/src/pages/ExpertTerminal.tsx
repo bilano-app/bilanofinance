@@ -625,10 +625,10 @@ export default function ExpertTerminal() {
           const setupInvested = p.totalModalIDR - txNet.invested; 
           
           if (setupQty > 0.0001) { 
-              bases[p.symbol] = {
+                  bases[p.symbol] = {
                   qty: setupQty,
                   invested: setupInvested > 0 ? setupInvested : 0,
-                  date: new Date(p.createdAt || new Date())
+                  date: new Date(0) // Memaksa aset base agar terdeteksi sejak awal waktu
               };
           }
       });
@@ -804,10 +804,12 @@ export default function ExpertTerminal() {
          startTimeframe = now - 90 * 24 * 60 * 60 * 1000;
          stepSize = 24 * 60 * 60 * 1000; 
      } else if (chartTimeframe === '1Y') {
-         startTimeframe = Math.max(firstDate, now - 365 * 24 * 60 * 60 * 1000);
+         const hasBase = Object.keys(setupAwalBases).length > 0;
+         startTimeframe = hasBase ? (now - 365 * 24 * 60 * 60 * 1000) : Math.max(firstDate, now - 365 * 24 * 60 * 60 * 1000);
          stepSize = 24 * 60 * 60 * 1000; 
      } else if (chartTimeframe === '5Y') {
-         startTimeframe = Math.max(firstDate, now - 1825 * 24 * 60 * 60 * 1000);
+         const hasBase = Object.keys(setupAwalBases).length > 0;
+         startTimeframe = hasBase ? (now - 1825 * 24 * 60 * 60 * 1000) : Math.max(firstDate, now - 1825 * 24 * 60 * 60 * 1000);
          stepSize = 3 * 24 * 60 * 60 * 1000; 
      }
      
