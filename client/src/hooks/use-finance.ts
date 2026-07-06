@@ -271,15 +271,17 @@ export function useLiveQuotes(symbols: string[]) {
       return json.data || {}; 
     },
     enabled: symbols.length > 0 && !!currentUserEmail,
-    refetchInterval: 60000, 
-    refetchOnWindowFocus: true, 
-    staleTime: 30000, 
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
+    staleTime: 15000,
   });
 }
 
 // 🚀 HOOK BARU: MENGAMBIL DATA CHART HARIAN
 export function useHistoricalQuotes(symbols: string[], range: string = '5y') {
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  const refreshInterval = range === '1d' ? 15000 : range === '5d' ? 30000 : range === '1mo' ? 60000 : range === '3mo' ? 120000 : range === '1y' ? 300000 : 600000;
+  const staleTime = range === '1d' ? 15000 : range === '5d' ? 30000 : 60000;
   return useQuery({
     queryKey: ['historicalQuotes', symbols.join(','), range],
     queryFn: async () => {
@@ -290,7 +292,9 @@ export function useHistoricalQuotes(symbols: string[], range: string = '5y') {
       return json.data || {}; 
     },
     enabled: symbols.length > 0 && !!currentUserEmail,
-    staleTime: 1000 * 60 * 60 * 2, // Cache data history selama 2 jam biar enteng
+    refetchInterval: refreshInterval,
+    refetchOnWindowFocus: true,
+    staleTime,
   });
 }
 

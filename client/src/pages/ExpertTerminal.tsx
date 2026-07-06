@@ -927,11 +927,15 @@ export default function ExpertTerminal() {
                  const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
                  const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
                  const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
+                 const livePriceFallback = livePrices[ticker];
+                 const isIntradayView = chartTimeframe === '1D' || chartTimeframe === '1W';
 
                  let price = getPriceForDate(ticker, currentTs);
-                 
-                 if (currentTs + stepSize > endTs) {
-                     price = livePrices[ticker] || price;
+                 if ((!price || price === 0) && livePriceFallback) {
+                     price = livePriceFallback;
+                 }
+                 if (isIntradayView && (currentTs + stepSize > endTs || !getPriceForDate(ticker, currentTs))) {
+                     price = livePriceFallback || price;
                  }
 
                  if (!price) {
