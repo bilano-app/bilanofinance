@@ -834,7 +834,11 @@ export default function ExpertTerminal() {
      }
      
      let currentTs = startTimeframe;
-     if (chartTimeframe === '1D' || chartTimeframe === '1W') {
+     if (chartTimeframe === '1D') {
+         const startDate = new Date(currentTs);
+         const roundedMinutes = Math.floor(startDate.getMinutes() / 5) * 5;
+         currentTs = new Date(startDate).setMinutes(roundedMinutes, 0, 0);
+     } else if (chartTimeframe === '1W') {
          currentTs = new Date(currentTs).setMinutes(0, 0, 0);
      } else {
          currentTs = new Date(currentTs).setHours(0, 0, 0, 0);

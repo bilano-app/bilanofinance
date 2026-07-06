@@ -1462,7 +1462,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
                   const fetchSymbol = isGold ? 'GC=F' : symbol;
                   
-                  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=1d&range=${range}`);
+                  const interval = range === '1d' ? '5m' : range === '5d' ? '15m' : '1d';
+                  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=${interval}&range=${range}`);
                   
                   if (response.ok) {
                       const data = await response.json();
