@@ -1406,40 +1406,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!symbols || !Array.isArray(symbols)) return res.status(400).json({ error: "Format pencarian simbol salah." });
 
           const results: Record<string, number> = {};
+          
+          const fetchSymbols = symbols.map((s: string) => {
+              const sym = s.toUpperCase().trim();
+              return ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym) ? 'GC=F' : sym;
+          });
 
-          await Promise.all(symbols.map(async (rawSymbol: string) => {
-              try {
-                  let symbol = rawSymbol.toUpperCase().trim();
-                  
-                  const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
-                  const fetchSymbol = isGold ? 'GC=F' : symbol;
-                  
-                  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=1d&range=1d`);
-                  
-                  if (response.ok) {
-                      const data = await response.json();
-                      let price = data.chart?.result?.[0]?.meta?.regularMarketPrice;
+          // UPGRADE: Menggunakan endpoint /v7/finance/quote untuk Tick Harga Real-Time
+          const response = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${fetchSymbols.join(',')}`);
+          
+          if (response.ok) {
+              const data = await response.json();
+              const quoteList = data.quoteResponse?.result || [];
+              
+              const now = Date.now();
+              if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
+              const usdToIdr = cachedRates['USD'] || 16200;
+
+              quoteList.forEach((quote: any) => {
+                  const rawSymbol = symbols.find((s: string) => {
+                      const sym = s.toUpperCase().trim();
+                      return (['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym) ? 'GC=F' : sym) === quote.symbol;
+                  });
+
+                  if (rawSymbol && quote.regularMarketPrice) {
+                      let price = quote.regularMarketPrice;
+                      const currency = quote.currency || "IDR";
+                      let finalPrice = price;
                       
-                      if (price) {
-                         const currency = data.chart?.result?.[0]?.meta?.currency || "IDR";
-                         let finalPrice = price;
-                         
-                         const now = Date.now();
-                         if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-                         const usdToIdr = cachedRates['USD'] || 16200;
+                      const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(rawSymbol.toUpperCase().trim());
 
-                         if (isGold) {
-                             finalPrice = (price / 31.1034768) * usdToIdr;
-                         } else if (currency !== "IDR" && currency !== "Rp") {
-                             const rate = cachedRates[currency as keyof typeof cachedRates] || usdToIdr;
-                             finalPrice = price * rate; 
-                         }
-
-                         results[rawSymbol] = finalPrice;
+                      if (isGold) {
+                          finalPrice = (price / 31.1034768) * usdToIdr;
+                      } else if (currency !== "IDR" && currency !== "Rp") {
+                          const rate = cachedRates[currency as keyof typeof cachedRates] || usdToIdr;
+                          finalPrice = price * rate; 
                       }
+
+                      results[rawSymbol] = finalPrice;
                   }
-              } catch(e) {}
-          }));
+              });
+          }
 
           res.json({ success: true, data: results });
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses data aset." }); }

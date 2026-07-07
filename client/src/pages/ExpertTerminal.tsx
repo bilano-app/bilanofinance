@@ -142,8 +142,8 @@ export default function ExpertTerminal() {
           return json.data || {};
       },
       enabled: !!currentUserEmail && isTerminalAuth && uniqueTickersToFetch.length > 0,
-      refetchInterval: 10000, // AUTO-REFRESH 10 DETIK
-      staleTime: 2000, // Cache kadaluarsa dalam 2 detik
+      refetchInterval: 10000, // AUTO REFRESH 10 DETIK
+      staleTime: 2000, 
   });
   
   const { data: dividendEvents = {} } = useQuery({
@@ -163,7 +163,21 @@ export default function ExpertTerminal() {
       staleTime: 1000 * 60 * 60 * 24 
   });
   const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, apiRange);
-  const { data: simHistoryPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, '5y');
+  const { data: simHistoryPrices = {} } = useQuery({
+      queryKey: ['expertSimHistory', uniqueTickersToFetch.join(',')],
+      queryFn: async () => {
+          if (uniqueTickersToFetch.length === 0) return {};
+          const res = await fetch(`/api/finance/history`, {
+              method: 'POST',
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ symbols: uniqueTickersToFetch, range: '5y' }) 
+          });
+          const json = await res.json();
+          return json.data || {};
+      },
+      enabled: !!currentUserEmail && isTerminalAuth && uniqueTickersToFetch.length > 0,
+      staleTime: 1000 * 60 * 60 * 24, // Cache 1 Hari Penuh
+  });
 
   const activeSymbolsForIntel = useMemo(() => {
       const tickers = new Set<string>();
