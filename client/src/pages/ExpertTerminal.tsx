@@ -127,7 +127,24 @@ export default function ExpertTerminal() {
       return '5y';
   }, [chartTimeframe]);
 
-  const { data: livePrices = {}, isLoading: isLivePricesLoading } = useLiveQuotes(uniqueTickersToFetch);
+  // Bypass useLiveQuotes bawaan agar Terminal Expert menarik harga real-time setiap 10 detik
+  const { data: livePrices = {}, isLoading: isLivePricesLoading } = useQuery({
+      queryKey: ['expertLiveQuotes', uniqueTickersToFetch.join(',')],
+      queryFn: async () => {
+          if (uniqueTickersToFetch.length === 0) return {};
+          const res = await fetch(`/api/finance/quotes`, {
+              method: 'POST',
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              body: JSON.stringify({ symbols: uniqueTickersToFetch }) 
+          });
+          if (!res.ok) throw new Error("Gagal menarik harga live");
+          const json = await res.json();
+          return json.data || {};
+      },
+      enabled: !!currentUserEmail && isTerminalAuth && uniqueTickersToFetch.length > 0,
+      refetchInterval: 10000, // AUTO-REFRESH 10 DETIK
+      staleTime: 2000, // Cache kadaluarsa dalam 2 detik
+  });
   
   const { data: dividendEvents = {} } = useQuery({
       queryKey: ['dividendEvents', uniqueTickersToFetch.join(',')],
@@ -699,8 +716,28 @@ export default function ExpertTerminal() {
               if (isCurrent) {
                   price = livePrices[activeTicker] || price;
               } else {
-                  const htmlPrice = getPriceForDate(activeTicker, targetTs);
-                  price = htmlPrice || price;
+                  // MENGGUNAKAN MEMORI 5 TAHUN (simHistoryPrices) KHUSUS UNTUK SNAPSHOT MASA LALU
+                  const hist = simHistoryPrices[activeTicker];
+                  let historicalPrice = null;
+                  
+                  if (hist && hist.timestamps) {
+                      const targetSec = targetTs / 1000;
+                      for(let i = hist.timestamps.length-1; i >= 0; i--) {
+                          if (hist.timestamps[i] <= targetSec) { 
+                              if (hist.close[i] !== null && hist.close[i] !== undefined) {
+                                  historicalPrice = hist.close[i];
+                                  break;
+                              }
+                          }
+                      }
+                  }
+                  
+                  // Jika masih kosong, coba gunakan memori chart sebagai cadangan terakhir
+                  if (!historicalPrice) {
+                      historicalPrice = getPriceForDate(activeTicker, targetTs);
+                  }
+                  
+                  price = historicalPrice || price;
               }
               
               const valuasi = price ? (qtyMap[sym].qty * price * liveMultiplier) : qtyMap[sym].investedIDR;
