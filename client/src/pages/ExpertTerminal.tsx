@@ -1202,8 +1202,8 @@ export default function ExpertTerminal() {
     - Total Kas Likuid: Rp ${cashBalance}
     - Total Valuasi Aset Investasi: Rp ${totalAssetValue}
     - Laba/Rugi Keseluruhan: Rp ${totalProfitLoss}
-    - Piutang (Uang di orang lain): ${debts.filter((d:any) => d.type === 'piutang').reduce((acc:number, d:any) => acc + d.amount, 0)}
-    - Hutang (Uang pinjaman): ${debts.filter((d:any) => d.type === 'hutang').reduce((acc:number, d:any) => acc + d.amount, 0)}
+    - Piutang Aktif (Belum lunas): Rp ${debts.filter((d:any) => d.type === 'piutang' && !d.isPaid).reduce((acc:number, d:any) => acc + d.amount, 0)}
+    - Hutang Aktif (Belum lunas): Rp ${debts.filter((d:any) => d.type === 'hutang' && !d.isPaid).reduce((acc:number, d:any) => acc + d.amount, 0)}
     - Aset aktif dipegang: ${activePortfolio.map((p:any) => p.symbol).join(', ') || 'Belum ada'}
 
     --- KONTEKS BERITA GLOBAL SCANNER (JIKA ADA) ---
