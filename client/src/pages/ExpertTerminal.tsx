@@ -264,8 +264,23 @@ export default function ExpertTerminal() {
       if (currency === 'IDR') return 1;
       const liveRateFallback = Number(forexRates[currency]) || 16200;
       if (currency !== 'USD') return liveRateFallback;
-      return getPriceForDate('IDR=X', targetTs) || liveRateFallback;
-  }, [forexRates, getPriceForDate]);
+      
+      // MENGGUNAKAN MEMORI KONSTAN 5 TAHUN (simHistoryPrices)
+      // Agar kurs riwayat pembelian tidak berubah saat tombol grafik ditekan
+      const hist = simHistoryPrices['IDR=X'];
+      if (hist && hist.timestamps && hist.timestamps.length > 0) {
+          const targetSec = targetTs / 1000;
+          for(let i = hist.timestamps.length-1; i >= 0; i--) {
+              if (hist.timestamps[i] <= targetSec) { 
+                  if (hist.close[i] !== null && hist.close[i] !== undefined) {
+                      return hist.close[i];
+                  }
+              }
+          }
+      }
+      
+      return liveRateFallback;
+  }, [forexRates, simHistoryPrices]);
 
   const activePortfolio = useMemo(() => {
     const agg: Record<string, { qty: number, totalModalIDR: number, symbol: string, currency: string, activeTicker: string, liveMultiplier: number, isStock: boolean, isIDR: boolean, createdAt: string }> = {};
