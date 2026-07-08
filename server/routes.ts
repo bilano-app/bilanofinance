@@ -1655,7 +1655,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
-          if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
+          if (!apiKey) return res.status(500).json({ error: "Kunci API Sistem AI belum terpasang." });
 
           const cleanedSymbols = symbols.map((s: string) => s.replace('.JK', '').toUpperCase());
 
@@ -1688,12 +1688,17 @@ Kembalikan HANYA format JSON MURNI tanpa markdown:
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
-                  // HAPUS response_mime_type
+                  safetySettings: [
+                      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                  ],
                   generationConfig: { temperature: 0.1 } 
               })
           });
 
-          if (!aiRes.ok) throw new Error(`API Gemini Menolak Request`);
+          if (!aiRes.ok) throw new Error(`Sistem Agregator AI menolak request (Timeout/Filter Keamanan).`);
 
           const aiData = await aiRes.json();
           const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
@@ -1704,7 +1709,7 @@ Kembalikan HANYA format JSON MURNI tanpa markdown:
               const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
               if (jsonMatch) cleanText = jsonMatch[0];
               parsedAI = JSON.parse(cleanText);
-          } catch (e) { throw new Error("Gagal melakukan parsing data AI dari Google Search."); }
+          } catch (e) { throw new Error("Gagal melakukan parsing data AI dari mesin pencari."); }
 
           const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
           const realArticles = chunks
@@ -1737,7 +1742,7 @@ Kembalikan HANYA format JSON MURNI tanpa markdown:
 
           const { market } = req.body;
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
-          if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
+          if (!apiKey) return res.status(500).json({ error: "Kunci API Sistem AI belum terpasang." });
 
           const marketContext = market === 'US' ? 'Pasar Saham Wall Street (US Market)' : 'Pasar Saham Indonesia (IHSG)';
           
@@ -1766,11 +1771,16 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
-                  // HAPUS response_mime_type
+                  safetySettings: [
+                      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                  ],
                   generationConfig: { temperature: 0.1 } 
               })
           });
-          if (!aiRes.ok) throw new Error("API Gemini memblokir request pencarian.");
+          if (!aiRes.ok) throw new Error("Sistem Core AI memblokir request pencarian berita.");
 
           const aiData = await aiRes.json();
           const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
@@ -1781,7 +1791,7 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
               const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
               if (jsonMatch) cleanText = jsonMatch[0];
               parsedAI = JSON.parse(cleanText);
-          } catch (e) { throw new Error("Gagal parsing JSON."); }
+          } catch (e) { throw new Error("Gagal parsing format JSON dari server."); }
 
           const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
           const realWebs = chunks.map((c: any) => c.web).filter(Boolean);
@@ -1816,7 +1826,7 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
           if (!ticker) return res.status(400).json({ error: "Ticker tidak diberikan." });
 
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
-          if (!apiKey) return res.status(500).json({ error: "Gemini API Key belum terpasang." });
+          if (!apiKey) return res.status(500).json({ error: "Kunci API Sistem AI belum terpasang." });
 
           const prompt = `Lakukan Deep Scan dan Analisis Sentimen saham: ${ticker}.
 Tugas: Pindai Google Search untuk berita AKTUAL paling terbaru mengenai ${ticker}.
@@ -1841,12 +1851,17 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
               body: JSON.stringify({ 
                   contents: [{ role: "user", parts: [{ text: prompt }] }],
                   tools: [{ googleSearch: {} }],
-                  // HAPUS response_mime_type
+                  safetySettings: [
+                      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                  ],
                   generationConfig: { temperature: 0.1 } 
               })
           });
           
-          if (!aiRes.ok) throw new Error("API Gemini memblokir pencarian.");
+          if (!aiRes.ok) throw new Error("Pemindai Deep Scan menolak permintaan secara otomatis.");
 
           const aiData = await aiRes.json();
           const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
@@ -1857,7 +1872,7 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
               const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
               if (jsonMatch) cleanText = jsonMatch[0];
               parsedAI = JSON.parse(cleanText);
-          } catch (e) { throw new Error("Gagal parsing JSON hasil analisa."); }
+          } catch (e) { throw new Error("Gagal parsing JSON hasil analisa Deep Scan."); }
 
           const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
           const realWebs = chunks.map((c: any) => c.web).filter(Boolean);
@@ -1878,7 +1893,7 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
 
       } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
-
+  
   const httpServer = createServer(app);
   return httpServer;
 }
