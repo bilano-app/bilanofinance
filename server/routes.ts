@@ -800,48 +800,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   app.post("/api/forex/transaction", async (req: any, res: any) => {
-      const user = await getUser(req);
-      const { type, currency, amount, description } = req.body;
-      const existing = await storage.getForexByCurrency(user!.id, currency);
-      let currentAmount = existing ? existing.amount : 0;
-      
-      const t = type.toLowerCase();
-      const isIncome = t === 'income' || t === 'pemasukan' || t === 'tambah' || t === 'buy' || t === 'in' || t === 'dapat';
-      
-      const now = Date.now();
-      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-      
-      const rate = cachedRates[currency as keyof typeof cachedRates] || 15000;
-      const amountIDR = Math.round(amount * rate);
-      let newCashBalance = Math.round(user!.cashBalance);
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
-      if (description) {
-          if (isIncome) {
-              currentAmount += amount;
-              await storage.createTransaction(user!.id, { userId: user!.id, type:'income', amount:amountIDR, category:`Pemasukan Valas`, description:`${description}`, date:new Date()} as any);
-          } else {
-              currentAmount -= amount;
-              if (currentAmount < 0) currentAmount = 0;
-              await storage.createTransaction(user!.id, { userId: user!.id, type:'expense', amount:amountIDR, category:`Pengeluaran Valas`, description:`${description}`, date:new Date()} as any);
+          // 1. Ambil customRate dari req.body yang diinput pengguna di UI
+          const { type, currency, amount, description, rate: customRate } = req.body;
+          const existing = await storage.getForexByCurrency(user!.id, currency);
+          let currentAmount = existing ? existing.amount : 0;
+          
+          const t = type.toLowerCase();
+          
+          // 2. Perbaikan logika deteksi penambahan saldo valas menggunakan .includes()
+          const isIncome = t.includes('buy') || t.includes('income') || t === 'pemasukan' || t === 'in' || t === 'tambah' || t === 'dapat';
+          
+          const now = Date.now();
+          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) {
+              await fetchLiveRates(); 
           }
-      } else {
-          if (isIncome) {
-              if (newCashBalance < amountIDR) return res.status(400).json({message:"Saldo Rupiah tidak cukup untuk beli Valas."});
-              currentAmount += amount;
-              newCashBalance -= amountIDR;
-              await storage.createTransaction(user!.id, { userId: user!.id, type:'forex_buy', amount:amountIDR, category:'Tukar Valas', description:`Beli ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, date:new Date()} as any);
+          
+          // 3. Gunakan customRate jika tersedia, jika kosong gunakan cachedRates sebagai fallback
+          const rate = customRate || cachedRates[currency as keyof typeof cachedRates] || 15000;
+          const amountIDR = Math.round(amount * rate);
+          let newCashBalance = Math.round(user!.cashBalance);
+
+          if (description) {
+              // ==========================================
+              // JALUR CATAT MUTASI MANUAL (Ada Keterangan)
+              // ==========================================
+              if (isIncome) {
+                  currentAmount += amount;
+                  await storage.createTransaction(user!.id, { 
+                      userId: user!.id, 
+                      type: 'income', 
+                      amount: amountIDR, 
+                      category: 'Pemasukan Valas', 
+                      description: description, 
+                      date: new Date() 
+                  } as any);
+              } else {
+                  // Validasi agar saldo valas tidak terpotong menjadi minus saat mutasi keluar
+                  if (currentAmount < amount) {
+                      return res.status(400).json({ message: `Saldo ${currency} tidak mencukupi untuk dikeluarkan.` });
+                  }
+                  currentAmount -= amount;
+                  if (currentAmount < 0) currentAmount = 0;
+                  await storage.createTransaction(user!.id, { 
+                      userId: user!.id, 
+                      type: 'expense', 
+                      amount: amountIDR, 
+                      category: 'Pengeluaran Valas', 
+                      description: description, 
+                      date: new Date() 
+                  } as any);
+              }
           } else {
-              currentAmount -= amount;
-              if (currentAmount < 0) currentAmount = 0;
-              newCashBalance += amountIDR;
-              await storage.createTransaction(user!.id, { userId: user!.id, type:'forex_sell', amount:amountIDR, category:'Cairkan Valas', description:`Jual ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, date:new Date()} as any);
+              // ==========================================
+              // JALUR TUKAR VALAS (Potong/Tambah Kas IDR)
+              // ==========================================
+              if (isIncome) {
+                  // BELI VALAS: Validasi kecukupan Kas Rupiah
+                  if (newCashBalance < amountIDR) {
+                      return res.status(400).json({ message: "Saldo Rupiah tidak cukup untuk beli Valas." });
+                  }
+                  currentAmount += amount;
+                  newCashBalance -= amountIDR;
+                  await storage.createTransaction(user!.id, { 
+                      userId: user!.id, 
+                      type: 'forex_buy', 
+                      amount: amountIDR, 
+                      category: 'Tukar Valas', 
+                      description: `Beli ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, 
+                      date: new Date() 
+                  } as any);
+              } else {
+                  // JUAL VALAS: Validasi kecukupan Saldo Valas yang akan dijual
+                  if (currentAmount < amount) {
+                      return res.status(400).json({ message: `Saldo ${currency} tidak mencukupi untuk dijual.` });
+                  }
+                  currentAmount -= amount;
+                  if (currentAmount < 0) currentAmount = 0;
+                  newCashBalance += amountIDR;
+                  await storage.createTransaction(user!.id, { 
+                      userId: user!.id, 
+                      type: 'forex_sell', 
+                      amount: amountIDR, 
+                      category: 'Cairkan Valas', 
+                      description: `Jual ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, 
+                      date: new Date() 
+                  } as any);
+              }
           }
+
+          // 4. Sinkronisasi perubahan ke database secara atomic
+          await storage.updateUserBalance(user!.id, newCashBalance);
+          if (existing) {
+              await storage.updateForexAsset(existing.id, currentAmount);
+          } else {
+              await storage.createForexAsset(user!.id, { currency, amount: currentAmount } as any);
+          }
+          
+          res.json({ success: true, newBalance: currentAmount, newCashBalance });
+      } catch (error: any) {
+          res.status(500).json({ error: error.message || "Terjadi kesalahan internal pada server." });
       }
-
-      await storage.updateUserBalance(user!.id, newCashBalance);
-      if (existing) await storage.updateForexAsset(existing.id, currentAmount);
-      else await storage.createForexAsset(user!.id, { currency, amount: currentAmount } as any);
-      res.json({ success: true, newBalance: currentAmount });
   });
 
   app.get("/api/debts", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getDebts(user!.id)); });
