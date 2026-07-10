@@ -2,6 +2,15 @@
 
 export const trackEvent = async (eventName: string, properties: any = {}) => {
   try {
+    // Ambil email dari local storage
+    const email = localStorage.getItem("bilano_email");
+
+    // 🔥 BLOKIR PELACAKAN UNTUK AKUN DEVELOPER
+    if (email === "adrienfandra14@gmail.com") {
+        console.log(`[DEV MODE] Tracking diblokir untuk event: ${eventName}`);
+        return; // Hentikan eksekusi di sini, jangan kirim ke server
+    }
+
     // 1. Buat ID unik untuk pengunjung anonim jika belum ada di browser mereka
     let anonymousId = localStorage.getItem("bilano_anon_id");
     if (!anonymousId) {
@@ -9,8 +18,6 @@ export const trackEvent = async (eventName: string, properties: any = {}) => {
       localStorage.setItem("bilano_anon_id", anonymousId);
     }
 
-    // 2. Ambil email jika user sudah login (opsional, agar nyambung dengan data user)
-    const email = localStorage.getItem("bilano_email");
     const headers: any = { "Content-Type": "application/json" };
     if (email) {
       headers["x-user-email"] = email;
