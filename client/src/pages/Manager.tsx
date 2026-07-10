@@ -43,20 +43,17 @@ export default function Manager() {
   // 🚀 STATE BARU UNTUK ADVANCED METRICS (METRIK 1, 3, 4, 5)
   // ==========================================
   const [funnelDataDropoff, setFunnelDataDropoff] = useState([
-    { name: 'Smart Scan', Dimulai: 150, Tersimpan: 125 },
-    { name: 'Setup Strategi', Dimulai: 80, Tersimpan: 45 },
-    { name: 'Investasi Aset', Dimulai: 90, Tersimpan: 82 }
+    { name: 'Smart Scan', Dimulai: 0, Tersimpan: 0 },
+    { name: 'Setup Strategi', Dimulai: 0, Tersimpan: 0 },
+    { name: 'Investasi Aset', Dimulai: 0, Tersimpan: 0 }
   ]);
-  const [aumVolume, setAumVolume] = useState({ totalRupiah: 1250000000, totalValasIDR: 450000000 });
+  const [aumVolume, setAumVolume] = useState({ totalRupiah: 0, totalValasIDR: 0 });
   const [errorMetrics, setErrorMetrics] = useState({ 
-    totalErrors: 12, 
-    errorRate: 1.5, 
-    popularErrors: [
-        { message: "Timeout Vision API (Scan)", count: 8 },
-        { message: "Gagal fetch Frankfurter Valas", count: 4 }
-    ] 
+    totalErrors: 0, 
+    errorRate: 0, 
+    popularErrors: [] 
   });
-  const [sessionDuration, setSessionDuration] = useState({ avgMinutes: 12.5, activeUsersCount: 342 });
+  const [sessionDuration, setSessionDuration] = useState({ avgMinutes: 0, activeUsersCount: 0 });
 
   useEffect(() => {
     const isAuth = localStorage.getItem("bilano_manager_auth");
