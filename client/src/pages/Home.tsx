@@ -17,6 +17,7 @@ import {
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
+import { trackEvent } from "@/lib/tracking";
 
 const FINANCIAL_TIPS = [
     "Bunga majemuk (Compound Interest) adalah keajaiban dunia kedelapan. - Albert Einstein",
@@ -149,6 +150,28 @@ export default function Home() {
           }
       }
   }, [rawEmail, isAnyDataLoading, user]);
+
+  useEffect(() => {
+      const handleAppWakeUp = () => {
+          if (document.visibilityState === 'visible') {
+              const lastOpen = sessionStorage.getItem("bilano_last_session");
+              const now = Date.now();
+            
+            // Jika belum ada sesi, atau sesi terakhir sudah lebih dari 30 menit yang lalu (1800000 ms)
+              if (!lastOpen || (now - parseInt(lastOpen)) > 30 * 60 * 1000) {
+                  trackEvent("app_opened", { source: "pwa_homescreen" });
+                  sessionStorage.setItem("bilano_last_session", now.toString());
+              }
+          }
+      };
+
+    // Eksekusi saat komponen pertama kali dirender
+      handleAppWakeUp();
+
+    // Pantau saat user kembali ke aplikasi dari background (misal habis buka WA lalu balik ke Bilano)
+      document.addEventListener('visibilitychange', handleAppWakeUp);
+      return () => document.removeEventListener('visibilitychange', handleAppWakeUp);
+  }, []);
 
   const dismissGuideTooltip = () => {
       setShowGuideTooltip(false);

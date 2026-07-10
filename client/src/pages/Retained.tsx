@@ -5,6 +5,7 @@ import { Hourglass, Plus, Trash2, Edit2, ArrowDownToLine, Loader2, X, AlertTrian
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-finance";
+import { trackEvent } from "@/lib/tracking";
 
 const FALLBACK_CURRENCIES = ["USD", "EUR", "SGD", "JPY", "AUD", "GBP", "CNY", "MYR", "SAR", "KRW", "THB"];
 
@@ -134,6 +135,7 @@ export default function Retained() {
                 method: "POST", headers: { "Content-Type": "application/json", "x-user-email": userEmail },
                 body: JSON.stringify({ source: tempSource, amount: parseNumber(tempAmount), currency: tempCurrency })
             });
+            trackEvent("retained_balance_added", { currency: tempCurrency });
             toast({ title: "Tersimpan", description: "Saldo tertahan berhasil ditambahkan." });
             setShowAddModal(false);
             setTempSource(""); setTempAmount(""); setTempCurrency("IDR");
@@ -179,6 +181,7 @@ export default function Retained() {
                 body: JSON.stringify({ amount: wAmount })
             });
             if (res.ok) {
+                trackEvent("retained_balance_withdrawn", {});
                 toast({ title: "Pencairan Berhasil!", description: "Dana telah masuk ke Saldo Kas Utama." });
                 setShowWithdrawModal(null); setTempAmount("");
                 fetchRetained();

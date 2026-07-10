@@ -5,6 +5,7 @@ import { Button, Input } from "@/components/UIComponents";
 // 🚨 PERBAIKAN: AlertCircle sudah ditambahkan di sini!
 import { Loader2, Wallet, HandCoins, AlertCircle } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
+import { trackEvent } from "@/lib/tracking";
 
 export default function Income() {
   const { data: user, isLoading: isUserLoading } = useUser();
@@ -83,6 +84,12 @@ export default function Income() {
               date: new Date().toISOString() 
           });
       }
+
+      trackEvent("manual_tx_added", { 
+          type: "income", 
+          category: category,
+          paymentMode: paymentMode 
+      });
       
       await queryClient.invalidateQueries();
       window.location.href = "/";

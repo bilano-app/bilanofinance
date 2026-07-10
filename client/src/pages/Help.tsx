@@ -3,6 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Card, Button } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
 import { LifeBuoy, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react"; 
+import { trackEvent } from "@/lib/tracking";
 
 export default function Help() {
   const [subject, setSubject] = useState("");
@@ -26,6 +27,9 @@ export default function Help() {
           });
 
           if (!res.ok) throw new Error("Gagal mengirim laporan");
+          trackEvent("help_ticket_submitted", { 
+              issueSubject: subject 
+          });
           
           setIsSuccess(true);
       } catch (error: any) {

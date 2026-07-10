@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
+import { trackEvent } from "@/lib/tracking";
 
 export default function SmartScan() {
     const { toast } = useToast();
@@ -346,6 +347,12 @@ export default function SmartScan() {
                     toast({ title: "Dana Darurat Dipakai", description: "Budget bulan depan telah dikurangi." });
                 } catch (err) {}
             }
+
+            trackEvent("smart_scan_used", { 
+                type: detectedType, 
+                isForex: isForex,
+                paymentMode: paymentMode 
+            });
 
             setShowEmergencyModal(false);
             window.location.href = "/";

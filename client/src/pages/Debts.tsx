@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { trackEvent } from "@/lib/tracking";
 
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -130,6 +131,11 @@ export default function Debts() {
           
           if (!resDebt.ok) throw new Error("Gagal menyimpan data.");
 
+          trackEvent("debt_tx_added", { 
+              type: activeTab, // 'hutang' atau 'piutang'
+              currency: currency 
+          });
+
           await fetchData();
           toast({ title: "Tersimpan", description: "Catatan berhasil ditambahkan." });
           setName(""); setAmount(""); setDueDate(""); setDesc(""); setCurrency("IDR");
@@ -170,6 +176,11 @@ export default function Debts() {
               const errData = await res.json().catch(() => ({}));
               throw new Error(errData.error || `Server Error ${res.status}`);
           }
+
+          trackEvent("debt_paid", { 
+              isForeignCurrency: isPayForeign,
+              amount: nominal 
+          });
           
           await fetchData(); 
           toast({ title: "Berhasil!", description: "Tagihan telah diperbarui." }); 

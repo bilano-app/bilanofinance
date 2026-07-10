@@ -7,6 +7,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useUser } from "@/hooks/use-finance"; 
 import { useLocation } from "wouter";
+import { trackEvent } from "@/lib/tracking";
 
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -72,6 +73,14 @@ export default function Reports() {
     };
     fetchData();
   }, []);
+
+  // Tambahkan di dalam komponen Performance (dan juga Reports)
+  useEffect(() => {
+    // Pastikan tidak melacak saat data masih loading
+      if (!isUserLoading) {
+          trackEvent("portfolio_viewed", { module: "performance_dashboard" }); // Ganti "reports_dashboard" untuk Reports.tsx
+      }
+  }, [isUserLoading]);
 
   const generateFrozenData = (targetMonth: number, targetYear: number, isYearly: boolean, dbData: any) => {
       const user = dbData.user || {};

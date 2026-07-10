@@ -6,6 +6,7 @@ import { useUser, useInvestments } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { trackEvent } from "@/lib/tracking";
 
 type AssetType = 'saham' | 'crypto' | 'reksadana' | 'obligasi' | 'p2p' | 'emas' | 'properti' | 'koleksi';
 
@@ -29,6 +30,13 @@ export default function Investment() {
 
   const isUserPro = user?.isPro || user?.plan === 'pro' || localStorage.getItem("bilano_pro") === "true";
 
+  useEffect(() => {
+      // Pastikan data beres dimuat sebelum melacak view
+      if (!isInvLoading && !isUserLoading) {
+          trackEvent("portfolio_viewed", { module: "investment" });
+      }
+  }, [isInvLoading, isUserLoading]);
+  
   const formatNum = (val: string) => {
       if (!val) return "";
       let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
@@ -152,6 +160,12 @@ export default function Investment() {
             const err = await res.json();
             throw new Error(err.message || "Gagal memproses transaksi.");
         }
+
+        trackEvent("investment_tx_added", { 
+            txType: txType, // 'BUY' atau 'SELL'
+            assetCategory: activeCategory || 'saham',
+            currency: inputCurrency
+        });
         
         toast({ title: "Berhasil!", description: `Transaksi ${txType === 'BUY' ? 'Beli' : 'Jual'} aset berhasil dicatat.` });
         resetForm();

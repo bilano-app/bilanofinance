@@ -9,6 +9,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
 import { useQuery } from "@tanstack/react-query";
+import { trackEvent } from "@/lib/tracking";
 
 interface TargetData {
     id: number;
@@ -138,6 +139,11 @@ export default function Target() {
             });
 
             if (res.ok) {
+                trackEvent("target_setup_completed", { 
+                    budgetType: withBudget ? budgetType : 'none',
+                    isEditMode: isEditMode
+                });
+                
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
                 // Langsung kembali ke Home tanpa memikirkan paywall
                 window.location.href = "/"; 

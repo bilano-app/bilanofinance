@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { trackEvent } from "@/lib/tracking";
 
 interface Subscription {
   id: number;
@@ -79,6 +80,10 @@ export default function Subscriptions() {
               })
           });
           if (res.ok) {
+              trackEvent("subscription_added", { 
+                  category: billType, 
+                  cycle: cycle 
+              });
               toast({ title: "Berhasil Disimpan!", description: "Layanan telah aktif." });
               setIsFormOpen(false); setName(""); setPrice(""); setNextDate(""); setBillType("statis");
               fetchSubs();
@@ -99,6 +104,9 @@ export default function Subscriptions() {
               headers: { "Content-Type": "application/json", ...getAuthHeaders() },
               body: JSON.stringify({ isActive: !currentStatus })
           });
+          trackEvent("subscription_status_toggled", { 
+              setToActive: !currentStatus 
+          });
           fetchSubs();
       } catch (e) {}
   };
@@ -115,6 +123,7 @@ export default function Subscriptions() {
               method: "DELETE",
               headers: getAuthHeaders()
           });
+          trackEvent("subscription_deleted", {});
           toast({ title: "Terhapus", description: "Layanan berhasil dihapus." });
           fetchSubs();
       } catch (e) {}

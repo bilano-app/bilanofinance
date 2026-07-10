@@ -4,6 +4,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents"; 
 import { Wallet, AlertOctagon, Loader2, HandCoins, X, AlertCircle } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
+import { trackEvent } from "@/lib/tracking";
 
 export default function Expense() {
   const { toast } = useToast();
@@ -144,6 +145,12 @@ export default function Expense() {
                   date: new Date().toISOString() 
               });
           }
+
+          trackEvent("manual_tx_added", { 
+            type: "expense", 
+            category: category,
+            paymentMode: paymentMode 
+        });
 
           setShowEmergencyModal(false);
           window.location.href = "/"; 

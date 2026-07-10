@@ -11,6 +11,7 @@ import {
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { trackEvent } from "@/lib/tracking";
 
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -99,6 +100,14 @@ export default function Performance() {
           setIsCharging(false); 
       }
   };
+
+  // Tambahkan di dalam komponen Performance (dan juga Reports)
+  useEffect(() => {
+    // Pastikan tidak melacak saat data masih loading
+      if (!isUserLoading) {
+          trackEvent("portfolio_viewed", { module: "performance_dashboard" }); // Ganti "reports_dashboard" untuk Reports.tsx
+      }
+  }, [isUserLoading]);
 
   const handleDeleteTransaction = async (id: number) => {
       if (!confirm("Hapus transaksi ini? Saldo Kas Anda akan otomatis disesuaikan kembali.")) return;

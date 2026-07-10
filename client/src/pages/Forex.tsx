@@ -11,6 +11,7 @@ import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from "recharts";
 import { useQuery } from "@tanstack/react-query";
+import { trackEvent } from "@/lib/tracking";
 
 const CURRENCY_LIST = [
     { code: "USD", name: "US Dollar", country: "United States" },
@@ -256,6 +257,11 @@ export default function Forex() {
               return; 
           }
 
+          trackEvent("forex_exchange_tx", { 
+              exchangeMode: exchangeMode, // 'buy' atau 'sell'
+              currency: selectedCurr.code
+          });
+
           toast({ title: "Sukses", description: "Transaksi pertukaran valas berhasil." });
           setAmountExchange(""); setRateExchange(""); 
           fetchData(); 
@@ -309,6 +315,7 @@ export default function Forex() {
               });
 
               if (res.ok) {
+                  trackEvent("forex_mutation_tx", { type: mutationMode, paymentMode: "cash", currency: selectedCurr.code });
                   toast({ title: "Tercatat!", description: `Saldo Valas Tunai Diperbarui.` });
                   setAmountMutation(""); setNoteMutation(""); setDebtName(""); setDueDate("");
                   fetchData();
@@ -329,7 +336,7 @@ export default function Forex() {
                       isFromTransaction: true 
                   })
               });
-
+              trackEvent("forex_mutation_tx", { type: mutationMode, paymentMode: "debt", currency: selectedCurr.code });
               toast({ title: "Tercatat!", description: `${debtType === 'piutang' ? 'Piutang' : 'Hutang'} Valas berhasil disimpan ke daftar Tagihan.` });
               setAmountMutation(""); setNoteMutation(""); setDebtName(""); setDueDate("");
               fetchData();

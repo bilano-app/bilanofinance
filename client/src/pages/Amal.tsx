@@ -171,6 +171,11 @@ export default function Amal() {
               date: new Date().toISOString()
           } as any);
 
+          trackEvent("amal_tx_added", { 
+              isExtra: ikhlasEkstra,
+              amount: finalAmt
+        });
+
           toast({ title: "Amal Tercatat! 🤲", description: "Semoga berkah dan diganti berlipat ganda." });
           setAmount(""); setDesc("");
       } catch (e) {

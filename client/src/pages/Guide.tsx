@@ -6,6 +6,7 @@ import {
     HandCoins, RefreshCcw, LineChart, FileText, ScanLine, 
     BarChart3, Camera 
 } from "lucide-react"; 
+import { trackEvent } from "@/lib/tracking";
 
 // Komponen penanda (placeholder) untuk gambar
 const ImagePlaceholder = ({ label, src }: { label: string, src?: string }) => {
@@ -255,6 +256,14 @@ export default function Guide() {
       )
     }
   ];
+
+  useEffect(() => {
+      if (guides[activeTab]) {
+          trackEvent("guide_viewed", { 
+              moduleTitle: guides[activeTab].id 
+          });
+      }
+  }, [activeTab]);
 
   return (
     <MobileLayout title="Panduan Aplikasi" showBack={true}>

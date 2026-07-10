@@ -8,6 +8,7 @@ import {
     useUser, useTransactions, useForexAssets, 
     useInvestments, useTarget 
 } from "@/hooks/use-finance"; 
+import { trackEvent } from "@/lib/tracking";
 
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -137,6 +138,11 @@ export default function ChatAI() {
             setChatCount(newCount);
             if (currentUserEmail) localStorage.setItem(`bilano_chat_usage_${currentUserEmail}`, newCount.toString());
         }
+
+        trackEvent("ai_chat_used", { 
+            isProUser: isPro,
+            promptLength: inputText.length 
+        });
 
         // 🚀 KALKULASI DATA LIVE YANG SANGAT AKURAT
         const cashReal = (user?.cashBalance || 0); 
