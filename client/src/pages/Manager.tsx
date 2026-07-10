@@ -154,21 +154,38 @@ export default function Manager() {
     </div>
   );
 
-  const formatYesNoData = (qData: any) => [ { name: "Ya", value: qData.ya || 0 }, { name: "Tidak", value: qData.tidak || 0 } ];
+  const formatYesNoData = (qData: any) => [ { name: "Ya", value: (qData && qData.ya) || 0 }, { name: "Tidak", value: (qData && qData.tidak) || 0 } ];
   const COLORS_QUIZ = ["#2563eb", "#ef4444"]; 
-  const q4Data = Object.keys(data.quizData.q4.scores).map(key => ({ name: `Skor ${key}`, value: data.quizData.q4.scores[key] }));
+  const q4Scores = (data.quizData && data.quizData.q4 && data.quizData.q4.scores) || {};
+  const q4Data = Object.keys(q4Scores).map(key => ({ name: `Skor ${key}`, value: q4Scores[key] }));
 
   const funnelData = [
-    { name: 'Kunjungan', count: data.funnel.landing },
-    { name: 'Mulai Kuis', count: data.funnel.quiz_started },
-    { name: 'Lolos Kuis', count: data.funnel.quiz_completed },
-    { name: 'Checkout', count: data.funnel.checkout },
-    { name: 'Lunas', count: data.funnel.paid },
+    { name: 'Kunjungan', count: (data.funnel && data.funnel.landing) || 0 },
+    { name: 'Mulai Kuis', count: (data.funnel && data.funnel.quiz_started) || 0 },
+    { name: 'Lolos Kuis', count: (data.funnel && data.funnel.quiz_completed) || 0 },
+    { name: 'Checkout', count: (data.funnel && data.funnel.checkout) || 0 },
+    { name: 'Lunas', count: (data.funnel && data.funnel.paid) || 0 },
   ];
 
+  // 🛡️ SISTEM PENGAMAN DATA NILAI AGAR TIDAK NAN SAAT EMPTY DATABASE
   const appMetrics = data.appMetrics || {};
   const featAdopt = data.featureAdoption || {};
-  const totalFeatureEvents = (featAdopt.ai_chat + featAdopt.smart_scan + featAdopt.portfolio_view + featAdopt.manual_input) || 1; // avoid div by 0
+  
+  const dau = appMetrics.dau || 0;
+  const mau = appMetrics.mau || 0;
+  const stickiness = appMetrics.stickiness || 0;
+  const installRate = appMetrics.installRate || 0;
+  const zombieRate = appMetrics.zombieRate || 0;
+  const ttvHours = appMetrics.ttvHours || 0;
+  const renewalRate = appMetrics.renewalRate || 0;
+  const avgTxPerWeek = appMetrics.avgTxPerWeek || 0;
+
+  const aiChatCount = featAdopt.ai_chat || 0;
+  const smartScanCount = featAdopt.smart_scan || 0;
+  const portfolioViewCount = featAdopt.portfolio_view || 0;
+  const manualInputCount = featAdopt.manual_input || 0;
+
+  const totalFeatureEvents = (aiChatCount + smartScanCount + portfolioViewCount + manualInputCount) || 1; 
 
   return (
     <div className="min-h-screen bg-[#e8ecf1] text-[#1e293b] font-sans pb-20">
@@ -220,14 +237,14 @@ export default function Manager() {
               <div className="bg-white p-5 rounded-sm border border-[#cbd5e1] shadow-sm flex items-start justify-between">
                 <div>
                   <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Pengunjung Unik</p>
-                  <p className="text-2xl font-black text-[#0f172a]">{data.totalUnique}</p>
+                  <p className="text-2xl font-black text-[#0f172a]">{data.totalUnique || 0}</p>
                 </div>
                 <div className="text-[#0ea5e9] bg-[#f0f9ff] p-2 rounded-sm"><IconNode /></div>
               </div>
               <div className="bg-white p-5 rounded-sm border border-[#cbd5e1] shadow-sm flex items-start justify-between">
                 <div>
                   <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Konversi Lunas</p>
-                  <p className="text-2xl font-black text-[#10b981]">{data.metrics.payment_success}</p>
+                  <p className="text-2xl font-black text-[#10b981]">{data.metrics?.payment_success || 0}</p>
                 </div>
                 <div className="text-[#10b981] bg-[#ecfdf5] p-2 rounded-sm"><IconDocument /></div>
               </div>
@@ -235,8 +252,8 @@ export default function Manager() {
                 <div>
                   <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Minat Paket</p>
                   <div className="flex gap-4 mt-1">
-                    <div><span className="text-[#f59e0b] font-bold">{data.plans.year}</span> <span className="text-[10px] text-[#64748b]">Tahun</span></div>
-                    <div><span className="text-[#2563eb] font-bold">{data.plans.month}</span> <span className="text-[10px] text-[#64748b]">Bulan</span></div>
+                    <div><span className="text-[#f59e0b] font-bold">{data.plans?.year || 0}</span> <span className="text-[10px] text-[#64748b]">Tahun</span></div>
+                    <div><span className="text-[#2563eb] font-bold">{data.plans?.month || 0}</span> <span className="text-[10px] text-[#64748b]">Bulan</span></div>
                   </div>
                 </div>
                 <div className="text-[#f59e0b] bg-[#fffbeb] p-2 rounded-sm"><IconRadar /></div>
@@ -292,9 +309,9 @@ export default function Manager() {
                    <IconNode /> Kualifikasi Kuis Pengguna
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <QuizChart title="Q1: Terencana" data={formatYesNoData(data.quizData.q1)} total={data.quizData.q1.ya + data.quizData.q1.tidak} />
-                  <QuizChart title="Q2: Visi Arah" data={formatYesNoData(data.quizData.q2)} total={data.quizData.q2.ya + data.quizData.q2.tidak} />
-                  <QuizChart title="Q3: Kebiasaan" data={formatYesNoData(data.quizData.q3)} total={data.quizData.q3.ya + data.quizData.q3.tidak} />
+                  <QuizChart title="Q1: Terencana" data={formatYesNoData(data.quizData?.q1)} total={((data.quizData?.q1?.ya || 0) + (data.quizData?.q1?.tidak || 0))} />
+                  <QuizChart title="Q2: Visi Arah" data={formatYesNoData(data.quizData?.q2)} total={((data.quizData?.q2?.ya || 0) + (data.quizData?.q2?.tidak || 0))} />
+                  <QuizChart title="Q3: Kebiasaan" data={formatYesNoData(data.quizData?.q3)} total={((data.quizData?.q3?.ya || 0) + (data.quizData?.q3?.tidak || 0))} />
                   <div className="border border-[#e2e8f0] p-3 text-center">
                     <h3 className="text-[10px] font-bold text-[#0f172a] uppercase">Q4: Urgensi (1-10)</h3>
                     <div className="h-28 mt-2">
@@ -324,25 +341,25 @@ export default function Manager() {
               <div className="bg-white p-5 rounded-sm border border-[#cbd5e1] shadow-sm">
                 <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">DAU / MAU</p>
                 <div className="flex items-end gap-2">
-                  <p className="text-2xl font-black text-[#8b5cf6]">{appMetrics.dau} <span className="text-sm font-normal text-slate-400">/ {appMetrics.mau}</span></p>
+                  <p className="text-2xl font-black text-[#8b5cf6]">{dau} <span className="text-sm font-normal text-slate-400">/ {mau}</span></p>
                 </div>
                 <p className="text-[9px] text-[#64748b] mt-2 font-mono">Daily / Monthly Active Users</p>
               </div>
               
               <div className="bg-white p-5 rounded-sm border border-[#cbd5e1] shadow-sm">
                 <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Stickiness Ratio</p>
-                <p className="text-2xl font-black text-[#0f172a]">{appMetrics.stickiness}%</p>
+                <p className="text-2xl font-black text-[#0f172a]">{stickiness}%</p>
                 <div className="w-full bg-slate-100 h-1.5 mt-2 rounded-full overflow-hidden">
-                    <div className={`h-full ${appMetrics.stickiness > 20 ? 'bg-[#10b981]' : 'bg-[#f59e0b]'}`} style={{width: `${Math.min(100, appMetrics.stickiness)}%`}}></div>
+                    <div className={`h-full ${stickiness > 20 ? 'bg-[#10b981]' : 'bg-[#f59e0b]'}`} style={{width: `${Math.max(0, Math.min(100, stickiness))}%`}}></div>
                 </div>
                 <p className="text-[9px] text-[#64748b] mt-1 font-mono">Target Sehat: {'>'} 20%</p>
               </div>
 
               <div className="bg-white p-5 rounded-sm border border-[#cbd5e1] shadow-sm">
                 <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Post-Purchase Install</p>
-                <p className="text-2xl font-black text-[#0f172a]">{appMetrics.installRate}%</p>
+                <p className="text-2xl font-black text-[#0f172a]">{installRate}%</p>
                 <div className="w-full bg-slate-100 h-1.5 mt-2 rounded-full overflow-hidden">
-                    <div className="h-full bg-[#3b82f6]" style={{width: `${Math.min(100, appMetrics.installRate)}%`}}></div>
+                    <div className="h-full bg-[#3b82f6]" style={{width: `${Math.max(0, Math.min(100, installRate))}%`}}></div>
                 </div>
                 <p className="text-[9px] text-[#64748b] mt-1 font-mono">PWA Installed vs Paid</p>
               </div>
@@ -351,29 +368,29 @@ export default function Manager() {
                 <div className="absolute right-0 top-0 w-16 h-16 bg-rose-50 rounded-bl-full z-0"></div>
                 <div className="relative z-10">
                   <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Zombie User Rate</p>
-                  <p className="text-2xl font-black text-[#ef4444]">{appMetrics.zombieRate}%</p>
+                  <p className="text-2xl font-black text-[#ef4444]">{zombieRate}%</p>
                   <p className="text-[9px] text-[#64748b] mt-2 font-mono leading-tight">Paid User, 0 Act (14 Hari Terakhir)</p>
                 </div>
               </div>
             </div>
 
-            {/* 🚀 METRIK 3 & 5: AUM & SESSION DURATION */}
+            {/* METRIK 3 & 5: AUM & SESSION DURATION */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="bg-white p-5 rounded-sm border border-[#cbd5e1] shadow-sm">
                     <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Total Volume Transaksi (AUM)</p>
                     <h3 className="text-2xl font-black text-[#0f172a]">
-                        {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(aumVolume.totalRupiah + aumVolume.totalValasIDR)}
+                        {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format((aumVolume.totalRupiah || 0) + (aumVolume.totalValasIDR || 0))}
                     </h3>
                     <div className="flex justify-between text-[10px] text-[#64748b] mt-2 pt-2 border-t border-slate-50 font-medium">
-                        <span>Kas Rupiah: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(aumVolume.totalRupiah)}</span>
-                        <span>Valas (IDR Equiv): {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(aumVolume.totalValasIDR)}</span>
+                        <span>Kas Rupiah: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(aumVolume.totalRupiah || 0)}</span>
+                        <span>Valas (IDR Equiv): {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(aumVolume.totalValasIDR || 0)}</span>
                     </div>
                 </div>
 
                 <div className="bg-white p-5 rounded-sm border border-[#cbd5e1] shadow-sm flex flex-col justify-between">
                     <div>
                         <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Rata-rata Durasi Sesi (Stickiness)</p>
-                        <h3 className="text-2xl font-black text-[#8b5cf6]">{sessionDuration.avgMinutes.toFixed(1)} <span className="text-xs text-[#64748b] font-bold">Menit / Sesi</span></h3>
+                        <h3 className="text-2xl font-black text-[#8b5cf6]">{sessionDuration.avgMinutes ? sessionDuration.avgMinutes.toFixed(1) : "0.0"} <span className="text-xs text-[#64748b] font-bold">Menit / Sesi</span></h3>
                     </div>
                     <p className="text-[9px] text-[#64748b] font-medium mt-2">*Dihitung dari true PWA app open hingga visibility hidden.</p>
                 </div>
@@ -386,10 +403,10 @@ export default function Manager() {
                    <IconNode /> Feature Adoption Ranking
                  </h3>
                  <div className="space-y-5">
-                    <FeatureBar name="AI Assistant (Chat)" count={featAdopt.ai_chat} total={totalFeatureEvents} color="bg-indigo-500" />
-                    <FeatureBar name="Smart Scanner (Receipts)" count={featAdopt.smart_scan} total={totalFeatureEvents} color="bg-rose-500" />
-                    <FeatureBar name="Portfolio / Forex Viewer" count={featAdopt.portfolio_view} total={totalFeatureEvents} color="bg-emerald-500" />
-                    <FeatureBar name="Manual Transaction Input" count={featAdopt.manual_input} total={totalFeatureEvents} color="bg-blue-500" />
+                    <FeatureBar name="AI Assistant (Chat)" count={aiChatCount} total={totalFeatureEvents} color="bg-indigo-500" />
+                    <FeatureBar name="Smart Scanner (Receipts)" count={smartScanCount} total={totalFeatureEvents} color="bg-rose-500" />
+                    <FeatureBar name="Portfolio / Forex Viewer" count={portfolioViewCount} total={totalFeatureEvents} color="bg-emerald-500" />
+                    <FeatureBar name="Manual Transaction Input" count={manualInputCount} total={totalFeatureEvents} color="bg-blue-500" />
                  </div>
                  <div className="mt-6 pt-4 border-t border-slate-100 text-[10px] text-slate-500 font-mono text-center">
                     Berdasarkan volume trigger event dalam aplikasi
@@ -406,7 +423,7 @@ export default function Manager() {
                     <div className="border border-slate-200 p-4 rounded-sm">
                        <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2">Time-to-Value (TTV)</h4>
                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-black text-slate-800">{appMetrics.ttvHours}</span>
+                          <span className="text-3xl font-black text-slate-800">{ttvHours}</span>
                           <span className="text-sm font-bold text-slate-500">Jam</span>
                        </div>
                        <p className="text-[10px] text-slate-400 mt-1">Rata-rata waktu dari pendaftaran hingga transaksi pertama.</p>
@@ -415,7 +432,7 @@ export default function Manager() {
                     <div className="border border-slate-200 p-4 rounded-sm">
                        <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2">Subscription Renewal Rate</h4>
                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-black text-[#10b981]">{appMetrics.renewalRate}%</span>
+                          <span className="text-3xl font-black text-[#10b981]">{renewalRate}%</span>
                        </div>
                        <p className="text-[10px] text-slate-400 mt-1">Persentase user yang memperpanjang paket setelah habis masa aktif.</p>
                     </div>
@@ -423,7 +440,7 @@ export default function Manager() {
                     <div className="flex justify-between items-center bg-slate-50 p-4 border border-slate-200 rounded-sm">
                        <div>
                           <p className="text-[10px] font-bold uppercase text-slate-500">Rata-Rata Input</p>
-                          <p className="text-lg font-black text-slate-800">{appMetrics.avgTxPerWeek} <span className="text-[10px] font-normal text-slate-500">Tx / Minggu</span></p>
+                          <p className="text-lg font-black text-slate-800">{avgTxPerWeek} <span className="text-[10px] font-normal text-slate-500">Tx / Minggu</span></p>
                        </div>
                        <div className="w-10 h-10 bg-blue-100 text-blue-600 flex items-center justify-center rounded-full">
                           <IconDocument />
@@ -433,7 +450,7 @@ export default function Manager() {
               </section>
             </div>
 
-            {/* 🚀 METRIK 1 & 4: DROPOFF FUNNEL & ERROR LOGGING */}
+            {/* METRIK 1 & 4: DROPOFF FUNNEL & ERROR LOGGING */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <section className="bg-white border border-[#cbd5e1] rounded-sm shadow-sm p-6">
                     <h3 className="text-xs font-bold text-[#0f172a] uppercase tracking-wider mb-6 flex items-center gap-2">
@@ -464,13 +481,13 @@ export default function Manager() {
                             <p className="text-[10px] text-[#64748b] font-medium mt-1">Memantau tingkat kegagalan jaringan atau timeout engine</p>
                         </div>
                         <span className={`px-2 py-0.5 rounded-sm text-[10px] font-black uppercase ${errorMetrics.errorRate > 5 ? 'bg-[#fee2e2] text-[#ef4444]' : 'bg-[#ecfdf5] text-[#10b981]'}`}>
-                            Error Rate: {errorMetrics.errorRate.toFixed(2)}%
+                            Error Rate: {errorMetrics.errorRate ? errorMetrics.errorRate.toFixed(2) : "0.00"}%
                         </span>
                     </div>
                     
                     <div className="space-y-2 mt-4">
                         <p className="text-[10px] font-bold text-[#64748b] uppercase tracking-wider">Log Kendala Terbanyak:</p>
-                        {errorMetrics.popularErrors.length === 0 ? (
+                        {(!errorMetrics.popularErrors || errorMetrics.popularErrors.length === 0) ? (
                             <p className="text-xs text-[#64748b] font-medium py-3 text-center bg-[#f8fafc] rounded-sm border border-dashed border-[#cbd5e1]">Semua sistem berjalan normal 🟢</p>
                         ) : (
                             errorMetrics.popularErrors.map((err: any, idx: number) => (
@@ -544,7 +561,7 @@ export default function Manager() {
     return (
       <div className="border border-[#e2e8f0] p-3 text-center">
         <h3 className="text-[10px] font-bold text-[#0f172a] uppercase">{title}</h3>
-        <p className="text-[9px] text-[#64748b] mb-1 font-mono">Vol: {total}</p>
+        <p className="text-[9px] text-[#64748b] mb-1 font-mono">Vol: {total || 0}</p>
         <div className="h-28">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -561,15 +578,17 @@ export default function Manager() {
   }
 
   function FeatureBar({ name, count, total, color }: any) {
-    const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+    const validCount = count || 0;
+    const validTotal = total || 1;
+    const percentage = Math.round((validCount / validTotal) * 100) || 0;
     return (
       <div>
         <div className="flex justify-between items-end mb-1">
           <span className="text-xs font-bold text-slate-700">{name}</span>
-          <span className="text-[10px] font-mono text-slate-500">{count} hits ({percentage}%)</span>
+          <span className="text-[10px] font-mono text-slate-500">{validCount} hits ({percentage}%)</span>
         </div>
         <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-          <div className={`h-full ${color}`} style={{ width: `${percentage}%` }}></div>
+          <div className={`h-full ${color}`} style={{ width: `${Math.max(0, Math.min(100, percentage))}%` }}></div>
         </div>
       </div>
     );
