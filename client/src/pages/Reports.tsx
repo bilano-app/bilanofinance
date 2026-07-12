@@ -17,7 +17,7 @@ const DEFAULT_RATES: Record<string, number> = {
 export default function Reports() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { data: userProfile } = useUser(); 
+  const { data: userProfile, isLoading: isUserLoading } = useUser(); 
   const [data, setData] = useState<any>(null);
   const [forexRates, setForexRates] = useState<any>({});
   const [targetData, setTargetData] = useState<any>(null); 
