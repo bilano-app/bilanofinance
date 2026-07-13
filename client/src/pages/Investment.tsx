@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, PlusCircle, X, Loader2, Info, Sparkles, AlertTriangle, Lock, Crown, CheckCircle2, AlertCircle } from "lucide-react"; 
 import { Button, Input } from "@/components/UIComponents";
 import { MobileLayout } from "@/components/Layout";
