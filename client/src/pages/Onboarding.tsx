@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
-  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw
+  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy
 } from "lucide-react";
 import { trackEvent } from "@/lib/tracking"; // 🔥 Import Helper Tracking Internal
 
 export default function Onboarding() {
   const [, setLocation] = useLocation();
   
-  // State untuk melacak posisi halaman: 0-3 (Pertanyaan), 4 (Summary), 5 (Pricing), 6 (Install PWA)
+  // State untuk melacak posisi halaman: 
+  // 0-3 (Pertanyaan), 4 (Summary), 5 (Pricing), 6 (Install PWA), 7 (Custom Payment Gateway)
   const [step, setStep] = useState(0);
   const [fade, setFade] = useState(true);
   
@@ -29,9 +30,12 @@ export default function Onboarding() {
     phone: ""
   });
 
+  // State baru untuk metode pembayaran & data response dari Duitku Production
+  const [paymentMethod, setPaymentMethod] = useState("BC"); // Default: BCA Virtual Account
+  const [paymentDetails, setPaymentDetails] = useState<any>(null);
+
   // State untuk kontrol modal panduan instalasi manual PWA
   const [showManualInstall, setShowManualInstall] = useState(false);
-  const [paymentDetails, setPaymentDetails] = useState<any>(null); // TAMBAHKAN INI UNTUK DATA VA
 
   // =======================================================
   // 🚀 MESIN DIAGNOSTIK PROFIL FINANSIAL
@@ -81,20 +85,16 @@ export default function Onboarding() {
   }, [step, assessment.title]);
 
   // =======================================================
-  // 🚀 LOGIKA REDIRECT DARI SANDBOX DUITKU
+  // 🚀 LOGIKA REDIRECT BACKUP (JIKA ADA CALLBACK MANUAL)
   // =======================================================
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('payment') === 'success') {
-      
-      // 🔥 AMBIL DATA FORM DARI STORAGE
       const pendingDataStr = localStorage.getItem('bilano_pending_checkout');
       const pendingData = pendingDataStr ? JSON.parse(pendingDataStr) : {};
       
-      // Kirim event bayar SUKSES lengkap dengan nama, email, hp, harga, paket
       trackEvent("payment_success", pendingData); 
-      
-      localStorage.removeItem('bilano_pending_checkout'); // Bersihkan storage
+      localStorage.removeItem('bilano_pending_checkout'); 
 
       setStep(6);
       window.history.replaceState({}, '', '/onboarding');
@@ -116,21 +116,21 @@ export default function Onboarding() {
   }, []);
 
   const handlePwaInstall = async () => {
-    trackEvent("pwa_install_prompted"); // 🔥 TRACKING: Klik pasang aplikasi otomatis
+    trackEvent("pwa_install_prompted");
     
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         console.log('BILANO sedang diinstall...');
-        trackEvent("pwa_install_accepted"); // 🔥 TRACKING: Berhasil dipasang ke perangkat
+        trackEvent("pwa_install_accepted");
       } else {
-        trackEvent("pwa_install_dismissed"); // 🔥 TRACKING: Gagal/membatalkan dialog PWA
+        trackEvent("pwa_install_dismissed");
       }
       setDeferredPrompt(null);
     } else {
       setShowManualInstall(true);
-      trackEvent("pwa_manual_install_viewed"); // 🔥 TRACKING: Mengakses panduan manual karena limitasi browser
+      trackEvent("pwa_manual_install_viewed");
     }
   };
 
@@ -138,8 +138,7 @@ export default function Onboarding() {
   // 🚀 FUNGSI TRANSISI PERTANYAAN
   // =======================================================
   const handleAnswer = (key: string, value: any) => {
-    trackEvent("quiz_step_answered", { question: key, answer: value }); // 🔥 TRACKING: Mengirim detail jawaban tiap step kuis ke DB
-    
+    trackEvent("quiz_step_answered", { question: key, answer: value });
     setAnswers(prev => ({ ...prev, [key]: value }));
     setFade(false);
     
@@ -150,10 +149,11 @@ export default function Onboarding() {
   };
 
   // =======================================================
-  // 🚀 FUNGSI SUBMIT FORM PEMBAYARAN KE BACKEND
+  // 🚀 FUNGSI SUBMIT FORM PEMBAYARAN KE BACKEND (PRODUCTION)
   // =======================================================
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); 
+    
     if (!formData.name || !formData.email || !formData.phone) {
       alert("Harap lengkapi semua data pembeli!");
       return;
@@ -163,31 +163,42 @@ export default function Onboarding() {
     const price = selectedPlan === 'year' ? 99000 : 14900;
 
     localStorage.setItem('bilano_pending_checkout', JSON.stringify({
-      name: formData.name, email: formData.email, phone: formData.phone, plan: selectedPlan, amount: price
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      plan: selectedPlan,
+      amount: price,
+      method: paymentMethod
     }));
-    trackEvent("checkout_initiated", { plan: selectedPlan }); 
+
+    trackEvent("checkout_initiated", { plan: selectedPlan, method: paymentMethod });
 
     try {
       const productDetail = selectedPlan === 'year' ? 'Paket Tahunan BILANO' : 'Paket Bulanan BILANO';
 
-      // Panggil endpoint production yang baru
       const response = await fetch('/api/payment/duitku-production', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          price, productDetail, customerName: formData.name, email: formData.email, phone: formData.phone
+          price,
+          productDetail,
+          customerName: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          paymentMethod: paymentMethod // Mengirimkan kode metode pembayaran pilihan ke backend
         }),
       });
 
       const data = await response.json();
 
       if (data.success && data.paymentData) {
-        // Tampilkan Custom UI Virtual Account (Step 7)
         setPaymentDetails(data.paymentData);
-        setSelectedPlan(null); // Tutup modal form
-        setStep(7); // Lanjut ke layar instruksi pembayaran
+        setSelectedPlan(null); // Tutup modal input data diri
+        setStep(7); // Beralih ke Custom UI instruksi pembayaran
       } else {
-        alert(data.error || "Gagal mendapatkan Virtual Account. Silakan coba lagi.");
+        alert(data.error || "Gagal terhubung ke sistem pembayaran Duitku.");
       }
     } catch (error) {
       console.error(error);
@@ -211,7 +222,7 @@ export default function Onboarding() {
         ========================================= */}
         {step < 4 && (
           <div className="w-full flex flex-col items-center">
-            {/* Progress Bar (Model Garis) */}
+            {/* Progress Bar */}
             <div className="flex items-center gap-2 mb-10">
               {[0, 1, 2, 3].map((idx) => (
                 <div 
@@ -330,7 +341,7 @@ export default function Onboarding() {
             {/* Paket Utama (1 Tahun) */}
             <button 
               onClick={() => {
-                trackEvent("plan_selected", { type: "year" }); // 🔥 TRACKING: Paket tahunan dipilih
+                trackEvent("plan_selected", { type: "year" }); 
                 setSelectedPlan('year');
               }}
               className="relative w-full bg-[#121c3a] border-2 border-amber-400/80 rounded-[28px] p-6 text-left hover:bg-[#172447] hover:border-amber-400 transition-all mb-6 group overflow-hidden"
@@ -352,7 +363,7 @@ export default function Onboarding() {
             {/* Opsi Coba Dulu (1 Bulan) */}
             <button 
               onClick={() => {
-                trackEvent("plan_selected", { type: "month" }); // 🔥 TRACKING: Paket bulanan dipilih
+                trackEvent("plan_selected", { type: "month" }); 
                 setSelectedPlan('month');
               }}
               className="text-slate-400 text-sm font-semibold hover:text-white transition-colors underline decoration-slate-600 underline-offset-4"
@@ -386,32 +397,55 @@ export default function Onboarding() {
         )}
 
         {/* =========================================
-            BAGIAN 5: INSTRUKSI PEMBAYARAN CUSTOM (STEP 7)
+            BAGIAN 5: CUSTOM UI VIRTUAL ACCOUNT / QRIS (STEP 7)
         ========================================= */}
         {step === 7 && paymentDetails && (
           <div className={`transition-opacity duration-500 w-full flex flex-col items-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
             <div className="bg-[#121c3a]/90 border border-white/10 rounded-[32px] p-6 lg:p-8 text-center w-full max-w-md shadow-2xl relative">
               <h2 className="text-2xl font-black mb-2 text-white">Selesaikan Pembayaran</h2>
               <p className="text-slate-400 text-sm mb-6">
-                Lakukan transfer ke Virtual Account <span className="font-bold text-amber-400">BCA</span> berikut:
+                {paymentDetails.qrString || paymentDetails.paymentUrl?.includes("qris") 
+                  ? "Scan kode QR di bawah menggunakan e-Wallet atau M-Banking kamu:" 
+                  : "Silakan lakukan transfer ke rekening Virtual Account berikut:"}
               </p>
 
               <div className="bg-[#040814] rounded-2xl p-6 border border-white/5 mb-6 shadow-inner">
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Nomor Virtual Account</p>
-                <div className="flex items-center justify-between bg-[#121c3a] border border-white/10 rounded-xl p-4 mb-4 group">
-                  <span className="text-xl lg:text-2xl font-black tracking-widest text-white">
-                    {paymentDetails.vaNumber}
-                  </span>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(paymentDetails.vaNumber);
-                      alert('Nomor VA berhasil disalin!');
-                    }} 
-                    className="p-2 bg-amber-400/10 text-amber-400 rounded-lg hover:bg-amber-400 hover:text-black transition-colors"
-                  >
-                    <Copy className="w-5 h-5" />
-                  </button>
-                </div>
+                
+                {/* SCREEN RENDER JIKA USER MEMILIH QRIS */}
+                {paymentDetails.qrString || paymentDetails.paymentUrl?.includes("qris") ? (
+                  <div className="flex flex-col items-center justify-center bg-white p-4 rounded-xl mb-4">
+                    <img 
+                      src={paymentDetails.qrString 
+                        ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(paymentDetails.qrString)}` 
+                        : paymentDetails.paymentUrl
+                      } 
+                      alt="QRIS Code Bilano" 
+                      className="w-48 h-48 object-contain"
+                    />
+                    <span className="text-slate-800 text-[10px] font-bold mt-2 tracking-wider">QRIS AUTOMATIC VERIFY</span>
+                  </div>
+                ) : (
+                  /* SCREEN RENDER JIKA USER MEMILIH BANK VIRTUAL ACCOUNT */
+                  <>
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">
+                      Nomor Virtual Account ({paymentMethod === 'BC' ? 'BCA' : paymentMethod === 'M2' ? 'MANDIRI' : paymentMethod === 'I1' ? 'BNI' : paymentMethod === 'BR' ? 'BRI' : 'PERMATA'})
+                    </p>
+                    <div className="flex items-center justify-between bg-[#121c3a] border border-white/10 rounded-xl p-4 mb-4 group">
+                      <span className="text-xl lg:text-2xl font-black tracking-widest text-white">
+                        {paymentDetails.vaNumber}
+                      </span>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(paymentDetails.vaNumber);
+                          alert('Nomor VA berhasil disalin!');
+                        }} 
+                        className="p-2 bg-amber-400/10 text-amber-400 rounded-lg hover:bg-amber-400 hover:text-black transition-colors"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
+                )}
 
                 <div className="pt-2 border-t border-white/5">
                   <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Total Tagihan</p>
@@ -421,15 +455,12 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-                Setelah Anda mentransfer, sistem Duitku akan memverifikasi secara instan.
+              <p className="text-[11px] text-slate-400 mb-6 leading-relaxed">
+                Sistem internal akan memverifikasi mutasi dana masuk secara otomatis. Anda tidak perlu mengirimkan bukti transfer manual.
               </p>
 
               <button
-                onClick={() => {
-                  // Berpindah ke success page anggap sudah lunas untuk flow onboarding UI
-                  setStep(6);
-                }}
+                onClick={() => setStep(6)}
                 className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 text-[#0a1128] font-black text-sm py-4 rounded-xl shadow-[0_10px_30px_rgba(251,191,36,0.3)] transition-transform active:scale-95 flex items-center justify-center gap-2"
               >
                 <CheckCircle2 className="w-5 h-5" /> SAYA SUDAH TRANSFER
@@ -497,6 +528,25 @@ export default function Onboarding() {
                 onChange={(e) => setFormData({...formData, phone: e.target.value})}
                 className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors mb-2"
               />
+
+              {/* DROPDOWN METODE PEMBAYARAN MULTI-BANK & QRIS */}
+              <div className="flex flex-col gap-1 mb-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
+                  Metode Pembayaran
+                </label>
+                <select 
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors cursor-pointer"
+                >
+                  <option value="BC">BCA Virtual Account</option>
+                  <option value="M2">Mandiri Virtual Account</option>
+                  <option value="I1">BNI Virtual Account</option>
+                  <option value="BR">BRI Virtual Account</option>
+                  <option value="BT">Permata Virtual Account</option>
+                  <option value="SP">QRIS (GoPay/OVO/Dana/LinkAja)</option>
+                </select>
+              </div>
 
               <button 
                 type="submit"

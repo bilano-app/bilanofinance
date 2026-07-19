@@ -1376,11 +1376,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =================================================================
   app.post("/api/payment/duitku-production", async (req: any, res: any) => {
       try {
+          // Secara default kita tembak BCA VA (BC)
           const { price, productDetail, customerName, email, phone, paymentMethod = "BC" } = req.body;
 
-          // Mengambil dari Vercel Env (atau fallback dari data yang Anda berikan)
-          const merchantCode = process.env.DUITKU_MERCHANT_CODE || 'D23626'; 
-          const merchantKey = process.env.DUITKU_MERCHANT_KEY || '399b0aaaff486146d0bf1c75019c89c4';
+          // Hapus spasi kosong dengan .trim() agar aman dari salah copy-paste di Vercel
+          const merchantCode = process.env.DUITKU_MERCHANT_CODE?.trim() || 'D23626'; 
+          const merchantKey = process.env.DUITKU_MERCHANT_KEY?.trim() || '399b0aaaff486146d0bf1c75019c89c4';
 
           const merchantOrderId = 'BILANO-' + Date.now();
           const paymentAmount = parseInt(price);
@@ -1398,34 +1399,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
               customerVaName: customerName,
               itemDetails: [{ name: productDetail, price: paymentAmount, quantity: 1 }],
               returnUrl: 'https://bilano.app/onboarding?payment=success',
-              callbackUrl: 'https://bilano.app/api/payment/duitku-webhook', // URL Webhook
+              callbackUrl: 'https://bilano.app/api/payment/duitku-webhook',
               signature: signature,
               paymentMethod: paymentMethod // BC = BCA Virtual Account
-            };
+          };
 
-          // GANTI KE URL PRODUCTION
           const duitkuRes = await fetch('https://passport.duitku.com/webapi/api/merchant/v2/inquiry', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
           });
 
-          const data = await duitkuRes.json();
+          const textData = await duitkuRes.text();
+          
+          let data;
+          try {
+              data = JSON.parse(textData);
+          } catch (e) {
+              return res.status(400).json({ error: "Duitku Response Error: " + textData.substring(0, 50) });
+          }
 
-          // Kirim seluruh data ke frontend agar VA Number bisa di render di custom UI
           if (data && data.statusCode === "00") {
               res.json({ success: true, paymentData: data });
           } else {
-              console.error("Duitku Production Error:", data);
-              res.status(400).json({ error: data.statusMessage || "Gagal mendapatkan Virtual Account Duitku." });
+              // TANGKAP PESAN ERROR ASLI DARI DUITKU
+              const realError = data.statusMessage || data.Message || data.message || "Ditolak oleh sistem Duitku";
+              res.status(400).json({ error: `[Error Duitku]: ${realError}` });
           }
 
       } catch (error: any) {
-          console.error("Server Crash Duitku:", error.message);
-          res.status(500).json({ error: 'Internal Server Error' });
+          res.status(500).json({ error: 'Server Crash: ' + error.message });
       }
   });
-
   // =================================================================
   // WEBHOOK DUITKU (Menerima konfirmasi jika user sudah transfer)
   // =================================================================
@@ -1452,7 +1457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.status(500).json({ success: false });
       }
   });
-  
+
   app.post("/api/help/submit", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
