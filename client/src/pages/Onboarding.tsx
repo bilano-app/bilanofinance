@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
-  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy
+  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw
 } from "lucide-react";
 import { trackEvent } from "@/lib/tracking"; // 🔥 Import Helper Tracking Internal
 
@@ -9,7 +9,7 @@ export default function Onboarding() {
   const [, setLocation] = useLocation();
   
   // State untuk melacak posisi halaman: 
-  // 0-3 (Pertanyaan), 4 (Summary), 5 (Pricing), 6 (Install PWA), 7 (Custom Payment Gateway)
+  // 0-3 (Pertanyaan), 4 (Summary), 5 (Pricing), 6 (Install PWA), 7 (Custom Payment Gateway Screen)
   const [step, setStep] = useState(0);
   const [fade, setFade] = useState(true);
   
@@ -30,9 +30,10 @@ export default function Onboarding() {
     phone: ""
   });
 
-  // State baru untuk metode pembayaran & data response dari Duitku Production
+  // State baru untuk metode pembayaran, data response Duitku, dan loading verifikasi
   const [paymentMethod, setPaymentMethod] = useState("BC"); // Default: BCA Virtual Account
   const [paymentDetails, setPaymentDetails] = useState<any>(null);
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
 
   // State untuk kontrol modal panduan instalasi manual PWA
   const [showManualInstall, setShowManualInstall] = useState(false);
@@ -85,7 +86,7 @@ export default function Onboarding() {
   }, [step, assessment.title]);
 
   // =======================================================
-  // 🚀 LOGIKA REDIRECT BACKUP (JIKA ADA CALLBACK MANUAL)
+  // 🚀 LOGIKA REDIRECT AUTOMATIC VERIFICATION ROUTE
   // =======================================================
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -124,6 +125,8 @@ export default function Onboarding() {
       if (outcome === 'accepted') {
         console.log('BILANO sedang diinstall...');
         trackEvent("pwa_install_accepted");
+        // Setelah sukses dipasang, arahkan pengguna masuk ke dashboard utama
+        setTimeout(() => setLocation('/dashboard'), 1500);
       } else {
         trackEvent("pwa_install_dismissed");
       }
@@ -162,6 +165,9 @@ export default function Onboarding() {
     setLoading(true);
     const price = selectedPlan === 'year' ? 99000 : 14900;
 
+    // Simpan email di local storage untuk mempermudah pengecekan status session
+    localStorage.setItem("bilano_email", formData.email.trim().toLowerCase());
+
     localStorage.setItem('bilano_pending_checkout', JSON.stringify({
       name: formData.name,
       email: formData.email,
@@ -187,7 +193,7 @@ export default function Onboarding() {
           customerName: formData.name,
           email: formData.email,
           phone: formData.phone,
-          paymentMethod: paymentMethod // Mengirimkan kode metode pembayaran pilihan ke backend
+          paymentMethod: paymentMethod
         }),
       });
 
@@ -195,8 +201,8 @@ export default function Onboarding() {
 
       if (data.success && data.paymentData) {
         setPaymentDetails(data.paymentData);
-        setSelectedPlan(null); // Tutup modal input data diri
-        setStep(7); // Beralih ke Custom UI instruksi pembayaran
+        setSelectedPlan(null); 
+        setStep(7); // Masuk ke custom gateway UI screen
       } else {
         alert(data.error || "Gagal terhubung ke sistem pembayaran Duitku.");
       }
@@ -205,6 +211,44 @@ export default function Onboarding() {
       alert("Terjadi kesalahan jaringan.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // =======================================================
+  // 🚀 FUNGSI VERIFIKASI STATUS REAL-TIME VIA VA / EMAIL
+  // =======================================================
+  const handleRefreshPaymentStatus = async () => {
+    setIsCheckingPayment(true);
+    
+    try {
+      // Pengecekan status akun premium langsung ke user API berdasarkan email pendaftaran
+      const response = await fetch('/api/user', {
+        method: 'GET',
+        headers: {
+          'x-user-email': formData.email.trim().toLowerCase()
+        }
+      });
+      
+      const user = await response.json();
+      
+      // Jika database mencatat webhook Duitku sukses merubah status user menjadi PRO
+      if (user && user.isPro) {
+        const pendingDataStr = localStorage.getItem('bilano_pending_checkout');
+        const pendingData = pendingDataStr ? JSON.parse(pendingDataStr) : {};
+        
+        trackEvent("payment_success", pendingData);
+        localStorage.removeItem('bilano_pending_checkout');
+        
+        // Buka gerbang enkripsi PWA installer
+        setStep(6);
+      } else {
+        alert("Sistem belum mendeteksi dana masuk pada Virtual Account / QRIS ini.\n\nJika baru saja mentransfer, mohon tunggu 1-3 menit untuk proses sinkronisasi perbankan lalu ketuk kembali tombol Refresh Status.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gagal melakukan pengecekan data ke server keuangan.");
+    } finally {
+      setIsCheckingPayment(false);
     }
   };
 
@@ -374,7 +418,7 @@ export default function Onboarding() {
         )}
 
         {/* =========================================
-            BAGIAN 4: INSTALASI PWA (STEP 6)
+            BAGIAN 4: INSTALASI PWA EKSKLUSIF (STEP 6)
         ========================================= */}
         {step === 6 && (
           <div className={`transition-opacity duration-500 w-full flex flex-col items-center text-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
@@ -383,7 +427,7 @@ export default function Onboarding() {
             </div>
             <h2 className="text-3xl font-black mb-4">Pembayaran Berhasil!</h2>
             <p className="text-slate-300 mb-10 leading-relaxed text-[15px]">
-              Akses Premium Anda telah aktif. Silakan pasang aplikasi BILANO ke perangkat Anda sekarang untuk mulai mengelola keuangan.
+              Verifikasi sukses. Akun Premium Anda telah aktif secara permanen. Silakan pasang aplikasi BILANO langsung ke perangkat Anda sekarang.
             </p>
 
             <button
@@ -397,7 +441,7 @@ export default function Onboarding() {
         )}
 
         {/* =========================================
-            BAGIAN 5: CUSTOM UI VIRTUAL ACCOUNT / QRIS (STEP 7)
+            BAGIAN 5: GATEWAY INSTRUCTION & VERIFICATION (STEP 7)
         ========================================= */}
         {step === 7 && paymentDetails && (
           <div className={`transition-opacity duration-500 w-full flex flex-col items-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
@@ -411,7 +455,7 @@ export default function Onboarding() {
 
               <div className="bg-[#040814] rounded-2xl p-6 border border-white/5 mb-6 shadow-inner">
                 
-                {/* SCREEN RENDER JIKA USER MEMILIH QRIS */}
+                {/* SCREEN RENDER QRIS */}
                 {paymentDetails.qrString || paymentDetails.paymentUrl?.includes("qris") ? (
                   <div className="flex flex-col items-center justify-center bg-white p-4 rounded-xl mb-4">
                     <img 
@@ -425,7 +469,7 @@ export default function Onboarding() {
                     <span className="text-slate-800 text-[10px] font-bold mt-2 tracking-wider">QRIS AUTOMATIC VERIFY</span>
                   </div>
                 ) : (
-                  /* SCREEN RENDER JIKA USER MEMILIH BANK VIRTUAL ACCOUNT */
+                  /* SCREEN RENDER BANK VIRTUAL ACCOUNT */
                   <>
                     <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">
                       Nomor Virtual Account ({paymentMethod === 'BC' ? 'BCA' : paymentMethod === 'M2' ? 'MANDIRI' : paymentMethod === 'I1' ? 'BNI' : paymentMethod === 'BR' ? 'BRI' : 'PERMATA'})
@@ -455,16 +499,31 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              <p className="text-[11px] text-slate-400 mb-6 leading-relaxed">
-                Sistem internal akan memverifikasi mutasi dana masuk secara otomatis. Anda tidak perlu mengirimkan bukti transfer manual.
-              </p>
-
+              {/* 🔄 BUTTON REFRESH STATUS PEMBAYARAN (ANTI-BYPASS) */}
               <button
-                onClick={() => setStep(6)}
-                className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 text-[#0a1128] font-black text-sm py-4 rounded-xl shadow-[0_10px_30px_rgba(251,191,36,0.3)] transition-transform active:scale-95 flex items-center justify-center gap-2"
+                onClick={handleRefreshPaymentStatus}
+                disabled={isCheckingPayment}
+                className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 text-[#0a1128] font-black text-sm py-4 rounded-xl shadow-[0_10px_30px_rgba(251,191,36,0.3)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-75"
               >
-                <CheckCircle2 className="w-5 h-5" /> SAYA SUDAH TRANSFER
+                {isCheckingPayment ? (
+                  <RefreshCw className="w-5 h-5 animate-spin" /> 
+                ) : (
+                  <RefreshCw className="w-5 h-5" />
+                )}
+                {isCheckingPayment ? "MENYINGKRONKAN DATA..." : "REFRESH STATUS PEMBAYARAN"}
               </button>
+
+              {/* 🔙 BACK OPTION: GANTI METODE PEMBAYARAN */}
+              <button
+                onClick={() => {
+                  setPaymentDetails(null);
+                  setStep(5); 
+                }}
+                className="mt-5 text-[13px] font-semibold text-slate-400 hover:text-white transition-colors underline decoration-slate-600 underline-offset-4 block w-full text-center"
+              >
+                Ganti Metode Pembayaran
+              </button>
+
             </div>
           </div>
         )}
@@ -512,14 +571,22 @@ export default function Onboarding() {
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
                 className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors"
               />
-              <input
-                type="email"
-                required
-                placeholder="Alamat Email"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors"
-              />
+              
+              <div className="flex flex-col gap-1 w-full">
+                <input
+                  type="email"
+                  required
+                  placeholder="Alamat Email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors"
+                />
+                {/* 🔒 DISCLAIMER LOGIN HAK AKSES TUNGGAL PWA */}
+                <p className="text-[10px] text-amber-400/90 text-left pl-1 leading-normal">
+                  *Penting: Alamat email ini akan dikunci sebagai satu-satunya akun akses login kamu ke sistem PWA BILANO setelah verifikasi selesai.
+                </p>
+              </div>
+
               <input
                 type="tel"
                 required
