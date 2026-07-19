@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
-  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw
+  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw, AlertCircle
 } from "lucide-react";
 import { trackEvent } from "@/lib/tracking"; // 🔥 Import Helper Tracking Internal
 
@@ -34,6 +34,7 @@ export default function Onboarding() {
   const [paymentMethod, setPaymentMethod] = useState("BC"); // Default: BCA Virtual Account
   const [paymentDetails, setPaymentDetails] = useState<any>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+  const [showPaymentAlert, setShowPaymentAlert] = useState(false); // 🔥 STATE BARU UNTUK POPUP ALERT
 
   // State untuk kontrol modal panduan instalasi manual PWA
   const [showManualInstall, setShowManualInstall] = useState(false);
@@ -193,7 +194,7 @@ export default function Onboarding() {
           customerName: formData.name,
           email: formData.email,
           phone: formData.phone,
-          paymentMethod: paymentMethod
+          paymentMethod: paymentMethod // Mengirimkan kode metode pembayaran pilihan ke backend
         }),
       });
 
@@ -242,11 +243,12 @@ export default function Onboarding() {
         // Buka gerbang enkripsi PWA installer
         setStep(6);
       } else {
-        alert("Sistem belum mendeteksi dana masuk pada Virtual Account / QRIS ini.\n\nJika baru saja mentransfer, mohon tunggu 1-3 menit untuk proses sinkronisasi perbankan lalu ketuk kembali tombol Refresh Status.");
+        // 🔥 GANTI ALERT BAWAAN BROWSER MENJADI INI:
+        setShowPaymentAlert(true);
       }
     } catch (error) {
       console.error(error);
-      alert("Gagal melakukan pengecekan data ke server keuangan.");
+      alert("Gagal melakukan pengecekan data ke server keuangan."); // Biarkan alert sistem jika gagal koneksi
     } finally {
       setIsCheckingPayment(false);
     }
@@ -655,6 +657,40 @@ export default function Onboarding() {
 
             <button 
               onClick={() => setShowManualInstall(false)}
+              className="w-full bg-slate-100 hover:bg-white text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center"
+            >
+              SAYA MENGERTI
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================
+          MODAL PERINGATAN DANA BELUM MASUK
+      ========================================= */}
+      {showPaymentAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200 text-center shadow-2xl">
+            <button 
+              onClick={() => setShowPaymentAlert(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(251,191,36,0.2)]">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            
+            <h3 className="text-xl font-black mb-3">Dana Belum Masuk</h3>
+            <p className="text-sm text-slate-300 mb-6 leading-relaxed">
+              Sistem belum mendeteksi mutasi masuk pada Virtual Account atau QRIS Anda.
+              <br/><br/>
+              Jika baru saja mentransfer, mohon tunggu <strong>1-3 menit</strong> untuk proses sinkronisasi perbankan, lalu ketuk kembali tombol Refresh Status.
+            </p>
+
+            <button 
+              onClick={() => setShowPaymentAlert(false)}
               className="w-full bg-slate-100 hover:bg-white text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center"
             >
               SAYA MENGERTI
