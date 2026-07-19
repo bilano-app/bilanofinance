@@ -1371,12 +1371,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: "SERVER CRASH: " + error.message }); }
   });
 
-  app.post("/api/payment/duitku-sandbox", async (req: any, res: any) => {
+  // =================================================================
+  // API DUITKU PRODUCTION (GENERATE VA)
+  // =================================================================
+  app.post("/api/payment/duitku-production", async (req: any, res: any) => {
       try {
-          const { price, productDetail, customerName, email, phone } = req.body;
+          const { price, productDetail, customerName, email, phone, paymentMethod = "BC" } = req.body;
 
-          const merchantCode = process.env.DUITKU_MERCHANT_CODE || ''; 
-          const merchantKey = process.env.DUITKU_MERCHANT_KEY || '';
+          // Mengambil dari Vercel Env (atau fallback dari data yang Anda berikan)
+          const merchantCode = process.env.DUITKU_MERCHANT_CODE || 'D23626'; 
+          const merchantKey = process.env.DUITKU_MERCHANT_KEY || '399b0aaaff486146d0bf1c75019c89c4';
 
           const merchantOrderId = 'BILANO-' + Date.now();
           const paymentAmount = parseInt(price);
@@ -1394,12 +1398,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               customerVaName: customerName,
               itemDetails: [{ name: productDetail, price: paymentAmount, quantity: 1 }],
               returnUrl: 'https://bilano.app/onboarding?payment=success',
-              callbackUrl: 'https://bilano.app/api/payment/duitku-webhook',
+              callbackUrl: 'https://bilano.app/api/payment/duitku-webhook', // URL Webhook
               signature: signature,
-              paymentMethod: "BC"
+              paymentMethod: paymentMethod // BC = BCA Virtual Account
             };
 
-          const duitkuRes = await fetch('https://sandbox.duitku.com/webapi/api/merchant/v2/inquiry', {
+          // GANTI KE URL PRODUCTION
+          const duitkuRes = await fetch('https://passport.duitku.com/webapi/api/merchant/v2/inquiry', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
@@ -1407,11 +1412,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const data = await duitkuRes.json();
 
-          if (data && data.paymentUrl) {
-              res.json({ paymentUrl: data.paymentUrl });
+          // Kirim seluruh data ke frontend agar VA Number bisa di render di custom UI
+          if (data && data.statusCode === "00") {
+              res.json({ success: true, paymentData: data });
           } else {
-              console.error("Duitku Sandbox Error:", data);
-              res.status(400).json({ error: "Gagal mendapatkan URL Pembayaran dari Duitku." });
+              console.error("Duitku Production Error:", data);
+              res.status(400).json({ error: data.statusMessage || "Gagal mendapatkan Virtual Account Duitku." });
           }
 
       } catch (error: any) {
@@ -1420,34 +1426,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  app.post("/api/payment/mayar/webhook", async (req: any, res: any) => {
+  // =================================================================
+  // WEBHOOK DUITKU (Menerima konfirmasi jika user sudah transfer)
+  // =================================================================
+  app.post("/api/payment/duitku-webhook", async (req: any, res: any) => {
       try {
-          const payload = req.body || {}; 
-          const status = String(payload?.status || payload?.data?.status || "").toUpperCase();
-          
-          const amt = payload?.data?.amount || payload?.amount;
-          const purchasedPlan = amt == 99000 ? "BILANO-PRO-1Y" : "BILANO-PRO-1M";
-          
-          const customerEmail = String(payload?.customer_email || payload?.data?.customer_email || payload?.customer?.email || payload?.data?.customer?.email || payload?.email || payload?.data?.email || "");
+          const { merchantCode, amount, merchantOrderId, signature, referenceCode, resultCode } = req.body;
+          const merchantKey = process.env.DUITKU_MERCHANT_KEY || '399b0aaaff486146d0bf1c75019c89c4';
 
-          if (status === 'SUCCESS' || status === 'PAID' || status === 'SETTLED') {
-              let targetUser = null;
-              if (customerEmail) {
-                  targetUser = await storage.getUserByUsername(customerEmail);
-                  if (!targetUser) targetUser = await storage.getUserByUsername(customerEmail.toLowerCase());
-              }
-              
-              if (targetUser) {
-                  const validUntil = new Date();
-                  if (purchasedPlan === "BILANO-PRO-1M") validUntil.setMonth(validUntil.getMonth() + 1);
-                  else validUntil.setFullYear(validUntil.getFullYear() + 1);
-                  await storage.updateUserProStatus(targetUser.id, true, validUntil);
-              }
+          const signatureRaw = merchantCode + amount + merchantOrderId + merchantKey;
+          const expectedSignature = crypto.createHash('md5').update(signatureRaw).digest('hex');
+
+          if (signature !== expectedSignature) {
+              return res.status(403).json({ error: "Invalid Signature" });
           }
-          res.status(200).json({ success: true });
-      } catch (error) { res.status(200).json({ success: false, message: "Handled" }); }
-  });
 
+          if (resultCode === "00") {
+              // PEMBAYARAN SUKSES!
+              // Di masa depan Anda bisa menambahkan script untuk auto-upgrade akun berdasarkan merchantOrderId di sini.
+              console.log("PEMBAYARAN DUITKU SUKSES:", merchantOrderId);
+          }
+
+          res.status(200).json({ success: true });
+      } catch (error) {
+          res.status(500).json({ success: false });
+      }
+  });
+  
   app.post("/api/help/submit", async (req: any, res: any) => {
       try {
           const user = await getUser(req);

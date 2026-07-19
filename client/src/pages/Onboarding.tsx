@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
-  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar 
+  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw
 } from "lucide-react";
 import { trackEvent } from "@/lib/tracking"; // 🔥 Import Helper Tracking Internal
 
@@ -31,6 +31,7 @@ export default function Onboarding() {
 
   // State untuk kontrol modal panduan instalasi manual PWA
   const [showManualInstall, setShowManualInstall] = useState(false);
+  const [paymentDetails, setPaymentDetails] = useState<any>(null); // TAMBAHKAN INI UNTUK DATA VA
 
   // =======================================================
   // 🚀 MESIN DIAGNOSTIK PROFIL FINANSIAL
@@ -153,7 +154,6 @@ export default function Onboarding() {
   // =======================================================
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); 
-    
     if (!formData.name || !formData.email || !formData.phone) {
       alert("Harap lengkapi semua data pembeli!");
       return;
@@ -162,45 +162,37 @@ export default function Onboarding() {
     setLoading(true);
     const price = selectedPlan === 'year' ? 99000 : 14900;
 
-    // 🔥 SIMPAN SEMENTARA DATA FORM SEBELUM KE GATEWAY
     localStorage.setItem('bilano_pending_checkout', JSON.stringify({
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      plan: selectedPlan,
-      amount: price
+      name: formData.name, email: formData.email, phone: formData.phone, plan: selectedPlan, amount: price
     }));
-
-    trackEvent("checkout_initiated", { plan: selectedPlan }); // 🔥 TRACKING: Inisiasi klik tombol pembayaran data lengkap
+    trackEvent("checkout_initiated", { plan: selectedPlan }); 
 
     try {
       const productDetail = selectedPlan === 'year' ? 'Paket Tahunan BILANO' : 'Paket Bulanan BILANO';
 
-      const response = await fetch('/api/payment/duitku-sandbox', {
+      // Panggil endpoint production yang baru
+      const response = await fetch('/api/payment/duitku-production', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          price,
-          productDetail,
-          customerName: formData.name,
-          email: formData.email,
-          phone: formData.phone
+          price, productDetail, customerName: formData.name, email: formData.email, phone: formData.phone
         }),
       });
 
       const data = await response.json();
 
-      if (data.paymentUrl) {
-        window.location.href = data.paymentUrl;
+      if (data.success && data.paymentData) {
+        // Tampilkan Custom UI Virtual Account (Step 7)
+        setPaymentDetails(data.paymentData);
+        setSelectedPlan(null); // Tutup modal form
+        setStep(7); // Lanjut ke layar instruksi pembayaran
       } else {
-        alert("Gagal terhubung ke Sandbox Duitku. Periksa konfigurasi Backend Anda.");
-        setLoading(false);
+        alert(data.error || "Gagal mendapatkan Virtual Account. Silakan coba lagi.");
       }
     } catch (error) {
       console.error(error);
       alert("Terjadi kesalahan jaringan.");
+    } finally {
       setLoading(false);
     }
   };
@@ -390,6 +382,59 @@ export default function Onboarding() {
               <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
               INSTALL BILANO SEKARANG
             </button>
+          </div>
+        )}
+
+        {/* =========================================
+            BAGIAN 5: INSTRUKSI PEMBAYARAN CUSTOM (STEP 7)
+        ========================================= */}
+        {step === 7 && paymentDetails && (
+          <div className={`transition-opacity duration-500 w-full flex flex-col items-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="bg-[#121c3a]/90 border border-white/10 rounded-[32px] p-6 lg:p-8 text-center w-full max-w-md shadow-2xl relative">
+              <h2 className="text-2xl font-black mb-2 text-white">Selesaikan Pembayaran</h2>
+              <p className="text-slate-400 text-sm mb-6">
+                Lakukan transfer ke Virtual Account <span className="font-bold text-amber-400">BCA</span> berikut:
+              </p>
+
+              <div className="bg-[#040814] rounded-2xl p-6 border border-white/5 mb-6 shadow-inner">
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Nomor Virtual Account</p>
+                <div className="flex items-center justify-between bg-[#121c3a] border border-white/10 rounded-xl p-4 mb-4 group">
+                  <span className="text-xl lg:text-2xl font-black tracking-widest text-white">
+                    {paymentDetails.vaNumber}
+                  </span>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(paymentDetails.vaNumber);
+                      alert('Nomor VA berhasil disalin!');
+                    }} 
+                    className="p-2 bg-amber-400/10 text-amber-400 rounded-lg hover:bg-amber-400 hover:text-black transition-colors"
+                  >
+                    <Copy className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="pt-2 border-t border-white/5">
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Total Tagihan</p>
+                  <span className="text-3xl font-black text-amber-400">
+                    Rp {parseInt(paymentDetails.amount).toLocaleString('id-ID')}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+                Setelah Anda mentransfer, sistem Duitku akan memverifikasi secara instan.
+              </p>
+
+              <button
+                onClick={() => {
+                  // Berpindah ke success page anggap sudah lunas untuk flow onboarding UI
+                  setStep(6);
+                }}
+                className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 text-[#0a1128] font-black text-sm py-4 rounded-xl shadow-[0_10px_30px_rgba(251,191,36,0.3)] transition-transform active:scale-95 flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-5 h-5" /> SAYA SUDAH TRANSFER
+              </button>
+            </div>
           </div>
         )}
 
