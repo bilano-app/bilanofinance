@@ -203,6 +203,7 @@ import ExpertTerminal from "@/pages/ExpertTerminal";
 import Onboarding from "@/pages/Onboarding"; 
 import Checkout from "@/pages/Checkout";
 import Manager from "@/pages/Manager"; // 🔥 Import Manager ditambahkan di sini
+import VideoPreview from "@/pages/VideoPreview";
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -393,6 +394,7 @@ function Router() {
         <Route path="/retained" component={Retained} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/checkout" component={Checkout} />
+        <Route path="/preview" component={VideoPreview} /> {/* ✨ Rute Video Preview ditambahkan di sini */}
         
         {/* 🔥 Route Manager ditambahkan di sini */}
         <Route path="/manager" component={Manager} />
