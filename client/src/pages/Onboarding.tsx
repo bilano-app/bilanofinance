@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
-  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw, AlertCircle
+  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw, AlertCircle, ShieldCheck, Sparkles
 } from "lucide-react";
 import { trackEvent } from "@/lib/tracking"; // 🔥 Import Helper Tracking Internal
 
@@ -30,17 +30,17 @@ export default function Onboarding() {
     phone: ""
   });
 
-  // State baru untuk metode pembayaran, data response Duitku, dan loading verifikasi
+  // State untuk metode pembayaran, data response Duitku, dan loading verifikasi
   const [paymentMethod, setPaymentMethod] = useState("BC"); // Default: BCA Virtual Account
   const [paymentDetails, setPaymentDetails] = useState<any>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
-  const [showPaymentAlert, setShowPaymentAlert] = useState(false); // 🔥 STATE BARU UNTUK POPUP ALERT
+  const [showPaymentAlert, setShowPaymentAlert] = useState(false); 
 
   // State untuk kontrol modal panduan instalasi manual PWA
   const [showManualInstall, setShowManualInstall] = useState(false);
 
   // =======================================================
-  // 🚀 MESIN DIAGNOSTIK PROFIL FINANSIAL
+  // 🚀 MESIN DIAGNOSTIK PROFIL FINANSIAL (VERSI ANTUSIAS)
   // =======================================================
   const getAssessment = () => {
     const { q1, q2, q3, q4 } = answers;
@@ -49,27 +49,31 @@ export default function Onboarding() {
 
     if (yesCount === 3 && score >= 8) {
       return {
-        title: "Profil: Eksekutor Visioner",
-        desc: `Kalkulasi menunjukkan sinkronisasi sempurna antara visi dan kesiapan mental (Skor Urgensi: ${score}/10). Anda tidak butuh motivasi dasar; Anda butuh alat presisi. Bilano akan langsung bekerja sebagai sistem pemantauan brutal untuk memastikan aset Anda terakumulasi sesuai rencana, tanpa kompromi.`,
-        icon: <Target className="w-8 h-8" />
+        title: "👑 Sang Visioner Finansial!",
+        desc: `Luar biasa! Skor kamu (${score}/10) menunjukkan kamu sudah 100% siap untuk level up. Kamu punya visi yang tajam dan tekad baja. Bilano hadir bukan untuk menceramahi, tapi sebagai senjata rahasia kamu untuk mengakselerasi aset dan mewujudkan targetmu dengan presisi tinggi. Let's go!`,
+        icon: <Target className="w-10 h-10 animate-pulse" />,
+        highlight: "Mari kita eksekusi mahakarya finansialmu sekarang."
       };
     } else if (yesCount >= 2 && score >= 6) {
       return {
-        title: "Profil: Pembangun Sistem",
-        desc: `Anda memiliki kesadaran finansial yang logis (Skor Urgensi: ${score}/10) dan kemauan membangun kebiasaan, meski visi masa depan Anda mungkin belum 100% presisi. Ini adalah pijakan ideal. Bilano akan bertindak sebagai kerangka otomatis Anda—mengunci pengeluaran impulsif dan menuntut Anda disiplin setiap hari.`,
-        icon: <Fingerprint className="w-8 h-8" />
+        title: "🚀 Sang Arsitek Kebiasaan!",
+        desc: `Keren banget! Dengan skor ${score}/10, kamu sudah punya pondasi mindset yang super solid. Kamu sadar kekayaan dibangun dari konsistensi. Bilano akan jadi sahabat autopilot-mu untuk mengunci kebiasaan baik itu setiap hari. Siap melihat uangmu bertumbuh secara eksponensial?`,
+        icon: <Fingerprint className="w-10 h-10 animate-pulse" />,
+        highlight: "Mari mulai bangun kerajaan kecilmu hari ini."
       };
     } else if (q3 === 'Tidak' && score >= 7) {
       return {
-        title: "Profil: Paradoks Analitis",
-        desc: `Data menunjukkan anomali logis: Anda tahu target keuangan itu sangat penting (Skor: ${score}/10), tapi Anda menolak membangun kebiasaan kecil. Niat tanpa eksekusi adalah ilusi matematis. Bilano didesain untuk mendobrak kepasifan ini dengan menyajikan realita arus kas Anda secara brutal dan transparan.`,
-        icon: <Activity className="w-8 h-8" />
+        title: "⚡ Sang Pemikir Strategis!",
+        desc: `Menarik! Kamu sangat sadar pentingnya masa depan (Skor: ${score}/10), tapi mungkin kamu tipe yang nggak mau ribet dengan rutinitas manual. Nggak masalah! Di situlah keajaiban Bilano bekerja. Biarkan sistem pintar kami yang melacak keuanganmu, sementara kamu tetap santai menikmati hidup!`,
+        icon: <Activity className="w-10 h-10 animate-pulse" />,
+        highlight: "Mari delegasikan keribetan finansialmu pada kami."
       };
     } else {
       return {
-        title: "Profil: Pengamat Pasif",
-        desc: `Skor kalkulasi Anda (${score}/10) menunjukkan Anda belum sepenuhnya menyadari bahaya kebocoran finansial, atau masih meraba-raba tujuan. Tidak masalah. Daripada menebak, gunakan Bilano sebagai cermin realita. Biarkan data murni yang membuktikan seberapa banyak uang Anda yang menguap tanpa jejak bulan ini.`,
-        icon: <Radar className="w-8 h-8" />
+        title: "🌱 Penjelajah Potensi Baru!",
+        desc: `Selamat datang di garis start! (Skor: ${score}/10). Nggak perlu overthinking kalau tujuanmu belum terlalu spesifik. Jadikan Bilano sebagai kompas ajaib yang akan merapikan arus kasmu tanpa tekanan. Santai saja, kita petakan masa depanmu pelan-pelan bersama!`,
+        icon: <Radar className="w-10 h-10 animate-pulse" />,
+        highlight: "Mari ambil langkah pertama yang paling menentukan."
       };
     }
   };
@@ -194,7 +198,7 @@ export default function Onboarding() {
           customerName: formData.name,
           email: formData.email,
           phone: formData.phone,
-          paymentMethod: paymentMethod // Mengirimkan kode metode pembayaran pilihan ke backend
+          paymentMethod: paymentMethod 
         }),
       });
 
@@ -222,7 +226,6 @@ export default function Onboarding() {
     setIsCheckingPayment(true);
     
     try {
-      // Pengecekan status akun premium langsung ke user API berdasarkan email pendaftaran
       const response = await fetch('/api/user', {
         method: 'GET',
         headers: {
@@ -232,7 +235,6 @@ export default function Onboarding() {
       
       const user = await response.json();
       
-      // Jika database mencatat webhook Duitku sukses merubah status user menjadi PRO
       if (user && user.isPro) {
         const pendingDataStr = localStorage.getItem('bilano_pending_checkout');
         const pendingData = pendingDataStr ? JSON.parse(pendingDataStr) : {};
@@ -240,15 +242,13 @@ export default function Onboarding() {
         trackEvent("payment_success", pendingData);
         localStorage.removeItem('bilano_pending_checkout');
         
-        // Buka gerbang enkripsi PWA installer
         setStep(6);
       } else {
-        // 🔥 GANTI ALERT BAWAAN BROWSER MENJADI INI:
         setShowPaymentAlert(true);
       }
     } catch (error) {
       console.error(error);
-      alert("Gagal melakukan pengecekan data ke server keuangan."); // Biarkan alert sistem jika gagal koneksi
+      alert("Gagal melakukan pengecekan data ke server keuangan."); 
     } finally {
       setIsCheckingPayment(false);
     }
@@ -352,24 +352,26 @@ export default function Onboarding() {
             BAGIAN 2: RINGKASAN PERSONAL (STEP 4)
         ========================================= */}
         {step === 4 && (
-          <div className={`transition-opacity duration-500 w-full flex flex-col items-center text-center bg-[#121c3a]/50 p-8 rounded-[32px] border border-white/10 backdrop-blur-md shadow-2xl ${fade ? 'opacity-100' : 'opacity-0'}`}>
-            <div className="w-16 h-16 bg-amber-400/20 text-amber-400 rounded-full flex items-center justify-center mb-6">
+          <div className={`transition-opacity duration-500 w-full flex flex-col items-center text-center bg-gradient-to-b from-[#121c3a]/90 to-[#0a1128]/95 p-8 rounded-[32px] border border-amber-400/30 backdrop-blur-xl shadow-[0_15px_50px_rgba(251,191,36,0.15)] ${fade ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="w-20 h-20 bg-amber-400/20 text-amber-400 rounded-full flex items-center justify-center mb-6 shadow-[0_0_25px_rgba(251,191,36,0.25)]">
               {assessment.icon}
             </div>
-            <h2 className="text-2xl font-black mb-4">{assessment.title}</h2>
-            <p className="text-slate-300 leading-relaxed mb-8 text-[15px]">
+            <h2 className="text-2xl md:text-3xl font-black mb-4 text-white drop-shadow-md">
+              {assessment.title}
+            </h2>
+            <p className="text-slate-300 leading-relaxed mb-8 text-[15px] md:text-base max-w-sm">
               {assessment.desc}
               <br/><br/>
-              <span className="font-bold text-white">Mari kita eksekusi sistem ini sekarang.</span>
+              <span className="font-black text-amber-400 tracking-wide">{assessment.highlight}</span>
             </p>
             <button 
               onClick={() => {
                 setFade(false);
                 setTimeout(() => { setStep(5); setFade(true); }, 300);
               }}
-              className="w-full bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black text-lg py-4 rounded-2xl shadow-[0_10px_30px_rgba(251,191,36,0.3)] active:scale-95 transition-transform flex items-center justify-center gap-2"
+              className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-lg py-4 rounded-2xl shadow-[0_10px_30px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2 border-b-[4px] border-amber-600 active:border-b-0 active:translate-y-[4px]"
             >
-              Dapatkan Bilano <ArrowRight className="w-5 h-5" />
+              🚀 GAS, MULAI SEKARANG! <ArrowRight className="w-6 h-6" />
             </button>
           </div>
         )}
@@ -390,7 +392,7 @@ export default function Onboarding() {
                 trackEvent("plan_selected", { type: "year" }); 
                 setSelectedPlan('year');
               }}
-              className="relative w-full bg-[#121c3a] border-2 border-amber-400/80 rounded-[28px] p-6 text-left hover:bg-[#172447] hover:border-amber-400 transition-all mb-6 group overflow-hidden"
+              className="relative w-full bg-[#121c3a] border-2 border-amber-400/80 rounded-[28px] p-6 text-left hover:bg-[#172447] hover:border-amber-400 transition-all mb-4 group overflow-hidden"
             >
               <div className="absolute top-0 right-0 bg-amber-400 text-black text-[10px] font-black px-4 py-1.5 rounded-bl-xl rounded-tr-[24px] uppercase tracking-wider">
                 Paling Hemat
@@ -412,10 +414,41 @@ export default function Onboarding() {
                 trackEvent("plan_selected", { type: "month" }); 
                 setSelectedPlan('month');
               }}
-              className="text-slate-400 text-sm font-semibold hover:text-white transition-colors underline decoration-slate-600 underline-offset-4"
+              className="text-slate-400 text-sm font-semibold hover:text-white transition-colors underline decoration-slate-600 underline-offset-4 mb-8"
             >
               "Saya mau coba dulu" (Paket Sebulan Rp14.900)
             </button>
+
+            {/* 🔥 NEW SECTION: MENGAPA BAYAR & GARANSI HARGA */}
+            <div className="w-full max-w-md space-y-3 text-left">
+              
+              {/* Box 1: Garansi Kunci Harga (FOMO) */}
+              <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 md:p-5">
+                <div className="flex items-center gap-2 text-indigo-400 mb-2">
+                  <ShieldCheck className="w-5 h-5" />
+                  <h4 className="font-bold text-sm tracking-wide">Garansi Kunci Harga Permanen</h4>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                  Seiring bertambahnya fitur AI ke depannya, harga untuk pengguna baru akan terus dinaikkan. Namun bagi Anda yang mengamankan akun hari ini, tarif perpanjangan akan <strong>dikunci mati selamanya di nominal awal</strong> tanpa biaya tambahan apa pun.
+                </p>
+              </div>
+
+              {/* Box 2: Alasan Berbayar (Skin in the Game) */}
+              <div className="bg-[#121c3a]/50 border border-white/5 rounded-2xl p-4 md:p-5">
+                <div className="flex items-center gap-2 text-amber-400 mb-2">
+                  <Sparkles className="w-4 h-4" />
+                  <h4 className="font-bold text-sm">Kenapa aplikasi ini berbayar?</h4>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed mb-2">
+                  Kami menerapkan prinsip <em>"Skin in the Game"</em>. Sadarkah Anda, aplikasi gratisan seringkali hanya diunduh lalu diabaikan? 
+                </p>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Dengan mengeluarkan biaya yang jauh lebih murah dari secangkir kopi, Anda sedang <strong>menciptakan komitmen psikologis</strong> pada diri sendiri untuk benar-benar disiplin merubah nasib keuangan Anda.
+                </p>
+              </div>
+
+            </div>
+
           </div>
         )}
 

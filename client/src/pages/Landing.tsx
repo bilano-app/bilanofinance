@@ -12,11 +12,14 @@ export default function Landing() {
   // =======================================================
   // 🚀 MESIN TEKS DINAMIS
   // =======================================================
+  // =======================================================
+  // 🚀 MESIN TEKS DINAMIS (VERSI VISI KEKAYAAN)
+  // =======================================================
   const headlines = [
-    { top: "Gaji Naik Terus,", bottom: "Tapi Net Worth Stagnan?" },
-    { top: "Kerja Keras Tiap Hari,", bottom: "Cuma Buat Bayar Paylater?" },
-    { top: "Bocor Halus Transaksi,", bottom: "Menyabotase Masa Depan?" },
-    { top: "Berhenti Nabung Buta,", bottom: "Mulai Tracking Brutal." }
+    { top: "Bukan Sekadar Mengelola Uang,", bottom: "Saatnya Bangun Visi Kekayaan." },
+    { top: "Jangan Cuma Catat Saldo,", bottom: "Eksekusi Target Nominal Besarmu." },
+    { top: "Kunci Visi Jangka Panjang,", bottom: "Wujudkan Angka Kekayaan Nyata." },
+    { top: "Berhenti Mengatur Uang Secara Pasif,", bottom: "Mulai Kawal Tujuan Finansialmu." }
   ];
   const [headlineIdx, setHeadlineIdx] = useState(0);
   const [fade, setFade] = useState(true);
@@ -40,9 +43,18 @@ export default function Landing() {
   }, []);
 
   const faqs = [
-    { q: "Mengapa aplikasi ini tidak ada di Play Store?", a: "BILANO menggunakan teknologi masa depan berbasis PWA (Progressive Web App). Anda tidak perlu mengunduh file APK yang berat atau menunggu update dari Play Store. Aplikasi langsung terhubung, lebih cepat, dan sangat hemat memori HP." },
-    { q: "Apakah data keuangan saya aman di sini?", a: "Sangat aman. BILANO berfungsi sebagai jurnal cerdas pribadi. Kami menggunakan enkripsi penuh dan TIDAK terhubung langsung ke rekening asli Anda untuk mencegah risiko peretasan saldo." },
-    { q: "Apakah aplikasi ini benar-benar gratis?", a: "Ya! Jurnal pencatatan arus kas dan fitur dasar gratis selamanya. Anda hanya perlu upgrade jika ingin membuka Asisten AI, Portofolio Valas, dan akses ke Pustaka E-book Finansial." }
+    { 
+      q: "Apa bedanya BILANO dengan aplikasi keuangan biasa?", 
+      a: "BILANO bukan sekadar aplikasi pencatat uang biasa. Kami hadir untuk memandu dan memastikan visi finansial jangka panjangmu benar-benar tercapai. Jika aplikasi lain hanya mencatat ke mana uang pergi, BILANO fokus membangun kebiasaan agar uangmu terkumpul untuk masa depan." 
+    },
+    { 
+      q: "Apakah data keuangan saya aman di sini?", 
+      a: "Sangat aman. BILANO berfungsi sebagai jurnal cerdas pribadi. Kami menggunakan enkripsi penuh dan TIDAK terhubung langsung ke rekening asli Anda untuk mencegah risiko peretasan saldo." 
+    },
+    { 
+      q: "Mengapa aplikasi ini tidak ada di Play Store?", 
+      a: "BILANO menggunakan teknologi masa depan berbasis PWA (Progressive Web App). Anda tidak perlu mengunduh file APK yang berat atau menunggu update dari Play Store. Aplikasi langsung terhubung, lebih cepat, dan sangat hemat memori HP." 
+    }
   ];
 
   return (
