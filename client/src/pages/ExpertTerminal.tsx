@@ -645,57 +645,64 @@ export default function ExpertTerminal() {
   }, [chronologicalTxs, investments]);
 
   const setupAwalBases = useMemo(() => {
-      const bases: Record<string, { qty: number, invested: number, date: Date }> = {};
+      const txNetQty: Record<string, {qty: number, invested: number, firstDateMs: number}> = {};
       
-      activePortfolio.forEach(p => {
-          let currentQty = p.qty;
-          let currentInvested = p.totalModalIDR;
-          
-          // 1. Ambil transaksi khusus aset ini & urutkan dari TERBARU ke TERLAMA
-          const assetTxs = [...chronologicalTxs]
-              .filter((t: any) => {
-                  const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
-                  const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
-                  return sym === p.symbol && (t.type === 'invest_buy' || t.type === 'invest_sell');
-              })
-              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-          // 2. Lakukan Reverse Rollback (Hitung Mundur)
-          assetTxs.forEach((t: any) => {
+      chronologicalTxs.forEach((t: any) => {
+          if (t.type === 'invest_buy' || t.type === 'invest_sell') {
+              const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+              const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
               const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i); 
               const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
               
               const priceMatch = t.description?.match(/@\s*(?:Rp|USD|US\$)?\s*([0-9.,]+)/i);
               const rawPrice = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
-              const currency = t.description?.includes('USD') ? 'USD' : 'IDR';
+
+              const asset = activePortfolio.find((p: any) => p.symbol === sym);
+              const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
+              const multiplier = asset ? asset.liveMultiplier : (sym.length === 4 ? 100 : 1);
               const rate = currency === 'IDR' ? 1 : getHistoricalRate(new Date(t.date).getTime(), currency);
-              
-              let realAmountIDR = rawPrice * qty * p.liveMultiplier * rate;
-              if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) realAmountIDR = t.amount;
 
-              if (t.type === 'invest_buy') {
-                  // MUNDUR: Batalkan pembelian (Kurangi Qty, Kurangi Modal)
-                  currentQty -= qty;
-                  currentInvested -= realAmountIDR;
-              } else if (t.type === 'invest_sell') {
-                  // MUNDUR: Batalkan penjualan (Tambah Qty, Kembalikan Modal)
-                  // Cost basis direstore menggunakan harga rata-rata SESUDAH sell terjadi
-                  const avgCostAtThatTime = currentQty > 0 ? (currentInvested / currentQty) : 0;
-                  currentQty += qty;
-                  currentInvested += (qty * avgCostAtThatTime);
+              let realAmountIDR = rawPrice * qty * multiplier * rate;
+              if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) {
+                  realAmountIDR = t.amount;
               }
-          });
+              
+              const txTime = new Date(t.date).getTime();
+              if (!txNetQty[sym]) txNetQty[sym] = { qty: 0, invested: 0, firstDateMs: txTime };
+              // Pastikan mencatat tanggal transaksi paling awal
+              if (txTime < txNetQty[sym].firstDateMs) txNetQty[sym].firstDateMs = txTime;
+              
+              if (t.type === 'invest_buy') {
+                  txNetQty[sym].qty += qty;
+                  txNetQty[sym].invested += realAmountIDR;
+              } else {
+                  txNetQty[sym].qty -= qty;
+                  txNetQty[sym].invested -= realAmountIDR;
+              }
+          }
+      });
 
-          // 3. Kunci sisa aset sebagai Setup Awal yang absolut
-          if (currentQty > 0.0001) { 
+      const bases: Record<string, { qty: number, invested: number, date: Date }> = {};
+      activePortfolio.forEach(p => {
+          const txNet = txNetQty[p.symbol] || { qty: 0, invested: 0, firstDateMs: 0 };
+          const setupQty = p.qty - txNet.qty;
+          const setupInvested = p.totalModalIDR - txNet.invested; 
+          
+          if (setupQty > 0.0001) { 
+              // PERBAIKAN: Gunakan tanggal pembelian tertua sebagai start date, bukan tahun 1970
+              let trueStartDate = p.createdAt ? new Date(p.createdAt) : new Date();
+              if (txNet.firstDateMs > 0) {
+                  const txDate = new Date(txNet.firstDateMs);
+                  if (txDate < trueStartDate) trueStartDate = txDate;
+              }
+
               bases[p.symbol] = {
-                  qty: currentQty,
-                  invested: currentInvested > 0 ? currentInvested : 0,
-                  date: new Date(0) // Kunci di awal waktu
+                  qty: setupQty,
+                  invested: setupInvested > 0 ? setupInvested : 0,
+                  date: trueStartDate
               };
           }
       });
-      
       return bases;
   }, [chronologicalTxs, activePortfolio, getHistoricalRate]);
 
@@ -737,20 +744,17 @@ export default function ExpertTerminal() {
                       qtyMap[sym].qty += qty;
                       qtyMap[sym].investedIDR += realAmountIDR;
                   } else {
-                      // [PERBAIKAN FINAL] Gunakan Cost Basis (Harga Modal Rata-rata)
-                      const currentAvgCost = qtyMap[sym].qty > 0 
-                          ? (qtyMap[sym].investedIDR / qtyMap[sym].qty) 
-                          : 0;
-
-                      qtyMap[sym].qty -= qty;
+                      // PERBAIKAN TOTAL MODAL: Kurangi berdasarkan rata-rata modal per lot
+                      const avgCost = qtyMap[sym].qty > 0 ? (qtyMap[sym].investedIDR / qtyMap[sym].qty) : 0;
                       
-                      // Kurangi modal berdasarkan harga beli rata-rata, BUKAN harga jual (revenue)
-                      qtyMap[sym].investedIDR -= (qty * currentAvgCost);
-
-                      // Cegah minus jika habis terjual
+                      qtyMap[sym].qty -= qty;
+                      qtyMap[sym].investedIDR -= (qty * avgCost); // Bukan dikurangi realAmountIDR (harga jual)
+                      
                       if (qtyMap[sym].qty <= 0) {
                           qtyMap[sym].qty = 0;
                           qtyMap[sym].investedIDR = 0;
+                      } else {
+                          qtyMap[sym].investedIDR = Math.max(0, qtyMap[sym].investedIDR);
                       }
                   }
               }
