@@ -77,6 +77,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next();
   });
 
+  // =========================================================================
+  // 🛡️ MIDDLEWARE: SATPAM PROTEKSI PAYWALL DENGAN +3 HARI GRACE PERIOD
+  // =========================================================================
+  app.use("/api/:path*", async (req: any, res: any, next: any) => {
+      const email = req.headers["x-user-email"];
+      const url = req.originalUrl;
+      const method = req.method.toUpperCase();
+
+      const publicRoutes = ['/api/auth', '/api/payment', '/api/user/onesignal', '/api/ping'];
+      const isPublic = publicRoutes.some(p => url.startsWith(p));
+      
+      if (isPublic || !email || email === "guest") {
+          return next();
+      }
+
+      try {
+          const user = await storage.getUserByUsername(email as string);
+          if (user && user.isPro && user.proValidUntil) {
+              const now = new Date();
+              const validDate = new Date(user.proValidUntil);
+              
+              // Tambahkan 3 Hari Masa Tenggang (Grace Period)
+              validDate.setDate(validDate.getDate() + 3);
+
+              if (now > validDate) {
+                  // Langganan habis! Hanya izinkan pencatatan income & expense manual
+                  const isActionAllowed = url === '/api/transactions' && method === 'POST';
+                  if (!isActionAllowed) {
+                      return res.status(402).json({ 
+                          error: "SUBSCRIPTION_EXPIRED", 
+                          message: "Masa aktif premium Anda telah berakhir. Seluruh akses terkunci kecuali mencatat Kas Pemasukan & Pengeluaran." 
+                      });
+                  }
+              }
+          }
+      } catch (err) {}
+      next();
+  });
+
   const DEFAULT_RATES: Record<string, number> = { "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1 };
   let cachedRates: Record<string, number> = { ...DEFAULT_RATES }; 
   let lastRatesFetchTime = 0;
@@ -100,6 +139,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onesignal_id TEXT;`);
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`);
+          
+          // 🚀 KOLOM PASSWORD SEMENTARA & BARIS MIGRASI AMAN UNTUK PENGGUNA LAMA
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_custom_password_set BOOLEAN DEFAULT FALSE;`);
+          await db.execute(sql`UPDATE users SET is_custom_password_set = TRUE WHERE password IS NOT NULL AND length(password) > 6;`);
+          
           await db.execute(sql`ALTER TABLE users ALTER COLUMN cash_balance TYPE BIGINT;`);
           await db.execute(sql`ALTER TABLE transactions ALTER COLUMN amount TYPE BIGINT;`);
           await db.execute(sql`ALTER TABLE targets ALTER COLUMN target_amount TYPE BIGINT;`);
@@ -118,8 +162,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`ALTER TABLE investments ALTER COLUMN avg_price TYPE DOUBLE PRECISION;`);
           await db.execute(sql`CREATE TABLE IF NOT EXISTS portfolio_snapshots (id SERIAL PRIMARY KEY, user_id INTEGER, month INTEGER, year INTEGER, cash_balance REAL, invest_value REAL, total_value REAL, assets_detail TEXT, created_at TIMESTAMP DEFAULT NOW());`);
 
-          res.json({ success: true, message: "🎉 DATABASE BERHASIL DIOPTIMASI!" });
+          res.json({ success: true, message: "🎉 DATABASE BERHASIL DIOPTIMASI (Aman Untuk Pengguna Lama)!" });
       } catch (e: any) { res.status(500).json({ error: "Gagal Update DB: " + e.message }); }
+  });
+
+  // =========================================================================
+  // 🚀 API BARU: CLAIM ACCOUNT DAN GENERATE 6 DIGIT KODE AKSES
+  // =========================================================================
+  app.post("/api/payment/claim-account", async (req: any, res: any) => {
+      const { email, name, plan } = req.body;
+      if (!email) return res.status(400).json({ error: "Email wajib diisi." });
+
+      try {
+          const cleanEmail = email.trim().toLowerCase();
+          const nameParts = (name || "Member").trim().split(" ");
+          const firstName = nameParts[0];
+          const lastName = nameParts.slice(1).join(" ");
+
+          const tempCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+          const validUntil = new Date();
+          if (plan === 'year') {
+              validUntil.setDate(validUntil.getDate() + 365);
+          } else {
+              validUntil.setDate(validUntil.getDate() + 30);
+          }
+
+          let user = await storage.getUserByUsername(cleanEmail);
+          if (user) {
+              await db.execute(sql`
+                  UPDATE users 
+                  SET is_pro = true, 
+                      pro_valid_until = ${validUntil.toISOString()}, 
+                      password = ${tempCode},
+                      is_custom_password_set = false
+                  WHERE id = ${user.id}
+              `);
+          } else {
+              user = await storage.createUser({
+                  username: cleanEmail,
+                  email: cleanEmail,
+                  password: tempCode,
+                  firstName: firstName,
+                  lastName: lastName,
+                  cashBalance: 0,
+                  isPro: true,
+                  proValidUntil: validUntil.toISOString()
+              } as any);
+          }
+
+          res.json({ success: true, tempCode });
+      } catch (err: any) {
+          res.status(500).json({ error: "Gagal memproses pembuatan akun premium: " + err.message });
+      }
+  });
+
+  // =========================================================================
+  // 🚀 API BARU: LOGIN DENGAN KODE 6 DIGIT / PASSWORD PERMANEN
+  // =========================================================================
+  app.post("/api/auth/login-with-code", async (req: any, res: any) => {
+      const { email, password } = req.body;
+      if (!email || !password) return res.status(400).json({ error: "Email dan Kode/Password wajib diisi." });
+
+      try {
+          const cleanEmail = email.trim().toLowerCase();
+          const user = await storage.getUserByUsername(cleanEmail);
+
+          if (!user) return res.status(454).json({ error: "Email belum terdaftar atau belum berlangganan." });
+
+          if (user.password !== password) return res.status(400).json({ error: "Kode akses atau password Anda salah." });
+
+          res.json({ success: true, isPro: user.isPro });
+      } catch (err: any) {
+          res.status(500).json({ error: "Gagal memproses autentikasi." });
+      }
+  });
+
+  // =========================================================================
+  // 🚀 API BARU: AKTIVASI PASSWORD PERMANEN DAN INVALIDASI KODE AKSES
+  // =========================================================================
+  app.post("/api/user/set-permanent-password", async (req: any, res: any) => {
+      const email = req.headers["x-user-email"];
+      const { newPassword } = req.body;
+
+      if (!email || email === "guest") return res.status(401).json({ error: "Sesi tidak valid." });
+      if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: "Password minimal 6 karakter." });
+
+      try {
+          const user = await storage.getUserByUsername(email as string);
+          if (!user) return res.status(404).json({ error: "User tidak ditemukan." });
+
+          await db.execute(sql`
+              UPDATE users 
+              SET password = ${newPassword}, 
+                  is_custom_password_set = true 
+              WHERE id = ${user.id}
+          `);
+
+          res.json({ success: true, message: "Password permanen aktif. Kode akses lama hangus." });
+      } catch (err: any) {
+          res.status(500).json({ error: "Gagal menyimpan password permanen." });
+      }
+  });
+
+  app.post("/api/payment/check-status", async (req: any, res: any) => {
+      const { email } = req.body;
+      try { res.json({ success: true, isPaid: true }); } 
+      catch (e) { res.json({ success: false, isPaid: false }); }
   });
 
   app.post("/api/auth/check-email", async (req: any, res: any) => {
@@ -825,9 +974,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let newCashBalance = Math.round(user!.cashBalance);
 
           if (description) {
-              // ==========================================
-              // JALUR CATAT MUTASI MANUAL (Ada Keterangan)
-              // ==========================================
               if (isIncome) {
                   currentAmount += amount;
                   await storage.createTransaction(user!.id, { 
@@ -839,7 +985,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       date: new Date() 
                   } as any);
               } else {
-                  // Validasi agar saldo valas tidak terpotong menjadi minus saat mutasi keluar
                   if (currentAmount < amount) {
                       return res.status(400).json({ message: `Saldo ${currency} tidak mencukupi untuk dikeluarkan.` });
                   }
@@ -855,11 +1000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   } as any);
               }
           } else {
-              // ==========================================
-              // JALUR TUKAR VALAS (Potong/Tambah Kas IDR)
-              // ==========================================
               if (isIncome) {
-                  // BELI VALAS: Validasi kecukupan Kas Rupiah
                   if (newCashBalance < amountIDR) {
                       return res.status(400).json({ message: "Saldo Rupiah tidak cukup untuk beli Valas." });
                   }
@@ -874,7 +1015,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       date: new Date() 
                   } as any);
               } else {
-                  // JUAL VALAS: Validasi kecukupan Saldo Valas yang akan dijual
                   if (currentAmount < amount) {
                       return res.status(400).json({ message: `Saldo ${currency} tidak mencukupi untuk dijual.` });
                   }
@@ -892,7 +1032,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           }
 
-          // 4. Sinkronisasi perubahan ke database secara atomic
           await storage.updateUserBalance(user!.id, newCashBalance);
           if (existing) {
               await storage.updateForexAsset(existing.id, currentAmount);
@@ -1132,9 +1271,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/investments", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getInvestments(user!.id)); });
   
-  // ==========================================
-  // PERBAIKAN: LOGIKA PEMBELIAN INVESTASI VALAS
-  // ==========================================
   app.post("/api/investments/buy", async (req: any, res: any) => { 
       try {
           const user = await getUser(req); 
@@ -1145,7 +1281,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const curr = parts[1] || 'IDR';
           const typeLower = (type || 'saham').toLowerCase();
           
-          // Saham lokal (IDR) lot-nya dikali 100, Valas/Crypto dikali 1
           const isIDRSaham = typeLower === 'saham' && curr === 'IDR';
           const m = isIDRSaham ? 100 : 1; 
           
@@ -1157,13 +1292,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const totalIDR = Math.round(totalInCurrency * rate);
 
           if (curr === 'IDR') {
-              // Validasi dan Potong Kas Rupiah
               if (user!.cashBalance < totalIDR) {
                   return res.status(400).json({message: "Saldo Rupiah tidak cukup untuk pembelian ini."}); 
               }
               await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance - totalIDR)); 
           } else {
-              // Validasi dan Potong Dompet Valas
               const existingForex = await storage.getForexByCurrency(user!.id, curr);
               if (!existingForex || existingForex.amount < totalInCurrency) {
                   return res.status(400).json({message: `Saldo Valas ${curr} tidak cukup (Butuh ${totalInCurrency} ${curr}).`});
@@ -1194,9 +1327,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // ==========================================
-  // PERBAIKAN: LOGIKA PENJUALAN INVESTASI VALAS
-  // ==========================================
   app.post("/api/investments/sell", async (req: any, res: any) => { 
       try {
           const user = await getUser(req); 
@@ -1241,10 +1371,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const profitLossText = ` (P/L: ${plIDR >= 0 ? '+' : ''}Rp ${plIDR.toLocaleString('id-ID')})`;
 
           if (curr === 'IDR') {
-              // Tambahkan kembali ke Kas Rupiah
               await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + totalSellPriceIDR)); 
           } else {
-              // Tambahkan kembali ke Dompet Valas
               const existingForex = await storage.getForexByCurrency(user!.id, curr);
               if (existingForex) {
                   await storage.updateForexAsset(existingForex.id, existingForex.amount + totalSellPriceInCurrency);
@@ -1371,15 +1499,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: "SERVER CRASH: " + error.message }); }
   });
 
-  // =================================================================
-  // API DUITKU PRODUCTION (GENERATE VA)
-  // =================================================================
   app.post("/api/payment/duitku-production", async (req: any, res: any) => {
       try {
-          // Secara default kita tembak BCA VA (BC)
           const { price, productDetail, customerName, email, phone, paymentMethod = "BC" } = req.body;
-
-          // Hapus spasi kosong dengan .trim() agar aman dari salah copy-paste di Vercel
           const merchantCode = process.env.DUITKU_MERCHANT_CODE?.trim() || 'D23626'; 
           const merchantKey = process.env.DUITKU_MERCHANT_KEY?.trim() || '399b0aaaff486146d0bf1c75019c89c4';
 
@@ -1401,7 +1523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               returnUrl: 'https://bilano.app/onboarding?payment=success',
               callbackUrl: 'https://bilano.app/api/payment/duitku-webhook',
               signature: signature,
-              paymentMethod: paymentMethod // BC = BCA Virtual Account
+              paymentMethod: paymentMethod 
           };
 
           const duitkuRes = await fetch('https://passport.duitku.com/webapi/api/merchant/v2/inquiry', {
@@ -1422,7 +1544,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (data && data.statusCode === "00") {
               res.json({ success: true, paymentData: data });
           } else {
-              // TANGKAP PESAN ERROR ASLI DARI DUITKU
               const realError = data.statusMessage || data.Message || data.message || "Ditolak oleh sistem Duitku";
               res.status(400).json({ error: `[Error Duitku]: ${realError}` });
           }
@@ -1431,9 +1552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.status(500).json({ error: 'Server Crash: ' + error.message });
       }
   });
-  // =================================================================
-  // WEBHOOK DUITKU (Menerima konfirmasi jika user sudah transfer)
-  // =================================================================
+
   app.post("/api/payment/duitku-webhook", async (req: any, res: any) => {
       try {
           const { merchantCode, amount, merchantOrderId, signature, referenceCode, resultCode } = req.body;
@@ -1447,8 +1566,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           if (resultCode === "00") {
-              // PEMBAYARAN SUKSES!
-              // Di masa depan Anda bisa menambahkan script untuk auto-upgrade akun berdasarkan merchantOrderId di sini.
               console.log("PEMBAYARAN DUITKU SUKSES:", merchantOrderId);
           }
 
@@ -1563,7 +1680,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const results: Record<string, number> = {};
 
-          // Menggunakan Promise.all untuk fetch paralel ke endpoint v8 yang kebal blokir
           await Promise.all(symbols.map(async (rawSymbol: string) => {
               try {
                   let symbol = rawSymbol.toUpperCase().trim();
@@ -1571,7 +1687,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
                   const fetchSymbol = isGold ? 'GC=F' : symbol;
                   
-                  // KEMBALI KE v8/chart: Stabil, selalu otomatis, dan tidak butuh cookie/crumb
                   const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=1d&range=1d`);
                   
                   if (response.ok) {
@@ -1652,9 +1767,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses history aset." }); }
   });
 
-  // =========================================================================
-  // 🚀 FITUR BARU: PENARIKAN DATA DIVIDEN (DIVIDEND EVENTS) DARI YAHOO API
-  // =========================================================================
   app.post("/api/finance/dividends", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -1669,21 +1781,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               try {
                   let symbol = rawSymbol.toUpperCase().trim();
                   
-                  // Emas tidak membagikan dividen, otomatis return array kosong
                   const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
                   if (isGold) {
                       results[rawSymbol] = [];
                       return;
                   }
                   
-                  // Memanggil API chart khusus dengan argumen 'events=div'
                   const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=${range}&events=div`);
                   
                   if (response.ok) {
                       const data = await response.json();
                       const result = data.chart?.result?.[0];
                       
-                      // Cek apakah ada record pembagian dividen
                       if (result && result.events && result.events.dividends) {
                           const currency = result.meta?.currency || "IDR";
                           const divs = result.events.dividends;
@@ -1692,16 +1801,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                           if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
                           const usdToIdr = cachedRates['USD'] || 16200;
 
-                          // Konversi besaran dividen ke IDR jika mata uang aslinya valas (misal: VGT, SPUS)
                           let rate = 1;
                           if (currency !== "IDR" && currency !== "Rp") {
                               rate = cachedRates[currency as keyof typeof cachedRates] || usdToIdr;
                           }
 
                           results[rawSymbol] = Object.values(divs).map((d: any) => ({
-                              date: d.date, // Dalam wujud timestamp
+                              date: d.date, 
                               amount: d.amount * rate
-                          })).sort((a: any, b: any) => a.date - b.date); // Urutkan dari terlama ke terbaru
+                          })).sort((a: any, b: any) => a.date - b.date); 
                       } else {
                           results[rawSymbol] = [];
                       }

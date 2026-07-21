@@ -4,7 +4,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
     Target as TargetIcon, ShieldCheck, PiggyBank, Calculator, 
-    Plus, Trash2, X, ListPlus, ShieldAlert, Loader2 
+    Plus, Trash2, X, ListPlus, ShieldAlert, Loader2, UserRound
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
@@ -32,12 +32,14 @@ const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID"
 
 export default function Target() {
     const [, setLocation] = useLocation(); 
-    const { data: userData, isLoading: isUserLoading } = useUser();
+    const { data: userData, isLoading: isUserLoading, refetch: refetchUser } = useUser();
     const [target, setTarget] = useState<TargetData | null>(null);
     
-    // Tahapan disederhanakan
     const [step, setStep] = useState<'intro' | 'target-input' | 'budget-ask' | 'budget-setup'>('intro');
     const [isTargetMode, setIsTargetMode] = useState(false); 
+    
+    // State baru untuk input nama lengkap di awal
+    const [fullName, setFullName] = useState("");
     
     const [rawTargetAmount, setRawTargetAmount] = useState("");
     const [inputDuration, setInputDuration] = useState(""); 
@@ -75,7 +77,10 @@ export default function Target() {
             setRawBudgetAmount(fetchedTarget.monthlyBudget.toString());
             setBudgetType(fetchedTarget.budgetType);
         }
-    }, [fetchedTarget]);
+        if (userData) {
+            setFullName(`${userData.firstName || ""} ${userData.lastName || ""}`.trim());
+        }
+    }, [fetchedTarget, userData]);
 
     const isEditMode = target && target.targetAmount !== undefined;
 
@@ -92,14 +97,22 @@ export default function Target() {
     };
     const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
 
-    const startSetup = (mode: 'target' | 'saving') => {
+    const startSetup = async (mode: 'target' | 'saving') => {
+        if (!fullName.trim()) {
+            toast({
+                title: "Nama Wajib Diisi",
+                description: "Silakan isi Nama Lengkap Anda terlebih dahulu untuk profil utama.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         setIsTargetMode(mode === 'target');
         if (!isEditMode) {
             if (mode === 'saving') { setRawTargetAmount("0"); setInputDuration("12"); } 
             else { setRawTargetAmount(""); setInputDuration(""); }
         }
         
-        // Langsung lompat ke Input Target atau Budget, lewati halaman estimasi aset
         if (mode === 'target') {
             setStep('target-input');
         } else {
@@ -124,6 +137,21 @@ export default function Target() {
         setIsSubmitting(true);
 
         try {
+            // Split nama menjadi nama depan & nama belakang
+            const nameParts = fullName.trim().split(" ");
+            const firstName = nameParts[0];
+            const lastName = nameParts.slice(1).join(" ");
+
+            // Simpan perubahan profil nama terlebih dahulu
+            await fetch("/api/user/profile", {
+                method: "PATCH",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "x-user-email": userEmail 
+                },
+                body: JSON.stringify({ firstName, lastName })
+            });
+
             const payload = {
                 targetAmount: parseNumber(rawTargetAmount) || 0,
                 durationMonths: Number(inputDuration) || 12,
@@ -144,8 +172,8 @@ export default function Target() {
                     isEditMode: isEditMode
                 });
                 
-                toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan." });
-                // Langsung kembali ke Home tanpa memikirkan paywall
+                await refetchUser();
+                toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan profil dan target Anda." });
                 window.location.href = "/"; 
             } else { 
                 const errText = await res.text();
@@ -195,13 +223,26 @@ export default function Target() {
                     <div className="space-y-5 animate-in slide-in-from-bottom-4">
                         <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-[32px] text-white text-center shadow-xl relative overflow-hidden">
                             <div className="relative z-10">
-                                <h2 className="text-2xl font-extrabold mb-1">Halo, {userData?.firstName || 'Partner'}!</h2>
-                                <p className="text-sm text-blue-100">{isEditMode ? "Silakan edit target dan strategi keuanganmu." : "Pilih gaya keuangan yang paling cocok denganmu hari ini."}</p>
+                                <h2 className="text-2xl font-extrabold mb-1">Halo, Partner Finansial!</h2>
+                                <p className="text-sm text-blue-100">Lengkapi Nama Lengkap Anda dan tentukan metode pemantauan aset hari ini.</p>
                             </div>
                             <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
                         </div>
+
+                        {/* INPUT NAMA LENGKAP UTAMA */}
+                        <div className="bg-white p-5 rounded-[24px] border border-slate-200 shadow-sm space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1.5">
+                                <UserRound className="w-4 h-4 text-indigo-500" /> Nama Lengkap Anda
+                            </label>
+                            <Input 
+                                placeholder="Masukkan nama lengkap untuk profil..." 
+                                value={fullName} 
+                                onChange={(e) => setFullName(e.target.value)} 
+                                className="font-bold text-slate-850 h-13 rounded-xl border-slate-200"
+                            />
+                        </div>
                         
-                        <div className="space-y-4 pt-4">
+                        <div className="space-y-4 pt-2">
                             <button onClick={() => startSetup('target')} className="relative w-full text-left p-5 border-2 border-indigo-200 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/50 bg-indigo-50/30 transition-all shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-start sm:items-center gap-4 group">
                                 <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md border border-yellow-300 flex items-center gap-1">
                                     Direkomendasikan

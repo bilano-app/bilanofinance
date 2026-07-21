@@ -3,10 +3,10 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { useUser } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
-import { User, Camera, Save, Loader2, X, Check, ZoomIn } from "lucide-react";
+import { User, Camera, Save, Loader2, X, Check, ZoomIn, KeyRound } from "lucide-react";
 import Cropper from "react-easy-crop"; 
+import { trackEvent } from "@/lib/tracking";
 
-// --- UTILITY CROP GAMBAR ---
 const createImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const image = new Image();
@@ -36,8 +36,6 @@ async function getCroppedImg(imageSrc: string, pixelCrop: any): Promise<string> 
     pixelCrop.width,
     pixelCrop.height
   );
-
-  // Kompresi kualitas gambar ke 0.8 (80%) agar tidak terlalu berat
   return canvas.toDataURL("image/jpeg", 0.8);
 }
 
@@ -48,9 +46,12 @@ export default function Profile() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [photoUrl, setPhotoUrl] = useState(""); 
+  
+  // 🚀 STATE UNTUK PASSWORD BARU
+  const [newPassword, setNewPassword] = useState("");
+
   const [isSaving, setIsSaving] = useState(false);
 
-  // State Cropping
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -70,13 +71,10 @@ export default function Profile() {
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      
-      // Validasi Ukuran (Max 5MB)
       if (file.size > 5 * 1024 * 1024) {
           toast({ title: "Foto Terlalu Besar", description: "Maksimal ukuran 5MB", variant: "destructive" });
           return;
       }
-
       const reader = new FileReader();
       reader.addEventListener("load", () => {
         setImageSrc(reader.result?.toString() || "");
@@ -104,13 +102,11 @@ export default function Profile() {
     }
   };
 
-  // --- FUNGSI SIMPAN YANG LEBIH AMAN ---
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      console.log("Mengirim data profil...", { firstName, lastName, photoLength: photoUrl?.length });
-
-      const res = await fetch("/api/user/profile", {
+      // 1. Simpan Nama & Foto Profil
+      const resProfile = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { 
             "Content-Type": "application/json",
@@ -119,25 +115,31 @@ export default function Profile() {
         body: JSON.stringify({ firstName, lastName, profilePicture: photoUrl })
       });
 
-      if (res.ok) {
-        toast({ title: "Berhasil", description: "Profil berhasil diperbarui!" });
-        await refetch(); // Update data di aplikasi
-        
-        // Pindah halaman SETELAH sukses
-        setTimeout(() => {
-            window.location.href = "/";
-        }, 1000);
-      } else {
-        const errData = await res.json();
-        throw new Error(errData.error || "Gagal update profil");
+      if (!resProfile.ok) throw new Error("Gagal update biodata profil.");
+
+      // 2. Jika isi kolom password, update Password API!
+      if (newPassword.trim().length > 0) {
+          if (newPassword.trim().length < 6) {
+              throw new Error("Password permanen minimal 6 karakter.");
+          }
+          const resPass = await fetch("/api/user/set-permanent-password", {
+              method: "POST",
+              headers: { 
+                  "Content-Type": "application/json",
+                  "x-user-email": localStorage.getItem("bilano_email") || "" 
+              },
+              body: JSON.stringify({ newPassword: newPassword.trim() })
+          });
+          if (!resPass.ok) throw new Error("Gagal menyimpan password baru.");
       }
+
+      toast({ title: "Berhasil", description: "Profil & Keamanan berhasil diperbarui!" });
+      await refetch();
+      
+      setTimeout(() => { window.location.href = "/"; }, 1000);
+      
     } catch (e: any) {
-      console.error("Error Save:", e);
-      toast({ 
-          title: "Gagal Menyimpan", 
-          description: e.message || "Cek koneksi server.", 
-          variant: "destructive" 
-      });
+      toast({ title: "Gagal Menyimpan", description: e.message || "Cek koneksi server.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -156,10 +158,9 @@ export default function Profile() {
   }
 
   return (
-    <MobileLayout title="Edit Profil" showBack>
-      <div className="space-y-8 pt-8 px-1 relative">
+    <MobileLayout title="Pengaturan Akun" showBack>
+      <div className="space-y-6 pt-8 px-2 relative pb-10">
         
-        {/* MODAL CROPPER */}
         {isCropping && imageSrc && (
             <div className="fixed inset-0 z-[60] bg-black flex flex-col">
                 <div className="relative flex-1 bg-black w-full">
@@ -202,7 +203,6 @@ export default function Profile() {
 
         <input type="file" ref={fileInputRef} onChange={onFileChange} accept="image/*" className="hidden" />
 
-        {/* AREA FOTO PROFIL */}
         <div className="flex flex-col items-center gap-4">
             <div onClick={() => fileInputRef.current?.click()} className="relative group cursor-pointer active:scale-95 transition-transform">
                 <div className="w-32 h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-100 flex items-center justify-center">
@@ -218,21 +218,44 @@ export default function Profile() {
             </div>
         </div>
 
-        {/* FORM INPUT */}
-        <div className="space-y-5 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <div className="space-y-4 bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm">
+            <h3 className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-2 text-sm">Informasi Pribadi</h3>
             <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Nama Depan</label>
-                <Input placeholder="Nama Depan" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="font-bold text-slate-800"/>
+                <Input placeholder="Nama Depan" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="font-bold text-slate-800 rounded-xl"/>
             </div>
             <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Nama Belakang</label>
-                <Input placeholder="Nama Belakang" value={lastName} onChange={(e) => setLastName(e.target.value)} className="font-bold text-slate-800"/>
+                <Input placeholder="Nama Belakang" value={lastName} onChange={(e) => setLastName(e.target.value)} className="font-bold text-slate-800 rounded-xl"/>
             </div>
         </div>
 
-        <Button onClick={handleSave} disabled={isSaving} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 font-bold shadow-xl text-base rounded-2xl">
+        {/* 🚀 SETTING PASSWORD BARU */}
+        <div className="space-y-4 bg-rose-50/50 p-6 rounded-[24px] border border-rose-100 shadow-sm">
+            <div className="flex items-center gap-2 mb-2 border-b border-rose-200/50 pb-2">
+                <KeyRound className="w-4 h-4 text-rose-500"/>
+                <h3 className="font-bold text-slate-800 text-sm">Ganti Password / Buat Permanen</h3>
+            </div>
+            {user?.isCustomPasswordSet === false && (
+                <div className="bg-rose-500/10 text-rose-600 text-[11px] p-3 rounded-xl mb-2 leading-relaxed">
+                    <b>Peringatan:</b> Saat ini Anda masih masuk menggunakan kode 6 digit. Segera buat password yang mudah diingat agar tidak kehilangan akses.
+                </div>
+            )}
+            <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password Baru</label>
+                <Input 
+                    type="password" 
+                    placeholder="Masukkan minimal 6 karakter..." 
+                    value={newPassword} 
+                    onChange={(e) => setNewPassword(e.target.value)} 
+                    className="font-bold text-slate-800 rounded-xl bg-white border-rose-200 focus:border-rose-400"
+                />
+            </div>
+        </div>
+
+        <Button onClick={handleSave} disabled={isSaving} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 font-bold shadow-xl shadow-indigo-200 text-base rounded-[20px] mt-4">
             {isSaving ? <Loader2 className="animate-spin w-5 h-5 mr-2"/> : <Save className="w-5 h-5 mr-2"/>}
-            {isSaving ? "Menyimpan..." : "SIMPAN PERUBAHAN"}
+            {isSaving ? "MENYIMPAN..." : "SIMPAN PERUBAHAN"}
         </Button>
 
       </div>

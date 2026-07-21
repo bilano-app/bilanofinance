@@ -1,19 +1,16 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
-  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw, AlertCircle, ShieldCheck, Sparkles
+  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw, AlertCircle, ShieldCheck, Sparkles, LockKeyhole
 } from "lucide-react";
-import { trackEvent } from "@/lib/tracking"; // 🔥 Import Helper Tracking Internal
+import { trackEvent } from "@/lib/tracking";
 
 export default function Onboarding() {
   const [, setLocation] = useLocation();
   
-  // State untuk melacak posisi halaman: 
-  // 0-3 (Pertanyaan), 4 (Summary), 5 (Pricing), 6 (Install PWA), 7 (Custom Payment Gateway Screen)
   const [step, setStep] = useState(0);
   const [fade, setFade] = useState(true);
   
-  // Menyimpan jawaban pengguna
   const [answers, setAnswers] = useState({
     q1: "",
     q2: "",
@@ -21,7 +18,6 @@ export default function Onboarding() {
     q4: 0
   });
 
-  // State untuk popup pricing & Form Data Diri
   const [selectedPlan, setSelectedPlan] = useState<"year" | "month" | null>(null);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -30,18 +26,14 @@ export default function Onboarding() {
     phone: ""
   });
 
-  // State untuk metode pembayaran, data response Duitku, dan loading verifikasi
-  const [paymentMethod, setPaymentMethod] = useState("BC"); // Default: BCA Virtual Account
+  const [paymentMethod, setPaymentMethod] = useState("BC"); 
   const [paymentDetails, setPaymentDetails] = useState<any>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [showPaymentAlert, setShowPaymentAlert] = useState(false); 
 
-  // State untuk kontrol modal panduan instalasi manual PWA
   const [showManualInstall, setShowManualInstall] = useState(false);
+  const [accessCode, setAccessCode] = useState<string | null>(null); // State untuk menyimpan kode rahasia 6 digit
 
-  // =======================================================
-  // 🚀 MESIN DIAGNOSTIK PROFIL FINANSIAL (VERSI ANTUSIAS)
-  // =======================================================
   const getAssessment = () => {
     const { q1, q2, q3, q4 } = answers;
     const score = Number(q4);
@@ -50,28 +42,28 @@ export default function Onboarding() {
     if (yesCount === 3 && score >= 8) {
       return {
         title: "👑 Sang Visioner Finansial!",
-        desc: `Luar biasa! Skor kamu (${score}/10) menunjukkan kamu sudah 100% siap untuk level up. Kamu punya visi yang tajam dan tekad baja. Bilano hadir bukan untuk menceramahi, tapi sebagai senjata rahasia kamu untuk mengakselerasi aset dan mewujudkan targetmu dengan presisi tinggi. Let's go!`,
+        desc: `Luar biasa! Skor kamu (${score}/10) menunjukkan kamu sudah 100% siap untuk level up. Kamu punya visi yang tajam dan tekad baja. BILANO hadir bukan untuk menceramahi, tapi sebagai senjata rahasia kamu untuk mengakselerasi aset dan mewujudkan targetmu dengan presisi tinggi. Let's go!`,
         icon: <Target className="w-10 h-10 animate-pulse" />,
         highlight: "Mari kita eksekusi mahakarya finansialmu sekarang."
       };
     } else if (yesCount >= 2 && score >= 6) {
       return {
         title: "🚀 Sang Arsitek Kebiasaan!",
-        desc: `Keren banget! Dengan skor ${score}/10, kamu sudah punya pondasi mindset yang super solid. Kamu sadar kekayaan dibangun dari konsistensi. Bilano akan jadi sahabat autopilot-mu untuk mengunci kebiasaan baik itu setiap hari. Siap melihat uangmu bertumbuh secara eksponensial?`,
+        desc: `Keren banget! Dengan skor ${score}/10, kamu sudah punya pondasi mindset yang super solid. Kamu sadar kekayaan dibangun dari konsistensi. BILANO akan jadi sahabat autopilot-mu untuk mengunci kebiasaan baik itu setiap hari. Siap melihat uangmu bertumbuh secara eksponensial?`,
         icon: <Fingerprint className="w-10 h-10 animate-pulse" />,
         highlight: "Mari mulai bangun kerajaan kecilmu hari ini."
       };
     } else if (q3 === 'Tidak' && score >= 7) {
       return {
         title: "⚡ Sang Pemikir Strategis!",
-        desc: `Menarik! Kamu sangat sadar pentingnya masa depan (Skor: ${score}/10), tapi mungkin kamu tipe yang nggak mau ribet dengan rutinitas manual. Nggak masalah! Di situlah keajaiban Bilano bekerja. Biarkan sistem pintar kami yang melacak keuanganmu, sementara kamu tetap santai menikmati hidup!`,
+        desc: `Menarik! Kamu sangat sadar pentingnya masa depan (Skor: ${score}/10), tapi mungkin kamu tipe yang nggak mau ribet dengan rutinitas manual. Nggak masalah! Di situlah keajaiban BILANO bekerja. Biarkan sistem pintar kami yang melacak keuanganmu, sementara kamu tetap santai menikmati hidup!`,
         icon: <Activity className="w-10 h-10 animate-pulse" />,
         highlight: "Mari delegasikan keribetan finansialmu pada kami."
       };
     } else {
       return {
         title: "🌱 Penjelajah Potensi Baru!",
-        desc: `Selamat datang di garis start! (Skor: ${score}/10). Nggak perlu overthinking kalau tujuanmu belum terlalu spesifik. Jadikan Bilano sebagai kompas ajaib yang akan merapikan arus kasmu tanpa tekanan. Santai saja, kita petakan masa depanmu pelan-pelan bersama!`,
+        desc: `Selamat datang di garis start! (Skor: ${score}/10). Nggak perlu overthinking kalau tujuanmu belum terlalu spesifik. Jadikan BILANO sebagai kompas ajaib yang akan merapikan arus kasmu tanpa tekanan. Santai saja, kita petakan masa depanmu pelan-pelan bersama!`,
         icon: <Radar className="w-10 h-10 animate-pulse" />,
         highlight: "Mari ambil langkah pertama yang paling menentukan."
       };
@@ -80,9 +72,6 @@ export default function Onboarding() {
 
   const assessment = getAssessment();
 
-  // =======================================================
-  // 🚀 🔥 TRACKING FUNNEL UTAMA BERDASARKAN PERPINDAHAN STEP
-  // =======================================================
   useEffect(() => {
     if (step === 0) trackEvent("onboarding_started");
     else if (step === 4) trackEvent("assessment_viewed", { profile: assessment.title });
@@ -90,26 +79,32 @@ export default function Onboarding() {
     else if (step === 6) trackEvent("success_page_viewed");
   }, [step, assessment.title]);
 
-  // =======================================================
-  // 🚀 LOGIKA REDIRECT AUTOMATIC VERIFICATION ROUTE
-  // =======================================================
+  // LOGIKA PEMBAYARAN SUKSES DARI GATEWAY KEMBALI KE SINI
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('payment') === 'success') {
       const pendingDataStr = localStorage.getItem('bilano_pending_checkout');
       const pendingData = pendingDataStr ? JSON.parse(pendingDataStr) : {};
       
-      trackEvent("payment_success", pendingData); 
-      localStorage.removeItem('bilano_pending_checkout'); 
-
-      setStep(6);
-      window.history.replaceState({}, '', '/onboarding');
+      // Hit API untuk men-generate kode 6 digit dan meregistrasikan akun
+      fetch('/api/payment/claim-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(pendingData)
+      })
+      .then(res => res.json())
+      .then(data => {
+          if (data.success && data.tempCode) {
+              setAccessCode(data.tempCode);
+              trackEvent("payment_success", pendingData); 
+              localStorage.removeItem('bilano_pending_checkout'); 
+              setStep(6);
+              window.history.replaceState({}, '', '/onboarding');
+          }
+      }).catch(err => console.error("Gagal claim akun:", err));
     }
   }, []);
 
-  // =======================================================
-  // 🚀 LOGIKA PWA INSTALLER NATIVE
-  // =======================================================
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
@@ -128,10 +123,8 @@ export default function Onboarding() {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
-        console.log('BILANO sedang diinstall...');
         trackEvent("pwa_install_accepted");
-        // Setelah sukses dipasang, arahkan pengguna masuk ke dashboard utama
-        setTimeout(() => setLocation('/dashboard'), 1500);
+        setTimeout(() => setLocation('/auth'), 1500); // Arahkan ke auth untuk login dengan kode
       } else {
         trackEvent("pwa_install_dismissed");
       }
@@ -142,9 +135,6 @@ export default function Onboarding() {
     }
   };
 
-  // =======================================================
-  // 🚀 FUNGSI TRANSISI PERTANYAAN
-  // =======================================================
   const handleAnswer = (key: string, value: any) => {
     trackEvent("quiz_step_answered", { question: key, answer: value });
     setAnswers(prev => ({ ...prev, [key]: value }));
@@ -156,9 +146,6 @@ export default function Onboarding() {
     }, 300);
   };
 
-  // =======================================================
-  // 🚀 FUNGSI SUBMIT FORM PEMBAYARAN KE BACKEND (PRODUCTION)
-  // =======================================================
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); 
     
@@ -170,7 +157,6 @@ export default function Onboarding() {
     setLoading(true);
     const price = selectedPlan === 'year' ? 99000 : 14900;
 
-    // Simpan email di local storage untuk mempermudah pengecekan status session
     localStorage.setItem("bilano_email", formData.email.trim().toLowerCase());
 
     localStorage.setItem('bilano_pending_checkout', JSON.stringify({
@@ -207,7 +193,7 @@ export default function Onboarding() {
       if (data.success && data.paymentData) {
         setPaymentDetails(data.paymentData);
         setSelectedPlan(null); 
-        setStep(7); // Masuk ke custom gateway UI screen
+        setStep(7); 
       } else {
         alert(data.error || "Gagal terhubung ke sistem pembayaran Duitku.");
       }
@@ -219,30 +205,36 @@ export default function Onboarding() {
     }
   };
 
-  // =======================================================
-  // 🚀 FUNGSI VERIFIKASI STATUS REAL-TIME VIA VA / EMAIL
-  // =======================================================
   const handleRefreshPaymentStatus = async () => {
     setIsCheckingPayment(true);
     
     try {
-      const response = await fetch('/api/user', {
-        method: 'GET',
-        headers: {
-          'x-user-email': formData.email.trim().toLowerCase()
-        }
+      const pendingDataStr = localStorage.getItem('bilano_pending_checkout');
+      const pendingData = pendingDataStr ? JSON.parse(pendingDataStr) : { email: formData.email };
+
+      const response = await fetch('/api/payment/check-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pendingData)
       });
       
-      const user = await response.json();
+      const data = await response.json();
       
-      if (user && user.isPro) {
-        const pendingDataStr = localStorage.getItem('bilano_pending_checkout');
-        const pendingData = pendingDataStr ? JSON.parse(pendingDataStr) : {};
+      if (data.success && data.isPaid) {
+        // Jika sukses dari klik refresh manual, sekalian claim
+        const claimRes = await fetch('/api/payment/claim-account', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pendingData)
+        });
+        const claimData = await claimRes.json();
         
-        trackEvent("payment_success", pendingData);
-        localStorage.removeItem('bilano_pending_checkout');
-        
-        setStep(6);
+        if (claimData.success && claimData.tempCode) {
+            setAccessCode(claimData.tempCode);
+            trackEvent("payment_success", pendingData);
+            localStorage.removeItem('bilano_pending_checkout');
+            setStep(6);
+        }
       } else {
         setShowPaymentAlert(true);
       }
@@ -257,18 +249,13 @@ export default function Onboarding() {
   return (
     <div className="min-h-[100dvh] bg-[#040814] w-full text-white font-sans flex flex-col items-center justify-center p-6 relative overflow-hidden">
       
-      {/* Background Glow */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none"></div>
 
       <div className="w-full max-w-lg z-10 flex flex-col items-center">
         
-        {/* =========================================
-            BAGIAN 1: PERTANYAAN KUIS (STEP 0 - 3)
-        ========================================= */}
         {step < 4 && (
           <div className="w-full flex flex-col items-center">
-            {/* Progress Bar */}
             <div className="flex items-center gap-2 mb-10">
               {[0, 1, 2, 3].map((idx) => (
                 <div 
@@ -284,7 +271,6 @@ export default function Onboarding() {
               Pertanyaan {step + 1} / 4
             </span>
 
-            {/* Container Transisi */}
             <div className={`transition-opacity duration-300 w-full flex flex-col items-center text-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
               
               {step === 0 && (
@@ -314,7 +300,7 @@ export default function Onboarding() {
               {step === 2 && (
                 <>
                   <h2 className="text-2xl md:text-3xl font-black leading-snug mb-10">
-                    Apakah kamu bersedia membangun kebiasaan kecil setiap hari demi tujuan finansialmu, dengan bantuan Bilano?
+                    Apakah kamu bersedia membangun kebiasaan kecil setiap hari demi tujuan finansialmu, dengan bantuan BILANO?
                   </h2>
                   <div className="w-full space-y-4">
                     <button onClick={() => handleAnswer('q3', 'Ya')} className="w-full py-4 rounded-2xl bg-[#121c3a] border border-white/10 hover:border-amber-400/50 hover:bg-[#172447] text-lg font-bold transition-all active:scale-95">Ya</button>
@@ -348,9 +334,6 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* =========================================
-            BAGIAN 2: RINGKASAN PERSONAL (STEP 4)
-        ========================================= */}
         {step === 4 && (
           <div className={`transition-opacity duration-500 w-full flex flex-col items-center text-center bg-gradient-to-b from-[#121c3a]/90 to-[#0a1128]/95 p-8 rounded-[32px] border border-amber-400/30 backdrop-blur-xl shadow-[0_15px_50px_rgba(251,191,36,0.15)] ${fade ? 'opacity-100' : 'opacity-0'}`}>
             <div className="w-20 h-20 bg-amber-400/20 text-amber-400 rounded-full flex items-center justify-center mb-6 shadow-[0_0_25px_rgba(251,191,36,0.25)]">
@@ -376,17 +359,13 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* =========================================
-            BAGIAN 3: HALAMAN PRICING (STEP 5)
-        ========================================= */}
         {step === 5 && (
           <div className={`transition-opacity duration-500 w-full flex flex-col items-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
             <div className="text-center mb-8">
               <h2 className="text-3xl font-black mb-2">Investasi Masa Depan</h2>
-              <p className="text-slate-400 text-sm">Pilih paket akses penuh untuk menggunakan Bilano.</p>
+              <p className="text-slate-400 text-sm">Pilih paket akses penuh untuk menggunakan BILANO.</p>
             </div>
 
-            {/* Paket Utama (1 Tahun) */}
             <button 
               onClick={() => {
                 trackEvent("plan_selected", { type: "year" }); 
@@ -408,7 +387,6 @@ export default function Onboarding() {
               </ul>
             </button>
 
-            {/* Opsi Coba Dulu (1 Bulan) */}
             <button 
               onClick={() => {
                 trackEvent("plan_selected", { type: "month" }); 
@@ -419,10 +397,7 @@ export default function Onboarding() {
               "Saya mau coba dulu" (Paket Sebulan Rp14.900)
             </button>
 
-            {/* 🔥 NEW SECTION: MENGAPA BAYAR & GARANSI HARGA */}
             <div className="w-full max-w-md space-y-3 text-left">
-              
-              {/* Box 1: Garansi Kunci Harga (FOMO) */}
               <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 md:p-5">
                 <div className="flex items-center gap-2 text-indigo-400 mb-2">
                   <ShieldCheck className="w-5 h-5" />
@@ -433,7 +408,6 @@ export default function Onboarding() {
                 </p>
               </div>
 
-              {/* Box 2: Alasan Berbayar (Skin in the Game) */}
               <div className="bg-[#121c3a]/50 border border-white/5 rounded-2xl p-4 md:p-5">
                 <div className="flex items-center gap-2 text-amber-400 mb-2">
                   <Sparkles className="w-4 h-4" />
@@ -446,38 +420,61 @@ export default function Onboarding() {
                   Dengan mengeluarkan biaya yang jauh lebih murah dari secangkir kopi, Anda sedang <strong>menciptakan komitmen psikologis</strong> pada diri sendiri untuk benar-benar disiplin merubah nasib keuangan Anda.
                 </p>
               </div>
-
             </div>
 
           </div>
         )}
 
-        {/* =========================================
-            BAGIAN 4: INSTALASI PWA EKSKLUSIF (STEP 6)
-        ========================================= */}
+        {/* 🚀 TAMPILAN KODE 6 DIGIT BARU */}
         {step === 6 && (
           <div className={`transition-opacity duration-500 w-full flex flex-col items-center text-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
             <div className="w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
               <CheckCircle2 className="w-10 h-10" />
             </div>
-            <h2 className="text-3xl font-black mb-4">Pembayaran Berhasil!</h2>
-            <p className="text-slate-300 mb-10 leading-relaxed text-[15px]">
-              Verifikasi sukses. Akun Premium Anda telah aktif secara permanen. Silakan pasang aplikasi BILANO langsung ke perangkat Anda sekarang.
+            <h2 className="text-3xl font-black mb-2">Pembayaran Berhasil!</h2>
+            <p className="text-slate-300 mb-8 leading-relaxed text-[15px]">
+              Akun Premium Anda telah aktif. Berikut adalah <span className="font-bold text-amber-400">Kode Akses Rahasia</span> Anda.
             </p>
+
+            <div className="bg-[#121c3a] border-2 border-rose-500/50 rounded-[28px] p-6 w-full max-w-sm mb-8 relative overflow-hidden shadow-[0_0_30px_rgba(244,63,94,0.15)]">
+               <div className="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-black px-4 py-1.5 rounded-bl-xl rounded-tr-[24px] uppercase tracking-wider flex items-center gap-1">
+                 <LockKeyhole className="w-3 h-3" /> PENTING
+               </div>
+               <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-3">Password Sementara Anda</p>
+               
+               <div className="bg-[#040814] py-4 px-6 rounded-2xl border border-slate-800 flex justify-between items-center mb-4 group">
+                  <span className="text-4xl font-black tracking-[0.3em] text-white">
+                    {accessCode || "------"}
+                  </span>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(accessCode || "");
+                      alert('Kode Akses berhasil disalin!');
+                    }} 
+                    className="p-3 bg-amber-400/10 text-amber-400 rounded-xl hover:bg-amber-400 hover:text-black transition-colors"
+                  >
+                    <Copy className="w-5 h-5" />
+                  </button>
+               </div>
+
+               <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                 Silakan <strong>Simpan/Screenshot kode ini</strong> sekarang juga. Kode ini digunakan untuk login masuk aplikasi pertama kali.
+               </p>
+            </div>
 
             <button
               onClick={handlePwaInstall}
-              className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
+              className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
             >
               <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
-              INSTALL BILANO SEKARANG
+              SAYA SUDAH SIMPAN & INSTALL PWA
             </button>
+            <p className="text-[10px] text-slate-500 mt-4 max-w-xs text-center">
+              Setelah install, aplikasi akan meminta Anda memasukkan email dan kode di atas untuk masuk.
+            </p>
           </div>
         )}
 
-        {/* =========================================
-            BAGIAN 5: GATEWAY INSTRUCTION & VERIFICATION (STEP 7)
-        ========================================= */}
         {step === 7 && paymentDetails && (
           <div className={`transition-opacity duration-500 w-full flex flex-col items-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
             <div className="bg-[#121c3a]/90 border border-white/10 rounded-[32px] p-6 lg:p-8 text-center w-full max-w-md shadow-2xl relative">
@@ -489,8 +486,6 @@ export default function Onboarding() {
               </p>
 
               <div className="bg-[#040814] rounded-2xl p-6 border border-white/5 mb-6 shadow-inner">
-                
-                {/* SCREEN RENDER QRIS */}
                 {paymentDetails.qrString || paymentDetails.paymentUrl?.includes("qris") ? (
                   <div className="flex flex-col items-center justify-center bg-white p-4 rounded-xl mb-4">
                     <img 
@@ -498,13 +493,12 @@ export default function Onboarding() {
                         ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(paymentDetails.qrString)}` 
                         : paymentDetails.paymentUrl
                       } 
-                      alt="QRIS Code Bilano" 
+                      alt="QRIS Code BILANO" 
                       className="w-48 h-48 object-contain"
                     />
                     <span className="text-slate-800 text-[10px] font-bold mt-2 tracking-wider">QRIS AUTOMATIC VERIFY</span>
                   </div>
                 ) : (
-                  /* SCREEN RENDER BANK VIRTUAL ACCOUNT */
                   <>
                     <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">
                       Nomor Virtual Account ({paymentMethod === 'BC' ? 'BCA' : paymentMethod === 'M2' ? 'MANDIRI' : paymentMethod === 'I1' ? 'BNI' : paymentMethod === 'BR' ? 'BRI' : 'PERMATA'})
@@ -534,7 +528,6 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              {/* 🔄 BUTTON REFRESH STATUS PEMBAYARAN (ANTI-BYPASS) */}
               <button
                 onClick={handleRefreshPaymentStatus}
                 disabled={isCheckingPayment}
@@ -548,7 +541,6 @@ export default function Onboarding() {
                 {isCheckingPayment ? "MENYINGKRONKAN DATA..." : "REFRESH STATUS PEMBAYARAN"}
               </button>
 
-              {/* 🔙 BACK OPTION: GANTI METODE PEMBAYARAN */}
               <button
                 onClick={() => {
                   setPaymentDetails(null);
@@ -565,9 +557,6 @@ export default function Onboarding() {
 
       </div>
 
-      {/* =========================================
-          MODAL POPUP DETAIL PEMBAYARAN & FORM DATA DIRI
-      ========================================= */}
       {selectedPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200">
@@ -616,7 +605,6 @@ export default function Onboarding() {
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors"
                 />
-                {/* 🔒 DISCLAIMER LOGIN HAK AKSES TUNGGAL PWA */}
                 <p className="text-[10px] text-amber-400/90 text-left pl-1 leading-normal">
                   *Penting: Alamat email ini akan dikunci sebagai satu-satunya akun akses login kamu ke sistem PWA BILANO setelah verifikasi selesai.
                 </p>
@@ -631,7 +619,6 @@ export default function Onboarding() {
                 className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors mb-2"
               />
 
-              {/* DROPDOWN METODE PEMBAYARAN MULTI-BANK & QRIS */}
               <div className="flex flex-col gap-1 mb-2">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
                   Metode Pembayaran
@@ -663,9 +650,6 @@ export default function Onboarding() {
         </div>
       )}
 
-      {/* =========================================
-          MODAL PANDUAN INSTALL MANUAL (FALLBACK)
-      ========================================= */}
       {showManualInstall && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200 text-center">
@@ -698,9 +682,6 @@ export default function Onboarding() {
         </div>
       )}
 
-      {/* =========================================
-          MODAL PERINGATAN DANA BELUM MASUK
-      ========================================= */}
       {showPaymentAlert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200 text-center shadow-2xl">

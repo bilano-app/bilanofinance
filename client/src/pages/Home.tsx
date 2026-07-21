@@ -12,7 +12,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
-  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass 
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert 
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -68,6 +68,7 @@ export default function Home() {
   
   const [showGuideTooltip, setShowGuideTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
 
   const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
@@ -148,6 +149,12 @@ export default function Home() {
                   return () => clearTimeout(timer);
               }
           }
+          
+          // 🚀 Trigger Password Permanen Prompt
+          if (user.isCustomPasswordSet === false) {
+              const timer = setTimeout(() => setShowPasswordPrompt(true), 2500);
+              return () => clearTimeout(timer);
+          }
       }
   }, [rawEmail, isAnyDataLoading, user]);
 
@@ -157,7 +164,6 @@ export default function Home() {
               const lastOpen = sessionStorage.getItem("bilano_last_session");
               const now = Date.now();
             
-            // Jika belum ada sesi, atau sesi terakhir sudah lebih dari 30 menit yang lalu (1800000 ms)
               if (!lastOpen || (now - parseInt(lastOpen)) > 30 * 60 * 1000) {
                   trackEvent("app_opened", { source: "pwa_homescreen" });
                   sessionStorage.setItem("bilano_last_session", now.toString());
@@ -165,10 +171,7 @@ export default function Home() {
           }
       };
 
-    // Eksekusi saat komponen pertama kali dirender
       handleAppWakeUp();
-
-    // Pantau saat user kembali ke aplikasi dari background (misal habis buka WA lalu balik ke Bilano)
       document.addEventListener('visibilitychange', handleAppWakeUp);
       return () => document.removeEventListener('visibilitychange', handleAppWakeUp);
   }, []);
@@ -532,6 +535,30 @@ export default function Home() {
 
   return (
     <MobileLayout>
+      {/* POPUP BUAT PASSWORD BARU PERTAMA KALI */}
+      {showPasswordPrompt && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-4 border-indigo-100">
+                  
+                  <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-5 relative z-10 animate-bounce">
+                      <ShieldAlert className="w-10 h-10 text-indigo-600"/>
+                  </div>
+                  
+                  <h2 className="text-2xl font-black text-slate-800 mb-2">Amankan Akun Anda</h2>
+                  <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+                      Kode Akses 6 Digit yang Anda pakai saat ini bersifat sementara. Segera buat <b>Password Permanen</b> untuk menghindari kehilangan akses.
+                  </p>
+                  
+                  <Button onClick={() => setLocation('/profile')} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-black text-[13px] shadow-xl shadow-indigo-200 active:scale-95 transition-transform flex items-center justify-center gap-2">
+                      <Lock className="w-5 h-5"/> BUAT PASSWORD SEKARANG
+                  </Button>
+                  <button onClick={() => setShowPasswordPrompt(false)} className="mt-4 text-[12px] font-bold text-slate-400 hover:text-slate-600">
+                      Nanti Saja
+                  </button>
+              </div>
+          </div>
+      )}
+
       {/* POPUP PENDING FEATURES */}
       {pendingFeatureModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
@@ -779,7 +806,7 @@ export default function Home() {
                     {isMenuOpen && (
                         <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
                             <Link href="/profile">
-                                <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400"/> Edit Profil</button>
+                                <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400"/> Edit Profil & Sandi</button>
                             </Link>
                             <Link href="/security">
                                 <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400"/> Keamanan</button>
@@ -878,7 +905,6 @@ export default function Home() {
                         <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-emerald-500" label="Amal" />
                         <MenuIconBox href="/retained" icon={Hourglass} bg="bg-amber-500" label="Tertahan" />
                         
-                        {/* 🚀 PERUBAHAN: Cicilan memunculkan Popup Pending */}
                         <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
                             <div className={`bg-slate-800 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
                                 <CreditCard className="w-6 h-6"/>
@@ -897,7 +923,6 @@ export default function Home() {
 
         <div className="px-1 mt-4 mb-2">
             <h3 className="font-bold text-slate-800 text-sm mb-2 px-1 uppercase tracking-widest text-[11px]">Eksklusif Premium</h3>
-            {/* 🚀 PERUBAHAN: BILANO Academy memunculkan Popup Pending */}
             <div onClick={() => setPendingFeatureModal({ title: "BILANO Academy", desc: "Materi eksklusif seputar pengelolaan portofolio, analisis bandarmologi, dan edukasi finansial profesional sedang disiapkan." })}>
                 <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
                     <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
