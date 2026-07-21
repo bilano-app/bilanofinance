@@ -645,7 +645,7 @@ export default function ExpertTerminal() {
   }, [chronologicalTxs, investments]);
 
   const setupAwalBases = useMemo(() => {
-      const txNetQty: Record<string, {qty: number, invested: number}> = {};
+      const txNetQty: Record<string, {qty: number}> = {};
       
       chronologicalTxs.forEach((t: any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
@@ -654,50 +654,33 @@ export default function ExpertTerminal() {
               const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i); 
               const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
               
-              const priceMatch = t.description?.match(/@\s*(?:Rp|USD|US\$)?\s*([0-9.,]+)/i);
-              const rawPrice = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
-
-              const asset = activePortfolio.find((p: any) => p.symbol === sym);
-              const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
-              const multiplier = asset ? asset.liveMultiplier : (sym.length === 4 ? 100 : 1);
-              const rate = currency === 'IDR' ? 1 : getHistoricalRate(new Date(t.date).getTime(), currency);
-
-              let realAmountIDR = rawPrice * qty * multiplier * rate;
-              if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) {
-                  realAmountIDR = t.amount;
-              }
-              
-              if (!txNetQty[sym]) txNetQty[sym] = { qty: 0, invested: 0 };
+              if (!txNetQty[sym]) txNetQty[sym] = { qty: 0 };
               
               if (t.type === 'invest_buy') {
                   txNetQty[sym].qty += qty;
-                  txNetQty[sym].invested += realAmountIDR;
               } else {
-                  // [PERBAIKAN] Gunakan Cost Basis, bukan Harga Jual (Revenue)
-                  const avgCost = asset && asset.qty > 0 ? (asset.totalModalIDR / asset.qty) : (realAmountIDR / qty);
-                  
                   txNetQty[sym].qty -= qty;
-                  txNetQty[sym].invested -= (qty * avgCost); 
               }
           }
       });
 
       const bases: Record<string, { qty: number, invested: number, date: Date }> = {};
       activePortfolio.forEach(p => {
-          const txNet = txNetQty[p.symbol] || { qty: 0, invested: 0 };
+          const txNet = txNetQty[p.symbol] || { qty: 0 };
           const setupQty = p.qty - txNet.qty;
-          const setupInvested = p.totalModalIDR - txNet.invested; 
           
           if (setupQty > 0.0001) { 
-                  bases[p.symbol] = {
+              // Gunakan harga rata-rata bersih saat ini, hindari distorsi kurs masa lalu
+              const currentAvgCost = p.qty > 0 ? (p.totalModalIDR / p.qty) : 0;
+              bases[p.symbol] = {
                   qty: setupQty,
-                  invested: setupInvested > 0 ? setupInvested : 0,
+                  invested: setupQty * currentAvgCost,
                   date: new Date(0) // Memaksa aset base agar terdeteksi sejak awal waktu
               };
           }
       });
       return bases;
-  }, [chronologicalTxs, activePortfolio, getHistoricalRate]);
+  }, [chronologicalTxs, activePortfolio]);
 
   const getSnapshotAtDate = useCallback((targetDate: Date, isCurrent: boolean) => {
       const qtyMap: Record<string, { qty: number, investedIDR: number }> = {};
