@@ -645,42 +645,59 @@ export default function ExpertTerminal() {
   }, [chronologicalTxs, investments]);
 
   const setupAwalBases = useMemo(() => {
-      const txNetQty: Record<string, {qty: number}> = {};
+      const bases: Record<string, { qty: number, invested: number, date: Date }> = {};
       
-      chronologicalTxs.forEach((t: any) => {
-          if (t.type === 'invest_buy' || t.type === 'invest_sell') {
-              const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
-              const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
+      activePortfolio.forEach(p => {
+          let currentQty = p.qty;
+          let currentInvested = p.totalModalIDR;
+          
+          // 1. Ambil transaksi khusus aset ini & urutkan dari TERBARU ke TERLAMA
+          const assetTxs = [...chronologicalTxs]
+              .filter((t: any) => {
+                  const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+                  const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
+                  return sym === p.symbol && (t.type === 'invest_buy' || t.type === 'invest_sell');
+              })
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+          // 2. Lakukan Reverse Rollback (Hitung Mundur)
+          assetTxs.forEach((t: any) => {
               const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i); 
               const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
               
-              if (!txNetQty[sym]) txNetQty[sym] = { qty: 0 };
+              const priceMatch = t.description?.match(/@\s*(?:Rp|USD|US\$)?\s*([0-9.,]+)/i);
+              const rawPrice = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
+              const currency = t.description?.includes('USD') ? 'USD' : 'IDR';
+              const rate = currency === 'IDR' ? 1 : getHistoricalRate(new Date(t.date).getTime(), currency);
               
-              if (t.type === 'invest_buy') {
-                  txNetQty[sym].qty += qty;
-              } else {
-                  txNetQty[sym].qty -= qty;
-              }
-          }
-      });
+              let realAmountIDR = rawPrice * qty * p.liveMultiplier * rate;
+              if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) realAmountIDR = t.amount;
 
-      const bases: Record<string, { qty: number, invested: number, date: Date }> = {};
-      activePortfolio.forEach(p => {
-          const txNet = txNetQty[p.symbol] || { qty: 0 };
-          const setupQty = p.qty - txNet.qty;
-          
-          if (setupQty > 0.0001) { 
-              // Gunakan harga rata-rata bersih saat ini, hindari distorsi kurs masa lalu
-              const currentAvgCost = p.qty > 0 ? (p.totalModalIDR / p.qty) : 0;
+              if (t.type === 'invest_buy') {
+                  // MUNDUR: Batalkan pembelian (Kurangi Qty, Kurangi Modal)
+                  currentQty -= qty;
+                  currentInvested -= realAmountIDR;
+              } else if (t.type === 'invest_sell') {
+                  // MUNDUR: Batalkan penjualan (Tambah Qty, Kembalikan Modal)
+                  // Cost basis direstore menggunakan harga rata-rata SESUDAH sell terjadi
+                  const avgCostAtThatTime = currentQty > 0 ? (currentInvested / currentQty) : 0;
+                  currentQty += qty;
+                  currentInvested += (qty * avgCostAtThatTime);
+              }
+          });
+
+          // 3. Kunci sisa aset sebagai Setup Awal yang absolut
+          if (currentQty > 0.0001) { 
               bases[p.symbol] = {
-                  qty: setupQty,
-                  invested: setupQty * currentAvgCost,
-                  date: new Date(0) // Memaksa aset base agar terdeteksi sejak awal waktu
+                  qty: currentQty,
+                  invested: currentInvested > 0 ? currentInvested : 0,
+                  date: new Date(0) // Kunci di awal waktu
               };
           }
       });
+      
       return bases;
-  }, [chronologicalTxs, activePortfolio]);
+  }, [chronologicalTxs, activePortfolio, getHistoricalRate]);
 
   const getSnapshotAtDate = useCallback((targetDate: Date, isCurrent: boolean) => {
       const qtyMap: Record<string, { qty: number, investedIDR: number }> = {};
