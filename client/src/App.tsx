@@ -31,7 +31,6 @@ window.fetch = async (input, init = {}) => {
 
   const newHeaders = new Headers(init.headers);
   if (email && url.includes('/api')) {
-    // KUNCI PERBAIKAN: Hanya timpa email jika header x-user-email belum disetel secara manual
     if (!newHeaders.has('x-user-email')) {
       newHeaders.set('x-user-email', email);
     }
@@ -201,9 +200,9 @@ import Amal from "@/pages/Amal";
 import Retained from "@/pages/Retained";
 import ExpertTerminal from "@/pages/ExpertTerminal"; 
 import Onboarding from "@/pages/Onboarding"; 
+import VideoPreview from "@/pages/VideoPreview"; 
 import Checkout from "@/pages/Checkout";
-import Manager from "@/pages/Manager"; // 🔥 Import Manager ditambahkan di sini
-import VideoPreview from "@/pages/VideoPreview";
+import Manager from "@/pages/Manager"; 
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -290,15 +289,16 @@ function Router() {
   useEffect(() => {
     const isAuth = localStorage.getItem("bilano_auth");
     
-    // 🚀 PERBAIKAN: Daftar rute publik yang bebas diakses tanpa login
-    const publicRoutes = ["/", "/auth", "/terminal", "/onboarding", "/checkout", "/manager"]; // 🔥 /manager ditambahkan sebagai rute publik (karena punya login sendiri)
+    // 🛡️ Daftar rute publik yang bebas diakses
+    const publicRoutes = ["/", "/auth", "/terminal", "/onboarding", "/preview", "/checkout", "/manager"]; 
+
+    // 🛡️ PERBAIKAN: Amankan pengecekan dari trailing slash (cth: /preview/ dianggap sama dengan /preview)
+    const normalizedLocation = location.endsWith('/') && location !== '/' ? location.slice(0, -1) : location;
 
     if (!isAuth) {
-      if (isStandalone && location !== "/auth") {
-        // Jika buka via aplikasi PWA (Standalone) tapi belum login -> Wajib ke Auth
+      if (isStandalone && normalizedLocation !== "/auth") {
         setLocation("/auth");
-      } else if (!isStandalone && !publicRoutes.includes(location)) {
-        // Jika buka via Browser biasa, tapi maksa masuk ke dashboard -> Wajib ke Auth
+      } else if (!isStandalone && !publicRoutes.includes(normalizedLocation)) {
         setLocation("/auth");
       }
     }
@@ -393,13 +393,10 @@ function Router() {
         <Route path="/amal" component={Amal} /> 
         <Route path="/retained" component={Retained} />
         <Route path="/onboarding" component={Onboarding} />
+        <Route path="/preview" component={VideoPreview} /> 
         <Route path="/checkout" component={Checkout} />
-        <Route path="/preview" component={VideoPreview} /> {/* ✨ Rute Video Preview ditambahkan di sini */}
-        
-        {/* 🔥 Route Manager ditambahkan di sini */}
         <Route path="/manager" component={Manager} />
 
-        {/* 🚀 PERBAIKAN: NotFound HARUS diletakkan paling ujung sebagai Catch-All */}
         <Route component={NotFound} />
       </Switch>
 

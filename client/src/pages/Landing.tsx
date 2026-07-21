@@ -10,16 +10,13 @@ export default function Landing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // =======================================================
-  // 🚀 MESIN TEKS DINAMIS
-  // =======================================================
-  // =======================================================
   // 🚀 MESIN TEKS DINAMIS (VERSI VISI KEKAYAAN)
   // =======================================================
   const headlines = [
     { top: "Bukan Sekadar Mengelola Uang,", bottom: "Saatnya Bangun Visi Kekayaan." },
     { top: "Jangan Cuma Catat Saldo,", bottom: "Eksekusi Target Nominal Besarmu." },
     { top: "Kunci Visi Jangka Panjang,", bottom: "Wujudkan Angka Kekayaan Nyata." },
-    { top: "Berhenti Mengatur Uang Secara Pasif,", bottom: "Mulai Kawal Tujuan Finansialmu." }
+    { top: "Berhenti Mengatur Uang Pasif,", bottom: "Mulai Kawal Tujuan Finansialmu." }
   ];
   const [headlineIdx, setHeadlineIdx] = useState(0);
   const [fade, setFade] = useState(true);
@@ -74,7 +71,7 @@ export default function Landing() {
         </header>
 
         {/* 🚀 MAIN CONTENT */}
-<main className="px-5 sm:px-6 lg:px-10 pt-6 pb-16 lg:pb-12 flex flex-col gap-10 sm:gap-12 lg:gap-24 w-full items-center">
+        <main className="px-5 sm:px-6 lg:px-10 pt-6 pb-16 lg:pb-12 flex flex-col gap-10 sm:gap-12 lg:gap-24 w-full items-center">
           
           {/* 🔥 1. HERO SECTION */}
           <section className="w-full min-w-0 flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-4 animate-in slide-in-from-bottom-6 fade-in duration-700 delay-100 fill-mode-both max-w-6xl mx-auto mt-2 px-2 sm:px-4 lg:px-0">
@@ -196,12 +193,12 @@ export default function Landing() {
             </section>
           </div>
 
-          {/* 🔥 6. TOMBOL INSTALL DESKTOP (MENGARAH KE ONBOARDING) */}
+          {/* 🔥 6. TOMBOL INSTALL DESKTOP (MENGARAH KE PREVIEW) */}
           <div className="hidden lg:flex w-full flex-col items-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-500 fill-mode-both">
             <button
               onClick={() => {
-                trackEvent("cta_landing_clicked", { placement: "mobile_sticky" });
-                setLocation('/preview'); // Arahkan ke Video Preview dulu
+                trackEvent("cta_landing_clicked", { placement: "desktop_bottom" });
+                setLocation('/preview'); // LOMPAT KE VIDEO PREVIEW
               }}
               className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
             >
@@ -212,12 +209,12 @@ export default function Landing() {
 
         </main>
 
-        {/* 🟡 STICKY TOMBOL HP (MENGARAH KE ONBOARDING) */}
+        {/* 🟡 STICKY TOMBOL HP (MENGARAH KE PREVIEW) */}
         <div className="lg:hidden sticky bottom-6 px-6 z-50 animate-in slide-in-from-bottom-12 fade-in duration-700 delay-700 fill-mode-both">
           <button
             onClick={() => {
               trackEvent("cta_landing_clicked", { placement: "mobile_sticky" });
-              setLocation('/onboarding');
+              setLocation('/preview'); // LOMPAT KE VIDEO PREVIEW
             }}
             className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] tracking-wide py-4 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
           >
