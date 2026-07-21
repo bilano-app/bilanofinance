@@ -320,6 +320,7 @@ export default function ExpertTerminal() {
   const validFirstBuyDate = useMemo(() => {
       const symbolData: Record<string, { firstBuy: number, lastSell: number, currentQty: number }> = {};
 
+      // 1. Baca riwayat transaksi kronologis
       chronologicalTxs.forEach((t: any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
               const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
@@ -342,6 +343,19 @@ export default function ExpertTerminal() {
           }
       });
 
+      // 2. [TAMBAHAN] Baca aset yang diinput manual di awal
+      investments.forEach((inv: any) => {
+          const parts = (inv.symbol || "").split('|');
+          const sym = parts[0].trim().toUpperCase();
+          const ts = inv.createdAt ? new Date(inv.createdAt).getTime() : Date.now();
+          
+          if (!symbolData[sym]) {
+              symbolData[sym] = { firstBuy: Infinity, lastSell: 0, currentQty: 0 };
+          }
+          if (ts < symbolData[sym].firstBuy) symbolData[sym].firstBuy = ts;
+          symbolData[sym].currentQty += inv.quantity;
+      });
+
       let earliestValidTs = Infinity;
       const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
@@ -360,7 +374,7 @@ export default function ExpertTerminal() {
       });
 
       return earliestValidTs === Infinity ? new Date() : new Date(earliestValidTs);
-  }, [chronologicalTxs]);
+  }, [chronologicalTxs, investments]); // Pastikan 'investments' ditambahkan ke dependency array
 
   const [expandedSimAsset, setExpandedSimAsset] = useState<string | null>(null);
   const [simParams, setSimParams] = useState<Record<string, any>>({});
@@ -654,12 +668,16 @@ export default function ExpertTerminal() {
               }
               
               if (!txNetQty[sym]) txNetQty[sym] = { qty: 0, invested: 0 };
+              
               if (t.type === 'invest_buy') {
                   txNetQty[sym].qty += qty;
                   txNetQty[sym].invested += realAmountIDR;
               } else {
+                  // [PERBAIKAN] Gunakan Cost Basis, bukan Harga Jual (Revenue)
+                  const avgCost = asset && asset.qty > 0 ? (asset.totalModalIDR / asset.qty) : (realAmountIDR / qty);
+                  
                   txNetQty[sym].qty -= qty;
-                  txNetQty[sym].invested -= realAmountIDR;
+                  txNetQty[sym].invested -= (qty * avgCost); 
               }
           }
       });
@@ -949,12 +967,21 @@ export default function ExpertTerminal() {
          parsedInvestTxs.forEach((t: any) => {
              if (new Date(t.date).getTime() <= currentTs) {
                  if (!currentQty[t.parsedSymbol]) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
+                 
                  if (t.type === 'invest_buy') {
                      currentQty[t.parsedSymbol] += t.parsedQty;
                      currentInvestedIDR[t.parsedSymbol] += t.parsedRealAmountIDR;
                  } else {
+                     // [PERBAIKAN] Hitung modal rata-rata sesaat sebelum dijual
+                     const currentAvgCost = currentQty[t.parsedSymbol] > 0 
+                         ? (currentInvestedIDR[t.parsedSymbol] / currentQty[t.parsedSymbol]) 
+                         : 0;
+
                      currentQty[t.parsedSymbol] -= t.parsedQty;
-                     currentInvestedIDR[t.parsedSymbol] -= t.parsedRealAmountIDR;
+                     
+                     // Kurangi garis investasi dengan harga modal, bukan uang yang didapat
+                     currentInvestedIDR[t.parsedSymbol] -= (t.parsedQty * currentAvgCost);
+
                      if (currentQty[t.parsedSymbol] <= 0) {
                          currentQty[t.parsedSymbol] = 0;
                          currentInvestedIDR[t.parsedSymbol] = 0;
