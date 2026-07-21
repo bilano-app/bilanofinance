@@ -737,13 +737,20 @@ export default function ExpertTerminal() {
                       qtyMap[sym].qty += qty;
                       qtyMap[sym].investedIDR += realAmountIDR;
                   } else {
+                      // [PERBAIKAN FINAL] Gunakan Cost Basis (Harga Modal Rata-rata)
+                      const currentAvgCost = qtyMap[sym].qty > 0 
+                          ? (qtyMap[sym].investedIDR / qtyMap[sym].qty) 
+                          : 0;
+
                       qtyMap[sym].qty -= qty;
-                      qtyMap[sym].investedIDR -= realAmountIDR;
+                      
+                      // Kurangi modal berdasarkan harga beli rata-rata, BUKAN harga jual (revenue)
+                      qtyMap[sym].investedIDR -= (qty * currentAvgCost);
+
+                      // Cegah minus jika habis terjual
                       if (qtyMap[sym].qty <= 0) {
                           qtyMap[sym].qty = 0;
                           qtyMap[sym].investedIDR = 0;
-                      } else {
-                          qtyMap[sym].investedIDR = Math.max(0, qtyMap[sym].investedIDR);
                       }
                   }
               }
