@@ -217,8 +217,10 @@ export default function Onboarding() {
     setLoading(true);
     const price = selectedPlan === 'year' ? 99000 : 14900;
 
-    localStorage.setItem("bilano_email", formData.email.trim().toLowerCase());
+    // ❌ HAPUS ATAU KOMENTARI BARIS INI UNTUK MENCEGAH AUTO-LOGIN:
+    // localStorage.setItem("bilano_email", formData.email.trim().toLowerCase());
 
+    // SIMPAN DI SINI SAJA (Sudah aman mencakup seluruh data checkout)
     localStorage.setItem('bilano_pending_checkout', JSON.stringify({
       name: formData.name,
       email: formData.email,
@@ -229,7 +231,7 @@ export default function Onboarding() {
     }));
 
     trackEvent("checkout_initiated", { plan: selectedPlan, method: paymentMethod });
-
+    // ... sisa kode fetch payment tetap sama ...
     try {
       const productDetail = selectedPlan === 'year' ? 'Paket Tahunan BILANO' : 'Paket Bulanan BILANO';
 

@@ -646,6 +646,7 @@ export default function ExpertTerminal() {
 
   const setupAwalBases = useMemo(() => {
       const txNetQty: Record<string, {qty: number, invested: number, firstDateMs: number}> = {};
+      const firstTxPrice: Record<string, number> = {}; // KUNCI: Mengingat harga transaksi pertama
       
       chronologicalTxs.forEach((t: any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
@@ -669,9 +670,13 @@ export default function ExpertTerminal() {
               
               const txTime = new Date(t.date).getTime();
               if (!txNetQty[sym]) txNetQty[sym] = { qty: 0, invested: 0, firstDateMs: txTime };
-              // Pastikan mencatat tanggal transaksi paling awal
               if (txTime < txNetQty[sym].firstDateMs) txNetQty[sym].firstDateMs = txTime;
               
+              // Simpan harga transaksi pertama sebagai jangkar absolut masa lalu
+              if (t.type === 'invest_buy' && !firstTxPrice[sym]) {
+                  firstTxPrice[sym] = qty > 0 ? (realAmountIDR / qty) : 0;
+              }
+
               if (t.type === 'invest_buy') {
                   txNetQty[sym].qty += qty;
                   txNetQty[sym].invested += realAmountIDR;
@@ -686,10 +691,12 @@ export default function ExpertTerminal() {
       activePortfolio.forEach(p => {
           const txNet = txNetQty[p.symbol] || { qty: 0, invested: 0, firstDateMs: 0 };
           const setupQty = p.qty - txNet.qty;
-          const setupInvested = p.totalModalIDR - txNet.invested; 
           
           if (setupQty > 0.0001) { 
-              // PERBAIKAN: Gunakan tanggal pembelian tertua sebagai start date, bukan tahun 1970
+              // Gunakan harga jangkar, JANGAN gunakan p.totalModalIDR karena rentan terdistorsi avg down
+              const anchorPrice = firstTxPrice[p.symbol] || (p.qty > 0 ? p.totalModalIDR / p.qty : 0);
+              const setupInvested = setupQty * anchorPrice; 
+              
               let trueStartDate = p.createdAt ? new Date(p.createdAt) : new Date();
               if (txNet.firstDateMs > 0) {
                   const txDate = new Date(txNet.firstDateMs);
@@ -765,16 +772,19 @@ export default function ExpertTerminal() {
       let totalInv = 0; let totalVal = 0;
       
       Object.keys(qtyMap).forEach(sym => {
+          const currentAsset = activePortfolio.find((p: any) => p.symbol === sym);
+          
+          // KUNCI PERBAIKAN: Abaikan aset hantu yang sudah dijual atau tidak ada di portofolio aktif
+          if (!currentAsset) return;
+
           if (qtyMap[sym].qty > 0) {
-              const currentAsset = activePortfolio.find((p: any) => p.symbol === sym);
-              const activeTicker = currentAsset ? currentAsset.activeTicker : (tickerOverrides[sym] || sym);
-              const liveMultiplier = currentAsset ? currentAsset.liveMultiplier : 1;
+              const activeTicker = currentAsset.activeTicker;
+              const liveMultiplier = currentAsset.liveMultiplier;
               
               let price = qtyMap[sym].investedIDR / (qtyMap[sym].qty * liveMultiplier); 
               if (isCurrent) {
                   price = livePrices[activeTicker] || price;
               } else {
-                  // MENGGUNAKAN MEMORI 5 TAHUN (simHistoryPrices) KHUSUS UNTUK SNAPSHOT MASA LALU
                   const hist = simHistoryPrices[activeTicker];
                   let historicalPrice = null;
                   
@@ -790,7 +800,6 @@ export default function ExpertTerminal() {
                       }
                   }
                   
-                  // Jika masih kosong, coba gunakan memori chart sebagai cadangan terakhir
                   if (!historicalPrice) {
                       historicalPrice = getPriceForDate(activeTicker, targetTs);
                   }
