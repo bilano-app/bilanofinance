@@ -1,9 +1,30 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { 
-  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw, AlertCircle, ShieldCheck, Sparkles, LockKeyhole
+  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw, AlertCircle, ShieldCheck, Sparkles, LockKeyhole, ChevronDown
 } from "lucide-react";
 import { trackEvent } from "@/lib/tracking";
+
+// =======================================================
+// 🚀 DATABASE METODE PEMBAYARAN & LOGO (DUITKU)
+// =======================================================
+// QRIS diletakkan paling atas dan menjadi default
+const paymentOptions = [
+  { id: "NQ", name: "QRIS (GoPay/OVO/Dana/LinkAja)", icon: "https://img.icons8.com/color/96/qr-code.png" },
+  { id: "M2", name: "Mandiri Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/commons/a/ad/Bank_Mandiri_logo_2016.svg" },
+  { id: "I1", name: "BNI Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/id/5/55/BNI_logo.svg" },
+  { id: "BR", name: "BRI Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/commons/2/2e/BRI_2020.svg" },
+  { id: "B1", name: "CIMB Niaga Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/commons/3/38/CIMB_Niaga_logo.svg" },
+  { id: "BT", name: "Permata Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/id/4/42/PermataBank_logo.svg" },
+  { id: "BSI", name: "BSI Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/commons/a/a0/Bank_Syariah_Indonesia.svg" },
+  { id: "D1", name: "Danamon Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/commons/7/7b/Bank_Danamon_logo.svg" },
+  { id: "VA", name: "Maybank Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/commons/c/c2/Maybank_logo.svg" },
+  { id: "SA", name: "Bank Sampoerna", icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Bank_Sahabat_Sampoerna_logo.svg/512px-Bank_Sahabat_Sampoerna_logo.svg.png" },
+  { id: "NC", name: "Bank Neo Commerce", icon: "https://upload.wikimedia.org/wikipedia/commons/b/b3/Bank_Neo_Commerce_logo.svg" },
+  { id: "AG", name: "Bank Artha Graha", icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Bank_Artha_Graha_Internasional_logo.svg/512px-Bank_Artha_Graha_Internasional_logo.svg.png" },
+  { id: "A1", name: "ATM Bersama", icon: "https://upload.wikimedia.org/wikipedia/commons/a/ab/ATM_Bersama_logo.svg" },
+  { id: "FT", name: "Alfamart / Pegadaian / Pos", icon: "https://upload.wikimedia.org/wikipedia/commons/8/86/Alfamart_logo.svg" }
+];
 
 export default function Onboarding() {
   const [, setLocation] = useLocation();
@@ -26,13 +47,32 @@ export default function Onboarding() {
     phone: ""
   });
 
-  const [paymentMethod, setPaymentMethod] = useState("BC"); 
+  // State untuk metode pembayaran, Default NQ (NusaPay QRIS)
+  const [paymentMethod, setPaymentMethod] = useState("NQ"); 
   const [paymentDetails, setPaymentDetails] = useState<any>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [showPaymentAlert, setShowPaymentAlert] = useState(false); 
 
+  // State khusus Custom Dropdown UI
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const [showManualInstall, setShowManualInstall] = useState(false);
-  const [accessCode, setAccessCode] = useState<string | null>(null); // State untuk menyimpan kode rahasia 6 digit
+  const [accessCode, setAccessCode] = useState<string | null>(null);
+
+  // Menutup dropdown jika klik di luar area
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Mendapatkan detail opsi pembayaran yang sedang dipilih
+  const selectedMethodDetails = paymentOptions.find(p => p.id === paymentMethod) || paymentOptions[0];
 
   const getAssessment = () => {
     const { q1, q2, q3, q4 } = answers;
@@ -79,14 +119,12 @@ export default function Onboarding() {
     else if (step === 6) trackEvent("success_page_viewed");
   }, [step, assessment.title]);
 
-  // LOGIKA PEMBAYARAN SUKSES DARI GATEWAY KEMBALI KE SINI
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('payment') === 'success') {
       const pendingDataStr = localStorage.getItem('bilano_pending_checkout');
       const pendingData = pendingDataStr ? JSON.parse(pendingDataStr) : {};
       
-      // Hit API untuk men-generate kode 6 digit dan meregistrasikan akun
       fetch('/api/payment/claim-account', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -124,7 +162,7 @@ export default function Onboarding() {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         trackEvent("pwa_install_accepted");
-        setTimeout(() => setLocation('/auth'), 1500); // Arahkan ke auth untuk login dengan kode
+        setTimeout(() => setLocation('/auth'), 1500); 
       } else {
         trackEvent("pwa_install_dismissed");
       }
@@ -221,7 +259,6 @@ export default function Onboarding() {
       const data = await response.json();
       
       if (data.success && data.isPaid) {
-        // Jika sukses dari klik refresh manual, sekalian claim
         const claimRes = await fetch('/api/payment/claim-account', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -482,7 +519,7 @@ export default function Onboarding() {
               <p className="text-slate-400 text-sm mb-6">
                 {paymentDetails.qrString || paymentDetails.paymentUrl?.includes("qris") 
                   ? "Scan kode QR di bawah menggunakan e-Wallet atau M-Banking kamu:" 
-                  : "Silakan lakukan transfer ke rekening Virtual Account berikut:"}
+                  : "Silakan lakukan transfer atau gunakan kode bayar berikut:"}
               </p>
 
               <div className="bg-[#040814] rounded-2xl p-6 border border-white/5 mb-6 shadow-inner">
@@ -501,7 +538,7 @@ export default function Onboarding() {
                 ) : (
                   <>
                     <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">
-                      Nomor Virtual Account ({paymentMethod === 'BC' ? 'BCA' : paymentMethod === 'M2' ? 'MANDIRI' : paymentMethod === 'I1' ? 'BNI' : paymentMethod === 'BR' ? 'BRI' : 'PERMATA'})
+                      Kode Pembayaran ({selectedMethodDetails.name})
                     </p>
                     <div className="flex items-center justify-between bg-[#121c3a] border border-white/10 rounded-xl p-4 mb-4 group">
                       <span className="text-xl lg:text-2xl font-black tracking-widest text-white">
@@ -510,7 +547,7 @@ export default function Onboarding() {
                       <button 
                         onClick={() => {
                           navigator.clipboard.writeText(paymentDetails.vaNumber);
-                          alert('Nomor VA berhasil disalin!');
+                          alert('Kode Bayar berhasil disalin!');
                         }} 
                         className="p-2 bg-amber-400/10 text-amber-400 rounded-lg hover:bg-amber-400 hover:text-black transition-colors"
                       >
@@ -619,28 +656,54 @@ export default function Onboarding() {
                 className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors mb-2"
               />
 
-              <div className="flex flex-col gap-1 mb-2">
+              {/* 🔥 CUSTOM DROPDOWN UI UNTUK METODE PEMBAYARAN DENGAN LOGO */}
+              <div className="flex flex-col gap-1 mb-2 relative" ref={dropdownRef}>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
                   Metode Pembayaran
                 </label>
-                <select 
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors cursor-pointer"
+                
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors flex items-center justify-between group"
                 >
-                  <option value="BC">BCA Virtual Account</option>
-                  <option value="M2">Mandiri Virtual Account</option>
-                  <option value="I1">BNI Virtual Account</option>
-                  <option value="BR">BRI Virtual Account</option>
-                  <option value="BT">Permata Virtual Account</option>
-                  <option value="SP">QRIS (GoPay/OVO/Dana/LinkAja)</option>
-                </select>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white rounded-md p-1 flex items-center justify-center">
+                      <img src={selectedMethodDetails.icon} alt={selectedMethodDetails.name} className="w-full h-full object-contain" />
+                    </div>
+                    <span className="font-semibold">{selectedMethodDetails.name}</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown List Items */}
+                {isDropdownOpen && (
+                  <ul className="absolute top-[105%] left-0 w-full bg-[#121c3a] border border-white/10 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar overflow-x-hidden flex flex-col p-2 gap-1">
+                    {paymentOptions.map((option) => (
+                      <li 
+                        key={option.id}
+                        onClick={() => {
+                          setPaymentMethod(option.id);
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${paymentMethod === option.id ? 'bg-amber-400/10 border border-amber-400/20' : 'hover:bg-white/5 border border-transparent'}`}
+                      >
+                        <div className="w-8 h-8 bg-white rounded-md p-1 shrink-0 flex items-center justify-center">
+                          <img src={option.icon} alt={option.name} className="w-full h-full object-contain" />
+                        </div>
+                        <span className={`text-sm ${paymentMethod === option.id ? 'text-amber-400 font-bold' : 'text-slate-300 font-medium'}`}>
+                          {option.name}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <button 
                 type="submit"
                 disabled={loading}
-                className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center"
+                className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center mt-2"
               >
                 {loading ? "MEMPROSES..." : "BAYAR SEKARANG"}
               </button>
