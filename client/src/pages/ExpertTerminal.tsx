@@ -599,7 +599,8 @@ export default function ExpertTerminal() {
 
   const totalAssetValue = activePortfolio.reduce((acc: any, p: any) => {
     const livePriceAPI = livePrices[p.activeTicker];
-    const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
+    const rate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
+    const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * rate) : p.totalModalIDR;
     return acc + liveValuationIDR;
   }, 0);
 
@@ -617,7 +618,8 @@ export default function ExpertTerminal() {
     { name: 'Cash Tunai', value: cashBalance },
     ...activePortfolio.map((p: any) => {
        const livePriceAPI = livePrices[p.activeTicker];
-       const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
+       const rate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
+       const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * rate) : p.totalModalIDR;
        return { name: p.symbol, value: liveValuationIDR };
     })
   ].filter((d: any) => d.value > 0);
@@ -645,8 +647,7 @@ export default function ExpertTerminal() {
   }, [chronologicalTxs, investments]);
 
   const setupAwalBases = useMemo(() => {
-      const txNetQty: Record<string, {qty: number, invested: number, firstDateMs: number}> = {};
-      const firstTxPrice: Record<string, number> = {}; // KUNCI: Mengingat harga transaksi pertama
+      const txNetQty: Record<string, {qty: number, invested: number}> = {};
       
       chronologicalTxs.forEach((t: any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
@@ -668,15 +669,8 @@ export default function ExpertTerminal() {
                   realAmountIDR = t.amount;
               }
               
-              const txTime = new Date(t.date).getTime();
-              if (!txNetQty[sym]) txNetQty[sym] = { qty: 0, invested: 0, firstDateMs: txTime };
-              if (txTime < txNetQty[sym].firstDateMs) txNetQty[sym].firstDateMs = txTime;
+              if (!txNetQty[sym]) txNetQty[sym] = { qty: 0, invested: 0 };
               
-              // Simpan harga transaksi pertama sebagai jangkar absolut masa lalu
-              if (t.type === 'invest_buy' && !firstTxPrice[sym]) {
-                  firstTxPrice[sym] = qty > 0 ? (realAmountIDR / qty) : 0;
-              }
-
               if (t.type === 'invest_buy') {
                   txNetQty[sym].qty += qty;
                   txNetQty[sym].invested += realAmountIDR;
@@ -689,24 +683,17 @@ export default function ExpertTerminal() {
 
       const bases: Record<string, { qty: number, invested: number, date: Date }> = {};
       activePortfolio.forEach(p => {
-          const txNet = txNetQty[p.symbol] || { qty: 0, invested: 0, firstDateMs: 0 };
+          const txNet = txNetQty[p.symbol] || { qty: 0, invested: 0 };
           const setupQty = p.qty - txNet.qty;
           
-          if (setupQty > 0.0001) { 
-              // Gunakan harga jangkar, JANGAN gunakan p.totalModalIDR karena rentan terdistorsi avg down
-              const anchorPrice = firstTxPrice[p.symbol] || (p.qty > 0 ? p.totalModalIDR / p.qty : 0);
-              const setupInvested = setupQty * anchorPrice; 
-              
-              let trueStartDate = p.createdAt ? new Date(p.createdAt) : new Date();
-              if (txNet.firstDateMs > 0) {
-                  const txDate = new Date(txNet.firstDateMs);
-                  if (txDate < trueStartDate) trueStartDate = txDate;
-              }
-
+          // Murni selisih absolut, dijamin 100% sama dengan Investment.tsx
+          const setupInvested = p.totalModalIDR - txNet.invested; 
+          
+          if (Math.abs(setupQty) > 0.0001 || Math.abs(setupInvested) > 1) { 
               bases[p.symbol] = {
                   qty: setupQty,
-                  invested: setupInvested > 0 ? setupInvested : 0,
-                  date: trueStartDate
+                  invested: setupInvested,
+                  date: p.createdAt ? new Date(p.createdAt) : new Date(0)
               };
           }
       });
@@ -780,8 +767,12 @@ export default function ExpertTerminal() {
           if (qtyMap[sym].qty > 0) {
               const activeTicker = currentAsset.activeTicker;
               const liveMultiplier = currentAsset.liveMultiplier;
+              const currency = currentAsset.currency || 'IDR';
               
-              let price = qtyMap[sym].investedIDR / (qtyMap[sym].qty * liveMultiplier); 
+              // TARIK KURS FOREX YANG BENAR
+              const rate = currency === 'IDR' ? 1 : (isCurrent ? (Number(forexRates[currency]) || 16200) : getHistoricalRate(targetTs, currency));
+              
+              let price = qtyMap[sym].investedIDR / (qtyMap[sym].qty * liveMultiplier * rate); 
               if (isCurrent) {
                   price = livePrices[activeTicker] || price;
               } else {
@@ -807,7 +798,8 @@ export default function ExpertTerminal() {
                   price = historicalPrice || price;
               }
               
-              const valuasi = price ? (qtyMap[sym].qty * price * liveMultiplier) : qtyMap[sym].investedIDR;
+              // KALIKAN DENGAN RATE FOREX
+              const valuasi = price ? (qtyMap[sym].qty * price * liveMultiplier * rate) : qtyMap[sym].investedIDR;
               details[sym] = { invested: qtyMap[sym].investedIDR, valuasi, qty: qtyMap[sym].qty };
               totalInv += qtyMap[sym].investedIDR;
               totalVal += valuasi;
@@ -1020,30 +1012,32 @@ export default function ExpertTerminal() {
                  const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
                  const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
                  const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
+                 const currency = assetMeta ? assetMeta.currency : 'IDR';
+                 
+                 // TARIK KURS FOREX HISTORIS UNTUK GRAFIK
+                 const rate = currency === 'IDR' ? 1 : getHistoricalRate(currentTs, currency);
+                 
                  const livePriceFallback = livePrices[ticker];
                  const isIntradayView = chartTimeframe === '1D' || chartTimeframe === '1W';
 
                  let price = getPriceForDate(ticker, currentTs);
                  
-                 // Prioritaskan harga API live jika data historis dari Yahoo kosong
                  if ((!price || price === 0) && livePriceFallback) {
                      price = livePriceFallback;
                  }
                  
-                 // Untuk chart jangka pendek, tarik lurus harga live ke titik terujung
                  if (isIntradayView && (currentTs + stepSize > endTs || !getPriceForDate(ticker, currentTs))) {
                      price = livePriceFallback || price;
                  }
 
-                 // Jika harga benar-benar tidak ada, hitung dari modal / qty
                  if (!price || isNaN(price) || price === 0) {
-                     price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier);
+                     price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier * rate);
                  }
 
-                 // 🛡️ PROTEKSI FATAL ERROR: Cegah nilai NaN/Infinity menghapus garis
                  if (isNaN(price) || !isFinite(price)) price = 0;
 
-                 let val = currentQty[sym] * price * multiplier;
+                 // KALIKAN DENGAN FOREX
+                 let val = currentQty[sym] * price * multiplier * rate;
                  if (isNaN(val) || !isFinite(val)) val = 0;
 
                  let invested = currentInvestedIDR[sym];
@@ -1052,12 +1046,11 @@ export default function ExpertTerminal() {
                  dailyValuation += val;
                  dailyInvested += invested;
 
-                 // Kalkulasi Dividen
                  const divs = dividendEvents[ticker] || [];
                  divs.forEach((d: any) => {
                      const divTsMs = d.date * 1000;
                      if (divTsMs > currentTs && divTsMs <= (currentTs + stepSize)) {
-                         cumulativeDividend += (d.amount * currentQty[sym] * multiplier);
+                         cumulativeDividend += (d.amount * currentQty[sym] * multiplier * rate);
                      }
                  });
              }
