@@ -599,8 +599,8 @@ export default function ExpertTerminal() {
 
   const totalAssetValue = activePortfolio.reduce((acc: any, p: any) => {
     const livePriceAPI = livePrices[p.activeTicker];
-    const rate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
-    const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * rate) : p.totalModalIDR;
+    // KEMBALIKAN: Hapus * rate karena API backend ternyata sudah otomatis convert ke IDR
+    const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
     return acc + liveValuationIDR;
   }, 0);
 
@@ -618,8 +618,7 @@ export default function ExpertTerminal() {
     { name: 'Cash Tunai', value: cashBalance },
     ...activePortfolio.map((p: any) => {
        const livePriceAPI = livePrices[p.activeTicker];
-       const rate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
-       const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * rate) : p.totalModalIDR;
+       const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
        return { name: p.symbol, value: liveValuationIDR };
     })
   ].filter((d: any) => d.value > 0);
@@ -767,12 +766,8 @@ export default function ExpertTerminal() {
           if (qtyMap[sym].qty > 0) {
               const activeTicker = currentAsset.activeTicker;
               const liveMultiplier = currentAsset.liveMultiplier;
-              const currency = currentAsset.currency || 'IDR';
               
-              // TARIK KURS FOREX YANG BENAR
-              const rate = currency === 'IDR' ? 1 : (isCurrent ? (Number(forexRates[currency]) || 16200) : getHistoricalRate(targetTs, currency));
-              
-              let price = qtyMap[sym].investedIDR / (qtyMap[sym].qty * liveMultiplier * rate); 
+              let price = qtyMap[sym].investedIDR / (qtyMap[sym].qty * liveMultiplier); 
               if (isCurrent) {
                   price = livePrices[activeTicker] || price;
               } else {
@@ -798,8 +793,7 @@ export default function ExpertTerminal() {
                   price = historicalPrice || price;
               }
               
-              // KALIKAN DENGAN RATE FOREX
-              const valuasi = price ? (qtyMap[sym].qty * price * liveMultiplier * rate) : qtyMap[sym].investedIDR;
+              const valuasi = price ? (qtyMap[sym].qty * price * liveMultiplier) : qtyMap[sym].investedIDR;
               details[sym] = { invested: qtyMap[sym].investedIDR, valuasi, qty: qtyMap[sym].qty };
               totalInv += qtyMap[sym].investedIDR;
               totalVal += valuasi;
@@ -1006,56 +1000,50 @@ export default function ExpertTerminal() {
          let dailyInvested = 0;
 
          Object.keys(currentQty).forEach(sym => {
-             if (currentQty[sym] > 0) {
-                 if (chartAssetFilter !== 'ALL' && sym !== chartAssetFilter) return;
+                     if (currentQty[sym] > 0) {
+                         if (chartAssetFilter !== 'ALL' && sym !== chartAssetFilter) return;
 
-                 const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
-                 const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
-                 const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
-                 const currency = assetMeta ? assetMeta.currency : 'IDR';
-                 
-                 // TARIK KURS FOREX HISTORIS UNTUK GRAFIK
-                 const rate = currency === 'IDR' ? 1 : getHistoricalRate(currentTs, currency);
-                 
-                 const livePriceFallback = livePrices[ticker];
-                 const isIntradayView = chartTimeframe === '1D' || chartTimeframe === '1W';
+                         const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
+                         const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
+                         const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
+                         const livePriceFallback = livePrices[ticker];
+                         const isIntradayView = chartTimeframe === '1D' || chartTimeframe === '1W';
 
-                 let price = getPriceForDate(ticker, currentTs);
-                 
-                 if ((!price || price === 0) && livePriceFallback) {
-                     price = livePriceFallback;
-                 }
-                 
-                 if (isIntradayView && (currentTs + stepSize > endTs || !getPriceForDate(ticker, currentTs))) {
-                     price = livePriceFallback || price;
-                 }
+                         let price = getPriceForDate(ticker, currentTs);
+                         
+                         if ((!price || price === 0) && livePriceFallback) {
+                             price = livePriceFallback;
+                         }
+                         
+                         if (isIntradayView && (currentTs + stepSize > endTs || !getPriceForDate(ticker, currentTs))) {
+                             price = livePriceFallback || price;
+                         }
 
-                 if (!price || isNaN(price) || price === 0) {
-                     price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier * rate);
-                 }
+                         if (!price || isNaN(price) || price === 0) {
+                             price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier);
+                         }
 
-                 if (isNaN(price) || !isFinite(price)) price = 0;
+                         if (isNaN(price) || !isFinite(price)) price = 0;
 
-                 // KALIKAN DENGAN FOREX
-                 let val = currentQty[sym] * price * multiplier * rate;
-                 if (isNaN(val) || !isFinite(val)) val = 0;
+                         let val = currentQty[sym] * price * multiplier;
+                         if (isNaN(val) || !isFinite(val)) val = 0;
 
-                 let invested = currentInvestedIDR[sym];
-                 if (isNaN(invested) || !isFinite(invested)) invested = 0;
+                         let invested = currentInvestedIDR[sym];
+                         if (isNaN(invested) || !isFinite(invested)) invested = 0;
 
-                 dailyValuation += val;
-                 dailyInvested += invested;
+                         dailyValuation += val;
+                         dailyInvested += invested;
 
-                 const divs = dividendEvents[ticker] || [];
-                 divs.forEach((d: any) => {
-                     const divTsMs = d.date * 1000;
-                     if (divTsMs > currentTs && divTsMs <= (currentTs + stepSize)) {
-                         cumulativeDividend += (d.amount * currentQty[sym] * multiplier * rate);
+                         const divs = dividendEvents[ticker] || [];
+                         divs.forEach((d: any) => {
+                             const divTsMs = d.date * 1000;
+                             if (divTsMs > currentTs && divTsMs <= (currentTs + stepSize)) {
+                                 cumulativeDividend += (d.amount * currentQty[sym] * multiplier);
+                             }
+                         });
                      }
                  });
-             }
-         });
-
+                 
          dailyData.push({
              name: dateLabel,
              Total: dailyValuation,
