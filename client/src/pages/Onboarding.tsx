@@ -9,20 +9,22 @@ import { trackEvent } from "@/lib/tracking";
 // 🚀 DATABASE METODE PEMBAYARAN & LOGO (STABIL)
 // =======================================================
 const paymentOptions = [
-  { id: "SQ", name: "QRIS (GoPay/OVO/Dana)", icon: "https://img.icons8.com/color/96/qr-code.png" },
-  { id: "M2", name: "Mandiri Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Bank_Mandiri_Baru.png" },
-  { id: "I1", name: "BNI Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/id/5/55/BNI_logo.svg" },
-  { id: "BR", name: "BRI Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/commons/2/2e/BRI_2020.svg" },
-  { id: "B1", name: "CIMB Niaga Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/commons/3/38/CIMB_Niaga_logo.svg" },
-  { id: "BT", name: "Permata Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/id/8/87/PermataBank_logo.svg" },
-  { id: "BSI", name: "BSI Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/commons/a/a4/Bank_Syariah_Indonesia.svg" },
-  { id: "D1", name: "Danamon Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/commons/7/7b/Logo_danamon.png" },
-  { id: "VA", name: "Maybank Virtual Account", icon: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Maybank_logo.svg" },
-  // Untuk bank yang lebih kecil, jika sulit mencari link stabil, simpan manual di folder /public kamu:
-  { id: "SA", name: "Bank Sampoerna", icon: "/logos/sampoerna.png" }, 
-  { id: "NC", name: "Bank Neo Commerce", icon: "/logos/bneo.png" },
-  { id: "A1", name: "ATM Bersama", icon: "https://upload.wikimedia.org/wikipedia/commons/6/6d/ATM_Bersama_logo.svg" },
-  { id: "FT", name: "Alfamart / Pegadaian / Pos", icon: "https://upload.wikimedia.org/wikipedia/commons/8/86/Alfamart_logo.svg" }
+  // QRIS pakai eksternal Icons8 masih aman karena memang didesain untuk public CDN
+  { id: "SQ", name: "QRIS (GoPay/OVO/Dana)", icon: "https://img.icons8.com/color/96/qr-code.png" }, 
+  
+  // Sisa bank panggil dari folder /public/logos/ milikmu sendiri
+  { id: "M2", name: "Mandiri Virtual Account", icon: "/logos/mandiri.png" },
+  { id: "I1", name: "BNI Virtual Account", icon: "/logos/bni.png" },
+  { id: "BR", name: "BRI Virtual Account", icon: "/logos/bri.png" },
+  { id: "B1", name: "CIMB Niaga Virtual Account", icon: "/logos/cimb.png" },
+  { id: "BT", name: "Permata Virtual Account", icon: "/logos/permata.png" },
+  { id: "BSI", name: "BSI Virtual Account", icon: "/logos/bsi.png" },
+  { id: "D1", name: "Danamon Virtual Account", icon: "/logos/danamon.png" },
+  { id: "VA", name: "Maybank Virtual Account", icon: "/logos/maybank.png" },
+  { id: "SA", name: "Bank Sampoerna", icon: "/logos/sampoerna.png" },
+  { id: "NC", name: "Bank Neo Commerce", icon: "/logos/neocommerce.png" },
+  { id: "A1", name: "ATM Bersama", icon: "/logos/atmbersama.png" },
+  { id: "FT", name: "Alfamart / Pegadaian / Pos", icon: "/logos/alfamart.png" }
 ];
 
 // 🛡️ KOMPONEN PENGAMAN GAMBAR RUSAK (FALLBACK UI)
