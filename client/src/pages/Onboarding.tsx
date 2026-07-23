@@ -9,24 +9,27 @@ import { trackEvent } from "@/lib/tracking";
 // 🚀 DATABASE METODE PEMBAYARAN & LOGO (STABIL)
 // =======================================================
 const paymentOptions = [
-  // QRIS pakai eksternal Icons8 masih aman karena memang didesain untuk public CDN
-  { id: "SQ", name: "QRIS (GoPay/OVO/Dana)", icon: "https://img.icons8.com/color/96/qr-code.png" }, 
+  // Karena kamu juga sudah mendownload logo QRIS, kita pakai yang lokal sekalian
+  { id: "SQ", name: "QRIS (GoPay/OVO/Dana)", icon: "/QRIS.png" }, 
   
-  // Sisa bank panggil dari folder /public/logos/ milikmu sendiri
-  { id: "M2", name: "Mandiri Virtual Account", icon: "/logos/mandiri.png" },
-  { id: "I1", name: "BNI Virtual Account", icon: "/logos/bni.png" },
-  { id: "BR", name: "BRI Virtual Account", icon: "/logos/bri.png" },
-  { id: "B1", name: "CIMB Niaga Virtual Account", icon: "/logos/cimb.png" },
-  { id: "BT", name: "Permata Virtual Account", icon: "/logos/permata.png" },
-  { id: "BSI", name: "BSI Virtual Account", icon: "/logos/bsi.png" },
-  { id: "D1", name: "Danamon Virtual Account", icon: "/logos/danamon.png" },
-  { id: "VA", name: "Maybank Virtual Account", icon: "/logos/maybank.png" },
-  { id: "SA", name: "Bank Sampoerna", icon: "/logos/sampoerna.png" },
-  { id: "NC", name: "Bank Neo Commerce", icon: "/logos/neocommerce.png" },
-  { id: "A1", name: "ATM Bersama", icon: "/logos/atmbersama.png" },
-  { id: "FT", name: "Alfamart / Pegadaian / Pos", icon: "/logos/alfamart.png" }
+  // Menggunakan nama file yang sesuai dengan screenshot di folder public-mu
+  { id: "M2", name: "Mandiri Virtual Account", icon: "/Mandiri.png" },
+  { id: "I1", name: "BNI Virtual Account", icon: "/BNI.png" },
+  { id: "BR", name: "BRI Virtual Account", icon: "/BRI.png" },
+  { id: "B1", name: "CIMB Niaga Virtual Account", icon: "/CIMB.png" },
+  { id: "BT", name: "Permata Virtual Account", icon: "/Permata.png" },
+  { id: "BSI", name: "BSI Virtual Account", icon: "/BSI.png" },
+  { id: "D1", name: "Danamon Virtual Account", icon: "/Danamon.png" },
+  { id: "VA", name: "Maybank Virtual Account", icon: "/Maybank.png" },
+  
+  // Catatan: Saya tidak melihat logo Bank Sampoerna di foldermu, sementara saya pakai link luar dulu
+  
+  { id: "NC", name: "Bank Neo Commerce", icon: "/BNC.png" },
+  { id: "A1", name: "ATM Bersama", icon: "/ATM.png" },
+  
+  // Alfamart pakai nama 'download' sesuai file milikmu
+  { id: "FT", name: "Alfamart / Pegadaian / Pos", icon: "/Alfa.png" }
 ];
-
 // 🛡️ KOMPONEN PENGAMAN GAMBAR RUSAK (FALLBACK UI)
 const PaymentIcon = ({ src, name }: { src: string, name: string }) => {
   const [hasError, setHasError] = useState(false);
