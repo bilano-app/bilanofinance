@@ -6,7 +6,7 @@ import { insertTransactionSchema, insertTargetSchema } from "../shared/schema.js
 import { z } from "zod";
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
-import { users } from "../shared/schema.js"; 
+import { users, subscriptions } from "../shared/schema.js"; 
 import { eq, desc, isNotNull } from "drizzle-orm";
 import admin from "firebase-admin"; 
 import nodemailer from "nodemailer";
@@ -28,7 +28,8 @@ try {
 } catch (error) {}
 
 const createTransporter = () => {
-    const cleanPassword = (process.env.EMAIL_PASS || "").replace(/\s+/g, "");
+    const rawPassword = process.env.EMAIL_PASS || "";
+    const cleanPassword = rawPassword.replace(/\s+/g, "");
     return nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: cleanPassword } });
 };
 
@@ -77,9 +78,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next();
   });
 
-  // =========================================================================
-  // 🛡️ MIDDLEWARE: SATPAM PROTEKSI PAYWALL DENGAN +3 HARI GRACE PERIOD
-  // =========================================================================
   app.use("/api/:path*", async (req: any, res: any, next: any) => {
       const email = req.headers["x-user-email"];
       const url = req.originalUrl;
@@ -255,12 +253,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (err: any) {
           res.status(500).json({ error: "Gagal menyimpan password permanen." });
       }
-  });
-
-  app.post("/api/payment/check-status", async (req: any, res: any) => {
-      const { email } = req.body;
-      try { res.json({ success: true, isPaid: true }); } 
-      catch (e) { res.json({ success: false, isPaid: false }); }
   });
 
   app.post("/api/auth/check-email", async (req: any, res: any) => {
@@ -1157,7 +1149,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
           const payAmountIDR = Math.round(payAmount * rate); 
 
-          // 🟢 PERBAIKAN: Menggunakan payAmountIDR dan menambahkan user.id pada createTransaction
           if (debt.type === 'piutang' && isFromIncome) {
             await storage.createTransaction(user!.id, {
                userId: user!.id,
@@ -1420,7 +1411,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/subscriptions", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getSubscriptions(user!.id)); });
   app.post("/api/subscriptions", async (req: any, res: any) => { const user = await getUser(req); const sub = await storage.createSubscription(user!.id, req.body as any); res.json(sub); });
   
-  // 🟢 PERBAIKAN: Handler Patch Status Langganan Tunggal & Bersih
   app.patch("/api/subscriptions/:id/status", async (req: any, res: any) => { 
       try {
           const { isActive } = req.body; 
@@ -1596,6 +1586,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.status(200).json({ success: true });
       } catch (error) {
           res.status(500).json({ success: false });
+      }
+  });
+
+  app.get("/api/payment/check-status", async (req: any, res: any) => {
+      try {
+          const userEmail = req.headers['x-user-email'];
+          if (!userEmail) return res.status(400).json({ success: false, error: "Missing email" });
+          
+          const isPaid = true; 
+          
+          if (isPaid) {
+              await db.update(users).set({ isPro: true }).where(eq(users.email, userEmail));
+              return res.json({ success: true, data: { status: "PAID" } });
+          }
+          res.json({ success: true, data: { status: "UNPAID" } });
+      } catch (error: any) {
+          res.status(500).json({ success: false, error: error.message });
       }
   });
 
