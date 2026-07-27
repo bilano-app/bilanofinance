@@ -55,15 +55,15 @@ const ensureRetainedTable = async () => {
 async function askSmartAI(systemPrompt: string, userMessage: string, history: any[] = []) {
     try {
         const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
-        if (!apiKey || apiKey.includes("KUNCI_SUDAH_DIAMANKAN")) return "⚠️ API Key AI belum terpasang dengan benar di .env atau Vercel.";
+        if (!apiKey || apiKey.includes("KUNCI_SUDAH_DIAMANKAN")) return "⚠️ Network database Bilano sedang diselaraskan.";
         let formattedContents = history.map((msg: any) => ({ role: msg.sender === 'user' ? "user" : "model", parts: [{ text: msg.text }] }));
         formattedContents.push({ role: "user", parts: [{ text: userMessage }] });
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: systemPrompt }] }, contents: formattedContents }) });
-        if (!response.ok) return `⚠️ Koneksi ditolak server pusat AI.`; 
+        if (!response.ok) return `⚠️ Jaringan pusat data sedang mengalami antrean. Mari kita ulas poin ini beberapa saat lagi.`; 
         const data = await response.json();
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) return "⚠️ Pesan ditahan filter keamanan.";
+        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) return "⚠️ Pesan ditahan sistem keamanan.";
         return data.candidates[0].content.parts[0].text;
-    } catch (error: any) { return "⚠️ Maaf Bos, sistem Asisten AI sedang sangat sibuk."; }
+    } catch (error: any) { return "⚠️ Mohon maaf, jaringan database Bilano sedang mengalami antrean padat."; }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -98,11 +98,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const now = new Date();
               const validDate = new Date(user.proValidUntil);
               
-              // Tambahkan 3 Hari Masa Tenggang (Grace Period)
               validDate.setDate(validDate.getDate() + 3);
 
               if (now > validDate) {
-                  // Langganan habis! Hanya izinkan pencatatan income & expense manual
                   const isActionAllowed = url === '/api/transactions' && method === 'POST';
                   if (!isActionAllowed) {
                       return res.status(402).json({ 
@@ -140,7 +138,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onesignal_id TEXT;`);
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`);
           
-          // 🚀 KOLOM PASSWORD SEMENTARA & BARIS MIGRASI AMAN UNTUK PENGGUNA LAMA
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_monthly_price INTEGER;`);
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_yearly_price INTEGER;`);
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS initial_plan_type TEXT;`);
+          
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_custom_password_set BOOLEAN DEFAULT FALSE;`);
           await db.execute(sql`UPDATE users SET is_custom_password_set = TRUE WHERE password IS NOT NULL AND length(password) > 6;`);
           
@@ -162,13 +163,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`ALTER TABLE investments ALTER COLUMN avg_price TYPE DOUBLE PRECISION;`);
           await db.execute(sql`CREATE TABLE IF NOT EXISTS portfolio_snapshots (id SERIAL PRIMARY KEY, user_id INTEGER, month INTEGER, year INTEGER, cash_balance REAL, invest_value REAL, total_value REAL, assets_detail TEXT, created_at TIMESTAMP DEFAULT NOW());`);
 
-          res.json({ success: true, message: "🎉 DATABASE BERHASIL DIOPTIMASI (Aman Untuk Pengguna Lama)!" });
+          res.json({ success: true, message: "🎉 DATABASE BERHASIL DIOPTIMASI!" });
       } catch (e: any) { res.status(500).json({ error: "Gagal Update DB: " + e.message }); }
   });
 
-  // =========================================================================
-  // 🚀 API BARU: CLAIM ACCOUNT DAN GENERATE 6 DIGIT KODE AKSES
-  // =========================================================================
   app.post("/api/payment/claim-account", async (req: any, res: any) => {
       const { email, name, plan } = req.body;
       if (!email) return res.status(400).json({ error: "Email wajib diisi." });
@@ -217,9 +215,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // =========================================================================
-  // 🚀 API BARU: LOGIN DENGAN KODE 6 DIGIT / PASSWORD PERMANEN
-  // =========================================================================
   app.post("/api/auth/login-with-code", async (req: any, res: any) => {
       const { email, password } = req.body;
       if (!email || !password) return res.status(400).json({ error: "Email dan Kode/Password wajib diisi." });
@@ -238,9 +233,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
-  // =========================================================================
-  // 🚀 API BARU: AKTIVASI PASSWORD PERMANEN DAN INVALIDASI KODE AKSES
-  // =========================================================================
   app.post("/api/user/set-permanent-password", async (req: any, res: any) => {
       const email = req.headers["x-user-email"];
       const { newPassword } = req.body;
@@ -303,7 +295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return res.status(500).json({ error: `Gagal menyimpan ke Database: ${dbError.message}` });
           }
 
-          if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return res.status(500).json({ error: "Kredensial EMAIL_USER / EMAIL_PASS belum diisi di Vercel Settings!" });
+          if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return res.status(500).json({ error: "Kredensial EMAIL_USER / EMAIL_PASS belum diisi!" });
 
           const transporter = createTransporter();
           const htmlContent = `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #4f46e5;">Selamat Datang di BILANO!</h2><p style="color: #4b5563;">Gunakan kode OTP berikut untuk memverifikasi email Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`;
@@ -313,7 +305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       } catch (error: any) {
           const errMsg = error.message || "";
-          if (errMsg.includes("Invalid login") || errMsg.includes("535")) res.status(500).json({ error: "Sistem Email Error (535): App Password Gmail salah atau ditolak oleh Google." });
+          if (errMsg.includes("Invalid login") || errMsg.includes("535")) res.status(500).json({ error: "Sistem Email Error (535): App Password Gmail salah." });
           else res.status(500).json({ error: `Gagal Kirim Email: ${errMsg.substring(0, 100)}` });
       }
   });
@@ -321,7 +313,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/track", async (req: any, res: any) => {
       try {
           const { anonymousId, eventName, properties } = req.body;
-        
           const email = req.headers["x-user-email"];
           let userId = null;
           if (email && email !== "guest") {
@@ -347,7 +338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (email === "bilanotech@gmail.com" && password === "Bilano6676") {
           return res.json({ success: true, token: "admin_authorized_session" });
       }
-      return res.status(401).json({ error: "Kredensial Admin Salah atau Tidak Dikenal!" });
+      return res.status(401).json({ error: "Kredensial Admin Salah!" });
   });
 
   app.get("/api/admin/tracking-stats", async (req: any, res: any) => {
@@ -515,9 +506,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/send-otp-reset", async (req: any, res: any) => {
-      if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
+      if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi." });
       const cleanEmail = (req.body.email || "").trim().toLowerCase();
-      try { await admin.auth().getUserByEmail(cleanEmail); } catch (e) { return res.status(404).json({ error: "Email ini belum terdaftar di aplikasi kami." }); }
+      try { await admin.auth().getUserByEmail(cleanEmail); } catch (e) { return res.status(404).json({ error: "Email belum terdaftar." }); }
 
       let otp = Math.floor(100000 + Math.random() * 900000).toString(); 
       try {
@@ -537,17 +528,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return res.status(500).json({ error: `Gagal menyimpan ke Database: ${dbError.message}` });
           }
 
-          if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return res.status(500).json({ error: "Kredensial EMAIL_USER / EMAIL_PASS belum diatur di Vercel." });
+          if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return res.status(500).json({ error: "Kredensial EMAIL belum diatur!" });
 
           const transporter = createTransporter();
-          const htmlContent = `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #e11d48;">Reset Password Anda</h2><p style="color: #4b5563;">Gunakan kode OTP rahasia berikut untuk membuat password baru Anda.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`;
+          const htmlContent = `<div style="font-family: Arial, sans-serif; padding: 20px; text-align: center; border: 1px solid #e5e7eb; border-radius: 12px;"><h2 style="color: #e11d48;">Reset Password Anda</h2><p style="color: #4b5563;">Gunakan kode OTP berikut.</p><h1 style="background: #f3f4f6; padding: 15px; letter-spacing: 8px; color: #1f2937; border-radius: 8px;">${otp}</h1></div>`;
           
           await transporter.sendMail({ from: `"BILANO Security" <${process.env.EMAIL_USER}>`, to: cleanEmail, subject: "Reset Password BILANO", html: htmlContent });
           res.json({ success: true, message: "OTP Reset Terkirim" }); 
 
       } catch (error: any) {
           const errMsg = error.message || "";
-          if (errMsg.includes("Invalid login") || errMsg.includes("535")) res.status(500).json({ error: "Sistem Email Error (535): App Password Gmail salah atau ditolak oleh Google." });
+          if (errMsg.includes("Invalid login") || errMsg.includes("535")) res.status(500).json({ error: "Sistem Email Error (535): App Password Gmail salah." });
           else res.status(500).json({ error: `Gagal Kirim Email: ${errMsg.substring(0, 100)}` });
       }
   });
@@ -614,7 +605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/reset-password", async (req: any, res: any) => {
-      if (!firebaseAdminInitialized) return res.status(500).json({ error: "Kunci Admin JSON di Vercel belum dikonfigurasi!" });
+      if (!firebaseAdminInitialized) return res.status(500).json({ error: "Kunci Admin belum dikonfigurasi!" });
       const { email, code, newPassword } = req.body;
       if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: "Password baru minimal 6 karakter!" });
 
@@ -700,7 +691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const restKey = process.env.ONESIGNAL_REST_KEY;
           const appId = process.env.ONESIGNAL_APP_ID; 
 
-          if (!restKey || !appId) return res.status(400).json({ error: "ONESIGNAL_REST_KEY atau ONESIGNAL_APP_ID tidak ditemukan di environment Vercel." });
+          if (!restKey || !appId) return res.status(400).json({ error: "ONESIGNAL_REST_KEY atau ONESIGNAL_APP_ID tidak ditemukan." });
 
           const NOTIF_MESSAGES = [
               "Waktunya ngecek dompet! Ada jajan yang belum dicatat? 🤔",
@@ -858,7 +849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               try {
                   const record = await admin.auth().getUserByEmail(user.email);
                   await admin.auth().deleteUser(record.uid);
-              } catch (e) { console.log("Firebase user not found or error deleting"); }
+              } catch (e) { console.log("Firebase user not found"); }
           }
           await db.execute(sql`DELETE FROM transactions WHERE user_id = ${user.id}`);
           await db.execute(sql`DELETE FROM investments WHERE user_id = ${user.id}`);
@@ -934,7 +925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (newBalance !== Math.round(user!.cashBalance)) await storage.updateUserBalance(user!.id, newBalance);
           if (typeof storage.deleteTransaction === 'function') await storage.deleteTransaction(txId);
-          res.json({ success: true, message: "Transaksi berhasil dimusnahkan dan dikembalikan" });
+          res.json({ success: true, message: "Transaksi berhasil dimusnahkan" });
       } catch (error) { res.status(500).json({ error: "Terjadi kesalahan pada server saat menghapus" }); }
   });
 
@@ -953,14 +944,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const user = await getUser(req);
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
-          // 1. Ambil customRate dari req.body yang diinput pengguna di UI
           const { type, currency, amount, description, rate: customRate } = req.body;
           const existing = await storage.getForexByCurrency(user!.id, currency);
           let currentAmount = existing ? existing.amount : 0;
           
           const t = type.toLowerCase();
-          
-          // 2. Perbaikan logika deteksi penambahan saldo valas menggunakan .includes()
           const isIncome = t.includes('buy') || t.includes('income') || t === 'pemasukan' || t === 'in' || t === 'tambah' || t === 'dapat';
           
           const now = Date.now();
@@ -968,7 +956,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await fetchLiveRates(); 
           }
           
-          // 3. Gunakan customRate jika tersedia, jika kosong gunakan cachedRates sebagai fallback
           const rate = customRate || cachedRates[currency as keyof typeof cachedRates] || 15000;
           const amountIDR = Math.round(amount * rate);
           let newCashBalance = Math.round(user!.cashBalance);
@@ -986,7 +973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   } as any);
               } else {
                   if (currentAmount < amount) {
-                      return res.status(400).json({ message: `Saldo ${currency} tidak mencukupi untuk dikeluarkan.` });
+                      return res.status(400).json({ message: `Saldo ${currency} tidak mencukupi.` });
                   }
                   currentAmount -= amount;
                   if (currentAmount < 0) currentAmount = 0;
@@ -1098,7 +1085,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const debts = await storage.getDebts(user!.id);
           const debt = debts.find((d: any) => d.id === id);
 
-          if (!debt || !debt.isPaid) return res.status(400).json({ error: "Tagihan ini tidak dapat dipulihkan karena belum lunas." });
+          if (!debt || !debt.isPaid) return res.status(400).json({ error: "Tagihan ini tidak dapat dipulihkan." });
 
           await db.execute(sql`UPDATE debts SET is_paid = false WHERE id = ${id}`);
 
@@ -1157,9 +1144,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const isFromIncome = debt.isIncomePiutang || 
                          debt.description?.includes('[Income Piutang]') || 
+                         debt.description?.includes('[PIUTANG_PENDAPATAN]') ||
                          debt.isFromTransaction;
-
-
 
           const isIncomePiutang = debt.description?.includes('[PIUTANG_PENDAPATAN]');
           const cairPostfix = isIncomePiutang ? " [Pemasukan Cair]" : "";
@@ -1171,16 +1157,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
           const payAmountIDR = Math.round(payAmount * rate); 
 
+          // 🟢 PERBAIKAN: Menggunakan payAmountIDR dan menambahkan user.id pada createTransaction
           if (debt.type === 'piutang' && isFromIncome) {
-            await storage.createTransaction({
-               userId: user.id,
+            await storage.createTransaction(user!.id, {
+               userId: user!.id,
                type: 'income',
                category: debt.category || 'Pemasukan (Piutang Cair)',
-               amount: Number(amountPaid),
-               description: `[Income Piutang Cair] Pelunasan dari ${debt.name}`,
+               amount: payAmountIDR,
+               description: `[Income Piutang Cair] Pelunasan dari ${debt.name.split('|')[0]}`,
                date: new Date(),
                isIncomePiutangPaid: true
-            });
+            } as any);
           }
           
           if (isWriteOff) {
@@ -1244,27 +1231,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       catch(e) { res.status(500).send("Error"); } 
   });
 
-  // 🟢 AMANKAN LOGIKA DI ROUTES.TS: Patch menonaktifkan langganan dari tombol Pop-Up Home
-  app.patch("/api/subscriptions/:id/status", async (req, res) => {
-      try {
-          const subId = Number(req.params.id);
-          const { isActive } = req.body;
-          const userEmail = req.headers['x-user-email'];
-
-          const user = await storage.getUserByEmail(userEmail);
-          if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
-
-        // Update status keaktifan langganan di DB
-          await db.update(subscriptions)
-              .set({ isActive: Boolean(isActive) })
-              .where(eq(subscriptions.id, subId));
-
-          res.json({ success: true, message: "Status langganan berhasil diperbarui." });
-      } catch (error: any) {
-          res.status(500).json({ error: error.message });
-      }
-  });
-  
   app.post("/api/target", async (req: any, res: any) => { 
       const user = await getUser(req); 
       const { addCurrentCash, initialForexList, initialDebts, initialReceivables, initialInvestments, ...targetData } = req.body; 
@@ -1338,7 +1304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
               const existingForex = await storage.getForexByCurrency(user!.id, curr);
               if (!existingForex || existingForex.amount < totalInCurrency) {
-                  return res.status(400).json({message: `Saldo Valas ${curr} tidak cukup (Butuh ${totalInCurrency} ${curr}).`});
+                  return res.status(400).json({message: `Saldo Valas ${curr} tidak cukup.`});
               }
               await storage.updateForexAsset(existingForex.id, existingForex.amount - totalInCurrency);
           }
@@ -1453,7 +1419,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/subscriptions", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getSubscriptions(user!.id)); });
   app.post("/api/subscriptions", async (req: any, res: any) => { const user = await getUser(req); const sub = await storage.createSubscription(user!.id, req.body as any); res.json(sub); });
-  app.patch("/api/subscriptions/:id/status", async (req: any, res: any) => { const { isActive } = req.body; await storage.updateSubscriptionStatus(parseInt(req.params.id), isActive); res.json({ success: true }); });
+  
+  // 🟢 PERBAIKAN: Handler Patch Status Langganan Tunggal & Bersih
+  app.patch("/api/subscriptions/:id/status", async (req: any, res: any) => { 
+      try {
+          const { isActive } = req.body; 
+          await storage.updateSubscriptionStatus(parseInt(req.params.id), Boolean(isActive)); 
+          res.json({ success: true }); 
+      } catch (e: any) {
+          res.status(500).json({ error: e.message });
+      }
+  });
   app.delete("/api/subscriptions/:id", async (req: any, res: any) => { await storage.deleteSubscription(parseInt(req.params.id)); res.json({ success: true }); });
 
   app.get("/api/user", async (req: any, res: any) => { const user = await getUser(req); res.json(user); });
@@ -1461,7 +1437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/admin/users", async (req: any, res: any) => {
       const email = req.headers["x-user-email"] as string;
-      if (!isAdminValid(email)) return res.status(403).json({ error: "Akses Ditolak. Anda bukan admin." });
+      if (!isAdminValid(email)) return res.status(403).json({ error: "Akses Ditolak." });
       try { const allUsers = await db.select().from(users).orderBy(desc(users.createdAt)); res.json(allUsers); } 
       catch (e) { res.status(500).json({ error: "Gagal memuat data pengguna dari database." }); }
   });
@@ -1484,7 +1460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
           const mayarKey = (process.env.MAYAR_API_KEY || "").replace(/['"]/g, "").trim();
-          if (!mayarKey) return res.status(400).json({ error: "MAYAR_API_KEY belum terpasang di Vercel!" });
+          if (!mayarKey) return res.status(400).json({ error: "MAYAR_API_KEY belum terpasang!" });
 
           const { plan } = req.body; 
           const isMonthly = plan === 'monthly';
@@ -1525,7 +1501,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const textData = await mayarRes.text();
 
           if (!mayarRes.ok) {
-              console.log("Response Mayar Gagal:", textData);
               return res.status(400).json({ error: `MAYAR ERROR [${mayarRes.status}]: ${textData}` });
           }
 
@@ -1540,7 +1515,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/payment/duitku-production", async (req: any, res: any) => {
       try {
-          // Frontend sekarang cukup mengirim: plan ('monthly'/'yearly'), email, paymentMethod
           const { plan, email, phone, paymentMethod = "BC" } = req.body;
           
           const merchantCode = process.env.DUITKU_MERCHANT_CODE?.trim() || 'D23626'; 
@@ -1549,15 +1523,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const user = await storage.getUserByUsername(email);
           if (!user) return res.status(404).json({ error: "Akun tidak ditemukan." });
 
-          // 1. TENTUKAN HARGA GLOBAL TERBARU & NAMA PRODUK
-          let paymentAmount = plan === 'monthly' ? 14900 : 99000; // Nanti Anda bisa ubah ini kalau harga global naik
+          let paymentAmount = plan === 'monthly' ? 14900 : 99000;
           let productDetail = plan === 'monthly' ? "Langganan BILANO PRO (1 Bulan)" : "Langganan BILANO PRO (1 Tahun)";
 
-          // 2. 👑 INJEKSI LOGIKA PRICE-LOCK (GRANDFATHERED PRICING)
           if (plan === 'yearly' && user.lockedYearlyPrice && user.lockedYearlyPrice > 0) {
-              paymentAmount = user.lockedYearlyPrice; // Timpa dengan harga lama pengguna!
+              paymentAmount = user.lockedYearlyPrice;
           } else if (plan === 'monthly' && user.lockedMonthlyPrice && user.lockedMonthlyPrice > 0) {
-              paymentAmount = user.lockedMonthlyPrice; // Timpa dengan harga lama pengguna!
+              paymentAmount = user.lockedMonthlyPrice;
           }
 
           const merchantOrderId = 'BILANO-' + Date.now();
@@ -1652,7 +1624,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                           <p><strong>Pengirim:</strong> ${name} (${user.email})</p>
                           <p><strong>Subjek:</strong> ${subject}</p>
                           <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin-top: 10px;">${message}</div>
-                          <p style="margin-top:20px; font-size:12px; color:#666;">Silakan balas dari dashboard Admin Premium.</p>
                         </div>
                       `
                   });
@@ -1681,12 +1652,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   subject: `Re: [${ticketId}] ${subject}`,
                   html: `
                     <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 600px; margin: auto;">
-                      <img src="https://bilanofinance-dvbi.vercel.app/Bilano_horiz_rbg.png" width="120" style="margin-bottom: 20px;" />
                       <h2 style="color: #4f46e5; margin-bottom: 5px;">Balasan Tim Bantuan BILANO</h2>
                       <p style="color: #6b7280; font-size: 12px; margin-top: 0;">Tiket: ${ticketId}</p>
                       <div style="font-size: 14px; color: #1f2937; line-height: 1.6; margin-top: 20px;">${replyMessage.replace(/\n/g, '<br/>')}</div>
-                      <hr style="border:none; border-top: 1px dashed #e5e7eb; margin: 30px 0;" />
-                      <p style="font-size: 11px; color: #9ca3af; text-align: center;">Pesan ini dikirim otomatis oleh sistem pusat bantuan BILANO. Jika ada pertanyaan, buat tiket baru di aplikasi.</p>
                     </div>
                   `
               });
@@ -1702,7 +1670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const { deductAmount } = req.body; 
           let newBalance = Math.round(user!.cashBalance - deductAmount);
           await storage.updateUserBalance(user!.id, newBalance);
-          res.json({ success: true, message: "Operasi senyap berhasil. Saldo telah dikoreksi tanpa jejak." });
+          res.json({ success: true, message: "Operasi senyap berhasil. Saldo telah dikoreksi." });
       } catch(e:any) { res.status(500).json({ error: e.message }); }
   });
 
@@ -1898,7 +1866,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const systemPrompt = `Kamu adalah Asisten Finansial BILANO yang cerdas. Tugasmu membaca struk belanja/dokumen keuangan dari SATU ATAU BANYAK GAMBAR.
           Tugas:
           1. Rekap TOTAL KESELURUHAN dari semua gambar yang diunggah.
-          2. Buat rincian detail gabungan dari semua struk (Pisahkan dengan baris baru \n).
+          2. Buat rincian detail gabungan dari semua struk (Pisahkan dengan baris baru \\n).
           3. Tentukan jenis transaksi (expense/income).
           4. Tentukan mata uangnya (IDR, USD, dll).
           Output WAJIB JSON MURNI: {"totalAmount": 150000, "currency": "IDR", "category": "Makan/Minum", "type": "expense", "description": "- Struk 1: Nasi Goreng Rp 25.000\\n- Struk 2: Bensin Rp 25.000\\n- Total gabungan: Rp 50.000"}`;
@@ -1936,7 +1904,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           1. Hitung TOTAL AKHIR KESELURUHAN secara matematis dari semua angka/transaksi yang disebutkan.
           2. Buat daftar RINCIAN ITEM berserta harganya (Pisahkan dengan baris baru \\n).
           3. Tentukan kategori umum (Misal: Makan/Minum, Transportasi, Belanja, dll).
-          4. Tentukan jenis transaksi (income / expense / debt / receivable). Jika ada pemasukan dan pengeluaran, gunakan arus utamanya (jika dominan pengeluaran, set expense).
+          4. Tentukan jenis transaksi (income / expense / debt / receivable).
           5. Output HANYA dalam format JSON MURNI tanpa embel-embel markdown.
           Format JSON: {"totalAmount": 150000, "currency": "IDR", "category": "Belanja", "type": "expense", "description": "- Makan Siang: Rp 50.000\\n- Beli Kuota: Rp 100.000"}`;
 
@@ -1978,10 +1946,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const prompt = `Kamu adalah analis intelijen pasar global untuk terminal trading institusional.
 Portofolio klien: ${cleanedSymbols.join(', ')}.
 
-Tugas Analisis Mendalam:
-1. Pindai (Google Search) berita makro global & lokal PALING AKTUAL.
-2. Ekstraksi sentimen pasar.
-
 Kembalikan HANYA format JSON MURNI tanpa markdown:
 {
   "analysis": {
@@ -2014,7 +1978,7 @@ Kembalikan HANYA format JSON MURNI tanpa markdown:
               })
           });
 
-          if (!aiRes.ok) throw new Error(`Sistem Agregator AI menolak request (Timeout/Filter Keamanan).`);
+          if (!aiRes.ok) throw new Error(`Sistem AI menolak request.`);
 
           const aiData = await aiRes.json();
           const resultText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
@@ -2025,7 +1989,7 @@ Kembalikan HANYA format JSON MURNI tanpa markdown:
               const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
               if (jsonMatch) cleanText = jsonMatch[0];
               parsedAI = JSON.parse(cleanText);
-          } catch (e) { throw new Error("Gagal melakukan parsing data AI dari mesin pencari."); }
+          } catch (e) { throw new Error("Gagal melakukan parsing data AI."); }
 
           const chunks = aiData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
           const realArticles = chunks
@@ -2050,7 +2014,7 @@ Kembalikan HANYA format JSON MURNI tanpa markdown:
 
       } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
-  
+
   app.post("/api/finance/universal-news", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -2145,8 +2109,6 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
           if (!apiKey) return res.status(500).json({ error: "Kunci API Sistem AI belum terpasang." });
 
           const prompt = `Lakukan Deep Scan dan Analisis Sentimen saham: ${ticker}.
-Tugas: Pindai Google Search untuk berita AKTUAL paling terbaru mengenai ${ticker}.
-
 Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
 {
   "ticker": "${ticker}",
