@@ -244,20 +244,21 @@ export default function Home() {
       setActiveMenuPage(pageIndex);
   };
 
+  // 🟢 PERBAIKAN: Deteksi tipe 'dinamis' DAN 'statis' untuk memunculkan Pop-Up di Home
   useEffect(() => {
       if (!subscriptions) return;
       const todayStr = new Date().toISOString().split('T')[0];
       
       const due = subscriptions.find(sub => {
-          if (!sub.isActive || sub.category !== 'dinamis') return false;
+          if (!sub.isActive) return false; // Abaikan jika memang sudah dinonaktifkan
           
           const nextDate = new Date(sub.nextPaymentDate);
           const today = new Date();
           today.setHours(0,0,0,0);
           nextDate.setHours(0,0,0,0);
           
-          if (nextDate > today) return false; 
-          if (localStorage.getItem(`skip_sub_${sub.id}_${todayStr}`)) return false; 
+          if (nextDate > today) return false; // Muncul hanya jika hari ini atau sudah lewat tanggalnya
+          if (localStorage.getItem(`skip_sub_${sub.id}_${todayStr}`)) return false; // Jangan spam jika ditekan Nanti Saja
           
           return true;
       });
@@ -265,20 +266,35 @@ export default function Home() {
       setDueDynamicSub(due || null);
   }, [subscriptions]);
 
+  // 1. Fungsi Jika Pengguna Mengonfirmasi Bayar/Rekap
   const handlePayDynamic = async () => {
-      if (!dueDynamicSub || !dynamicAmount) return;
+      if (!dueDynamicSub) return;
+      
+      // Tentukan nominal: statis ambil dari database, dinamis ambil dari inputan user
+      const finalAmount = dueDynamicSub.category === 'statis' 
+          ? dueDynamicSub.price 
+          : parseFloat(dynamicAmount);
+
+      if (!finalAmount || isNaN(finalAmount)) {
+          toast({ title: "Nominal tidak valid", variant: "destructive" });
+          return;
+      }
+
       try {
+          // 🟢 Tetap mencatat transaksi sesuai TANGGAL JATUH TEMPO ASLINYA (bukan tanggal hari ini dibuka)
           await fetch("/api/transactions", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
+              method: "POST", 
+              headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
               body: JSON.stringify({ 
                   type: 'expense', 
-                  amount: parseFloat(dynamicAmount), 
+                  amount: finalAmount, 
                   category: "Tagihan Bulanan", 
                   description: `Bayar Tagihan: ${dueDynamicSub.name}`,
-                  date: new Date()
+                  date: new Date(dueDynamicSub.nextPaymentDate) // Menggunakan tanggal jatuh tempo asli
               })
           });
 
+          // Geser siklus tanggal ke periode berikutnya
           const nextDate = new Date(dueDynamicSub.nextPaymentDate);
           if (dueDynamicSub.cycle === 'yearly') {
               nextDate.setFullYear(nextDate.getFullYear() + 1);
@@ -286,9 +302,11 @@ export default function Home() {
               nextDate.setMonth(nextDate.getMonth() + 1);
           }
 
+          // Perbarui tanggal tagihan di server backend
           await fetch(`/api/subscriptions/${dueDynamicSub.id}`, { method: "DELETE", headers: { "x-user-email": rawEmail } });
           await fetch("/api/subscriptions", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
+              method: "POST", 
+              headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
               body: JSON.stringify({ 
                   name: dueDynamicSub.name, 
                   price: dueDynamicSub.price, 
@@ -301,10 +319,34 @@ export default function Home() {
               })
           });
 
-          toast({ title: "Tagihan Lunas!", description: "Pengeluaran berhasil dicatat." });
-          setDueDynamicSub(null); setDynamicAmount(""); refetchSubs();
+          toast({ title: "Tagihan Berhasil Direkap! ✨", description: `Pengeluaran ${dueDynamicSub.name} dicatat sesuai tanggal jatuh tempo.` });
+          setDueDynamicSub(null); 
+          setDynamicAmount(""); 
+          refetchSubs();
       } catch (e) {
           toast({ title: "Gagal memproses", variant: "destructive" });
+      }
+  };
+
+  // 2. Fungsi Baru Jika Pengguna Memilih "Sudah Tidak Melanjutkan"
+  const handleStopSubscription = async () => {
+      if (!dueDynamicSub) return;
+      if (!confirm(`Apakah Anda yakin ingin menghentikan & menonaktifkan langganan ${dueDynamicSub.name}?`)) return;
+
+      try {
+          // Mengubah status isActive menjadi false di server agar tidak muncul lagi
+          await fetch(`/api/subscriptions/${dueDynamicSub.id}/status`, {
+              method: "PATCH", 
+              headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
+              body: JSON.stringify({ isActive: false })
+          });
+          
+          toast({ title: "Langganan Dihentikan", description: `${dueDynamicSub.name} telah dipindahkan ke riwayat non-aktif.` });
+          setDueDynamicSub(null);
+          setDynamicAmount("");
+          refetchSubs();
+      } catch (e) {
+          toast({ title: "Gagal menonaktifkan", variant: "destructive" });
       }
   };
 
@@ -620,30 +662,61 @@ export default function Home() {
           </Link>
       </div>
 
+      {/* 🟢 TAMPILAN POP-UP PINTAR BARU SINKRON STATIS & DINAMIS */}
       {dueDynamicSub && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
-            <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 border-orange-500">
-                <div className="w-16 h-16 mx-auto bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-4">
-                    <AlertTriangle className="w-8 h-8" />
+            <div className={`bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 ${dueDynamicSub.category === 'statis' ? 'border-indigo-600' : 'border-orange-500'}`}>
+                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${dueDynamicSub.category === 'statis' ? 'bg-indigo-50 text-indigo-600' : 'bg-orange-100 text-orange-500'}`}>
+                    <RefreshCcw className="w-8 h-8 animate-spin-slow" />
                 </div>
-                <h3 className="text-xl font-extrabold text-slate-800 mb-2">Tagihan Jatuh Tempo!</h3>
-                <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                    Waktunya bayar tagihan <strong>{dueDynamicSub.name}</strong>. Berapa nominal yang Anda bayarkan bulan ini?
-                </p>
-                <Input 
-                    type="number" 
-                    placeholder="Masukkan nominal (Rp)..." 
-                    value={dynamicAmount} 
-                    onChange={e => setDynamicAmount(e.target.value)} 
-                    className="h-14 font-bold text-lg mb-4 text-center bg-slate-50 border-transparent rounded-[20px]"
-                />
-                <div className="space-y-3">
-                    <Button onClick={handlePayDynamic} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-lg shadow-emerald-200 active:scale-95 transition-transform">
-                        BAYAR & CATAT SEKARANG
+                
+                <h3 className="text-xl font-extrabold text-slate-800 mb-2">Konfirmasi Jatuh Tempo</h3>
+                
+                {dueDynamicSub.category === 'statis' ? (
+                    // Konten Khusus Langganan Statis (Harga Tetap)
+                    <div className="space-y-4 mb-6 animate-in fade-in">
+                        <p className="text-sm text-slate-500 leading-relaxed">
+                            Tagihan tetap <strong>{dueDynamicSub.name}</strong> senilai <strong className="text-indigo-600">{formatRp(dueDynamicSub.price)}</strong> telah jatuh tempo pada <strong>{new Date(dueDynamicSub.nextPaymentDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</strong>. Apakah layanan ini dilanjutkan?
+                        </p>
+                    </div>
+                ) : (
+                    // Konten Khusus Langganan Dinamis (Input Manual)
+                    <div className="animate-in fade-in">
+                        <p className="text-sm text-slate-500 mb-4 leading-relaxed">
+                            Tagihan dinamis <strong>{dueDynamicSub.name}</strong> sudah jatuh tempo. Masukkan nominal pemakaian Anda periode ini:
+                        </p>
+                        <Input 
+                            type="number" 
+                            placeholder="Masukkan nominal (Rp)..." 
+                            value={dynamicAmount} 
+                            onChange={e => setDynamicAmount(e.target.value)} 
+                            className="h-14 font-bold text-lg mb-4 text-center bg-slate-50 border-transparent rounded-[20px]"
+                        />
+                    </div>
+                )}
+
+                <div className="space-y-3.5">
+                    <Button 
+                        onClick={handlePayDynamic} 
+                        className={`w-full h-14 rounded-full font-extrabold text-white shadow-lg active:scale-95 transition-transform ${dueDynamicSub.category === 'statis' ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100'}`}
+                    >
+                        {dueDynamicSub.category === 'statis' ? "YA, DIKONSUMSI & REKAP KAS" : "REKAP PENGELUARAN"}
                     </Button>
-                    <Button variant="ghost" onClick={handleSkipDynamic} className="w-full h-12 rounded-full font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">
-                        Nanti Saja (Lewati Hari Ini)
+                    
+                    <Button 
+                        variant="ghost" 
+                        onClick={handleStopSubscription} 
+                        className="w-full h-12 rounded-full font-bold text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-dashed border-rose-200"
+                    >
+                        ❌ TIDAK, SAYA SUDAH BERHENTI
                     </Button>
+
+                    <button 
+                        onClick={handleSkipDynamic} 
+                        className="text-xs font-bold text-slate-400 hover:text-slate-600 underline block mx-auto pt-1"
+                    >
+                        Nanti Saja (Tunda Pengecekan)
+                    </button>
                 </div>
             </div>
         </div>

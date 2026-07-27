@@ -1154,6 +1154,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (!debt) return res.status(404).json({ error: "Tagihan ini sudah tidak ada di database." });
           if (debt.isPaid) return res.status(400).json({ error: "Tagihan ini sudah berstatus lunas sebelumnya." });
+          
+          const isFromIncome = debt.isIncomePiutang || 
+                         debt.description?.includes('[Income Piutang]') || 
+                         debt.isFromTransaction;
+
+
 
           const isIncomePiutang = debt.description?.includes('[PIUTANG_PENDAPATAN]');
           const cairPostfix = isIncomePiutang ? " [Pemasukan Cair]" : "";
@@ -1164,6 +1170,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const curr = (debt.name || "").split('|')[1] || 'IDR';
           const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
           const payAmountIDR = Math.round(payAmount * rate); 
+
+          if (debt.type === 'piutang' && isFromIncome) {
+            await storage.createTransaction({
+               userId: user.id,
+               type: 'income',
+               category: debt.category || 'Pemasukan (Piutang Cair)',
+               amount: Number(amountPaid),
+               description: `[Income Piutang Cair] Pelunasan dari ${debt.name}`,
+               date: new Date(),
+               isIncomePiutangPaid: true
+            });
+          }
           
           if (isWriteOff) {
               const txType = debt.type === 'piutang' ? 'expense' : 'income';
@@ -1224,6 +1242,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await getUser(req); 
       try { await storage.updateTargetPenalty(user!.id, Math.round(req.body.amount)); res.json({success:true}); } 
       catch(e) { res.status(500).send("Error"); } 
+  });
+
+  // 🟢 AMANKAN LOGIKA DI ROUTES.TS: Patch menonaktifkan langganan dari tombol Pop-Up Home
+  app.patch("/api/subscriptions/:id/status", async (req, res) => {
+      try {
+          const subId = Number(req.params.id);
+          const { isActive } = req.body;
+          const userEmail = req.headers['x-user-email'];
+
+          const user = await storage.getUserByEmail(userEmail);
+          if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
+
+        // Update status keaktifan langganan di DB
+          await db.update(subscriptions)
+              .set({ isActive: Boolean(isActive) })
+              .where(eq(subscriptions.id, subId));
+
+          res.json({ success: true, message: "Status langganan berhasil diperbarui." });
+      } catch (error: any) {
+          res.status(500).json({ error: error.message });
+      }
   });
   
   app.post("/api/target", async (req: any, res: any) => { 
@@ -1501,15 +1540,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/payment/duitku-production", async (req: any, res: any) => {
       try {
-          const { price, productDetail, customerName, email, phone, paymentMethod = "BC" } = req.body;
+          // Frontend sekarang cukup mengirim: plan ('monthly'/'yearly'), email, paymentMethod
+          const { plan, email, phone, paymentMethod = "BC" } = req.body;
+          
           const merchantCode = process.env.DUITKU_MERCHANT_CODE?.trim() || 'D23626'; 
           const merchantKey = process.env.DUITKU_MERCHANT_KEY?.trim() || '399b0aaaff486146d0bf1c75019c89c4';
 
-          const merchantOrderId = 'BILANO-' + Date.now();
-          const paymentAmount = parseInt(price);
+          const user = await storage.getUserByUsername(email);
+          if (!user) return res.status(404).json({ error: "Akun tidak ditemukan." });
 
+          // 1. TENTUKAN HARGA GLOBAL TERBARU & NAMA PRODUK
+          let paymentAmount = plan === 'monthly' ? 14900 : 99000; // Nanti Anda bisa ubah ini kalau harga global naik
+          let productDetail = plan === 'monthly' ? "Langganan BILANO PRO (1 Bulan)" : "Langganan BILANO PRO (1 Tahun)";
+
+          // 2. 👑 INJEKSI LOGIKA PRICE-LOCK (GRANDFATHERED PRICING)
+          if (plan === 'yearly' && user.lockedYearlyPrice && user.lockedYearlyPrice > 0) {
+              paymentAmount = user.lockedYearlyPrice; // Timpa dengan harga lama pengguna!
+          } else if (plan === 'monthly' && user.lockedMonthlyPrice && user.lockedMonthlyPrice > 0) {
+              paymentAmount = user.lockedMonthlyPrice; // Timpa dengan harga lama pengguna!
+          }
+
+          const merchantOrderId = 'BILANO-' + Date.now();
           const signatureRaw = merchantCode + merchantOrderId + paymentAmount + merchantKey;
           const signature = crypto.createHash('md5').update(signatureRaw).digest('hex');
+
+          const customerName = `${user.firstName || 'Member'} ${user.lastName || ''}`.trim();
 
           const payload = {
               merchantCode: merchantCode,
@@ -1517,7 +1572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               merchantOrderId: merchantOrderId,
               productDetails: productDetail,
               email: email,
-              phoneNumber: phone,
+              phoneNumber: phone || "080000000000",
               customerVaName: customerName,
               itemDetails: [{ name: productDetail, price: paymentAmount, quantity: 1 }],
               returnUrl: 'https://bilano.app/onboarding?payment=success',
@@ -1535,11 +1590,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const textData = await duitkuRes.text();
           
           let data;
-          try {
-              data = JSON.parse(textData);
-          } catch (e) {
-              return res.status(400).json({ error: "Duitku Response Error: " + textData.substring(0, 50) });
-          }
+          try { data = JSON.parse(textData); } 
+          catch (e) { return res.status(400).json({ error: "Duitku Response Error: " + textData.substring(0, 50) }); }
 
           if (data && data.statusCode === "00") {
               res.json({ success: true, paymentData: data });
@@ -1552,7 +1604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.status(500).json({ error: 'Server Crash: ' + error.message });
       }
   });
-
+  
   app.post("/api/payment/duitku-webhook", async (req: any, res: any) => {
       try {
           const { merchantCode, amount, merchantOrderId, signature, referenceCode, resultCode } = req.body;
