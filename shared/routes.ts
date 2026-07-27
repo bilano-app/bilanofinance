@@ -44,8 +44,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/transactions',
-      // 🟢 PERBAIKAN: Langsung panggil schema, karena userId sudah di-omit di schema.ts
-      input: insertTransactionSchema, 
+      input: insertTransactionSchema.omit({ userId: true }),
       responses: {
         201: z.custom<typeof transactions.$inferSelect>(),
         400: errorSchemas.validation,

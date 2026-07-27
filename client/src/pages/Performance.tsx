@@ -276,12 +276,11 @@ export default function Performance() {
                       }
                   }
                   
-                  // 🟢 PERBAIKAN: Kalikan nominal P/L dengan kurs valas
-                  const actualPl = plValue * rate; 
+                  const actualPl = plValue; // P/L in description is already expressed in IDR
                   const actualAmt = t.amount * rate;
                   
                   totalCuanJual += actualPl;
-                  totalModalTerpakai += (actualAmt - actualPl);
+                  totalModalTerpakai += (actualAmt - actualPl); 
               }
           }
       }
@@ -386,8 +385,7 @@ export default function Performance() {
                       }
                   }
                   
-                  // 🟢 PERBAIKAN: Kalikan nominal P/L dengan kurs agar tidak masuk senilai Rp226
-                  const convertedPlValue = Math.round(plValue * rate); 
+                  const convertedPlValue = Math.round(plValue); // P/L text is already in IDR
                   
                   virtualPLTxs.push({
                       ...t, 

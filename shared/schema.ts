@@ -3,7 +3,6 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // --- 1. USERS ---
-// 🟢 PERBAIKAN: File schema.ts (Tabel Users)
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -17,11 +16,6 @@ export const users = pgTable("users", {
   proValidUntil: timestamp("pro_valid_until"), 
   onesignalId: text("onesignal_id"), 
   createdAt: timestamp("created_at").defaultNow(), 
-
-  // 🚀 FITUR GRANDFATHERED PRICING (GARANSI KUNCI HARGA SELAMANYA)
-  lockedMonthlyPrice: integer("locked_monthly_price"), // Menyimpan nominal langganan bulanan pertama
-  lockedYearlyPrice: integer("locked_yearly_price"),   // Menyimpan nominal langganan tahunan pertama
-  initialPlanType: text("initial_plan_type"),         // 'monthly' atau 'yearly'
 });
 
 // --- 2. TRANSACTIONS ---

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
-import { Send, Bot, User, Loader2, Trash2, AlertTriangle } from "lucide-react";
+import { Send, Bot, User, Loader2, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useQuery } from "@tanstack/react-query";
 import { 
@@ -246,32 +246,13 @@ export default function ChatAI() {
         - Sisa Target Budget Pengeluaran: Rp ${target?.monthlyBudget ? (target.monthlyBudget - monthlyExpense).toLocaleString('id-ID') : 'Tanpa batas'}
         `;
 
-        // 🟢 PROMPT PANDUAN KEPRIBADIAN & KONSULTASI ALTERNATIF DEKONSTRUKTIF AI
-        const promptSystemSettings = `
-Anda adalah Asisten Kecerdasan Buatan resmi BILANO, bertindak sebagai Konsultan Finansial Profesional, Kritis, Komunikatif, dan Edukatif.
-
-PANDUAN KEPRIBADIAN & GAYA DISKUSI:
-1. Gaya bicara Anda harus luwes, enak diajak ngobrol, mengalir, profesional, dan bersahabat, namun tidak kaku/robotik. Hindari juga menjadi terlalu "sok asik" atau berlebihan. 
-2. JIKA DITANYA siapa pembuat/developer yang menciptakan aplikasi BILANO ini, jawablah dengan tegas dan bangga: "Aplikasi BILANO dibuat dan dikembangkan oleh Adrien Fandra, seorang content creator yang berfokus pada topik edukasi finansial dan pemikiran kritis dekonstruktif."
-3. JIKA DITANYA identitas model AI atau engine Anda, sebutkan bahwa Anda adalah "BILANO Intelligence Engine". DILARANG KERAS menyebutkan kata "Gemini", "Google", "OpenAI", maupun istilah infrastruktur teknis seperti "API".
-
-STRATEGI KONSULTASI & LOGIKA DEKONSTRUKSI MASALAH:
-- Jika pengguna meminta saran, solusi, strategi, atau rekomendasi, Anda DILARANG KERAS menyodorkan satu solusi tunggal/mutlak yang bersifat mendikte atau mengarahkan secara kaku.
-- Lakukan DEKONSTRUKSI MASALAH terlebih dahulu. Bedah masalah keuangan mereka dari akarnya (pisahkan faktor psikologis perilaku keuangan dengan rekap angka alur kas riil).
-- Sediakan berbagai ALTERNATIF CARA atau SOLUSI (Minimal 2-3 jalan keluar alternatif yang fleksibel) lengkap dengan pemaparan konsekuensi plus-minus keuntungan kerugian masing-masing pilihan, agar keputusan final tetap berada di tangan pengguna secara mandiri.
-`;
-
         const historyToSend = currentMessages.slice(-6).map(m => ({ role: m.sender, text: m.text }));
 
         try {
             const res = await fetch("/api/chat/ask", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                body: JSON.stringify({ 
-                    message: inputText, 
-                    history: historyToSend, 
-                    financialContext: `${promptSystemSettings}\n\nKonteks Data Finansial Pengguna Saat Ini:\n${financialContext}` 
-                }) 
+                body: JSON.stringify({ message: inputText, history: historyToSend, financialContext }) 
             });
 
             if (!res.ok) throw new Error("Server Error");
@@ -281,7 +262,7 @@ STRATEGI KONSULTASI & LOGIKA DEKONSTRUKSI MASALAH:
             const aiMsg: Message = {
                 id: Date.now() + 1,
                 sender: 'ai',
-                text: data.reply || "Maaf Bos, mesin analisis saya sedang menyelaraskan data sebentar.",
+                text: data.reply || "Maaf, mesin AI saya sedang sibuk sebentar.",
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
             
@@ -291,7 +272,7 @@ STRATEGI KONSULTASI & LOGIKA DEKONSTRUKSI MASALAH:
             setMessages(prev => [...prev, { 
                 id: Date.now(), 
                 sender: 'ai', 
-                text: "⚠️ Jaringan pusat data BILANO sedang mengalami antrean padat. Mari kita ulas dan diskusikan kembali poin pertanyaan Anda beberapa saat lagi Bos! 🙏", 
+                text: "⚠️ Maaf Bos, Asisten AI sedang sangat sibuk atau mengalami gangguan koneksi. Mohon coba lagi dalam beberapa saat ya! 🙏", 
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             }]);
             
@@ -339,19 +320,6 @@ STRATEGI KONSULTASI & LOGIKA DEKONSTRUKSI MASALAH:
 
             <div className="flex flex-col h-[calc(100dvh-75px)] -mx-4 -mb-4 bg-slate-50 relative">
                 
-                {/* 🚨 SPANDUK PERINGATAN (WARNING BANNER) KEDALUWARSA HISTORI CHAT */}
-                <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 flex items-start gap-3 shadow-sm animate-in fade-in">
-                    <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                        <p className="text-[11px] text-amber-900 font-bold leading-relaxed">
-                            Pemberitahuan Sinkronisasi Memori
-                        </p>
-                        <p className="text-[10px] text-slate-500 font-medium mt-0.5 leading-relaxed">
-                            Demi menjaga keamanan enkripsi, riwayat percakapan pada halaman ini akan dibersihkan secara berkala otomatis. Jika terdapat paparan analisis dekonstruksi atau rekomendasi alternatif penting, disarankan bagi Anda untuk <strong>mencatat manual</strong> atau segera melakukan <strong>screenshot</strong> layar.
-                        </p>
-                    </div>
-                </div>
-
                 <div className="flex-1 overflow-y-auto space-y-4 p-4 pb-6">
                     {messages.map((msg) => (
                         <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
@@ -401,7 +369,7 @@ STRATEGI KONSULTASI & LOGIKA DEKONSTRUKSI MASALAH:
                         <div className="flex justify-start animate-in fade-in pl-1">
                             <div className="bg-white border border-slate-200 p-3 rounded-2xl rounded-tl-none flex items-center gap-2 shadow-sm">
                                 <Loader2 className="w-4 h-4 text-indigo-500 animate-spin"/>
-                                <span className="text-xs text-slate-400 italic">Sedang menganalisa & mendekonstruksi alternatif...</span>
+                                <span className="text-xs text-slate-400 italic">Sedang menganalisa...</span>
                             </div>
                         </div>
                     )}
