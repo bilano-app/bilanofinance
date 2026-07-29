@@ -663,29 +663,30 @@ export default function Reports() {
             }
 
             // 🚀 DESAIN BARU: Corporate Financial Report Style (Profesional & Modern)
+            // 🚀 PERBAIKAN DESAIN: Warna Biru Korporat Resmi & Lolos Compile Vercel
             const tableStyleOptions = {
                 theme: 'grid' as const,
                 styles: {
                     font: 'helvetica',
-                    fontSize: 11,           // 👈 Ukuran tetap besar dan jelas dibaca
-                    textColor: 20,          // 👈 Hitam keabu-abuan gelap untuk teks isi (Nyaman di mata)
-                    lineColor: 0,           // 👈 Garis pembatas hitam pekat...
-                    lineWidth: 0.15,        // 👈 ...tetapi dibuat lebih tipis & elegan (tidak seperti koran)
+                    fontSize: 11,           
+                    textColor: 20,          
+                    lineColor: [210, 214, 219] as [number, number, number], // 👈 Garis abu-abu soft border
+                    lineWidth: 0.15,        
                     cellPadding: { top: 5, bottom: 5, left: 6, right: 6 }
                 },
                 headStyles: {
                     fontStyle: 'bold' as const,
                     fontSize: 12,           
-                    textColor: 255,         // 👈 Teks header putih
-                    fillColor: 0,           // 👈 Latar belakang header hitam pekat (Sangat Profesional)
-                    lineColor: 0,
+                    textColor: 255,         // 👈 Tulisan header Putih Bersih
+                    fillColor: [30, 58, 138] as [number, number, number],   // 👈 Background Header BIRU GELAP ELEGAN
+                    lineColor: [30, 58, 138] as [number, number, number],
                     lineWidth: 0.15          
                 },
                 alternateRowStyles: {
-                    fillColor: 248          // 👈 Striping abu-abu sangat muda antar baris (mudah dibaca)
+                    fillColor: [245, 247, 250] as [number, number, number]  // 👈 Efek zebra-striping biru pudar sangat halus
                 }
             };
-
+            
             checkPageBreak(75);
             autoTable(doc, {
             startY: currentY,

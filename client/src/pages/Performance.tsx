@@ -256,6 +256,9 @@ export default function Performance() {
   const currentWealth = cashReal + investmentReal + forexValue + retainedReal + piutangReal - hutangReal;
   const allTimeTx = Array.isArray(transactions) ? transactions : [];
   
+  // ==========================================
+  // 🛠️ FIX TOTAL CUAN JUAL (ROI ATAS)
+  // ==========================================
   let totalCuanJual = 0;
   let totalModalTerpakai = 0;
 
@@ -283,8 +286,15 @@ export default function Performance() {
               if (isAlreadyIdr || rate === 1) {
                   plValue = parseInt(plString.replace(/[^0-9-]/g, ''), 10);
               } else {
+                  // Ambil angka, minus, dan titik desimal
                   const cleanFloat = plString.replace(/[^0-9.-]/g, '');
                   plValue = parseFloat(cleanFloat);
+
+                  // 🛡️ PROTEKSI HISTORIS: Jika angka terlanjur rapat tanpa titik (ex: 3525 padahal maksudnya 352.5)
+                  // Kita bandingkan: jika plValue * rate jauh melebihi t.amount kas masuknya, kita kembalikan desimalnya.
+                  if (Math.abs(plValue * rate) > (t.amount * 5) && !cleanFloat.includes('.')) {
+                      plValue = plValue / 10; // Geser desimal jika angka terlanjur nempel
+                  }
               }
 
               if (!isNaN(plValue)) {
@@ -298,6 +308,58 @@ export default function Performance() {
       }
   });
 
+  // ==========================================
+  // 🛠️ FIX CASHFLOW DETAIL (KARTU BAWAH)
+  // ==========================================
+  const virtualPLTxs: any[] = [];
+  thisMonthTx.filter(t => t.type === 'invest_sell' || t.type === 'forex_sell').forEach(t => {
+      if (t.description && t.description.includes('P/L:')) {
+          const plString = t.description.split('P/L:')[1];
+          if (plString) {
+              let rate = 1;
+              let curr = 'IDR';
+              
+              if (t.type === 'invest_sell') {
+                  const match = t.description.match(/lot\/unit\s+([A-Z0-9|]+)/i);
+                  if (match) curr = match[1].split('|')[1] || 'IDR';
+              } else if (t.type === 'forex_sell') {
+                  const fMatch = t.description.match(/(USD|EUR|SGD|JPY|AUD|GBP|MYR|SAR|KRW|THB)/i);
+                  if (fMatch) curr = fMatch[1].toUpperCase();
+              }
+
+              const isAlreadyIdr = plString.includes('Rp') || plString.includes('IDR');
+              if (curr && curr !== 'IDR' && !isAlreadyIdr) {
+                  rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+              }
+
+              let plValue = 0;
+              if (isAlreadyIdr || rate === 1) {
+                  plValue = parseInt(plString.replace(/[^0-9-]/g, ''), 10);
+              } else {
+                  const cleanFloat = plString.replace(/[^0-9.-]/g, '');
+                  plValue = parseFloat(cleanFloat);
+
+                  // 🛡️ PROTEKSI HISTORIS yang sama untuk riwayat kartu bawah
+                  if (Math.abs(plValue * rate) > (t.amount * 5) && !cleanFloat.includes('.')) {
+                      plValue = plValue / 10;
+                  }
+              }
+              
+              if (!isNaN(plValue) && plValue !== 0) {
+                  const convertedPlValue = Math.round(plValue * rate);
+                  
+                  virtualPLTxs.push({
+                      ...t, 
+                      type: convertedPlValue > 0 ? 'income' : 'expense',
+                      amount: Math.abs(convertedPlValue),
+                      category: convertedPlValue > 0 ? (t.type === 'forex_sell' ? 'Profit Valas' : 'Profit Investasi') : (t.type === 'forex_sell' ? 'Rugi Valas' : 'Rugi Investasi'),
+                      description: `Realisasi: ${t.description.split('@')[0].trim()}`
+                  });
+              }
+          }
+      }
+  });
+  
   const roiPercentage = totalModalTerpakai > 0 ? (totalCuanJual / totalModalTerpakai) * 100 : 0;
   const assetAlocationRatio = currentWealth > 0 ? ((investmentReal + forexValue + retainedReal) / currentWealth) * 100 : 0;
 
