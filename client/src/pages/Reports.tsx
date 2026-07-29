@@ -74,11 +74,9 @@ export default function Reports() {
     fetchData();
   }, []);
 
-  // Tambahkan di dalam komponen Performance (dan juga Reports)
   useEffect(() => {
-    // Pastikan tidak melacak saat data masih loading
       if (!isUserLoading) {
-          trackEvent("portfolio_viewed", { module: "performance_dashboard" }); // Ganti "reports_dashboard" untuk Reports.tsx
+          trackEvent("portfolio_viewed", { module: "reports_dashboard" }); 
       }
   }, [isUserLoading]);
 
@@ -240,7 +238,6 @@ export default function Reports() {
                       if (t.type === 'invest_sell') {
                           let pl = 0;
                           if (t.description?.includes('P/L:')) pl = parseInt(t.description.split('P/L:')[1].replace(/[^0-9-]/g, '')) || 0;
-                          // 🚀 FIX JELAS: pl dari backend sudah IDR, jangan dikali rate lagi!
                           liveAmt += (amt - pl);
                       }
                       if (t.type === 'invest_buy') liveAmt -= amt;
@@ -307,7 +304,6 @@ export default function Reports() {
                   const cleanString = plString.replace(/[^0-9-]/g, '');
                   const plValue = parseInt(cleanString, 10);
                   if (!isNaN(plValue) && plValue !== 0) {
-                      // plValue dari backend sudah dalam IDR murni
                       virtualPLTxs.push({
                           ...t, 
                           type: plValue > 0 ? 'income' : 'expense',
@@ -320,7 +316,6 @@ export default function Reports() {
           }
       });
 
-      // 🚀 INTEGRASI SINKRONISASI: Masukkan Piutang Pendapatan Cair dari Income.tsx
       const incomeReceivablesPaid = thisPeriodTxs.filter((t:any) => 
           t.type === 'debt_receive' && t.description?.includes('[Pemasukan Cair]')
       );
@@ -350,7 +345,6 @@ export default function Reports() {
               if (exMatch && (exMatch[1].toUpperCase() === curr || exMatch[3].toUpperCase() === curr)) {
                   txQty = parseFloat(exMatch[2]);
               } else {
-                  // 🚀 FIX MUTASI VALAS: Sesuai dengan tag penulisan di Forex.tsx
                   const mutMatch = desc.match(/(IN|OUT) VALAS\s+([0-9.]+)/i) || desc.match(/\[Valas (Masuk|Keluar)\s+([0-9.]+)/i);
                   if (mutMatch) txQty = parseFloat(mutMatch[2]);
               }
@@ -621,7 +615,7 @@ export default function Reports() {
 
             const periodName = isYearly ? `Tahun ${safeTargetYear}` : `Bulan ${nowForReport.toLocaleDateString('id-ID', { month: 'long' })} ${safeTargetYear}`;
 
-            // --- RENDER DOKUMEN HIGH-CONTRAST ---
+            // --- RENDER DOKUMEN ---
             try {
                 if (logoBase64) doc.addImage(logoBase64, 'PNG', 14, 10, 35, 12);
                 else { doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold"); doc.setFontSize(24); doc.text("BILANO", 14, 20); }
@@ -633,10 +627,8 @@ export default function Reports() {
             doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}`, 196, 14, { align: 'right' });
             doc.text(`Dicetak Oleh: ${user.firstName || 'Pengguna'} ${user.lastName || ''}`, 196, 20, { align: 'right' });
 
-            // Garis hitam pekat pembatas atas
             doc.setDrawColor(0, 0, 0); doc.setLineWidth(1.2); doc.line(14, 26, 196, 26);
             
-            // Banner Judul Hitam Pekat
             doc.setFillColor(0, 0, 0); doc.rect(14, 32, 182, 14, 'F');
             doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(16);
             doc.text(isYearly ? "ANNUAL WEALTH MANAGEMENT REPORT" : "WEALTH MANAGEMENT REPORT", 20, 41);
@@ -670,24 +662,23 @@ export default function Reports() {
                 currentY += 44; 
             }
 
-            // 🚀 PERBAIKAN TOTAL: Font besar (12px), Teks Hitam Jelas, Garis Hitam Legam (Lolos TypeScript Compile)
             const tableStyleOptions = {
-                theme: 'grid' as const,          // 👈 Menggunakan 'grid' agar otomatis merender garis pembatas tabel
+                theme: 'grid' as const,
                 styles: {
                     font: 'helvetica',
-                    fontSize: 12,                // 👈 Ukuran tulisan diperbesar biar kelihatan jelas
-                    textColor: 0,                // 👈 Menggunakan single number (0 = Hitam Pekat dalam jsPDF)
-                    lineColor: 0,                // 👈 Menggunakan single number (0 = Garis Hitam Pekat)
-                    lineWidth: 0.5,              // 👈 Ketebalan garis pembatas antar sel tabel
+                    fontSize: 12,
+                    textColor: 0,
+                    lineColor: 0,
+                    lineWidth: 0.5,
                     cellPadding: 5
                 },
                 headStyles: {
                     fontStyle: 'bold' as const,
-                    fontSize: 13,                // 👈 Font header tabel dibuat lebih besar lagi
-                    textColor: 0,                // 👈 Teks header hitam pekat
-                    fillColor: 240,              // 👈 Latar belakang header abu-abu sangat terang (kontras tinggi)
+                    fontSize: 13,
+                    textColor: 0,
+                    fillColor: 240,
                     lineColor: 0,
-                    lineWidth: 0.8               // 👈 Garis pembatas header lebih tegas
+                    lineWidth: 0.8
                 }
             };
 
@@ -717,55 +708,6 @@ export default function Reports() {
                 currentY = (doc as any).lastAutoTable.finalY + 15;
             }
 
-            if (snapData.invRows && snapData.invRows.length > 0) {
-                checkPageBreak(50); 
-                doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); 
-                doc.text(`Detail Kepemilikan Investasi`, 14, currentY);
-                const formattedInv = snapData.invRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 6, head: [['Tanggal Masuk', 'Tindakan', 'Detail Aset', 'Total Nilai (IDR)']], body: formattedInv, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } }, ...tableStyleOptions });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
-            }
-
-            if (snapData.invTxRows && snapData.invTxRows.length > 0) {
-                checkPageBreak(50); 
-                doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); 
-                doc.text(`Riwayat Transaksi Investasi (${periodName})`, 14, currentY);
-                const formattedInvTx = snapData.invTxRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 6, head: [['Tanggal', 'Tindakan', 'Detail Aset', 'Total Nilai (IDR)']], body: formattedInvTx, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } }, ...tableStyleOptions });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
-            }
-
-            if (snapData.debtRows && snapData.debtRows.length > 0) {
-                checkPageBreak(50); 
-                doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); 
-                doc.text("Daftar Rincian Hutang & Piutang Berjalan", 14, currentY);
-                const formattedDebt = snapData.debtRows.map((r:any) => [r[0], r[1], r[2] !== 'IDR' ? `${r[2]} (Sisa: ${formatRp(r[3])})` : formatRp(r[3]), r[4] ? new Date(r[4]).toLocaleDateString('id-ID') : 'Tanpa Tenggat', 'Belum Lunas']);
-                autoTable(doc, { startY: currentY + 6, head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']], body: formattedDebt, columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } }, ...tableStyleOptions });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
-            }
-
-            if (snapData.amalRows && snapData.amalRows.length > 0) {
-                checkPageBreak(50); 
-                doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); 
-                doc.text(`Catatan Amal & Sedekah (${periodName})`, 14, currentY);
-                const formattedAmal = snapData.amalRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 6, head: [['Tanggal', 'Tipe', 'Tujuan / Catatan', 'Nominal']], body: formattedAmal, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } }, ...tableStyleOptions });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
-            }
-
-            checkPageBreak(50); 
-            doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); 
-            doc.text(`Riwayat Transaksi Arus Kas Murni (${periodName})`, 14, currentY);
-            const formattedTx = (snapData.txRows || []).map((r:any) => [r[0], r[1], r[2], r[3], formatRp(r[4])]);
-
-            if (formattedTx.length === 0) {
-                doc.setFont("helvetica", "normal"); doc.setFontSize(12); doc.setTextColor(80, 80, 80); 
-                doc.text("Tidak ada catatan pengeluaran/pemasukan murni di periode ini.", 14, currentY + 10); currentY += 20;
-            } else {
-                autoTable(doc, { startY: currentY + 6, head: [['Tanggal', 'Arus', 'Kategori', 'Catatan', 'Nominal']], body: formattedTx, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } }, ...tableStyleOptions });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
-            }
-            
             if (snapData.invRows && snapData.invRows.length > 0) {
                 checkPageBreak(50); doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text(`Detail Kepemilikan Investasi`, 14, currentY);
                 const formattedInv = snapData.invRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
@@ -868,7 +810,6 @@ export default function Reports() {
           </div>
       );
   }
-
 
   const archiveList = getArchiveMonths();
 
