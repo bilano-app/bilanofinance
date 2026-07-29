@@ -78,17 +78,29 @@ export default function Amal() {
   };
 
   // 🚀 PERBAIKAN FILTER: Menolak piutang pinjaman murni, hanya baca [Pemasukan Cair]
-  const pureIncomes = (transactions || []).filter(t => 
-      (
-          (t.type === 'income' && !t.description?.includes('[PIUTANG_PENDAPATAN]') && !t.description?.includes('Belum Dibayar')) || 
-          (t.type === 'debt_receive' && t.description?.includes('[Pemasukan Cair]'))
-      ) && 
-      !t.description?.includes('[Offset') && !t.description?.includes('[WRITE_OFF]') && 
-      !t.description?.includes('[Catat Awal]') && t.category !== 'Penyesuaian Sistem' && 
-      t.category !== 'Pemutihan Hutang'
-  ).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()); 
+// 🚀 PERBAIKAN LOGIKA FILTER: Mengambil Cash Income DAN Piutang Pendapatan yang sudah CAIR
+const pureIncomes = (transactions || []).filter(t => {
+    // 1. Cek apakah ini income tunai murni (bukan piutang record awal)
+      const isPureIncome = t.type === 'income' && 
+                           !t.description?.includes('[PIUTANG_PENDAPATAN]') && 
+                           !t.description?.includes('Belum Dibayar');
 
-  const amalTxs = (transactions || []).filter(t => t.category === 'Amal').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // 2. Cek apakah ini piutang dari Income.tsx yang STATUSNYA SUDAH CAIR
+      const isCairReceivable = t.type === 'debt_receive' && 
+                               t.description?.includes('[Pemasukan Cair]');
+
+    // Gabungkan arus utama pemasukan
+      const isValidIncomeArrive = isPureIncome || isCairReceivable;
+
+    // 3. Filter penyaring sistem (buang transaksi penyesuaian/offset/catat awal saldo)
+      const isSystemLog = t.description?.includes('[Offset') || 
+                          t.description?.includes('[WRITE_OFF]') || 
+                          t.description?.includes('[Catat Awal]') || 
+                          t.category === 'Penyesuaian Sistem' || 
+                          t.category === 'Pemutihan Hutang';
+
+      return isValidIncomeArrive && !isSystemLog;
+  }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());  const amalTxs = (transactions || []).filter(t => t.category === 'Amal').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   
   let totalAmalPaid = amalTxs.reduce((acc, t) => {
       let val = t.amount;
@@ -155,8 +167,7 @@ export default function Amal() {
 
   const executeSaveAmal = async (finalAmt: number, description: string, ikhlasEkstra: boolean, excessAmt: number) => {
       setIsSubmitting(true);
-      setExcessData(null);
-      
+    
       let finalDesc = description;
       if (ikhlasEkstra && excessAmt > 0) {
           finalDesc = `${description} [Ekstra: ${excessAmt}]`.trim();
@@ -174,10 +185,14 @@ export default function Amal() {
           trackEvent("amal_tx_added", { 
               isExtra: ikhlasEkstra,
               amount: finalAmt
-        });
+          });
 
           toast({ title: "Amal Tercatat! 🤲", description: "Semoga berkah dan diganti berlipat ganda." });
-          setAmount(""); setDesc("");
+        
+        // 🚀 PERBAIKAN: Reset semua input dan tutup modal penahan
+          setAmount(""); 
+          setDesc("");
+          setExcessData(null); 
       } catch (e) {
           toast({ title: "Gagal Mencatat", variant: "destructive" });
       } finally {

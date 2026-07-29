@@ -1,22 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Card } from "@/components/UIComponents";
 import { 
     BookOpen, Home, ArrowDownCircle, ArrowUpCircle, Globe, 
     HandCoins, RefreshCcw, LineChart, FileText, ScanLine, 
-    BarChart3, Camera 
+    BarChart3, Camera, HeartHandshake 
 } from "lucide-react"; 
 import { trackEvent } from "@/lib/tracking";
 
 // Komponen penanda (placeholder) untuk gambar
 const ImagePlaceholder = ({ label, src }: { label: string, src?: string }) => {
-    // Jika gambar tersedia, tampilkan gambarnya
     if (src) {
         return (
             <img src={`/${src}`} alt={label} className="w-full h-auto rounded-[16px] shadow-md my-4 border border-slate-200" />
         );
     }
-    // Jika tidak ada, kembalikan ke placeholder asli
     return (
         <div className="w-full h-32 bg-slate-50 border-2 border-dashed border-slate-300 rounded-[16px] flex flex-col items-center justify-center text-slate-400 my-4 hover:bg-slate-100 transition-colors">
             <Camera className="w-6 h-6 mb-2 opacity-50" />
@@ -189,6 +187,21 @@ export default function Guide() {
       )
     },
     {
+      id: "amal", title: "Amal & Sedekah", icon: HeartHandshake, color: "text-emerald-500", bg: "bg-emerald-100",
+      content: (
+          <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
+              <p>Kelola porsi kebaikan Anda secara terstruktur menggunakan metode alokasi otomatis berbasis FIFO (First In, First Out) yang terpisah dari anggaran operasional rutin.</p>
+              
+              <ImagePlaceholder label="Letak Gambar: Dasbor Alokasi Dana Amal" src="AmalDashboard.jpg" />
+              
+              <ul className="list-disc pl-4 space-y-2">
+                  <li><b>Alokasi Otomatis (FIFO):</b> Setiap ada pemasukan murni yang tercatat, sistem akan menyisihkan sekian persen (default 2.5% atau sesuai kustomisasi Anda) ke antrean anggaran amal tertunda.</li>
+                  <li><b>Mekanisme Deposit Sedekah:</b> Jika Anda melakukan sedekah dengan nominal melebihi batas kewajiban saat itu, sistem menawarkan opsi untuk menjadikannya "Deposit Pemotong" otomatis bagi alokasi pemasukan Anda di masa depan.</li>
+              </ul>
+          </div>
+      )
+    },
+    {
       id: "laporan", title: "Pusat Laporan", icon: FileText, color: "text-orange-600", bg: "bg-orange-100",
       content: (
           <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
@@ -309,7 +322,6 @@ export default function Guide() {
                   
                   <h3 className="text-2xl font-black text-slate-800 mb-6">{guides[activeTab].title}</h3>
                   
-                  {/* Area Konten Dinamis (Teks & Placeholder Gambar) */}
                   {guides[activeTab].content}
                   
               </Card>

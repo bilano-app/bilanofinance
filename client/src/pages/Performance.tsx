@@ -272,12 +272,17 @@ export default function Performance() {
                       const match = t.description.match(/lot\/unit\s+([A-Z0-9|]+)/i);
                       if (match) {
                           const curr = match[1].split('|')[1];
-                          if (curr && curr !== 'IDR') rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+                          // 🚀 Proteksi Cerdas: Cek apakah P/L sudah dalam IDR dari backend
+                          const isAlreadyIdr = plString.includes('Rp') || plString.includes('IDR');
+                          if (curr && curr !== 'IDR' && !isAlreadyIdr) {
+                              rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+                          }
                       }
                   }
                   
-                  const actualPl = plValue; // P/L in description is already expressed in IDR
-                  const actualAmt = t.amount * rate;
+                  // 🚀 PERBAIKAN: Kalikan P/L dengan Rate (Kurs), JANGAN kalikan t.amount
+                  const actualPl = plValue * rate; 
+                  const actualAmt = t.amount; 
                   
                   totalCuanJual += actualPl;
                   totalModalTerpakai += (actualAmt - actualPl); 
@@ -381,11 +386,16 @@ export default function Performance() {
                       const match = t.description.match(/lot\/unit\s+([A-Z0-9|]+)/i);
                       if (match) {
                           const curr = match[1].split('|')[1];
-                          if (curr && curr !== 'IDR') rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+                          // 🚀 Proteksi Cerdas: Cek apakah P/L sudah dalam IDR
+                          const isAlreadyIdr = plString.includes('Rp') || plString.includes('IDR');
+                          if (curr && curr !== 'IDR' && !isAlreadyIdr) {
+                              rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+                          }
                       }
                   }
                   
-                  const convertedPlValue = Math.round(plValue); // P/L text is already in IDR
+                  // 🚀 PERBAIKAN: Nilai P/L dikonversi dengan kurs yang tepat
+                  const convertedPlValue = Math.round(plValue * rate);
                   
                   virtualPLTxs.push({
                       ...t, 
