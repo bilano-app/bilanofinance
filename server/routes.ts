@@ -55,15 +55,18 @@ const ensureRetainedTable = async () => {
 async function askSmartAI(systemPrompt: string, userMessage: string, history: any[] = []) {
     try {
         const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
-        if (!apiKey || apiKey.includes("KUNCI_SUDAH_DIAMANKAN")) return "⚠️ API Key AI belum terpasang dengan benar di .env atau Vercel.";
+        // 🔥 Ubah pesan error ini agar tidak menyebut API atau sistem eksternal
+        if (!apiKey || apiKey.includes("KUNCI_SUDAH_DIAMANKAN")) return "⚠️ Sistem kognitif pusat belum dikonfigurasi dengan benar oleh administrator.";
+        
         let formattedContents = history.map((msg: any) => ({ role: msg.sender === 'user' ? "user" : "model", parts: [{ text: msg.text }] }));
         formattedContents.push({ role: "user", parts: [{ text: userMessage }] });
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system_instruction: { parts: [{ text: systemPrompt }] }, contents: formattedContents }) });
-        if (!response.ok) return `⚠️ Koneksi ditolak server pusat AI.`; 
+        
+        if (!response.ok) return `⚠️ Koneksi ke otak pusat saat ini sedang sibuk.`; 
         const data = await response.json();
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) return "⚠️ Pesan ditahan filter keamanan.";
+        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) return "⚠️ Pesan ditahan filter keamanan internal.";
         return data.candidates[0].content.parts[0].text;
-    } catch (error: any) { return "⚠️ Maaf Bos, sistem Asisten AI sedang sangat sibuk."; }
+    } catch (error: any) { return "⚠️ Maaf Bos, sistem BILANO Intelligence sedang sangat sibuk."; }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -751,12 +754,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { message, history, financialContext } = req.body; 
 
+      // 🔥 ROMBAK TOTAL KEPRIBADIAN DAN LOGIKA ANALISIS DI SINI
       const systemPrompt = `
-      Kamu adalah BILANO Intelligence, konsultan keuangan elit dan profesional.
+      Kamu adalah BILANO Intelligence, konsultan keuangan elit dan profesional yang tertanam di dalam aplikasi BILANO.
+      Kamu diciptakan dan dikembangkan oleh Adrien Fandra (seorang konten kreator juga). 
+      PENTING: Kamu TIDAK BOLEH menyebut identitasmu sebagai Gemini, buatan Google, atau program AI generik lainnya. Jika terjadi error, jangan pernah menyebut soal API.
+      
       PERATURAN SIKAP & LOGIKA KEUANGAN (MUTLAK):
       1. INGAT KONTEKS: Kamu menerima riwayat percakapan. Jika pengguna bertanya hal lanjutan, jawablah menyambung dengan topik sebelumnya tanpa kebingungan.
-      2. MENTOR PROAKTIF: Jadilah mentor yang peduli dan cerdas. SETIAP KALI selesai memberikan jawaban/analisis, kamu WAJIB mengakhirinya dengan sebuah pertanyaan penawaran bantuan.
-      3. PEMISAHAN WAKTU: Perhatikan pertanyaan pengguna! Jika bertanya "bulan ini", gunakan data [DATA BULAN INI KHUSUS]. Jika bertanya "kekayaan" atau "keseluruhan", gunakan data [DATA KESELURUHAN (TOTAL)].
+      2. GAYA BAHASA: Jadilah konsultan yang luwes, elegan, dan enak diajak ngobrol. Tidak kaku seperti robot, tapi juga tidak 'sok asik' atau memakai bahasa gaul yang berlebihan. Pertahankan wibawa profesional.
+      3. DEKONSTRUKSI & MULTI-SOLUSI: Saat diminta saran atau rekomendasi, JANGAN PERNAH memberikan satu solusi tunggal yang mendikte. Dekonstruksi akar masalahnya secara kritis berdasarkan data keuangan atau cerita pengguna, lalu tawarkan BEBERAPA ALTERNATIF strategi (Opsi A, Opsi B, dll) beserta pro-kontranya agar pengguna bisa berpikir dan mengambil keputusan sendiri.
+      4. MENTOR PROAKTIF: Jadilah mentor yang peduli. SETIAP KALI selesai memberikan jawaban/analisis, kamu WAJIB mengakhirinya dengan sebuah pertanyaan penawaran bantuan lanjutan.
+      5. PEMISAHAN WAKTU: Perhatikan pertanyaan pengguna! Jika bertanya "bulan ini", gunakan data [DATA BULAN INI KHUSUS]. Jika bertanya "kekayaan" atau "keseluruhan", gunakan data [DATA KESELURUHAN (TOTAL)].
       
       --- DATA KEUANGAN PENGGUNA SAAT INI (AKURAT & LIVE) ---
       ${financialContext}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
-import { Send, Bot, User, Loader2, Trash2 } from "lucide-react";
+import { Send, Bot, User, Loader2, Trash2, AlertCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useQuery } from "@tanstack/react-query";
 import { 
@@ -321,6 +321,20 @@ export default function ChatAI() {
             <div className="flex flex-col h-[calc(100dvh-75px)] -mx-4 -mb-4 bg-slate-50 relative">
                 
                 <div className="flex-1 overflow-y-auto space-y-4 p-4 pb-6">
+                    
+                    {/* 🔥 WARNING BANNER MEMORI CHAT */}
+                    <div className="bg-indigo-50 border border-indigo-100/50 rounded-2xl p-3 flex items-start gap-3 shadow-sm mb-6 max-w-[90%] mx-auto animate-in fade-in zoom-in-95 duration-500">
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 text-indigo-600 mt-0.5">
+                            <AlertCircle className="w-5 h-5"/>
+                        </div>
+                        <div>
+                            <h4 className="text-[11px] font-extrabold text-indigo-800 uppercase tracking-widest mb-0.5">Sistem Memori Sementara</h4>
+                            <p className="text-[11px] text-indigo-700/80 leading-relaxed font-medium">
+                                Riwayat obrolan ini akan terhapus secara otomatis oleh perangkat dalam beberapa hari. Jika ada hasil analisis yang penting, <strong>sangat disarankan untuk mencatat atau men-screenshot layar ini!</strong>
+                            </p>
+                        </div>
+                    </div>
+
                     {messages.map((msg) => (
                         <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
                             <div className={`flex gap-2 max-w-[85%] ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
