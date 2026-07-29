@@ -5,7 +5,7 @@ import { useUser, useTransactions, useTarget, useInvestments } from "@/hooks/use
 import { formatCurrency } from "@/lib/utils";
 import { 
   Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, 
-  ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2, Lock, Crown, 
+  ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2, Crown, 
   ShieldCheck, ChevronRight, X, CreditCard, Briefcase, TrendingUp, Trash2, HeartHandshake 
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -101,11 +101,9 @@ export default function Performance() {
       }
   };
 
-  // Tambahkan di dalam komponen Performance (dan juga Reports)
   useEffect(() => {
-    // Pastikan tidak melacak saat data masih loading
       if (!isUserLoading) {
-          trackEvent("portfolio_viewed", { module: "performance_dashboard" }); // Ganti "reports_dashboard" untuk Reports.tsx
+          trackEvent("portfolio_viewed", { module: "performance_dashboard" }); 
       }
   }, [isUserLoading]);
 
@@ -258,7 +256,6 @@ export default function Performance() {
   const currentWealth = cashReal + investmentReal + forexValue + retainedReal + piutangReal - hutangReal;
   const allTimeTx = Array.isArray(transactions) ? transactions : [];
   
-  // --- BLOK 1: KALKULASI ROI ATAS ---
   let totalCuanJual = 0;
   let totalModalTerpakai = 0;
 
@@ -284,69 +281,18 @@ export default function Performance() {
 
               let plValue = 0;
               if (isAlreadyIdr || rate === 1) {
-                  // Jika IDR bulat (Rp 3.500.000), bersihkan semua koma/titik
                   plValue = parseInt(plString.replace(/[^0-9-]/g, ''), 10);
               } else {
-                  // 🚀 FIX: Jika Valas Asing ($352.50), biarkan tanda titik agar desimalnya terbaca
                   const cleanFloat = plString.replace(/[^0-9.-]/g, '');
                   plValue = parseFloat(cleanFloat);
               }
 
               if (!isNaN(plValue)) {
-                  // 🚀 FIX: P/L Murni dikalikan dengan kurs mata uang (Rate) saat itu
                   const actualPl = plValue * rate; 
-                  const actualAmt = t.amount; // amount (uang kas masuk) sudah otomatis IDR dari backend
+                  const actualAmt = t.amount; 
                   
                   totalCuanJual += actualPl;
                   totalModalTerpakai += (actualAmt - actualPl); 
-              }
-          }
-      }
-  });
-
-
-  // --- BLOK 2: RENDER DAFTAR CASHFLOW BAWAH ---
-  const virtualPLTxs: any[] = [];
-  thisMonthTx.filter(t => t.type === 'invest_sell' || t.type === 'forex_sell').forEach(t => {
-      if (t.description && t.description.includes('P/L:')) {
-          const plString = t.description.split('P/L:')[1];
-          if (plString) {
-              let rate = 1;
-              let curr = 'IDR';
-              
-              if (t.type === 'invest_sell') {
-                  const match = t.description.match(/lot\/unit\s+([A-Z0-9|]+)/i);
-                  if (match) curr = match[1].split('|')[1] || 'IDR';
-              } else if (t.type === 'forex_sell') {
-                  const fMatch = t.description.match(/(USD|EUR|SGD|JPY|AUD|GBP|MYR|SAR|KRW|THB)/i);
-                  if (fMatch) curr = fMatch[1].toUpperCase();
-              }
-
-              const isAlreadyIdr = plString.includes('Rp') || plString.includes('IDR');
-              if (curr && curr !== 'IDR' && !isAlreadyIdr) {
-                  rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
-              }
-
-              let plValue = 0;
-              if (isAlreadyIdr || rate === 1) {
-                  plValue = parseInt(plString.replace(/[^0-9-]/g, ''), 10);
-              } else {
-                  // 🚀 FIX: Membaca titik desimal valas
-                  const cleanFloat = plString.replace(/[^0-9.-]/g, '');
-                  plValue = parseFloat(cleanFloat);
-              }
-              
-              if (!isNaN(plValue) && plValue !== 0) {
-                  // 🚀 FIX: Konversi bulat ke Rupiah sebelum ditampilkan di pengeluaran
-                  const convertedPlValue = Math.round(plValue * rate);
-                  
-                  virtualPLTxs.push({
-                      ...t, 
-                      type: convertedPlValue > 0 ? 'income' : 'expense',
-                      amount: Math.abs(convertedPlValue),
-                      category: convertedPlValue > 0 ? (t.type === 'forex_sell' ? 'Profit Valas' : 'Profit Investasi') : (t.type === 'forex_sell' ? 'Rugi Valas' : 'Rugi Investasi'),
-                      description: `Realisasi: ${t.description.split('@')[0].trim()}`
-                  });
               }
           }
       }
@@ -438,24 +384,31 @@ export default function Performance() {
       if (t.description && t.description.includes('P/L:')) {
           const plString = t.description.split('P/L:')[1];
           if (plString) {
-              const cleanString = plString.replace(/[^0-9-]/g, '');
-              const plValue = parseInt(cleanString, 10);
+              let rate = 1;
+              let curr = 'IDR';
+              
+              if (t.type === 'invest_sell') {
+                  const match = t.description.match(/lot\/unit\s+([A-Z0-9|]+)/i);
+                  if (match) curr = match[1].split('|')[1] || 'IDR';
+              } else if (t.type === 'forex_sell') {
+                  const fMatch = t.description.match(/(USD|EUR|SGD|JPY|AUD|GBP|MYR|SAR|KRW|THB)/i);
+                  if (fMatch) curr = fMatch[1].toUpperCase();
+              }
+
+              const isAlreadyIdr = plString.includes('Rp') || plString.includes('IDR');
+              if (curr && curr !== 'IDR' && !isAlreadyIdr) {
+                  rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+              }
+
+              let plValue = 0;
+              if (isAlreadyIdr || rate === 1) {
+                  plValue = parseInt(plString.replace(/[^0-9-]/g, ''), 10);
+              } else {
+                  const cleanFloat = plString.replace(/[^0-9.-]/g, '');
+                  plValue = parseFloat(cleanFloat);
+              }
               
               if (!isNaN(plValue) && plValue !== 0) {
-                  let rate = 1;
-                  if (t.type === 'invest_sell') {
-                      const match = t.description.match(/lot\/unit\s+([A-Z0-9|]+)/i);
-                      if (match) {
-                          const curr = match[1].split('|')[1];
-                          // 🚀 Proteksi Cerdas: Cek apakah P/L sudah dalam IDR
-                          const isAlreadyIdr = plString.includes('Rp') || plString.includes('IDR');
-                          if (curr && curr !== 'IDR' && !isAlreadyIdr) {
-                              rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
-                          }
-                      }
-                  }
-                  
-                  // 🚀 PERBAIKAN: Nilai P/L dikonversi dengan kurs yang tepat
                   const convertedPlValue = Math.round(plValue * rate);
                   
                   virtualPLTxs.push({
@@ -717,7 +670,7 @@ export default function Performance() {
                     <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
                         {roiPercentage > 5 ? "Gaya trading Anda sangat efektif! Lanjutkan konsistensi ini untuk mempercepat kebebasan finansial." : 
                             roiPercentage < 0 ? "Realisasi cuan sedang negatif. Lakukan evaluasi mendalam pada pemilihan aset atau waktu masuk/keluar pasar." :
-                            "Hasil investasi masih stabil. Fokus pada manajemen risiko dan diversifikasi aset untuk pertumbuhan jangka panjang."}
+                            "Hasil investasi masih stabil. Fokus pada manajemen risiko and diversifikasi aset untuk pertumbuhan jangka panjang."}
                     </p>
                 </div>
                 <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
