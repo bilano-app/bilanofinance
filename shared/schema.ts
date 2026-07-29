@@ -16,6 +16,8 @@ export const users = pgTable("users", {
   proValidUntil: timestamp("pro_valid_until"), 
   onesignalId: text("onesignal_id"), 
   createdAt: timestamp("created_at").defaultNow(), 
+  lockedPlan: text("locked_plan"), // Menyimpan 'year' atau 'month'
+  lockedPrice: bigint("locked_price", { mode: "number" }),
 });
 
 // --- 2. TRANSACTIONS ---

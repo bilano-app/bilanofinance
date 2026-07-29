@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { Button } from "@/components/UIComponents";
 import { useUser, useTransactions, useTarget } from "@/hooks/use-finance";
-import { CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, ShieldCheck, CreditCard, Lock, Bot, Hourglass, Activity, Target as TargetIcon } from "lucide-react";
+import { 
+  CheckCircle2, Sparkles, Crown, ArrowRight, Loader2, X, 
+  Bot, Hourglass, Activity, Target as TargetIcon 
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Paywall() {
@@ -16,7 +19,7 @@ export default function Paywall() {
   const { data: transactions = [] } = useTransactions();
   const { data: target } = useTarget();
 
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
+  const [selectedPlan, setSelectedPlan] = useState<'yearly' | 'monthly'>('yearly');
 
   const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
@@ -34,29 +37,55 @@ export default function Paywall() {
   const targetGoal = target?.targetAmount || 0;
   const progressPercent = targetGoal > 0 ? Math.min(100, Math.max(0, (currentWealth / targetGoal) * 100)) : 0;
 
+  // 🚀 LOGIKA HARGA (HARGA PASAR VS HARGA KUNCI)
+  const currentMarketYearly = 99000;
+  const currentMarketMonthly = 14900;
+
+  const hasLockedYearly = user?.lockedPlan === 'year' && Boolean(user?.lockedPrice);
+  const hasLockedMonthly = user?.lockedPlan === 'month' && Boolean(user?.lockedPrice);
+
+  const displayYearly = hasLockedYearly && user?.lockedPrice ? Number(user.lockedPrice) : currentMarketYearly;
+  const displayMonthly = hasLockedMonthly && user?.lockedPrice ? Number(user.lockedPrice) : currentMarketMonthly;
+
   const handleUpgradeExecution = async () => {
     setIsProcessing(true);
     try {
-      // Simulasi aktivasi status akun PRO Mayar payment gateway webhook
-      const res = await fetch("/api/subscriptions/upgrade-mock", {
+      const planKey = selectedPlan === 'yearly' ? 'year' : 'month';
+      const targetPrice = selectedPlan === 'yearly' ? displayYearly : displayMonthly;
+      const productDetail = selectedPlan === 'yearly' ? 'Paket Tahunan BILANO' : 'Paket Bulanan BILANO';
+
+      const res = await fetch("/api/payment/duitku-production", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: userEmail })
+        body: JSON.stringify({ 
+          email: userEmail || user?.email, 
+          plan: planKey,
+          price: targetPrice,
+          productDetail: productDetail,
+          customerName: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
+          phone: "080000000000",
+          paymentMethod: "SQ" // QRIS Duitku
+        })
       });
 
-      if (!res.ok) throw new Error("Gagal memproses transaksi dengan payment gateway.");
+      const data = await res.json();
 
-      localStorage.removeItem(`bilano_trial_expired_${userEmail}`);
-      
-      toast({
-        title: "Akses PRO Aktif!",
-        description: "Selamat, sistem kendali #NalarCuan Anda telah terbuka sepenuhnya.",
-      });
-      
-      setLocation("/");
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Gagal memproses transaksi dengan payment gateway.");
+      }
+
+      // Jika Duitku mengembalikan URL Pembayaran
+      if (data.paymentData?.paymentUrl) {
+        window.location.href = data.paymentData.paymentUrl;
+      } else {
+        toast({
+          title: "Tagihan Dibuat",
+          description: "Silakan selesaikan pembayaran Anda.",
+        });
+      }
     } catch (err: any) {
       toast({
-        title: "Gagal Sinkronisasi",
+        title: "Gagal Memproses Pembayaran",
         description: err.message || "Koneksi terputus.",
         variant: "destructive"
       });
@@ -80,7 +109,7 @@ export default function Paywall() {
           </span>
         </div>
 
-        {/* 📊 EMOTIONAL CHECKPOINT AREA (CONDITIONAL RENDERING) */}
+        {/* 📊 EMOTIONAL CHECKPOINT AREA */}
         {!isTrialExpired ? (
             <div className="my-auto py-2 space-y-6">
               <div className="text-center space-y-2">
@@ -178,8 +207,9 @@ export default function Paywall() {
         )}
 
         <div className="mt-4 mb-4">
-          {/* PAKET PEMBINGKAIAN HARGA (#NalarCuan LOGIC FRAMING) */}
+          {/* PAKET PEMBINGKAIAN HARGA */}
           <div className="space-y-3 mb-5">
+            {/* PAKET TAHUNAN */}
             <div 
               onClick={() => setSelectedPlan('yearly')}
               className={`p-4 rounded-2xl border text-left flex items-center justify-between cursor-pointer transition-all ${selectedPlan === 'yearly' ? 'border-amber-400 bg-amber-500/5 ring-1 ring-amber-400' : 'border-slate-800 bg-slate-950/20'}`}
@@ -188,19 +218,31 @@ export default function Paywall() {
                 <div className={`w-5 h-5 rounded-full border-4 mt-0.5 ${selectedPlan === 'yearly' ? 'border-amber-400 bg-slate-900' : 'border-slate-700'}`}></div>
                 <div>
                   <h4 className="font-black text-sm text-white flex items-center gap-1.5">
-                    Paket Akses Tahunan <span className="text-[9px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.5 rounded uppercase">HEMAT 50%</span>
+                    Paket Akses Tahunan 
+                    {hasLockedYearly ? (
+                        <span className="text-[9px] bg-emerald-500 text-slate-950 font-black px-1.5 py-0.5 rounded uppercase">HARGA LAMA DIKUNCI</span>
+                    ) : (
+                        <span className="text-[9px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.5 rounded uppercase">HEMAT 50%</span>
+                    )}
                   </h4>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Kunci harga selamanya di angka Rp 99.000 / tahun
+                    {hasLockedYearly ? 'Status garansi lock harga Anda aktif' : 'Kunci harga selamanya di angka awal pendaftaran'}
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <span className="text-sm font-black text-amber-400 block">Rp 500<span className="text-[9px] font-medium text-slate-400"> / hari</span></span>
-                <span className="text-[9px] text-slate-500 font-medium block mt-0.5">Tagihan Rp 99rb/thn</span>
+              <div className="text-right flex flex-col justify-end items-end gap-0.5">
+                {hasLockedYearly && displayYearly < currentMarketYearly && (
+                   <span className="text-[10px] text-slate-500 line-through decoration-rose-500">
+                     Rp {currentMarketYearly.toLocaleString('id-ID')}
+                   </span>
+                )}
+                <span className="text-[9px] text-slate-400 font-medium block">Tagihan 
+                  <span className="text-sm font-black text-amber-400 ml-1">Rp {displayYearly.toLocaleString('id-ID')}</span>
+                </span>
               </div>
             </div>
 
+            {/* PAKET BULANAN */}
             <div 
               onClick={() => setSelectedPlan('monthly')}
               className={`p-4 rounded-2xl border text-left flex items-center justify-between cursor-pointer transition-all ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-indigo-500/5 ring-1 ring-indigo-500' : 'border-slate-800 bg-slate-950/20'}`}
@@ -208,17 +250,27 @@ export default function Paywall() {
               <div className="flex gap-3">
                 <div className={`w-5 h-5 rounded-full border-4 mt-0.5 ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-slate-900' : 'border-slate-700'}`}></div>
                 <div>
-                  <h4 className="font-black text-sm text-white">Paket Akses Bulanan</h4>
+                  <h4 className="font-black text-sm text-white flex items-center gap-1.5">
+                      Paket Akses Bulanan
+                      {hasLockedMonthly && (
+                          <span className="text-[9px] bg-emerald-500 text-slate-950 font-black px-1.5 py-0.5 rounded uppercase">HARGA LAMA DIKUNCI</span>
+                      )}
+                  </h4>
                   <p className="text-[11px] text-slate-400 mt-0.5">Evaluasi fleksibel dari bulan ke bulan</p>
                 </div>
               </div>
-              <div className="text-right">
-                <span className="text-sm font-black text-slate-200 block">Rp 14.900<span className="text-[9px] font-medium text-slate-500"> / bln</span></span>
+              <div className="text-right flex flex-col justify-end items-end gap-0.5">
+                 {hasLockedMonthly && displayMonthly < currentMarketMonthly && (
+                   <span className="text-[10px] text-slate-500 line-through decoration-rose-500">
+                     Rp {currentMarketMonthly.toLocaleString('id-ID')}
+                   </span>
+                 )}
+                <span className="text-sm font-black text-slate-200 block">Rp {displayMonthly.toLocaleString('id-ID')}<span className="text-[9px] font-medium text-slate-500"> / bln</span></span>
               </div>
             </div>
           </div>
 
-          {/* BENEFIT CHECKLISTS MURNI VALUE-DRIVEN */}
+          {/* BENEFIT CHECKLISTS */}
           <div className="space-y-2.5 px-2 mb-6">
             <div className="flex items-center gap-2.5 text-xs font-semibold text-slate-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />

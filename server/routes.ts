@@ -140,7 +140,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onesignal_id TEXT;`);
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`);
           
-          // 🚀 KOLOM PASSWORD SEMENTARA & BARIS MIGRASI AMAN UNTUK PENGGUNA LAMA
+          // 🔥 PENAMBAHAN BARU: KOLOM KUNCI HARGA (GRANDFATHERING)
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_plan TEXT;`);
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_price BIGINT;`);
+          
+          // 🚀 KOLOM PASSWORD SEMENTARA & MIGRASI AMAN (DIBIARKAN UTUH)
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_custom_password_set BOOLEAN DEFAULT FALSE;`);
           await db.execute(sql`UPDATE users SET is_custom_password_set = TRUE WHERE password IS NOT NULL AND length(password) > 6;`);
           
@@ -167,10 +171,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // =========================================================================
-  // 🚀 API BARU: CLAIM ACCOUNT DAN GENERATE 6 DIGIT KODE AKSES
+  // 🚀 AKTIVASI AKUN & PENANAMAN STATUS KUNCI HARGA
   // =========================================================================
   app.post("/api/payment/claim-account", async (req: any, res: any) => {
-      const { email, name, plan } = req.body;
+      const { email, name, plan, amount } = req.body;
       if (!email) return res.status(400).json({ error: "Email wajib diisi." });
 
       try {
@@ -182,11 +186,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const tempCode = Math.floor(100000 + Math.random() * 900000).toString();
 
           const validUntil = new Date();
-          if (plan === 'year') {
+          if (plan === 'year' || plan === 'yearly') {
               validUntil.setDate(validUntil.getDate() + 365);
           } else {
               validUntil.setDate(validUntil.getDate() + 30);
           }
+
+          const fallbackPrice = (plan === 'year' || plan === 'yearly') ? 99000 : 14900;
+          const finalPrice = amount ? parseInt(amount) : fallbackPrice;
+          const planKey = (plan === 'year' || plan === 'yearly') ? 'year' : 'month';
 
           let user = await storage.getUserByUsername(cleanEmail);
           if (user) {
@@ -195,7 +203,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   SET is_pro = true, 
                       pro_valid_until = ${validUntil.toISOString()}, 
                       password = ${tempCode},
-                      is_custom_password_set = false
+                      is_custom_password_set = false,
+                      locked_plan = ${planKey},
+                      locked_price = ${finalPrice}
                   WHERE id = ${user.id}
               `);
           } else {
@@ -207,7 +217,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   lastName: lastName,
                   cashBalance: 0,
                   isPro: true,
-                  proValidUntil: validUntil.toISOString()
+                  proValidUntil: validUntil.toISOString(),
+                  lockedPlan: planKey,
+                  lockedPrice: finalPrice
               } as any);
           }
 
@@ -1439,75 +1451,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e) { res.status(500).json({ error: "Gagal memperbarui status pengguna." }); }
   });
 
-  app.post("/api/payment/mayar/charge", async (req: any, res: any) => {
-      try {
-          const user = await getUser(req);
-          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
-
-          const mayarKey = (process.env.MAYAR_API_KEY || "").replace(/['"]/g, "").trim();
-          if (!mayarKey) return res.status(400).json({ error: "MAYAR_API_KEY belum terpasang di Vercel!" });
-
-          const { plan } = req.body; 
-          const isMonthly = plan === 'monthly';
-          const price = isMonthly ? 14900 : 99000;
-          const planName = isMonthly ? "BILANO PRO (1 Bulan)" : "BILANO PRO (1 Tahun)";
-
-          const appUrl = req.headers.origin || "https://bilanofinance-dvbi.vercel.app";
-
-          const payload = {
-              name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : "Member BILANO",
-              email: user.email || "member@bilano.app",
-              mobile: "080000000000",
-              description: `Berlangganan ${planName}`,
-              amount: price,
-              redirectUrl: `${appUrl}/`,
-              expiredAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-              items: [
-                  {
-                      name: planName,
-                      description: `Akses fitur eksklusif ${planName}`, 
-                      quantity: 1,
-                      price: price,
-                      rate: price, 
-                      amount: price
-                  }
-              ]
-          };
-
-          const mayarRes = await fetch("https://api.mayar.id/hl/v1/invoice/create", { 
-              method: "POST", 
-              headers: { 
-                  "Content-Type": "application/json", 
-                  "Authorization": `Bearer ${mayarKey}` 
-              }, 
-              body: JSON.stringify(payload) 
-          });
-          
-          const textData = await mayarRes.text();
-
-          if (!mayarRes.ok) {
-              console.log("Response Mayar Gagal:", textData);
-              return res.status(400).json({ error: `MAYAR ERROR [${mayarRes.status}]: ${textData}` });
-          }
-
-          try {
-              const data = JSON.parse(textData);
-              const redirectUrl = data.data?.link || data.link;
-              if (redirectUrl) return res.json({ success: true, redirectUrl });
-              else return res.status(400).json({ error: "Mayar sukses tapi link pembayaran tidak ditemukan." });
-          } catch (parseErr) { return res.status(500).json({ error: "Gagal memproses balasan dari Mayar." }); }
-      } catch (error: any) { res.status(500).json({ error: "SERVER CRASH: " + error.message }); }
-  });
-
+  // =========================================================================
+  // 🚀 API UTAMA PEMBAYARAN DUITKU (ONBOARDING & PERPANJANGAN)
+  // =========================================================================
   app.post("/api/payment/duitku-production", async (req: any, res: any) => {
       try {
-          const { price, productDetail, customerName, email, phone, paymentMethod = "BC" } = req.body;
+          const { price, plan, productDetail, customerName, email, phone, paymentMethod = "SQ" } = req.body;
           const merchantCode = process.env.DUITKU_MERCHANT_CODE?.trim() || 'D23626'; 
           const merchantKey = process.env.DUITKU_MERCHANT_KEY?.trim() || '399b0aaaff486146d0bf1c75019c89c4';
 
-          const merchantOrderId = 'BILANO-' + Date.now();
-          const paymentAmount = parseInt(price);
+          const cleanEmail = (email || "").trim().toLowerCase();
+          let paymentAmount = parseInt(price || 0);
 
+          // 🔥 LOGIKA KUNCI HARGA: Jika user perpanjang paket yang sama, gunakan harga kuncinya
+          if (cleanEmail) {
+              const user = await storage.getUserByUsername(cleanEmail);
+              if (user && user.lockedPlan && user.lockedPrice) {
+                  const planKey = (plan === 'yearly' || plan === 'year') ? 'year' : 'month';
+                  if (user.lockedPlan === planKey) {
+                      paymentAmount = user.lockedPrice; // Kunci harga awal
+                  }
+              }
+          }
+
+          // Fallback harga pasar jika nominal kosong
+          if (!paymentAmount || isNaN(paymentAmount)) {
+              paymentAmount = (plan === 'yearly' || plan === 'year') ? 99000 : 14900;
+          }
+
+          const merchantOrderId = 'BILANO-' + Date.now();
           const signatureRaw = merchantCode + merchantOrderId + paymentAmount + merchantKey;
           const signature = crypto.createHash('md5').update(signatureRaw).digest('hex');
 
@@ -1515,11 +1487,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               merchantCode: merchantCode,
               paymentAmount: paymentAmount,
               merchantOrderId: merchantOrderId,
-              productDetails: productDetail,
-              email: email,
-              phoneNumber: phone,
-              customerVaName: customerName,
-              itemDetails: [{ name: productDetail, price: paymentAmount, quantity: 1 }],
+              productDetails: productDetail || (plan === 'year' ? 'Paket Tahunan BILANO' : 'Paket Bulanan BILANO'),
+              email: cleanEmail,
+              phoneNumber: phone || "080000000000",
+              customerVaName: customerName || "Member BILANO",
+              itemDetails: [{ name: productDetail || "Akses BILANO PRO", price: paymentAmount, quantity: 1 }],
               returnUrl: 'https://bilano.app/onboarding?payment=success',
               callbackUrl: 'https://bilano.app/api/payment/duitku-webhook',
               signature: signature,
@@ -1542,7 +1514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           if (data && data.statusCode === "00") {
-              res.json({ success: true, paymentData: data });
+              res.json({ success: true, paymentData: data, amount: paymentAmount });
           } else {
               const realError = data.statusMessage || data.Message || data.message || "Ditolak oleh sistem Duitku";
               res.status(400).json({ error: `[Error Duitku]: ${realError}` });
@@ -1550,28 +1522,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       } catch (error: any) {
           res.status(500).json({ error: 'Server Crash: ' + error.message });
-      }
-  });
-
-  app.post("/api/payment/duitku-webhook", async (req: any, res: any) => {
-      try {
-          const { merchantCode, amount, merchantOrderId, signature, referenceCode, resultCode } = req.body;
-          const merchantKey = process.env.DUITKU_MERCHANT_KEY || '399b0aaaff486146d0bf1c75019c89c4';
-
-          const signatureRaw = merchantCode + amount + merchantOrderId + merchantKey;
-          const expectedSignature = crypto.createHash('md5').update(signatureRaw).digest('hex');
-
-          if (signature !== expectedSignature) {
-              return res.status(403).json({ error: "Invalid Signature" });
-          }
-
-          if (resultCode === "00") {
-              console.log("PEMBAYARAN DUITKU SUKSES:", merchantOrderId);
-          }
-
-          res.status(200).json({ success: true });
-      } catch (error) {
-          res.status(500).json({ success: false });
       }
   });
 

@@ -70,7 +70,7 @@ export default function Home() {
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
 
-  const [dueDynamicSub, setDueDynamicSub] = useState<any | null>(null);
+  const [dueSub, setDueSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
 
   const [activeMenuPage, setActiveMenuPage] = useState(0);
@@ -249,7 +249,8 @@ export default function Home() {
       const todayStr = new Date().toISOString().split('T')[0];
       
       const due = subscriptions.find(sub => {
-          if (!sub.isActive || sub.category !== 'dinamis') return false;
+          // Sekarang memproses baik statis maupun dinamis asalkan aktif
+          if (!sub.isActive) return false; 
           
           const nextDate = new Date(sub.nextPaymentDate);
           const today = new Date();
@@ -262,56 +263,75 @@ export default function Home() {
           return true;
       });
 
-      setDueDynamicSub(due || null);
+      setDueSub(due || null);
   }, [subscriptions]);
 
-  const handlePayDynamic = async () => {
-      if (!dueDynamicSub || !dynamicAmount) return;
+  const handlePaySub = async () => {
+      if (!dueSub) return;
+      if (dueSub.category === 'dinamis' && !dynamicAmount) return;
+
+      const amountToPay = dueSub.category === 'dinamis' ? parseFloat(dynamicAmount) : dueSub.price;
+
       try {
           await fetch("/api/transactions", {
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
               body: JSON.stringify({ 
                   type: 'expense', 
-                  amount: parseFloat(dynamicAmount), 
+                  amount: amountToPay, 
                   category: "Tagihan Bulanan", 
-                  description: `Bayar Tagihan: ${dueDynamicSub.name}`,
-                  date: new Date()
+                  description: `Bayar Tagihan: ${dueSub.name}`,
+                  date: new Date(dueSub.nextPaymentDate) // <-- Mencatat sesuai tanggal jatuh tempo asli
               })
           });
 
-          const nextDate = new Date(dueDynamicSub.nextPaymentDate);
-          if (dueDynamicSub.cycle === 'yearly') {
+          const nextDate = new Date(dueSub.nextPaymentDate);
+          if (dueSub.cycle === 'yearly') {
               nextDate.setFullYear(nextDate.getFullYear() + 1);
           } else {
               nextDate.setMonth(nextDate.getMonth() + 1);
           }
 
-          await fetch(`/api/subscriptions/${dueDynamicSub.id}`, { method: "DELETE", headers: { "x-user-email": rawEmail } });
+          await fetch(`/api/subscriptions/${dueSub.id}`, { method: "DELETE", headers: { "x-user-email": rawEmail } });
           await fetch("/api/subscriptions", {
               method: "POST", headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
               body: JSON.stringify({ 
-                  name: dueDynamicSub.name, 
-                  price: dueDynamicSub.price, 
-                  cost: dueDynamicSub.price, 
-                  cycle: dueDynamicSub.cycle, 
+                  name: dueSub.name, 
+                  price: dueSub.price, 
+                  cost: dueSub.price, 
+                  cycle: dueSub.cycle, 
                   nextPaymentDate: nextDate.toISOString(), 
                   nextBilling: nextDate.toISOString(), 
-                  category: dueDynamicSub.category, 
+                  category: dueSub.category, 
                   isActive: true 
               })
           });
 
-          toast({ title: "Tagihan Lunas!", description: "Pengeluaran berhasil dicatat." });
-          setDueDynamicSub(null); setDynamicAmount(""); refetchSubs();
+          toast({ title: "Tagihan Terekap!", description: "Pengeluaran berhasil dicatat ke laporan." });
+          setDueSub(null); setDynamicAmount(""); refetchSubs();
       } catch (e) {
           toast({ title: "Gagal memproses", variant: "destructive" });
       }
   };
 
-  const handleSkipDynamic = () => {
+  const handleSkipSub = () => {
       const todayStr = new Date().toISOString().split('T')[0];
-      localStorage.setItem(`skip_sub_${dueDynamicSub.id}_${todayStr}`, "true");
-      setDueDynamicSub(null);
+      localStorage.setItem(`skip_sub_${dueSub.id}_${todayStr}`, "true");
+      setDueSub(null);
+  };
+
+  const handleStopSub = async () => {
+      if (!confirm(`Berhenti berlangganan ${dueSub.name}? Statusnya akan diubah menjadi non-aktif.`)) return;
+      try {
+          await fetch(`/api/subscriptions/${dueSub.id}/status`, {
+              method: "PATCH", 
+              headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
+              body: JSON.stringify({ isActive: false })
+          });
+          toast({ title: "Langganan Dihentikan", description: "Layanan telah masuk ke daftar Non-Aktif." });
+          setDueSub(null); setDynamicAmount(""); refetchSubs();
+      } catch (e) {
+          toast({ title: "Gagal memproses", variant: "destructive" });
+      }
   };
 
   const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
@@ -620,30 +640,45 @@ export default function Home() {
           </Link>
       </div>
 
-      {dueDynamicSub && (
+      {dueSub && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
-            <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 border-orange-500">
-                <div className="w-16 h-16 mx-auto bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-4">
-                    <AlertTriangle className="w-8 h-8" />
+            <div className={`bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 ${dueSub.category === 'dinamis' ? 'border-orange-500' : 'border-indigo-500'}`}>
+                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${dueSub.category === 'dinamis' ? 'bg-orange-100 text-orange-500' : 'bg-indigo-100 text-indigo-500'}`}>
+                    {dueSub.category === 'dinamis' ? <AlertTriangle className="w-8 h-8" /> : <RefreshCcw className="w-8 h-8" />}
                 </div>
                 <h3 className="text-xl font-extrabold text-slate-800 mb-2">Tagihan Jatuh Tempo!</h3>
-                <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                    Waktunya bayar tagihan <strong>{dueDynamicSub.name}</strong>. Berapa nominal yang Anda bayarkan bulan ini?
-                </p>
-                <Input 
-                    type="number" 
-                    placeholder="Masukkan nominal (Rp)..." 
-                    value={dynamicAmount} 
-                    onChange={e => setDynamicAmount(e.target.value)} 
-                    className="h-14 font-bold text-lg mb-4 text-center bg-slate-50 border-transparent rounded-[20px]"
-                />
+                
+                {dueSub.category === 'dinamis' ? (
+                    <>
+                        <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+                            Waktunya bayar tagihan <strong>{dueSub.name}</strong>. Berapa nominal yang Anda bayarkan bulan ini?
+                        </p>
+                        <Input 
+                            type="number" 
+                            placeholder="Masukkan nominal (Rp)..." 
+                            value={dynamicAmount} 
+                            onChange={e => setDynamicAmount(e.target.value)} 
+                            className="h-14 font-bold text-lg mb-4 text-center bg-slate-50 border-transparent rounded-[20px]"
+                        />
+                    </>
+                ) : (
+                    <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+                        Tagihan <strong>{dueSub.name}</strong> sebesar <strong className="text-slate-800">{formatCurrency(dueSub.price)}</strong> telah jatuh tempo pada tanggal {new Date(dueSub.nextPaymentDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })}. Catat pengeluaran ini sekarang?
+                    </p>
+                )}
+
                 <div className="space-y-3">
-                    <Button onClick={handlePayDynamic} className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-lg shadow-emerald-200 active:scale-95 transition-transform">
-                        BAYAR & CATAT SEKARANG
+                    <Button onClick={handlePaySub} className={`w-full h-14 rounded-full text-white font-extrabold shadow-lg active:scale-95 transition-transform ${dueSub.category === 'dinamis' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}>
+                        {dueSub.category === 'dinamis' ? 'BAYAR & CATAT SEKARANG' : 'YA, CATAT PENGELUARAN'}
                     </Button>
-                    <Button variant="ghost" onClick={handleSkipDynamic} className="w-full h-12 rounded-full font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">
+                    <Button variant="ghost" onClick={handleSkipSub} className="w-full h-12 rounded-full font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">
                         Nanti Saja (Lewati Hari Ini)
                     </Button>
+                    {dueSub.category === 'statis' && (
+                        <button onClick={handleStopSub} className="text-[11px] font-bold text-rose-400 hover:text-rose-600 hover:underline underline-offset-2 w-full pt-1">
+                            Berhenti Berlangganan (Non-aktifkan)
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
