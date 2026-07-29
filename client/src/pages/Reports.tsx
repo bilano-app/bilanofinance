@@ -662,23 +662,27 @@ export default function Reports() {
                 currentY += 44; 
             }
 
+            // 🚀 DESAIN BARU: Corporate Financial Report Style (Profesional & Modern)
             const tableStyleOptions = {
                 theme: 'grid' as const,
                 styles: {
                     font: 'helvetica',
-                    fontSize: 12,
-                    textColor: 0,
-                    lineColor: 0,
-                    lineWidth: 0.5,
-                    cellPadding: 5
+                    fontSize: 11,           // 👈 Ukuran tetap besar dan jelas dibaca
+                    textColor: 20,          // 👈 Hitam keabu-abuan gelap untuk teks isi (Nyaman di mata)
+                    lineColor: 0,           // 👈 Garis pembatas hitam pekat...
+                    lineWidth: 0.15,        // 👈 ...tetapi dibuat lebih tipis & elegan (tidak seperti koran)
+                    cellPadding: { top: 5, bottom: 5, left: 6, right: 6 }
                 },
                 headStyles: {
                     fontStyle: 'bold' as const,
-                    fontSize: 13,
-                    textColor: 0,
-                    fillColor: 240,
+                    fontSize: 12,           
+                    textColor: 255,         // 👈 Teks header putih
+                    fillColor: 0,           // 👈 Latar belakang header hitam pekat (Sangat Profesional)
                     lineColor: 0,
-                    lineWidth: 0.8
+                    lineWidth: 0.15          
+                },
+                alternateRowStyles: {
+                    fillColor: 248          // 👈 Striping abu-abu sangat muda antar baris (mudah dibaca)
                 }
             };
 
