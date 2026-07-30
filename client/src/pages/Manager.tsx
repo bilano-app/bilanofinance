@@ -837,7 +837,7 @@ export default function Manager() {
               {/* Feature Adoption Heatmap (Ranking) - DILENGKAPI DEBTS & SUBSCRIPTIONS */}
               <section className="bg-white border border-[#cbd5e1] rounded-sm shadow-sm p-6">
                  <h3 className="text-xs font-bold text-[#0f172a] uppercase tracking-wider mb-6 flex items-center gap-2">
-                   <IconNode /> Feature Adoption Ranking (Termasuk Debts & Subscriptions)
+                   <IconNode /> Feature Adoption Ranking 
                  </h3>
                  <div className="space-y-4">
                     <FeatureBar name="AI Assistant (Chat)" count={aiChatCount} total={totalFeatureEvents} color="bg-indigo-500" />
@@ -846,6 +846,10 @@ export default function Manager() {
                     <FeatureBar name="Manual Transaction Input" count={manualInputCount} total={totalFeatureEvents} color="bg-blue-500" />
                     <FeatureBar name="Manajemen Hutang & Piutang (Debts)" count={debtsCount} total={totalFeatureEvents} color="bg-amber-500" />
                     <FeatureBar name="Pengeluaran Berulang (Subscriptions)" count={subscriptionsCount} total={totalFeatureEvents} color="bg-purple-500" />
+                    <FeatureBar name="Manajemen Amal & Sedekah" count={amalCount} total={totalFeatureEvents} color="bg-teal-500" />
+                    <FeatureBar name="Dana Mengendap (Likuiditas)" count={retainedCount} total={totalFeatureEvents} color="bg-cyan-500" />
+                    <FeatureBar name="Cetak Laporan & PDF (Reports)" count={reportsCount} total={totalFeatureEvents} color="bg-orange-500" />
+                    <FeatureBar name="Expert Terminal & Market Scanner" count={expertTerminalCount} total={totalFeatureEvents} color="bg-slate-800" />
                  </div>
                  <div className="mt-6 pt-4 border-t border-slate-100 text-[10px] text-slate-500 font-mono text-center">
                     Berdasarkan volume trigger event seluruh fitur aplikasi
