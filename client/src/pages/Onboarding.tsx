@@ -9,10 +9,7 @@ import { trackEvent } from "@/lib/tracking";
 // 🚀 DATABASE METODE PEMBAYARAN & LOGO (STABIL)
 // =======================================================
 const paymentOptions = [
-  // Karena kamu juga sudah mendownload logo QRIS, kita pakai yang lokal sekalian
   { id: "SQ", name: "QRIS (GoPay/OVO/Dana)", icon: "/QRIS.png" }, 
-  
-  // Menggunakan nama file yang sesuai dengan screenshot di folder public-mu
   { id: "M2", name: "Mandiri Virtual Account", icon: "/Mandiri.png" },
   { id: "I1", name: "BNI Virtual Account", icon: "/BNI.png" },
   { id: "BR", name: "BRI Virtual Account", icon: "/BRI.png" },
@@ -21,21 +18,16 @@ const paymentOptions = [
   { id: "BSI", name: "BSI Virtual Account", icon: "/BSI.png" },
   { id: "D1", name: "Danamon Virtual Account", icon: "/Danamon.png" },
   { id: "VA", name: "Maybank Virtual Account", icon: "/Maybank.png" },
-  
-  // Catatan: Saya tidak melihat logo Bank Sampoerna di foldermu, sementara saya pakai link luar dulu
-  
   { id: "NC", name: "Bank Neo Commerce", icon: "/BNC.png" },
   { id: "A1", name: "ATM Bersama", icon: "/ATM.png" },
-  
-  // Alfamart pakai nama 'download' sesuai file milikmu
   { id: "FT", name: "Alfamart / Pegadaian / Pos", icon: "/Alfa.png" }
 ];
+
 // 🛡️ KOMPONEN PENGAMAN GAMBAR RUSAK (FALLBACK UI)
 const PaymentIcon = ({ src, name }: { src: string, name: string }) => {
   const [hasError, setHasError] = useState(false);
   
   if (hasError || !src) {
-    // Jika gagal load, ambil 2 huruf depan sebagai inisial (Contoh: BNI -> BN)
     const initial = name.replace(/Virtual Account/i, "").replace(/Bank/i, "").trim().substring(0, 2).toUpperCase();
     return (
       <div className="w-full h-full bg-slate-200 flex items-center justify-center rounded text-[10px] font-black text-slate-800 tracking-tighter">
@@ -75,11 +67,19 @@ export default function Onboarding() {
     phone: ""
   });
 
-  // State Metode Pembayaran (Default ke NQ - NusaPay QRIS)
+  // State Metode Pembayaran
   const [paymentMethod, setPaymentMethod] = useState("SQ"); 
   const [paymentDetails, setPaymentDetails] = useState<any>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [showPaymentAlert, setShowPaymentAlert] = useState(false); 
+
+  // State Khusus Voucher
+  const [voucherCode, setVoucherCode] = useState("");
+  const [discountPercent, setDiscountPercent] = useState(0);
+  const [voucherMessage, setVoucherMessage] = useState("");
+
+  // State Bantuan Panduan Instalasi
+  const [showInstallGuideContent, setShowInstallGuideContent] = useState(false);
 
   // State Khusus Custom Dropdown
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -88,7 +88,6 @@ export default function Onboarding() {
   const [showManualInstall, setShowManualInstall] = useState(false);
   const [accessCode, setAccessCode] = useState<string | null>(null);
 
-  // Efek untuk menutup dropdown jika klik di luar area
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -101,40 +100,119 @@ export default function Onboarding() {
 
   const selectedMethodDetails = paymentOptions.find(p => p.id === paymentMethod) || paymentOptions[0];
 
+  // =======================================================
+  // 🧠 MESIN ANALISIS PSIKOLOGI FINANSIAL (VERSI ROMBAK TOTAL)
+  // =======================================================
   const getAssessment = () => {
     const { q1, q2, q3, q4 } = answers;
     const score = Number(q4);
-    const yesCount = [q1, q2, q3].filter(a => a === 'Ya').length;
+    const y1 = q1 === 'Ya'; // Terencana
+    const y2 = q2 === 'Ya'; // Visi Jelas
+    const y3 = q3 === 'Ya'; // Siap Berkomitmen
 
-    if (yesCount === 3 && score >= 8) {
+    // VARIASI 1: ALL YES (Ya, Ya, Ya)
+    if (y1 && y2 && y3) {
+      if (score >= 9) {
+        return {
+          title: "👑 Sang Visioner Finansial Tertinggi!",
+          desc: `Kombinasi jawabanmu sempurna! Kamu terencana, punya visi jelas, siap beraksi, ditambah komitmen absolut (${score}/10). Kamu berada di top 1% mentalitas finansial. BILANO akan menjadi senjata rahasia untuk melacak setiap sen dan mengakselerasi asetmu secara agresif.`,
+          icon: <Target className="w-10 h-10 animate-pulse text-amber-400" />,
+          highlight: "Mari eksekusi mahakarya finansialmu sekarang."
+        };
+      } else {
+        return {
+          title: "⚡ Pejuang Finansial Potensial",
+          desc: `Kamu punya pondasi luar biasa (Terencana, Ada Visi, Mau Berusaha). Namun, tingkat keyakinan tindakanmu saat ini bernilai ${score}/10. Masih ada sedikit kendala psikologis atau eksternal yang menahanmu. BILANO hadir untuk menghapus ragu lewat sistem kas otomatis.`,
+          icon: <Target className="w-10 h-10 text-amber-500" />,
+          highlight: "Mari pertebal keyakinan dan mulai eksekusi."
+        };
+      }
+    }
+
+    // VARIASI 2: THE DELEGATOR (Ya, Ya, Tidak)
+    if (y1 && y2 && !y3) {
+      if (score >= 8) {
+        return {
+          title: "⚡ Sang Arsitek Cerdas (Mager tapi Ambisius)",
+          desc: `Ini kombinasi unik! Kamu tahu arah dan ingin terencana, tapi kamu jujur benci keribetan rutinitas mencatat manual (Skor Komitmen: ${score}/10). Di sinilah BILANO bersinar! Fitur Smart AI dan otomatisasi kami dirancang khusus untuk orang sepertimu: hasil maksimal tanpa pusing proses.`,
+          icon: <Activity className="w-10 h-10 animate-pulse text-blue-400" />,
+          highlight: "Delegasikan keribetan finansialmu pada AI BILANO."
+        };
+      } else {
+        return {
+          title: "💤 Konseptor Finansial Pasif",
+          desc: `Kamu punya rencana dan visi, tapi komitmen tindakanmu cenderung rendah (${score}/10) karena faktor malas atau sibuk. Jika dibiarkan, visimu hanya akan jadi wacana. BILANO akan membantu memicu kebiasaanmu secara perlahan tanpa terasa membebani.`,
+          icon: <Activity className="w-10 h-10 text-blue-500" />,
+          highlight: "Ubah wacana keuanganmu menjadi sistem yang berjalan."
+        };
+      }
+    }
+
+    // VARIASI 3: THE HARDWORKER (Ya, Tidak, Ya)
+    if (y1 && !y2 && y3) {
       return {
-        title: "👑 Sang Visioner Finansial!",
-        desc: `Luar biasa! Skor kamu (${score}/10) menunjukkan kamu sudah 100% siap untuk level up. Kamu punya visi yang tajam dan tekad baja. BILANO hadir bukan untuk menceramahi, tapi sebagai senjata rahasia kamu untuk mengakselerasi aset dan mewujudkan targetmu dengan presisi tinggi. Let's go!`,
-        icon: <Target className="w-10 h-10 animate-pulse" />,
-        highlight: "Mari kita eksekusi mahakarya finansialmu sekarang."
-      };
-    } else if (yesCount >= 2 && score >= 6) {
-      return {
-        title: "🚀 Sang Arsitek Kebiasaan!",
-        desc: `Keren banget! Dengan skor ${score}/10, kamu sudah punya pondasi mindset yang super solid. Kamu sadar kekayaan dibangun dari konsistensi. BILANO akan jadi sahabat autopilot-mu untuk mengunci kebiasaan baik itu setiap hari. Siap melihat uangmu bertumbuh secara eksponensial?`,
-        icon: <Fingerprint className="w-10 h-10 animate-pulse" />,
-        highlight: "Mari mulai bangun kerajaan kecilmu hari ini."
-      };
-    } else if (q3 === 'Tidak' && score >= 7) {
-      return {
-        title: "⚡ Sang Pemikir Strategis!",
-        desc: `Menarik! Kamu sangat sadar pentingnya masa depan (Skor: ${score}/10), tapi mungkin kamu tipe yang nggak mau ribet dengan rutinitas manual. Nggak masalah! Di situlah keajaiban BILANO bekerja. Biarkan sistem pintar kami yang melacak keuanganmu, sementara kamu tetap santai menikmati hidup!`,
-        icon: <Activity className="w-10 h-10 animate-pulse" />,
-        highlight: "Mari delegasikan keribetan finansialmu pada kami."
-      };
-    } else {
-      return {
-        title: "🌱 Penjelajah Potensi Baru!",
-        desc: `Selamat datang di garis start! (Skor: ${score}/10). Nggak perlu overthinking kalau tujuanmu belum terlalu spesifik. Jadikan BILANO sebagai kompas ajaib yang akan merapikan arus kasmu tanpa tekanan. Santai saja, kita petakan masa depanmu pelan-pelan bersama!`,
-        icon: <Radar className="w-10 h-10 animate-pulse" />,
-        highlight: "Mari ambil langkah pertama yang paling menentukan."
+        title: "🛠️ Pengumpul Aset yang Setia",
+        desc: `Kamu adalah pekerja keras. Kamu ingin rapi dan siap membangun kebiasaan baik, meskipun arah akhir target nominal besarmu (${score}/10) belum terdefinisi jelas. Tenang saja, BILANO akan bertindak sebagai kompas yang membantumu menemukan angka ideal tersebut seiring waktu.`,
+        icon: <Fingerprint className="w-10 h-10 text-emerald-400" />,
+        highlight: "Mari petakan masa depan finansialmu langkah demi langkah."
       };
     }
+
+    // VARIASI 4: THE DREAMER (Tidak, Ya, Tidak)
+    if (!y1 && y2 && !y3) {
+      if (score >= 8) {
+        return {
+          title: "☁️ Manifestor Ambisius (Ego Tinggi)",
+          desc: `Jawabanmu menunjukkan kontradiksi kuat. Kamu mendambakan angka kekayaan besar, tapi menolak teratur dan enggan membangun kebiasaan. Skor ${score}/10 menunjukkan ego ekspektasi tinggi. Hati-hati, tanpa sistem manajemen, mimpimu berisiko runtuh akibat kebocoran halus.`,
+          icon: <Sparkles className="w-10 h-10 animate-pulse text-purple-400" />,
+          highlight: "Waktunya membumikan mimpimu menjadi angka riil."
+        };
+      } else {
+        return {
+          title: "🔮 Sang Pemimpi Finansial",
+          desc: `Kamu ingin kaya tapi saat ini hidup mengalir saja tanpa rencana maupun usaha ekstra (Tingkat dorongan: ${score}/10). Tidak apa-apa, BILANO tidak akan memaksa kamu berubah drastis. Kami akan bantu secara pasif memantau kemana perginya uangmu terlebih dahulu.`,
+          icon: <Sparkles className="w-10 h-10 text-purple-500" />,
+          highlight: "Mulai sadari arus kasmu sebelum membangun mimpi."
+        };
+      }
+    }
+
+    // VARIASI 5: THE ANXIOUS BEGINNER (Tidak, Tidak, Ya)
+    if (!y1 && !y2 && y3) {
+      return {
+        title: "🌱 Pejuang Awal Berdedikasi",
+        desc: `Saat ini kondisi keuanganmu mungkin belum terarah dengan baik. Tapi luar biasanya, kamu punya modal paling berharga: Kesediaan penuh untuk berupaya dan belajar (Skor kesiapan: ${score}/10). BILANO akan menjadi mentor digital pertamamu untuk keluar dari zona nyaman ini.`,
+        icon: <ShieldCheck className="w-10 h-10 text-rose-400" />,
+        highlight: "Mari amankan kondisi keuanganmu mulai hari ini."
+      };
+    }
+
+    // VARIASI 6: CRISIS/REACTIVE MODE (Tidak, Tidak, Tidak)
+    if (!y1 && !y2 && !y3) {
+      if (score >= 7) {
+        return {
+          title: "🚨 Peringatan Dini Finansial!",
+          desc: `Kamu menjawab TIDAK pada semua pilar dasar, namun skor urgensimu tinggi (${score}/10). Ini adalah sinyal darurat bahwa kamu sadar ada yang salah dengan keuanganmu dan butuh pertolongan cepat. BILANO hadir sebagai pelampung keselamatan untuk menambal kebocoran kasmu.`,
+          icon: <Radar className="w-10 h-10 animate-pulse text-rose-500" />,
+          highlight: "Jangan tunda lagi, selamatkan arus kasmu sekarang."
+        };
+      } else {
+        return {
+          title: "🧭 Penjelajah Keuangan Santai",
+          desc: `Dengan skor ${score}/10 dan dominasi jawaban pasif, tampaknya kamu belum terlalu memikirkan manajemen keuangan jangka panjang. Menjelajahi BILANO secara santai adalah langkah awal yang bagus tanpa perlu merasa tertekan.`,
+          icon: <Radar className="w-10 h-10 text-slate-400" />,
+          highlight: "Lihat-lihat dulu, pahami uangmu secara perlahan."
+        };
+      }
+    }
+
+    // FALLBACK DEFAULT
+    return {
+      title: "🚀 Navigator Finansial Dinamis",
+      desc: `Analisis jawaban unikmu menunjukkan skor kesiapan ${score}/10. Kamu memiliki gaya pengaturan keuangan yang fleksibel dan personal. BILANO akan menyesuaikan dengan gayamu, baik secara mendalam maupun serba otomatis.`,
+      icon: <Target className="w-10 h-10 text-amber-400" />,
+      highlight: "Mari mulai perjalanan finansial kustommu sekarang."
+    };
   };
 
   const assessment = getAssessment();
@@ -211,6 +289,18 @@ export default function Onboarding() {
     }, 300);
   };
 
+  // 🎫 SISTEM VALIDASI VOUCHER
+  const handleApplyVoucher = () => {
+    if (voucherCode.toUpperCase() === "ADR14") {
+      setDiscountPercent(100);
+      setVoucherMessage("✅ Voucher Valid: Diskon 100% Diterapkan!");
+      setPaymentMethod("FREE");
+    } else {
+      setDiscountPercent(0);
+      setVoucherMessage("❌ Kode voucher tidak ditemukan atau kadaluarsa.");
+    }
+  };
+
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); 
     
@@ -221,22 +311,48 @@ export default function Onboarding() {
 
     setLoading(true);
     const price = selectedPlan === 'year' ? 99000 : 14900;
+    const finalPrice = discountPercent === 100 ? 0 : price;
 
-    // ❌ HAPUS ATAU KOMENTARI BARIS INI UNTUK MENCEGAH AUTO-LOGIN:
-    // localStorage.setItem("bilano_email", formData.email.trim().toLowerCase());
-
-    // SIMPAN DI SINI SAJA (Sudah aman mencakup seluruh data checkout)
     localStorage.setItem('bilano_pending_checkout', JSON.stringify({
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
       plan: selectedPlan,
-      amount: price,
+      amount: finalPrice,
       method: paymentMethod
     }));
 
-    trackEvent("checkout_initiated", { plan: selectedPlan, method: paymentMethod });
-    // ... sisa kode fetch payment tetap sama ...
+    trackEvent("checkout_initiated", { plan: selectedPlan, method: paymentMethod, discount: discountPercent });
+
+    // BYPASS KE API KLIK DATA PREMIUM JIKA HARGA 0 (VOUCHER 100%)
+    if (finalPrice === 0) {
+      try {
+        const response = await fetch('/api/payment/claim-account', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: formData.name,
+              email: formData.email,
+              plan: selectedPlan,
+              amount: 0
+            })
+        });
+        const data = await response.json();
+        if (data.success && data.tempCode) {
+            setAccessCode(data.tempCode);
+            setStep(6);
+            setSelectedPlan(null);
+        } else {
+            alert(data.error || "Gagal mengaktifkan akun gratis melalui kode voucher.");
+        }
+      } catch (err) {
+          alert("Terjadi kesalahan jaringan.");
+      } finally {
+          setLoading(false);
+      }
+      return;
+    }
+
     try {
       const productDetail = selectedPlan === 'year' ? 'Paket Tahunan BILANO' : 'Paket Bulanan BILANO';
 
@@ -246,7 +362,7 @@ export default function Onboarding() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          price,
+          price: finalPrice,
           productDetail,
           customerName: formData.name,
           email: formData.email,
@@ -473,25 +589,11 @@ export default function Onboarding() {
                   Seiring bertambahnya fitur AI ke depannya, harga untuk pengguna baru akan terus dinaikkan. Namun bagi Anda yang mengamankan akun hari ini, tarif perpanjangan akan <strong>dikunci mati selamanya di nominal awal</strong> tanpa biaya tambahan apa pun.
                 </p>
               </div>
-
-              <div className="bg-[#121c3a]/50 border border-white/5 rounded-2xl p-4 md:p-5">
-                <div className="flex items-center gap-2 text-amber-400 mb-2">
-                  <Sparkles className="w-4 h-4" />
-                  <h4 className="font-bold text-sm">Kenapa aplikasi ini berbayar?</h4>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed mb-2">
-                  Kami menerapkan prinsip <em>"Skin in the Game"</em>. Sadarkah Anda, aplikasi gratisan seringkali hanya diunduh lalu diabaikan? 
-                </p>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Dengan mengeluarkan biaya yang jauh lebih murah dari secangkir kopi, Anda sedang <strong>menciptakan komitmen psikologis</strong> pada diri sendiri untuk benar-benar disiplin merubah nasib keuangan Anda.
-                </p>
-              </div>
             </div>
 
           </div>
         )}
 
-        {/* 🚀 TAMPILAN KODE 6 DIGIT BARU */}
         {step === 6 && (
           <div className={`transition-opacity duration-500 w-full flex flex-col items-center text-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
             <div className="w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
@@ -535,6 +637,15 @@ export default function Onboarding() {
               <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
               SAYA SUDAH SIMPAN & INSTALL PWA
             </button>
+            
+            {/* 🛠️ LINK MENUJU PANDUAN KENDALA INSTALASI */}
+            <button 
+              onClick={() => setShowInstallGuideContent(true)}
+              className="mt-5 text-sm font-bold text-slate-400 hover:text-amber-400 underline underline-offset-4 transition-colors block"
+            >
+              Kendala untuk Install PWA? Klik di sini
+            </button>
+
             <p className="text-[10px] text-slate-500 mt-4 max-w-xs text-center">
               Setelah install, aplikasi akan meminta Anda memasukkan email dan kode di atas untuk masuk.
             </p>
@@ -636,7 +747,7 @@ export default function Onboarding() {
             
             <h3 className="text-xl font-black mb-4 pr-8">Konfirmasi Pembayaran</h3>
             
-            <div className="bg-[#0a1128] rounded-2xl p-4 mb-5 border border-white/5">
+            <div className="bg-[#0a1128] rounded-2xl p-4 mb-4 border border-white/5">
               <div className="flex justify-between items-center mb-3">
                 <span className="text-slate-400 text-sm">Paket Dipilih</span>
                 <span className="font-bold text-white text-sm">
@@ -672,7 +783,7 @@ export default function Onboarding() {
                   className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors"
                 />
                 <p className="text-[10px] text-amber-400/90 text-left pl-1 leading-normal">
-                  *Penting: Alamat email ini akan dikunci sebagai satu-satunya akun akses login kamu ke sistem PWA BILANO setelah verifikasi selesai.
+                  *Penting: Email ini digunakan sebagai akses login PWA premium Anda.
                 </p>
               </div>
 
@@ -685,7 +796,7 @@ export default function Onboarding() {
                 className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors mb-2"
               />
 
-              {/* 🔥 CUSTOM DROPDOWN UI UNTUK METODE PEMBAYARAN DENGAN LOGO */}
+              {/* 🔥 CUSTOM DROPDOWN UTUK METODE PEMBAYARAN */}
               <div className="flex flex-col gap-1 mb-2 relative" ref={dropdownRef}>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
                   Metode Pembayaran
@@ -693,21 +804,27 @@ export default function Onboarding() {
                 
                 <button
                   type="button"
+                  disabled={discountPercent === 100}
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors flex items-center justify-between group"
+                  className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors flex items-center justify-between group disabled:opacity-50"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-white rounded-md p-1 flex items-center justify-center shrink-0">
-                      <PaymentIcon src={selectedMethodDetails.icon} name={selectedMethodDetails.name} />
+                      {discountPercent === 100 ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                      ) : (
+                        <PaymentIcon src={selectedMethodDetails.icon} name={selectedMethodDetails.name} />
+                      )}
                     </div>
-                    <span className="font-semibold text-left line-clamp-1">{selectedMethodDetails.name}</span>
+                    <span className="font-semibold text-left line-clamp-1">
+                      {discountPercent === 100 ? "Bypass Akses Voucher Emas" : selectedMethodDetails.name}
+                    </span>
                   </div>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                  {discountPercent !== 100 && <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${isDropdownOpen ? 'rotate-180' : ''}`} />}
                 </button>
 
-                {/* Dropdown List Items */}
                 {isDropdownOpen && (
-                  <ul className="absolute top-[105%] left-0 w-full bg-[#121c3a] border border-white/10 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar overflow-x-hidden flex flex-col p-2 gap-1">
+                  <ul className="absolute bottom-[105%] left-0 w-full bg-[#121c3a] border border-white/10 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar overflow-x-hidden flex flex-col p-2 gap-1">
                     {paymentOptions.map((option) => (
                       <li 
                         key={option.id}
@@ -715,7 +832,7 @@ export default function Onboarding() {
                           setPaymentMethod(option.id);
                           setIsDropdownOpen(false);
                         }}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${paymentMethod === option.id ? 'bg-amber-400/10 border border-amber-400/20' : 'hover:bg-white/5 border border-transparent'}`}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${paymentMethod === option.id ? 'bg-amber-400/10 border border-amber-400/20' : 'hover:bg-white/5 border border-transparent'}`}
                       >
                         <div className="w-8 h-8 bg-white rounded-md p-1 shrink-0 flex items-center justify-center">
                           <PaymentIcon src={option.icon} name={option.name} />
@@ -729,12 +846,46 @@ export default function Onboarding() {
                 )}
               </div>
 
+              {/* 🎫 UI SISTEM INPUT VOUCHER */}
+              <div className="mt-1 mb-1 p-3 bg-white/5 border border-white/10 rounded-xl">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Punya Kode Voucher?</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={voucherCode}
+                    onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                    placeholder="Contoh: ADR14" 
+                    className="flex-1 bg-[#040814] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 uppercase tracking-wider"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={handleApplyVoucher}
+                    className="bg-[#0a1128] border border-white/10 px-3 rounded-lg text-xs font-bold hover:bg-white/10 text-amber-400 transition-colors"
+                  >
+                    Klaim
+                  </button>
+                </div>
+                {voucherMessage && (
+                  <p className={`text-[10px] mt-2 font-bold ${discountPercent > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {voucherMessage}
+                  </p>
+                )}
+              </div>
+
+              {/* 🟢 INFO HARGA JIKA VOUCHER DISKON AKTIF */}
+              {discountPercent > 0 && (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex justify-between items-center text-xs">
+                   <span className="text-emerald-400 font-bold">Total Setelah Potongan:</span>
+                   <span className="text-base font-black text-emerald-400">Rp 0 (GRATIS)</span>
+                </div>
+              )}
+
               <button 
                 type="submit"
                 disabled={loading}
                 className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center mt-2"
               >
-                {loading ? "MEMPROSES..." : "BAYAR SEKARANG"}
+                {loading ? "MEMPROSES AKSES..." : "KONFIRMASI AKUN SEKARANG"}
               </button>
             </form>
 
@@ -758,10 +909,10 @@ export default function Onboarding() {
             
             <h3 className="text-xl font-black mb-3">Install Manual</h3>
             <p className="text-sm text-slate-300 mb-6 leading-relaxed text-left">
-              Browser Anda saat ini membatasi instalasi otomatis (biasanya terjadi pada mode penyamaran/Incognito, atau jika aplikasi sudah terpasang di perangkat). Untuk memasang BILANO:
+              Browser Anda membatasi instalasi otomatis (Incognito mode atau diblokir sistem OS). Cara pasang:
               <br/><br/>
-              1. Ketuk ikon <strong>Titik Tiga (⋮)</strong> atau <strong>Share</strong> di ujung browser Anda.<br/>
-              2. Pilih opsi <strong>"Tambahkan ke Layar Utama"</strong> (Add to Home Screen) atau <strong>"Install App"</strong>.<br/>
+              1. Ketuk ikon <strong>Titik Tiga (⋮)</strong> atau <strong>Share</strong> di browser Anda.<br/>
+              2. Pilih opsi <strong>"Tambahkan ke Layar Utama"</strong> atau <strong>"Install App"</strong>.<br/>
             </p>
 
             <button 
@@ -790,9 +941,9 @@ export default function Onboarding() {
             
             <h3 className="text-xl font-black mb-3">Dana Belum Masuk</h3>
             <p className="text-sm text-slate-300 mb-6 leading-relaxed">
-              Sistem belum mendeteksi mutasi masuk pada Virtual Account atau QRIS Anda.
+              Sistem belum mendeteksi mutasi masuk pada rekening Virtual Account atau QRIS Anda.
               <br/><br/>
-              Jika baru saja mentransfer, mohon tunggu <strong>1-3 menit</strong> untuk proses sinkronisasi perbankan, lalu ketuk kembali tombol Refresh Status.
+              Mohon tunggu sekitar <strong>1-3 menit</strong> untuk sinkronisasi perbankan selesai, kemudian ketuk kembali tombol Refresh Status.
             </p>
 
             <button 
@@ -801,6 +952,61 @@ export default function Onboarding() {
             >
               SAYA MENGERTI
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🛠️ OVERLAY PANDUAN PENGATURAN BLOKIR INSTALASI HP */}
+      {showInstallGuideContent && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-[#121c3a] border border-white/10 rounded-[28px] w-full max-w-md p-6 relative shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar text-center">
+            
+            <h3 className="text-xl font-black text-amber-400 mb-4 flex items-center justify-center gap-2">
+              <ShieldCheck className="w-6 h-6" /> Mengatasi Masalah Instalasi PWA
+            </h3>
+            
+            <p className="text-xs md:text-sm text-slate-300 leading-relaxed mb-6 text-left">
+              Beberapa jenis HP (terutama Xiaomi, Oppo, Vivo, atau jika menggunakan browser internal bawaan aplikasi sosial media) memblokir sistem instalasi widget. Ikuti petunjuk alternatif ini:
+            </p>
+
+            <div className="space-y-4 mb-6 text-left">
+              <div className="bg-[#040814] p-4 rounded-xl border border-white/5">
+                <h4 className="font-bold text-white text-sm mb-2">Android (Google Chrome / Edge)</h4>
+                <ol className="text-xs text-slate-400 list-decimal pl-4 space-y-1.5 leading-normal">
+                  <li>Pastikan Anda membuka link ini langsung di aplikasi <strong>Chrome</strong> asli, bukan dari web-view WhatsApp/Instagram.</li>
+                  <li>Ketuk ikon <strong>Titik Tiga (⋮)</strong> di sudut kanan atas layar Chrome.</li>
+                  <li>Pilih menu <strong>"Tambahkan ke Layar Utama"</strong> atau <strong>"Instal Aplikasi"</strong>.</li>
+                  <li>Konfirmasi pemesanan shortcut di layar depan.</li>
+                </ol>
+              </div>
+
+              <div className="bg-[#040814] p-4 rounded-xl border border-white/5">
+                <h4 className="font-bold text-white text-sm mb-2">iOS / iPhone (Safari)</h4>
+                <ol className="text-xs text-slate-400 list-decimal pl-4 space-y-1.5 leading-normal">
+                  <li>Buka link situs ini menggunakan browser bawaan Apple <strong>Safari</strong>.</li>
+                  <li>Ketuk tombol <strong>Share</strong> (ikon kotak dengan panah mengarah ke atas) di panel bawah.</li>
+                  <li>Gulir pilihan ke bawah, lalu ketuk opsi <strong>"Add to Home Screen"</strong>.</li>
+                  <li>Ketuk tulisan <strong>Add</strong> di kanan atas.</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <a 
+                href="mailto:bilanotech@gmail.com?subject=Bantuan Kendala Sistem PWA BILANO"
+                className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition-all text-xs flex items-center justify-center gap-2 border border-white/10 shadow"
+              >
+                <AlertCircle className="w-4 h-4 text-amber-400" /> Hubungi Admin (Bantuan Manual)
+              </a>
+              
+              <button 
+                onClick={() => setShowInstallGuideContent(false)}
+                className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 text-sm tracking-wide"
+              >
+                KEMBALI KE HALAMAN UTAMA
+              </button>
+            </div>
+
           </div>
         </div>
       )}
