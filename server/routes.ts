@@ -281,9 +281,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/payment/check-status", async (req: any, res: any) => {
-      const { email } = req.body;
-      try { res.json({ success: true, isPaid: true }); } 
-      catch (e) { res.json({ success: false, isPaid: false }); }
+      const { merchantOrderId } = req.body;
+      
+      if (!merchantOrderId) {
+          return res.status(400).json({ error: "Order ID tidak ditemukan untuk dicek." });
+      }
+
+      try {
+          const merchantCode = process.env.DUITKU_MERCHANT_CODE?.trim() || 'D23626';
+          const merchantKey = process.env.DUITKU_MERCHANT_KEY?.trim() || '399b0aaaff486146d0bf1c75019c89c4';
+
+          // Rumus Signature Duitku untuk Check Status: MD5(merchantCode + merchantOrderId + merchantKey)
+          const signatureRaw = merchantCode + merchantOrderId + merchantKey;
+          const signature = crypto.createHash('md5').update(signatureRaw).digest('hex');
+
+          const duitkuRes = await fetch('https://passport.duitku.com/webapi/api/merchant/transactionStatus', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  merchantCode: merchantCode,
+                  merchantOrderId: merchantOrderId,
+                  signature: signature
+              })
+          });
+
+          const data = await duitkuRes.json();
+
+          // Duitku statusCode: "00" = Sukses/Dibayar, "01" = Pending, "02" = Gagal/Expired
+          if (data && data.statusCode === "00") {
+              res.json({ success: true, isPaid: true });
+          } else {
+              res.json({ success: true, isPaid: false, status: data.statusCode });
+          }
+      } catch (error: any) { 
+          res.status(500).json({ success: false, isPaid: false, error: error.message }); 
+      }
   });
 
   app.post("/api/auth/check-email", async (req: any, res: any) => {
@@ -1522,8 +1554,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return res.status(400).json({ error: "Duitku Response Error: " + textData.substring(0, 50) });
           }
 
+          // Cari baris ini di dalam blok try:
           if (data && data.statusCode === "00") {
-              res.json({ success: true, paymentData: data, amount: paymentAmount });
+              // UBAH MENJADI SEPERTI INI (Tambahkan merchantOrderId):
+              res.json({ success: true, paymentData: data, amount: paymentAmount, merchantOrderId: merchantOrderId });
           } else {
               const realError = data.statusMessage || data.Message || data.message || "Ditolak oleh sistem Duitku";
               res.status(400).json({ error: `[Error Duitku]: ${realError}` });

@@ -101,7 +101,7 @@ export default function Onboarding() {
   const selectedMethodDetails = paymentOptions.find(p => p.id === paymentMethod) || paymentOptions[0];
 
   // =======================================================
-  // 🧠 MESIN ANALISIS PSIKOLOGI FINANSIAL (VERSI ROMBAK TOTAL)
+  // 🧠 MESIN ANALISIS PSIKOLOGI FINANSIAL (DETAIL)
   // =======================================================
   const getAssessment = () => {
     const { q1, q2, q3, q4 } = answers;
@@ -110,7 +110,6 @@ export default function Onboarding() {
     const y2 = q2 === 'Ya'; // Visi Jelas
     const y3 = q3 === 'Ya'; // Siap Berkomitmen
 
-    // VARIASI 1: ALL YES (Ya, Ya, Ya)
     if (y1 && y2 && y3) {
       if (score >= 9) {
         return {
@@ -129,7 +128,6 @@ export default function Onboarding() {
       }
     }
 
-    // VARIASI 2: THE DELEGATOR (Ya, Ya, Tidak)
     if (y1 && y2 && !y3) {
       if (score >= 8) {
         return {
@@ -148,7 +146,6 @@ export default function Onboarding() {
       }
     }
 
-    // VARIASI 3: THE HARDWORKER (Ya, Tidak, Ya)
     if (y1 && !y2 && y3) {
       return {
         title: "🛠️ Pengumpul Aset yang Setia",
@@ -158,7 +155,6 @@ export default function Onboarding() {
       };
     }
 
-    // VARIASI 4: THE DREAMER (Tidak, Ya, Tidak)
     if (!y1 && y2 && !y3) {
       if (score >= 8) {
         return {
@@ -177,7 +173,6 @@ export default function Onboarding() {
       }
     }
 
-    // VARIASI 5: THE ANXIOUS BEGINNER (Tidak, Tidak, Ya)
     if (!y1 && !y2 && y3) {
       return {
         title: "🌱 Pejuang Awal Berdedikasi",
@@ -187,7 +182,6 @@ export default function Onboarding() {
       };
     }
 
-    // VARIASI 6: CRISIS/REACTIVE MODE (Tidak, Tidak, Tidak)
     if (!y1 && !y2 && !y3) {
       if (score >= 7) {
         return {
@@ -206,7 +200,6 @@ export default function Onboarding() {
       }
     }
 
-    // FALLBACK DEFAULT
     return {
       title: "🚀 Navigator Finansial Dinamis",
       desc: `Analisis jawaban unikmu menunjukkan skor kesiapan ${score}/10. Kamu memiliki gaya pengaturan keuangan yang fleksibel dan personal. BILANO akan menyesuaikan dengan gayamu, baik secara mendalam maupun serba otomatis.`,
@@ -374,7 +367,8 @@ export default function Onboarding() {
       const data = await response.json();
 
       if (data.success && data.paymentData) {
-        setPaymentDetails(data.paymentData);
+        // 🔥 SIMPAN MERCHANT ORDER ID DARI DUITKU KE STATE AGAR BISA DICEK
+        setPaymentDetails({ ...data.paymentData, merchantOrderId: data.merchantOrderId });
         setSelectedPlan(null); 
         setStep(7); 
       } else {
@@ -393,7 +387,10 @@ export default function Onboarding() {
     
     try {
       const pendingDataStr = localStorage.getItem('bilano_pending_checkout');
-      const pendingData = pendingDataStr ? JSON.parse(pendingDataStr) : { email: formData.email };
+      // 🔥 SERTAKAN MERCHANT ORDER ID SAAT MENGECEK KE BACKEND
+      const pendingData = pendingDataStr 
+        ? { ...JSON.parse(pendingDataStr), merchantOrderId: paymentDetails?.merchantOrderId } 
+        : { email: formData.email, merchantOrderId: paymentDetails?.merchantOrderId };
 
       const response = await fetch('/api/payment/check-status', {
         method: 'POST',
