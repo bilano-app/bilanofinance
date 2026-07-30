@@ -521,7 +521,13 @@ export default function Manager() {
   const debtsCount = featAdopt.debts || 0;
   const subscriptionsCount = featAdopt.subscriptions || 0;
 
-  const totalFeatureEvents = (aiChatCount + smartScanCount + portfolioViewCount + manualInputCount + debtsCount + subscriptionsCount) || 1; 
+  const amalCount = featAdopt.amal || 0;
+  const retainedCount = featAdopt.retained || 0;
+  const reportsCount = featAdopt.reports || 0;
+  const expertTerminalCount = featAdopt.expert_terminal || 0;
+
+  // UBAH TOTALNYA MENJADI SEPERTI INI:
+  const totalFeatureEvents = (aiChatCount + smartScanCount + portfolioViewCount + manualInputCount + debtsCount + subscriptionsCount + amalCount + retainedCount + reportsCount + expertTerminalCount) || 1;
 
   const currentYear = new Date().getFullYear();
   const currentYearMonthlyData = getMonthlySummaryData(currentYear);
