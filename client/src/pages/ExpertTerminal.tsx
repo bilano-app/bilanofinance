@@ -127,7 +127,7 @@ export default function ExpertTerminal() {
       return '5y';
   }, [chartTimeframe]);
 
-  // Bypass useLiveQuotes bawaan agar Terminal Expert menarik harga real-time setiap 10 detik
+  // Pull real-time prices every 10 seconds
   const { data: livePrices = {}, isLoading: isLivePricesLoading } = useQuery({
       queryKey: ['expertLiveQuotes', uniqueTickersToFetch.join(',')],
       queryFn: async () => {
@@ -142,7 +142,7 @@ export default function ExpertTerminal() {
           return json.data || {};
       },
       enabled: !!currentUserEmail && isTerminalAuth && uniqueTickersToFetch.length > 0,
-      refetchInterval: 10000, // AUTO REFRESH 10 DETIK
+      refetchInterval: 10000,
       staleTime: 2000, 
   });
   
@@ -162,7 +162,9 @@ export default function ExpertTerminal() {
       enabled: !!currentUserEmail && isTerminalAuth,
       staleTime: 1000 * 60 * 60 * 24 
   });
+
   const { data: historyPrices = {} } = useHistoricalQuotes(uniqueTickersToFetch, apiRange);
+
   const { data: simHistoryPrices = {} } = useQuery({
       queryKey: ['expertSimHistory', uniqueTickersToFetch.join(',')],
       queryFn: async () => {
@@ -176,7 +178,7 @@ export default function ExpertTerminal() {
           return json.data || {};
       },
       enabled: !!currentUserEmail && isTerminalAuth && uniqueTickersToFetch.length > 0,
-      staleTime: 1000 * 60 * 60 * 24, // Cache 1 Hari Penuh
+      staleTime: 1000 * 60 * 60 * 24,
   });
 
   const activeSymbolsForIntel = useMemo(() => {
@@ -265,8 +267,6 @@ export default function ExpertTerminal() {
       const liveRateFallback = Number(forexRates[currency]) || 16200;
       if (currency !== 'USD') return liveRateFallback;
       
-      // MENGGUNAKAN MEMORI KONSTAN 5 TAHUN (simHistoryPrices)
-      // Agar kurs riwayat pembelian tidak berubah saat tombol grafik ditekan
       const hist = simHistoryPrices['IDR=X'];
       if (hist && hist.timestamps && hist.timestamps.length > 0) {
           const targetSec = targetTs / 1000;
@@ -320,7 +320,6 @@ export default function ExpertTerminal() {
   const validFirstBuyDate = useMemo(() => {
       const symbolData: Record<string, { firstBuy: number, lastSell: number, currentQty: number }> = {};
 
-      // 1. Baca riwayat transaksi kronologis
       chronologicalTxs.forEach((t: any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
               const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
@@ -343,7 +342,6 @@ export default function ExpertTerminal() {
           }
       });
 
-      // 2. [TAMBAHAN] Baca aset yang diinput manual di awal
       investments.forEach((inv: any) => {
           const parts = (inv.symbol || "").split('|');
           const sym = parts[0].trim().toUpperCase();
@@ -374,7 +372,7 @@ export default function ExpertTerminal() {
       });
 
       return earliestValidTs === Infinity ? new Date() : new Date(earliestValidTs);
-  }, [chronologicalTxs, investments]); // Pastikan 'investments' ditambahkan ke dependency array
+  }, [chronologicalTxs, investments]);
 
   const [expandedSimAsset, setExpandedSimAsset] = useState<string | null>(null);
   const [simParams, setSimParams] = useState<Record<string, any>>({});
@@ -445,18 +443,22 @@ export default function ExpertTerminal() {
   };
 
   const getSimDataForAsset = useCallback((asset: any, params: any) => {
+      if (!params || typeof params.ekspektasiReturn !== 'number' || isNaN(params.ekspektasiReturn)) {
+          return null;
+      }
+      
       const S0 = 100; 
       const mu = params.ekspektasiReturn / 100;
-      const sigma = params.volatilitas / 100;
-      const months = params.horizonWaktu * 12;
+      const sigma = (params.volatilitas || 15) / 100;
+      const months = (params.horizonWaktu || 5) * 12;
       const dt = 1 / 12;
 
       let pricePath = [S0];
       const seededRandom = (seed: number) => {
           let x = Math.sin(seed++) * 10000;
           return x - Math.floor(x);
-      }
-      let seed = asset.symbol.charCodeAt(0) + params.horizonWaktu;
+      };
+      let seed = asset.symbol.charCodeAt(0) + (params.horizonWaktu || 5);
       
       for (let i = 1; i <= months; i++) {
           let u = 0, v = 0;
@@ -470,22 +472,26 @@ export default function ExpertTerminal() {
       }
 
       const chartData = [];
-      let lsShares = params.modalAwal / pricePath[0];
-      let lsModal = params.modalAwal;
+      const modalAwal = params.modalAwal || asset.totalModalIDR || 0;
+      const kontribusiBulanan = params.kontribusiBulanan || 0;
+      const kenaikanSetoran = params.kenaikanSetoran || 0;
 
-      let dcaShares = params.modalAwal / pricePath[0];
-      let dcaModal = params.modalAwal;
+      let lsShares = modalAwal / pricePath[0];
+      let lsModal = modalAwal;
 
-      let vaShares = params.modalAwal / pricePath[0];
-      let vaModal = params.modalAwal;
-      let vaTarget = params.modalAwal;
+      let dcaShares = modalAwal / pricePath[0];
+      let dcaModal = modalAwal;
 
-      chartData.push({ month: 0, LumpSum: params.modalAwal, DCA: params.modalAwal, ValueAveraging: params.modalAwal });
+      let vaShares = modalAwal / pricePath[0];
+      let vaModal = modalAwal;
+      let vaTarget = modalAwal;
+
+      chartData.push({ month: 0, LumpSum: modalAwal, DCA: modalAwal, ValueAveraging: modalAwal });
 
       for (let m = 1; m <= months; m++) {
           const currentPrice = pricePath[m];
           const yearIndex = Math.floor((m-1)/12);
-          const currentMonthlyContrib = params.kontribusiBulanan * Math.pow(1 + (params.kenaikanSetoran/100), yearIndex);
+          const currentMonthlyContrib = kontribusiBulanan * Math.pow(1 + (kenaikanSetoran/100), yearIndex);
 
           const valLS = lsShares * currentPrice;
 
@@ -511,9 +517,9 @@ export default function ExpertTerminal() {
       const finalVA = chartData[months].ValueAveraging;
 
       const strategies = [
-          { name: 'Lump Sum', modal: lsModal, akhir: finalLS, laba: finalLS - lsModal, roi: ((finalLS - lsModal)/lsModal)*100 },
-          { name: 'DCA', modal: dcaModal, akhir: finalDCA, laba: finalDCA - dcaModal, roi: ((finalDCA - dcaModal)/dcaModal)*100 },
-          { name: 'Value Averaging', modal: vaModal, akhir: finalVA, laba: finalVA - vaModal, roi: ((finalVA - vaModal)/vaModal)*100 }
+          { name: 'Lump Sum', modal: lsModal, akhir: finalLS, laba: finalLS - lsModal, roi: lsModal > 0 ? ((finalLS - lsModal)/lsModal)*100 : 0 },
+          { name: 'DCA', modal: dcaModal, akhir: finalDCA, laba: finalDCA - dcaModal, roi: dcaModal > 0 ? ((finalDCA - dcaModal)/dcaModal)*100 : 0 },
+          { name: 'Value Averaging', modal: vaModal, akhir: finalVA, laba: finalVA - vaModal, roi: vaModal > 0 ? ((finalVA - vaModal)/vaModal)*100 : 0 }
       ];
 
       const bestStrategy = strategies.reduce((p, c) => (c.akhir > p.akhir ? c : p));
@@ -599,7 +605,6 @@ export default function ExpertTerminal() {
 
   const totalAssetValue = activePortfolio.reduce((acc: any, p: any) => {
     const livePriceAPI = livePrices[p.activeTicker];
-    // KEMBALIKAN: Hapus * rate karena API backend ternyata sudah otomatis convert ke IDR
     const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
     return acc + liveValuationIDR;
   }, 0);
@@ -684,8 +689,6 @@ export default function ExpertTerminal() {
       activePortfolio.forEach(p => {
           const txNet = txNetQty[p.symbol] || { qty: 0, invested: 0 };
           const setupQty = p.qty - txNet.qty;
-          
-          // Murni selisih absolut, dijamin 100% sama dengan Investment.tsx
           const setupInvested = p.totalModalIDR - txNet.invested; 
           
           if (Math.abs(setupQty) > 0.0001 || Math.abs(setupInvested) > 1) { 
@@ -737,11 +740,10 @@ export default function ExpertTerminal() {
                       qtyMap[sym].qty += qty;
                       qtyMap[sym].investedIDR += realAmountIDR;
                   } else {
-                      // PERBAIKAN TOTAL MODAL: Kurangi berdasarkan rata-rata modal per lot
                       const avgCost = qtyMap[sym].qty > 0 ? (qtyMap[sym].investedIDR / qtyMap[sym].qty) : 0;
                       
                       qtyMap[sym].qty -= qty;
-                      qtyMap[sym].investedIDR -= (qty * avgCost); // Bukan dikurangi realAmountIDR (harga jual)
+                      qtyMap[sym].investedIDR -= (qty * avgCost);
                       
                       if (qtyMap[sym].qty <= 0) {
                           qtyMap[sym].qty = 0;
@@ -759,8 +761,6 @@ export default function ExpertTerminal() {
       
       Object.keys(qtyMap).forEach(sym => {
           const currentAsset = activePortfolio.find((p: any) => p.symbol === sym);
-          
-          // KUNCI PERBAIKAN: Abaikan aset hantu yang sudah dijual atau tidak ada di portofolio aktif
           if (!currentAsset) return;
 
           if (qtyMap[sym].qty > 0) {
@@ -803,7 +803,7 @@ export default function ExpertTerminal() {
       });
       
       return { totalValue: totalVal, investValue: totalInv, details };
-  }, [setupAwalBases, chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate, getHistoricalRate]);
+  }, [setupAwalBases, chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate, getHistoricalRate, simHistoryPrices]);
 
   const availableMonths = useMemo(() => {
       const currentYear = new Date().getFullYear();
@@ -978,14 +978,11 @@ export default function ExpertTerminal() {
                      currentQty[t.parsedSymbol] += t.parsedQty;
                      currentInvestedIDR[t.parsedSymbol] += t.parsedRealAmountIDR;
                  } else {
-                     // [PERBAIKAN] Hitung modal rata-rata sesaat sebelum dijual
                      const currentAvgCost = currentQty[t.parsedSymbol] > 0 
                          ? (currentInvestedIDR[t.parsedSymbol] / currentQty[t.parsedSymbol]) 
                          : 0;
 
                      currentQty[t.parsedSymbol] -= t.parsedQty;
-                     
-                     // Kurangi garis investasi dengan harga modal, bukan uang yang didapat
                      currentInvestedIDR[t.parsedSymbol] -= (t.parsedQty * currentAvgCost);
 
                      if (currentQty[t.parsedSymbol] <= 0) {
@@ -1000,49 +997,49 @@ export default function ExpertTerminal() {
          let dailyInvested = 0;
 
          Object.keys(currentQty).forEach(sym => {
-                     if (currentQty[sym] > 0) {
-                         if (chartAssetFilter !== 'ALL' && sym !== chartAssetFilter) return;
+             if (currentQty[sym] > 0) {
+                 if (chartAssetFilter !== 'ALL' && sym !== chartAssetFilter) return;
 
-                         const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
-                         const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
-                         const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
-                         const livePriceFallback = livePrices[ticker];
-                         const isIntradayView = chartTimeframe === '1D' || chartTimeframe === '1W';
+                 const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
+                 const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
+                 const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
+                 const livePriceFallback = livePrices[ticker];
+                 const isIntradayView = chartTimeframe === '1D' || chartTimeframe === '1W';
 
-                         let price = getPriceForDate(ticker, currentTs);
-                         
-                         if ((!price || price === 0) && livePriceFallback) {
-                             price = livePriceFallback;
-                         }
-                         
-                         if (isIntradayView && (currentTs + stepSize > endTs || !getPriceForDate(ticker, currentTs))) {
-                             price = livePriceFallback || price;
-                         }
+                 let price = getPriceForDate(ticker, currentTs);
+                 
+                 if ((!price || price === 0) && livePriceFallback) {
+                     price = livePriceFallback;
+                 }
+                 
+                 if (isIntradayView && (currentTs + stepSize > endTs || !getPriceForDate(ticker, currentTs))) {
+                     price = livePriceFallback || price;
+                 }
 
-                         if (!price || isNaN(price) || price === 0) {
-                             price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier);
-                         }
+                 if (!price || isNaN(price) || price === 0) {
+                     price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier);
+                 }
 
-                         if (isNaN(price) || !isFinite(price)) price = 0;
+                 if (isNaN(price) || !isFinite(price)) price = 0;
 
-                         let val = currentQty[sym] * price * multiplier;
-                         if (isNaN(val) || !isFinite(val)) val = 0;
+                 let val = currentQty[sym] * price * multiplier;
+                 if (isNaN(val) || !isFinite(val)) val = 0;
 
-                         let invested = currentInvestedIDR[sym];
-                         if (isNaN(invested) || !isFinite(invested)) invested = 0;
+                 let invested = currentInvestedIDR[sym];
+                 if (isNaN(invested) || !isFinite(invested)) invested = 0;
 
-                         dailyValuation += val;
-                         dailyInvested += invested;
+                 dailyValuation += val;
+                 dailyInvested += invested;
 
-                         const divs = dividendEvents[ticker] || [];
-                         divs.forEach((d: any) => {
-                             const divTsMs = d.date * 1000;
-                             if (divTsMs > currentTs && divTsMs <= (currentTs + stepSize)) {
-                                 cumulativeDividend += (d.amount * currentQty[sym] * multiplier);
-                             }
-                         });
+                 const divs = dividendEvents[ticker] || [];
+                 divs.forEach((d: any) => {
+                     const divTsMs = d.date * 1000;
+                     if (divTsMs > currentTs && divTsMs <= (currentTs + stepSize)) {
+                         cumulativeDividend += (d.amount * currentQty[sym] * multiplier);
                      }
                  });
+             }
+         });
                  
          dailyData.push({
              name: dateLabel,
@@ -1056,6 +1053,31 @@ export default function ExpertTerminal() {
 
      return dailyData;
   }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices, chartAssetFilter, getHistoricalRate, dividendEvents]); 
+
+  // Isolated Y-Domain calculation to prevent Recharts rendering loops and crashes
+  const chartYDomain = useMemo(() => {
+      if (!chartDataDaily || chartDataDaily.length === 0) return [0, 100];
+      
+      let min = Infinity, max = -Infinity;
+      chartDataDaily.forEach((d: any) => {
+          const vals: number[] = [];
+          if (chartLineFilter === 'ALL' || chartLineFilter === 'MARKET_VALUE') vals.push(d.Total);
+          if (chartLineFilter === 'ALL' || chartLineFilter === 'MODAL') vals.push(d.Investasi);
+          if (chartLineFilter === 'DIVIDEND') vals.push(d.Dividend);
+          
+          vals.forEach(v => {
+              if (typeof v === 'number' && !isNaN(v)) {
+                  if (v > 0 && v < min) min = v;
+                  if (v > max) max = v;
+              }
+          });
+      });
+      
+      if (min === Infinity || max === -Infinity) return [0, 100];
+      if (min === max) return [min * 0.98, max * 1.02];
+      
+      return [Math.max(0, min - (max - min) * 0.15), max + (max - min) * 0.15];
+  }, [chartDataDaily, chartLineFilter]);
 
   const handleTerminalLogin = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -1146,11 +1168,9 @@ export default function ExpertTerminal() {
               }
           `}} />
           <div className="flex h-screen bg-[#000000] terminal-grid items-center justify-center p-4 font-mono text-[#E4E4E7] relative overflow-hidden">
-            
               <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[size:100%_4px,3px_100%] z-50"></div>
  
               <div className="bg-[#050505] border-2 border-[#27272A] p-8 max-w-md w-full shadow-[0_0_40px_rgba(0,255,65,0.05)] relative z-10 before:content-[''] before:absolute before:top-0 before:left-0 before:w-full before:h-[2px] before:bg-[#00FF41]">
-                
                   <div className="absolute top-2 left-2 text-[8px] text-[#333] font-bold">SYS.LOG // B_CORE_V2</div>
                   <div className="absolute top-2 right-2 text-[8px] text-[#00FF41] font-bold animate-pulse">● SECURE</div>
 
@@ -1296,7 +1316,7 @@ export default function ExpertTerminal() {
                        value={tempTicker} 
                        onChange={e => setTempTicker(e.target.value)}
                        placeholder="Cth: ANTM.JK / BTC-USD"
-                       className="w-full bg-[#00] border border-[#333] px-4 py-3 text-white font-mono outline-none focus:border-[#FFD700] uppercase transition-colors"
+                       className="w-full bg-[#000000] border border-[#333] px-4 py-3 text-white font-mono outline-none focus:border-[#FFD700] uppercase transition-colors"
                    />
                 </div>
                 <button onClick={saveTickerOverride} className="w-full bg-[#FFD700] hover:bg-[#CCAA00] text-black font-black tracking-[0.15em] py-3 transition-all active:scale-95 uppercase">
@@ -1316,7 +1336,7 @@ export default function ExpertTerminal() {
                 <h2 className="text-xl font-black text-white mb-1 uppercase tracking-tight">Audit Kalkulasi API</h2>
                 <p className="text-xs text-[#A1A1AA] mb-6 uppercase tracking-wider">Aset: <b className="text-white">{assetDetailModal.symbol}</b></p>
                 
-                <div className="space-y-4 bg-[#00] p-5 border border-[#222]">
+                <div className="space-y-4 bg-[#000000] p-5 border border-[#222]">
                     <div className="flex justify-between items-center border-b border-[#222] pb-3">
                         <span className="text-[#A1A1AA] text-[10px] font-bold uppercase tracking-[0.15em]">Ticker Target</span>
                         <div className="flex items-center gap-2">
@@ -1597,9 +1617,7 @@ export default function ExpertTerminal() {
                                     if (assetSnap.qty === 0) return <td key={p.symbol} className="px-6 py-4 text-[#555] text-center">-</td>;
                                     
                                     const plAmount = assetSnap.valuasi - assetSnap.invested;
-                                    // ==================== FIX 2 DI SINI ====================
                                     const plPct = assetSnap.invested > 0 ? (plAmount / assetSnap.invested) : 0;
-                                    // =======================================================
                                     return (
                                         <td key={p.symbol} className={`px-6 py-4 ${plAmount >= 0 ? 'text-[#00FF41]' : 'text-[#FF003C]'}`}>
                                             <div className="font-bold">{maskRp(plAmount)}</div>
@@ -1662,9 +1680,7 @@ export default function ExpertTerminal() {
                                     if (assetSnap.qty === 0) return <td key={`yr-${y}-${p.symbol}`} className="px-6 py-4 text-[#555] text-center">-</td>;
                                     
                                     const plAmount = assetSnap.valuasi - assetSnap.invested;
-                                    // ==================== FIX 2 DI SINI ====================
                                     const plPct = assetSnap.invested > 0 ? (plAmount / assetSnap.invested) : 0;
-                                    // =======================================================
                                     return (
                                         <td key={`yr-${y}-${p.symbol}`} className={`px-6 py-4 ${plAmount >= 0 ? 'text-[#00FF41]' : 'text-[#FF003C]'}`}>
                                             <div className="font-bold">{maskRp(plAmount)}</div>
@@ -1727,44 +1743,8 @@ export default function ExpertTerminal() {
                        <ResponsiveContainer width="100%" height="100%">
                           <ComposedChart data={chartDataDaily} margin={{ top: 20, right: 30, left: 10, bottom: 5 }}>
                              <XAxis dataKey="name" stroke="#64748B" fontSize={10} fontFamily="JetBrains Mono" tickLine={false} axisLine={false} minTickGap={40} />
-                             {/* ==================== FIX 1 DI SINI ==================== */}
                              <YAxis 
-                                domain={[
-                                  () => {
-                                    let min = Infinity, max = -Infinity;
-                                    chartDataDaily.forEach((d: any) => {
-                                       const vals = [];
-                                       if (chartLineFilter === 'ALL' || chartLineFilter === 'MARKET_VALUE') vals.push(d.Total);
-                                       if (chartLineFilter === 'ALL' || chartLineFilter === 'MODAL') vals.push(d.Investasi);
-                                       if (chartLineFilter === 'DIVIDEND') vals.push(d.Dividend);
-                                       
-                                       vals.forEach(v => {
-                                          if (v > 0 && v < min) min = v;
-                                          if (v > max) max = v;
-                                       });
-                                    });
-                                    if (min === Infinity) return 0;
-                                    if (min === max) return min * 0.98;
-                                    return Math.max(0, min - (max - min) * 0.15); // Auto-zoom batas bawah dengan 15% ruang kosong
-                                  },
-                                  () => {
-                                    let min = Infinity, max = -Infinity;
-                                    chartDataDaily.forEach((d: any) => {
-                                       const vals = [];
-                                       if (chartLineFilter === 'ALL' || chartLineFilter === 'MARKET_VALUE') vals.push(d.Total);
-                                       if (chartLineFilter === 'ALL' || chartLineFilter === 'MODAL') vals.push(d.Investasi);
-                                       if (chartLineFilter === 'DIVIDEND') vals.push(d.Dividend);
-                                       
-                                       vals.forEach(v => {
-                                          if (v > 0 && v < min) min = v;
-                                          if (v > max) max = v;
-                                       });
-                                    });
-                                    if (max === -Infinity) return 100;
-                                    if (min === max) return max * 1.02;
-                                    return max + (max - min) * 0.15; // Auto-zoom batas atas dengan 15% ruang kosong
-                                  }
-                                ]} 
+                                domain={chartYDomain}
                                 allowDataOverflow={true}
                                 stroke="#64748B" 
                                 fontSize={10} 
@@ -1774,7 +1754,6 @@ export default function ExpertTerminal() {
                                 tickFormatter={(val) => showProfit ? `Rp${(val/1000000).toFixed(1)}M` : `•••`} 
                                 orientation="right" 
                              />
-                             {/* ======================================================= */}
                              <Tooltip 
                                 formatter={(val: number, name: string) => [maskRp(val), name === 'Total' ? 'Nilai Portofolio (Market)' : name]} 
                                 contentStyle={{backgroundColor: '#000', borderColor: '#333', borderRadius: '0', color: '#fff', fontFamily: 'JetBrains Mono'}} 
@@ -1910,11 +1889,11 @@ export default function ExpertTerminal() {
 
                                  <div className="z-10 w-full bg-[#111] p-5 border border-[#222]">
                                      <div className="flex justify-between text-[10px] font-bold uppercase tracking-[0.15em] text-[#888] mb-3">
-                                         <span>Pencapaian Saat Ini ({Math.min((totalAssetValue / grandTotalSimulation.totalAkhir) * 100, 100).toFixed(2)}%)</span>
+                                         <span>Pencapaian Saat Ini ({Math.min((totalAssetValue / (grandTotalSimulation.totalAkhir || 1)) * 100, 100).toFixed(2)}%)</span>
                                          <span className="text-[#00FF41] font-mono tracking-normal">{maskRp(totalAssetValue)} <span className="text-[#555]">/ {maskRp(grandTotalSimulation.totalAkhir)}</span></span>
                                      </div>
                                      <div className="w-full h-2.5 bg-[#000] rounded-full overflow-hidden border border-[#333]">
-                                         <div className="h-full bg-[#00FF41] transition-all duration-1000 shadow-[0_0_10px_#00FF41]" style={{ width: `${Math.min((totalAssetValue / grandTotalSimulation.totalAkhir) * 100, 100)}%` }}></div>
+                                         <div className="h-full bg-[#00FF41] transition-all duration-1000 shadow-[0_0_10px_#00FF41]" style={{ width: `${Math.min((totalAssetValue / (grandTotalSimulation.totalAkhir || 1)) * 100, 100)}%` }}></div>
                                      </div>
                                  </div>
 
@@ -1950,7 +1929,15 @@ export default function ExpertTerminal() {
                          <div className="space-y-4">
                              {activePortfolio.map((asset: any) => {
                                  const isExpanded = expandedSimAsset === asset.symbol;
-                                 const params = simParams[asset.symbol] || {};
+                                 const params = simParams[asset.symbol] || {
+                                     modalAwal: asset.totalModalIDR || 0,
+                                     kontribusiBulanan: 1000000,
+                                     horizonWaktu: 5,
+                                     kenaikanSetoran: 10,
+                                     ekspektasiReturn: 12,
+                                     volatilitas: 15,
+                                     _isReady: false
+                                 };
                                  const currentSimData = isExpanded ? getSimDataForAsset(asset, params) : null;
                                  
                                  return (
@@ -1970,7 +1957,7 @@ export default function ExpertTerminal() {
                                                      </div>
                                                      <div>
                                                          <p className="text-[9px] text-[#A1A1AA] font-bold uppercase tracking-[0.2em] mb-1">Base Modal</p>
-                                                         <p className="font-mono text-sm text-[#00FF41]">{formatRp(params.modalAwal || asset.totalModalIDR)}</p>
+                                                         <p className="font-mono text-sm text-[#00FF41]">{formatRp(params.modalAwal ?? asset.totalModalIDR)}</p>
                                                      </div>
                                                      <div>
                                                          <p className="text-[9px] text-[#A1A1AA] font-bold uppercase tracking-[0.2em] mb-1">Horizon Target</p>
@@ -1992,7 +1979,7 @@ export default function ExpertTerminal() {
                                          {isExpanded && currentSimData && (
                                              <div className="p-6 border-t border-[#222] bg-[#050505] flex flex-col xl:flex-row gap-8">
                                                  <div className="flex-1 space-y-6">
-                                                     <div className="h-[300px] w-full bg-[#000] border border-[#222] p-4 relative">
+                                                     <div className="h-[300px] w-full bg-[#000000] border border-[#222] p-4 relative">
                                                         <div className="absolute top-4 left-4 z-10">
                                                             <h4 className="text-[10px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Proyeksi Ekstrapolasi Harga (IDR)</h4>
                                                         </div>
@@ -2014,7 +2001,7 @@ export default function ExpertTerminal() {
                                                         </ResponsiveContainer>
                                                      </div>
 
-                                                     <div className="bg-[#000] border border-[#222]">
+                                                     <div className="bg-[#000000] border border-[#222]">
                                                         <table className="w-full text-left">
                                                             <thead className="bg-[#111] text-[#A1A1AA] font-bold uppercase tracking-[0.15em] text-[9px] border-b border-[#333]">
                                                                 <tr>
@@ -2050,7 +2037,7 @@ export default function ExpertTerminal() {
                                                      </div>
                                                  </div>
 
-                                                 <div className="w-full xl:w-80 bg-[#000] border border-[#222] p-6 flex flex-col gap-6">
+                                                 <div className="w-full xl:w-80 bg-[#000000] border border-[#222] p-6 flex flex-col gap-6">
                                                      <h3 className="font-black text-white text-sm uppercase tracking-widest border-b border-[#222] pb-3">Parameter Tuning</h3>
                                                      
                                                      <div className="flex justify-between items-center bg-[#111] border border-[#222] p-3 rounded-sm">
@@ -2072,14 +2059,14 @@ export default function ExpertTerminal() {
                                                              <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Modal Awal (IDR)</label>
                                                              <input 
                                                                  type="number" 
-                                                                 value={params.modalAwal} 
+                                                                 value={params.modalAwal ?? 0} 
                                                                  onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, modalAwal: Number(e.target.value)}})}
                                                                  className="bg-[#111] border border-[#333] text-[#00FF41] text-[10px] font-mono p-1.5 rounded outline-none text-right w-28 appearance-none focus:border-[#00FF41] transition-colors"
                                                              />
                                                          </div>
                                                          <input 
-                                                             type="range" min={0} max={Math.max(params.modalAwal * 2, 50000000)} step={100000}
-                                                             value={params.modalAwal} 
+                                                             type="range" min={0} max={Math.max((params.modalAwal || 0) * 2, 50000000)} step={100000}
+                                                             value={params.modalAwal ?? 0} 
                                                              onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, modalAwal: Number(e.target.value)}})}
                                                              className="w-full accent-[#00FF41]"
                                                          />
@@ -2090,14 +2077,14 @@ export default function ExpertTerminal() {
                                                              <label className="text-[9px] font-bold text-[#A1A1AA] uppercase tracking-[0.15em]">Suntikan/Bulan</label>
                                                              <input 
                                                                  type="number" 
-                                                                 value={params.kontribusiBulanan} 
+                                                                 value={params.kontribusiBulanan ?? 0} 
                                                                  onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, kontribusiBulanan: Number(e.target.value)}})}
                                                                  className="bg-[#111] border border-[#333] text-[#00E5FF] text-[10px] font-mono p-1.5 rounded outline-none text-right w-28 appearance-none focus:border-[#00E5FF] transition-colors"
                                                              />
                                                          </div>
                                                          <input 
-                                                             type="range" min={0} max={Math.max(params.kontribusiBulanan * 3, 50000000)} step={100000}
-                                                             value={params.kontribusiBulanan} 
+                                                             type="range" min={0} max={Math.max((params.kontribusiBulanan || 0) * 3, 50000000)} step={100000}
+                                                             value={params.kontribusiBulanan ?? 0} 
                                                              onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, kontribusiBulanan: Number(e.target.value)}})}
                                                              className="w-full accent-[#00E5FF]"
                                                          />
@@ -2109,7 +2096,7 @@ export default function ExpertTerminal() {
                                                              <div className="relative">
                                                                 <input 
                                                                     type="number" 
-                                                                    value={params.horizonWaktu} 
+                                                                    value={params.horizonWaktu ?? 5} 
                                                                     onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, horizonWaktu: Number(e.target.value)}})}
                                                                     className="bg-[#111] border border-[#333] text-white text-[10px] font-mono p-1.5 pr-6 rounded outline-none text-right w-16 appearance-none focus:border-white transition-colors"
                                                                 />
@@ -2118,7 +2105,7 @@ export default function ExpertTerminal() {
                                                          </div>
                                                          <input 
                                                              type="range" min={1} max={30} step={1}
-                                                             value={params.horizonWaktu} 
+                                                             value={params.horizonWaktu ?? 5} 
                                                              onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, horizonWaktu: Number(e.target.value)}})}
                                                              className="w-full accent-white"
                                                          />
@@ -2130,7 +2117,7 @@ export default function ExpertTerminal() {
                                                              <div className="relative">
                                                                 <input 
                                                                     type="number" 
-                                                                    value={params.kenaikanSetoran} 
+                                                                    value={params.kenaikanSetoran ?? 10} 
                                                                     onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, kenaikanSetoran: Number(e.target.value)}})}
                                                                     className="bg-[#111] border border-[#333] text-[#B500FF] text-[10px] font-mono p-1.5 pr-4 rounded outline-none text-right w-16 appearance-none focus:border-[#B500FF] transition-colors"
                                                                 />
@@ -2139,7 +2126,7 @@ export default function ExpertTerminal() {
                                                          </div>
                                                          <input 
                                                              type="range" min={0} max={50} step={1}
-                                                             value={params.kenaikanSetoran} 
+                                                             value={params.kenaikanSetoran ?? 10} 
                                                              onChange={(e) => setSimParams({...simParams, [asset.symbol]: {...params, kenaikanSetoran: Number(e.target.value)}})}
                                                              className="w-full accent-[#B500FF]"
                                                          />
