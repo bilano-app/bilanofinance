@@ -282,12 +282,17 @@ export default function Onboarding() {
     }, 300);
   };
 
-  // 🎫 SISTEM VALIDASI VOUCHER
+ // 🎫 SISTEM VALIDASI VOUCHER
   const handleApplyVoucher = () => {
     if (voucherCode.toUpperCase() === "PRAPUBLIK") {
-      setDiscountPercent(20);
-      setVoucherMessage("✅ Voucher Valid: Diskon 20% Diterapkan!");
-      setPaymentMethod("FREE");
+      if (selectedPlan === "year") {
+        setDiscountPercent(20);
+        setVoucherMessage("✅ Voucher Valid: Diskon 20% Diterapkan!");
+        // Jangan set metode pembayaran ke "FREE" karena pengguna masih harus bayar sisa 80%
+      } else {
+        setDiscountPercent(0);
+        setVoucherMessage("❌ Voucher PRAPUBLIK hanya berlaku untuk Paket Setahun.");
+      }
     } else {
       setDiscountPercent(0);
       setVoucherMessage("❌ Kode voucher tidak ditemukan atau kadaluarsa.");
@@ -303,8 +308,10 @@ export default function Onboarding() {
     }
 
     setLoading(true);
-    const price = selectedPlan === 'year' ? 99000 : 14900;
-    const finalPrice = discountPercent === 100 ? 0 : price;
+    
+    // 🔥 PERBAIKAN KALKULASI MATEMATIKA DISKON
+    const basePrice = selectedPlan === 'year' ? 99000 : 14900;
+    const finalPrice = basePrice - (basePrice * discountPercent) / 100;
 
     localStorage.setItem('bilano_pending_checkout', JSON.stringify({
       name: formData.name,
@@ -320,6 +327,7 @@ export default function Onboarding() {
     // BYPASS KE API KLIK DATA PREMIUM JIKA HARGA 0 (VOUCHER 100%)
     if (finalPrice === 0) {
       try {
+// ... (Sisa kode di bawahnya biarkan tetap sama)
         const response = await fetch('/api/payment/claim-account', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -871,9 +879,13 @@ export default function Onboarding() {
 
               {/* 🟢 INFO HARGA JIKA VOUCHER DISKON AKTIF */}
               {discountPercent > 0 && (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex justify-between items-center text-xs">
-                   <span className="text-emerald-400 font-bold">Total Setelah Potongan:</span>
-                   <span className="text-base font-black text-emerald-400">Rp 0 (GRATIS)</span>
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex justify-between items-center text-xs mt-2 mb-2">
+                   <span className="text-emerald-400 font-bold">Total Setelah Potongan ({discountPercent}%):</span>
+                   <span className="text-base font-black text-emerald-400">
+                     {discountPercent === 100 
+                       ? "Rp 0 (GRATIS)" 
+                       : `Rp ${((selectedPlan === 'year' ? 99000 : 14900) * (1 - discountPercent / 100)).toLocaleString('id-ID')}`}
+                   </span>
                 </div>
               )}
 
