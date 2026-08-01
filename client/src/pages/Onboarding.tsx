@@ -241,31 +241,51 @@ export default function Onboarding() {
     }
   }, []);
 
+  // Tangkap event PWA ke state lokal dan objek window global
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
+    // Cek apakah prompt sudah tertangkap sebelumnya di global window
+    if ((window as any).deferredPwaPrompt) {
+      setDeferredPrompt((window as any).deferredPwaPrompt);
+    }
+
     const handler = (e: any) => {
       e.preventDefault(); 
-      setDeferredPrompt(e); 
+      setDeferredPrompt(e);
+      // Simpan juga ke window agar tidak hilang saat transisi step
+      (window as any).deferredPwaPrompt = e; 
     };
+    
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
+  }, [step]); // Render ulang deteksi setiap kali pindah step
 
   const handlePwaInstall = async () => {
     trackEvent("pwa_install_prompted");
     
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
+    // Gunakan state atau ambil paksa dari global window
+    const promptEvent = deferredPrompt || (window as any).deferredPwaPrompt;
+    
+    if (promptEvent) {
+      // ✅ JIKA LANCAR: Munculkan pop-up instalasi otomatis bawaan Google/Sistem
+      promptEvent.prompt();
+      const { outcome } = await promptEvent.userChoice;
+      
       if (outcome === 'accepted') {
         trackEvent("pwa_install_accepted");
+        // Reset prompt setelah dipakai
+        setDeferredPrompt(null);
+        (window as any).deferredPwaPrompt = null;
+        
+        // Pindah ke halaman Auth setelah sukses install
         setTimeout(() => setLocation('/auth'), 1500); 
       } else {
         trackEvent("pwa_install_dismissed");
       }
-      setDeferredPrompt(null);
     } else {
+      // ❌ JIKA ADA KENDALA (Browser tidak support, mode incognito, atau sudah di-install)
+      // Barulah kita munculkan pop-up manual
       setShowManualInstall(true);
       trackEvent("pwa_manual_install_viewed");
     }
@@ -640,7 +660,7 @@ export default function Onboarding() {
               className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
             >
               <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
-              SAYA SUDAH SIMPAN & INSTALL PWA
+              INSTALL APLIKASI SEKARANG
             </button>
             
             {/* 🛠️ LINK MENUJU PANDUAN KENDALA INSTALASI */}
