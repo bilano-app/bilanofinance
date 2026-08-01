@@ -284,9 +284,9 @@ export default function Onboarding() {
 
   // 🎫 SISTEM VALIDASI VOUCHER
   const handleApplyVoucher = () => {
-    if (voucherCode.toUpperCase() === "ADR14") {
-      setDiscountPercent(100);
-      setVoucherMessage("✅ Voucher Valid: Diskon 100% Diterapkan!");
+    if (voucherCode.toUpperCase() === "PRAPUBLIK") {
+      setDiscountPercent(80);
+      setVoucherMessage("✅ Voucher Valid: Diskon 80% Diterapkan!");
       setPaymentMethod("FREE");
     } else {
       setDiscountPercent(0);
@@ -851,7 +851,7 @@ export default function Onboarding() {
                     type="text" 
                     value={voucherCode}
                     onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                    placeholder="Contoh: ADR14" 
+                    placeholder="KODE VOUCHER" 
                     className="flex-1 bg-[#040814] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 uppercase tracking-wider"
                   />
                   <button 
