@@ -285,8 +285,8 @@ export default function Onboarding() {
   // 🎫 SISTEM VALIDASI VOUCHER
   const handleApplyVoucher = () => {
     if (voucherCode.toUpperCase() === "PRAPUBLIK") {
-      setDiscountPercent(80);
-      setVoucherMessage("✅ Voucher Valid: Diskon 80% Diterapkan!");
+      setDiscountPercent(20);
+      setVoucherMessage("✅ Voucher Valid: Diskon 20% Diterapkan!");
       setPaymentMethod("FREE");
     } else {
       setDiscountPercent(0);
