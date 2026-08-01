@@ -132,9 +132,13 @@ export default function Subscriptions() {
   const activeSubs = subs.filter((s: Subscription) => s.isActive);
   const inactiveSubs = subs.filter((s: Subscription) => !s.isActive);
 
-  const totalMonthly = activeSubs.reduce((acc: number, curr: Subscription) => {
+  const totalMonthly = activeSubs.reduce((acc: number, curr: any) => {
       if (curr.category === 'dinamis') return acc;
-      return acc + (curr.cycle === 'yearly' ? curr.price / 12 : curr.price);
+      
+      // 🔥 FIX 1: Paksa konversi ke Number dan cek properti price atau cost
+      const nominal = Number(curr.price || curr.cost || 0);
+      
+      return acc + (curr.cycle === 'yearly' ? nominal / 12 : nominal);
   }, 0);
 
   const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
@@ -209,15 +213,23 @@ export default function Subscriptions() {
             <h3 className="font-extrabold text-slate-800 text-sm px-1 mb-1">Tagihan Aktif</h3>
             {activeSubs.length === 0 && <div className="text-center py-8 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200 shadow-sm text-sm font-medium">Belum ada layanan aktif.</div>}
             
-            {activeSubs.map((sub: Subscription) => (
+            {activeSubs.map((sub: any) => {
+                // 🔥 FIX 2: Amankan variabel nominal dan penanggalan dari Backend
+                const nominal = Number(sub.price || sub.cost || 0);
+                const rawDate = sub.nextPaymentDate || sub.nextBilling || sub.next_payment_date;
+                const validDate = rawDate ? new Date(rawDate) : new Date();
+
+                return (
                 <div key={sub.id} className="bg-white p-5 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 flex justify-between items-center transition-all hover:shadow-md">
                     <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center font-extrabold text-lg border ${sub.category === 'dinamis' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>
-                            {sub.category === 'dinamis' ? <Zap className="w-5 h-5"/> : sub.name[0].toUpperCase()}
+                            {sub.category === 'dinamis' ? <Zap className="w-5 h-5"/> : (sub.name?.[0]?.toUpperCase() || '-')}
                         </div>
                         <div>
                             <h4 className="font-extrabold text-slate-800 text-base">{sub.name}</h4>
-                            <p className="text-[11px] font-bold text-slate-400 mt-0.5 flex items-center gap-1"><Calendar className="w-3 h-3"/> Tempo: {new Date(sub.nextPaymentDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</p>
+                            <p className="text-[11px] font-bold text-slate-400 mt-0.5 flex items-center gap-1">
+                                <Calendar className="w-3 h-3"/> Tempo: {validDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                            </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -226,7 +238,7 @@ export default function Subscriptions() {
                                 <p className="font-extrabold text-orange-500 text-[11px] uppercase tracking-wider">Berubah-ubah</p>
                             ) : (
                                 <>
-                                    <p className="font-extrabold text-slate-800 text-sm">{formatRp(sub.price)}</p>
+                                    <p className="font-extrabold text-slate-800 text-sm">{formatRp(nominal)}</p>
                                     <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">/{sub.cycle === 'monthly' ? 'Bulan' : 'Tahun'}</p>
                                 </>
                             )}
@@ -235,8 +247,9 @@ export default function Subscriptions() {
                         <button onClick={() => toggleStatus(sub.id, true)} className="p-2.5 bg-slate-100 text-slate-500 rounded-[14px] hover:bg-slate-200 transition-colors" title="Non-aktifkan Sementara"><Power className="w-4 h-4"/></button>
                     </div>
                 </div>
-            ))}
-        </div>
+                );
+            })}
+        </div>    
 
         {inactiveSubs.length > 0 && (
             <div className="space-y-3 pt-4 border-t border-slate-100">
