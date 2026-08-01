@@ -173,12 +173,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (e: any) { res.status(500).json({ error: "Gagal Update DB: " + e.message }); }
   });
 
-  // =========================================================================
+// =========================================================================
   // 🚀 AKTIVASI AKUN & PENANAMAN STATUS KUNCI HARGA
   // =========================================================================
-  // =========================================================================
-// 🚀 AKTIVASI AKUN & PENANAMAN STATUS KUNCI HARGA
-// =========================================================================
   app.post("/api/payment/claim-account", async (req: any, res: any) => {
       const { email, name, plan, amount } = req.body;
       if (!email) return res.status(400).json({ error: "Email wajib diisi." });
@@ -198,9 +195,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               validUntil.setDate(validUntil.getDate() + 30);
           }
 
-        // 🔥 FIX: Konversi ke ISO String di luar query SQL untuk mencegah eror runtime prototype function
-          const validUntilStr = validUntil.toISOString();
-
           const fallbackPrice = (plan === 'year' || plan === 'yearly') ? 99000 : 14900;
           const finalPrice = amount ? parseInt(amount) : fallbackPrice;
           const planKey = (plan === 'year' || plan === 'yearly') ? 'year' : 'month';
@@ -210,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await db.execute(sql`
                   UPDATE users 
                   SET is_pro = true, 
-                      pro_valid_until = ${validUntilStr}, 
+                      pro_valid_until = ${validUntil}, 
                       password = ${tempCode},
                       is_custom_password_set = false,
                       locked_plan = ${planKey},
@@ -226,10 +220,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   lastName: lastName,
                   cashBalance: 0,
                   isPro: true,
-                  proValidUntil: validUntilStr,
+                  proValidUntil: validUntil,
                   lockedPlan: planKey,
                   lockedPrice: finalPrice
               } as any);
+          }
+
+          // 🔥 SINKRONISASI KE FIREBASE AUTH AGAR TIDAK BENTROK
+          if (firebaseAdminInitialized) {
+              try {
+                  const fbUser = await admin.auth().getUserByEmail(cleanEmail);
+                  await admin.auth().updateUser(fbUser.uid, { password: tempCode });
+              } catch (fbErr: any) {
+                  if (fbErr.code === 'auth/user-not-found') {
+                      await admin.auth().createUser({
+                          email: cleanEmail,
+                          password: tempCode,
+                          displayName: name || firstName
+                      });
+                  }
+              }
           }
 
           res.json({ success: true, tempCode });

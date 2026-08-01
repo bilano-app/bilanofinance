@@ -78,45 +78,45 @@ export default function Auth() {
     setLoading(true);
 
     try {
-        let emailExists = false;
-        let adminReady = false;
+        // 1. Verifikasi login langsung ke Backend Database Bilano
+        const checkRes = await fetch("/api/auth/login-with-code", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: cleanEmail, password: password })
+        });
 
-        // Cek ke backend apakah email sudah langganan/terdaftar
-        try {
-            const checkRes = await fetch("/api/auth/check-email", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: cleanEmail })
-            });
-            if (checkRes.ok) {
-                const checkData = await checkRes.json();
-                emailExists = checkData.exists;
-                adminReady = checkData.adminReady;
-            }
-        } catch (e) {}
+        const checkData = await checkRes.json();
 
-        // JIKA BELUM TERDAFTAR (Berarti belum bayar)
-        if (adminReady && !emailExists) {
+        // JIKA AKUN BELUM TERDAFTAR / BELUM BERLANGGANAN (Status 454)
+        if (checkRes.status === 454) {
             setAuthError("Email ini belum berlangganan BILANO.");
             setShowPaywallRedirect(true);
             setLoading(false);
             return;
         }
 
-        // LOGIN FIREBASE: Pengguna lama pakai password, Pengguna baru otomatis pakai 6 digit
-        const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
-        await handleSuccess(cred.user);
+        // JIKA LOGIN DI DATABASE BERHASIL
+        if (checkRes.ok && checkData.success) {
+            // Coba sinkronkan sesi Firebase jika ada, lalu lanjutkan masuk
+            try {
+                const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+                await handleSuccess(cred.user);
+            } catch (fbErr) {
+                // Jika Firebase Auth belum tersinkron, tetap izinkan masuk via DB Bilano
+                await handleSuccess({ email: cleanEmail } as any);
+            }
+            return;
+        }
+
+        // JIKA KODE AKSES / PASSWORD SALAH
+        if (!checkRes.ok) {
+            setAuthError(checkData.error || "Password atau Kode Akses salah. Silakan coba lagi.");
+            setLoading(false);
+            return;
+        }
         
     } catch (error: any) {
-        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            setAuthError("Password atau Kode Akses salah. Silakan coba lagi.");
-        } else if (error.code === 'auth/user-not-found') {
-            setAuthError("Akun belum terdaftar.");
-            setShowPaywallRedirect(true);
-        } else if (error.code === 'auth/invalid-email') {
-            setAuthError("Format email tidak valid. Pastikan tidak ada spasi.");
-        } else {
-            setAuthError(error.message || "Gagal melakukan autentikasi.");
-        }
+        setAuthError("Gagal terhubung ke server autentikasi. Periksa koneksi Anda.");
         setLoading(false);
     } 
   };
