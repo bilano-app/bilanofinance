@@ -164,16 +164,34 @@ export default function Auth() {
                   <p className="text-xs text-slate-600 font-medium leading-relaxed">
                       Email <span className="font-bold text-slate-800">{email}</span> belum memiliki akses premium BILANO.
                   </p>
-                  <Button 
+                
+                  <button 
                       type="button"
                       onClick={() => {
-                        // Menggunakan window.open dengan target _blank untuk memaksa keluar dari sandbox PWA ke browser utama
-                          window.open('https://bilano.app/onboarding', '_blank');
+                          const targetUrl = 'https://bilano.app/onboarding';
+                        
+                        // Trik 1: Gunakan Google Redirect URL untuk menipu PWA Scope.
+                        // Karena domain mengarah ke google.com, PWA TERPAKSA melemparkannya ke browser utama (Chrome/Safari)
+                          const googleRedirectUrl = `https://www.google.com/url?q=${encodeURIComponent(targetUrl)}`;
+                        
+                        // Trik 2: Eksekusi menggunakan detasemen window.open khusus browser luar
+                          const externalWindow = window.open(googleRedirectUrl, '_system');
+                        
+                        // Fallback jika pop-up diblokir: paksa lewat link dengan rel khusus di luar PWA window
+                          if (!externalWindow) {
+                              const shadowLink = document.createElement('a');
+                              shadowLink.href = googleRedirectUrl;
+                              shadowLink.target = '_blank';
+                              shadowLink.rel = 'noopener noreferrer external';
+                              document.body.appendChild(shadowLink);
+                              shadowLink.click();
+                              document.body.removeChild(shadowLink);
+                          }
                       }}
-                      className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold h-10 mt-2"
+                      className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold h-10 mt-2 rounded-xl flex items-center justify-center text-sm shadow-md transition-all active:scale-[0.98]"
                   >
                       DAFTAR & LANGGANAN
-                  </Button>
+                  </button>
               </div>
           )}
 
