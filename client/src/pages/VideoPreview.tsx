@@ -7,10 +7,10 @@ export default function VideoPreview() {
   const [countdown, setCountdown] = useState(5);
   const [canSkip, setSkip] = useState(false);
   
-  // State untuk timer durasi video (kanan atas)
+  // Sisa durasi video (kanan atas)
   const [timeLeft, setTimeLeft] = useState(0);
 
-  // Wajib true di awal agar fitur autoplay tidak diblokir browser
+  // Dikembalikan ke true agar autoplay aman jaya sentosa tanpa diblokir browser
   const [isMuted, setIsMuted] = useState(true); 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -28,19 +28,19 @@ export default function VideoPreview() {
     setLocation('/onboarding');
   };
 
-  // ⏱️ Fungsi untuk mengambil total durasi video saat pertama kali dimuat
+  // ⏱️ Mengambil total durasi video saat pertama kali dimuat
   const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
     setTimeLeft(e.currentTarget.duration);
   };
 
-  // ⏱️ Fungsi untuk mengupdate sisa waktu setiap kali video berputar
+  // ⏱️ Mengupdate sisa waktu secara real-time
   const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
     const video = e.currentTarget;
     const remaining = Math.max(0, video.duration - video.currentTime);
     setTimeLeft(remaining);
   };
 
-  // 🛠️ Konversi detik ke format MM:SS (contoh: 00:33)
+  // 🛠️ Format detik ke MM:SS (misal 00:33)
   const formatTime = (seconds: number) => {
     if (isNaN(seconds)) return "00:00";
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -55,14 +55,21 @@ export default function VideoPreview() {
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[150px] pointer-events-none"></div>
       <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[150px] pointer-events-none"></div>
 
-      {/* 📦 Kontainer Utama Video (Cinematic Frame Horizontal 16:9) */}
+      {/* 🚀 Info Judul Dipindah ke Atas Video */}
+      <div className="w-full max-w-4xl z-10 flex flex-col gap-2 mb-6 text-center md:text-left">
+        <span className="text-xs font-black tracking-widest text-amber-400 uppercase drop-shadow">Eksklusif Preview</span>
+        <h2 className="text-2xl md:text-4xl font-black text-white leading-tight drop-shadow-md">Kawal Visi Finansialmu Bersama BILANO</h2>
+        <p className="text-slate-300 text-sm font-medium leading-relaxed drop-shadow-sm">Lihat bagaimana BILANO membantu mengeksekusi target nominal besarmu secara otomatis.</p>
+      </div>
+
+      {/* 📦 Kontainer Utama Video (Horizontal 16:9) */}
       <div className="w-full max-w-4xl aspect-video bg-slate-900 rounded-[32px] overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.7)] border border-white/5 relative mb-8">
         
-        {/* 🎥 Background Video Player */}
+        {/* 🎥 Video Player */}
         <div className="absolute inset-0 z-0">
           <video 
             ref={videoRef}
-            autoPlay 
+            autoPlay
             playsInline
             muted={isMuted}
             preload="auto"
@@ -74,11 +81,11 @@ export default function VideoPreview() {
             <source src="/Bilano-Preview.mp4" type="video/mp4" />
             Browser Anda tidak mendukung pemutar video.
           </video>
-          {/* Lapisan Gradasi Tipis agar kontrol lebih jelas terbaca */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/60"></div>
+          {/* Overlay Gradasi Tipis di atas saja agar tombol Mute dan Timer tetap terbaca */}
+          <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 via-transparent to-transparent h-24 z-10 pointer-events-none"></div>
         </div>
 
-        {/* ⏱️ FITUR: SISA DURASI VIDEO (KANAN ATAS) */}
+        {/* ⏱️ SISA DURASI VIDEO (KANAN ATAS) */}
         <div className="absolute top-6 right-6 z-30">
           <div className="bg-black/60 backdrop-blur-md text-white font-mono font-bold text-sm px-4 py-2 rounded-full border border-white/10 flex items-center gap-2 shadow-md">
             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
@@ -86,7 +93,7 @@ export default function VideoPreview() {
           </div>
         </div>
 
-        {/* 🎛️ Header Video Controls (Kiri Atas) */}
+        {/* 🎛️ Tombol Mute / Unmute (Kiri Atas) */}
         <div className="absolute top-6 left-6 z-30 flex items-center gap-2">
           <button 
             type="button"
@@ -96,17 +103,10 @@ export default function VideoPreview() {
             {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
           </button>
         </div>
-
-        {/* 🚀 Informasi Konten Bagian Kiri Bawah */}
-        <div className="absolute bottom-6 left-6 z-30 flex flex-col gap-1 max-w-lg">
-          <span className="text-xs font-black tracking-widest text-amber-400 uppercase drop-shadow">Eksklusif Preview</span>
-          <h2 className="text-2xl md:text-3xl font-black text-white leading-tight drop-shadow-md">Kawal Visi Finansialmu Bersama BILANO</h2>
-          <p className="text-slate-300 text-sm font-medium leading-relaxed drop-shadow-sm hidden md:block">Lihat bagaimana BILANO membantu mengeksekusi target nominal besarmu secara otomatis.</p>
-        </div>
       </div>
 
-      {/* 🚀 Tombol Skip Aksi Utama (Bawah Frame Video) */}
-      <div className="flex flex-col items-center gap-4 w-full max-w-sm">
+      {/* 🚀 Tombol Skip Aksi Utama (Bawah Frame) */}
+      <div className="flex flex-col items-center gap-4 w-full max-w-sm z-10">
         {!canSkip ? (
           <div className="w-full text-center py-4 bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl text-slate-400 font-bold text-xs tracking-widest uppercase shadow-inner">
             Mempersiapkan Sistem... <span className="text-amber-400 ml-1">{countdown}s</span>
