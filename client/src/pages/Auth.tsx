@@ -166,7 +166,10 @@ export default function Auth() {
                   </p>
                   <Button 
                       type="button"
-                      onClick={() => setLocation('/onboarding')}
+                      onClick={() => {
+                        // Menggunakan window.open dengan target _blank untuk memaksa keluar dari sandbox PWA ke browser utama
+                          window.open('https://bilano.app/onboarding', '_blank');
+                      }}
                       className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold h-10 mt-2"
                   >
                       DAFTAR & LANGGANAN

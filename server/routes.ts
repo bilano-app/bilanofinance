@@ -176,6 +176,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =========================================================================
   // 🚀 AKTIVASI AKUN & PENANAMAN STATUS KUNCI HARGA
   // =========================================================================
+  // =========================================================================
+// 🚀 AKTIVASI AKUN & PENANAMAN STATUS KUNCI HARGA
+// =========================================================================
   app.post("/api/payment/claim-account", async (req: any, res: any) => {
       const { email, name, plan, amount } = req.body;
       if (!email) return res.status(400).json({ error: "Email wajib diisi." });
@@ -195,6 +198,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               validUntil.setDate(validUntil.getDate() + 30);
           }
 
+        // 🔥 FIX: Konversi ke ISO String di luar query SQL untuk mencegah eror runtime prototype function
+          const validUntilStr = validUntil.toISOString();
+
           const fallbackPrice = (plan === 'year' || plan === 'yearly') ? 99000 : 14900;
           const finalPrice = amount ? parseInt(amount) : fallbackPrice;
           const planKey = (plan === 'year' || plan === 'yearly') ? 'year' : 'month';
@@ -204,7 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await db.execute(sql`
                   UPDATE users 
                   SET is_pro = true, 
-                      pro_valid_until = ${validUntil.toISOString()}, 
+                      pro_valid_until = ${validUntilStr}, 
                       password = ${tempCode},
                       is_custom_password_set = false,
                       locked_plan = ${planKey},
@@ -220,7 +226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   lastName: lastName,
                   cashBalance: 0,
                   isPro: true,
-                  proValidUntil: validUntil.toISOString(),
+                  proValidUntil: validUntilStr,
                   lockedPlan: planKey,
                   lockedPrice: finalPrice
               } as any);
@@ -231,7 +237,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.status(500).json({ error: "Gagal memproses pembuatan akun premium: " + err.message });
       }
   });
-
   // =========================================================================
   // 🚀 API BARU: LOGIN DENGAN KODE 6 DIGIT / PASSWORD PERMANEN
   // =========================================================================
@@ -1673,6 +1678,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const results: Record<string, number> = {};
 
+          // 🟢 PERBAIKAN: Tarik data kurs SEKALI SAJA di luar perulangan saham
+          const now = Date.now();
+          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) {
+              await fetchLiveRates(); 
+          }
+          const usdToIdr = cachedRates['USD'] || 16200;
+
           await Promise.all(symbols.map(async (rawSymbol: string) => {
               try {
                   let symbol = rawSymbol.toUpperCase().trim();
@@ -1690,11 +1702,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                          const currency = data.chart?.result?.[0]?.meta?.currency || "IDR";
                          let finalPrice = price;
                          
-                         const now = Date.now();
-                         if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-                         const usdToIdr = cachedRates['USD'] || 16200;
-
-                         if (isGold) {
+                         // 🟢 PERBAIKAN: Mencegah error Rupiah berubah jadi Miliaran (Inflasi Ganda)
+                         if (rawSymbol === 'IDR=X') {
+                             finalPrice = price;
+                         } else if (isGold) {
                              finalPrice = (price / 31.1034768) * usdToIdr;
                          } else if (currency !== "IDR" && currency !== "Rp") {
                              const rate = cachedRates[currency as keyof typeof cachedRates] || usdToIdr;
@@ -1721,6 +1732,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const results: Record<string, { timestamps: number[], close: number[] }> = {};
 
+          // 🟢 PERBAIKAN: Tarik data kurs SEKALI SAJA di luar perulangan
+          const now = Date.now();
+          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) {
+              await fetchLiveRates(); 
+          }
+          const usdToIdr = cachedRates['USD'] || 16200;
+
           await Promise.all(symbols.map(async (rawSymbol: string) => {
               try {
                   let symbol = rawSymbol.toUpperCase().trim();
@@ -1739,11 +1757,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                           let timestamps = result.timestamp || [];
                           let close = result.indicators?.quote?.[0]?.close || [];
                           
-                          const now = Date.now();
-                          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-                          const usdToIdr = cachedRates['USD'] || 16200;
-
-                          if (isGold) {
+                          // 🟢 PERBAIKAN: Proteksi IDR=X dari Inflasi Ganda di data Historis
+                          if (rawSymbol === 'IDR=X') {
+                              // Jangan dikalikan dengan kurs USD lagi
+                              close = close.map((p: number) => p);
+                          } else if (isGold) {
                               close = close.map((p: number) => p ? (p / 31.1034768) * usdToIdr : p);
                           } else if (currency !== "IDR" && currency !== "Rp") {
                               const rate = cachedRates[currency as keyof typeof cachedRates] || usdToIdr;
@@ -1770,6 +1788,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const results: Record<string, { date: number, amount: number }[]> = {};
 
+          // 🟢 PERBAIKAN: Tarik data kurs SEKALI SAJA di luar perulangan
+          const now = Date.now();
+          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) {
+              await fetchLiveRates();
+          }
+          const usdToIdr = cachedRates['USD'] || 16200;
+
           await Promise.all(symbols.map(async (rawSymbol: string) => {
               try {
                   let symbol = rawSymbol.toUpperCase().trim();
@@ -1790,12 +1815,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                           const currency = result.meta?.currency || "IDR";
                           const divs = result.events.dividends;
                           
-                          const now = Date.now();
-                          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-                          const usdToIdr = cachedRates['USD'] || 16200;
-
                           let rate = 1;
-                          if (currency !== "IDR" && currency !== "Rp") {
+                          // 🟢 PERBAIKAN: Proteksi IDR=X agar tidak error di chart Dividen
+                          if (rawSymbol === 'IDR=X') {
+                              rate = 1;
+                          } else if (currency !== "IDR" && currency !== "Rp") {
                               rate = cachedRates[currency as keyof typeof cachedRates] || usdToIdr;
                           }
 
