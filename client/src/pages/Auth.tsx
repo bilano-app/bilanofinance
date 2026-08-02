@@ -144,10 +144,9 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-slate-100 flex justify-center w-full">
-      {/* 📱 KONTAINER PEMBATAS UKURAN MOBILE (Sama seperti Dashboard) */}
-      <div className="w-full max-w-[420px] bg-white min-h-[100dvh] shadow-[0_0_50px_rgba(0,0,0,0.05)] flex flex-col justify-center px-6 py-10 relative">
-          
+    <div className="min-h-[100dvh] bg-white md:bg-slate-100 flex justify-center w-full">
+      {/* Di HP: Lebar 100%, Background Putih Polos. Di PC: Maksimal 420px & Ada Shadow */}
+      <div className="w-full md:max-w-[420px] bg-white min-h-[100dvh] md:shadow-[0_0_50px_rgba(0,0,0,0.05)] flex flex-col justify-center px-6 sm:px-10 py-10 relative">      
           {/* Logo Atas */}
           <div className="mb-10 text-center animate-in fade-in slide-in-from-top-4 duration-700">
               <img src="/Bilano_horiz_rbg.png" alt="BILANO" className="h-12 sm:h-14 w-auto mx-auto object-contain" />
