@@ -3,20 +3,19 @@
   "short_name": "Bilano",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
   "description": "Pengelola Keuangan Cerdas dengan Asisten AI.",
   "icons": [
     {
-      "src": "/BILANO-LOGO.jpg",
+      "src": "/BILANO-ICON.png",
       "sizes": "192x192",
-      "type": "image/jpeg"
+      "type": "image/png"
     },
     {
-      "src": "/BILANO-LOGO.jpg",
+      "src": "/BILANO-ICON.png",
       "sizes": "512x512",
-      "type": "image/jpeg"
+      "type": "image/png"
     }
   ]
 }
