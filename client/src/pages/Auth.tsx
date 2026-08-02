@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Button, Input } from "@/components/UIComponents";
+import { Card, Button, Input } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, RefreshCw, AlertCircle, X, CheckCircle2, ShieldCheck } from "lucide-react";
 import { auth } from "@/lib/firebase";
@@ -47,7 +47,7 @@ export default function Auth() {
               await handleSuccess(result.user);
           }
           setLoading(false);
-      }).catch(() => {
+      }).catch((error) => {
           setLoading(false);
       });
   }, []);
@@ -72,47 +72,55 @@ export default function Auth() {
     setShowPaywallRedirect(false);
     
     const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
 
-    if (!cleanEmail || !cleanPassword) return setAuthError("Email dan Password wajib diisi!");
+    if (!cleanEmail || !password) return setAuthError("Email dan Password wajib diisi!");
 
     setLoading(true);
 
     try {
-        // 🚀 1. PRIORITAS UTAMA: Coba Login via Firebase Auth (Password Permanen)
-        try {
-            const cred = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
-            if (cred?.user) {
-                await handleSuccess(cred.user);
-                return; // Berhasil! Stop di sini.
-            }
-        } catch (fbErr: any) {
-            // Lanjut ke DB Bilano jika gagal di Firebase
-        }
-
-        // 🚀 2. CADANGAN: Coba Login via Database Bilano (Kode Akses 6-Digit Awal)
+        // 1. Cek ke Database Bilano (Untuk validasi langganan & Kode Akses)
         const checkRes = await fetch("/api/auth/login-with-code", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
+            body: JSON.stringify({ email: cleanEmail, password: password })
         });
 
-        const checkData = await checkRes.json();
-
+        // JIKA AKUN BELUM TERDAFTAR / BELUM BERLANGGANAN (Status 454)
         if (checkRes.status === 454) {
-            setAuthError("Email ini belum terdaftar atau belum berlangganan BILANO.");
+            setAuthError("Email ini belum berlangganan BILANO.");
             setShowPaywallRedirect(true);
             setLoading(false);
             return;
         }
 
-        if (checkRes.ok && checkData.success) {
-            await handleSuccess({ email: cleanEmail } as any);
-            return;
+        const checkData = await checkRes.json().catch(() => ({}));
+
+        // 2. Coba validasi password menggunakan Firebase Auth
+        let firebaseSuccess = false;
+        let fbUser = null;
+        try {
+            const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+            fbUser = cred.user;
+            firebaseSuccess = true;
+        } catch (fbErr) {
+            firebaseSuccess = false; // Firebase gagal, kita akan cek apakah DB berhasil
         }
 
-        setAuthError(checkData.error || "Password atau Kode Akses yang Anda masukkan salah. Silakan coba lagi.");
-        setLoading(false);
+        // 3. Evaluasi Hasil: Izinkan masuk jika Firebase benar ATAU Kode Akses DB benar
+        if (firebaseSuccess) {
+            // Password Firebase valid
+            await handleSuccess(fbUser as User);
+            return;
+        } else if (checkRes.ok && checkData.success) {
+            // Kode akses Database valid
+            await handleSuccess({ email: cleanEmail } as any);
+            return;
+        } else {
+            // Keduanya gagal (Password & Kode Akses salah)
+            setAuthError(checkData.error || "Password atau Kode Akses salah. Silakan coba lagi.");
+            setLoading(false);
+            return;
+        }
         
     } catch (error: any) {
         setAuthError("Gagal terhubung ke server autentikasi. Periksa koneksi Anda.");
@@ -136,7 +144,7 @@ export default function Auth() {
           } else if (error.code === 'auth/invalid-email') {
               setForgotError("Format email tidak valid.");
           } else {
-              setForgotError("Gagal mengirim link reset password. Coba sesaat lagi.");
+              setForgotError("Gagal mengirim link. Coba sesaat lagi.");
           }
       } finally {
           setLoading(false);
@@ -144,159 +152,138 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-white md:bg-slate-100 flex justify-center w-full">
-      {/* Di HP: Lebar 100%, Background Putih Polos. Di PC: Maksimal 420px & Ada Shadow */}
-      <div className="w-full md:max-w-[420px] bg-white min-h-[100dvh] md:shadow-[0_0_50px_rgba(0,0,0,0.05)] flex flex-col justify-center px-6 sm:px-10 py-10 relative">      
-          {/* Logo Atas */}
-          <div className="mb-10 text-center animate-in fade-in slide-in-from-top-4 duration-700">
-              <img src="/Bilano_horiz_rbg.png" alt="BILANO" className="h-12 sm:h-14 w-auto mx-auto object-contain" />
-          </div>
-          
-          <div className="animate-in zoom-in-95 duration-500">
-              <div className="text-center mb-8">
-                  <h2 className="text-2xl font-black text-slate-800 tracking-tight">Selamat Datang</h2>
-                  <p className="text-sm text-slate-500 mt-2 font-medium px-4">Masukkan Email dan Password / Kode Akses Anda.</p>
-              </div>
-
-              {/* 🔴 OPSI DAFTAR JIKA EMAIL BELUM TERDAFTAR */}
-              {showPaywallRedirect && (
-                  <div className="bg-rose-50 border border-rose-200 p-5 rounded-2xl flex flex-col items-center text-center gap-2 mb-6 animate-in zoom-in-95">
-                      <ShieldCheck className="w-8 h-8 text-rose-500" />
-                      <p className="text-sm text-slate-600 font-medium leading-relaxed">
-                          Email <span className="font-bold text-slate-800">{email}</span> belum memiliki akses premium BILANO.
-                      </p>
-                    
-                      <button 
-                          type="button"
-                          onClick={() => {
-                              const targetUrl = 'https://bilano.app/onboarding';
-                              const googleRedirectUrl = `https://www.google.com/url?q=${encodeURIComponent(targetUrl)}`;
-                              const externalWindow = window.open(googleRedirectUrl, '_system');
-                            
-                              if (!externalWindow) {
-                                  const shadowLink = document.createElement('a');
-                                  shadowLink.href = googleRedirectUrl;
-                                  shadowLink.target = '_blank';
-                                  shadowLink.rel = 'noopener noreferrer external';
-                                  document.body.appendChild(shadowLink);
-                                  shadowLink.click();
-                                  document.body.removeChild(shadowLink);
-                              }
-                          }}
-                          className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold h-12 mt-3 rounded-xl flex items-center justify-center text-sm shadow-md transition-all active:scale-[0.98]"
-                      >
-                          DAFTAR & LANGGANAN
-                      </button>
-                  </div>
-              )}
-
-              <div className="space-y-5">
-                  <form onSubmit={handleAuth} className="space-y-5">
-                      
-                      {/* Field Email */}
-                      <div className="space-y-2">
-                          <label className="text-sm font-bold text-slate-700 ml-1">Email</label>
-                          <div className="relative">
-                              <Mail className="absolute left-4 top-4 w-5 h-5 text-slate-400"/>
-                              <Input 
-                                type="email" 
-                                placeholder="nama@email.com" 
-                                className="pl-12 h-14 text-base rounded-2xl border-slate-200 focus:border-indigo-600 bg-slate-50 focus:bg-white transition-colors" 
-                                value={email} 
-                                onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
-                              />
-                          </div>
-                      </div>
-
-                      {/* Field Password */}
-                      <div className="space-y-2">
-                          <label className="text-sm font-bold text-slate-700 ml-1">Password / Kode Akses</label>
-                          <div className="relative">
-                              <Lock className="absolute left-4 top-4 w-5 h-5 text-slate-400"/>
-                              <Input 
-                                type="password" 
-                                placeholder="••••••••" 
-                                className="pl-12 h-14 text-base rounded-2xl border-slate-200 focus:border-indigo-600 bg-slate-50 focus:bg-white transition-colors" 
-                                value={password} 
-                                onChange={(e) => setPassword(e.target.value)}
-                              />
-                          </div>
-                          
-                          <div className="flex justify-end pt-2">
-                              <button 
-                                type="button" 
-                                onClick={() => { 
-                                    setShowForgotModal(true); 
-                                    setIsForgotSuccess(false);
-                                    setForgotEmail(""); 
-                                    setForgotError("");
-                                }} 
-                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
-                              >
-                                  Lupa Password?
-                              </button>
-                          </div>
-                      </div>
-                      
-                      {/* Peringatan Error */}
-                      {authError && !showPaywallRedirect && (
-                          <div className="flex items-center gap-3 text-rose-600 bg-rose-50 p-4 rounded-2xl text-sm font-bold leading-relaxed animate-in fade-in border border-rose-100">
-                              <AlertCircle className="w-5 h-5 shrink-0" />
-                              <p>{authError}</p>
-                          </div>
-                      )}
-
-                      {/* Tombol Masuk */}
-                      <Button 
-                        disabled={loading} 
-                        className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base rounded-2xl shadow-xl shadow-indigo-200/80 flex items-center justify-center gap-2 mt-4 transition-transform active:scale-95"
-                      >
-                          {loading ? <RefreshCw className="animate-spin w-6 h-6"/> : "MASUK SEKARANG"}
-                      </Button>
-                  </form>
-              </div>
-          </div>
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative">
+      <div className="mb-8 text-center animate-in fade-in slide-in-from-top-4 duration-700">
+          <img src="/Bilano_horiz_rbg.png" alt="BILANO" className="h-16 w-auto mx-auto mb-2 object-contain" />
       </div>
 
-      {/* Modal Lupa Password */}
+      <Card className="w-full max-w-sm p-6 shadow-xl border-none bg-white animate-in zoom-in-95">
+          
+          <div className="text-center mb-6">
+              <h2 className="text-xl font-black text-slate-800">Selamat Datang</h2>
+              <p className="text-xs text-slate-500 mt-1">Masukkan Email dan Password/Kode Akses Anda.</p>
+          </div>
+
+          {/* 🔴 TOMBOL REDIRECT PEMBAYARAN JIKA BELUM TERDAFTAR */}
+          {showPaywallRedirect && (
+              <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex flex-col items-center text-center gap-2 mb-6 animate-in zoom-in-95">
+                  <ShieldCheck className="w-8 h-8 text-rose-500" />
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                      Email <span className="font-bold text-slate-800">{email}</span> belum memiliki akses premium BILANO.
+                  </p>
+                
+                  <button 
+                      type="button"
+                      onClick={() => {
+                          const targetUrl = 'https://bilano.app/onboarding';
+                        
+                        // Trik 1: Gunakan Google Redirect URL untuk menipu PWA Scope.
+                        // Karena domain mengarah ke google.com, PWA TERPAKSA melemparkannya ke browser utama (Chrome/Safari)
+                          const googleRedirectUrl = `https://www.google.com/url?q=${encodeURIComponent(targetUrl)}`;
+                        
+                        // Trik 2: Eksekusi menggunakan detasemen window.open khusus browser luar
+                          const externalWindow = window.open(googleRedirectUrl, '_system');
+                        
+                        // Fallback jika pop-up diblokir: paksa lewat link dengan rel khusus di luar PWA window
+                          if (!externalWindow) {
+                              const shadowLink = document.createElement('a');
+                              shadowLink.href = googleRedirectUrl;
+                              shadowLink.target = '_blank';
+                              shadowLink.rel = 'noopener noreferrer external';
+                              document.body.appendChild(shadowLink);
+                              shadowLink.click();
+                              document.body.removeChild(shadowLink);
+                          }
+                      }}
+                      className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold h-10 mt-2 rounded-xl flex items-center justify-center text-sm shadow-md transition-all active:scale-[0.98]"
+                  >
+                      DAFTAR & LANGGANAN
+                  </button>
+              </div>
+          )}
+
+          <div className="space-y-4">
+              <form onSubmit={handleAuth} className="space-y-4">
+                  <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 ml-1">Email</label>
+                      <div className="relative">
+                          <Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
+                          <Input type="email" placeholder="nama@email.com" className="pl-10 h-12" value={email} onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}/>
+                      </div>
+                  </div>
+                  <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 ml-1">Password / Kode Akses</label>
+                      <div className="relative"><Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/><Input type="password" placeholder="••••••••" className="pl-10 h-12" value={password} onChange={(e) => setPassword(e.target.value)}/></div>
+                      
+                      <div className="flex justify-end pt-1">
+                          <button 
+                            type="button" 
+                            onClick={() => { 
+                                setShowForgotModal(true); 
+                                setIsForgotSuccess(false);
+                                setForgotEmail(""); 
+                                setForgotError("");
+                            }} 
+                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                          >
+                              Lupa Password?
+                          </button>
+                      </div>
+                  </div>
+                  
+                  {authError && !showPaywallRedirect && (
+                      <div className="flex items-center gap-1.5 text-rose-500 bg-rose-50 p-3 rounded-xl text-[11px] font-bold leading-tight animate-in fade-in">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          <p>{authError}</p>
+                      </div>
+                  )}
+
+                  <Button disabled={loading} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold text-md shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 mt-2 transition-transform active:scale-95">
+                      {loading ? <RefreshCw className="animate-spin w-5 h-5"/> : "MASUK SEKARANG"}
+                  </Button>
+              </form>
+          </div>
+      </Card>
+
+      {/* MODAL LUPA PASSWORD (TETAP SAMA SEPERTI ASLINYA) */}
       {showForgotModal && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-              <div className="bg-white w-full max-w-sm rounded-[32px] p-7 sm:p-8 shadow-2xl relative animate-in zoom-in-95">
-                  <button onClick={() => setShowForgotModal(false)} className="absolute top-5 right-5 text-slate-400 hover:text-slate-600">
-                      <X className="w-6 h-6"/>
+              <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95">
+                  <button onClick={() => setShowForgotModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                      <X className="w-5 h-5"/>
                   </button>
 
                   {!isForgotSuccess ? (
                       <>
-                          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-5 mx-auto">
-                              <Lock className="w-7 h-7"/>
+                          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
+                              <Lock className="w-6 h-6"/>
                           </div>
-                          <h3 className="text-xl font-extrabold text-slate-800 mb-2 text-center">Reset Password</h3>
-                          <p className="text-sm text-slate-500 mb-6 leading-relaxed text-center">
-                              Masukkan email Anda. Kami akan mengirimkan tautan khusus untuk membuat password baru.
+                          <h3 className="text-lg font-extrabold text-slate-800 mb-1">Reset Password</h3>
+                          <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+                              Masukkan email Anda. Kami akan mengirimkan Tautan (Link) khusus untuk mereset password Anda dengan mudah.
                           </p>
                           
                           <div className="space-y-4">
                               <div className="relative">
-                                  <Mail className="absolute left-4 top-4.5 w-5 h-5 text-slate-400"/>
+                                  <Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
                                   <Input 
                                       type="email" 
-                                      placeholder="Masukkan email..." 
-                                      className="pl-12 h-14 text-base rounded-2xl border-slate-200" 
+                                      placeholder="Masukkan email terdaftar..." 
+                                      className="pl-10 h-12 border-slate-200" 
                                       value={forgotEmail} 
                                       onChange={(e) => { setForgotEmail(e.target.value.trim().toLowerCase()); setForgotError(""); }}
                                   />
                               </div>
                               
                               {forgotError && (
-                                  <div className="flex items-center gap-2 text-rose-600 bg-rose-50 p-3 rounded-xl text-xs font-bold leading-tight">
-                                      <AlertCircle className="w-4 h-4 shrink-0" />
+                                  <div className="flex items-center gap-1.5 text-rose-500 bg-rose-50 p-2.5 rounded-xl text-[10px] font-bold leading-tight">
+                                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                                       <p>{forgotError}</p>
                                   </div>
                               )}
 
-                              <Button onClick={handleResetPasswordLink} disabled={loading || !forgotEmail} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 font-bold text-base rounded-2xl shadow-md">
-                                  {loading ? <RefreshCw className="w-6 h-6 animate-spin"/> : "KIRIM LINK RESET"}
+                              <Button onClick={handleResetPasswordLink} disabled={loading || !forgotEmail} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold shadow-md">
+                                  {loading ? <RefreshCw className="w-5 h-5 animate-spin"/> : "KIRIM LINK RESET"}
                               </Button>
                           </div>
                       </>
@@ -305,11 +292,11 @@ export default function Auth() {
                           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
                               <CheckCircle2 className="w-8 h-8"/>
                           </div>
-                          <h3 className="text-xl font-extrabold text-slate-800 mb-2">Terkirim!</h3>
+                          <h3 className="text-lg font-extrabold text-slate-800 mb-2">Terkirim!</h3>
                           <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                              Silakan cek kotak masuk (atau folder spam) di email <strong>{forgotEmail.trim().toLowerCase()}</strong> Anda. Klik tautan di dalamnya untuk membuat password baru.
+                              Silakan cek kotak masuk (atau folder spam) di email <strong>{forgotEmail.trim().toLowerCase()}</strong> Anda. Klik link di dalamnya untuk membuat password baru.
                           </p>
-                          <Button onClick={() => setShowForgotModal(false)} className="w-full h-14 bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-base rounded-2xl shadow-md">
+                          <Button onClick={() => setShowForgotModal(false)} className="w-full h-12 bg-indigo-600 text-white hover:bg-indigo-700 font-bold shadow-md">
                               TUTUP
                           </Button>
                       </div>

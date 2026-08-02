@@ -2,18 +2,14 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover" />
     <title>BILANO - Smart Finance App</title>
 
     <link rel="manifest" href="/manifest.json" />
-    
     <link rel="icon" type="image/png" href="/BILANO-ICON.png" />
-    <link rel="apple-touch-icon" href="/BILANO-LOGO.jpg" />
-    <link rel="apple-touch-startup-image" href="/BILANO-ICON.png" />
-    
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#040814" />
+
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://bilano.app/" />
@@ -21,60 +17,78 @@
     <meta property="og:description" content="Kendalikan arus kas dan portofolio aset Anda dengan Asisten AI. Pengelola Keuangan Cerdas untuk kebebasan masa depan." />
     <meta property="og:image" content="https://placehold.co/1200x630/0a1128/fcd34d?text=BILANO+App" />
 
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
     <style>
-      /* Reset dasar */
-      html, body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        min-height: 100%;
-        background-color: #040814;
-        
-        /* Mencegah pantulan (rubber-band) saat di-scroll mentok */
-        overscroll-behavior-y: none; 
-        
-        /* Anti-Zoom tingkat dewa tanpa merusak layout mobile */
-        touch-action: pan-x pan-y; 
-        -webkit-text-size-adjust: 100%;
+      /* 🚀 DIET VISUAL: Mengecilkan skala dasar agar UI lebih padat/ideal */
+      @media (max-width: 768px) {
+        html {
+          font-size: 14px !important; 
+        }
       }
 
-      #root {
+      /* Kunci ukuran agar tidak goyang atau membal (rubber-band effect) */
+      html, body {
+        position: fixed;
+        overflow: hidden;
         width: 100%;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
+        height: 100%;
+        background-color: #ffffff; /* Warna dasar bersih */
+        /* Mencegah tarikan refresh di Chrome/Safari */
+        overscroll-behavior-y: none; 
+        /* Mencegah zoom saat double tap (bikin goyang) */
+        touch-action: manipulation; 
+      }
+
+      /* Buat container utama yang menangani scroll secara internal */
+      #root {
+        height: 100%;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch; /* Scroll halus di iPhone */
       }
       
-      /* Mencegah layar ter-block biru/abu saat ditekan lama */
       body {
         -webkit-tap-highlight-color: transparent;
         -webkit-user-select: none;
         user-select: none;
       }
       
-      /* Kembalikan fungsi seleksi HANYA pada inputan agar bisa ngetik */
       input, textarea {
         -webkit-user-select: auto;
         user-select: auto;
-        /* Mencegah Auto-Zoom iOS saat klik kolom input */
-        font-size: 16px !important; 
       }
     </style>
 
     <script>
-      document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
-      let lastTouchEnd = 0;
-      document.addEventListener('touchend', function (event) {
-        const now = (new Date()).getTime();
-        if (now - lastTouchEnd <= 300) { event.preventDefault(); }
-        lastTouchEnd = now;
-      }, false);
+      window.addEventListener('vite:preloadError', function(event) {
+        console.warn('Vite mendeteksi ada file update terbaru, melakukan Auto-Refresh...');
+        event.preventDefault();
+        window.location.reload(true);
+      });
     </script>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fira+Code:wght@300..700&family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Outfit:wght@100..900&family=Oxanium:wght@200..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
   
+    <script>
+      function median_onesignal_info(info) {
+          if (info && info.oneSignalUserId) {
+              const idAntena = info.oneSignalUserId;
+              const email = localStorage.getItem("bilano_email") || "guest";
+              fetch('/api/user/onesignal', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'x-user-email': email },
+                  body: JSON.stringify({ onesignalId: idAntena })
+              }).then(() => {
+                  console.log("✅ Antena Native Terhubung!");
+              }).catch(err => console.error("Gagal lapor database", err));
+          }
+      }
+    </script>
+
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -82,7 +96,9 @@
         OneSignal.init({
           appId: "b45b3256-b290-4a98-b5fa-afa0501a6b1c", 
           safari_web_id: "", 
-          notifyButton: { enable: false },
+          notifyButton: {
+            enable: false, 
+          },
         });
       });
     </script>
