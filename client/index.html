@@ -7,7 +7,8 @@
 
     <link rel="manifest" href="/manifest.json" />
     
-    <link rel="icon" type="image/jpeg" href="/BILANO-LOGO.jpg" />
+    <link rel="icon" type="image/png" href="/BILANO-ICON.png" />
+    
     <link rel="apple-touch-icon" href="/BILANO-LOGO.jpg" />
 
     <link rel="apple-touch-startup-image" href="/BILANO-ICON.png" />
@@ -27,12 +28,12 @@
     <meta http-equiv="Expires" content="0" />
 
     <style>
-      /* Skala dasar normal */
+      /* Skala dasar standar */
       html {
         font-size: 16px;
       }
 
-      /* Kunci body agar layar tidak ikut bergeser atau membal */
+      /* Kunci body agar layar tidak bergeser atau membal saat discroll */
       html, body {
         position: fixed;
         overflow: hidden;
@@ -41,8 +42,7 @@
         background-color: #040814;
         overscroll-behavior-y: none; 
         
-        /* 2. KUNCI MATI PINCH-TO-ZOOM DI ROOT */
-        /* Hanya izinkan scroll atas-bawah/kiri-kanan, matikan cubitan (pinch) */
+        /* Matikan fungsi pinch-to-zoom di tingkat CSS */
         touch-action: pan-x pan-y; 
         -webkit-text-size-adjust: 100%;
       }
@@ -53,33 +53,32 @@
         width: 100%;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
-        /* Turunkan sifat touch-action ke kontainer */
         touch-action: pan-x pan-y; 
       }
       
-      /* Mencegah text terpilih tak sengaja yang bikin feel aplikasi web banget */
+      /* Nonaktifkan seleksi teks tak sengaja */
       body {
         -webkit-tap-highlight-color: transparent;
         -webkit-user-select: none;
         user-select: none;
       }
       
-      /* Kembalikan fungsi seleksi HANYA pada inputan */
+      /* Kembalikan seleksi teks khusus pada inputan */
       input, textarea {
         -webkit-user-select: auto;
         user-select: auto;
-        /* 3. Mencegah Auto-Zoom iOS saat klik kolom input */
+        /* Mencegah iOS Safari auto-zoom saat fokus ke input */
         font-size: 16px !important; 
       }
     </style>
 
     <script>
-      // Mencegah Pinch-to-Zoom di perangkat Apple/Safari
+      // Mencegah gesture zoom di Safari/iOS
       document.addEventListener('gesturestart', function (e) {
         e.preventDefault();
       });
 
-      // Mencegah Double-Tap untuk Zoom yang sering aktif di Android/iOS
+      // Mencegah double-tap zoom di Android/iOS
       let lastTouchEnd = 0;
       document.addEventListener('touchend', function (event) {
         const now = (new Date()).getTime();

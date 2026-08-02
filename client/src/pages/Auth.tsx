@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Card, Button, Input } from "@/components/UIComponents";
+import { Button, Input } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, RefreshCw, AlertCircle, X, CheckCircle2, ShieldCheck } from "lucide-react";
 import { auth } from "@/lib/firebase";
@@ -87,7 +87,7 @@ export default function Auth() {
                 return; // Berhasil! Stop di sini.
             }
         } catch (fbErr: any) {
-            // Jika Firebase gagal, jangan panik dulu. Lanjut cek ke Database Bilano.
+            // Lanjut ke DB Bilano jika gagal di Firebase
         }
 
         // 🚀 2. CADANGAN: Coba Login via Database Bilano (Kode Akses 6-Digit Awal)
@@ -99,7 +99,6 @@ export default function Auth() {
 
         const checkData = await checkRes.json();
 
-        // Jika Email Belum Terdaftar / Belum Berlangganan (Status 454)
         if (checkRes.status === 454) {
             setAuthError("Email ini belum terdaftar atau belum berlangganan BILANO.");
             setShowPaywallRedirect(true);
@@ -107,13 +106,11 @@ export default function Auth() {
             return;
         }
 
-        // Jika Login via Database Berhasil
         if (checkRes.ok && checkData.success) {
             await handleSuccess({ email: cleanEmail } as any);
             return;
         }
 
-        // Jika Dua-duanya Gagal (Password/Kode Akses Memang Salah)
         setAuthError(checkData.error || "Password atau Kode Akses yang Anda masukkan salah. Silakan coba lagi.");
         setLoading(false);
         
@@ -147,135 +144,136 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-slate-100/80 flex flex-col items-center justify-center p-4 sm:p-6 relative">
-      
-      {/* Logo Atas */}
-      <div className="mb-6 text-center animate-in fade-in slide-in-from-top-4 duration-700">
-          <img src="/Bilano_horiz_rbg.png" alt="BILANO" className="h-16 sm:h-20 w-auto mx-auto mb-1 object-contain" />
-      </div>
-
-      {/* Kontainer Card Utama (Ukuran Diperbesar & Proporsional) */}
-      <Card className="w-full max-w-md sm:max-w-lg p-7 sm:p-10 shadow-2xl border-slate-200/60 bg-white rounded-[32px] animate-in zoom-in-95">
+    <div className="min-h-[100dvh] bg-slate-100 flex justify-center w-full">
+      {/* 📱 KONTAINER PEMBATAS UKURAN MOBILE (Sama seperti Dashboard) */}
+      <div className="w-full max-w-[420px] bg-white min-h-[100dvh] shadow-[0_0_50px_rgba(0,0,0,0.05)] flex flex-col justify-center px-6 py-10 relative">
           
-          <div className="text-center mb-7">
-              <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">Selamat Datang</h2>
-              <p className="text-xs sm:text-sm text-slate-500 mt-2 font-medium">Masukkan Email dan Password / Kode Akses Anda.</p>
+          {/* Logo Atas */}
+          <div className="mb-10 text-center animate-in fade-in slide-in-from-top-4 duration-700">
+              <img src="/Bilano_horiz_rbg.png" alt="BILANO" className="h-12 sm:h-14 w-auto mx-auto object-contain" />
           </div>
-
-          {/* 🔴 OPSI DAFTAR JIKA EMAIL BELUM TERDAFTAR */}
-          {showPaywallRedirect && (
-              <div className="bg-rose-50 border border-rose-200 p-4 sm:p-5 rounded-2xl flex flex-col items-center text-center gap-2 mb-6 animate-in zoom-in-95">
-                  <ShieldCheck className="w-8 h-8 text-rose-500" />
-                  <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
-                      Email <span className="font-bold text-slate-800">{email}</span> belum memiliki akses premium BILANO.
-                  </p>
-                
-                  <button 
-                      type="button"
-                      onClick={() => {
-                          const targetUrl = 'https://bilano.app/onboarding';
-                          const googleRedirectUrl = `https://www.google.com/url?q=${encodeURIComponent(targetUrl)}`;
-                          const externalWindow = window.open(googleRedirectUrl, '_system');
-                        
-                          if (!externalWindow) {
-                              const shadowLink = document.createElement('a');
-                              shadowLink.href = googleRedirectUrl;
-                              shadowLink.target = '_blank';
-                              shadowLink.rel = 'noopener noreferrer external';
-                              document.body.appendChild(shadowLink);
-                              shadowLink.click();
-                              document.body.removeChild(shadowLink);
-                          }
-                      }}
-                      className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold h-12 mt-2 rounded-xl flex items-center justify-center text-sm shadow-md transition-all active:scale-[0.98]"
-                  >
-                      DAFTAR & LANGGANAN
-                  </button>
+          
+          <div className="animate-in zoom-in-95 duration-500">
+              <div className="text-center mb-8">
+                  <h2 className="text-2xl font-black text-slate-800 tracking-tight">Selamat Datang</h2>
+                  <p className="text-sm text-slate-500 mt-2 font-medium px-4">Masukkan Email dan Password / Kode Akses Anda.</p>
               </div>
-          )}
 
-          <div className="space-y-5">
-              <form onSubmit={handleAuth} className="space-y-5">
-                  
-                  {/* Field Email */}
-                  <div className="space-y-2">
-                      <label className="text-xs sm:text-sm font-bold text-slate-700 ml-1">Email</label>
-                      <div className="relative">
-                          <Mail className="absolute left-4 top-4.5 w-5 h-5 text-slate-400"/>
-                          <Input 
-                            type="email" 
-                            placeholder="nama@email.com" 
-                            className="pl-12 h-14 text-base rounded-2xl border-slate-200 focus:border-indigo-600" 
-                            value={email} 
-                            onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
-                          />
-                      </div>
+              {/* 🔴 OPSI DAFTAR JIKA EMAIL BELUM TERDAFTAR */}
+              {showPaywallRedirect && (
+                  <div className="bg-rose-50 border border-rose-200 p-5 rounded-2xl flex flex-col items-center text-center gap-2 mb-6 animate-in zoom-in-95">
+                      <ShieldCheck className="w-8 h-8 text-rose-500" />
+                      <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                          Email <span className="font-bold text-slate-800">{email}</span> belum memiliki akses premium BILANO.
+                      </p>
+                    
+                      <button 
+                          type="button"
+                          onClick={() => {
+                              const targetUrl = 'https://bilano.app/onboarding';
+                              const googleRedirectUrl = `https://www.google.com/url?q=${encodeURIComponent(targetUrl)}`;
+                              const externalWindow = window.open(googleRedirectUrl, '_system');
+                            
+                              if (!externalWindow) {
+                                  const shadowLink = document.createElement('a');
+                                  shadowLink.href = googleRedirectUrl;
+                                  shadowLink.target = '_blank';
+                                  shadowLink.rel = 'noopener noreferrer external';
+                                  document.body.appendChild(shadowLink);
+                                  shadowLink.click();
+                                  document.body.removeChild(shadowLink);
+                              }
+                          }}
+                          className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold h-12 mt-3 rounded-xl flex items-center justify-center text-sm shadow-md transition-all active:scale-[0.98]"
+                      >
+                          DAFTAR & LANGGANAN
+                      </button>
                   </div>
+              )}
 
-                  {/* Field Password */}
-                  <div className="space-y-2">
-                      <label className="text-xs sm:text-sm font-bold text-slate-700 ml-1">Password / Kode Akses</label>
-                      <div className="relative">
-                          <Lock className="absolute left-4 top-4.5 w-5 h-5 text-slate-400"/>
-                          <Input 
-                            type="password" 
-                            placeholder="••••••••" 
-                            className="pl-12 h-14 text-base rounded-2xl border-slate-200 focus:border-indigo-600" 
-                            value={password} 
-                            onChange={(e) => setPassword(e.target.value)}
-                          />
+              <div className="space-y-5">
+                  <form onSubmit={handleAuth} className="space-y-5">
+                      
+                      {/* Field Email */}
+                      <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700 ml-1">Email</label>
+                          <div className="relative">
+                              <Mail className="absolute left-4 top-4 w-5 h-5 text-slate-400"/>
+                              <Input 
+                                type="email" 
+                                placeholder="nama@email.com" 
+                                className="pl-12 h-14 text-base rounded-2xl border-slate-200 focus:border-indigo-600 bg-slate-50 focus:bg-white transition-colors" 
+                                value={email} 
+                                onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
+                              />
+                          </div>
+                      </div>
+
+                      {/* Field Password */}
+                      <div className="space-y-2">
+                          <label className="text-sm font-bold text-slate-700 ml-1">Password / Kode Akses</label>
+                          <div className="relative">
+                              <Lock className="absolute left-4 top-4 w-5 h-5 text-slate-400"/>
+                              <Input 
+                                type="password" 
+                                placeholder="••••••••" 
+                                className="pl-12 h-14 text-base rounded-2xl border-slate-200 focus:border-indigo-600 bg-slate-50 focus:bg-white transition-colors" 
+                                value={password} 
+                                onChange={(e) => setPassword(e.target.value)}
+                              />
+                          </div>
+                          
+                          <div className="flex justify-end pt-2">
+                              <button 
+                                type="button" 
+                                onClick={() => { 
+                                    setShowForgotModal(true); 
+                                    setIsForgotSuccess(false);
+                                    setForgotEmail(""); 
+                                    setForgotError("");
+                                }} 
+                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                              >
+                                  Lupa Password?
+                              </button>
+                          </div>
                       </div>
                       
-                      <div className="flex justify-end pt-1">
-                          <button 
-                            type="button" 
-                            onClick={() => { 
-                                setShowForgotModal(true); 
-                                setIsForgotSuccess(false);
-                                setForgotEmail(""); 
-                                setForgotError("");
-                            }} 
-                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
-                          >
-                              Lupa Password?
-                          </button>
-                      </div>
-                  </div>
-                  
-                  {/* Peringatan Error */}
-                  {authError && !showPaywallRedirect && (
-                      <div className="flex items-center gap-2 text-rose-600 bg-rose-50 p-4 rounded-2xl text-xs sm:text-sm font-bold leading-relaxed animate-in fade-in border border-rose-100">
-                          <AlertCircle className="w-5 h-5 shrink-0" />
-                          <p>{authError}</p>
-                      </div>
-                  )}
+                      {/* Peringatan Error */}
+                      {authError && !showPaywallRedirect && (
+                          <div className="flex items-center gap-3 text-rose-600 bg-rose-50 p-4 rounded-2xl text-sm font-bold leading-relaxed animate-in fade-in border border-rose-100">
+                              <AlertCircle className="w-5 h-5 shrink-0" />
+                              <p>{authError}</p>
+                          </div>
+                      )}
 
-                  {/* Tombol Masuk */}
-                  <Button 
-                    disabled={loading} 
-                    className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base rounded-2xl shadow-xl shadow-indigo-200/80 flex items-center justify-center gap-2 mt-2 transition-transform active:scale-95"
-                  >
-                      {loading ? <RefreshCw className="animate-spin w-6 h-6"/> : "MASUK SEKARANG"}
-                  </Button>
-              </form>
+                      {/* Tombol Masuk */}
+                      <Button 
+                        disabled={loading} 
+                        className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base rounded-2xl shadow-xl shadow-indigo-200/80 flex items-center justify-center gap-2 mt-4 transition-transform active:scale-95"
+                      >
+                          {loading ? <RefreshCw className="animate-spin w-6 h-6"/> : "MASUK SEKARANG"}
+                      </Button>
+                  </form>
+              </div>
           </div>
-      </Card>
+      </div>
 
       {/* Modal Lupa Password */}
       {showForgotModal && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-              <div className="bg-white w-full max-w-md rounded-[32px] p-7 sm:p-8 shadow-2xl relative animate-in zoom-in-95">
+              <div className="bg-white w-full max-w-sm rounded-[32px] p-7 sm:p-8 shadow-2xl relative animate-in zoom-in-95">
                   <button onClick={() => setShowForgotModal(false)} className="absolute top-5 right-5 text-slate-400 hover:text-slate-600">
                       <X className="w-6 h-6"/>
                   </button>
 
                   {!isForgotSuccess ? (
                       <>
-                          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
+                          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-5 mx-auto">
                               <Lock className="w-7 h-7"/>
                           </div>
-                          <h3 className="text-xl font-extrabold text-slate-800 mb-1">Reset Password</h3>
-                          <p className="text-xs sm:text-sm text-slate-500 mb-6 leading-relaxed">
+                          <h3 className="text-xl font-extrabold text-slate-800 mb-2 text-center">Reset Password</h3>
+                          <p className="text-sm text-slate-500 mb-6 leading-relaxed text-center">
                               Masukkan email Anda. Kami akan mengirimkan tautan khusus untuk membuat password baru.
                           </p>
                           
@@ -284,7 +282,7 @@ export default function Auth() {
                                   <Mail className="absolute left-4 top-4.5 w-5 h-5 text-slate-400"/>
                                   <Input 
                                       type="email" 
-                                      placeholder="Masukkan email terdaftar..." 
+                                      placeholder="Masukkan email..." 
                                       className="pl-12 h-14 text-base rounded-2xl border-slate-200" 
                                       value={forgotEmail} 
                                       onChange={(e) => { setForgotEmail(e.target.value.trim().toLowerCase()); setForgotError(""); }}
