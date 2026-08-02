@@ -2,7 +2,7 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover" />
     <title>BILANO - Smart Finance App</title>
 
     <link rel="manifest" href="/manifest.json" />
@@ -27,12 +27,12 @@
     <meta http-equiv="Expires" content="0" />
 
     <style>
-      /* Skala dasar tampilan normal (16px) */
+      /* Skala dasar normal */
       html {
         font-size: 16px;
       }
 
-      /* Kunci ukuran agar tidak goyang atau membal (rubber-band effect) */
+      /* Kunci body agar layar tidak ikut bergeser atau membal */
       html, body {
         position: fixed;
         overflow: hidden;
@@ -40,27 +40,55 @@
         height: 100%;
         background-color: #040814;
         overscroll-behavior-y: none; 
-        touch-action: manipulation; 
+        
+        /* 2. KUNCI MATI PINCH-TO-ZOOM DI ROOT */
+        /* Hanya izinkan scroll atas-bawah/kiri-kanan, matikan cubitan (pinch) */
+        touch-action: pan-x pan-y; 
+        -webkit-text-size-adjust: 100%;
       }
 
-      /* Container utama scroll internal */
+      /* Container utama aplikasi */
       #root {
         height: 100%;
+        width: 100%;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
+        /* Turunkan sifat touch-action ke kontainer */
+        touch-action: pan-x pan-y; 
       }
       
+      /* Mencegah text terpilih tak sengaja yang bikin feel aplikasi web banget */
       body {
         -webkit-tap-highlight-color: transparent;
         -webkit-user-select: none;
         user-select: none;
       }
       
+      /* Kembalikan fungsi seleksi HANYA pada inputan */
       input, textarea {
         -webkit-user-select: auto;
         user-select: auto;
+        /* 3. Mencegah Auto-Zoom iOS saat klik kolom input */
+        font-size: 16px !important; 
       }
     </style>
+
+    <script>
+      // Mencegah Pinch-to-Zoom di perangkat Apple/Safari
+      document.addEventListener('gesturestart', function (e) {
+        e.preventDefault();
+      });
+
+      // Mencegah Double-Tap untuk Zoom yang sering aktif di Android/iOS
+      let lastTouchEnd = 0;
+      document.addEventListener('touchend', function (event) {
+        const now = (new Date()).getTime();
+        if (now - lastTouchEnd <= 300) {
+          event.preventDefault();
+        }
+        lastTouchEnd = now;
+      }, false);
+    </script>
 
     <script>
       window.addEventListener('vite:preloadError', function(event) {
