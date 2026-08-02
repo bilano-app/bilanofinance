@@ -303,16 +303,21 @@ export default function Onboarding() {
   };
 
  // 🎫 SISTEM VALIDASI VOUCHER
+  // 🎫 SISTEM VALIDASI VOUCHER
   const handleApplyVoucher = () => {
-    if (voucherCode.toUpperCase() === "PRAPUBLIK") {
+    const code = voucherCode.toUpperCase();
+    
+    if (code === "PRAPUBLIK") {
       if (selectedPlan === "year") {
         setDiscountPercent(20);
         setVoucherMessage("✅ Voucher Valid: Diskon 20% Diterapkan!");
-        // Jangan set metode pembayaran ke "FREE" karena pengguna masih harus bayar sisa 80%
       } else {
         setDiscountPercent(0);
         setVoucherMessage("❌ Voucher PRAPUBLIK hanya berlaku untuk Paket Setahun.");
       }
+    } else if (code === "ADR14") {
+      setDiscountPercent(100);
+      setVoucherMessage("✅ Akses VIP: Diskon 100% (GRATIS) Diterapkan!");
     } else {
       setDiscountPercent(0);
       setVoucherMessage("❌ Kode voucher tidak ditemukan atau kadaluarsa.");

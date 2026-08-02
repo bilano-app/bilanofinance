@@ -27,11 +27,9 @@
     <meta http-equiv="Expires" content="0" />
 
     <style>
-      /* 🚀 DIET VISUAL: Mengecilkan skala dasar agar UI lebih padat/ideal */
-      @media (max-width: 768px) {
-        html {
-          font-size: 14px !important; 
-        }
+      /* Skala dasar tampilan normal (16px) */
+      html {
+        font-size: 16px;
       }
 
       /* Kunci ukuran agar tidak goyang atau membal (rubber-band effect) */
@@ -40,18 +38,16 @@
         overflow: hidden;
         width: 100%;
         height: 100%;
-        background-color: #040814; /* Warna dasar menyatu dengan tema */
-        /* Mencegah tarikan refresh di Chrome/Safari */
+        background-color: #040814;
         overscroll-behavior-y: none; 
-        /* Mencegah zoom saat double tap */
         touch-action: manipulation; 
       }
 
-      /* Buat container utama yang menangani scroll secara internal */
+      /* Container utama scroll internal */
       #root {
         height: 100%;
         overflow-y: auto;
-        -webkit-overflow-scrolling: touch; /* Scroll halus di iPhone */
+        -webkit-overflow-scrolling: touch;
       }
       
       body {

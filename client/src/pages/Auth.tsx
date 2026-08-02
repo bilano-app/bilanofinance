@@ -78,7 +78,17 @@ export default function Auth() {
     setLoading(true);
 
     try {
-        // 1. Verifikasi login langsung ke Backend Database Bilano
+        // 1. PRIORITAS UTAMA: Coba login ke Firebase (Jika user sudah mengganti password permanen)
+        try {
+            const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+            await handleSuccess(cred.user);
+            return; // Jika berhasil, eksekusi STOP di sini dan user masuk
+        } catch (fbErr: any) {
+            // Firebase gagal (mungkin user baru yang masih pakai kode akses 6 digit)
+            // Lanjut ke pengecekan Database Bilano
+        }
+
+        // 2. ALTERNATIF: Cek login ke Database Bilano (Untuk pengguna kode akses awal)
         const checkRes = await fetch("/api/auth/login-with-code", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -87,7 +97,7 @@ export default function Auth() {
 
         const checkData = await checkRes.json();
 
-        // JIKA AKUN BELUM TERDAFTAR / BELUM BERLANGGANAN (Status 454)
+        // Jika email belum berlangganan
         if (checkRes.status === 454) {
             setAuthError("Email ini belum berlangganan BILANO.");
             setShowPaywallRedirect(true);
@@ -95,25 +105,15 @@ export default function Auth() {
             return;
         }
 
-        // JIKA LOGIN DI DATABASE BERHASIL
+        // Jika login via DB Sukses (Kode akses benar)
         if (checkRes.ok && checkData.success) {
-            // Coba sinkronkan sesi Firebase jika ada, lalu lanjutkan masuk
-            try {
-                const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
-                await handleSuccess(cred.user);
-            } catch (fbErr) {
-                // Jika Firebase Auth belum tersinkron, tetap izinkan masuk via DB Bilano
-                await handleSuccess({ email: cleanEmail } as any);
-            }
+            await handleSuccess({ email: cleanEmail } as any);
             return;
         }
 
-        // JIKA KODE AKSES / PASSWORD SALAH
-        if (!checkRes.ok) {
-            setAuthError(checkData.error || "Password atau Kode Akses salah. Silakan coba lagi.");
-            setLoading(false);
-            return;
-        }
+        // Jika DUA-DUANYA (Firebase & DB) gagal
+        setAuthError(checkData.error || "Password atau Kode Akses salah. Silakan coba lagi.");
+        setLoading(false);
         
     } catch (error: any) {
         setAuthError("Gagal terhubung ke server autentikasi. Periksa koneksi Anda.");
@@ -157,7 +157,6 @@ export default function Auth() {
               <p className="text-xs text-slate-500 mt-1">Masukkan Email dan Password/Kode Akses Anda.</p>
           </div>
 
-          {/* 🔴 TOMBOL REDIRECT PEMBAYARAN JIKA BELUM TERDAFTAR */}
           {showPaywallRedirect && (
               <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex flex-col items-center text-center gap-2 mb-6 animate-in zoom-in-95">
                   <ShieldCheck className="w-8 h-8 text-rose-500" />
@@ -169,15 +168,9 @@ export default function Auth() {
                       type="button"
                       onClick={() => {
                           const targetUrl = 'https://bilano.app/onboarding';
-                        
-                        // Trik 1: Gunakan Google Redirect URL untuk menipu PWA Scope.
-                        // Karena domain mengarah ke google.com, PWA TERPAKSA melemparkannya ke browser utama (Chrome/Safari)
                           const googleRedirectUrl = `https://www.google.com/url?q=${encodeURIComponent(targetUrl)}`;
-                        
-                        // Trik 2: Eksekusi menggunakan detasemen window.open khusus browser luar
                           const externalWindow = window.open(googleRedirectUrl, '_system');
                         
-                        // Fallback jika pop-up diblokir: paksa lewat link dengan rel khusus di luar PWA window
                           if (!externalWindow) {
                               const shadowLink = document.createElement('a');
                               shadowLink.href = googleRedirectUrl;
@@ -238,7 +231,6 @@ export default function Auth() {
           </div>
       </Card>
 
-      {/* MODAL LUPA PASSWORD (TETAP SAMA SEPERTI ASLINYA) */}
       {showForgotModal && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95">
