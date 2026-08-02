@@ -199,6 +199,24 @@ function Router() {
       }
     }
 
+useEffect(() => {
+  // Lock orientasi layar khusus Portrait
+  const lockPortrait = async () => {
+    if (typeof window !== 'undefined' && window.screen && window.screen.orientation) {
+      try {
+        if ('lock' in window.screen.orientation) {
+          // @ts-ignore
+          await window.screen.orientation.lock('portrait-primary');
+        }
+      } catch (e) {
+        // Abaikan jika browser tidak mendukung lock API (seperti iOS Safari)
+      }
+    }
+  };
+
+  lockPortrait();
+}, []);
+
     const handleOffline = () => setIsOffline(true);
     const handleOnline = () => setIsOffline(false);
     window.addEventListener('offline', handleOffline);
