@@ -1,6 +1,7 @@
 {
   "name": "Bilano",
   "short_name": "Bilano",
+  "orientation": "portrait",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -8,14 +9,16 @@
   "description": "Pengelola Keuangan Cerdas dengan Asisten AI.",
   "icons": [
     {
-      "src": "/BILANO-ICON.png",
+      "src": "/BILANO-LOGO.jpg",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/BILANO-ICON.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any "
     }
   ]
 }
