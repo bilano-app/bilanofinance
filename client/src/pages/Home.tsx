@@ -141,32 +141,31 @@ export default function Home() {
 
   useEffect(() => {
     if (rawEmail && !isAnyDataLoading && user) {
-        const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
-        const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
         const premiumPromptSeen = localStorage.getItem(`bilano_premium_prompt_seen_${rawEmail}`);
         
-        // 🚀 1. PRIMORDIAL POP-UP: Jika belum Pro & belum pernah lihat pop-up sama sekali, MUNCULKAN LANGSUNG 1X
+        // 🚀 1. MODAL PREMIUM: Langsung muncul jika belum Pro & Belum Pernah Lihat
         if (!user.isPro && !premiumPromptSeen) {
             setShowPremiumPrompt(true);
-            localStorage.setItem(`bilano_premium_prompt_seen_${rawEmail}`, "true"); // Kunci agar tidak spam lagi
-            return; // Tahan tooltip guide agar tidak muncul berbarengan
+            return; 
         }
 
-        // 🚀 2. TOOLTIP PANDUAN (Baru muncul setelah pop-up premium di-dismiss/di-refresh selanjutnya)
-        const startTimeAcc = new Date(user.createdAt || Date.now()).getTime();
-        const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
-
-        if (isNewUser) {
-            if (!guideSeen) {
-                const timer = setTimeout(() => setShowGuideTooltip(true), 1500);
-                return () => clearTimeout(timer);
-            } else if (guideSeen && !profileSeen && !user.profilePicture) {
-                const timer = setTimeout(() => setShowProfileTooltip(true), 1000);
-                return () => clearTimeout(timer);
-            }
+        // 🚀 2. BUBBLE CHAT: Muncul jika Premium Modal sudah pernah dilihat/diselesaikan
+        const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
+        if (!guideSeen) {
+            // Hilangkan delay atau perpendek ke 300ms agar terasa instant
+            const timer = setTimeout(() => setShowGuideTooltip(true), 300);
+            return () => clearTimeout(timer);
         }
     }
 }, [rawEmail, isAnyDataLoading, user]);
+
+// Fungsi tutup modal premium
+const closePremiumModal = () => {
+    setShowPremiumPrompt(false);
+    localStorage.setItem(`bilano_premium_prompt_seen_${rawEmail}`, "true");
+    // Trigger bubble chat instant setelah modal ditutup
+    setTimeout(() => setShowGuideTooltip(true), 500);
+};
 
   useEffect(() => {
       const handleAppWakeUp = () => {
@@ -565,36 +564,46 @@ export default function Home() {
 
   return (
     <MobileLayout>
-      {/* 🔥 POPUP BARU: TAWARAN AKSES FITUR PREMIUM */}
       {showPremiumPrompt && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-4 border-amber-100">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="bg-[#040814] rounded-[32px] w-full max-w-sm shadow-[0_0_50px_rgba(59,130,246,0.2)] relative animate-in zoom-in-95 text-center overflow-hidden border border-blue-500/30">
+            {/* Background Nuansa Logo */}
+            <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-blue-600/20 to-transparent pointer-events-none"></div>
+            
+            <div className="p-8 relative z-10">
+                <img 
+                    src="/BILANO-PREMIUM.png" 
+                    alt="Premium" 
+                    className="w-32 h-32 mx-auto mb-6 drop-shadow-[0_0_20px_rgba(251,191,36,0.4)] object-contain" 
+                />
                 
-                  <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-5 relative z-10 animate-bounce">
-                      <Sparkles className="w-10 h-10 text-amber-500"/>
-                  </div>
+                <h2 className="text-3xl font-black text-white mb-3 tracking-tighter italic">
+                    BILANO <span className="text-amber-400">PREMIUM</span>
+                </h2>
                 
-                  <h2 className="text-2xl font-black text-slate-800 mb-2">Buka Fitur Premium</h2>
-                  <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                      Dapatkan modul lengkap Asisten AI, laporan analisis performa mendalam, dan proteksi kunci harga permanen sekarang juga.
-                  </p>
+                <p className="text-sm text-blue-100/70 mb-8 leading-relaxed font-medium">
+                    Aktifkan <span className="text-white font-bold">Asisten AI Strategis</span>, buka laporan neraca mendalam, dan kuasai kontrol aset penuh sekarang.
+                </p>
                 
-                  <Button 
-                      onClick={() => { setShowPremiumPrompt(false); setLocation('/paywall'); }} 
-                      className="w-full h-14 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2"
-                  >
-                      <Crown className="w-5 h-5"/> PILIH PAKET AKSES
-                  </Button>
-                
-                  <button 
-                      onClick={() => setShowPremiumPrompt(false)} 
-                      className="mt-4 text-[12px] font-bold text-slate-400 hover:text-slate-600"
-                  >
-                      Lewati Dulu
-                  </button>
-              </div>
-          </div>
-      )}
+                <div className="space-y-3">
+                    <Button 
+                        onClick={() => { closePremiumModal(); setLocation('/paywall'); }} 
+                        className="w-full h-14 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 text-slate-900 rounded-2xl font-black text-sm shadow-[0_10px_25px_rgba(251,191,36,0.3)] active:scale-95 transition-all border-b-4 border-amber-800"
+                    >
+                        PILIH PAKET AKSES
+                    </Button>
+                    
+                    <button 
+                        onClick={closePremiumModal} 
+                        className="text-[11px] font-black text-slate-500 hover:text-white transition-colors uppercase tracking-[0.2em]"
+                    >
+                        Mungkin Nanti
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+)}
 
       {/* POPUP PENDING FEATURES */}
       {pendingFeatureModal && (

@@ -35,7 +35,8 @@ export default function Target() {
     const { data: userData, isLoading: isUserLoading, refetch: refetchUser } = useUser();
     const [target, setTarget] = useState<TargetData | null>(null);
     
-    const [step, setStep] = useState<'intro' | 'target-input' | 'budget-ask' | 'budget-setup'>('intro');
+    // 🚀 Alur baru: Memulai langsung dari pengisian Saldo Kas Awal saja
+    const [step, setStep] = useState<'balance-entry' | 'intro' | 'target-input' | 'budget-ask' | 'budget-setup'>('balance-entry');
     const [isTargetMode, setIsTargetMode] = useState(false); 
     
     const [rawCurrentCash, setRawCurrentCash] = useState("");
@@ -54,19 +55,14 @@ export default function Target() {
     const { toast } = useToast();
     const now = new Date();
 
-    const handleNumberChange = (setter: (val: string) => void, value: string) => setter(formatNumber(value));
     const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
-    const { data: fetchedTarget, isLoading: isTargetLoading } = useQuery({
+    const { data: fetchedTarget } = useQuery({
         queryKey: ['target', userEmail],
         queryFn: async () => {
-            try {
-                const res = await fetch(`/api/target`, { headers: { "x-user-email": userEmail }});
-                if (!res.ok) return null;
-                return res.json();
-            } catch (e) {
-                return null;
-            }
+            const res = await fetch(`/api/target`, { headers: { "x-user-email": userEmail }});
+            if (!res.ok) return null;
+            return res.json();
         },
         enabled: !!userEmail,
         retry: false,
@@ -84,40 +80,55 @@ export default function Target() {
     }, [fetchedTarget]);
 
     useEffect(() => {
-        if (userData) {
-            if (userData.cashBalance !== undefined && userData.cashBalance !== null && !rawCurrentCash) {
-                setRawCurrentCash(userData.cashBalance.toString());
-            }
+        if (userData && userData.cashBalance !== undefined && userData.cashBalance !== null && !rawCurrentCash) {
+            setRawCurrentCash(userData.cashBalance.toString());
         }
     }, [userData, rawCurrentCash]);
 
     const isEditMode = target && target.targetAmount !== undefined;
+
+    // 🔥 FIX: Menghapus bug angka nol di depan secara otomatis (Mencegah format '030.000.000')
+    const handleNumberChange = (setter: (val: string) => void, value: string) => {
+        let clean = value.replace(/\D/g, '');
+        if (clean.length > 1) {
+            clean = clean.replace(/^0+/, ''); 
+        }
+        setter(formatNumber(clean));
+    };
 
     const addBreakdownItem = () => {
         if (!newItemName || !newItemAmount) return;
         setBreakdownItems([...breakdownItems, { id: Date.now(), name: newItemName, amount: parseNumber(newItemAmount) }]);
         setNewItemName(""); setNewItemAmount("");
     };
-    const removeBreakdownItem = (id: number) => { setBreakdownItems(breakdownItems.filter(item => item.id !== id)); };
+
+    const removeBreakdownItem = (id: number) => { 
+        setBreakdownItems(breakdownItems.filter(item => item.id !== id)); 
+    };
+
     const saveBreakdownTotal = () => {
         const total = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
-        setRawBudgetAmount(total.toString()); setIsBreakdownOpen(false);
+        setRawBudgetAmount(total.toString()); 
+        setIsBreakdownOpen(false);
         toast({ title: "Terhitung!", description: `Budget diset ke ${formatRp(total)}` });
     };
+
     const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
 
     const startSetup = async (mode: 'target' | 'saving') => {
         setIsTargetMode(mode === 'target');
         if (!isEditMode) {
-            if (mode === 'saving') { setRawTargetAmount("0"); setInputDuration("12"); } 
-            else { setRawTargetAmount(""); setInputDuration(""); }
+            if (mode === 'saving') { 
+                setRawTargetAmount("0"); 
+                setInputDuration("12"); 
+            } else { 
+                setRawTargetAmount(""); 
+                setInputDuration(""); 
+            }
         }
         
-        if (mode === 'target') {
-            setStep('target-input');
-        } else {
-            setStep('budget-ask');
-        }
+        if (mode === 'target') setStep('target-input');
+        else setStep('budget-ask');
     };
     
     const nextToBudgetAsk = () => { 
@@ -167,6 +178,8 @@ export default function Target() {
                 
                 await refetchUser();
                 toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan saldo kas dan target Anda." });
+                
+                // 🚀 Transaksi super cepat dan instan menuju Home menggunakan hard reload ringan
                 window.location.href = "/"; 
             } else { 
                 const errText = await res.text();
@@ -191,6 +204,8 @@ export default function Target() {
     return (
         <MobileLayout title={isEditMode ? "Edit Strategi & Target" : "Atur Strategi Baru"} showBack>
             <div className="space-y-6 pt-4 px-2 pb-20">
+                
+                {/* MODAL RINCIAN ESTIMASI PENGELUARAN */}
                 {isBreakdownOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in p-4">
                         <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 border border-slate-100">
@@ -217,50 +232,67 @@ export default function Target() {
                     </div>
                 )}
 
-                {step === 'intro' && (
-                    <div className="space-y-5 animate-in slide-in-from-bottom-4">
-                        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-[32px] text-white text-center shadow-xl relative overflow-hidden">
-                            <div className="relative z-10">
-                                <h2 className="text-2xl font-extrabold mb-1">Halo, Partner Finansial!</h2>
-                                <p className="text-sm text-blue-100">Tentukan metode pemantauan aset dan jatah kas awal Anda hari ini.</p>
+                {/* STEP 1: HALAMAN SALDO AWAL (SEKARANG MANDIRI & PERTAMA KALI MASUK) */}
+                {step === 'balance-entry' && (
+                    <div className="space-y-6 animate-in slide-in-from-bottom-4 pt-4">
+                        <div className="bg-gradient-to-br from-[#0a1128] to-[#121c3a] p-8 rounded-[32px] text-white text-center shadow-2xl border border-blue-500/20">
+                            <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
+                                <Wallet className="w-10 h-10 text-emerald-400" />
                             </div>
-                            <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                            <h2 className="text-2xl font-black mb-2">Saldo Kas Awal</h2>
+                            <p className="text-sm text-slate-400">Berapa uang tunai / saldo bank yang Anda miliki saat ini untuk dikawal?</p>
                         </div>
 
-                        {/* INPUT SALDO KAS SAAT INI */}
-                        <div className="bg-white p-5 rounded-[24px] border border-slate-200 shadow-sm space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1.5">
-                                <Wallet className="w-4 h-4 text-emerald-500" /> Uang / Saldo Kas Saat Ini (Rp)
-                            </label>
+                        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-200">
+                            <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1 block mb-3 text-center">Nominal Rupiah (IDR)</label>
                             <Input 
                                 type="tel"
                                 placeholder="0" 
-                                value={formatNumber(rawCurrentCash)} 
+                                value={rawCurrentCash} 
                                 onChange={(e) => handleNumberChange(setRawCurrentCash, e.target.value)} 
-                                className="font-extrabold text-slate-800 h-13 rounded-xl border-slate-200 text-lg"
+                                className="font-black text-slate-800 h-16 rounded-2xl border-slate-200 text-3xl text-center focus:border-indigo-500 transition-all shadow-inner"
                             />
+                        </div>
+
+                        <Button 
+                            onClick={() => setStep('intro')} 
+                            className="w-full h-16 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-black rounded-full shadow-lg shadow-indigo-200 transition-transform active:scale-95"
+                        >
+                            LANJUTKAN
+                        </Button>
+                    </div>
+                )}
+
+                {/* STEP 2: PILIHAN METODE / INTRO */}
+                {step === 'intro' && (
+                    <div className="space-y-5 animate-in slide-in-from-right">
+                        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-[32px] text-white text-center shadow-xl relative overflow-hidden">
+                            <h2 className="text-2xl font-extrabold mb-1">Pilih Arsitektur Keuangan</h2>
+                            <p className="text-sm text-blue-100">Tentukan metode pemantauan visi aset jangka panjangmu.</p>
                         </div>
                         
                         <div className="space-y-4 pt-2">
-                            <button onClick={() => startSetup('target')} className="relative w-full text-left p-5 border-2 border-indigo-200 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/50 bg-indigo-50/30 transition-all shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-start sm:items-center gap-4 group">
-                                <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md border border-yellow-300 flex items-center gap-1">
+                            <button onClick={() => startSetup('target')} className="relative w-full text-left p-5 border-2 border-indigo-200 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/50 bg-indigo-50/30 transition-all shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-start gap-4 group">
+                                <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md border border-yellow-300">
                                     Direkomendasikan
                                 </div>
-                                <div className="bg-indigo-100 p-3 rounded-full group-hover:scale-110 transition-transform mt-1 sm:mt-0 flex-shrink-0"><TargetIcon className="w-6 h-6 text-indigo-600"/></div>
+                                <div className="bg-indigo-100 p-3 rounded-full group-hover:scale-110 transition-transform flex-shrink-0"><TargetIcon className="w-6 h-6 text-indigo-600"/></div>
                                 <div>
                                     <h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Kejar Target / Menabung</h3>
-                                    <p className="text-xs text-slate-500">Saya punya impian spesifik yang ingin dicapai.</p>
+                                    <p className="text-xs text-slate-500">Saya punya impian angka nominal spesifik yang ingin dicapai.</p>
                                 </div>
                             </button>
 
                             <button onClick={() => startSetup('saving')} className="w-full text-left p-5 border border-slate-100 rounded-[24px] hover:border-emerald-400 hover:bg-emerald-50/50 transition-all bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group mt-2">
                                 <div className="bg-emerald-100 p-3 rounded-full group-hover:scale-110 transition-transform flex-shrink-0"><PiggyBank className="w-6 h-6 text-emerald-600"/></div>
-                                <div><h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500">Saya ingin melihat keluar masuk uang harian saja.</p></div>
+                                <div><h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500">Saya ingin melihat keluar masuk uang harian secara bebas.</p></div>
                             </button>
                         </div>
+                        <Button variant="ghost" onClick={() => setStep('balance-entry')} className="w-full text-slate-400 font-bold">KEMBALI KE SALDO AWAL</Button>
                     </div>
                 )}
 
+                {/* STEP 3: INPUT DETAIL TARGET */}
                 {step === 'target-input' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-2">
                         <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6 text-center">
@@ -269,7 +301,7 @@ export default function Target() {
                             </div>
                             <div>
                                 <h3 className="font-extrabold text-slate-800 text-xl">Kalkulator Target</h3>
-                                <p className="text-xs text-slate-500 mt-1">Berapa besar impianmu?</p>
+                                <p className="text-xs text-slate-500 mt-1">Berapa besar nominal impian besarmu?</p>
                             </div>
                             <div className="space-y-4 text-left">
                                 <div>
@@ -289,14 +321,15 @@ export default function Target() {
                     </div>
                 )}
 
+                {/* STEP 4: PERTANYAAN PEMBATASAN BUDGET */}
                 {step === 'budget-ask' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-6">
                         <div className="bg-white p-8 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 text-center">
                             <div className="bg-rose-50 p-5 rounded-full w-24 h-24 mx-auto flex items-center justify-center mb-6">
                                 <ShieldCheck className="w-10 h-10 text-rose-500"/>
                             </div>
-                            <h2 className="text-2xl font-extrabold text-slate-800">Batasi Pengeluaran?</h2>
-                            <p className="text-slate-500 text-sm mt-3 leading-relaxed">Aktifkan sistem darurat agar kamu tidak boros dan {isTargetMode ? 'impian cepat tercapai' : 'uang cepat terkumpul'}.</p>
+                            <h2 className="text-2xl font-extrabold text-slate-800">Batasi Pengeluaran Bulanan?</h2>
+                            <p className="text-slate-500 text-sm mt-3 leading-relaxed">Aktifkan batas darurat otomatis agar arus kasmu tidak bocor halus.</p>
                             
                             <div className="space-y-3 pt-8">
                                 <Button onClick={() => handleBudgetAnswer(true)} className="w-full bg-slate-900 hover:bg-slate-800 h-14 text-lg font-extrabold rounded-full shadow-lg">YA, PASANG BATAS</Button>
@@ -307,6 +340,7 @@ export default function Target() {
                     </div>
                 )}
 
+                {/* STEP 5: PENGATURAN LIMIT BUDGET & ROLLOVER */}
                 {step === 'budget-setup' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-2">
                         <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6">
@@ -314,13 +348,13 @@ export default function Target() {
                                 <div className="w-14 h-14 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-3">
                                     <ShieldAlert className="w-7 h-7 text-rose-500"/>
                                 </div>
-                                <h3 className="font-extrabold text-slate-800 text-xl">Atur Batasan</h3>
+                                <h3 className="font-extrabold text-slate-800 text-xl">Atur Batasan Jatah</h3>
                                 <p className="text-xs text-slate-500 mt-1">Maksimal uang keluar per bulan.</p>
                             </div>
                             
                             <div>
                                 <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1 block mb-2">Nominal Batas (Rp)</label>
-                                <Input type="tel" placeholder="1.500.000" value={rawBudgetAmount} onChange={(e) => handleNumberChange(setRawBudgetAmount, e.target.value)} className="h-16 text-2xl font-extrabold text-center bg-slate-50 border-transparent focus:bg-white focus:border-rose-500 rounded-[20px]"/>
+                                <Input type="tel" placeholder="1.500.000" value={rawBudgetAmount} onChange={(e) => handleNumberChange(setRawBudgetAmount, e.target.value)} className="h-16 text-2xl font-black text-center bg-slate-50 border-transparent focus:bg-white focus:border-rose-500 rounded-[20px]"/>
                                 <button onClick={() => setIsBreakdownOpen(true)} className="mt-4 text-xs font-bold text-indigo-500 bg-indigo-50 p-3 rounded-[16px] w-full flex items-center justify-center gap-2 hover:bg-indigo-100 transition-colors"><Calculator className="w-4 h-4"/> BANTU SAYA HITUNG RINCIAN</button>
                             </div>
 
@@ -332,7 +366,7 @@ export default function Target() {
                                 </button>
                                 <button onClick={() => setBudgetType('rollover')} className={`w-full text-left p-4 rounded-[20px] border-2 transition-all flex gap-4 items-start ${budgetType === 'rollover' ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-100 bg-white hover:bg-slate-50'}`}>
                                     <div className={`w-5 h-5 rounded-full border-4 mt-0.5 flex-shrink-0 ${budgetType === 'rollover' ? 'border-indigo-600 bg-white' : 'border-slate-200'}`}></div>
-                                    <div><div className="font-extrabold text-sm text-slate-800 mb-0.5">Akumulasi (Rollover)</div><div className="text-[11px] text-slate-500 leading-relaxed">Sisa budget bulan ini akan ditambahkan ke jatah bulan depan.</div></div>
+                                    <div><div className="font-extrabold text-sm text-slate-800 mb-0.5">Akumulasi (Rollover)</div><div className="text-[11px] text-slate-500 leading-relaxed">Sisa budget bulan ini akan ditambahkan otomatis ke jatah bulan depan.</div></div>
                                 </button>
                             </div>
                         </div>

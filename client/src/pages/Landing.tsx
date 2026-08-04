@@ -284,11 +284,12 @@ export default function Landing() {
             </div>
           </section>
 
-          {/* 🔥 4. TOMBOL INSTALL PWA (Ditambahkan hidden lg:flex agar sembunyi di HP) */}
-          <div className="hidden lg:flex w-full justify-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both max-w-7xl px-4 lg:px-0">
+            {/* 🔥 4. TOMBOL INSTALL PWA (Ditambahkan hidden lg:flex agar sembunyi di HP) */}
+            {/* 🔥 4. TOMBOL INSTALL PWA (Muncul di semua device, letaknya tepat di atas FAQ) */}
+          <div className="w-full flex justify-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both max-w-7xl px-4 lg:px-0 mb-8">
             <button
               onClick={handlePwaInstall}
-              className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
+              className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] md:text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
             >
               <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
               INSTALL BILANO SEKARANG
@@ -337,17 +338,6 @@ export default function Landing() {
             </section>
           </div>
         </main>
-
-        {/* 🟡 STICKY TOMBOL HP */}
-        <div className="lg:hidden sticky bottom-6 px-6 z-50 animate-in slide-in-from-bottom-12 fade-in duration-700 delay-700 fill-mode-both">
-          <button
-            onClick={handlePwaInstall}
-            className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] tracking-wide py-4 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
-          >
-            <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
-            INSTALL BILANO SEKARANG
-          </button>
-        </div>
 
         {/* 🚀 FOOTER */}
         <footer className="mt-auto pb-10 pt-10 text-center relative z-10 border-t border-white/5 w-full flex flex-col items-center px-4">
