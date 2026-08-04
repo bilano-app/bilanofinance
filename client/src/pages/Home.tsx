@@ -12,7 +12,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
-  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Sparkles
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Sparkles 
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -65,9 +65,12 @@ export default function Home() {
 
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [isRequestingPerms, setIsRequestingPerms] = useState(false);
-  const [showPremiumPrompt, setShowPremiumPrompt] = useState(false);
+  
   const [showGuideTooltip, setShowGuideTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
+  
+  // 🔥 State Baru untuk pop-up penawaran paket premium
+  const [showPremiumPrompt, setShowPremiumPrompt] = useState(false);
 
   const [dueSub, setDueSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
@@ -127,63 +130,47 @@ export default function Home() {
       };
   }, [isAnyDataLoading]);
 
+  // 🚀 LOGIKA PEMICU POP-UP PREMIUM & BUBBLE CHAT (URUTAN INSTAN)
   useEffect(() => {
-    if (rawEmail && !isAnyDataLoading && user) {
-        // Logika pengecekan tooltip lama Anda tetap ada disini...
+      if (rawEmail && !isAnyDataLoading && user) {
+          const premiumPromptSeen = localStorage.getItem(`bilano_premium_prompt_seen_${rawEmail}`);
+          
+          // 1. POP-UP PREMIUM MUNCUL PERTAMA KALI JIKA BELUM PRO & BELUM PERNAH LIHAT
+          if (!user.isPro && !premiumPromptSeen) {
+              setShowPremiumPrompt(true);
+              return; // Tahan dulu bubble chat panduan agar tidak bertabrakan
+          }
 
-        // Tambahkan baris ini di bawahnya:
-        if (!user.isPro) {
-            const timer = setTimeout(() => setShowPremiumPrompt(true), 2500);
-            return () => clearTimeout(timer);
-        }
-    }
-}, [rawEmail, isAnyDataLoading, user]);
+          // 2. BUBBLE CHAT PANDUAN (Baru muncul setelah Pop-up Premium diladeni)
+          const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
+          const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
+          const startTimeAcc = new Date(user.createdAt || Date.now()).getTime();
+          const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
 
-  useEffect(() => {
-    if (rawEmail && !isAnyDataLoading && user) {
-        const premiumPromptSeen = localStorage.getItem(`bilano_premium_prompt_seen_${rawEmail}`);
-        
-        // 🚀 1. MODAL PREMIUM: Langsung muncul jika belum Pro & Belum Pernah Lihat
-        if (!user.isPro && !premiumPromptSeen) {
-            setShowPremiumPrompt(true);
-            return; 
-        }
-
-        // 🚀 2. BUBBLE CHAT: Muncul jika Premium Modal sudah pernah dilihat/diselesaikan
-        const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
-        if (!guideSeen) {
-            // Hilangkan delay atau perpendek ke 300ms agar terasa instant
-            const timer = setTimeout(() => setShowGuideTooltip(true), 300);
-            return () => clearTimeout(timer);
-        }
-    }
-}, [rawEmail, isAnyDataLoading, user]);
-
-// Fungsi tutup modal premium
-const closePremiumModal = () => {
-    setShowPremiumPrompt(false);
-    localStorage.setItem(`bilano_premium_prompt_seen_${rawEmail}`, "true");
-    // Trigger bubble chat instant setelah modal ditutup
-    setTimeout(() => setShowGuideTooltip(true), 500);
-};
-
-  useEffect(() => {
-      const handleAppWakeUp = () => {
-          if (document.visibilityState === 'visible') {
-              const lastOpen = sessionStorage.getItem("bilano_last_session");
-              const now = Date.now();
-            
-              if (!lastOpen || (now - parseInt(lastOpen)) > 30 * 60 * 1000) {
-                  trackEvent("app_opened", { source: "pwa_homescreen" });
-                  sessionStorage.setItem("bilano_last_session", now.toString());
+          if (isNewUser) {
+              if (!guideSeen) {
+                  // MUNCUL INSTAN TANPA DELAY 1.5s
+                  setShowGuideTooltip(true);
+                  return;
+              } else if (guideSeen && !profileSeen && !user.profilePicture) {
+                  const timer = setTimeout(() => setShowProfileTooltip(true), 1000);
+                  return () => clearTimeout(timer);
               }
           }
-      };
+      }
+  }, [rawEmail, isAnyDataLoading, user]);
 
-      handleAppWakeUp();
-      document.addEventListener('visibilitychange', handleAppWakeUp);
-      return () => document.removeEventListener('visibilitychange', handleAppWakeUp);
-  }, []);
+  // 🚀 FUNGSI TUTUP MODAL PREMIUM (TULIS FLAG KE STORAGE & LANGKAHKAN KE BUBBLE PANDUAN)
+  const handleClosePremiumPrompt = () => {
+      setShowPremiumPrompt(false);
+      localStorage.setItem(`bilano_premium_prompt_seen_${rawEmail}`, "true"); // Kunci mati selamanya
+      
+      // Trigger bubble chat panduan secara instan setelah pop-up ditutup pengguna
+      const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
+      if (!guideSeen) {
+          setTimeout(() => setShowGuideTooltip(true), 400); // Beri jeda halus setelah modal hilang
+      }
+  };
 
   const dismissGuideTooltip = () => {
       setShowGuideTooltip(false);
@@ -258,7 +245,6 @@ const closePremiumModal = () => {
       const todayStr = new Date().toISOString().split('T')[0];
       
       const due = subscriptions.find((sub: any) => {
-          // Sekarang memproses baik statis maupun dinamis asalkan aktif
           if (!sub.isActive) return false; 
           
           const nextDate = new Date(sub.nextPaymentDate);
@@ -289,7 +275,7 @@ const closePremiumModal = () => {
                   amount: amountToPay, 
                   category: "Tagihan Bulanan", 
                   description: `Bayar Tagihan: ${dueSub.name}`,
-                  date: new Date(dueSub.nextPaymentDate) // <-- Mencatat sesuai tanggal jatuh tempo asli
+                  date: new Date(dueSub.nextPaymentDate)
               })
           });
 
@@ -484,126 +470,51 @@ const closePremiumModal = () => {
 
   const income = baseIncomeTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'income').reduce((acc, v) => acc + v.amount, 0);
   const expense = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'expense').reduce((acc, v) => acc + v.amount, 0);
-  
-  if (isAnyDataLoading) {
-      return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 relative">
-              <img src="/BILANO-ICON.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm mb-2">
-                  <Loader2 className="w-4 h-4 animate-spin"/>
-                  <span>Menyiapkan Dasbor...</span>
-              </div>
-              
-              <div className={`transition-all duration-1000 max-w-[280px] text-center mt-4 ${isLongLoading ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 h-0 overflow-hidden'}`}>
-                  <p className="text-[10px] font-black text-amber-500 mb-2 uppercase tracking-widest flex items-center justify-center gap-1.5 bg-amber-50 py-1 px-3 rounded-full w-max mx-auto shadow-sm">
-                      <Lightbulb className="w-3.5 h-3.5"/> BILANO Tips
-                  </p>
-                  <p key={loadingTipIndex} className="text-[13px] font-bold text-slate-600 italic leading-relaxed animate-in fade-in duration-500 text-balance">
-                      "{FINANCIAL_TIPS[loadingTipIndex]}"
-                  </p>
-              </div>
-
-              {showRetryButton && (
-                  <div className="absolute bottom-16 animate-in fade-in slide-in-from-bottom-4">
-                      <Button onClick={() => window.location.reload()} className="bg-white border-2 border-rose-200 text-rose-600 font-bold shadow-lg hover:bg-rose-50 rounded-full h-12 px-6">
-                          Server Terlalu Lama? Muat Ulang ➔
-                      </Button>
-                  </div>
-              )}
-          </div>
-      );
-  }
-
-  if (!user && !isUserLoading) {
-      return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 text-center relative z-[999]">
-              <AlertTriangle className="w-16 h-16 text-rose-500 mb-4 animate-bounce" />
-              <h2 className="text-xl font-extrabold text-slate-800 mb-2">Sesi Terputus</h2>
-              <p className="text-sm text-slate-500 mb-8 max-w-xs">Terjadi kendala saat memuat profil Anda dari server. Silakan masuk ulang.</p>
-              <Button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full h-14 px-8 shadow-lg">
-                  LOGOUT & COBA LAGI
-              </Button>
-          </div>
-      );
-  }
-
-  if (isTargetEmpty) {
-      return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
-              <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
-              <h2 className="text-lg font-bold text-slate-800">Mengarahkan...</h2>
-              <p className="text-sm text-slate-500 text-center">Membuka pengaturan profil finansial pertama Anda.</p>
-          </div>
-      );
-  }
-
-  if (isLocked) {
-      return (
-        <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center text-white">
-            <Lock className={`w-12 h-12 mb-4 ${pinError ? 'text-rose-500 animate-bounce' : 'text-indigo-500'}`} />
-            <h2 className="text-xl font-bold mb-2">BILANO Terkunci</h2>
-            <p className="text-sm text-slate-400 mb-8">{pinError ? "PIN Salah. Coba lagi." : "Masukkan PIN Keamanan"}</p>
-            <div className={`flex gap-4 mb-12 ${pinError ? 'animate-pulse' : ''}`}>
-                {[...Array(6)].map((_, i) => (
-                    <div key={i} className={`w-4 h-4 rounded-full transition-colors ${pinInput.length > i ? (pinError ? 'bg-rose-500' : 'bg-indigo-50/50') : 'bg-slate-700'}`} />
-                ))}
-            </div>
-            <div className="grid grid-cols-3 gap-6 max-w-xs mx-auto">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                    <button key={num} onClick={() => handlePinUnlock(num.toString())} className="w-16 h-16 rounded-full bg-slate-800 text-2xl font-bold hover:bg-slate-700 active:bg-slate-600 transition-colors">{num}</button>
-                ))}
-                <div />
-                <button onClick={() => handlePinUnlock('0')} className="w-16 h-16 rounded-full bg-slate-800 text-2xl font-bold hover:bg-slate-700 active:bg-slate-600 transition-colors">0</button>
-                <button onClick={() => setPinInput(p => p.slice(0, -1))} className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 active:bg-slate-600 transition-colors">
-                    <X className="w-8 h-8"/>
-                </button>
-            </div>
-        </div>
-      );
-  }
 
   return (
     <MobileLayout>
+      {/* 🔥 POPUP BARU: TAWARAN AKSES FITUR PREMIUM (DESAIN TAJAM EKSKLUSIF) */}
       {showPremiumPrompt && (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
-        <div className="bg-[#040814] rounded-[32px] w-full max-w-sm shadow-[0_0_50px_rgba(59,130,246,0.2)] relative animate-in zoom-in-95 text-center overflow-hidden border border-blue-500/30">
-            {/* Background Nuansa Logo */}
-            <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-blue-600/20 to-transparent pointer-events-none"></div>
-            
-            <div className="p-8 relative z-10">
-                <img 
-                    src="/BILANO-PREMIUM.png" 
-                    alt="Premium" 
-                    className="w-32 h-32 mx-auto mb-6 drop-shadow-[0_0_20px_rgba(251,191,36,0.4)] object-contain" 
-                />
-                
-                <h2 className="text-3xl font-black text-white mb-3 tracking-tighter italic">
-                    BILANO <span className="text-amber-400">PREMIUM</span>
-                </h2>
-                
-                <p className="text-sm text-blue-100/70 mb-8 leading-relaxed font-medium">
-                    Aktifkan <span className="text-white font-bold">Asisten AI Strategis</span>, buka laporan neraca mendalam, dan kuasai kontrol aset penuh sekarang.
-                </p>
-                
-                <div className="space-y-3">
-                    <Button 
-                        onClick={() => { closePremiumModal(); setLocation('/paywall'); }} 
-                        className="w-full h-14 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 text-slate-900 rounded-2xl font-black text-sm shadow-[0_10px_25px_rgba(251,191,36,0.3)] active:scale-95 transition-all border-b-4 border-amber-800"
-                    >
-                        PILIH PAKET AKSES
-                    </Button>
-                    
-                    <button 
-                        onClick={closePremiumModal} 
-                        className="text-[11px] font-black text-slate-500 hover:text-white transition-colors uppercase tracking-[0.2em]"
-                    >
-                        Mungkin Nanti
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-)}
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="bg-[#040814] rounded-[32px] w-full max-w-sm shadow-[0_0_50px_rgba(59,130,246,0.2)] relative animate-in zoom-in-95 text-center overflow-hidden border border-blue-500/30">
+                  
+                  {/* Background Nuansa Logo */}
+                  <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-blue-600/20 to-transparent pointer-events-none"></div>
+                  
+                  <div className="p-8 relative z-10">
+                      <img 
+                          src="/BILANO-PREMIUM.png" 
+                          alt="Premium" 
+                          className="w-32 h-32 mx-auto mb-6 drop-shadow-[0_0_20px_rgba(251,191,36,0.4)] object-contain" 
+                      />
+                      
+                      <h2 className="text-3xl font-black text-white mb-3 tracking-tighter italic">
+                          BILANO <span className="text-amber-400">PREMIUM</span>
+                      </h2>
+                      
+                      <p className="text-sm text-blue-100/70 mb-8 leading-relaxed font-medium">
+                          Aktifkan <span className="text-white font-bold">Asisten AI Strategis</span>, buka laporan neraca mendalam, dan kuasai kontrol aset penuh sekarang.
+                      </p>
+                      
+                      <div className="space-y-3">
+                          <Button 
+                              onClick={() => { handleClosePremiumPrompt(); setLocation('/paywall'); }} 
+                              className="w-full h-14 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 text-slate-900 rounded-2xl font-black text-sm shadow-[0_10px_25px_rgba(251,191,36,0.3)] active:scale-95 transition-all border-b-4 border-amber-800"
+                          >
+                              PILIH PAKET AKSES
+                          </Button>
+                          
+                          <button 
+                              onClick={handleClosePremiumPrompt} 
+                              className="text-[11px] font-black text-slate-500 hover:text-white transition-colors uppercase tracking-[0.2em]"
+                          >
+                              Mungkin Nanti
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* POPUP PENDING FEATURES */}
       {pendingFeatureModal && (
@@ -700,7 +611,7 @@ const closePremiumModal = () => {
                     <Button variant="ghost" onClick={handleSkipSub} className="w-full h-12 rounded-full font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">
                         Nanti Saja (Lewati Hari Ini)
                     </Button>
-                    {dueSub.category === 'statis' && (
+                    {dueSub.cycle === 'yearly' && dueSub.category === 'statis' && (
                         <button onClick={handleStopSub} className="text-[11px] font-bold text-rose-400 hover:text-rose-600 hover:underline underline-offset-2 w-full pt-1">
                             Berhenti Berlangganan (Non-aktifkan)
                         </button>
@@ -805,10 +716,27 @@ const closePremiumModal = () => {
                         </div>
                     )}
                 </div>
-                <div>
-                    <div className="flex items-center gap-2">
+                
+                {/* 🚀 OPSI 1: TOMBOL UPGRADE RAMPING DI HEADER (SEBELAH NAMA) */}
+                <div className="flex flex-col">
+                    <div className="flex items-center gap-2 mb-0.5">
                         <p className="text-xs font-medium text-slate-500">Selamat datang,</p>
-                        <Crown className="w-3.5 h-3.5 text-amber-500" />
+                        
+                        {/* 🔥 TOMBOL UPGRADE PRO (Hanya muncul jika belum Pro) */}
+                        {!user?.isPro && (
+                            <button 
+                                onClick={() => setLocation('/paywall')} 
+                                className="flex items-center gap-1 bg-amber-400/10 text-amber-500 hover:bg-amber-400 hover:text-slate-900 transition-colors px-2 py-0.5 rounded-full border border-amber-400/30 active:scale-95 shadow-inner group"
+                            >
+                                <Sparkles className="w-3 h-3 group-hover:animate-pulse" />
+                                <span className="text-[9px] font-black tracking-wider uppercase">Upgrade Pro</span>
+                            </button>
+                        )}
+                        
+                        {/* ✅ ICON CROWN (Hanya muncul jika SUDAH Pro) */}
+                        {user?.isPro && (
+                            <Crown className="w-3.5 h-3.5 text-amber-500" />
+                        )}
                     </div>
                     <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight">{greetingName}</h2>
                 </div>
@@ -858,7 +786,7 @@ const closePremiumModal = () => {
 
                 <div className="relative">
                     <button 
-                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        onClick={() => { setIsMenuOpen(!isMenuOpen); dismissGuideTooltip(); }}
                         className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 active:bg-slate-100 transition-colors"
                     >
                         <MoreVertical className="w-5 h-5"/>
@@ -938,29 +866,8 @@ const closePremiumModal = () => {
                </div>
            </Link>
         </div>
-        {/* 🟡 BANNER PASIF PREMUM (Hanya muncul jika user belum Pro) */}
-        {!user?.isPro && (
-            <div className="px-1 mt-3">
-                <div onClick={() => setLocation('/paywall')} className="bg-gradient-to-r from-slate-900 to-[#121c3a] border border-amber-400/30 rounded-[20px] p-4 flex items-center justify-between shadow-lg cursor-pointer active:scale-[0.98] transition-all group overflow-hidden relative">
-                    <div className="absolute right-0 top-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
-                    
-                    <div className="flex items-center gap-3 relative z-10">
-                        <div className="w-10 h-10 rounded-full bg-amber-400/20 flex items-center justify-center border border-amber-400/30 shadow-inner">
-                            <Sparkles className="w-5 h-5 text-amber-400 animate-pulse"/>
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-black text-white leading-tight mb-0.5">Buka Akses Premium</h4>
-                            <p className="text-[10px] text-slate-400 font-medium">Asisten AI, Laporan Lengkap, & Lock Harga</p>
-                        </div>
-                    </div>
-                    
-                    <div className="bg-amber-400 text-slate-900 px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider relative z-10 shadow-sm group-hover:scale-105 transition-transform">
-                        PILIH PAKET
-                    </div>
-                </div>
-            </div>
-        )}
-        
+
+        {/* ❌ BANNER OPSI 2 DI TENGAH SUDAH DIHAPUS TOTAL ❌ */}
 
         <div className="px-1 mt-2">
             <div className="flex justify-between items-center mb-4 px-1">
