@@ -230,4 +230,227 @@ export default function Landing() {
               <h2 className="text-2xl md:text-3xl font-black text-white leading-tight drop-shadow-md mt-2">Kawal Visi Finansialmu</h2>
             </div>
 
-            <div className="w-full aspect-video bg-slate-900 rounded-[32px] overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.5)] border border-white
+            <div className="w-full aspect-video bg-slate-900 rounded-[32px] overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.5)] border border-white/10 relative">
+              <div className="absolute inset-0 z-0">
+                <video 
+                  ref={videoRef}
+                  playsInline
+                  muted={isMuted}
+                  preload="auto"
+                  onLoadedMetadata={handleLoadedMetadata}
+                  onTimeUpdate={handleTimeUpdate}
+                  onEnded={() => setIsPlaying(false)}
+                  className="w-full h-full object-cover"
+                >
+                  <source src="/Bilano-Preview.mp4" type="video/mp4" />
+                  Browser Anda tidak mendukung pemutar video.
+                </video>
+                <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 via-transparent to-transparent h-24 z-10 pointer-events-none"></div>
+              </div>
+
+              {!isPlaying && (
+                <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center transition-all">
+                  <button 
+                    onClick={handlePlayVideo}
+                    className="w-16 h-16 md:w-20 md:h-20 bg-amber-400 text-[#0a1128] rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(251,191,36,0.4)] hover:scale-110 hover:bg-amber-300 active:scale-95 transition-all mb-4"
+                  >
+                    <Play fill="currentColor" size={32} className="ml-2 md:w-9 md:h-9" />
+                  </button>
+                  <p className="text-white font-bold tracking-widest text-xs md:text-sm drop-shadow-md">PUTAR VIDEO</p>
+                </div>
+              )}
+
+              <div className="absolute top-4 right-4 md:top-6 md:right-6 z-30">
+                <div className="bg-black/60 backdrop-blur-md text-white font-mono font-bold text-xs md:text-sm px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-white/10 flex items-center gap-2 shadow-md">
+                  <span className={`w-2 h-2 bg-red-500 rounded-full ${isPlaying ? 'animate-pulse' : ''}`}></span>
+                  {formatTime(timeLeft)}
+                </div>
+              </div>
+
+              <div className="absolute top-4 left-4 md:top-6 md:left-6 z-30 flex items-center gap-2">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (videoRef.current) {
+                      videoRef.current.muted = !isMuted;
+                      setIsMuted(!isMuted);
+                    }
+                  }} 
+                  className="p-2 md:p-3 bg-black/40 backdrop-blur-md rounded-full text-white border border-white/10 active:scale-95 transition-transform hover:bg-black/60"
+                >
+                  {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* 🔥 4. TOMBOL INSTALL PWA */}
+          <div className="w-full flex justify-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both max-w-7xl px-4 lg:px-0">
+            <button
+              onClick={handlePwaInstall}
+              className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] md:text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
+            >
+              <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
+              INSTALL BILANO SEKARANG
+            </button>
+          </div>
+
+          {/* 🔥 5. LANGKAH INSTALL & FAQ */}
+          <div className="flex flex-col lg:flex-row gap-10 lg:gap-16 w-full max-w-7xl">
+            <section className="bg-[#121c3a]/50 backdrop-blur-xl border border-white/5 rounded-[28px] p-6 text-white shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both lg:p-8 flex-1">
+              <h3 className="text-lg font-black mb-5 text-amber-400 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5"/> Cara Cepat Pasang
+              </h3>
+              <div className="space-y-5 lg:space-y-6">
+                  <Step num="1" text="Tekan tombol INSTALL SEKARANG yang berwarna kuning di halaman ini." />
+                  <Step num="2" text="Sistem akan langsung menampilkan jendela konfirmasi instalasi aplikasi." />
+                  <Step num="3" text="Selesai! Ikon BILANO akan muncul di HP Anda layaknya aplikasi asli, tanpa memakan memori." />
+              </div>
+            </section>
+
+            <section className="animate-in slide-in-from-bottom-10 fade-in duration-700 delay-500 fill-mode-both lg:flex-1">
+              <h3 className="text-lg lg:text-xl font-black mb-5 text-white">Sering Ditanyakan</h3>
+              <div className="space-y-3 lg:space-y-4">
+                  {faqs.map((faq, idx) => (
+                      <div key={idx} className="bg-[#121c3a] border border-white/5 rounded-2xl overflow-hidden transition-all hover:border-white/10">
+                          <button 
+                            onClick={() => {
+                              const isOpening = openFaq !== idx;
+                              setOpenFaq(isOpening ? idx : null);
+                              if (isOpening) {
+                                trackEvent("faq_toggled", { question: faq.q });
+                              }
+                            }} 
+                            className="w-full text-left p-4 flex items-center justify-between font-bold text-sm text-slate-200 lg:p-5 lg:text-base"
+                          >
+                              {faq.q}
+                              <ChevronDown className={`w-4 h-4 lg:w-5 lg:h-5 transition-transform duration-300 ${openFaq === idx ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} />
+                          </button>
+                          {openFaq === idx && (
+                              <div className="px-4 pb-4 text-[13px] text-slate-400 leading-relaxed border-t border-white/5 pt-3 lg:px-5 lg:pb-5 lg:text-[14.5px]">
+                                  {faq.a}
+                              </div>
+                          )}
+                      </div>
+                  ))}
+              </div>
+            </section>
+          </div>
+        </main>
+
+        {/* 🟡 STICKY TOMBOL HP */}
+        <div className="lg:hidden sticky bottom-6 px-6 z-50 animate-in slide-in-from-bottom-12 fade-in duration-700 delay-700 fill-mode-both">
+          <button
+            onClick={handlePwaInstall}
+            className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] tracking-wide py-4 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
+          >
+            <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
+            INSTALL BILANO SEKARANG
+          </button>
+        </div>
+
+        {/* 🚀 FOOTER */}
+        <footer className="mt-auto pb-10 pt-10 text-center relative z-10 border-t border-white/5 w-full flex flex-col items-center px-4">
+            <img src="/Bilano_horiz_rbg.png" alt="Bilano" className="h-5 mx-auto mb-6 opacity-50 grayscale mix-blend-screen" />
+            <div className="flex flex-col md:flex-row justify-center items-center gap-3 md:gap-8 mb-8 text-slate-400 text-xs md:text-[13px] font-medium">
+              <div className="flex items-center gap-2 hover:text-amber-400 transition-colors cursor-default">
+                <Mail className="w-4 h-4 text-slate-500" />
+                <span>bilanotech@gmail.com</span>
+              </div>
+              <div className="flex items-center gap-2 hover:text-amber-400 transition-colors cursor-default">
+                <Phone className="w-4 h-4 text-slate-500" />
+                <span>+6289688113210</span>
+              </div>
+              <div className="flex items-start gap-2 hover:text-amber-400 transition-colors cursor-default">
+                <MapPin className="mt-1 w-4 h-4 text-slate-500" />
+                <span className="leading-5 text-center">
+                  Jakarta, Indonesia
+                </span>
+              </div>
+            </div>
+            <p className="text-[10px] md:text-xs text-slate-600 font-medium">© {new Date().getFullYear()} Bilano Official</p>
+        </footer>
+      </div>
+
+      {/* 🚀 MODAL 1: SEDANG MENGINSTALL (Ditampilkan pertama kali saat klik tombol) */}
+      {isInstalling && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200 text-center shadow-2xl flex flex-col items-center">
+            <button 
+              onClick={() => setIsInstalling(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mb-5">
+               <Download className="w-8 h-8 animate-bounce" />
+            </div>
+            
+            <h3 className="text-xl font-black mb-2 text-white">Memproses Instalasi...</h3>
+            <p className="text-sm text-slate-300 mb-6 leading-relaxed">
+              Mohon ikuti instruksi pemasangan pada pop-up sistem di layar perangkat Anda (jika muncul).
+            </p>
+
+            <button 
+              onClick={() => {
+                setIsInstalling(false);
+                setShowManualInstall(true); // Memanggil modal langkah alternatif
+              }}
+              className="text-[13px] font-bold text-slate-400 hover:text-amber-400 underline underline-offset-4 transition-colors p-2"
+            >
+              Apakah ada kendala saat instalasi? Klik di sini
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🛠️ MODAL 2: LANGKAH ALTERNATIF (Hanya muncul jika tulisan kendala di atas dipencet) */}
+      {showManualInstall && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200 text-center shadow-2xl">
+            <button 
+              onClick={() => setShowManualInstall(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck className="w-8 h-8" />
+            </div>
+            
+            <h3 className="text-xl font-black mb-3 text-white">Langkah Alternatif</h3>
+            <p className="text-sm text-slate-300 mb-6 leading-relaxed text-left">
+              Browser Anda mungkin membatasi instalasi otomatis (biasanya di iOS Safari atau Mode Incognito). Cara pasang manual:
+              <br/><br/>
+              1. Ketuk ikon <strong>Titik Tiga (⋮)</strong> atau <strong>Share (Bagikan)</strong> di browser Anda.<br/>
+              2. Pilih menu <strong>"Tambahkan ke Layar Utama"</strong> atau <strong>"Install App"</strong>.<br/>
+            </p>
+
+            <button 
+              onClick={() => setShowManualInstall(false)}
+              className="w-full bg-gradient-to-r from-amber-400 to-yellow-500 text-[#0a1128] font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center"
+            >
+              SAYA MENGERTI
+            </button>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+function Step({ num, text }: { num: string, text: string }) {
+  return (
+    <div className="flex gap-4 items-start">
+      <div className="shrink-0 w-6 h-6 md:w-8 md:h-8 lg:w-9 lg:h-9 rounded-full bg-amber-400/10 text-amber-400 flex items-center justify-center font-black text-[11px] md:text-sm lg:text-base border border-amber-400/20">
+        {num}
+      </div>
+      <p className="text-slate-300 font-medium leading-relaxed pt-0.5 text-[13px] md:text-[14.5px] lg:text-[15.5px]">
+        {text}
+      </p>
+    </div>
+  );
+}
