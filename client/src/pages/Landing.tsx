@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { 
-  ShieldCheck, ChevronDown, Star, LayoutDashboard, Download, Mail, Phone, MapPin 
+  ShieldCheck, ChevronDown, Star, LayoutDashboard, Download, Mail, Phone, MapPin,
+  Play, Volume2, VolumeX, X
 } from "lucide-react";
 import { trackEvent } from "@/lib/tracking";
 
@@ -32,12 +33,96 @@ export default function Landing() {
     return () => clearInterval(interval);
   }, []);
 
-  // 🔥 TRACKING: Mencatat Kunjungan Halaman Pertama Kali Berdasarkan Device
   useEffect(() => {
     trackEvent("landing_page_viewed", { 
       device: typeof window !== 'undefined' && window.innerWidth < 1024 ? "mobile" : "desktop" 
     });
   }, []);
+
+  // =======================================================
+  // 🚀 STATE PWA INSTALLATION (Pembaruan Flow)
+  // =======================================================
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstalling, setIsInstalling] = useState(false); // State untuk Pop-up Proses Install
+  const [showManualInstall, setShowManualInstall] = useState(false); // State untuk Pop-up Langkah Alternatif
+
+  useEffect(() => {
+    if ((window as any).deferredPwaPrompt) {
+      setDeferredPrompt((window as any).deferredPwaPrompt);
+    }
+    const handler = (e: any) => {
+      e.preventDefault(); 
+      setDeferredPrompt(e);
+      (window as any).deferredPwaPrompt = e; 
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handlePwaInstall = async () => {
+    trackEvent("pwa_install_prompted");
+    setIsInstalling(true); // 1. Tampilkan Pop-up "Sedang menginstall..."
+
+    const promptEvent = deferredPrompt || (window as any).deferredPwaPrompt;
+    
+    // 2. Usahakan SECARA MAKSIMAL trigger install bawaan browser
+    if (promptEvent) {
+      try {
+        promptEvent.prompt();
+        const { outcome } = await promptEvent.userChoice;
+        if (outcome === 'accepted') {
+          trackEvent("pwa_install_accepted");
+          setDeferredPrompt(null);
+          (window as any).deferredPwaPrompt = null;
+          setIsInstalling(false);
+          setTimeout(() => setLocation('/auth'), 500); 
+        } else {
+          trackEvent("pwa_install_dismissed");
+          // Jika ditolak, pop-up "Sedang menginstall" dibiarkan agar user bisa klik opsi kendala
+        }
+      } catch (err) {
+        console.error("Install prompt error:", err);
+      }
+    } else {
+      // Jika prompt tidak ada (iOS/Incognito), pop-up "Sedang menginstall" akan tetap muncul
+      // sehingga user bisa secara sadar mengklik tulisan kendala
+      trackEvent("pwa_manual_install_needed");
+    }
+  };
+
+  // =======================================================
+  // 🎥 STATE VIDEO PLAYER
+  // =======================================================
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [isMuted, setIsMuted] = useState(false); 
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handlePlayVideo = () => {
+    if (videoRef.current) {
+      videoRef.current.play();
+      videoRef.current.muted = false; 
+      setIsMuted(false);
+      setIsPlaying(true);
+    }
+  };
+
+  const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    setTimeLeft(e.currentTarget.duration);
+  };
+
+  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    const remaining = Math.max(0, video.duration - video.currentTime);
+    setTimeLeft(remaining);
+  };
+
+  const formatTime = (seconds: number) => {
+    if (isNaN(seconds)) return "00:00";
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   const faqs = [
     { 
@@ -71,12 +156,11 @@ export default function Landing() {
         </header>
 
         {/* 🚀 MAIN CONTENT */}
-        <main className="px-5 sm:px-6 lg:px-10 pt-6 pb-16 lg:pb-12 flex flex-col gap-10 sm:gap-12 lg:gap-24 w-full items-center">
+        <main className="px-5 sm:px-6 lg:px-10 pt-6 pb-16 lg:pb-12 flex flex-col gap-10 sm:gap-14 lg:gap-20 w-full items-center">
           
           {/* 🔥 1. HERO SECTION */}
           <section className="w-full min-w-0 flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-4 animate-in slide-in-from-bottom-6 fade-in duration-700 delay-100 fill-mode-both max-w-6xl mx-auto mt-2 px-2 sm:px-4 lg:px-0">
             
-            {/* KIRI/ATAS: TEKS UTAMA */}
             <div className="flex-1 min-w-0 flex flex-col gap-3 lg:gap-4 text-center lg:text-left items-center lg:items-start z-20 w-full pt-4 lg:pt-0">
               <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 px-4 py-2 rounded-full w-fit shadow-inner">
                 <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
@@ -91,7 +175,6 @@ export default function Landing() {
               </h2>
             </div>
 
-            {/* KANAN/BAWAH: FOTO & LABEL BRUTALIST */}
             <div className="flex-1 relative w-full flex justify-center lg:justify-end z-10 -mt-6 md:-mt-8 lg:mt-0">
               <div className="relative inline-flex flex-col items-center w-full max-w-[460px]">
                   <img 
@@ -99,7 +182,6 @@ export default function Landing() {
                     alt="Adrien Fandra" 
                     className="w-[95%] h-auto object-contain drop-shadow-[-25px_15px_25px_rgba(0,0,0,0.65)] hover:-translate-y-2 transition-transform duration-700 ease-out relative z-10" 
                   />
-                  
                   <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#080d20] to-transparent z-20 pointer-events-none"></div>
                   
                   <div className="absolute bottom-[5%] left-1/2 lg:left-auto right-auto lg:right-[5%] flex flex-col items-center lg:items-start animate-in zoom-in slide-in-from-bottom-6 fade-in duration-700 delay-500 z-30 hover:scale-105 transition-transform cursor-default scale-[0.75] origin-bottom lg:scale-100 -translate-x-1/2 lg:translate-x-0">
@@ -117,17 +199,7 @@ export default function Landing() {
 
           </section>
 
-          {/* 🔥 3. KARTU BENEFIT */}
-          <section className="grid grid-cols-3 gap-3 lg:gap-6 animate-in slide-in-from-bottom-8 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
-            <FeatureCard imgUrl="https://img.icons8.com/color/96/artificial-intelligence.png" title="Konsultasi AI" desc="Strategi cerdas pelunasan hutang." />
-            <FeatureCard imgUrl="https://img.icons8.com/color/96/barcode-scanner.png" title="Smart Scanner" desc="Foto struk, saldo auto-potong." />
-            <FeatureCard imgUrl="https://img.icons8.com/color/96/business-report.png" title="Laporan PDF" desc="Cetak neraca akurasi tinggi." />
-            <FeatureCard imgUrl="https://img.icons8.com/color/96/bullish.png" title="Multi Aset" desc="Pantau Valas, Crypto, & Saham." />
-            <FeatureCard imgUrl="https://img.icons8.com/color/96/e-learning.png" title="Pustaka Finansial" desc="E-book panduan kekayaan (Segera)." />
-            <FeatureCard imgUrl="https://img.icons8.com/color/96/multiple-devices.png" title="Akses Universal" desc="PWA: Ringan di semua perangkat." />
-          </section>
-
-          {/* 🔥 4. UI SCREENSHOT GALLERY */}
+          {/* 🔥 2. UI SCREENSHOT GALLERY */}
           <section className="animate-in slide-in-from-bottom-10 fade-in duration-700 delay-300 fill-mode-both w-full max-w-7xl">
             <div className="mb-4 lg:mb-6 lg:text-center max-w-lg lg:mx-auto">
               <h3 className="text-lg lg:text-xl font-black text-white flex items-center gap-2 lg:justify-center">
@@ -151,128 +223,11 @@ export default function Landing() {
             </div>
           </section>
 
-          {/* 🔥 5. LANGKAH INSTALL & FAQ */}
-          <div className="flex flex-col lg:flex-row gap-10 lg:gap-16 w-full max-w-7xl">
-            <section className="bg-[#121c3a]/50 backdrop-blur-xl border border-white/5 rounded-[28px] p-6 text-white shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both lg:p-8 flex-1">
-              <h3 className="text-lg font-black mb-5 text-amber-400 flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5"/> Cara Cepat Pasang
-              </h3>
-              <div className="space-y-5 lg:space-y-6">
-                  <Step num="1" text="Tekan tombol INSTALL SEKARANG yang berwarna kuning di halaman ini." />
-                  <Step num="2" text="Sistem akan langsung menampilkan jendela konfirmasi instalasi aplikasi." />
-                  <Step num="3" text="Selesai! Ikon BILANO akan muncul di HP Anda layaknya aplikasi asli, tanpa memakan memori." />
-              </div>
-            </section>
-
-            <section className="animate-in slide-in-from-bottom-10 fade-in duration-700 delay-500 fill-mode-both lg:flex-1">
-              <h3 className="text-lg lg:text-xl font-black mb-5 text-white">Sering Ditanyakan</h3>
-              <div className="space-y-3 lg:space-y-4">
-                  {faqs.map((faq, idx) => (
-                      <div key={idx} className="bg-[#121c3a] border border-white/5 rounded-2xl overflow-hidden transition-all hover:border-white/10">
-                          <button 
-                            onClick={() => {
-                              const isOpening = openFaq !== idx;
-                              setOpenFaq(isOpening ? idx : null);
-                              if (isOpening) {
-                                trackEvent("faq_toggled", { question: faq.q });
-                              }
-                            }} 
-                            className="w-full text-left p-4 flex items-center justify-between font-bold text-sm text-slate-200 lg:p-5 lg:text-base"
-                          >
-                              {faq.q}
-                              <ChevronDown className={`w-4 h-4 lg:w-5 lg:h-5 transition-transform duration-300 ${openFaq === idx ? 'rotate-180 text-amber-400' : 'text-slate-500'}`} />
-                          </button>
-                          {openFaq === idx && (
-                              <div className="px-4 pb-4 text-[13px] text-slate-400 leading-relaxed border-t border-white/5 pt-3 lg:px-5 lg:pb-5 lg:text-[14.5px]">
-                                  {faq.a}
-                              </div>
-                          )}
-                      </div>
-                  ))}
-              </div>
-            </section>
-          </div>
-
-          {/* 🔥 6. TOMBOL INSTALL DESKTOP (MENGARAH KE PREVIEW) */}
-          <div className="hidden lg:flex w-full flex-col items-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-500 fill-mode-both">
-            <button
-              onClick={() => {
-                trackEvent("cta_landing_clicked", { placement: "desktop_bottom" });
-                setLocation('/preview'); // LOMPAT KE VIDEO PREVIEW
-              }}
-              className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
-            >
-              <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
-              DAPATKAN APLIKASI SEKARANG
-            </button>
-          </div>
-
-        </main>
-
-        {/* 🟡 STICKY TOMBOL HP (MENGARAH KE PREVIEW) */}
-        <div className="lg:hidden sticky bottom-6 px-6 z-50 animate-in slide-in-from-bottom-12 fade-in duration-700 delay-700 fill-mode-both">
-          <button
-            onClick={() => {
-              trackEvent("cta_landing_clicked", { placement: "mobile_sticky" });
-              setLocation('/preview'); // LOMPAT KE VIDEO PREVIEW
-            }}
-            className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] tracking-wide py-4 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
-          >
-            <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
-            DAPATKAN APLIKASI SEKARANG
-          </button>
-        </div>
-
-        {/* 🚀 FOOTER DENGAN KONTAK */}
-        <footer className="mt-auto pb-10 pt-10 text-center relative z-10 border-t border-white/5 w-full flex flex-col items-center px-4">
-            <img src="/Bilano_horiz_rbg.png" alt="Bilano" className="h-5 mx-auto mb-6 opacity-50 grayscale mix-blend-screen" />
-            
-            <div className="flex flex-col md:flex-row justify-center items-center gap-3 md:gap-8 mb-8 text-slate-400 text-xs md:text-[13px] font-medium">
-              <div className="flex items-center gap-2 hover:text-amber-400 transition-colors cursor-default">
-                <Mail className="w-4 h-4 text-slate-500" />
-                <span>bilanotech@gmail.com</span>
-              </div>
-              <div className="flex items-center gap-2 hover:text-amber-400 transition-colors cursor-default">
-                <Phone className="w-4 h-4 text-slate-500" />
-                <span>+6289688113210</span>
-              </div>
-              <div className="flex items-start gap-2 hover:text-amber-400 transition-colors cursor-default">
-                <MapPin className="mt-1 w-4 h-4 text-slate-500" />
-                <span className="leading-5 text-center">
-                  Jakarta, Indonesia
-                </span>
-              </div>
+          {/* 🔥 3. VIDEO PREVIEW */}
+          <section className="animate-in slide-in-from-bottom-10 fade-in duration-700 delay-300 fill-mode-both w-full max-w-4xl mx-auto flex flex-col items-center">
+            <div className="w-full text-center mb-6">
+              <span className="text-xs font-black tracking-widest text-amber-400 uppercase drop-shadow">Eksklusif Preview</span>
+              <h2 className="text-2xl md:text-3xl font-black text-white leading-tight drop-shadow-md mt-2">Kawal Visi Finansialmu</h2>
             </div>
 
-            <p className="text-[10px] md:text-xs text-slate-600 font-medium">© {new Date().getFullYear()} Bilano Official</p>
-        </footer>
-
-      </div>
-    </div>
-  );
-}
-
-function FeatureCard({ imgUrl, title, desc }: any) {
-  return (
-    <div className="bg-[#121c3a]/80 backdrop-blur-sm border border-white/5 p-4 md:p-5 lg:p-6 rounded-[24px] shadow-lg hover:bg-[#172447] hover:border-white/10 hover:scale-[1.03] transition-all cursor-pointer flex flex-col">
-      <div className="w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden mb-3 p-2.5">
-        <img src={imgUrl} alt={title} className="w-full h-full object-contain opacity-90 drop-shadow-md" />
-      </div>
-      <h4 className="font-bold text-white text-[14px] md:text-base lg:text-lg leading-tight mb-1 drop-shadow-sm">{title}</h4>
-      <p className="text-[11px] md:text-xs lg:text-[13px] text-slate-400 font-medium leading-snug">{desc}</p>
-    </div>
-  );
-}
-
-function Step({ num, text }: { num: string, text: string }) {
-  return (
-    <div className="flex gap-4 items-start">
-      <div className="shrink-0 w-6 h-6 md:w-8 md:h-8 lg:w-9 lg:h-9 rounded-full bg-amber-400/10 text-amber-400 flex items-center justify-center font-black text-[11px] md:text-sm lg:text-base border border-amber-400/20">
-        {num}
-      </div>
-      <p className="text-slate-300 font-medium leading-relaxed pt-0.5 text-[13px] md:text-[14.5px] lg:text-[15.5px]">
-        {text}
-      </p>
-    </div>
-  );
-}
+            <div className="w-full aspect-video bg-slate-900 rounded-[32px] overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.5)] border border-white
