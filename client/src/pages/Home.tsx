@@ -12,7 +12,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
-  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert 
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Sparkles
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -65,10 +65,9 @@ export default function Home() {
 
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [isRequestingPerms, setIsRequestingPerms] = useState(false);
-  
+  const [showPremiumPrompt, setShowPremiumPrompt] = useState(false);
   const [showGuideTooltip, setShowGuideTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
-  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
 
   const [dueSub, setDueSub] = useState<any | null>(null);
   const [dynamicAmount, setDynamicAmount] = useState("");
@@ -129,6 +128,18 @@ export default function Home() {
   }, [isAnyDataLoading]);
 
   useEffect(() => {
+    if (rawEmail && !isAnyDataLoading && user) {
+        // Logika pengecekan tooltip lama Anda tetap ada disini...
+
+        // Tambahkan baris ini di bawahnya:
+        if (!user.isPro) {
+            const timer = setTimeout(() => setShowPremiumPrompt(true), 2500);
+            return () => clearTimeout(timer);
+        }
+    }
+}, [rawEmail, isAnyDataLoading, user]);
+
+  useEffect(() => {
       if (rawEmail && !isAnyDataLoading && user) {
           const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
           const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
@@ -150,11 +161,6 @@ export default function Home() {
               }
           }
           
-          // 🚀 Trigger Password Permanen Prompt
-          if (user.isCustomPasswordSet === false) {
-              const timer = setTimeout(() => setShowPasswordPrompt(true), 2500);
-              return () => clearTimeout(timer);
-          }
       }
   }, [rawEmail, isAnyDataLoading, user]);
 
@@ -248,7 +254,7 @@ export default function Home() {
       if (!subscriptions) return;
       const todayStr = new Date().toISOString().split('T')[0];
       
-      const due = subscriptions.find(sub => {
+      const due = subscriptions.find((sub: any) => {
           // Sekarang memproses baik statis maupun dinamis asalkan aktif
           if (!sub.isActive) return false; 
           
@@ -555,25 +561,32 @@ export default function Home() {
 
   return (
     <MobileLayout>
-      {/* POPUP BUAT PASSWORD BARU PERTAMA KALI */}
-      {showPasswordPrompt && (
+      {/* 🔥 POPUP BARU: TAWARAN AKSES FITUR PREMIUM */}
+      {showPremiumPrompt && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-4 border-indigo-100">
-                  
-                  <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-5 relative z-10 animate-bounce">
-                      <ShieldAlert className="w-10 h-10 text-indigo-600"/>
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border-4 border-amber-100">
+                
+                  <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-5 relative z-10 animate-bounce">
+                      <Sparkles className="w-10 h-10 text-amber-500"/>
                   </div>
-                  
-                  <h2 className="text-2xl font-black text-slate-800 mb-2">Amankan Akun Anda</h2>
+                
+                  <h2 className="text-2xl font-black text-slate-800 mb-2">Buka Fitur Premium</h2>
                   <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                      Kode Akses 6 Digit yang Anda pakai saat ini bersifat sementara. Segera buat <b>Password Permanen</b> untuk menghindari kehilangan akses.
+                      Dapatkan modul lengkap Asisten AI, laporan analisis performa mendalam, dan proteksi kunci harga permanen sekarang juga.
                   </p>
-                  
-                  <Button onClick={() => setLocation('/profile')} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-black text-[13px] shadow-xl shadow-indigo-200 active:scale-95 transition-transform flex items-center justify-center gap-2">
-                      <Lock className="w-5 h-5"/> BUAT PASSWORD SEKARANG
+                
+                  <Button 
+                      onClick={() => { setShowPremiumPrompt(false); setLocation('/paywall'); }} 
+                      className="w-full h-14 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2"
+                  >
+                      <Crown className="w-5 h-5"/> PILIH PAKET AKSES
                   </Button>
-                  <button onClick={() => setShowPasswordPrompt(false)} className="mt-4 text-[12px] font-bold text-slate-400 hover:text-slate-600">
-                      Nanti Saja
+                
+                  <button 
+                      onClick={() => setShowPremiumPrompt(false)} 
+                      className="mt-4 text-[12px] font-bold text-slate-400 hover:text-slate-600"
+                  >
+                      Lewati Dulu
                   </button>
               </div>
           </div>

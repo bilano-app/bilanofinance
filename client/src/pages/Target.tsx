@@ -4,7 +4,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
     Target as TargetIcon, ShieldCheck, PiggyBank, Calculator, 
-    Plus, Trash2, X, ListPlus, ShieldAlert, Loader2, UserRound, Wallet
+    Plus, Trash2, X, ListPlus, ShieldAlert, Loader2, Wallet
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
@@ -38,10 +38,7 @@ export default function Target() {
     const [step, setStep] = useState<'intro' | 'target-input' | 'budget-ask' | 'budget-setup'>('intro');
     const [isTargetMode, setIsTargetMode] = useState(false); 
     
-    // State nama lengkap & uang/saldo kas saat ini
-    const [fullName, setFullName] = useState("");
     const [rawCurrentCash, setRawCurrentCash] = useState("");
-    
     const [rawTargetAmount, setRawTargetAmount] = useState("");
     const [inputDuration, setInputDuration] = useState(""); 
     const [rawBudgetAmount, setRawBudgetAmount] = useState("");
@@ -88,14 +85,11 @@ export default function Target() {
 
     useEffect(() => {
         if (userData) {
-            if (!fullName) {
-                setFullName(`${userData.firstName || ""} ${userData.lastName || ""}`.trim());
-            }
             if (userData.cashBalance !== undefined && userData.cashBalance !== null && !rawCurrentCash) {
                 setRawCurrentCash(userData.cashBalance.toString());
             }
         }
-    }, [userData, fullName, rawCurrentCash]);
+    }, [userData, rawCurrentCash]);
 
     const isEditMode = target && target.targetAmount !== undefined;
 
@@ -113,15 +107,6 @@ export default function Target() {
     const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
 
     const startSetup = async (mode: 'target' | 'saving') => {
-        if (!fullName.trim()) {
-            toast({
-                title: "Nama Wajib Diisi",
-                description: "Silakan isi Nama Lengkap Anda terlebih dahulu untuk profil utama.",
-                variant: "destructive"
-            });
-            return;
-        }
-
         setIsTargetMode(mode === 'target');
         if (!isEditMode) {
             if (mode === 'saving') { setRawTargetAmount("0"); setInputDuration("12"); } 
@@ -158,22 +143,6 @@ export default function Target() {
         setIsSubmitting(true);
 
         try {
-            // Split nama menjadi nama depan & nama belakang
-            const nameParts = fullName.trim().split(" ");
-            const firstName = nameParts[0];
-            const lastName = nameParts.slice(1).join(" ");
-
-            // Simpan perubahan profil nama terlebih dahulu
-            await fetch("/api/user/profile", {
-                method: "PATCH",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "x-user-email": userEmail 
-                },
-                body: JSON.stringify({ firstName, lastName })
-            });
-
-            // Payload menyertakan addCurrentCash untuk mengisi saldo kas awal
             const payload = {
                 addCurrentCash: parseNumber(rawCurrentCash) || 0,
                 targetAmount: parseNumber(rawTargetAmount) || 0,
@@ -197,7 +166,7 @@ export default function Target() {
                 });
                 
                 await refetchUser();
-                toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan profil, saldo kas, dan target Anda." });
+                toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan saldo kas dan target Anda." });
                 window.location.href = "/"; 
             } else { 
                 const errText = await res.text();
@@ -253,22 +222,9 @@ export default function Target() {
                         <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-[32px] text-white text-center shadow-xl relative overflow-hidden">
                             <div className="relative z-10">
                                 <h2 className="text-2xl font-extrabold mb-1">Halo, Partner Finansial!</h2>
-                                <p className="text-sm text-blue-100">Isi data dasar dan tentukan metode pemantauan aset hari ini.</p>
+                                <p className="text-sm text-blue-100">Tentukan metode pemantauan aset dan jatah kas awal Anda hari ini.</p>
                             </div>
                             <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
-                        </div>
-
-                        {/* INPUT NAMA LENGKAP UTAMA */}
-                        <div className="bg-white p-5 rounded-[24px] border border-slate-200 shadow-sm space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1.5">
-                                <UserRound className="w-4 h-4 text-indigo-500" /> Nama Lengkap Anda
-                            </label>
-                            <Input 
-                                placeholder="Masukkan nama lengkap..." 
-                                value={fullName} 
-                                onChange={(e) => setFullName(e.target.value)} 
-                                className="font-bold text-slate-800 h-13 rounded-xl border-slate-200"
-                            />
                         </div>
 
                         {/* INPUT SALDO KAS SAAT INI */}

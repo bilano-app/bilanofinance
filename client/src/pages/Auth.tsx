@@ -2,17 +2,22 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Lock, RefreshCw, AlertCircle, X, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Mail, Lock, RefreshCw, AlertCircle, X, CheckCircle2, ShieldCheck, User as UserIcon } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { 
     getRedirectResult,
     signInWithEmailAndPassword,
     sendPasswordResetEmail,
+    createUserWithEmailAndPassword,
+    updateProfile,
     User
 } from "firebase/auth";
 
 export default function Auth() {
   localStorage.removeItem("bilano_trial_expired");
+
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [fullName, setFullName] = useState("");
 
   const [email, setEmail] = useState(() => localStorage.getItem("auth_email") || "");
   const [password, setPassword] = useState(() => localStorage.getItem("auth_password") || "");
@@ -44,7 +49,7 @@ export default function Auth() {
       setLoading(true);
       getRedirectResult(auth).then(async (result) => {
           if (result?.user) {
-              await handleSuccess(result.user);
+              await handleSuccess(result.user, false);
           }
           setLoading(false);
       }).catch((error) => {
@@ -52,7 +57,7 @@ export default function Auth() {
       });
   }, []);
 
-  const handleSuccess = async (user: User) => {
+  const handleSuccess = async (user: User, isNewUser: boolean = false) => {
       setLoading(true);
 
       const cleanEmail = (user.email || "").trim().toLowerCase();
@@ -60,10 +65,15 @@ export default function Auth() {
       localStorage.setItem("bilano_email", cleanEmail);
       
       clearAuthCache(); 
+      setLoading(false);
 
-      toast({ title: "Berhasil!", description: "Selamat datang kembali di BILANO." });
-      
-      window.location.href = "/"; 
+      if (isNewUser) {
+          toast({ title: "Registrasi Berhasil!", description: "Mari atur strategi finansial pertamamu." });
+          setLocation("/target"); // Pindah sangat cepat via client-side routing
+      } else {
+          toast({ title: "Berhasil!", description: "Selamat datang kembali di BILANO." });
+          window.location.href = "/"; 
+      }
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -73,55 +83,98 @@ export default function Auth() {
     
     const cleanEmail = email.trim().toLowerCase();
 
+    if (isSignUp && !fullName.trim()) return setAuthError("Nama Lengkap wajib diisi!");
     if (!cleanEmail || !password) return setAuthError("Email dan Password wajib diisi!");
 
     setLoading(true);
 
     try {
-        // 1. Cek ke Database Bilano (Untuk validasi langganan & Kode Akses)
-        const checkRes = await fetch("/api/auth/login-with-code", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: cleanEmail, password: password })
-        });
+        if (isSignUp) {
+            // Flow Registrasi Baru
+            if (password.length < 6) {
+                setAuthError("Password minimal 6 karakter!");
+                setLoading(false);
+                return;
+            }
 
-        // JIKA AKUN BELUM TERDAFTAR / BELUM BERLANGGANAN (Status 454)
-        if (checkRes.status === 454) {
-            setAuthError("Email ini belum berlangganan BILANO.");
-            setShowPaywallRedirect(true);
-            setLoading(false);
-            return;
-        }
+            try {
+                // 1. Buat Akun Firebase
+                const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+                await updateProfile(cred.user, { displayName: fullName.trim() });
+                
+                // 2. Simpan Profil ke Database BILANO
+                const nameParts = fullName.trim().split(" ");
+                const firstName = nameParts[0];
+                const lastName = nameParts.slice(1).join(" ");
+                
+                await fetch("/api/user/profile", {
+                    method: "PATCH",
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "x-user-email": cleanEmail 
+                    },
+                    body: JSON.stringify({ firstName, lastName })
+                });
 
-        const checkData = await checkRes.json().catch(() => ({}));
+                // 3. Simpan Password ke Database (Untuk opsi login DB)
+                await fetch("/api/user/set-permanent-password", {
+                    method: "POST",
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "x-user-email": cleanEmail 
+                    },
+                    body: JSON.stringify({ newPassword: password })
+                });
 
-        // 2. Coba validasi password menggunakan Firebase Auth
-        let firebaseSuccess = false;
-        let fbUser = null;
-        try {
-            const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
-            fbUser = cred.user;
-            firebaseSuccess = true;
-        } catch (fbErr) {
-            firebaseSuccess = false; // Firebase gagal, kita akan cek apakah DB berhasil
-        }
+                await handleSuccess(cred.user, true);
+            } catch (err: any) {
+                if (err.code === 'auth/email-already-in-use') {
+                    setAuthError("Email sudah terdaftar. Silakan masuk.");
+                } else {
+                    setAuthError("Gagal mendaftar: " + err.message);
+                }
+                setLoading(false);
+            }
 
-        // 3. Evaluasi Hasil: Izinkan masuk jika Firebase benar ATAU Kode Akses DB benar
-        if (firebaseSuccess) {
-            // Password Firebase valid
-            await handleSuccess(fbUser as User);
-            return;
-        } else if (checkRes.ok && checkData.success) {
-            // Kode akses Database valid
-            await handleSuccess({ email: cleanEmail } as any);
-            return;
         } else {
-            // Keduanya gagal (Password & Kode Akses salah)
-            setAuthError(checkData.error || "Password atau Kode Akses salah. Silakan coba lagi.");
-            setLoading(false);
-            return;
+            // Flow Login yang sudah ada
+            const checkRes = await fetch("/api/auth/login-with-code", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: cleanEmail, password: password })
+            });
+
+            if (checkRes.status === 454) {
+                setAuthError("Email ini belum berlangganan BILANO.");
+                setShowPaywallRedirect(true);
+                setLoading(false);
+                return;
+            }
+
+            const checkData = await checkRes.json().catch(() => ({}));
+
+            let firebaseSuccess = false;
+            let fbUser = null;
+            try {
+                const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+                fbUser = cred.user;
+                firebaseSuccess = true;
+            } catch (fbErr) {
+                firebaseSuccess = false; 
+            }
+
+            if (firebaseSuccess) {
+                await handleSuccess(fbUser as User, false);
+                return;
+            } else if (checkRes.ok && checkData.success) {
+                await handleSuccess({ email: cleanEmail } as any, false);
+                return;
+            } else {
+                setAuthError(checkData.error || "Password atau Kode Akses salah. Silakan coba lagi.");
+                setLoading(false);
+                return;
+            }
         }
-        
     } catch (error: any) {
         setAuthError("Gagal terhubung ke server autentikasi. Periksa koneksi Anda.");
         setLoading(false);
@@ -160,12 +213,13 @@ export default function Auth() {
       <Card className="w-full max-w-sm p-6 shadow-xl border-none bg-white animate-in zoom-in-95">
           
           <div className="text-center mb-6">
-              <h2 className="text-xl font-black text-slate-800">Selamat Datang</h2>
-              <p className="text-xs text-slate-500 mt-1">Masukkan Email dan Password/Kode Akses Anda.</p>
+              <h2 className="text-xl font-black text-slate-800">{isSignUp ? "Daftar Akun Baru" : "Selamat Datang"}</h2>
+              <p className="text-xs text-slate-500 mt-1">
+                  {isSignUp ? "Lengkapi data untuk mengamankan aksesmu." : "Masukkan Email dan Password/Kode Akses Anda."}
+              </p>
           </div>
 
-          {/* 🔴 TOMBOL REDIRECT PEMBAYARAN JIKA BELUM TERDAFTAR */}
-          {showPaywallRedirect && (
+          {showPaywallRedirect && !isSignUp && (
               <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex flex-col items-center text-center gap-2 mb-6 animate-in zoom-in-95">
                   <ShieldCheck className="w-8 h-8 text-rose-500" />
                   <p className="text-xs text-slate-600 font-medium leading-relaxed">
@@ -176,15 +230,8 @@ export default function Auth() {
                       type="button"
                       onClick={() => {
                           const targetUrl = 'https://bilano.app/onboarding';
-                        
-                        // Trik 1: Gunakan Google Redirect URL untuk menipu PWA Scope.
-                        // Karena domain mengarah ke google.com, PWA TERPAKSA melemparkannya ke browser utama (Chrome/Safari)
                           const googleRedirectUrl = `https://www.google.com/url?q=${encodeURIComponent(targetUrl)}`;
-                        
-                        // Trik 2: Eksekusi menggunakan detasemen window.open khusus browser luar
                           const externalWindow = window.open(googleRedirectUrl, '_system');
-                        
-                        // Fallback jika pop-up diblokir: paksa lewat link dengan rel khusus di luar PWA window
                           if (!externalWindow) {
                               const shadowLink = document.createElement('a');
                               shadowLink.href = googleRedirectUrl;
@@ -204,6 +251,16 @@ export default function Auth() {
 
           <div className="space-y-4">
               <form onSubmit={handleAuth} className="space-y-4">
+                  {isSignUp && (
+                      <div className="space-y-1 animate-in fade-in duration-300">
+                          <label className="text-xs font-bold text-slate-500 ml-1">Nama Lengkap</label>
+                          <div className="relative">
+                              <UserIcon className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
+                              <Input type="text" placeholder="Nama lengkap Anda" className="pl-10 h-12" value={fullName} onChange={(e) => setFullName(e.target.value)}/>
+                          </div>
+                      </div>
+                  )}
+
                   <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-500 ml-1">Email</label>
                       <div className="relative">
@@ -212,23 +269,25 @@ export default function Auth() {
                       </div>
                   </div>
                   <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-500 ml-1">Password / Kode Akses</label>
+                      <label className="text-xs font-bold text-slate-500 ml-1">{isSignUp ? "Password" : "Password / Kode Akses"}</label>
                       <div className="relative"><Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/><Input type="password" placeholder="••••••••" className="pl-10 h-12" value={password} onChange={(e) => setPassword(e.target.value)}/></div>
                       
-                      <div className="flex justify-end pt-1">
-                          <button 
-                            type="button" 
-                            onClick={() => { 
-                                setShowForgotModal(true); 
-                                setIsForgotSuccess(false);
-                                setForgotEmail(""); 
-                                setForgotError("");
-                            }} 
-                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
-                          >
-                              Lupa Password?
-                          </button>
-                      </div>
+                      {!isSignUp && (
+                          <div className="flex justify-end pt-1">
+                              <button 
+                                type="button" 
+                                onClick={() => { 
+                                    setShowForgotModal(true); 
+                                    setIsForgotSuccess(false);
+                                    setForgotEmail(""); 
+                                    setForgotError("");
+                                }} 
+                                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                              >
+                                  Lupa Password?
+                              </button>
+                          </div>
+                      )}
                   </div>
                   
                   {authError && !showPaywallRedirect && (
@@ -239,13 +298,21 @@ export default function Auth() {
                   )}
 
                   <Button disabled={loading} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 font-bold text-md shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 mt-2 transition-transform active:scale-95">
-                      {loading ? <RefreshCw className="animate-spin w-5 h-5"/> : "MASUK SEKARANG"}
+                      {loading ? <RefreshCw className="animate-spin w-5 h-5"/> : (isSignUp ? "DAFTAR SEKARANG" : "MASUK SEKARANG")}
                   </Button>
               </form>
+
+              <div className="text-center pt-2">
+                  <button 
+                      onClick={() => { setIsSignUp(!isSignUp); setAuthError(""); setShowPaywallRedirect(false); }}
+                      className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+                  >
+                      {isSignUp ? "Sudah punya akun? Masuk di sini" : "Belum punya akun? Daftar di sini"}
+                  </button>
+              </div>
           </div>
       </Card>
 
-      {/* MODAL LUPA PASSWORD (TETAP SAMA SEPERTI ASLINYA) */}
       {showForgotModal && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative animate-in zoom-in-95">
