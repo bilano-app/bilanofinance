@@ -705,9 +705,12 @@ export default function Home() {
       )}
 
       <div className="flex flex-col gap-6">
+        {/* 🚀 HEADER AREA */}
         <div className="flex items-center justify-between px-2 pt-2 relative">
+            
+            {/* BAGIAN KIRI: AVATAR & NAMA */}
             <div className="flex items-center gap-3">
-                <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100">
+                <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100 shrink-0">
                     {user?.profilePicture ? (
                         <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
@@ -716,32 +719,22 @@ export default function Home() {
                         </div>
                     )}
                 </div>
-                
-                {/* 🚀 OPSI 1: TOMBOL UPGRADE RAMPING DI HEADER (SEBELAH NAMA) */}
-                <div className="flex flex-col">
-                    <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-xs font-medium text-slate-500">Selamat datang,</p>
+                <div>
+                    <p className="text-xs font-medium text-slate-500">Selamat datang,</p>
+                    <div className="flex items-center gap-1.5">
+                        <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight truncate max-w-[120px]">
+                            {greetingName}
+                        </h2>
                         
-                        {/* 🔥 TOMBOL UPGRADE PRO (Hanya muncul jika belum Pro) */}
-                        {!user?.isPro && (
-                            <button 
-                                onClick={() => setLocation('/paywall')} 
-                                className="flex items-center gap-1 bg-amber-400/10 text-amber-500 hover:bg-amber-400 hover:text-slate-900 transition-colors px-2 py-0.5 rounded-full border border-amber-400/30 active:scale-95 shadow-inner group"
-                            >
-                                <Sparkles className="w-3 h-3 group-hover:animate-pulse" />
-                                <span className="text-[9px] font-black tracking-wider uppercase">Upgrade Pro</span>
-                            </button>
-                        )}
-                        
-                        {/* ✅ ICON CROWN (Hanya muncul jika SUDAH Pro) */}
-                        {user?.isPro && (
-                            <Crown className="w-3.5 h-3.5 text-amber-500" />
+                        {/* 👑 KUNCI VALIDASI: Mahkota HANYA muncul jika user terbukti bernilai true pada properti isPro */}
+                        {user && user.isPro === true && (
+                            <Crown className="w-4 h-4 text-amber-500 shrink-0" />
                         )}
                     </div>
-                    <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight">{greetingName}</h2>
                 </div>
             </div>
 
+            {/* TOOLTIP PROFIL (Tetap biarkan ada di sini) */}
             {showProfileTooltip && (
                 <div className="absolute top-[65px] left-2 w-[260px] bg-white border-2 border-indigo-600 p-4 rounded-[20px] shadow-[6px_6px_0px_#4f46e5] animate-in fade-in zoom-in slide-in-from-left-4 duration-500 z-50">
                     <div className="absolute -top-[10px] left-[20px] w-0 h-0 border-b-[10px] border-b-indigo-600 border-r-[10px] border-r-transparent border-l-[10px] border-l-transparent"></div>
@@ -766,30 +759,42 @@ export default function Home() {
                 </div>
             )}
 
+            {/* BAGIAN KANAN: TOMBOL UPGRADE & AKSI */}
             <div className="flex items-center gap-2">
+                
+                {/* 🔥 TOMBOL UPGRADE PRO (Sesuai UI: Soft Amber, Tanpa Ikon Bintang, Rapi di Kanan) */}
+                {!user?.isPro && (
+                    <button 
+                        onClick={() => setLocation('/paywall')} 
+                        className="mr-1 md:mr-2 bg-amber-50 border border-amber-200 text-amber-500 hover:bg-amber-100 px-3.5 py-1.5 rounded-full font-black text-[10px] tracking-widest uppercase shadow-sm active:scale-95 transition-all"
+                    >
+                        UPGRADE PRO
+                    </button>
+                )}
+
                 <button 
                     onClick={handleRefresh}
-                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-indigo-500 hover:text-indigo-700 active:scale-90 transition-all"
+                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-indigo-500 hover:text-indigo-700 active:scale-90 transition-all shrink-0"
                     title="Refresh Aplikasi"
                 >
-                    <RefreshCcw className="w-5 h-5"/>
+                    <RefreshCcw className="w-4 h-4"/>
                 </button>
 
                 <button 
                     onClick={handleUndo}
                     disabled={undoTx.isPending}
-                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all"
+                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all shrink-0"
                     title="Batalkan Transaksi Terakhir"
                 >
-                    {undoTx.isPending ? <Loader2 className="w-5 h-5 animate-spin"/> : <Undo2 className="w-5 h-5"/>}
+                    {undoTx.isPending ? <Loader2 className="w-4 h-4 animate-spin"/> : <Undo2 className="w-4 h-4"/>}
                 </button>
 
-                <div className="relative">
+                <div className="relative shrink-0">
                     <button 
                         onClick={() => { setIsMenuOpen(!isMenuOpen); dismissGuideTooltip(); }}
                         className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 active:bg-slate-100 transition-colors"
                     >
-                        <MoreVertical className="w-5 h-5"/>
+                        <MoreVertical className="w-4 h-4"/>
                     </button>
 
                     {isMenuOpen && (
@@ -807,6 +812,8 @@ export default function Home() {
                 </div>
             </div>
         </div>
+        
+        {/* ... Lanjut ke blok SALDO KAS seperti biasa ... */}
         
         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
