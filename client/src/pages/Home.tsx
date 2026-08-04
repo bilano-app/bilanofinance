@@ -140,29 +140,33 @@ export default function Home() {
 }, [rawEmail, isAnyDataLoading, user]);
 
   useEffect(() => {
-      if (rawEmail && !isAnyDataLoading && user) {
-          const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
-          const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
-          
-          const startTimeAcc = new Date(user.createdAt || Date.now()).getTime();
-          const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
+    if (rawEmail && !isAnyDataLoading && user) {
+        const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
+        const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
+        const premiumPromptSeen = localStorage.getItem(`bilano_premium_prompt_seen_${rawEmail}`);
+        
+        // 🚀 1. PRIMORDIAL POP-UP: Jika belum Pro & belum pernah lihat pop-up sama sekali, MUNCULKAN LANGSUNG 1X
+        if (!user.isPro && !premiumPromptSeen) {
+            setShowPremiumPrompt(true);
+            localStorage.setItem(`bilano_premium_prompt_seen_${rawEmail}`, "true"); // Kunci agar tidak spam lagi
+            return; // Tahan tooltip guide agar tidak muncul berbarengan
+        }
 
-          if (isNewUser) {
-              if (!guideSeen) {
-                  const timer = setTimeout(() => {
-                      setShowGuideTooltip(true);
-                  }, 1500);
-                  return () => clearTimeout(timer);
-              } else if (guideSeen && !profileSeen && !user.profilePicture) {
-                  const timer = setTimeout(() => {
-                      setShowProfileTooltip(true);
-                  }, 1000);
-                  return () => clearTimeout(timer);
-              }
-          }
-          
-      }
-  }, [rawEmail, isAnyDataLoading, user]);
+        // 🚀 2. TOOLTIP PANDUAN (Baru muncul setelah pop-up premium di-dismiss/di-refresh selanjutnya)
+        const startTimeAcc = new Date(user.createdAt || Date.now()).getTime();
+        const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
+
+        if (isNewUser) {
+            if (!guideSeen) {
+                const timer = setTimeout(() => setShowGuideTooltip(true), 1500);
+                return () => clearTimeout(timer);
+            } else if (guideSeen && !profileSeen && !user.profilePicture) {
+                const timer = setTimeout(() => setShowProfileTooltip(true), 1000);
+                return () => clearTimeout(timer);
+            }
+        }
+    }
+}, [rawEmail, isAnyDataLoading, user]);
 
   useEffect(() => {
       const handleAppWakeUp = () => {
@@ -925,6 +929,29 @@ export default function Home() {
                </div>
            </Link>
         </div>
+        {/* 🟡 BANNER PASIF PREMUM (Hanya muncul jika user belum Pro) */}
+        {!user?.isPro && (
+            <div className="px-1 mt-3">
+                <div onClick={() => setLocation('/paywall')} className="bg-gradient-to-r from-slate-900 to-[#121c3a] border border-amber-400/30 rounded-[20px] p-4 flex items-center justify-between shadow-lg cursor-pointer active:scale-[0.98] transition-all group overflow-hidden relative">
+                    <div className="absolute right-0 top-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
+                    
+                    <div className="flex items-center gap-3 relative z-10">
+                        <div className="w-10 h-10 rounded-full bg-amber-400/20 flex items-center justify-center border border-amber-400/30 shadow-inner">
+                            <Sparkles className="w-5 h-5 text-amber-400 animate-pulse"/>
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black text-white leading-tight mb-0.5">Buka Akses Premium</h4>
+                            <p className="text-[10px] text-slate-400 font-medium">Asisten AI, Laporan Lengkap, & Lock Harga</p>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-amber-400 text-slate-900 px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider relative z-10 shadow-sm group-hover:scale-105 transition-transform">
+                        PILIH PAKET
+                    </div>
+                </div>
+            </div>
+        )}
+        
 
         <div className="px-1 mt-2">
             <div className="flex justify-between items-center mb-4 px-1">
