@@ -69,7 +69,6 @@ export default function Home() {
   const [showGuideTooltip, setShowGuideTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
   
-  // 🔥 State Baru untuk pop-up penawaran paket premium
   const [showPremiumPrompt, setShowPremiumPrompt] = useState(false);
 
   const [dueSub, setDueSub] = useState<any | null>(null);
@@ -130,18 +129,15 @@ export default function Home() {
       };
   }, [isAnyDataLoading]);
 
-  // 🚀 LOGIKA PEMICU POP-UP PREMIUM & BUBBLE CHAT (URUTAN INSTAN)
   useEffect(() => {
       if (rawEmail && !isAnyDataLoading && user) {
           const premiumPromptSeen = localStorage.getItem(`bilano_premium_prompt_seen_${rawEmail}`);
           
-          // 1. POP-UP PREMIUM MUNCUL PERTAMA KALI JIKA BELUM PRO & BELUM PERNAH LIHAT
           if (!user.isPro && !premiumPromptSeen) {
               setShowPremiumPrompt(true);
-              return; // Tahan dulu bubble chat panduan agar tidak bertabrakan
+              return; 
           }
 
-          // 2. BUBBLE CHAT PANDUAN (Baru muncul setelah Pop-up Premium diladeni)
           const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
           const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
           const startTimeAcc = new Date(user.createdAt || Date.now()).getTime();
@@ -149,7 +145,6 @@ export default function Home() {
 
           if (isNewUser) {
               if (!guideSeen) {
-                  // MUNCUL INSTAN TANPA DELAY 1.5s
                   setShowGuideTooltip(true);
                   return;
               } else if (guideSeen && !profileSeen && !user.profilePicture) {
@@ -160,15 +155,13 @@ export default function Home() {
       }
   }, [rawEmail, isAnyDataLoading, user]);
 
-  // 🚀 FUNGSI TUTUP MODAL PREMIUM (TULIS FLAG KE STORAGE & LANGKAHKAN KE BUBBLE PANDUAN)
   const handleClosePremiumPrompt = () => {
       setShowPremiumPrompt(false);
-      localStorage.setItem(`bilano_premium_prompt_seen_${rawEmail}`, "true"); // Kunci mati selamanya
+      localStorage.setItem(`bilano_premium_prompt_seen_${rawEmail}`, "true"); 
       
-      // Trigger bubble chat panduan secara instan setelah pop-up ditutup pengguna
       const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
       if (!guideSeen) {
-          setTimeout(() => setShowGuideTooltip(true), 400); // Beri jeda halus setelah modal hilang
+          setTimeout(() => setShowGuideTooltip(true), 400); 
       }
   };
 
@@ -190,23 +183,6 @@ export default function Home() {
   const dismissProfileTooltip = () => {
       setShowProfileTooltip(false);
       localStorage.setItem(`bilano_profile_tooltip_seen_${rawEmail}`, "true");
-  };
-
-  const handlePinUnlock = (num: string) => {
-      setPinError(false);
-      const newVal = pinInput + num;
-      setPinInput(newVal);
-      
-      if (newVal.length === 6) {
-          const savedPin = localStorage.getItem("bilano_app_pin");
-          if (newVal === savedPin) {
-              sessionStorage.setItem("bilano_session_unlocked", "true");
-              setIsLocked(false);
-          } else {
-              setPinError(true);
-              setTimeout(() => setPinInput(""), 300);
-          }
-      }
   };
 
   const togglePrivacy = () => {
@@ -362,12 +338,9 @@ export default function Home() {
               (window as any).OneSignalDeferred.push(function(OneSignal: any) {
                   OneSignal.Slidedown.promptPush();
               });
-          } catch(e) {
-              console.error("Gagal pancing OneSignal:", e);
-          }
+          } catch(e) {}
 
       } catch (e) {
-          console.warn("Proses perizinan di-bypass karena terlalu lama.");
       } finally {
           localStorage.setItem("bilano_permissions_prompted", "true");
           setShowPermissionPrompt(false);
@@ -473,12 +446,9 @@ export default function Home() {
 
   return (
     <MobileLayout>
-      {/* 🔥 POPUP BARU: TAWARAN AKSES FITUR PREMIUM (DESAIN TAJAM EKSKLUSIF) */}
       {showPremiumPrompt && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-[#040814] rounded-[32px] w-full max-w-sm shadow-[0_0_50px_rgba(59,130,246,0.2)] relative animate-in zoom-in-95 text-center overflow-hidden border border-blue-500/30">
-                  
-                  {/* Background Nuansa Logo */}
                   <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-blue-600/20 to-transparent pointer-events-none"></div>
                   
                   <div className="p-8 relative z-10">
@@ -516,7 +486,6 @@ export default function Home() {
           </div>
       )}
 
-      {/* POPUP PENDING FEATURES */}
       {pendingFeatureModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-indigo-500/30">
@@ -705,10 +674,7 @@ export default function Home() {
       )}
 
       <div className="flex flex-col gap-6">
-        {/* 🚀 HEADER AREA: Presisi, Elegan, Sesuai Nuansa UI */}
         <div className="flex items-center justify-between px-2 pt-2 relative">
-            
-            {/* BAGIAN KIRI: AVATAR & TEKS SAPAAN (LAYOUT PRESISI) */}
             <div className="flex items-center gap-3">
                 <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100 shrink-0">
                     {user?.profilePicture ? (
@@ -720,7 +686,6 @@ export default function Home() {
                     )}
                 </div>
                 
-                {/* 📝 Teks Stack: Mengikuti Contoh Adrien (Rapi & Tidak Wrapping) */}
                 <div className="flex flex-col">
                     <p className="text-xs font-medium text-slate-500 whitespace-nowrap">
                         Selamat datang
@@ -730,14 +695,10 @@ export default function Home() {
                             {greetingName}
                         </h2>
                         
-                        {/* 💎 INDIKATOR STATUS PREMIUM (DINAMIS & ELEGAN) */}
                         {user ? (
                             user.isPro === true ? (
-                                /* ✅ ✅ MUNCUL MAHKOTA JIKA SUDAH PREMIUM ✅ ✅ */
                                 <Crown className="w-4 h-4 text-amber-500 shrink-0" />
                             ) : (
-                                /* ❌ ❌ GANTI TEKS 'UPGRADE' ELEGAN JIKA BELUM PREMIUM ❌ ❌ */
-                                /* Diposisikan seperti mahkota, ukuran serasi, warna Soft Gold */
                                 <Link href="/paywall">
                                     <span className="text-amber-500 font-bold text-[11px] leading-tight flex items-center hover:text-amber-600 transition-colors cursor-pointer shrink-0">
                                         UPGRADE
@@ -749,7 +710,6 @@ export default function Home() {
                 </div>
             </div>
 
-            {/* BAGIAN KANAN: TOMBOL AKSI (Bebas dari Tombol Upgrade Gede) */}
             <div className="flex items-center gap-2">
                 <button 
                     onClick={handleRefresh}
@@ -791,8 +751,6 @@ export default function Home() {
                 </div>
             </div>
         </div>
-        
-        {/* ... Lanjut ke blok SALDO KAS seperti biasa ... */}
 
         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
@@ -853,8 +811,6 @@ export default function Home() {
            </Link>
         </div>
 
-        {/* ❌ BANNER OPSI 2 DI TENGAH SUDAH DIHAPUS TOTAL ❌ */}
-
         <div className="px-1 mt-2">
             <div className="flex justify-between items-center mb-4 px-1">
                 <h3 className="font-bold text-slate-800 text-sm">Fitur Pilihan</h3>
@@ -901,7 +857,6 @@ export default function Home() {
         <div className="px-1 mt-4 mb-2 space-y-3">
             <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px]">Eksklusif Premium</h3>
             
-            {/* 🔥 NEW FEATURE: PANDUAN PENGHASILAN (PENGGANTI WEALTH BLUEPRINT) */}
             <Link href="/wealth-blueprint">
                 <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 rounded-[24px] p-5 shadow-[0_8px_30px_rgba(30,41,59,0.2)] border border-indigo-500/20 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group mb-3">
                     <div className="absolute right-0 top-0 w-36 h-36 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-2xl pointer-events-none group-hover:from-emerald-500/20 transition-colors"></div>
@@ -909,7 +864,6 @@ export default function Home() {
                     
                     <div className="flex items-center justify-between relative z-10">
                         <div className="flex items-center gap-4">
-                            {/* 🔥 IKON GANTI: Menggunakan lambang uang/koin bernuansa emas (Banknote/Wallet style) */}
                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 via-yellow-500 to-emerald-600 flex items-center justify-center shadow-md shadow-amber-500/20">
                                 <Banknote className="w-6 h-6 text-slate-950"/>
                             </div>
@@ -926,7 +880,6 @@ export default function Home() {
                 </div>
             </Link>
 
-            {/* BILANO ACADEMY */}
             <Link href="/academy">
                 <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
                     <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
@@ -946,6 +899,7 @@ export default function Home() {
                     </div>
                 </div>
             </Link>
+        </div>
 
         <div className="flex flex-col gap-4 mt-2 px-1">
             <Link href="/chat-ai">
