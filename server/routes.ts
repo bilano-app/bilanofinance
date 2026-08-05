@@ -557,6 +557,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // =========================================================================
+  // 🚀 API ADMIN: INGEST & TRANSLATE E-BOOK VIA AI
+  // =========================================================================
+  app.post("/api/admin/ebooks/ingest", async (req: any, res: any) => {
+      const emailAdmin = req.headers["x-user-email"] as string;
+      if (!["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(emailAdmin)) {
+          return res.status(403).json({ error: "Akses Ditolak" });
+      }
+
+      const { title, author, description, isPremium, chapterNumber, chapterTitleEn, rawTextEn } = req.body;
+
+      try {
+          // 1. Dapatkan atau Buat Record Buku Utama
+          let ebookId;
+          const existBook = await db.execute(sql`SELECT id FROM ebooks WHERE title = ${title} LIMIT 1`);
+          const bookRows = Array.isArray(existBook) ? existBook : (existBook as any).rows || [];
+          
+          if (bookRows.length > 0) {
+              ebookId = bookRows[0].id;
+          } else {
+              const newBook = await db.execute(sql`
+                  INSERT INTO ebooks (title, author, description, is_premium) 
+                  VALUES (${title}, ${author}, ${description}, ${isPremium}) 
+                  RETURNING id
+              `);
+              ebookId = (newBook as any).rows?.[0]?.id || newBook[0].id;
+          }
+
+          // 2. Tembak Core AI Bilano untuk Menerjemahkan Teks Buku
+          const systemPrompt = `Kamu adalah pakar ekonomi makro global dan penerjemah buku finansial elit. 
+          Terjemahkan naskah ekonomi klasik ini ke Bahasa Indonesia yang berwibawa, mudah dipahami namun tetap akademis.
+          Jangan hapus esensi data atau nama tokoh penting. Output teks langsung dalam format Markdown yang bersih.`;
+          
+          const userMessage = `Judul Bab: ${chapterTitleEn}\n\nTeks Mentah:\n${rawTextEn}`;
+          const indonesianTreatedText = await askSmartAI(systemPrompt, userMessage);
+
+          // 3. Simpan Bab Hasil Terjemahan AI ke Database
+          await db.execute(sql`
+              INSERT INTO ebook_chapters (ebook_id, chapter_number, title, content)
+              VALUES (${ebookId}, ${chapterNumber}, ${chapterTitleEn}, ${indonesianTreatedText})
+          `);
+
+          res.json({ success: true, message: `Bab ${chapterNumber} berhasil diterjemahkan AI dan masuk ke DB!` });
+      } catch (err: any) {
+          res.status(500).json({ error: err.message });
+      }
+  });
+
   app.get("/api/admin/tracking-stats", async (req: any, res: any) => {
       const emailAdmin = req.headers["x-user-email"] as string;
       const isAdminValid = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(emailAdmin);

@@ -1,7 +1,7 @@
 import fetch from "node-fetch";
 
 // Konfigurasi target server Bilano Anda
-const SERVER_URL = "http://bilano.app"; 
+const SERVER_URL = "http://localhost:5173";
 const ADMIN_EMAIL = "adrienfandra14@gmail.com"; 
 
 // Data teks mentah bahasa Inggris (Anda bisa salin dari Project Gutenberg)
@@ -55,14 +55,27 @@ async function startIngestion() {
                     })
                 });
                 
-                const result = await response.json();
-                if (result.success) {
-                    console.log(`✅ Sukses: ${result.message}`);
-                } else {
-                    console.error(`❌ Gagal di server: ${result.error}`);
+                // BACA SEBAGAI TEKS MENTAH DULU AGAR TIDAK CRASH
+                const rawText = await response.text(); 
+                
+                if (!response.ok) {
+                    console.error(`❌ Server menolak (Status ${response.status}): ${rawText}`);
+                    continue; // Lanjut ke bab berikutnya jika ini gagal
                 }
-            } catch (error) {
-                    console.error(`❌ Gagal koneksi ke server: ${(error as Error).message}`);
+
+                try {
+                    const result = JSON.parse(rawText);
+                    if (result.success) {
+                        console.log(`✅ Sukses: ${result.message}`);
+                    } else {
+                        console.error(`❌ Gagal di server: ${result.error}`);
+                    }
+                } catch (parseError) {
+                    console.error(`❌ Balasan server kosong/terputus. Teks mentah:`, rawText);
+                }
+
+            } catch (error: any) {
+                console.error(`❌ Gagal koneksi ke server: ${error.message}`);
             }
             
             // Beri jeda 2 detik per bab agar API Gemini tidak terkena Rate Limit (anti-spam)

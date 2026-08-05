@@ -12,7 +12,7 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
-  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Sparkles 
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Sparkles, Banknote
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -901,23 +901,24 @@ export default function Home() {
         <div className="px-1 mt-4 mb-2 space-y-3">
             <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px]">Eksklusif Premium</h3>
             
-            {/* 🔥 NEW FEATURE: BILANO WEALTH BLUEPRINT (GACOR & VIP DESIGN) */}
+            {/* 🔥 NEW FEATURE: PANDUAN PENGHASILAN (PENGGANTI WEALTH BLUEPRINT) */}
             <Link href="/wealth-blueprint">
                 <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 rounded-[24px] p-5 shadow-[0_8px_30px_rgba(30,41,59,0.2)] border border-indigo-500/20 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group mb-3">
-                    <div className="absolute right-0 top-0 w-36 h-36 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-full blur-2xl pointer-events-none group-hover:from-indigo-500/20 transition-colors"></div>
-                    <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl pointer-events-none"></div>
+                    <div className="absolute right-0 top-0 w-36 h-36 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-2xl pointer-events-none group-hover:from-emerald-500/20 transition-colors"></div>
+                    <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-amber-500/5 rounded-full blur-xl pointer-events-none"></div>
                     
                     <div className="flex items-center justify-between relative z-10">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600 flex items-center justify-center shadow-md shadow-amber-500/20">
-                                <Sparkles className="w-6 h-6 text-slate-900 animate-pulse"/>
+                            {/* 🔥 IKON GANTI: Menggunakan lambang uang/koin bernuansa emas (Banknote/Wallet style) */}
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 via-yellow-500 to-emerald-600 flex items-center justify-center shadow-md shadow-amber-500/20">
+                                <Banknote className="w-6 h-6 text-slate-950"/>
                             </div>
                             <div>
                                 <div className="flex items-center gap-2 mb-0.5">
-                                    <h3 className="font-black text-white text-base tracking-tight">Wealth Blueprint</h3>
+                                    <h3 className="font-black text-white text-base tracking-tight">Panduan Penghasilan</h3>
                                     <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-md border border-emerald-500/30 uppercase tracking-wider">LIVE</span>
                                 </div>
-                                <p className="text-[11px] text-indigo-200/70 font-medium">Panduan Penghasilan & AI Peta Cuan</p>
+                                <p className="text-[11px] text-indigo-200/70 font-medium">Pembimbing & Peta Jalur Cuan</p>
                             </div>
                         </div>
                         <ChevronRight className="w-5 h-5 text-indigo-400 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all"/>
@@ -926,7 +927,7 @@ export default function Home() {
             </Link>
 
             {/* BILANO ACADEMY */}
-            <div onClick={() => setPendingFeatureModal({ title: "BILANO Academy", desc: "Materi eksklusif seputar pengelolaan portofolio, analisis bandarmologi, dan edukasi finansial profesional sedang disiapkan." })}>
+            <Link href="/academy">
                 <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
                     <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
                     <div className="flex items-center justify-between relative z-10">
@@ -944,8 +945,7 @@ export default function Home() {
                         <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-amber-400 transition-colors"/>
                     </div>
                 </div>
-            </div>
-        </div>
+            </Link>
 
         <div className="flex flex-col gap-4 mt-2 px-1">
             <Link href="/chat-ai">

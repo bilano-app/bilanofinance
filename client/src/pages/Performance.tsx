@@ -132,7 +132,6 @@ export default function Performance() {
   }
 
   if (locked) {
-      // Pembatasan Paywall bawaan dipertahankan sepenuhnya
       return (
           <MobileLayout title="Analisa Performa" showBack>
               <div className="relative min-h-screen bg-slate-50 overflow-hidden pb-24 overflow-y-auto">
@@ -273,18 +272,17 @@ export default function Performance() {
 
   let targetIncomeMonth = 0;
   let savingRequired = 0;
-  let expenseLimit = 0;
+  let expenseLimit = (target?.monthlyBudget || 0);
   let monthsRemaining = 1; 
   let progressPercent = 0;
   let gap = 0;
   let isPeriodEnded = false;
   let isTargetAchieved = false;
 
-  const hasValidTarget = target && (target.targetAmount > 0 || target.monthlyBudget > 0);
+  const hasTargetAmount = target && target.targetAmount > 0;
 
-  if (hasValidTarget && target.targetAmount > 0) {
+  if (hasTargetAmount) {
       const targetGoal = target.targetAmount;
-      expenseLimit = (target.monthlyBudget || 0);
       const startM = target.startMonth || (currentMonthIdx + 1);
       const startY = target.startYear || currentYear;
       const duration = target.durationMonths || 12;
@@ -302,8 +300,6 @@ export default function Performance() {
           isPeriodEnded = true;
           isTargetAchieved = currentWealth >= targetGoal;
       }
-  } else if (hasValidTarget && target.monthlyBudget > 0) {
-      expenseLimit = target.monthlyBudget;
   }
 
   const thisMonthTx = allTimeTx.filter(t => {
@@ -406,18 +402,37 @@ export default function Performance() {
   const isOverBudget = expenseLimit > 0 && monthlyExpense > expenseLimit;
 
   // =========================================================================
-  // 📈 LOGIKA BARU: CASHFLOW DIAGNOSTICS & ENGINE WAWASAN DINAMIS
+  // 📈 LOGIKA BARU: CASHFLOW DIAGNOSTICS & KATEGORI PENGELUARAN
   // =========================================================================
   const savingsRate = monthlyIncome > 0 ? ((monthlyIncome - monthlyExpense) / monthlyIncome) * 100 : 0;
   const dailyBurnRate = currentDay > 0 ? pureExpenses / currentDay : 0;
   const projectedExpense = dailyBurnRate * daysInMonth;
   const budgetVelocityAlert = monthlyBudget > 0 && budgetPercentage > monthProgressPercent;
 
+  // 1. Hitung Top Kategori Pengeluaran
+  const categoryTotals = baseExpenseTxs.reduce((acc, t) => {
+      const cat = t.category || "Lainnya";
+      acc[cat] = (acc[cat] || 0) + t.amount;
+      return acc;
+  }, {} as Record<string, number>);
+  const topCategory = Object.keys(categoryTotals).sort((a, b) => categoryTotals[b] - categoryTotals[a])[0] || "Belum ada";
+
+  // 2. Hitung Rasio Gaya Hidup (Konsumtif vs Rutin)
+  let konsumtifTotal = 0;
+  baseExpenseTxs.forEach(t => {
+      const c = (t.category || '').toLowerCase();
+      // Kata kunci untuk mengidentifikasi pengeluaran konsumtif/discretionary
+      if (c.includes('makan') || c.includes('jajan') || c.includes('hiburan') || c.includes('belanja') || c.includes('hobi') || c.includes('rokok') || c.includes('kopi') || c.includes('lifestyle') || c.includes('main')) {
+          konsumtifTotal += t.amount;
+      }
+  });
+  const konsumtifRatio = pureExpenses > 0 ? (konsumtifTotal / pureExpenses) * 100 : 0;
+
   const generateDynamicInsight = () => {
       if (monthlyIncome === 0 && monthlyExpense === 0) {
           return {
               title: "Sistem Menunggu Data",
-              desc: "Belum ada pergerakan kas bulan ini. Mulai catat transaksi Anda untuk mengaktifkan mesin diagnosis finansial otomatis.",
+              desc: "Belum ada pergerakan kas bulan ini. Mulai catat transaksi Anda untuk mengaktifkan mesin diagnosis finansial otomatis secara real-time.",
               color: "text-slate-600 bg-slate-50 border-slate-200",
               icon: <HelpCircle className="w-5 h-5 text-slate-500" />
           };
@@ -425,15 +440,15 @@ export default function Performance() {
       if (monthlyNet < 0) {
           return {
               title: "Peringatan Defisit Kas (Mati Keras)",
-              desc: `Arus kas berstatus minus Rp ${Math.abs(monthlyNet).toLocaleString('id-ID')}. Anda membiayai pengeluaran dari tabungan lama atau instrumen hutang. Tekan rem belanja diskresioner sekarang.`,
+              desc: `Arus kas berstatus minus Rp ${Math.abs(monthlyNet).toLocaleString('id-ID')}. Anda membiayai pengeluaran dari tabungan lama atau instrumen hutang. Tekan rem belanja sekarang.`,
               color: "text-rose-700 bg-rose-50 border-rose-100",
               icon: <ShieldAlert className="w-5 h-5 text-rose-600" />
           };
       }
       if (budgetVelocityAlert) {
           return {
-              title: "Akselerasi Anggaran Terlalu Agresif",
-              desc: `Pengeluaran Anda terpakai ${budgetPercentage.toFixed(1)}% padahal waktu bulan baru berjalan ${monthProgressPercent.toFixed(1)}%. Anda diproyeksikan kehabisan anggaran sebelum akhir bulan.`,
+              title: "Akselerasi Anggaran Agresif",
+              desc: `Pengeluaran Anda telah terpakai ${budgetPercentage.toFixed(1)}% padahal waktu bulan baru berjalan ${monthProgressPercent.toFixed(1)}%. Anda diproyeksikan kehabisan anggaran sebelum akhir bulan.`,
               color: "text-amber-700 bg-amber-50 border-amber-100",
               icon: <Zap className="w-5 h-5 text-amber-600" />
           };
@@ -508,7 +523,7 @@ export default function Performance() {
                     </p>
                     <Link href="/target">
                         <button className="bg-yellow-400 hover:bg-yellow-500 text-indigo-950 px-3 py-1.5 rounded-full text-[9px] font-extrabold shadow-md transition-all active:scale-95 uppercase tracking-wider whitespace-nowrap">
-                            {hasValidTarget ? "EDIT TARGET" : "TAMBAH TARGET"}
+                            EDIT SETUP
                         </button>
                     </Link>
                 </div>
@@ -526,7 +541,7 @@ export default function Performance() {
                 </div>
             </div>
 
-            {hasValidTarget && target.targetAmount > 0 && (
+            {hasTargetAmount && (
                 <div className="relative z-10 bg-black/20 p-4 rounded-[20px] backdrop-blur-sm border border-white/10 mt-6">
                     <div className="flex justify-between text-[11px] text-blue-100 mb-2 font-bold uppercase tracking-wider">
                         <span>Target Impian</span>
@@ -545,7 +560,7 @@ export default function Performance() {
             <div className="absolute left-0 bottom-0 w-32 h-32 bg-emerald-400/20 rounded-tr-full blur-2xl pointer-events-none"></div>
         </div>
 
-        {/* 3. DYNAMIC INSIGHT ENGINE (BARU & GAHAR) */}
+        {/* 3. DYNAMIC INSIGHT ENGINE (TAMPIL TERUS) */}
         <div className={`p-5 rounded-[28px] border transition-all duration-300 shadow-sm flex gap-3 items-start ${activeInsight.color}`}>
             <div className="mt-0.5 shrink-0 bg-white/50 p-2 rounded-xl border border-current/10">
                 {activeInsight.icon}
@@ -556,26 +571,40 @@ export default function Performance() {
             </div>
         </div>
 
-        {/* 4. MODUL PREMIUM: CASHFLOW DIAGNOSTICS (BARU) */}
+        {/* 4. CASHFLOW DIAGNOSTICS: 4 METRIK MENDALAM */}
         <div className="bg-white border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.02)] rounded-[32px] p-6 relative overflow-hidden">
             <div className="flex items-center gap-2 mb-4">
                 <PieChart className="w-5 h-5 text-indigo-600"/>
                 <h3 className="font-extrabold text-slate-800 text-sm">Diagnosis Struktur Arus Kas</h3>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100">
                     <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Savings Rate</p>
-                    <p className={`text-xl font-black ${savingsRate >= 20 ? 'text-emerald-600' : savingsRate > 0 ? 'text-amber-600' : 'text-rose-600'}`}>
+                    <p className={`text-lg font-black ${savingsRate >= 20 ? 'text-emerald-600' : savingsRate > 0 ? 'text-amber-600' : 'text-rose-600'}`}>
                         {savingsRate.toFixed(1)}%
                     </p>
-                    <p className="text-[9px] text-slate-400 mt-0.5 font-medium">Rasio dana teralokasi</p>
+                    <p className="text-[9px] text-slate-400 mt-0.5 font-medium leading-tight">Kapasitas nabung dari pemasukan</p>
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100">
-                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Rata-Rata Harian</p>
-                    <p className="text-xl font-black text-slate-800">{formatRp(dailyBurnRate)}</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5 font-medium">Beban bakar kas per hari</p>
+                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Beban Harian</p>
+                    <p className="text-lg font-black text-slate-800">{formatRp(dailyBurnRate)}</p>
+                    <p className="text-[9px] text-slate-400 mt-0.5 font-medium leading-tight">Rata-rata keluar per hari</p>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100">
+                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Top Pengeluaran</p>
+                    <p className="text-sm font-black text-slate-800 truncate" title={topCategory}>{topCategory}</p>
+                    <p className="text-[9px] text-slate-400 mt-0.5 font-medium leading-tight">Pos paling menyedot kas</p>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100">
+                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Gaya Hidup</p>
+                    <p className={`text-lg font-black ${konsumtifRatio > 50 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                        {konsumtifRatio.toFixed(1)}%
+                    </p>
+                    <p className="text-[9px] text-slate-400 mt-0.5 font-medium leading-tight">Porsi konsumtif diskresioner</p>
                 </div>
             </div>
 
@@ -672,7 +701,7 @@ export default function Performance() {
             </div>
         </div>
 
-        {/* 6. PERFORMA ASET & DIVERSIFIKASI (DENGAN ZERO STATE PROFESIONAL) */}
+        {/* 6. PERFORMA ASET & DIVERSIFIKASI */}
         {isPro && (
             (totalCuanJual !== 0 || investmentReal > 0 || forexValue > 0) ? (
                 <div className="p-6 rounded-[32px] bg-slate-900 text-white shadow-xl border border-slate-700 relative overflow-hidden">
@@ -715,166 +744,179 @@ export default function Performance() {
                 <div className="p-6 rounded-[32px] bg-slate-900 text-white/40 shadow-xl border border-slate-800 relative overflow-hidden text-center">
                     <Briefcase className="w-8 h-8 mx-auto mb-2 text-slate-600 animate-pulse" />
                     <h4 className="font-extrabold text-sm text-slate-300 mb-1">Portofolio Multi-Aset Belum Aktif</h4>
-                    <p className="text-[11px] max-w-xs mx-auto text-slate-400 leading-relaxed">
-                        Evaluasi ROI otomatis dan analisis diversifikasi portofolio akan terisi setelah Anda mencatat pembelian Saham atau Valas.
+                    <p className="text-[11px] max-w-xs mx-auto text-slate-400 leading-relaxed font-medium">
+                        Evaluasi ROI otomatis dan analisis diversifikasi akan terisi di sini setelah Anda mencatat pembelian instrumen investasi atau valas.
                     </p>
                 </div>
             )
         )}
 
-        {/* 7. AMAL & SEDEKAH (DENGAN ZERO STATE PROFESIONAL) */}
-        {totalAmal > 0 ? (
-            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
-                <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl pointer-events-none"></div>
-                <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-1">
-                        <HeartHandshake className="w-5 h-5 text-emerald-600"/>
-                        <h3 className="font-extrabold text-emerald-900 text-sm">Amal & Sedekah (Bulan Ini)</h3>
-                    </div>
-                    <p className="text-[10px] font-medium text-emerald-700 mb-2">Pahala alokasi sosial murni di luar budget operasional bulanan</p>
-                    <p className="text-2xl font-black text-emerald-600 tracking-tight">{formatRp(totalAmal)}</p>
+        {/* 7. AMAL & SEDEKAH (TAMPIL TERUS, WARNA HIJAU) */}
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
+            <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl pointer-events-none"></div>
+            <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-1">
+                    <HeartHandshake className="w-5 h-5 text-emerald-600"/>
+                    <h3 className="font-extrabold text-emerald-900 text-sm">Amal & Sedekah (Bulan Ini)</h3>
                 </div>
+                {totalAmal > 0 ? (
+                    <>
+                        <p className="text-[10px] font-medium text-emerald-700 mb-2">Pahala alokasi sosial murni di luar budget operasional bulanan</p>
+                        <p className="text-2xl font-black text-emerald-600 tracking-tight">{formatRp(totalAmal)}</p>
+                    </>
+                ) : (
+                    <>
+                        <p className="text-[10px] font-medium text-emerald-700 mb-2">Belum ada alokasi amal bulan ini. Berapapun nominalnya, jadikan keuanganmu lebih berkah.</p>
+                        <p className="text-2xl font-black text-emerald-600/40 tracking-tight">Rp 0</p>
+                    </>
+                )}
             </div>
-        ) : (
-            <div className="bg-slate-50 border border-dashed border-slate-200 rounded-[32px] p-5 text-center text-slate-400">
-                <HeartHandshake className="w-6 h-6 mx-auto mb-1.5 opacity-60" />
-                <p className="text-[11px] font-medium">Belum ada alokasi sosial/amal tercatat bulan ini.</p>
-            </div>
-        )}
+        </div>
 
-        {/* 8. TARGET FINANSIAL & KONTROL ANGGARAN */}
-        {hasValidTarget ? (
-            <div className="grid grid-cols-1 gap-5">
-                {target.monthlyBudget > 0 && (
-                    <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[32px] p-6 text-white shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
-                        <div className="flex items-center justify-between mb-6 relative z-10">
-                            <div className="flex items-center gap-2">
-                                <Target className="w-5 h-5 text-indigo-300"/>
-                                <h3 className="font-bold text-sm">Limit Pengeluaran Bulan Ini</h3>
-                            </div>
-                            {isOverBudgetStrict && <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-md animate-pulse shadow-md">OVERBUDGET</span>}
+        {/* 8. KONTROL ANGGARAN & GOAL BULANAN (TAMPIL TERUS WALAUPUN NOL) */}
+        <div className="grid grid-cols-1 gap-5">
+            {/* LIMIT PENGELUARAN */}
+            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[32px] p-6 text-white shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <div className="flex items-center justify-between mb-6 relative z-10">
+                    <div className="flex items-center gap-2">
+                        <Target className="w-5 h-5 text-indigo-300"/>
+                        <h3 className="font-bold text-sm">Limit Pengeluaran Bulan Ini</h3>
+                    </div>
+                    {isOverBudgetStrict && monthlyBudget > 0 && <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-md animate-pulse shadow-md">OVERBUDGET</span>}
+                </div>
+
+                <div className="mb-6 relative z-10">
+                    <p className="text-[11px] text-indigo-200 mb-1 font-medium">Pengeluaran Tercatat (Non-Amal)</p>
+                    <div className="flex items-end gap-2">
+                        <h2 className="text-3xl font-black tracking-tight">{formatCurrency(pureExpenses).split(',')[0]}</h2>
+                        <span className="text-sm text-indigo-300 mb-1 font-bold">/ {monthlyBudget > 0 ? formatCurrency(monthlyBudget).split(',')[0] : "Tanpa Batas"}</span>
+                    </div>
+                </div>
+
+                {monthlyBudget > 0 ? (
+                    <div className="relative z-10">
+                        <div className="flex justify-between text-[10px] font-bold mb-2 text-indigo-200">
+                            <span>Terpakai: {budgetPercentage.toFixed(1)}%</span>
+                            <span>Sisa: {formatCurrency(remainingBudget).split(',')[0]}</span>
                         </div>
-
-                        <div className="mb-6 relative z-10">
-                            <p className="text-[11px] text-indigo-200 mb-1 font-medium">Pengeluaran Tercatat (Non-Amal)</p>
-                            <div className="flex items-end gap-2">
-                                <h2 className="text-3xl font-black tracking-tight">{formatCurrency(pureExpenses).split(',')[0]}</h2>
-                                <span className="text-sm text-indigo-300 mb-1 font-bold">/ {formatCurrency(monthlyBudget).split(',')[0]}</span>
-                            </div>
+                        <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700 shadow-inner">
+                            <div 
+                                className={`h-full rounded-full transition-all duration-1000 ${isOverBudgetStrict ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-[0_0_10px_rgba(52,211,153,0.5)]'}`}
+                                style={{ width: `${budgetPercentage}%` }}
+                            ></div>
                         </div>
-
-                        <div className="relative z-10">
-                            <div className="flex justify-between text-[10px] font-bold mb-2 text-indigo-200">
-                                <span>Terpakai: {budgetPercentage.toFixed(1)}%</span>
-                                <span>Sisa: {formatCurrency(remainingBudget).split(',')[0]}</span>
-                            </div>
-                            <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700 shadow-inner">
-                                <div 
-                                    className={`h-full rounded-full transition-all duration-1000 ${isOverBudgetStrict ? 'bg-rose-500' : 'bg-emerald-400'}`}
-                                    style={{ width: `${budgetPercentage}%` }}
-                                ></div>
-                            </div>
-                            
-                            {/* INDIKATOR KECEPATAN ANGGARAN (BUDGET VELOCITY BAR) */}
-                            <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-400">
-                                <span className="flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5"/> Laju Waktu Bulan:</span>
-                                <span className="font-bold text-slate-300">{monthProgressPercent.toFixed(1)}% Hari Terlewati</span>
-                            </div>
+                        <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-400">
+                            <span className="flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5"/> Laju Waktu Bulan:</span>
+                            <span className="font-bold text-slate-300">{monthProgressPercent.toFixed(1)}% Hari Terlewati</span>
                         </div>
                     </div>
-                )}
-
-                {target.targetAmount > 0 && (
-                    <div className="p-6 rounded-[32px] bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 relative overflow-hidden">
+                ) : (
+                    <div className="relative z-10 bg-white/10 p-4 rounded-[20px] border border-white/10 flex items-center justify-between">
                         <div>
-                            <h3 className="font-extrabold text-slate-800 flex items-center gap-2 mb-5">
-                                <Target className="w-5 h-5 text-indigo-500"/> Goal Bulan Ini
-                            </h3>
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                <div className="bg-indigo-50/50 p-4 rounded-[20px] border border-indigo-100/50 min-w-0">
-                                    <p className="text-[10px] text-indigo-500 uppercase font-extrabold tracking-widest mb-1 truncate">Wajib Nabung</p>
-                                    <p className="font-extrabold text-indigo-700 text-base truncate" title={formatRp(savingRequired)}>{formatRp(savingRequired)}</p>
-                                </div>
-                                {expenseLimit > 0 ? (
-                                    <div className="bg-rose-50/50 p-4 rounded-[20px] border border-rose-100/50 min-w-0">
-                                        <p className="text-[10px] text-rose-500 uppercase font-extrabold tracking-widest mb-1 truncate">Batas Keluar</p>
-                                        <p className="font-extrabold text-rose-700 text-base truncate" title={formatRp(expenseLimit)}>{formatRp(expenseLimit)}</p>
-                                    </div>
-                                ) : (
-                                    <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100 min-w-0">
-                                        <p className="text-[10px] text-slate-500 uppercase font-extrabold tracking-widest mb-1 truncate">Batas Keluar</p>
-                                        <p className="font-extrabold text-slate-400 text-sm mt-1 truncate">Tanpa Batas</p>
-                                    </div>
-                                )}
-                            </div>
+                            <p className="text-xs font-bold text-white mb-0.5">Batas Belum Diatur</p>
+                            <p className="text-[10px] text-indigo-200">Aktifkan limit untuk cegah kebocoran kas.</p>
+                        </div>
+                        <Link href="/target">
+                            <button className="bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2 rounded-full text-[10px] font-black shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 whitespace-nowrap">
+                                PASANG LIMIT
+                            </button>
+                        </Link>
+                    </div>
+                )}
+            </div>
 
-                            {expenseLimit > 0 && (
-                                <div className="mt-4 p-4 bg-slate-800 rounded-[20px] flex justify-between items-center text-white shadow-md gap-2">
-                                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300 min-w-0 flex-shrink">Harus Dapat Pemasukan:</span>
-                                    <span className="text-base font-extrabold text-emerald-400 truncate text-right max-w-[50%]" title={formatRp(targetIncomeMonth)}>{formatRp(targetIncomeMonth)}</span>
+            {/* GOAL BULANAN / TABUNGAN */}
+            <div className="p-6 rounded-[32px] bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 relative overflow-hidden">
+                <h3 className="font-extrabold text-slate-800 flex items-center gap-2 mb-5">
+                    <Target className="w-5 h-5 text-indigo-500"/> Goal Bulan Ini
+                </h3>
+                
+                {hasTargetAmount ? (
+                    <div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div className="bg-indigo-50/50 p-4 rounded-[20px] border border-indigo-100/50 min-w-0">
+                                <p className="text-[10px] text-indigo-500 uppercase font-extrabold tracking-widest mb-1 truncate">Wajib Nabung</p>
+                                <p className="font-extrabold text-indigo-700 text-base truncate" title={formatRp(savingRequired)}>{formatRp(savingRequired)}</p>
+                            </div>
+                            {expenseLimit > 0 ? (
+                                <div className="bg-rose-50/50 p-4 rounded-[20px] border border-rose-100/50 min-w-0">
+                                    <p className="text-[10px] text-rose-500 uppercase font-extrabold tracking-widest mb-1 truncate">Batas Keluar</p>
+                                    <p className="font-extrabold text-rose-700 text-base truncate" title={formatRp(expenseLimit)}>{formatRp(expenseLimit)}</p>
+                                </div>
+                            ) : (
+                                <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100 min-w-0">
+                                    <p className="text-[10px] text-slate-500 uppercase font-extrabold tracking-widest mb-1 truncate">Batas Keluar</p>
+                                    <p className="font-extrabold text-slate-400 text-sm mt-1 truncate">Tanpa Batas</p>
                                 </div>
                             )}
                         </div>
+
+                        {expenseLimit > 0 && (
+                            <div className="mt-4 p-4 bg-slate-800 rounded-[20px] flex justify-between items-center text-white shadow-md gap-2">
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300 min-w-0 flex-shrink">Harus Dapat Pemasukan:</span>
+                                <span className="text-base font-extrabold text-emerald-400 truncate flex-shrink-0 max-w-[50%] text-right" title={formatRp(targetIncomeMonth)}>{formatRp(targetIncomeMonth)}</span>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="bg-slate-50 border border-dashed border-slate-200 rounded-[20px] p-5 text-center flex flex-col items-center justify-center">
+                        <p className="text-[11px] text-slate-500 font-medium mb-3">Tidak ada target tabungan bulan ini. Pasang target untuk memotivasi laju finansial Anda.</p>
+                        <Link href="/target">
+                            <button className="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-full transition-colors">
+                                SET TARGET TABUNGAN
+                            </button>
+                        </Link>
+                    </div>
+                )}
+            </div>
+
+            {/* DIAGNOSA KONTROL */}
+            <div className="space-y-4">
+                {hasTargetAmount && (
+                    <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${isSafe ? "border-emerald-100 bg-emerald-50" : "border-orange-100 bg-orange-50"}`}>
+                        <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Diagnosa Laju Tabungan</p>
+                        {isSafe ? (
+                            <>
+                                <h3 className="text-xl font-extrabold text-emerald-600 mb-2">AMAN (ON TRACK) 🎉</h3>
+                                <p className="text-xs text-emerald-700 leading-relaxed font-medium">
+                                    Sisa uang bulan ini {formatRp(monthlyNet)}.<br/>
+                                    Memenuhi syarat minimal nabung ({formatRp(savingRequired)}).
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <h3 className="text-xl font-extrabold text-orange-600 mb-2">KURANG (OFF TRACK) ⚠️</h3>
+                                <p className="text-xs text-orange-700 leading-relaxed font-medium">
+                                    Sisa uang hanya {formatRp(monthlyNet)}.<br/>
+                                    Masih kurang <b>{formatRp(savingRequired - monthlyNet)}</b> untuk penuhi target tabungan.
+                                </p>
+                            </>
+                        )}
                     </div>
                 )}
 
-                <div className="space-y-4">
-                    {target.targetAmount > 0 && (
-                        <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm ${isSafe ? "border-emerald-100 bg-emerald-50" : "border-orange-100 bg-orange-50"}`}>
-                            <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Diagnosa Bulan Ini</p>
-                            {isSafe ? (
-                                <>
-                                    <h3 className="text-xl font-extrabold text-emerald-600 mb-2">AMAN (ON TRACK) 🎉</h3>
-                                    <p className="text-xs text-emerald-700 leading-relaxed font-medium">
-                                        Sisa uang bulan ini {formatRp(monthlyNet)}.<br/>
-                                        Memenuhi syarat minimal nabung ({formatRp(savingRequired)}).
-                                    </p>
-                                </>
-                            ) : (
-                                <>
-                                    <h3 className="text-xl font-extrabold text-orange-600 mb-2">KURANG (OFF TRACK) ⚠️</h3>
-                                    <p className="text-xs text-orange-700 leading-relaxed font-medium">
-                                        Sisa uang hanya {formatRp(monthlyNet)}.<br/>
-                                        Masih kurang <b>{formatRp(savingRequired - monthlyNet)}</b> untuk mencapai target tabungan bulan ini.
-                                    </p>
-                                </>
-                            )}
-                        </div>
-                    )}
+                {/* Tampilkan Diagnosa Pengeluaran Jika Target Tabungan Kosong, TAPI Punya Limit Pengeluaran */}
+                {!hasTargetAmount && monthlyBudget > 0 && (
+                    <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${!isOverBudget ? "border-emerald-100 bg-emerald-50" : "border-rose-100 bg-rose-50"}`}>
+                        <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Kontrol Pengeluaran</p>
+                        {!isOverBudget ? (
+                            <>
+                                <h3 className="text-xl font-extrabold text-emerald-600 mb-2">PENGELUARAN AMAN 🛡️</h3>
+                                <p className="text-xs text-emerald-700 font-medium">Kamu masih punya sisa budget {formatRp(expenseLimit - monthlyExpense)} bulan ini.</p>
+                            </>
+                        ) : (
+                            <>
+                                <h3 className="text-xl font-extrabold text-rose-600 mb-2">AWAS OVERBUDGET 🚨</h3>
+                                <p className="text-xs text-rose-700 font-medium">Pengeluaran menembus batas! Kelebihan {formatRp(monthlyExpense - expenseLimit)}.</p>
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
 
-                    {target.targetAmount === 0 && expenseLimit > 0 && (
-                        <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm ${!isOverBudget ? "border-emerald-100 bg-emerald-50" : "border-rose-100 bg-rose-50"}`}>
-                            <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Kontrol Pengeluaran</p>
-                            {!isOverBudget ? (
-                                <>
-                                    <h3 className="text-xl font-extrabold text-emerald-600 mb-2">PENGELUARAN AMAN 🛡️</h3>
-                                    <p className="text-xs text-emerald-700 font-medium">Kamu masih punya sisa budget {formatRp(expenseLimit - monthlyExpense)} bulan ini.</p>
-                                </>
-                            ) : (
-                                <>
-                                    <h3 className="text-xl font-extrabold text-rose-600 mb-2">AWAS OVERBUDGET 🚨</h3>
-                                    <p className="text-xs text-rose-700 font-medium">Pengeluaran menembus batas! Kelebihan {formatRp(monthlyExpense - expenseLimit)}.</p>
-                                </>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
-        ) : (
-            <div className="flex flex-col items-center justify-center py-10 text-slate-400 bg-white rounded-[32px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 mt-2 px-6 text-center">
-                <div className="bg-indigo-50 p-4 rounded-full mb-3">
-                    <Target className="w-8 h-8 text-indigo-400"/>
-                </div>
-                <h3 className="font-extrabold text-slate-800 text-base mb-1">Aktifkan Strategi Finansial</h3>
-                <p className="text-xs text-slate-500 mb-5 leading-relaxed">Pasang target tabungan atau batas pengeluaran untuk membuka fitur analisa lanjutan.</p>
-                <Link href="/target">
-                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white w-full py-3.5 rounded-full text-xs font-extrabold shadow-lg shadow-indigo-200 transition-transform active:scale-95">
-                        MULAI SETUP SEKARANG
-                    </button>
-                </Link>
-            </div>
-        )}
       </div>
     </MobileLayout>
   );

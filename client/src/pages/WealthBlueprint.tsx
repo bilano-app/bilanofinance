@@ -583,7 +583,7 @@ export default function WealthBlueprint() {
     // 🎨 UI VIEW LAYER & RENDERING LOGIC
     // =========================================================================
     return (
-        <MobileLayout title="Wealth Blueprint" showBack>
+        <MobileLayout title="Panduan Penghasilan" showBack>
             <div className="min-h-screen bg-slate-50 pt-2 pb-32">
                 
                 {/* STATE 0: S0 LANDING */}
@@ -595,7 +595,7 @@ export default function WealthBlueprint() {
                         <div className="bg-amber-100 text-amber-900 text-[10px] font-black px-4 py-1 rounded-full uppercase tracking-widest mb-3 border border-amber-200">
                             VIP ACCESS PLATINUM
                         </div>
-                        <h2 className="text-3xl font-black text-slate-800 mb-3 tracking-tight">BILANO Wealth Blueprint</h2>
+                        <h2 className="text-3xl font-black text-slate-800 mb-3 tracking-tight">Panduan Penghasilan</h2>
                         <p className="text-sm text-slate-500 font-medium leading-relaxed mb-10 max-w-xs">
                             Bukan sekadar saran motivasi umum. Mesin kecerdasan buatan akan meracik strategi bisnis riil berdasarkan aset, keahlian, dan <span className="font-bold text-slate-700">kondisi kas aktualmu</span>.
                         </p>

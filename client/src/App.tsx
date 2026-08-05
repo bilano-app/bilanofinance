@@ -124,6 +124,8 @@ import VideoPreview from "@/pages/VideoPreview";
 import Checkout from "@/pages/Checkout";
 import Manager from "@/pages/Manager"; 
 import WealthBlueprint from "@/pages/WealthBlueprint";
+import AcademyList from "@/pages/AcademyList";
+import AcademyReader from "@/pages/AcademyReader";
 
 function Router() {
   const [location, setLocation] = useLocation();
