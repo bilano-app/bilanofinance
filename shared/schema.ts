@@ -121,20 +121,20 @@ export const portfolioSnapshots = pgTable("portfolio_snapshots", {
 // --- 11. TRACKING EVENTS ---
 export const trackingEvents = pgTable("tracking_events", {
   id: serial("id").primaryKey(),
-  anonymousId: text("anonymous_id").notNull(), 
-  userId: integer("user_id"), 
-  eventName: text("event_name").notNull(), 
-  properties: text("properties"), 
+  anonymousId: text("anonymous_id").notNull(), // ID unik per browser/device
+  userId: integer("user_id"), // Terisi otomatis jika user sudah login/daftar
+  eventName: text("event_name").notNull(), // Contoh: 'quiz_answered', 'landing_viewed'
+  properties: text("properties"), // Menyimpan JSON string (contoh: { step: 1, answer: 'Ya' })
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // =========================================================================
-// 🚀 12. WEALTH BLUEPRINT (STRATEGI PEMASUKAN)
+// 🚀 12. WEALTH BLUEPRINT (S1 - S15 SYSTEM)
 // =========================================================================
 export const userIncomeProfiles = pgTable("user_income_profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  status: text("status").notNull(), 
+  status: text("status").notNull(), // PELAJAR, MAHASISWA, PEKERJA, BELUM_BEKERJA
   tujuan: text("tujuan").notNull(),
   polaKerja: text("pola_kerja").notNull(),
   latarBelakang: json("latar_belakang"), 
@@ -145,21 +145,50 @@ export const userIncomeProfiles = pgTable("user_income_profiles", {
   completedAt: timestamp("completed_at").defaultNow(),
 });
 
+// --- 13. EBOOKS SYSTEM (COMMERCIAL LIBRARY) ---
+export const ebooks = pgTable("ebooks", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  author: text("author").notNull(),
+  description: text("description"),
+  coverUrl: text("cover_url"),
+  isPremium: boolean("is_premium").default(true).notNull(), // Untuk monetisasi Bilano Premium
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const ebookChapters = pgTable("ebook_chapters", {
+  id: serial("id").primaryKey(),
+  ebookId: integer("ebook_id").notNull(), // Hubungan relasional ke tabel ebooks
+  chapterNumber: integer("chapter_number").notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(), // Menyimpan teks terjemahan Bahasa Indonesia (Format Markdown)
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// --- ZOD SCHEMAS ---
+export const insertEbookSchema = createInsertSchema(ebooks).omit({ id: true, createdAt: true });
+export const insertEbookChapterSchema = createInsertSchema(ebookChapters).omit({ id: true, createdAt: true });
+
+// --- EXPORT TYPES ---
+export type Ebook = typeof ebooks.$inferSelect;
+export type InsertEbook = typeof ebooks.$inferInsert;
+export type EbookChapter = typeof ebookChapters.$inferSelect;
+export type InsertEbookChapter = typeof ebookChapters.$inferInsert;
+
 export const incomeAttempts = pgTable("income_attempts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  recommendation: json("recommendation").notNull(), 
-  state: text("state").notNull(), 
-  materials: json("materials"), 
-  totalCost: doublePrecision("total_cost").default(0),
-  feasibilityVerdict: text("feasibility_verdict"),
-  capitalPlan: json("capital_plan"),
-  sellingChannels: json("selling_channels"),
-  revenueLog: json("revenue_log"),
+  recommendation: json("recommendation").notNull(), // Snapshot ide yang dipilih dari AI
+  state: text("state").notNull(), // S10_RENCANA_BAHAN, S11_RISET_HARGA, S12_CEK_KELAYAKAN, dll.
+  materials: json("materials"), // Menyimpan array: {id, name, price, note} (Daftar bahan & harga)
+  totalCost: doublePrecision("total_cost").default(0), // Total perhitungan modal
+  feasibilityVerdict: text("feasibility_verdict"), // CUKUP / KURANG
+  capitalPlan: json("capital_plan"), // Strategi mengumpulkan modal
+  sellingChannels: json("selling_channels"), // Rencana tempat jualan offline/online
+  revenueLog: json("revenue_log"), // Pencatatan omset dari usaha ini
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
-
 
 // --- ZOD SCHEMAS ---
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
@@ -174,7 +203,6 @@ export const insertOtpSessionSchema = createInsertSchema(otpSessions).omit({ id:
 export const insertTrackingEventSchema = createInsertSchema(trackingEvents).omit({ id: true, createdAt: true });
 export const insertUserIncomeProfileSchema = createInsertSchema(userIncomeProfiles).omit({ id: true, completedAt: true });
 export const insertIncomeAttemptSchema = createInsertSchema(incomeAttempts).omit({ id: true, createdAt: true, updatedAt: true });
-
 
 // =======================================================
 // EXPORT TYPES 

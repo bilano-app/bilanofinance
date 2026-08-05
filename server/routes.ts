@@ -505,6 +505,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ error: "Kredensial Admin Salah atau Tidak Dikenal!" });
   });
 
+  // =========================================================================
+  // 📚 API E-BOOKS KERSILAL (COMMERCIAL LIBRARY)
+  // =========================================================================
+  
+  // 1. Ambil katalog buku (Bisa diakses user gratis untuk memancing mereka langganan)
+  app.get("/api/ebooks", async (req: any, res: any) => {
+      try {
+          const allEbooks = await db.execute(sql`SELECT * FROM ebooks ORDER BY id DESC`);
+          const rows = Array.isArray(allEbooks) ? allEbooks : (allEbooks as any).rows || [];
+          res.json({ success: true, data: rows });
+      } catch (e: any) { 
+          res.status(500).json({ error: "Gagal memuat katalog e-book: " + e.message }); 
+      }
+  });
+
+  // 2. Ambil isi bab buku (Otomatis dicek oleh middleware pro)
+  app.get("/api/ebooks/:ebookId/chapters/:chapterNum", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req); // Pastikan mengambil sesi user aktif
+          const { ebookId, chapterNum } = req.params;
+
+          // Cek detail buku untuk validasi premium
+          const ebookRes = await db.execute(sql`SELECT * FROM ebooks WHERE id = ${parseInt(ebookId)}`);
+          const ebookRows = Array.isArray(ebookRes) ? ebookRes : (ebookRes as any).rows || [];
+          if (ebookRows.length === 0) return res.status(404).json({ error: "Buku tidak ditemukan." });
+          
+          const ebook = ebookRows[0];
+
+          // Validasi ekstra: Jika buku premium tapi user bukan PRO, blokir akses
+          if (ebook.is_premium && !user?.isPro) {
+              return res.status(402).json({ 
+                  error: "SUBSCRIPTION_REQUIRED", 
+                  message: "Buku ini masuk dalam kompilasi eksklusif Premium Bilano." 
+              });
+          }
+
+          // Tarik isi bab dari database
+          const chapterRes = await db.execute(sql`
+              SELECT * FROM ebook_chapters 
+              WHERE ebook_id = ${parseInt(ebookId)} AND chapter_number = ${parseInt(chapterNum)}
+              LIMIT 1
+          `);
+          const chapterRows = Array.isArray(chapterRes) ? chapterRes : (chapterRes as any).rows || [];
+          
+          if (chapterRows.length === 0) return res.status(404).json({ error: "Bab belum tersedia." });
+
+          res.json({ success: true, data: chapterRows[0] });
+      } catch (e: any) { 
+          res.status(500).json({ error: "Gagal memuat isi bab: " + e.message }); 
+      }
+  });
+
   app.get("/api/admin/tracking-stats", async (req: any, res: any) => {
       const emailAdmin = req.headers["x-user-email"] as string;
       const isAdminValid = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(emailAdmin);

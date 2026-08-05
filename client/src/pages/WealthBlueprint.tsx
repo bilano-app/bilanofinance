@@ -1,383 +1,642 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { useUser, useTransactions } from "@/hooks/use-finance";
 import { 
     Brain, Rocket, Target, ArrowRight, Loader2, Info, ChevronRight, 
-    CheckCircle2, Sparkles, BookOpen, AlertCircle, Plus, Trash2, ShieldAlert
+    CheckCircle2, Sparkles, BookOpen, AlertCircle, Plus, Trash2, ShieldAlert,
+    Send, Bot, User, BarChart3, PlusCircle, Check
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 
-// ==========================================
-// TYPES & STATE DEFINITIONS
-// ==========================================
-type Phase = 'S0_LANDING' | 'S1_STATUS' | 'S2_TUJUAN' | 'S3_POLA' | 'S4_LATAR' | 'S5_KEAHLIAN' | 'S6_ASET' | 'S7_WAKTU' | 'S8_LOADING_AI' | 'S9_PILIH_IDE' | 'S10_BAHAN' | 'S11_HARGA' | 'S12_KELAYAKAN' | 'S13_MODAL' | 'S14_JUAL';
+// =========================================================================
+// 📐 TYPE DEFINITIONS & STATE MACHINE CONTRACT (S0 - S15)
+// =========================================================================
+type StateId = 
+  | 'S0_LANDING' 
+  | 'S1_Q_STATUS' 
+  | 'S2_Q_TUJUAN' 
+  | 'S3_Q_POLA_KERJA' 
+  | 'S4_Q_LATAR_BELAKANG' 
+  | 'S5_Q_KEAHLIAN' 
+  | 'S6_Q_ASET' 
+  | 'S7_Q_KONSTRAIN_WAKTU' 
+  | 'S8_GENERATE_REKOMENDASI' 
+  | 'S9_PILIH_IDE' 
+  | 'S10_RENCANA_BAHAN' 
+  | 'S11_RISET_HARGA' 
+  | 'S12_CEK_KELAYAKAN' 
+  | 'S13_STRATEGI_MODAL' 
+  | 'S14_STRATEGI_JUAL' 
+  | 'S15_TRACKING_OMSET';
+
+interface OptionItem {
+    value: string;
+    label: string;
+}
+
+interface StepCardSection {
+    type: 'choice_single' | 'choice_multi' | 'input_group' | 'info';
+    id?: string;
+    label: string;
+    options?: OptionItem[];
+    fields?: { id: string; placeholder: string; input_type: 'text' | 'number' }[];
+}
+
+interface GenericStepCard {
+    type: 'step_card';
+    header: { title: string; color_variant: 'primary' | 'accent' };
+    sections: StepCardSection[];
+}
+
+interface RecommendationIdea {
+    id: string;
+    title: string;
+    pitch: string;
+    why_it_fits: string;
+    capital_level: 'TANPA_MODAL' | 'MODAL_KECIL' | 'MODAL_SEDANG';
+    needs_upskilling: boolean;
+    upskilling_note: string | null;
+    difficulty: 'MUDAH' | 'SEDANG' | 'MENANTANG';
+    estimated_time_to_first_income: string;
+    risk_note: string;
+}
+
+interface MaterialItem {
+    id: string;
+    name: string;
+    price: number;
+    note?: string | null;
+}
+
+interface RevenueLog {
+    id: string;
+    date: string;
+    amount: number;
+    note: string;
+}
 
 export default function WealthBlueprint() {
     const { data: user } = useUser();
     const { data: transactions } = useTransactions();
     const { toast } = useToast();
 
-    // Core State Machine
-    const [phase, setPhase] = useState<Phase>('S0_LANDING');
+    // Core State Machine Engine
+    const [currentState, setCurrentState] = useState<StateId>('S0_LANDING');
     
-    // User Profile Storage (S1 - S7)
-    const [profile, setProfile] = useState<any>({
+    // Data Storage Dokumen Kontrak (.md)
+    const [profileData, setProfileData] = useState<any>({
         status: '', tujuan: '', polaKerja: '', latarBelakang: {},
         keahlian: [], keahlianBebas: '', aset: [], konstrainWaktu: {}
     });
-
-    // Income Attempt Storage (S8 - S15)
-    const [recommendations, setRecommendations] = useState<any[]>([]);
-    const [selectedIdea, setSelectedIdea] = useState<any>(null);
-    const [materials, setMaterials] = useState<{id: string, name: string, price: number}[]>([]);
     
-    // UI States
-    const [isAiLoading, setIsAiLoading] = useState(false);
-    const [multiSelectBuffer, setMultiSelectBuffer] = useState<string[]>([]);
-    const [textBuffer, setTextBuffer] = useState("");
+    const [recommendations, setRecommendations] = useState<RecommendationIdea[]>([]);
+    const [selectedIdea, setSelectedIdea] = useState<RecommendationIdea | null>(null);
+    const [materials, setMaterials] = useState<MaterialItem[]>([]);
+    const [capitalStrategies, setCapitalStrategies] = useState<any[]>([]);
+    const [revenueLogs, setRevenueLogs] = useState<RevenueLog[]>([]);
 
-    // ==========================================
-    // LOGIKA PERHITUNGAN FINANSIAL (Auto-Pull)
-    // ==========================================
-    const getFinancialSnapshot = () => {
-        const cash = user?.cashBalance || 0;
-        // Mockup rata-rata pengeluaran (Idealkan diambil dari hooks transaksi)
-        const avgExpense = 1500000; 
-        const bufferBulan = 1; 
-        const sisaDanaAman = Math.max(0, cash - (avgExpense * bufferBulan));
+    // UI Buffers & Interaction States
+    const [textInputBuffer, setTextBuffer] = useState("");
+    const [multiSelectBuffer, setMultiSelectBuffer] = useState<string[]>([]);
+    const [chatInput, setChatInput] = useState("");
+    const [chatHistory, setChatHistory] = useState<{ sender: 'user' | 'ai'; text: string }[]>([]);
+    const [isAiProcessing, setIsAiLoading] = useState(false);
+    const [aiVerdictNote, setAiVerdictNote] = useState<string | null>(null);
+    
+    // Revenue entry inputs (S15)
+    const [revAmount, setRevAmount] = useState("");
+    const [revNote, setRevNote] = useState("");
+
+    const chatEndRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [chatHistory, isAiProcessing]);
+
+    // =========================================================================
+    // 📊 PRINSIP 3: AUTO-PULL DATA FINANSIAL AKTUAL TANPA BERTANYA REPETITIF
+    // =========================================================================
+    const pullFinancialSnapshot = () => {
+        const currentCash = user?.cashBalance || 0;
+        
+        // Kalkulasi pengeluaran bulanan rata-rata dari mutasi riil database
+        const thisMonth = new Date().getMonth();
+        const thisYear = new Date().getFullYear();
+        const monthlyExpenseTxs = transactions?.filter(t => {
+            const d = new Date(t.date);
+            return t.type === 'expense' && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+        }) || [];
+        
+        const totalExpenseThisMonth = monthlyExpenseTxs.reduce((acc, t) => acc + Number(t.amount), 0);
+        const baselineExpense = totalExpenseThisMonth > 0 ? totalExpenseThisMonth : 1500000;
 
         return {
-            saldo_saat_ini: cash,
-            rata2_pengeluaran_bulanan: avgExpense,
-            sisa_dana_aman: sisaDanaAman,
-            data_cukup_representatif: true
+            saldo_saat_ini: currentCash,
+            rata2_pengeluaran_bulanan: baselineExpense,
+            sisa_dana_aman: Math.max(0, currentCash - baselineExpense), // buffer 1 bulan proteksi cashflow
+            data_cukup_representatif: (transactions?.length || 0) >= 5
         };
     };
 
-    // ==========================================
-    // FASE 1: PERCABANGAN LOGIKA (S1 - S7)
-    // ==========================================
-    const renderFase1Card = () => {
-        const handleNext = (nextPhase: Phase, dataToMerge?: any) => {
-            if (dataToMerge) setProfile((prev: any) => ({ ...prev, ...dataToMerge }));
-            setPhase(nextPhase);
-        };
+    // =========================================================================
+    // ⚙️ RENDERER ENGINE GENERIK UNTUK STEP_CARD (PRINSIP ARSITEKTUR #6)
+    // =========================================================================
+    const processFase1Choice = (field: string, value: string, nextState: StateId) => {
+        setProfileData((prev: any) => ({ ...prev, [field]: value }));
+        setCurrentState(nextState);
+    };
 
-        switch (phase) {
-            case 'S1_STATUS':
+    const processFase1Multi = (field: string, values: string[], nextState: StateId) => {
+        setProfileData((prev: any) => ({ ...prev, [field]: values }));
+        setCurrentState(nextState);
+    };
+
+    const renderDynamicStepCard = () => {
+        switch (currentState) {
+            case 'S1_Q_STATUS':
                 return (
-                    <StepCard title="Identifikasi Profil" icon={<Brain className="w-5 h-5"/>} color="primary">
-                        <ChoiceSingle 
-                            label="Kamu saat ini berstatus sebagai apa?"
-                            options={[
-                                { value: 'PELAJAR', label: 'Pelajar (SMP/SMA/SMK)' },
-                                { value: 'MAHASISWA', label: 'Mahasiswa Aktif' },
-                                { value: 'PEKERJA', label: 'Sudah Bekerja (Tetap/Kontrak)' },
-                                { value: 'BELUM_BEKERJA', label: 'Sedang Mencari Pekerjaan' }
-                            ]}
-                            onSelect={(val) => handleNext('S2_TUJUAN', { status: val })}
-                        />
-                    </StepCard>
+                    <StepCardWrapper title="Identifikasi Profil" color_variant="primary" icon={<Brain className="w-5 h-5"/>}>
+                        <p className="text-sm font-bold text-slate-800 mb-4">Kamu saat ini berstatus sebagai apa?</p>
+                        <div className="space-y-3">
+                            {[
+                                { v: 'PELAJAR', l: 'Pelajar (SMP/SMA/SMK)' },
+                                { v: 'MAHASISWA', l: 'Mahasiswa Aktif' },
+                                { v: 'PEKERJA', l: 'Sudah Bekerja (Tetap/Kontrak)' },
+                                { v: 'BELUM_BEKERJA', l: 'Sedang Mencari Pekerjaan' }
+                            ].map(opt => (
+                                <div key={opt.v} onClick={() => processFase1Choice('status', opt.v, 'S2_Q_TUJUAN')} className="p-4 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50/50 cursor-pointer transition-all flex justify-between items-center group">
+                                    <span className="font-bold text-sm text-slate-700 group-hover:text-indigo-700">{opt.l}</span>
+                                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-500"/>
+                                </div>
+                            ))}
+                        </div>
+                    </StepCardWrapper>
                 );
 
-            case 'S2_TUJUAN':
-                let opsiTujuan = [];
-                if (profile.status === 'PELAJAR') {
-                    opsiTujuan = [
+            case 'S2_Q_TUJUAN':
+                let targetOptions: OptionItem[] = [];
+                if (profileData.status === 'PELAJAR') {
+                    targetOptions = [
                         { value: 'UANG_JAJAN', label: 'Uang Jajan Pribadi' },
-                        { value: 'MENABUNG_TUJUAN', label: 'Nabung Beli Barang Impian' }
+                        { value: 'MENABUNG_TUJUAN', label: 'Menabung buat Sesuatu (Gadget/Liburan)' },
+                        { value: 'BELAJAR_MANDIRI', label: 'Belajar Cari Uang Sendiri sejak Dini' }
                     ];
-                } else if (profile.status === 'MAHASISWA') {
-                    opsiTujuan = [
-                        { value: 'BIAYA_KULIAH', label: 'Bantu UKT / Kos' },
-                        { value: 'PORTOFOLIO_KARIR', label: 'Cari Pengalaman Kerja/Portofolio' }
+                } else if (profileData.status === 'MAHASISWA') {
+                    targetOptions = [
+                        { value: 'UANG_SAKU', label: 'Tambahan Uang Saku Kuliah' },
+                        { value: 'BIAYA_KULIAH', label: 'Membantu UKT / Kos / Buku' },
+                        { value: 'PORTOFOLIO_KARIR', label: 'Mencari Pengalaman Kerja & Portofolio' }
+                    ];
+                } else if (profileData.status === 'PEKERJA') {
+                    targetOptions = [
+                        { value: 'PENGHASILAN_TAMBAHAN', label: 'Penghasilan Sampingan di Luar Gaji' },
+                        { value: 'GAJI_KURANG', label: 'Gaji Utama Kurang Mencukupi Kebutuhan' },
+                        { value: 'RENCANA_JANGKA_PANJANG', label: 'Mempersiapkan Modal Bisnis untuk Resign' }
                     ];
                 } else {
-                    opsiTujuan = [
-                        { value: 'PENGHASILAN_TAMBAHAN', label: 'Penghasilan Tambahan (Extra)' },
-                        { value: 'PIVOT_KE_USAHA', label: 'Rencana Pivot Jadi Usaha Utama' }
+                    targetOptions = [
+                        { value: 'PENGHASILAN_SEMENTARA', label: 'Penghasilan Sementara Sambil Cari Kerja' },
+                        { value: 'PIVOT_KE_USAHA', label: 'Sudah Mantap Ingin Full-time Berwirausaha' },
+                        { value: 'EKSPLORASI', label: 'Sekadar Melihat-lihat Peluang yang Cocok' }
                     ];
                 }
 
                 return (
-                    <StepCard title="Tujuan Finansial" icon={<Target className="w-5 h-5"/>} color="accent">
-                        <ChoiceSingle 
-                            label="Apa tujuan utama kamu mencari penghasilan ini?"
-                            options={opsiTujuan}
-                            onSelect={(val) => handleNext('S3_POLA', { tujuan: val })}
-                        />
-                    </StepCard>
+                    <StepCardWrapper title="Tujuan Finansial" color_variant="accent" icon={<Target className="w-5 h-5"/>}>
+                        <p className="text-sm font-bold text-slate-800 mb-4">Apa tujuan utama kamu mencari penghasilan tambahan saat ini?</p>
+                        <div className="space-y-3">
+                            {targetOptions.map(opt => (
+                                <div key={opt.value} onClick={() => processFase1Choice('tujuan', opt.value, 'S3_Q_POLA_KERJA')} className="p-4 rounded-2xl border-2 border-slate-100 hover:border-emerald-500 hover:bg-emerald-50/50 cursor-pointer transition-all flex justify-between items-center group">
+                                    <span className="font-bold text-sm text-slate-700 group-hover:text-emerald-700">{opt.label}</span>
+                                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-500"/>
+                                </div>
+                            ))}
+                        </div>
+                    </StepCardWrapper>
                 );
 
-            case 'S3_POLA':
-                const polaLabel = profile.status === 'PEKERJA' 
-                    ? "Karena sudah bekerja, kamu mau jadwal yang pasti (misal: tiap jam 7 malam) atau fleksibel?"
-                    : "Pilih komitmen waktu kerjamu:";
+            case 'S3_Q_POLA_KERJA':
+                let framingText = "Pilih komitmen waktu kerjamu:";
+                if (profileData.status === 'PEKERJA') {
+                    framingText = "Karena kamu sudah punya kerja utama, kamu mau jadwal yang pasti (rutin) atau benar-benar fleksibel?";
+                } else if (profileData.status === 'MAHASISWA') {
+                    framingText = "Sesuaikan dengan jadwal kuliahmu, sistem preferensi kerja yang kamu inginkan:";
+                }
+
                 return (
-                    <StepCard title="Komitmen Waktu" icon={<BookOpen className="w-5 h-5"/>} color="primary">
-                        <ChoiceSingle 
-                            label={polaLabel}
-                            options={[
-                                { value: 'RUTIN_TERJADWAL', label: 'Rutin Terjadwal (Perlu Komitmen)' },
-                                { value: 'FLEKSIBEL', label: 'Fleksibel (Kapanpun Ada Waktu Luang)' }
-                            ]}
-                            onSelect={(val) => handleNext('S4_LATAR', { polaKerja: val })}
-                        />
-                    </StepCard>
+                    <StepCardWrapper title="Komitmen Pola Kerja" color_variant="primary" icon={<BookOpen className="w-5 h-5"/>}>
+                        <p className="text-sm font-bold text-slate-800 mb-4">{framingText}</p>
+                        <div className="space-y-3">
+                            {[
+                                { v: 'RUTIN_TERJADWAL', l: 'Rutin Terjadwal (Butuh Komitmen Waktu Pasti)' },
+                                { v: 'FLEKSIBEL', l: 'Fleksibel (Kapanpun Ada Waktu Senggang)' }
+                            ].map(opt => (
+                                <div key={opt.v} onClick={() => processFase1Choice('polaKerja', opt.v, 'S4_Q_LATAR_BELAKANG')} className="p-4 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50/50 cursor-pointer transition-all flex justify-between items-center group">
+                                    <span className="font-bold text-sm text-slate-700 group-hover:text-indigo-700">{opt.l}</span>
+                                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-500"/>
+                                </div>
+                            ))}
+                        </div>
+                    </StepCardWrapper>
                 );
 
-            case 'S4_LATAR':
+            case 'S4_Q_LATAR_BELAKANG':
+                let placeholderInput = "Misalnya: Akuntansi Semester 5";
+                if (profileData.status === 'PEKERJA') placeholderInput = "Misalnya: Staff Administrasi / Sales Executive";
+                if (profileData.status === 'PELAJAR') placeholderInput = "Misalnya: SMK Jurusan Multimedia";
+
                 return (
-                    <StepCard title="Latar Belakang" icon={<Brain className="w-5 h-5"/>} color="accent">
+                    <StepCardWrapper title="Latar Belakang Studi/Kerja" color_variant="accent" icon={<Brain className="w-5 h-5"/>}>
                         <div className="space-y-4">
-                            <p className="text-sm font-bold text-slate-800">Ceritakan sedikit background studimu/pekerjaanmu agar saran lebih relevan:</p>
+                            <p className="text-sm font-bold text-slate-800">Tuliskan program studi, jurusan, atau posisi pekerjaanmu saat ini untuk pencocokan skill:</p>
                             <Input 
-                                placeholder={profile.status === 'PEKERJA' ? "Contoh: Staff Admin / Sales" : "Contoh: Akuntansi Semester 5"}
-                                value={textBuffer}
+                                placeholder={placeholderInput}
+                                value={textInputBuffer}
                                 onChange={(e) => setTextBuffer(e.target.value)}
-                                className="bg-slate-50 border-slate-200"
+                                className="bg-slate-50 border-slate-200 h-12 rounded-xl"
                             />
                             <Button 
-                                disabled={!textBuffer.trim()}
+                                disabled={!textInputBuffer.trim()}
                                 onClick={() => {
-                                    handleNext('S5_KEAHLIAN', { latarBelakang: { detail: textBuffer } });
-                                    setTextBuffer(""); // reset
+                                    setProfileData((prev: any) => ({ ...prev, latarBelakang: { detail: textInputBuffer } }));
+                                    setTextBuffer("");
+                                    setCurrentState('S5_Q_KEAHLIAN');
                                 }}
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl"
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-12"
                             >
                                 LANJUTKAN
                             </Button>
                         </div>
-                    </StepCard>
+                    </StepCardWrapper>
                 );
 
-            case 'S5_KEAHLIAN':
+            case 'S5_Q_KEAHLIAN':
                 return (
-                    <StepCard title="Inventaris Keahlian" icon={<Sparkles className="w-5 h-5"/>} color="primary">
-                        <ChoiceMulti 
-                            label="Pilih keahlian yang kamu miliki (Bisa lebih dari 1):"
-                            options={[
-                                { value: 'KREATIF', label: 'Desain, Nulis, Video, Foto' },
-                                { value: 'DIGITAL_TEKNIS', label: 'Coding, Excel, Olah Data' },
-                                { value: 'KULINER', label: 'Memasak, Baking, Racik Minuman' },
-                                { value: 'INTERPERSONAL', label: 'Jualan, Ngajar, Ngobrol' }
-                            ]}
-                            selected={multiSelectBuffer}
-                            onChange={setMultiSelectBuffer}
-                        />
-                        <div className="mt-4">
+                    <StepCardWrapper title="Inventaris Keahlian" color_variant="primary" icon={<Sparkles className="w-5 h-5"/>}>
+                        <p className="text-sm font-bold text-slate-800 mb-4">Pilih kelompok keahlian yang kamu kuasai (Bisa pilih lebih dari satu):</p>
+                        <div className="space-y-3">
+                            {[
+                                { v: 'KREATIF', l: 'Kreatif (Desain Grafis, Penulisan Content, Editing Video/Foto)' },
+                                { v: 'DIGITAL_TEKNIS', l: 'Digital Teknis (Coding, Riset Web, Analisa Data Excel)' },
+                                {v: 'KULINER', l: 'Kuliner (Memasak, Baking Kue, Meracik Minuman)'},
+                                {v: 'INTERPERSONAL', l: 'Interpersonal (Jualan/Sales, Mengajar, Public Speaking)'},
+                                {v: 'KERAJINAN_TANGAN', l: 'Kerajinan Tangan (Menjahit, Crafting, Membuat Aksesoris)'},
+                                {v: 'FISIK_JASA', l: 'Fisik & Jasa (Bersih-bersih, Packing Logistik, Otomotif)'}
+                            ].map(opt => {
+                                const isSelected = multiSelectBuffer.includes(opt.v);
+                                return (
+                                    <div 
+                                        key={opt.v} 
+                                        onClick={() => {
+                                            if (isSelected) setMultiSelectBuffer((prev: any[]) => prev.filter(i => i !== opt.v));
+                                            else setMultiSelectBuffer((prev: any[]) => [...prev, opt.v]);
+                                        }}
+                                        className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex justify-between items-center ${isSelected ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-100 hover:border-slate-300'}`}
+                                    >
+                                        <span className={`font-bold text-sm ${isSelected ? 'text-indigo-700' : 'text-slate-700'}`}>{opt.l}</span>
+                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-indigo-500 bg-indigo-500' : 'border-slate-300'}`}>
+                                            {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                            <p className="text-xs font-bold text-slate-500 mb-2">Punya keahlian spesifik lainnya? Ketik di sini:</p>
                             <Input 
-                                placeholder="Atau ketik keahlian lainnya..."
-                                value={textBuffer} onChange={(e) => setTextBuffer(e.target.value)}
-                                className="text-sm border-slate-200 mb-4"
+                                placeholder="Contoh: Mengerti rumus Pivot Table Excel, bisa edit CapCut cepat"
+                                value={textInputBuffer}
+                                onChange={(e) => setTextBuffer(e.target.value)}
+                                className="text-sm border-slate-200 mb-4 h-12 rounded-xl"
                             />
                             <Button 
-                                disabled={multiSelectBuffer.length === 0 && !textBuffer.trim()}
+                                disabled={multiSelectBuffer.length === 0 && !textInputBuffer.trim()}
                                 onClick={() => {
-                                    handleNext('S6_ASET', { keahlian: multiSelectBuffer, keahlianBebas: textBuffer });
+                                    processFase1Multi('keahlian', multiSelectBuffer, 'S6_Q_ASET');
+                                    setProfileData((prev: any) => ({ ...prev, keahlianBebas: textInputBuffer }));
                                     setMultiSelectBuffer([]); setTextBuffer("");
                                 }}
-                                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl"
+                                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl h-12 shadow-md shadow-emerald-100"
                             >
                                 SIMPAN KEAHLIAN
                             </Button>
                         </div>
-                    </StepCard>
+                    </StepCardWrapper>
                 );
 
-            case 'S6_ASET':
+            case 'S6_Q_ASET':
                 return (
-                    <StepCard title="Aset Tersedia" icon={<CheckCircle2 className="w-5 h-5"/>} color="accent">
-                        <ChoiceMulti 
-                            label="Apa saja alat yang sudah ADA di tanganmu saat ini? (Kita tidak bahas uang tunai dulu)"
-                            options={[
-                                { value: 'LAPTOP_PC', label: 'Laptop / PC Memadai' },
-                                { value: 'HP_KAMERA', label: 'HP dengan Kamera Bagus' },
-                                { value: 'KENDARAAN', label: 'Motor / Mobil Pribadi' },
-                                { value: 'RUANG_USAHA', label: 'Garasi / Dapur / Kamar Kosong' }
-                            ]}
-                            selected={multiSelectBuffer}
-                            onChange={setMultiSelectBuffer}
-                        />
+                    <StepCardWrapper title="Aset Fisik Pendukung" color_variant="accent" icon={<CheckCircle2 className="w-5 h-5"/>}>
+                        <p className="text-sm font-bold text-slate-800 mb-4">Pilih aset pendukung yang sudah kamu miliki di tangan saat ini:</p>
+                        <div className="space-y-3">
+                            {[
+                                { v: 'LAPTOP_PC', l: 'Laptop / Komputer PC Memadai' },
+                                { v: 'HP_KAMERA_BAGUS', l: 'Smartphone dengan Kamera Jernih' },
+                                { v: 'KENDARAAN', l: 'Motor / Mobil Pribadi' },
+                                { v: 'RUANG_USAHA', l: 'Ruang Kosong (Dapur / Garasi / Kamar Kosong)' },
+                                { v: 'PERALATAN_DAPUR', l: 'Peralatan Memasak/Baking Lengkap' }
+                            ].map(opt => {
+                                const isSelected = multiSelectBuffer.includes(opt.v);
+                                return (
+                                    <div 
+                                        key={opt.v} 
+                                        onClick={() => {
+                                            if (isSelected) setMultiSelectBuffer((prev: any[]) => prev.filter(i => i !== opt.v));
+                                            else setMultiSelectBuffer((prev: any[]) => [...prev, opt.v]);
+                                        }}
+                                        className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex justify-between items-center ${isSelected ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-100 hover:border-slate-300'}`}
+                                    >
+                                        <span className={`font-bold text-sm ${isSelected ? 'text-emerald-700' : 'text-slate-700'}`}>{opt.l}</span>
+                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'}`}>
+                                            {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                         <Button 
                             onClick={() => {
-                                handleNext('S7_WAKTU', { aset: multiSelectBuffer });
+                                processFase1Multi('aset', multiSelectBuffer, 'S7_Q_KONSTRAIN_WAKTU');
                                 setMultiSelectBuffer([]);
                             }}
-                            className="w-full bg-indigo-600 text-white font-bold rounded-xl mt-6"
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-12 mt-6"
                         >
-                            SELANJUTNYA
+                            SIMPAN ASET & LANJUT
                         </Button>
-                    </StepCard>
+                    </StepCardWrapper>
                 );
 
-            case 'S7_WAKTU':
+            case 'S7_Q_KONSTRAIN_WAKTU':
                 return (
-                    <StepCard title="Komitmen Akhir" icon={<Target className="w-5 h-5"/>} color="primary">
+                    <StepCardWrapper title="Ketersediaan Waktu Luang" color_variant="primary" icon={<Target className="w-5 h-5"/>}>
                         <div className="space-y-4">
-                            <p className="text-sm font-bold text-slate-800">
-                                Berapa jam dalam <b>satu minggu</b> yang benar-benar bisa kamu luangkan untuk ini?
-                            </p>
+                            <p className="text-sm font-bold text-slate-800">Secara realistis, berapa jam dalam **satu minggu** yang bisa kamu luangkan penuh untuk fokus mengeksekusi ini?</p>
                             <Input 
                                 type="number"
-                                placeholder="Misal: 10"
-                                value={textBuffer}
+                                placeholder="Contoh: 15"
+                                value={textInputBuffer}
                                 onChange={(e) => setTextBuffer(e.target.value)}
-                                className="bg-slate-50 border-slate-200"
+                                className="bg-slate-50 border-slate-200 h-12 rounded-xl text-center font-bold text-lg"
                             />
                             <Button 
-                                disabled={!textBuffer.trim()}
+                                disabled={!textInputBuffer.trim() || isNaN(Number(textInputBuffer))}
                                 onClick={() => {
-                                    setProfile((prev: any) => ({ ...prev, konstrainWaktu: { jam_per_minggu: textBuffer } }));
-                                    fetchAiRecommendations(); // Trigger AI
+                                    const hours = Number(textInputBuffer);
+                                    setProfileData((prev: any) => ({ ...prev, konstrainWaktu: { jam_per_minggu: hours } }));
+                                    setTextBuffer("");
+                                    executeFase2AiRecommendations({ ...profileData, konstrainWaktu: { jam_per_minggu: hours } });
                                 }}
-                                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-200"
+                                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl h-14 shadow-lg shadow-emerald-100 text-sm flex items-center justify-center gap-2"
                             >
-                                MULAI ANALISA AI
+                                ANALISIS DENGAN BILANO AI <ArrowRight className="w-4 h-4"/>
                             </Button>
                         </div>
-                    </StepCard>
+                    </StepCardWrapper>
                 );
         }
         return null;
     };
 
-    // ==========================================
-    // FASE 2: AI RECOMMENDATIONS (S8 - S9)
-    // ==========================================
-    const fetchAiRecommendations = async () => {
-        setPhase('S8_LOADING_AI');
+    // =========================================================================
+    // 🧠 FASE 2: MEMANGGIL AI JEMBATAN KOGNITIF PUSAT (S8 -> S9)
+    // =========================================================================
+    const executeFase2AiRecommendations = async (fullProfile: any) => {
+        setCurrentState('S8_GENERATE_REKOMENDASI');
         setIsAiLoading(true);
-
         try {
             const res = await fetch('/api/wealth/recommendations', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'x-user-email': user?.email || 'guest' },
-                body: JSON.stringify({ profile, financialSnapshot: getFinancialSnapshot() })
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ profile: fullProfile, financialSnapshot: pullFinancialSnapshot() })
             });
-
             if (!res.ok) throw new Error();
             const { data } = await res.json();
-            setRecommendations(data.recommendations);
-            setPhase('S9_PILIH_IDE');
-        } catch (e) {
-            toast({ title: "Gagal Menghubungi AI", description: "Coba lagi nanti.", variant: "destructive" });
-            setPhase('S7_WAKTU'); // Rollback
+            setRecommendations(data.recommendations || []);
+            setCurrentState('S9_PILIH_IDE');
+        } catch (err) {
+            toast({ title: "Koneksi Otak AI Terputus", description: "Mengembalikan ke form komitmen.", variant: "destructive" });
+            setCurrentState('S7_Q_KONSTRAIN_WAKTU');
         } finally {
             setIsAiLoading(false);
         }
     };
 
-    // ==========================================
-    // FASE 3: EKSEKUSI & KALKULATOR (S10 - S14)
-    // ==========================================
-    const generateDraftMaterials = async (idea: any) => {
+    // =========================================================================
+    // 🛠️ FASE 3: S10 - DRAFT BAHAN DAN STRATEGI EKSEKUSI (REASONING PROCESS)
+    // =========================================================================
+    const handleIdeaSelection = async (idea: RecommendationIdea) => {
         setSelectedIdea(idea);
-        setPhase('S8_LOADING_AI'); // Reuse loading screen
+        setCurrentState('S8_GENERATE_REKOMENDASI');
+        setIsAiLoading(true);
         try {
             const res = await fetch('/api/wealth/draft-materials', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'x-user-email': user?.email || 'guest' },
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ recommendation: idea })
             });
+            if (!res.ok) throw new Error();
             const { data } = await res.json();
-            
-            // Transform data AI agar aman dimasukkan ke State
-            const safeMaterials = data.draft_items.map((item: any) => ({
+            const builtMaterials = data.draft_items.map((item: any) => ({
                 id: item.id || Math.random().toString(),
                 name: item.name,
-                price: item.price || 0
+                price: item.price || 0,
+                note: item.note || ""
             }));
-            
-            setMaterials(safeMaterials);
-            setPhase('S10_BAHAN');
-        } catch (e) {
-            toast({ title: "Gagal memuat draft", variant: "destructive" });
-            setPhase('S9_PILIH_IDE');
+            setMaterials(builtMaterials);
+            setCurrentState('S10_RENCANA_BAHAN');
+        } catch (err) {
+            toast({ title: "Gagal menyusun modul bahan", variant: "destructive" });
+            setCurrentState('S9_PILIH_IDE');
+        } finally {
+            setIsAiLoading(false);
         }
     };
 
-    const updateMaterialPrice = (id: string, price: number) => {
-        setMaterials(prev => prev.map(m => m.id === id ? { ...m, price } : m));
-    };
+    // =========================================================================
+    // 📐 FASE 3: S12 - LOGIKA UTAMA CEK KELAYAKAN FINANSIAL DIKONTROL PENUH KODE
+    // =========================================================================
+    const executeFinancialFeasibilityCheck = async () => {
+        const totalCalculatedCost = materials.reduce((acc, m) => acc + (Number(m.price) || 0), 0);
+        const { sisa_dana_aman, saldo_saat_ini } = pullFinancialSnapshot();
 
-    const addManualMaterial = () => {
-        setMaterials(prev => [...prev, { id: Math.random().toString(), name: "Bahan Baru", price: 0 }]);
-    };
-
-    const checkFeasibility = () => {
-        const totalCost = materials.reduce((acc, m) => acc + (Number(m.price) || 0), 0);
-        const { sisa_dana_aman, saldo_saat_ini } = getFinancialSnapshot();
-
-        if (totalCost <= sisa_dana_aman) {
-            setPhase('S14_JUAL'); // Aman banget
-        } else if (totalCost <= saldo_saat_ini) {
-            toast({ title: "Menggunakan Dana Darurat!", description: "Hati-hati, ini memakan batas aman kasmu." });
-            setPhase('S14_JUAL'); // Cukup tapi berisiko
+        if (totalCalculatedCost <= sisaDanaAmanLogic(sisa_dana_aman)) {
+            // Sisa Kas Aman Berlebih -> Langsung Alur Pemasaran (S14)
+            executeTriggerSellingStrategy();
         } else {
-            setPhase('S13_MODAL'); // Tidak cukup
+            // Kas Tidak Mencukupi Batas Aman -> Panggil AI Pengatur S13 (Strategi Modal)
+            setCurrentState('S8_GENERATE_REKOMENDASI');
+            setIsAiLoading(true);
+            try {
+                const res = await fetch('/api/wealth/capital-strategy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        totalCost: totalCalculatedCost, 
+                        sisaDanaAman: sisa_dana_aman, 
+                        profile: profileData, 
+                        selectedIdea 
+                    })
+                });
+                if (!res.ok) throw new Error();
+                const { data } = await res.json();
+                setCapitalStrategies(data.options || []);
+                setCurrentState('S13_STRATEGI_MODAL');
+            } catch (err) {
+                toast({ title: "Gagal memproses strategi mitigasi modal", variant: "destructive" });
+                setCurrentState('S10_RENCANA_BAHAN');
+            } finally {
+                setIsAiLoading(false);
+            }
         }
     };
 
+    const sisaDanaAmanLogic = (baseAman: number) => {
+        return baseAman > 0 ? baseAman : 500000; // fallback minimal limit safety threshold
+    };
 
-    // ==========================================
-    // RENDER UTAMA
-    // ==========================================
+    // =========================================================================
+    // 💬 FASE 3: S14 - BOUNDED CHAT STRATEGI MARKETEER (INTERAKTIF TERBATAS)
+    // =========================================================================
+    const executeTriggerSellingStrategy = async () => {
+        setCurrentState('S8_GENERATE_REKOMENDASI');
+        setIsAiLoading(true);
+        try {
+            const res = await fetch('/api/wealth/selling-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selectedIdea, profile: profileData, chatHistory: [], userMessage: "" })
+            });
+            if (!res.ok) throw new Error();
+            const { reply } = await res.json();
+            setChatHistory([{ sender: 'ai', text: reply }]);
+            setCurrentState('S14_STRATEGI_JUAL');
+        } catch (err) {
+            toast({ title: "Gagal memuat sistem marketing", variant: "destructive" });
+            setCurrentState('S10_RENCANA_BAHAN');
+        } finally {
+            setIsAiLoading(false);
+        }
+    };
+
+    const handleSendSellingChat = async () => {
+        if (!chatInput.trim()) return;
+        const userMsg = { sender: 'user' as const, text: chatInput };
+        const nextHistory = [...chatHistory, userMsg];
+        setChatHistory(nextHistory);
+        setChatInput("");
+        setIsAiLoading(true);
+
+        try {
+            const res = await fetch('/api/wealth/selling-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selectedIdea, profile: profileData, chatHistory: nextHistory, userMessage: chatInput })
+            });
+            if (!res.ok) throw new Error();
+            const { reply } = await res.json();
+            setChatHistory((prev: any[]) => [...prev, { sender: 'ai', text: reply }]);
+        } catch (err) {
+            toast({ title: "Gagal memproses pesan", variant: "destructive" });
+        } finally {
+            setIsAiLoading(false);
+        }
+    };
+
+    // =========================================================================
+    // 📈 FASE 3: S15 - LOG REVENUE & EVALUASI STRATEGIS BERKELANJUTAN
+    // =========================================================================
+    const handleCommitRevenueLog = () => {
+        if (!revAmount || isNaN(Number(revAmount)) || Number(revAmount) <= 0) return;
+        const logEntry: RevenueLog = {
+            id: Math.random().toString(),
+            date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
+            amount: Number(revAmount),
+            note: revNote.trim() || "Omset Penjualan"
+        };
+        setRevenueLogs((prev: any[]) => [logEntry, ...prev]);
+        setRevAmount(""); setRevNote("");
+        toast({ title: "Omset Tercatat!", description: "Data otomatis terintegrasi ke sistem cashflow." });
+    };
+
+    const requestAiPerformanceReview = async () => {
+        setIsEvaluating(true);
+        try {
+            const res = await fetch('/api/wealth/evaluate-revenue', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selectedIdea, revenueLog: revenueLogs })
+            });
+            if (!res.ok) throw new Error();
+            const { evaluation } = await res.json();
+            setAiVerdictNote(evaluation);
+        } catch (err) {
+            toast({ title: "Gagal memuat evaluasi", variant: "destructive" });
+        } finally {
+            setIsEvaluating(false);
+        }
+    };
+    const [isEvaluating, setIsEvaluating] = useState(false);
+
+    // =========================================================================
+    // 🎨 UI VIEW LAYER & RENDERING LOGIC
+    // =========================================================================
     return (
         <MobileLayout title="Wealth Blueprint" showBack>
-            <div className="min-h-screen bg-slate-50 pt-2 pb-28 relative">
+            <div className="min-h-screen bg-slate-50 pt-2 pb-32">
                 
-                {/* STATE 0: LANDING */}
-                {phase === 'S0_LANDING' && (
-                    <div className="flex flex-col items-center justify-center pt-8 px-6 text-center animate-in zoom-in-95">
-                        <div className="w-24 h-24 bg-gradient-to-br from-indigo-900 to-slate-900 rounded-3xl flex items-center justify-center shadow-xl mb-6 border border-indigo-500/20">
-                            <BookOpen className="w-12 h-12 text-amber-400" />
+                {/* STATE 0: S0 LANDING */}
+                {currentState === 'S0_LANDING' && (
+                    <div className="flex flex-col items-center justify-center pt-12 px-6 text-center animate-in zoom-in-95 duration-300">
+                        <div className="w-24 h-24 bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 rounded-[28px] flex items-center justify-center shadow-2xl mb-6 border border-indigo-500/20">
+                            <Sparkles className="w-12 h-12 text-amber-400 animate-pulse" />
                         </div>
-                        <div className="bg-amber-100 text-amber-800 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest mb-3">
-                            Eksklusif Premium
+                        <div className="bg-amber-100 text-amber-900 text-[10px] font-black px-4 py-1 rounded-full uppercase tracking-widest mb-3 border border-amber-200">
+                            VIP ACCESS PLATINUM
                         </div>
-                        <h2 className="text-3xl font-black text-slate-800 mb-3 tracking-tight">Peta Jalur Cuan</h2>
-                        <p className="text-sm text-slate-500 font-medium leading-relaxed mb-10">
-                            Bukan sekadar saran motivasi generik. AI akan memetakan strategi usaha spesifik berdasarkan skill, aset, dan <span className="font-bold text-slate-700">saldo kas aktualmu</span> saat ini.
+                        <h2 className="text-3xl font-black text-slate-800 mb-3 tracking-tight">BILANO Wealth Blueprint</h2>
+                        <p className="text-sm text-slate-500 font-medium leading-relaxed mb-10 max-w-xs">
+                            Bukan sekadar saran motivasi umum. Mesin kecerdasan buatan akan meracik strategi bisnis riil berdasarkan aset, keahlian, dan <span className="font-bold text-slate-700">kondisi kas aktualmu</span>.
                         </p>
                         <Button 
-                            onClick={() => setPhase('S1_STATUS')}
-                            className="w-full bg-slate-900 hover:bg-slate-800 text-white h-14 rounded-full font-black shadow-2xl flex items-center justify-center gap-2 transition-transform active:scale-95"
+                            onClick={() => setCurrentState('S1_Q_STATUS')}
+                            className="w-full bg-slate-900 hover:bg-slate-800 text-white h-14 rounded-full font-black shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
                         >
-                            MULAI ANALISA <ArrowRight className="w-5 h-5"/>
+                            MULAI ANALISIS KOGNITIF <ArrowRight className="w-5 h-5"/>
                         </Button>
                     </div>
                 )}
 
-                {/* RENDER FASE 1 */}
+                {/* FASE 1 CORE QUESTIONS INJECTOR */}
                 <div className="px-4">
-                    {renderFase1Card()}
+                    {renderDynamicStepCard()}
                 </div>
 
-                {/* FASE 2: LOADING S8 */}
-                {phase === 'S8_LOADING_AI' && (
-                    <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
-                        <div className="relative">
-                            <div className="w-16 h-16 rounded-full border-4 border-indigo-100 mb-6"></div>
-                            <div className="w-16 h-16 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin absolute top-0 left-0"></div>
+                {/* GLOBAL MACHINE LOADING INDICATOR */}
+                {currentState === 'S8_GENERATE_REKOMENDASI' && (
+                    <div className="flex flex-col items-center justify-center py-32 px-4 text-center">
+                        <div className="relative mb-6">
+                            <div className="w-16 h-16 rounded-full border-4 border-indigo-100"></div>
+                            <div className="w-16 h-16 rounded-full border-4 border-indigo-600 border-t-transparent anonymity-pulse animate-spin absolute top-0 left-0"></div>
                             <Brain className="w-6 h-6 text-indigo-600 absolute top-5 left-5 animate-pulse"/>
                         </div>
-                        <h3 className="font-black text-slate-800 text-xl mb-2">Sistem Sedang Berpikir...</h3>
-                        <p className="text-sm text-slate-500 max-w-[250px] leading-relaxed">
-                            Menganalisa persilangan antara keahlianmu, waktu luang, dan data kas dari dompetmu.
+                        <h3 className="font-black text-slate-800 text-xl mb-1">Membuka Jalur Kognitif...</h3>
+                        <p className="text-xs text-slate-400 max-w-[24px] leading-relaxed font-medium">
+                            Kecerdasan buatan sedang melakukan cross-referencing data profil dan saldo kas aman Anda.
                         </p>
                     </div>
                 )}
 
-                {/* FASE 2: HASIL REKOMENDASI S9 */}
-                {phase === 'S9_PILIH_IDE' && (
-                    <div className="px-4 space-y-4 animate-in slide-in-from-bottom-6">
-                        <div className="bg-gradient-to-r from-amber-400 to-orange-400 p-5 rounded-[24px] text-amber-950 shadow-lg mb-6">
-                            <div className="flex items-center gap-3 mb-2">
-                                <Rocket className="w-6 h-6"/>
-                                <h3 className="font-black text-lg">Cetak Biru Ditemukan!</h3>
+                {/* STATE 9: PILIH IDE BISNIS */}
+                {currentState === 'S9_PILIH_IDE' && (
+                    <div className="px-4 space-y-4 animate-in slide-in-from-bottom-6 duration-500">
+                        <div className="bg-gradient-to-br from-indigo-950 to-slate-900 p-5 rounded-[28px] text-white shadow-xl flex items-start gap-4 border border-indigo-500/20">
+                            <Rocket className="w-8 h-8 text-amber-400 shrink-0 mt-1"/>
+                            <div>
+                                <h3 className="font-black text-lg text-amber-400">Peta Jalur Cuan Ditemukan</h3>
+                                <p className="text-xs text-slate-300 font-medium leading-relaxed mt-0.5">Berdasarkan data kas, waktu luang, dan aset yang ada, ini opsi usaha terbaik untuk Anda:</p>
                             </div>
-                            <p className="text-xs font-medium opacity-90 leading-relaxed">Ini adalah blueprint bisnis paling realistis untuk dieksekusi berdasarkan kondisimu HARI INI.</p>
                         </div>
 
                         {recommendations.map((rec) => (
@@ -385,192 +644,306 @@ export default function WealthBlueprint() {
                                 <div className="absolute right-0 top-0 bg-slate-900 text-amber-400 text-[9px] font-black px-4 py-1.5 rounded-bl-xl tracking-widest uppercase">
                                     {rec.difficulty}
                                 </div>
-                                <h4 className="font-black text-slate-800 text-xl mb-2 pr-16">{rec.title}</h4>
-                                <p className="text-sm text-slate-500 mb-5 leading-relaxed">{rec.pitch}</p>
+                                <h4 className="font-black text-slate-800 text-xl mb-1 pr-16 leading-tight">{rec.title}</h4>
+                                <div className="flex gap-2 mb-3">
+                                    <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">{rec.estimated_time_to_first_income}</span>
+                                    <span className="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md">{rec.capital_level.replace('_', ' ')}</span>
+                                </div>
+                                <p className="text-xs text-slate-500 mb-4 leading-relaxed font-medium">{rec.pitch}</p>
                                 
-                                <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-2xl mb-6">
-                                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3"/> Kenapa ini cocok?</p>
+                                <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-2xl mb-5">
+                                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5"/> Kenapa Ini Sangat Cocok?</p>
                                     <p className="text-xs text-slate-700 font-medium leading-relaxed">{rec.why_it_fits}</p>
                                 </div>
 
+                                {rec.needs_upskilling && rec.upskilling_note && (
+                                    <div className="bg-amber-50/70 border border-amber-200 p-3.5 rounded-2xl mb-5 flex gap-2">
+                                        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5"/>
+                                        <p className="text-[11px] text-amber-800 font-medium leading-relaxed"><b>Rekomendasi Upskilling:</b> {rec.upskilling_note}</p>
+                                    </div>
+                                )}
+
                                 <Button 
-                                    onClick={() => generateDraftMaterials(rec)}
-                                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white h-12 rounded-full font-bold shadow-lg shadow-emerald-200 transition-transform active:scale-95"
+                                    onClick={() => handleIdeaSelection(rec)}
+                                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-white h-12 rounded-full font-black text-xs shadow-lg shadow-emerald-100"
                                 >
-                                    BEDAH KEBUTUHAN MODAL
+                                    BEDAH KEBUTUHAN MODAL & BAHAN
                                 </Button>
                             </div>
                         ))}
                     </div>
                 )}
 
-                {/* FASE 3: DRAFT BAHAN & RISET HARGA (S10-S11 Gabungan) */}
-                {(phase === 'S10_BAHAN' || phase === 'S11_HARGA') && (
-                    <div className="px-4 animate-in fade-in">
-                        <div className="bg-slate-900 text-white p-6 rounded-[32px] shadow-xl mb-6 relative overflow-hidden">
-                            <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
-                            <h3 className="font-black text-xl mb-1 relative z-10">Kalkulator Riset Harga</h3>
-                            <p className="text-xs text-slate-400 font-medium relative z-10 mb-6">Tulis estimasi harga barang di pasar saat ini. Biarkan nol jika kamu meminjam/sudah punya.</p>
+                {/* STATE 10 & 11: KALKULATOR RISET BAHAN INTERAKTIF */}
+                {(currentState === 'S10_RENCANA_BAHAN' || currentState === 'S11_HARGA') && (
+                    <div className="px-4 animate-in fade-in duration-300 space-y-4">
+                        {/* KOTAK TUGAS VISUAL PREMIUM (SESUAI GAMBAR REFERENSI USER) */}
+                        <div className="bg-[#2FD1F7] text-slate-900 rounded-[32px] p-6 shadow-xl text-center font-bold border-4 border-slate-950 relative overflow-hidden">
+                            <div className="absolute -right-6 -top-6 w-20 h-24 bg-white/10 rounded-full blur-xl"></div>
+                            <h2 className="text-xl font-black tracking-tight mb-4 uppercase">BAIK, BERIKUT ADALAH TUGAS SELANJUTNYA:</h2>
+                            <div className="bg-black/10 py-2.5 px-4 rounded-xl mb-3 text-sm tracking-wide uppercase border border-black/5">
+                                CARI BAHAN-BAHAN YANG DIPERLUKAN
+                            </div>
+                            <div className="bg-black/10 py-2.5 px-4 rounded-xl text-sm tracking-wide uppercase border border-black/5">
+                                TULISKAN HARGA MASING-MASING DARI SETIAP BAHANNYA:
+                            </div>
+                        </div>
+
+                        {/* LIST EDITOR */}
+                        <div className="bg-slate-900 text-white p-6 rounded-[32px] shadow-2xl relative overflow-hidden">
+                            <h3 className="font-black text-lg mb-1">Rencana Anggaran Biaya</h3>
+                            <p className="text-[11px] text-slate-400 font-medium mb-6">Sesuaikan rancangan item atau biarkan nol jika alat sudah kamu miliki/pinjam.</p>
                             
-                            <div className="space-y-3 relative z-10">
+                            <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
                                 {materials.map((item) => (
-                                    <div key={item.id} className="flex gap-2 items-center bg-white/5 p-2 rounded-2xl border border-white/10">
-                                        <Input 
-                                            value={item.name} 
-                                            onChange={(e) => setMaterials(prev => prev.map(m => m.id === item.id ? {...m, name: e.target.value} : m))}
-                                            className="flex-1 bg-transparent border-none text-white text-sm focus:ring-0 px-2"
-                                        />
-                                        <div className="flex items-center gap-1 bg-black/20 rounded-xl px-2 border border-white/5 w-32">
-                                            <span className="text-[10px] text-slate-400 font-bold">Rp</span>
+                                    <div key={item.id} className="space-y-1 bg-white/5 p-3 rounded-2xl border border-white/10">
+                                        <div className="flex gap-2 items-center">
                                             <Input 
-                                                type="number" value={item.price || ""} 
-                                                onChange={(e) => updateMaterialPrice(item.id, Number(e.target.value))}
-                                                className="w-full bg-transparent border-none text-white text-sm focus:ring-0 text-right px-1"
+                                                value={item.name} 
+                                                onChange={(e) => setMaterials((prev: any[]) => prev.map((m: any) => m.id === item.id ? {...m, name: e.target.value} : m))}
+                                                className="flex-1 bg-transparent border-none text-white text-sm focus:ring-0 px-1 font-bold h-8"
                                             />
+                                            <div className="flex items-center gap-1 bg-black/40 rounded-xl px-2.5 border border-white/10 w-28 h-9">
+                                                <span className="text-[10px] text-slate-400 font-bold">Rp</span>
+                                                <Input 
+                                                    type="number" value={item.price || ""} 
+                                                    onChange={(e) => updateMaterialPrice(item.id, Number(e.target.value))}
+                                                    className="w-full bg-transparent border-none text-white text-xs focus:ring-0 text-right px-0 font-black"
+                                                />
+                                            </div>
+                                            <button onClick={() => setMaterials((prev: any[]) => prev.filter((m: any) => m.id !== item.id))} className="p-2 text-rose-400 hover:bg-white/10 rounded-xl shrink-0">
+                                                <Trash2 className="w-4 h-4"/>
+                                            </button>
                                         </div>
-                                        <button onClick={() => setMaterials(prev => prev.filter(m => m.id !== item.id))} className="p-2 text-rose-400 hover:bg-white/10 rounded-xl">
-                                            <Trash2 className="w-4 h-4"/>
-                                        </button>
+                                        {item.note && <p className="text-[10px] text-amber-400/80 font-medium px-1">💡 Alternatif: {item.note}</p>}
                                     </div>
                                 ))}
                             </div>
-                            
-                            <button onClick={addManualMaterial} className="mt-4 text-[11px] font-bold text-amber-400 flex items-center gap-1 hover:underline">
-                                <Plus className="w-3 h-3"/> TAMBAH ITEM LAIN
+
+                            <button onClick={addManualMaterial} className="mt-4 text-xs font-black text-amber-400 flex items-center gap-1 hover:underline px-1">
+                                <PlusCircle className="w-4 h-4"/> TAMBAH ITEM PENGELUARAN BARU
                             </button>
                         </div>
 
+                        {/* TOTAL COST COUNTER PANEL */}
                         <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm">
-                            <div className="flex justify-between items-center mb-6">
-                                <span className="text-sm font-bold text-slate-500 uppercase">Total Modal:</span>
+                            <div className="flex justify-between items-center mb-6 px-1">
+                                <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Kebutuhan Modal Eksekusi:</span>
                                 <span className="text-2xl font-black text-slate-800">{formatCurrency(materials.reduce((acc, m) => acc + (Number(m.price)||0), 0)).split(',')[0]}</span>
                             </div>
                             <Button 
-                                onClick={checkFeasibility}
-                                className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-black shadow-lg"
+                                onClick={executeFinancialFeasibilityCheck}
+                                className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-black shadow-xl"
                             >
-                                UJI KELAYAKAN FINANSIAL
+                                UJI KELAYAKAN TERHADAP SALDO KAS
                             </Button>
                         </div>
                     </div>
                 )}
 
-                {/* FASE 3: KEPUTUSAN KURANG MODAL (S13) ATAU AMAN (S14) */}
-                {phase === 'S13_MODAL' && (
-                    <div className="px-4 animate-in zoom-in-95">
-                        <div className="bg-rose-50 border border-rose-200 p-6 rounded-[32px] text-center mb-6">
+                {/* STATE 13: STRATEGI MITIGASI MODAL (S13) */}
+                {currentState === 'S13_MODAL' && (
+                    <div className="px-4 animate-in zoom-in-95 duration-300 space-y-4">
+                        <div className="bg-rose-50 border border-rose-200 p-6 rounded-[32px] text-center">
                             <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-                            <h3 className="font-black text-rose-900 text-xl mb-2">Modal Kas Tidak Cukup</h3>
-                            <p className="text-xs text-rose-700 font-medium leading-relaxed">
-                                Total modal yang dibutuhkan melebihi saldo kas aman Anda. Menarik sisa saldo akan mengganggu dana darurat dan biaya hidup Anda bulan ini.
+                            <h3 className="font-black text-rose-900 text-xl mb-1">Batas Aman Kas Terlampaui</h3>
+                            <p className="text-xs text-rose-700 font-medium leading-relaxed max-w-xs mx-auto">
+                                Total biaya melampaui sisa dana aman dompetmu. Menggunakan dana ini berisiko mengganggu kestabilan operasional bulananmu.
                             </p>
                         </div>
-                        <div className="space-y-3">
-                            <h4 className="font-bold text-slate-800 text-sm px-2">Saran Pivot:</h4>
-                            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                                <p className="font-bold text-slate-700 mb-1">1. Kurangi Skala Awal</p>
-                                <p className="text-xs text-slate-500">Beli bahan setengah dari rencana, atau coret alat yang masih bisa dipinjam.</p>
-                            </div>
-                            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                                <p className="font-bold text-slate-700 mb-1">2. Menabung Bertahap</p>
-                                <p className="text-xs text-slate-500">Gunakan fitur 'Target' Bilano untuk mengumpulkan modal ini secara perlahan.</p>
-                            </div>
-                            <Button onClick={() => setPhase('S10_BAHAN')} className="w-full bg-slate-900 text-white h-12 mt-4 rounded-full font-bold">KEMBALI EDIT BAHAN</Button>
-                        </div>
-                    </div>
-                )}
 
-                {phase === 'S14_JUAL' && (
-                    <div className="px-4 animate-in slide-in-from-bottom-8 text-center pt-10">
-                        <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                            <CheckCircle2 className="w-12 h-12 text-emerald-500" />
-                        </div>
-                        <h2 className="text-3xl font-black text-slate-800 mb-2">Modal Siap.</h2>
-                        <p className="text-sm text-slate-500 leading-relaxed max-w-[250px] mx-auto mb-8 font-medium">
-                            Secara finansial, kas Anda kuat untuk mengeksekusi rencana ini hari ini juga. 
-                        </p>
-                        <Button onClick={() => window.location.href = '/dashboard'} className="w-full bg-emerald-500 text-white h-14 rounded-full font-black text-sm shadow-xl shadow-emerald-200">
-                            EKSEKUSI & MULAI CATAT PENGHASILAN
+                        <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider px-2">Rencana Alokasi & Solusi dari AI:</h4>
+
+                        {capitalStrategies.map((opt) => (
+                            <div key={opt.id} className="bg-white p-5 rounded-[26px] border border-slate-100 shadow-sm relative overflow-hidden">
+                                <div className="flex justify-between items-start mb-2">
+                                    <h5 className="font-black text-slate-800 text-base">{opt.title}</h5>
+                                    <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">{opt.estimated_effort}</span>
+                                </div>
+                                <p className="text-xs text-slate-500 font-medium leading-relaxed mb-4">{opt.description}</p>
+                                <Button 
+                                    onClick={executeTriggerSellingStrategy}
+                                    className="w-full bg-slate-900 text-white h-10 rounded-xl text-xs font-bold"
+                                >
+                                    SAYA SETUJU & LANJUTKAN TAHAPAN
+                                </Button>
+                            </div>
+                        ))}
+
+                        <Button onClick={() => setCurrentState('S10_RENCANA_BAHAN')} className="w-full bg-slate-200 text-slate-700 h-12 rounded-full font-bold text-xs">
+                            KEMBALI MODIFIKASI ANGGARAN BAHAN
                         </Button>
                     </div>
                 )}
 
-                {/* DISCLAIMER GUARDRAIL PERMANENT */}
-                {['S13_MODAL', 'S14_JUAL', 'S10_BAHAN', 'S11_HARGA'].includes(phase) && (
-                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 z-50">
-                        <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl flex gap-3 items-start shadow-sm">
-                            <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                            <p className="text-[9px] text-amber-800 font-bold leading-relaxed uppercase tracking-wider">
-                                INI ADALAH ANALISA SIMULASI, BUKAN INSTRUKSI MUTLAK. RISIKO EKSEKUSI BISNIS SEPENUHNYA BERADA DI TANGAN ANDA.
+                {/* STATE 14: BOUNDED DISCUSSION STRATEGI PEMASARAN */}
+                {currentState === 'S14_STRATEGI_JUAL' && (
+                    <div className="px-4 animate-in slide-in-from-bottom-8 duration-500 space-y-4">
+                        <div className="bg-slate-900 text-white p-5 rounded-[28px] shadow-lg flex justify-between items-center">
+                            <div>
+                                <h3 className="font-black text-base text-amber-400">Kanal Pemasaran & Penjualan</h3>
+                                <p className="text-xs text-slate-400 font-medium truncate max-w-[200px]">{selectedIdea?.title}</p>
+                            </div>
+                            <Button 
+                                onClick={() => setCurrentState('S15_TRACKING_OMSET')}
+                                className="bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs px-5 h-11 rounded-full shadow-md shadow-emerald-900/20"
+                            >
+                                SELESAI DISKUSI & BUKA LAPAK <ArrowRight className="w-4 h-4 ml-1.5"/>
+                            </Button>
+                        </div>
+
+                        {/* DISKUSI ENGINE VIEW */}
+                        <div className="bg-white border border-slate-100 rounded-[28px] p-4 min-h-[380px] flex flex-col justify-between shadow-sm">
+                            <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1">
+                                {chatHistory.map((msg, idx) => (
+                                    <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[85%] p-4 rounded-2xl text-xs leading-relaxed font-medium ${msg.sender === 'user' ? 'bg-slate-800 text-white rounded-tr-none' : 'bg-slate-100 text-slate-800 rounded-tl-none'}`}>
+                                            {msg.text}
+                                        </div>
+                                    </div>
+                                ))}
+                                {isAiProcessing && (
+                                    <div className="flex justify-start">
+                                        <div className="bg-slate-50 border border-slate-100 px-4 py-3 rounded-2xl text-xs text-slate-400 flex items-center gap-2">
+                                            <Loader2 className="w-4 h-4 animate-spin text-indigo-600"/> Mentor AI sedang merumuskan jawaban taktis...
+                                        </div>
+                                    </div>
+                                )}
+                                <div ref={chatEndRef} />
+                            </div>
+
+                            <div className="flex gap-2 mt-4 pt-3 border-t border-slate-100">
+                                <Input 
+                                    value={chatInput}
+                                    onChange={(e) => setChatInput(e.target.value)}
+                                    placeholder="Tanyakan langkah promosi pertama atau negosiasi..."
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSendSellingChat()}
+                                    disabled={isAiProcessing}
+                                    className="bg-slate-50 text-xs border-slate-200 h-11 rounded-xl"
+                                />
+                                <Button 
+                                    onClick={handleSendSellingChat} 
+                                    disabled={isAiProcessing || !chatInput.trim()}
+                                    className="bg-indigo-600 text-white h-11 w-11 p-0 rounded-xl shrink-0 shadow-md shadow-indigo-100"
+                                >
+                                    <Send className="w-4 h-4"/>
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* STATE 15: PRODUKSI BERJALAN & LOGGING OMSET EVALUATIF */}
+                {currentState === 'S15_TRACKING_OMSET' && (
+                    <div className="px-4 animate-in fade-in duration-500 space-y-4">
+                        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden border border-white/5">
+                            <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400 mb-1">OPERASIONAL BISNIS AKTIF</p>
+                            <h2 className="text-2xl font-black mb-1 tracking-tight">{selectedIdea?.title}</h2>
+                            <p className="text-xs text-slate-400 font-medium leading-relaxed mb-6">{selectedIdea?.pitch}</p>
+                            
+                            <div className="pt-4 border-t border-white/10 flex justify-between items-end">
+                                <div>
+                                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wide">Total Akumulasi Cuan</p>
+                                    <p className="text-3xl font-black text-emerald-400">{formatRp(revenueLogs.reduce((acc, r) => acc + r.amount, 0))}</p>
+                                </div>
+                                <Button 
+                                    onClick={requestAiPerformanceReview}
+                                    disabled={isEvaluating || revenueLogs.length === 0}
+                                    className="bg-white hover:bg-slate-100 text-slate-950 font-black text-xs h-10 px-5 rounded-full shadow-md flex items-center gap-1.5"
+                                >
+                                    {isEvaluating ? <Loader2 className="w-4 h-4 animate-spin"/> : <><BarChart3 className="w-3.5 h-3.5"/> EVALUASI PROGRES AI</>}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* CORE FEEDBACK PANEL AI */}
+                        {aiVerdictNote && (
+                            <div className="bg-indigo-950 text-indigo-100 border border-indigo-500/20 p-5 rounded-[26px] shadow-sm animate-in zoom-in-95">
+                                <h4 className="font-black text-amber-400 text-xs uppercase tracking-wider mb-2 flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 animate-pulse text-amber-400"/> Analisis Dinamis Pengembang Bisnis AI:
+                                </h4>
+                                <p className="text-xs leading-relaxed text-indigo-200 font-medium whitespace-pre-line">{aiVerdictNote}</p>
+                            </div>
+                        )}
+
+                        {/* LOG PANEL FORM */}
+                        <div className="bg-white p-5 rounded-[26px] border border-slate-100 shadow-sm space-y-3">
+                            <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider px-1">Input Catatan Omset Harian</h4>
+                            <div className="flex gap-2">
+                                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 flex-1 h-12">
+                                    <span className="text-xs font-bold text-slate-400 mr-1.5">Rp</span>
+                                    <input 
+                                        type="number"
+                                        placeholder="Nominal Penjualan"
+                                        value={revAmount}
+                                        onChange={(e) => setRevAmount(e.target.value)}
+                                        className="bg-transparent border-none text-sm w-full font-bold focus:ring-0 p-0 text-slate-800"
+                                    />
+                                </div>
+                                <Input 
+                                    placeholder="Keterangan (Misal: Jual 4 pack)"
+                                    value={revNote}
+                                    onChange={(e) => setRevNote(e.target.value)}
+                                    className="bg-slate-50 text-xs border-slate-200 flex-1 h-12 rounded-xl"
+                                />
+                            </div>
+                            <Button onClick={handleCommitRevenueLog} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black h-12 rounded-xl text-xs uppercase tracking-wider">
+                                MASUKKAN REKAP PENJUALAN
+                            </Button>
+                        </div>
+
+                        {/* HISTORY LOGS */}
+                        <div className="space-y-2">
+                            <h4 className="font-bold text-slate-400 text-[10px] px-2 uppercase tracking-widest">Buku Kas Penjualan</h4>
+                            {revenueLogs.length === 0 ? (
+                                <p className="text-center text-xs text-slate-400 py-10 bg-white rounded-2xl border-2 border-dashed border-slate-100 font-medium">
+                                    Belum ada omset penjualan yang dimasukkan minggu ini.
+                                </p>
+                            ) : (
+                                revenueLogs.map((log) => (
+                                    <div key={log.id} className="bg-white p-4 rounded-2xl border border-slate-100 flex justify-between items-center shadow-xs animate-in slide-in-from-top-2">
+                                        <div>
+                                            <p className="font-black text-sm text-slate-800">{log.note}</p>
+                                            <p className="text-[10px] text-slate-400 font-medium mt-0.5">{log.date}</p>
+                                        </div>
+                                        <p className="font-black text-emerald-600 text-base">+ {formatRp(log.amount)}</p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* PRINSIP ARSITEKTUR 2 & GUARDRAIL 8: HARDCODED DISCLAIMER PERMANEN DI UI KODE */}
+                {['S10_RENCANA_BAHAN', 'S11_HARGA', 'S13_MODAL', 'S14_STRATEGI_JUAL', 'S15_TRACKING_OMSET'].includes(currentState) && (
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 z-50">
+                        <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex gap-3 items-start shadow-sm">
+                            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                            <p className="text-[9px] text-amber-800 font-black leading-relaxed uppercase tracking-wider">
+                                DISCLAIMER PERMANEN: INI ADALAH ANALISA SIMULASI DAN ADVISORY KOGNITIF, BUKAN INSTRUKSI FINANSIAL MENGIKAT. SEALA BENTUK RISIKO BISNIS DAN EKSEKUSI DI LAPANGAN SEPENHNYA MENJADI TANGGUNG JAWAB PENGGUNA.
                             </p>
                         </div>
                     </div>
                 )}
+
             </div>
         </MobileLayout>
     );
 }
 
-// ==========================================
-// KOMPONEN RENDERER STEP CARD GENERIK
-// ==========================================
-function StepCard({ title, icon, color, children }: { title: string, icon: React.ReactNode, color: 'primary'|'accent', children: React.ReactNode }) {
+// =========================================================================
+// 🍱 COMPONENT SUB-RENDERER EXTRA (PREVENT REPETITIVE REDUNDANCY)
+// =========================================================================
+function StepCardWrapper({ title, color_variant, icon, children }: { title: string; color_variant: 'primary' | 'accent'; icon: React.ReactNode; children: React.ReactNode }) {
     return (
-        <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden animate-in slide-in-from-right-8">
-            <div className={`px-6 py-4 flex items-center gap-2 ${color === 'primary' ? 'bg-indigo-600' : 'bg-emerald-500'}`}>
-                <div className="text-white opacity-90">{icon}</div>
-                <h3 className="text-white font-black text-sm">{title}</h3>
+        <div className="bg-white rounded-[32px] shadow-xs border border-slate-100 overflow-hidden animate-in slide-in-from-right-8 duration-300">
+            <div className={`px-6 py-4 flex items-center gap-2.5 ${color_variant === 'primary' ? 'bg-indigo-600' : 'bg-emerald-500'}`}>
+                <div className="text-white opacity-95">{icon}</div>
+                <h3 className="text-white font-black text-sm uppercase tracking-wider">{title}</h3>
             </div>
             <div className="p-6">
                 {children}
-            </div>
-        </div>
-    );
-}
-
-function ChoiceSingle({ label, options, onSelect }: { label: string, options: {value: string, label: string}[], onSelect: (val: string) => void }) {
-    return (
-        <div>
-            <p className="text-sm font-bold text-slate-800 mb-4">{label}</p>
-            <div className="space-y-3">
-                {options.map((opt) => (
-                    <div 
-                        key={opt.value} onClick={() => onSelect(opt.value)}
-                        className="p-4 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 cursor-pointer transition-all flex justify-between items-center group"
-                    >
-                        <span className="font-bold text-sm text-slate-700 group-hover:text-indigo-700">{opt.label}</span>
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-500"/>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function ChoiceMulti({ label, options, selected, onChange }: { label: string, options: {value: string, label: string}[], selected: string[], onChange: (vals: string[]) => void }) {
-    const toggle = (val: string) => {
-        if (selected.includes(val)) onChange(selected.filter(i => i !== val));
-        else onChange([...selected, val]);
-    };
-
-    return (
-        <div>
-            <p className="text-sm font-bold text-slate-800 mb-4">{label}</p>
-            <div className="space-y-3">
-                {options.map((opt) => {
-                    const isSelected = selected.includes(opt.value);
-                    return (
-                        <div 
-                            key={opt.value} onClick={() => toggle(opt.value)}
-                            className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex justify-between items-center ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-slate-100 hover:border-slate-300'}`}
-                        >
-                            <span className={`font-bold text-sm ${isSelected ? 'text-emerald-700' : 'text-slate-700'}`}>{opt.label}</span>
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'}`}>
-                                {isSelected && <div className="w-2 h-2 bg-white rounded-full"></div>}
-                            </div>
-                        </div>
-                    );
-                })}
             </div>
         </div>
     );

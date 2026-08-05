@@ -189,7 +189,7 @@ function Router() {
     const isAuth = localStorage.getItem("bilano_auth");
     
     // Daftar rute publik yang bebas diakses
-    const publicRoutes = ["/", "/auth", "/terminal", "/onboarding", "/preview", "/checkout", "/manager"]; 
+    const publicRoutes = ["/", "/auth", "/terminal", "/onboarding", "/preview", "/checkout", "/manager", "/wealth-blueprint"];
     const normalizedLocation = location.endsWith('/') && location !== '/' ? location.slice(0, -1) : location;
 
     if (!isAuth) {
