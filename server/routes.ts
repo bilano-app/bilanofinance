@@ -160,6 +160,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           await db.execute(sql`CREATE TABLE IF NOT EXISTS tracking_events (id SERIAL PRIMARY KEY, anonymous_id TEXT NOT NULL, user_id INTEGER, event_name TEXT NOT NULL, properties TEXT, created_at TIMESTAMP DEFAULT NOW());`);
           
+          // Tambahkan di dalam try { ... } pada endpoint /api/admin/upgrade-db
+          await db.execute(sql`
+              CREATE TABLE IF NOT EXISTS ebooks (
+                  id SERIAL PRIMARY KEY, 
+                  title VARCHAR(255), 
+                  author VARCHAR(255), 
+                  description TEXT, 
+                  cover_url TEXT, 
+                  is_premium BOOLEAN DEFAULT false, 
+                  created_at TIMESTAMP DEFAULT NOW()
+              );
+          `);
+          
+          await db.execute(sql`
+              CREATE TABLE IF NOT EXISTS ebook_chapters (
+                  id SERIAL PRIMARY KEY, 
+                  ebook_id INTEGER, 
+                  chapter_number INTEGER, 
+                  title VARCHAR(255), 
+                  content TEXT, 
+                  created_at TIMESTAMP DEFAULT NOW()
+              );
+          `);
+          
           await ensureOtpTable();
           await ensureRetainedTable();
 

@@ -127,6 +127,7 @@ import WealthBlueprint from "@/pages/WealthBlueprint";
 import AcademyList from "@/pages/AcademyList";
 import AcademyReader from "@/pages/AcademyReader";
 
+
 function Router() {
   const [location, setLocation] = useLocation();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -293,6 +294,8 @@ function Router() {
         <Route path="/checkout" component={Checkout} />
         <Route path="/manager" component={Manager} />
         <Route path="/wealth-blueprint" component={WealthBlueprint} />
+        <Route path="/academy" component={AcademyList} />
+        <Route path="/academy/:ebookId/read/:chapterNum" component={AcademyReader} />
 
         <Route component={NotFound} />
       </Switch>
