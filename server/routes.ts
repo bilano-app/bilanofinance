@@ -344,6 +344,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // =========================================================================
+  // 🚀 BILANO WEALTH BLUEPRINT (STRATEGI PEMASUKAN)
+  // =========================================================================
+
+  app.post("/api/wealth/recommendations", async (req: any, res: any) => {
+    try {
+        const user = await getUser(req);
+        if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+        const { profile, financialSnapshot } = req.body;
+        const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
+        
+        const systemPrompt = `
+        Kamu adalah Mentor Bisnis dan Wealth Manager elit yang beroperasi di INDONESIA. 
+        Karaktermu: Sangat kritis, realistis, analitis, dan tidak suka basa-basi. Kamu seperti mentor masterclass premium yang membedah kapasitas muridnya.
+
+        Konteks Wajib (SANGAT PENTING):
+        1. Pasar adalah INDONESIA. Pertimbangkan daya beli lokal, tren hiper-lokal, dan kebiasaan masyarakat Indonesia.
+        2. Ekosistem platform yang relevan: WhatsApp, Instagram, TikTok, Shopee, Tokopedia, GoFood/GrabFood, atau jaringan komunitas darat (RT/RW/Kampus/Kantor).
+        3. DILARANG KERAS menyarankan tren dari luar negeri (Eropa/Amerika) yang tidak relevan, butuh modal besar yang tidak sesuai data, atau belum matang di Indonesia.
+
+        PROFIL PENGGUNA (Muridmu): 
+        ${JSON.stringify(profile)}
+        
+        KONDISI KEUANGAN: 
+        ${JSON.stringify(financialSnapshot)}
+        
+        TUGAS DEKONSTRUKSI:
+        1. Pindai profilnya. Apa aset dan skill nyata yang dia miliki SEKARANG?
+        2. Buat 2-4 kandidat ide penghasilan spesifik yang BISA DIEKSEKUSI HARI INI di Indonesia dengan modal yang dia punya.
+        3. Setiap saran harus didekonstruksi logikanya: mengapa ini masuk akal secara finansial dan operasional untuk profil ini. Jangan beri saran generik.
+        
+        FORMAT OUTPUT (WAJIB JSON MURNI TANPA MARKDOWN):
+        {
+          "recommendations": [
+            {
+              "id": "generate-random-id",
+              "title": "Judul spesifik (maks 8 kata, contoh: 'Jasa Titip Beli Lauk Tetangga via WA')",
+              "pitch": "1-2 kalimat penjelasan konkret cara kerjanya di lapangan.",
+              "why_it_fits": "Analisis tajam kenapa ini cocok dengan skill/aset/waktunya.",
+              "capital_level": "TANPA_MODAL | MODAL_KECIL | MODAL_SEDANG",
+              "needs_upskilling": true/false,
+              "upskilling_note": "Tindakan upskill spesifik (jika ada, misal: 'Tonton tutorial riset keyword Shopee')",
+              "difficulty": "MUDAH | SEDANG | MENANTANG",
+              "estimated_time_to_first_income": "Misal: '3-7 hari'",
+              "risk_note": "Risiko utama di pasar Indonesia (misal: 'Perang harga', 'Susah cari pelanggan pertama')"
+            }
+          ]
+        }`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
+                generationConfig: { temperature: 0.2, response_mime_type: "application/json" }
+            })
+        });
+
+        if (!response.ok) throw new Error("Gagal menghubungi AI Central.");
+        const aiData = await response.json();
+        const resultText = aiData.candidates[0].content.parts[0].text;
+        
+        res.json({ success: true, data: JSON.parse(resultText) });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/wealth/draft-materials", async (req: any, res: any) => {
+    try {
+        const { recommendation } = req.body;
+        const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
+
+        const systemPrompt = `
+        Ide yang dipilih: ${JSON.stringify(recommendation)}
+        Berikan draft daftar bahan/alat/kebutuhan awal untuk memulai ide ini dalam skala KECIL/percobaan.
+        Maksimal 6 item. Output JSON MURNI: { "draft_items": [{"id": "id-unik", "name": "...", "note": "...", "price": 0}] }`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
+                generationConfig: { temperature: 0.1, response_mime_type: "application/json" }
+            })
+        });
+
+        const aiData = await response.json();
+        res.json({ success: true, data: JSON.parse(aiData.candidates[0].content.parts[0].text) });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/auth/send-otp", async (req: any, res: any) => {
       const cleanEmail = (req.body.email || "").trim().toLowerCase();
       let otp = Math.floor(100000 + Math.random() * 900000).toString(); 

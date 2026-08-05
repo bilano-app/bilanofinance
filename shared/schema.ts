@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, bigint, json, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -118,6 +118,48 @@ export const portfolioSnapshots = pgTable("portfolio_snapshots", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// --- 11. TRACKING EVENTS ---
+export const trackingEvents = pgTable("tracking_events", {
+  id: serial("id").primaryKey(),
+  anonymousId: text("anonymous_id").notNull(), 
+  userId: integer("user_id"), 
+  eventName: text("event_name").notNull(), 
+  properties: text("properties"), 
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// =========================================================================
+// 🚀 12. WEALTH BLUEPRINT (STRATEGI PEMASUKAN)
+// =========================================================================
+export const userIncomeProfiles = pgTable("user_income_profiles", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  status: text("status").notNull(), 
+  tujuan: text("tujuan").notNull(),
+  polaKerja: text("pola_kerja").notNull(),
+  latarBelakang: json("latar_belakang"), 
+  keahlian: json("keahlian"), 
+  keahlianBebas: text("keahlian_bebas"),
+  aset: json("aset"),
+  konstrainWaktu: json("konstrain_waktu"),
+  completedAt: timestamp("completed_at").defaultNow(),
+});
+
+export const incomeAttempts = pgTable("income_attempts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  recommendation: json("recommendation").notNull(), 
+  state: text("state").notNull(), 
+  materials: json("materials"), 
+  totalCost: doublePrecision("total_cost").default(0),
+  feasibilityVerdict: text("feasibility_verdict"),
+  capitalPlan: json("capital_plan"),
+  sellingChannels: json("selling_channels"),
+  revenueLog: json("revenue_log"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 
 // --- ZOD SCHEMAS ---
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
@@ -129,46 +171,35 @@ export const insertSubscriptionSchema = createInsertSchema(subscriptions, { next
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, userId: true });
 export const insertForexAssetSchema = createInsertSchema(forexAssets).omit({ id: true, userId: true, createdAt: true });
 export const insertOtpSessionSchema = createInsertSchema(otpSessions).omit({ id: true, createdAt: true });
+export const insertTrackingEventSchema = createInsertSchema(trackingEvents).omit({ id: true, createdAt: true });
+export const insertUserIncomeProfileSchema = createInsertSchema(userIncomeProfiles).omit({ id: true, completedAt: true });
+export const insertIncomeAttemptSchema = createInsertSchema(incomeAttempts).omit({ id: true, createdAt: true, updatedAt: true });
+
 
 // =======================================================
-// EXPORT TYPES (PERBAIKAN AGAR TIDAK ERROR DI FRONTEND)
+// EXPORT TYPES 
 // =======================================================
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
-
 export type Transaction = typeof transactions.$inferSelect;
 export type InsertTransaction = typeof transactions.$inferInsert;
-
 export type Investment = typeof investments.$inferSelect;
 export type InsertInvestment = typeof investments.$inferInsert;
-
 export type Target = typeof targets.$inferSelect;
 export type InsertTarget = typeof targets.$inferInsert;
-
 export type Debt = typeof debts.$inferSelect;
 export type InsertDebt = typeof debts.$inferInsert;
-
 export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = typeof subscriptions.$inferInsert;
-
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = typeof categories.$inferInsert;
-
 export type ForexAsset = typeof forexAssets.$inferSelect;
 export type InsertForexAsset = typeof forexAssets.$inferInsert;
-
 export type PortfolioSnapshot = typeof portfolioSnapshots.$inferSelect;
 export type InsertPortfolioSnapshot = typeof portfolioSnapshots.$inferInsert;
-
-// --- 11. TRACKING EVENTS ---
-export const trackingEvents = pgTable("tracking_events", {
-  id: serial("id").primaryKey(),
-  anonymousId: text("anonymous_id").notNull(), // ID unik per browser/device
-  userId: integer("user_id"), // Terisi otomatis jika user sudah login/daftar
-  eventName: text("event_name").notNull(), // Contoh: 'quiz_answered', 'landing_viewed'
-  properties: text("properties"), // Menyimpan JSON string (contoh: { step: 1, answer: 'Ya' })
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
 export type TrackingEvent = typeof trackingEvents.$inferSelect;
 export type InsertTrackingEvent = typeof trackingEvents.$inferInsert;
+export type UserIncomeProfile = typeof userIncomeProfiles.$inferSelect;
+export type InsertUserIncomeProfile = typeof userIncomeProfiles.$inferInsert;
+export type IncomeAttempt = typeof incomeAttempts.$inferSelect;
+export type InsertIncomeAttempt = typeof incomeAttempts.$inferInsert;

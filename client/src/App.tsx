@@ -123,6 +123,7 @@ import Onboarding from "@/pages/Onboarding";
 import VideoPreview from "@/pages/VideoPreview"; 
 import Checkout from "@/pages/Checkout";
 import Manager from "@/pages/Manager"; 
+import WealthBlueprint from "@/pages/WealthBlueprint";
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -289,6 +290,7 @@ function Router() {
         <Route path="/preview" component={VideoPreview} /> 
         <Route path="/checkout" component={Checkout} />
         <Route path="/manager" component={Manager} />
+        <Route path="/wealth-blueprint" component={WealthBlueprint} />
 
         <Route component={NotFound} />
       </Switch>

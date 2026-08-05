@@ -28,8 +28,6 @@ export default function Auth() {
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [isForgotSuccess, setIsForgotSuccess] = useState(false); 
-  
-  const [showPaywallRedirect, setShowPaywallRedirect] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [, setLocation] = useLocation();
@@ -79,7 +77,6 @@ export default function Auth() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(""); 
-    setShowPaywallRedirect(false);
     
     const cleanEmail = email.trim().toLowerCase();
 
@@ -130,6 +127,7 @@ export default function Auth() {
             } catch (err: any) {
                 if (err.code === 'auth/email-already-in-use') {
                     setAuthError("Email sudah terdaftar. Silakan masuk.");
+                    setIsSignUp(false); // Kembalikan ke mode login jika ternyata sudah terdaftar
                 } else {
                     setAuthError("Gagal mendaftar: " + err.message);
                 }
@@ -144,9 +142,10 @@ export default function Auth() {
                 body: JSON.stringify({ email: cleanEmail, password: password })
             });
 
+            // 🚀 PERUBAHAN DISINI: Jika email belum ada (status 454), ubah form jadi Sign Up
             if (checkRes.status === 454) {
-                setAuthError("Email ini belum berlangganan BILANO.");
-                setShowPaywallRedirect(true);
+                setAuthError("Email belum terdaftar. Silakan daftar akun terlebih dahulu.");
+                setIsSignUp(true); // Otomatis pindah ke mode daftar
                 setLoading(false);
                 return;
             }
@@ -219,36 +218,6 @@ export default function Auth() {
               </p>
           </div>
 
-          {showPaywallRedirect && !isSignUp && (
-              <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex flex-col items-center text-center gap-2 mb-6 animate-in zoom-in-95">
-                  <ShieldCheck className="w-8 h-8 text-rose-500" />
-                  <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                      Email <span className="font-bold text-slate-800">{email}</span> belum memiliki akses premium BILANO.
-                  </p>
-                
-                  <button 
-                      type="button"
-                      onClick={() => {
-                          const targetUrl = 'https://bilano.app/onboarding';
-                          const googleRedirectUrl = `https://www.google.com/url?q=${encodeURIComponent(targetUrl)}`;
-                          const externalWindow = window.open(googleRedirectUrl, '_system');
-                          if (!externalWindow) {
-                              const shadowLink = document.createElement('a');
-                              shadowLink.href = googleRedirectUrl;
-                              shadowLink.target = '_blank';
-                              shadowLink.rel = 'noopener noreferrer external';
-                              document.body.appendChild(shadowLink);
-                              shadowLink.click();
-                              document.body.removeChild(shadowLink);
-                          }
-                      }}
-                      className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold h-10 mt-2 rounded-xl flex items-center justify-center text-sm shadow-md transition-all active:scale-[0.98]"
-                  >
-                      DAFTAR & LANGGANAN
-                  </button>
-              </div>
-          )}
-
           <div className="space-y-4">
               <form onSubmit={handleAuth} className="space-y-4">
                   {isSignUp && (
@@ -290,7 +259,7 @@ export default function Auth() {
                       )}
                   </div>
                   
-                  {authError && !showPaywallRedirect && (
+                  {authError && (
                       <div className="flex items-center gap-1.5 text-rose-500 bg-rose-50 p-3 rounded-xl text-[11px] font-bold leading-tight animate-in fade-in">
                           <AlertCircle className="w-4 h-4 shrink-0" />
                           <p>{authError}</p>
@@ -304,7 +273,7 @@ export default function Auth() {
 
               <div className="text-center pt-2">
                   <button 
-                      onClick={() => { setIsSignUp(!isSignUp); setAuthError(""); setShowPaywallRedirect(false); }}
+                      onClick={() => { setIsSignUp(!isSignUp); setAuthError(""); }}
                       className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
                   >
                       {isSignUp ? "Sudah punya akun? Masuk di sini" : "Belum punya akun? Daftar di sini"}

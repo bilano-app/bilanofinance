@@ -705,10 +705,10 @@ export default function Home() {
       )}
 
       <div className="flex flex-col gap-6">
-        {/* 🚀 HEADER AREA */}
+        {/* 🚀 HEADER AREA: Presisi, Elegan, Sesuai Nuansa UI */}
         <div className="flex items-center justify-between px-2 pt-2 relative">
             
-            {/* BAGIAN KIRI: AVATAR & NAMA */}
+            {/* BAGIAN KIRI: AVATAR & TEKS SAPAAN (LAYOUT PRESISI) */}
             <div className="flex items-center gap-3">
                 <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100 shrink-0">
                     {user?.profilePicture ? (
@@ -719,59 +719,38 @@ export default function Home() {
                         </div>
                     )}
                 </div>
-                <div>
-                    <p className="text-xs font-medium text-slate-500">Selamat datang,</p>
-                    <div className="flex items-center gap-1.5">
-                        <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight truncate max-w-[120px]">
+                
+                {/* 📝 Teks Stack: Mengikuti Contoh Adrien (Rapi & Tidak Wrapping) */}
+                <div className="flex flex-col">
+                    <p className="text-xs font-medium text-slate-500 whitespace-nowrap">
+                        Selamat datang
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                        <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight truncate max-w-[130px]">
                             {greetingName}
                         </h2>
                         
-                        {/* 👑 KUNCI VALIDASI: Mahkota HANYA muncul jika user terbukti bernilai true pada properti isPro */}
-                        {user && user.isPro === true && (
-                            <Crown className="w-4 h-4 text-amber-500 shrink-0" />
-                        )}
+                        {/* 💎 INDIKATOR STATUS PREMIUM (DINAMIS & ELEGAN) */}
+                        {user ? (
+                            user.isPro === true ? (
+                                /* ✅ ✅ MUNCUL MAHKOTA JIKA SUDAH PREMIUM ✅ ✅ */
+                                <Crown className="w-4 h-4 text-amber-500 shrink-0" />
+                            ) : (
+                                /* ❌ ❌ GANTI TEKS 'UPGRADE' ELEGAN JIKA BELUM PREMIUM ❌ ❌ */
+                                /* Diposisikan seperti mahkota, ukuran serasi, warna Soft Gold */
+                                <Link href="/paywall">
+                                    <span className="text-amber-500 font-bold text-[11px] leading-tight flex items-center hover:text-amber-600 transition-colors cursor-pointer shrink-0">
+                                        UPGRADE
+                                    </span>
+                                </Link>
+                            )
+                        ) : null}
                     </div>
                 </div>
             </div>
 
-            {/* TOOLTIP PROFIL (Tetap biarkan ada di sini) */}
-            {showProfileTooltip && (
-                <div className="absolute top-[65px] left-2 w-[260px] bg-white border-2 border-indigo-600 p-4 rounded-[20px] shadow-[6px_6px_0px_#4f46e5] animate-in fade-in zoom-in slide-in-from-left-4 duration-500 z-50">
-                    <div className="absolute -top-[10px] left-[20px] w-0 h-0 border-b-[10px] border-b-indigo-600 border-r-[10px] border-r-transparent border-l-[10px] border-l-transparent"></div>
-                    <div className="absolute -top-[7px] left-[22px] w-0 h-0 border-b-[8px] border-b-white border-r-[8px] border-r-transparent border-l-[8px] border-l-transparent"></div>
-                    
-                    <p className="text-[13px] font-black mb-1.5 text-indigo-900 flex items-center gap-1.5">
-                        📸 Pasang Foto Profil!
-                    </p>
-                    <p className="text-[11px] text-slate-600 leading-relaxed font-bold mb-4">
-                        Biar makin keren, yuk pasang foto profilmu! Tekan ikon avatar di atas untuk mengubahnya.
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <button onClick={dismissProfileTooltip} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-2.5 rounded-xl text-[10px] transition-colors">
-                            Nanti Saja
-                        </button>
-                        <Link href="/profile" className="flex-1">
-                            <button onClick={dismissProfileTooltip} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-[10px] transition-colors shadow-sm">
-                                Pasang Sekarang
-                            </button>
-                        </Link>
-                    </div>
-                </div>
-            )}
-
-            {/* BAGIAN KANAN: TOMBOL UPGRADE & AKSI */}
+            {/* BAGIAN KANAN: TOMBOL AKSI (Bebas dari Tombol Upgrade Gede) */}
             <div className="flex items-center gap-2">
-                
-                {/* 🔥 TOMBOL UPGRADE PRO (Sesuai UI: Soft Amber, Tanpa Ikon Bintang, Rapi di Kanan) */}
-                {!user?.isPro && (
-                    <button 
-                        onClick={() => setLocation('/paywall')} 
-                        className="mr-1 md:mr-2 bg-amber-50 border border-amber-200 text-amber-500 hover:bg-amber-100 px-3.5 py-1.5 rounded-full font-black text-[10px] tracking-widest uppercase shadow-sm active:scale-95 transition-all"
-                    >
-                        UPGRADE PRO
-                    </button>
-                )}
-
                 <button 
                     onClick={handleRefresh}
                     className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-indigo-500 hover:text-indigo-700 active:scale-90 transition-all shrink-0"
@@ -814,7 +793,7 @@ export default function Home() {
         </div>
         
         {/* ... Lanjut ke blok SALDO KAS seperti biasa ... */}
-        
+
         <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
               <div className="flex justify-between items-center mb-1">
@@ -919,8 +898,34 @@ export default function Home() {
             </div>
         </div>
 
-        <div className="px-1 mt-4 mb-2">
-            <h3 className="font-bold text-slate-800 text-sm mb-2 px-1 uppercase tracking-widest text-[11px]">Eksklusif Premium</h3>
+        <div className="px-1 mt-4 mb-2 space-y-3">
+            <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px]">Eksklusif Premium</h3>
+            
+            {/* 🔥 NEW FEATURE: BILANO WEALTH BLUEPRINT (GACOR & VIP DESIGN) */}
+            <Link href="/wealth-blueprint">
+                <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 rounded-[24px] p-5 shadow-[0_8px_30px_rgba(30,41,59,0.2)] border border-indigo-500/20 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group mb-3">
+                    <div className="absolute right-0 top-0 w-36 h-36 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-full blur-2xl pointer-events-none group-hover:from-indigo-500/20 transition-colors"></div>
+                    <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl pointer-events-none"></div>
+                    
+                    <div className="flex items-center justify-between relative z-10">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600 flex items-center justify-center shadow-md shadow-amber-500/20">
+                                <Sparkles className="w-6 h-6 text-slate-900 animate-pulse"/>
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                    <h3 className="font-black text-white text-base tracking-tight">Wealth Blueprint</h3>
+                                    <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-md border border-emerald-500/30 uppercase tracking-wider">LIVE</span>
+                                </div>
+                                <p className="text-[11px] text-indigo-200/70 font-medium">Panduan Penghasilan & AI Peta Cuan</p>
+                            </div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-indigo-400 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all"/>
+                    </div>
+                </div>
+            </Link>
+
+            {/* BILANO ACADEMY */}
             <div onClick={() => setPendingFeatureModal({ title: "BILANO Academy", desc: "Materi eksklusif seputar pengelolaan portofolio, analisis bandarmologi, dan edukasi finansial profesional sedang disiapkan." })}>
                 <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
                     <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
