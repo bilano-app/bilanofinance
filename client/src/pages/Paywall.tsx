@@ -5,8 +5,7 @@ import { Button } from "@/components/UIComponents";
 import { useUser } from "@/hooks/use-finance";
 import { 
   CheckCircle2, Crown, ArrowRight, Loader2, X, AlertCircle,
-  Bot, ShieldCheck, ChevronDown, Copy, RefreshCw, Zap, Star, 
-  Lock, BookOpen, Sparkles, TrendingUp
+  ChevronDown, Copy, RefreshCw, Sparkles, BookOpen
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -36,11 +35,9 @@ export default function Paywall() {
   const { toast } = useToast();
   const { data: user } = useUser();
 
-  // State Utama: Tahunan (Annual) vs Bulanan (Monthly)
   const [cycle, setCycle] = useState<'annual' | 'monthly'>('annual');
   const [activeTier, setActiveTier] = useState<'free' | 'standard' | 'premium'>('premium');
   
-  // State Pembayaran
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("SQ");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -60,7 +57,6 @@ export default function Paywall() {
   const selectedMethodDetails = PAYMENT_OPTIONS.find(p => p.id === paymentMethod) || PAYMENT_OPTIONS[0];
   const userEmail = localStorage.getItem("bilano_email") || user?.email || "";
 
-  // Logika Kalkulasi Harga Berdasarkan Siklus
   const prices = {
     standard: cycle === 'annual' ? 7000 : 14900,
     premium: cycle === 'annual' ? 8250 : 19000,
@@ -136,12 +132,12 @@ export default function Paywall() {
               <p className="text-sm text-slate-500 font-medium px-4">Maksimalkan asisten AI dan arsitektur finansial Anda hari ini.</p>
             </div>
 
-            {/* TOGGLE SIKLUS (BENTUK GEMINI/REFERENSI) */}
+            {/* TOGGLE SIKLUS */}
             <div className="flex justify-center mb-10">
               <div className="bg-slate-200 p-1.5 rounded-full flex relative">
                 {cycle === 'annual' && (
-                  <div className="absolute -top-10 left-1/2 translate-x-0">
-                    <div className="bg-white text-[10px] font-black text-blue-600 px-3 py-1.5 rounded-xl shadow-md border border-blue-50 relative animate-bounce">
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2">
+                    <div className="bg-white text-[10px] font-black text-blue-600 px-3 py-1.5 rounded-xl shadow-md border border-blue-50 relative animate-bounce whitespace-nowrap">
                       Hemat 36%
                       <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
                     </div>
@@ -162,7 +158,7 @@ export default function Paywall() {
               </div>
             </div>
 
-            {/* TIER CARDS (VERTICAL STACK) */}
+            {/* TIER CARDS */}
             <div className="space-y-6 mb-10">
               
               {/* TIER: GRATIS */}
@@ -206,18 +202,25 @@ export default function Paywall() {
                 </div>
               </div>
 
-              {/* TIER: PREMIUM VIP (TARGET) */}
+              {/* TIER: PREMIUM VIP */}
               <div onClick={() => setActiveTier('premium')} className={`bg-slate-900 rounded-[32px] p-6 border-2 transition-all relative overflow-hidden ${activeTier === 'premium' ? 'border-amber-400 shadow-2xl scale-[1.03]' : 'border-slate-800 shadow-sm'}`}>
                 <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-200 to-amber-500 text-amber-950 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-lg">Rekomendasi</div>
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex justify-between items-center mb-4 mt-2">
                   <div>
                     <span className="text-[10px] font-black text-amber-950 bg-amber-400 px-2.5 py-1 rounded-lg uppercase tracking-wider">Akses Penuh</span>
                     <h3 className="text-xl font-black mt-2 flex items-center gap-2 text-white">Premium VIP <Crown className="w-5 h-5 fill-amber-400 text-amber-400"/></h3>
                   </div>
-                  <div className="text-right">
-                    {cycle === 'annual' && <p className="text-[11px] text-slate-400 line-through font-bold">Rp 12.900</p>}
-                    <p className="text-2xl font-black text-amber-400">Rp {prices.premium.toLocaleString('id-ID')}</p>
-                    <span className="text-[10px] text-slate-400 font-bold">/ bulan</span>
+                  {/* PENYESUAIAN STRUKTUR HARGA CORET DI SINI */}
+                  <div className="flex flex-col items-end justify-center min-h-[50px]">
+                    {cycle === 'annual' && (
+                      <p className="text-xs text-slate-400 line-through font-bold mb-0.5 leading-none">
+                        Rp 12.900
+                      </p>
+                    )}
+                    <p className="text-2xl font-black text-amber-400 leading-none">
+                      Rp {prices.premium.toLocaleString('id-ID')}
+                    </p>
+                    <span className="text-[10px] text-slate-400 font-bold mt-1 leading-none">/ bulan</span>
                   </div>
                 </div>
                 <div className="space-y-4 pt-4 border-t border-slate-700/50">
@@ -232,25 +235,38 @@ export default function Paywall() {
               </div>
             </div>
 
-            {/* PAYMENT SELECTOR */}
+            {/* PAYMENT SELECTOR (DIPERBAIKI AGAR TIDAK KELUAR KOTAK) */}
             {activeTier !== 'free' && (
               <div className="flex flex-col gap-2 mb-8 relative" ref={dropdownRef}>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Metode Pembayaran</label>
-                <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 flex items-center justify-between shadow-sm group hover:border-blue-300 transition-colors">
-                  <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)} 
+                  className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 flex items-center justify-between shadow-sm group hover:border-blue-300 transition-colors overflow-hidden"
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="w-10 h-10 bg-slate-50 rounded-lg p-1.5 flex items-center justify-center shrink-0 border border-slate-100">
                       <PaymentIcon src={selectedMethodDetails.icon} name={selectedMethodDetails.name} />
                     </div>
-                    <span className="font-bold text-slate-700 text-sm">{selectedMethodDetails.name}</span>
+                    <span className="font-bold text-slate-700 text-xs truncate">{selectedMethodDetails.name}</span>
                   </div>
-                  <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className="w-5 h-5 text-slate-400 transition-transform shrink-0 ml-2" />
                 </button>
                 {isDropdownOpen && (
                   <ul className="absolute bottom-full left-0 w-full bg-white border border-slate-200 rounded-3xl shadow-2xl z-50 p-2 mb-2 max-h-60 overflow-y-auto animate-in slide-in-from-bottom-2">
                     {PAYMENT_OPTIONS.map((opt) => (
-                      <li key={opt.id} onClick={() => { setPaymentMethod(opt.id); setIsDropdownOpen(false); }} className={`flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-colors ${paymentMethod === opt.id ? 'bg-blue-50 border border-blue-200' : 'hover:bg-slate-50 border border-transparent'}`}>
-                        <div className="w-10 h-10 bg-white rounded-lg p-1.5 flex items-center justify-center shrink-0 shadow-sm border border-slate-100"><PaymentIcon src={opt.icon} name={opt.name} /></div>
-                        <span className={`text-sm ${paymentMethod === opt.id ? 'text-blue-600 font-bold' : 'text-slate-600 font-medium'}`}>{opt.name}</span>
+                      <li 
+                        key={opt.id} 
+                        onClick={() => { setPaymentMethod(opt.id); setIsDropdownOpen(false); }} 
+                        className={`flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-colors ${paymentMethod === opt.id ? 'bg-blue-50 border border-blue-200' : 'hover:bg-slate-50 border border-transparent'}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 bg-white rounded-lg p-1.5 flex items-center justify-center shrink-0 shadow-sm border border-slate-100">
+                            <PaymentIcon src={opt.icon} name={opt.name} />
+                          </div>
+                          <span className={`text-xs truncate ${paymentMethod === opt.id ? 'text-blue-600 font-bold' : 'text-slate-600 font-medium'}`}>
+                            {opt.name}
+                          </span>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -272,7 +288,7 @@ export default function Paywall() {
             <p className="text-center text-[10px] text-slate-400 mt-6 font-bold uppercase tracking-widest">Secure 256-bit Encrypted Payment Gateway</p>
           </div>
         ) : (
-          /* PAYMENT PROCESSING VIEW (QRIS/VA) */
+          /* PAYMENT PROCESSING VIEW */
           <div className="w-full px-5 flex flex-col items-center animate-in zoom-in-95 duration-300 my-auto">
             <div className="bg-white rounded-[40px] p-8 w-full max-w-sm shadow-2xl text-center border border-slate-100">
               <h2 className="text-xl font-black text-slate-900 mb-2">Selesaikan Tagihan</h2>
@@ -327,20 +343,19 @@ export default function Paywall() {
   );
 }
 
-// Komponen BenefitItem Diupdate untuk Mendukung Mode Gelap (Premium VIP) dan Coretan yang Jelas
 function BenefitItem({ active, text, highlight, icon, dark }: { active?: boolean, text: string, highlight?: boolean, icon?: React.ReactNode, dark?: boolean }) {
   return (
-    <div className={`flex items-center gap-3`}>
-      <div className={`shrink-0 w-5 h-5 flex items-center justify-center`}>
+    <div className="flex items-start gap-3 w-full">
+      <div className="shrink-0 w-5 h-5 flex items-center justify-center mt-0.5">
         {active ? (
           <CheckCircle2 className={`w-4 h-4 ${highlight ? 'text-amber-400' : (dark ? 'text-emerald-400' : 'text-emerald-500')}`} />
         ) : (
           <X className={`w-4 h-4 ${dark ? 'text-slate-500' : 'text-slate-400'}`} />
         )}
       </div>
-      <div className="flex items-center gap-2">
-        {icon && <span className="text-amber-400">{icon}</span>}
-        <span className={`text-[12px] font-bold ${
+      <div className="flex items-start gap-2 min-w-0 flex-1">
+        {icon && <span className="text-amber-400 shrink-0 mt-0.5">{icon}</span>}
+        <span className={`text-xs font-bold leading-normal break-words ${
           active 
             ? (highlight ? 'text-amber-400' : (dark ? 'text-slate-100' : 'text-slate-700')) 
             : (dark ? 'text-slate-500 line-through' : 'text-slate-400 line-through')
