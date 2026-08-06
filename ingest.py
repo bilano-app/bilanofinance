@@ -72,22 +72,29 @@ def process_all_books():
         with open(file_path, 'r', encoding='utf-8') as file:
             full_text = file.read()
 
-        # Pisau Bedah AI: Memecah teks besar per bab
-        raw_chunks = re.split(r'(?i)chapter\s+[0-9IVXLCDM]+', full_text)
+        # LOGIKA BARU: Cari posisi index setiap kata "CHAPTER [Nomor]"
+        matches = list(re.finditer(r'(?i)chapter\s+[0-9IVXLCDM]+', full_text))
         
-        # FILTER CERDAS: Hanya simpan potongan teks yang panjangnya lebih dari 500 karakter (Bab Asli)
         valid_chapters = []
-        for chunk in raw_chunks:
-            clean_chunk = chunk.strip()
-            if len(clean_chunk) > 500:
-                valid_chapters.append(clean_chunk)
+        
+        # Ambil teks di antara penanda Chapter
+        for i in range(len(matches)):
+            start_pos = matches[i].start()
+            # Jika ini bab terakhir, ambil sampai ujung file teks
+            end_pos = matches[i+1].start() if i + 1 < len(matches) else len(full_text)
+            
+            chapter_content = full_text[start_pos:end_pos].strip()
+            
+            # Kita filter jika ada potongan yang tidak sengaja terambil sangat pendek
+            if len(chapter_content) > 500:
+                valid_chapters.append(chapter_content)
         
         if len(valid_chapters) == 0:
             print("⚠️ Gagal menemukan bab yang valid. Pastikan format buku sesuai.")
             continue
             
-        print(f"Ditemukan {len(valid_chapters)} bab asli. Mulai memproses dan menerjemahkan...")
-
+        print(f"Ditemukan {len(valid_chapters)} bab asli yang utuh. Mulai memproses...")
+        
         # Penomoran sekarang dijamin urut dan hanya berlaku untuk bab asli
         for index, chapter_text in enumerate(valid_chapters, start=1):
             

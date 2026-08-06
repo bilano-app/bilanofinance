@@ -43,17 +43,42 @@ export default function AcademyReader() {
         if (ebookId && chapterNum) fetchChapter();
     }, [ebookId, chapterNum]);
 
-    // Fungsi render teks dengan spesifikasi Times New Roman 12pt dan Justify
+    // Fungsi pintar untuk membersihkan format Markdown (##, **, dll)
     const renderContent = (content: string) => {
-        return content.split('\n').map((paragraph, idx) => (
-            paragraph.trim() ? (
+        if (!content) return null;
+
+        const lines = content.split('\n');
+
+        return lines.map((line, idx) => {
+            const trimmed = line.trim();
+            
+            // Baris kosong
+            if (!trimmed) return <br key={idx} />;
+
+            // JIKA SUB-JUDUL (Diawali #, ##, atau ###)
+            if (trimmed.startsWith('#')) {
+                // Hapus tanda # di awal dan rapikan teks judulnya
+                const cleanTitle = trimmed.replace(/^#+\s*/, '');
+                return (
+                    <h3 key={idx} className="text-lg font-bold text-slate-900 mt-6 mb-3 border-b border-slate-300 pb-1 font-serif">
+                        {cleanTitle}
+                    </h3>
+                );
+            }
+
+            // UNTUK PARAGRAF BIASA: Bersihkan cetak tebal (**) dan cetak miring (*)
+            const cleanParagraph = trimmed
+                .replace(/\*\*(.*?)\*\*/g, '$1') // Hapus **teks**
+                .replace(/\*(.*?)\*/g, '$1');    // Hapus *teks*
+
+            return (
                 <p key={idx} 
-                   className="mb-4 text-black text-justify"
-                   style={{ fontSize: '12pt', lineHeight: '1.6' }}>
-                    {paragraph}
+                   className="mb-4 text-slate-900 text-justify leading-relaxed"
+                   style={{ fontSize: '12pt', lineHeight: '1.7' }}>
+                    {cleanParagraph}
                 </p>
-            ) : <br key={idx} />
-        ));
+            );
+        });
     };
 
     return (
