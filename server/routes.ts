@@ -793,6 +793,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // =========================================================================
+// 🚀 ENDPOINT TAMBAHAN: STRATEGI PEMASUKAN BILANO AI (GEMINI)
+// =========================================================================
+
+// 1. Endpoint Mitigasi Modal / Strategi Modal (S13)
+app.post("/api/wealth/capital-strategy", async (req, res) => {
+    try {
+        const { totalCost, sisaDanaAman, profileData, selectedIdea } = req.body;
+        
+        const prompt = `
+        Anda adalah Sistem Manajemen Kekayaan Premium Bilano. Pengguna ingin mengeksekusi ide bisnis berikut:
+        Nama Bisnis: "${selectedIdea.title}"
+        Deskripsi: "${selectedIdea.pitch}"
+        
+        Kondisi Finansial Aktual Pengguna:
+        - Kebutuhan Modal Awal (RAB): Rp ${totalCost.toLocaleString('id-ID')}
+        - Sisa Dana Aman saat ini: Rp ${sisaDanaAman.toLocaleString('id-ID')}
+        
+        Analisis: Biaya modal awal melebihi atau memotong batas aman perlindungan operasional pengguna. Anda harus meracik 2 alternatif strategi finansial mitigasi yang taktis, realistis, aman, dan tanpa riba/pinjol ilegal.
+        
+        Berikan output dalam format JSON murni yang valid tanpa markdown (\`\`\`json). Jangan berikan saran generik seperti "pinjam bank". Fokus pada bootstrap, skema pre-order, dropship lokal, sewa alat, atau pemanfaatan aset yang sudah ada berdasarkan data profil pengguna:
+        Status Pengguna: ${profileData.status}
+        Aset Fisik: ${profileData.aset?.join(', ') || 'Tidak ada'}
+        Keahlian: ${profileData.keahlian?.join(', ') || 'Tidak ada'}
+        
+        Format JSON harus berupa array objek seperti ini:
+        [
+          {
+            "title": "Nama Strategi Singkat & Menarik",
+            "description": "Penjelasan detail taktis langkah demi langkah bagaimana menekan biaya atau mendapatkan modal awal tanpa mengganggu dana aman.",
+            "estimated_effort": "RENDAH | SEDANG | TINGGI"
+          }
+        ]
+        `;
+
+        // Panggil integrasi Gemini AI yang sudah ada di routes.ts Anda
+        const responseText = await callGeminiEngine(prompt); 
+        let parsedAI = parseCleanJson(responseText);
+
+        res.json({ success: true, data: parsedAI });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 2. Endpoint Bounded Discussion Chat Pemasaran / Strategi Jual (S14)
+app.post("/api/wealth/selling-chat", async (req, res) => {
+    try {
+        const { selectedIdea, profileData, chatHistory, currentMessage } = req.body;
+
+        const historyContext = chatHistory.map((m: any) => `${m.sender === 'user' ? 'Pengguna' : 'Mentor AI'}: ${m.text}`).join('\n');
+
+        const prompt = `
+        Anda adalah Mentor Bisnis & Pemasaran Mikro di aplikasi Bilano. Tugas Anda adalah membimbing pengguna menyusun strategi pemasaran untuk bisnis mereka:
+        Ide Bisnis: "${selectedIdea.title}"
+        Fokus Jurusan/Latar Belakang: "${profileData.latarBelakang || 'Umum'}"
+        Waktu yang Tersedia: ${profileData.konstrainWaktu?.jam_per_minggu || 10} jam/minggu
+        
+        ATURAN KETAT (ANTI-GENERIK):
+        1. JANGAN PERNAH menyarankan hal klise seperti "Jualan saja di Tokopedia/Shopee", "Buat akun TikTok", atau "Pasang iklan Instagram". Itu terlalu dangkal!
+        2. Berikan taktik gerilya lokal atau digital yang spesifik. Misalnya, jika latar belakang mereka adalah Akuntansi, sarankan menawarkan jasa pembukuan ke toko kelontong radius 2 km menggunakan taktik *free-audit* pintu ke pintu, atau teknik jemput bola spesifik.
+        3. Jaga respons tetap ringkas, padat, persuasif, dan maksimal 3-4 kalimat dalam bahasa Indonesia yang profesional namun santai.
+        
+        Histori Diskusi Sebelumnya:
+        ${historyContext || 'Belum ada diskusi. Ini adalah sapaan pertama Anda untuk memicu diskusi pemasaran.'}
+        
+        Pesan Terbaru Pengguna: "${currentMessage || '(Meminta inisialisasi diskusi)'}"
+        
+        Berikan jawaban langsung berupa teks tanggapan Anda sebagai Mentor AI (bukan JSON).
+        `;
+
+        const responseText = await callGeminiEngine(prompt, false); // false artinya return plain text, bukan JSON
+        res.json({ success: true, text: responseText.trim() });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 3. Endpoint Evaluasi Performa Omset / Bisnis Aktif (S15)
+app.post("/api/wealth/evaluate-revenue", async (req, res) => {
+    try {
+        const { selectedIdea, revenueLogs } = req.body;
+
+        const totalCuan = revenueLogs.reduce((acc: number, r: any) => acc + r.amount, 0);
+        const logsText = revenueLogs.map((l: any) => `- ${l.date}: Rp ${l.amount.toLocaleString('id-ID')} (${l.note})`).join('\n');
+
+        const prompt = `
+        Anda adalah Analis Keuangan & Auditor Bisnis PWA Bilano. Pengguna saat ini sedang menjalankan usaha: "${selectedIdea.title}".
+        Berikut adalah Buku Kas Penjualan/Omset riil yang dicatat oleh pengguna:
+        ${logsText}
+        
+        Total Akumulasi Cuan: Rp ${totalCuan.toLocaleString('id-ID')}
+        
+        Tugas Anda:
+        Berikan evaluasi performa bisnis yang objektif, tajam, analitis, dan solutif. Tinjau apakah tren penjualannya sehat, apa risiko operasional terdekatnya, dan berikan 1 rekomendasi konkret untuk melipatgandakan (scaling up) omset ini pada minggu berikutnya berdasarkan pola log tersebut.
+        
+        Berikan respons langsung berupa teks narasi (bantuan paragraf rapi dengan poin-poin singkat) dalam Bahasa Indonesia. Maksimal 150 kata. JANGAN berikan format JSON.
+        `;
+
+        const responseText = await callGeminiEngine(prompt, false);
+        res.json({ success: true, evaluation: responseText.trim() });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =========================================================================
+// 🧰 FUNGSI HELPER INTERNAL UNTUK IMPLEMENTASI DI ATAS
+// =========================================================================
+async function callGeminiEngine(prompt: string, expectJson: boolean = true): Promise<string> {
+    // Catatan: Fungsi ini memanfaatkan struktur pemanggilan model Gemini (seperti @google/generative-ai) 
+    // yang sudah Anda buat di bagian atas file routes.ts Anda.
+    // Pastikan Anda melemparkannya ke model "gemini-2.5-flash" atau "gemini-1.5-pro" yang aktif.
+    
+    // Contoh implementasi standar jika menggunakan fetch/SDK internal Bilano:
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + process.env.GEMINI_API_KEY, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: expectJson ? { responseMimeType: "application/json" } : undefined
+        })
+    });
+    
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error?.message || "Gagal memanggil Gemini AI");
+    return json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
+
+function parseCleanJson(text: string): any {
+    try {
+        let cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const jsonMatch = cleanText.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+        if (jsonMatch) cleanText = jsonMatch[0];
+        return JSON.parse(cleanText);
+    } catch (e) {
+        throw new Error("Gagal melakukan parsing output terstruktur dari AI.");
+    }
+}
+
   app.post("/api/auth/send-otp-reset", async (req: any, res: any) => {
       if (!firebaseAdminInitialized) return res.status(500).json({ error: "Sistem Admin belum dikonfigurasi di server Vercel." });
       const cleanEmail = (req.body.email || "").trim().toLowerCase();

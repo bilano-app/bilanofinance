@@ -166,7 +166,7 @@ export default function Paywall() {
             <div className="space-y-6 mb-10">
               
               {/* TIER: GRATIS */}
-              <div onClick={() => setActiveTier('free')} className={`bg-white rounded-[32px] p-6 border-2 transition-all ${activeTier === 'free' ? 'border-emerald-400 shadow-xl scale-[1.02]' : 'border-transparent shadow-sm'}`}>
+              <div onClick={() => setActiveTier('free')} className={`bg-white rounded-[32px] p-6 border-2 transition-all ${activeTier === 'free' ? 'border-emerald-400 shadow-xl scale-[1.02]' : 'border-slate-200 shadow-sm'}`}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <span className="text-[10px] font-black text-emerald-500 bg-emerald-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Tanpa Biaya</span>
@@ -174,17 +174,17 @@ export default function Paywall() {
                   </div>
                   <p className="text-2xl font-black">Rp 0</p>
                 </div>
-                <div className="space-y-3 pt-2 border-t border-slate-50">
-                  <BenefitItem active text="Pencatatan Kas Masuk" />
-                  <BenefitItem active text="Pencatatan Kas Keluar" />
-                  <BenefitItem text="Fitur Pilihan (Valas, Investasi, dll)" />
-                  <BenefitItem text="Grafik Performa & Target" />
-                  <BenefitItem text="Tanya AI Assistant" />
+                <div className="space-y-4 pt-4 border-t border-slate-100">
+                  <BenefitItem active text="Pencatatan kas dan piutang masuk" />
+                  <BenefitItem active text="Pencatatan kas dan utang keluar" />
+                  <BenefitItem text="Akses fitur pilihan" />
+                  <BenefitItem text="AI Assistant" />
+                  <BenefitItem text="Analisa Performa lengkap" />
                 </div>
               </div>
 
-              {/* TIER: STANDARD (DECOY) */}
-              <div onClick={() => setActiveTier('standard')} className={`bg-white rounded-[32px] p-6 border-2 transition-all relative ${activeTier === 'standard' ? 'border-blue-500 shadow-xl scale-[1.02]' : 'border-transparent shadow-sm'}`}>
+              {/* TIER: STANDARD */}
+              <div onClick={() => setActiveTier('standard')} className={`bg-white rounded-[32px] p-6 border-2 transition-all relative ${activeTier === 'standard' ? 'border-blue-500 shadow-xl scale-[1.02]' : 'border-slate-200 shadow-sm'}`}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <span className="text-[10px] font-black text-blue-500 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Pilihan Dasar</span>
@@ -195,35 +195,39 @@ export default function Paywall() {
                     <span className="text-[10px] text-slate-400 font-bold">/ bulan</span>
                   </div>
                 </div>
-                <div className="space-y-3 pt-2 border-t border-slate-50">
-                  <BenefitItem active text="Semua Fitur Paket Gratis" />
-                  <BenefitItem active text="Buka Fitur Valas, Hutang, Langganan" />
-                  <BenefitItem active text="Buka Analisa Performa & Grafik" />
-                  <BenefitItem active text="Tanya AI (Dibatasi 3x / Hari)" />
-                  <BenefitItem text="Wealth Blueprint & Academy" />
+                <div className="space-y-4 pt-4 border-t border-slate-100">
+                  <BenefitItem active text="Pencatatan kas dan piutang masuk" />
+                  <BenefitItem active text="Pencatatan kas dan utang keluar" />
+                  <BenefitItem active text="Akses fitur pilihan" />
+                  <BenefitItem active text="AI Assistant" />
+                  <BenefitItem active text="Analisa Performa lengkap" />
+                  <BenefitItem text="Fitur Panduan Penghasilan (Premium)" />
+                  <BenefitItem text="Fitur Bilano Academy (Premium)" />
                 </div>
               </div>
 
               {/* TIER: PREMIUM VIP (TARGET) */}
-              <div onClick={() => setActiveTier('premium')} className={`bg-white rounded-[32px] p-6 border-2 transition-all relative overflow-hidden ${activeTier === 'premium' ? 'border-amber-400 shadow-2xl scale-[1.03]' : 'border-transparent shadow-sm'}`}>
-                <div className="absolute top-0 right-0 bg-amber-400 text-amber-950 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest">Terpopuler</div>
+              <div onClick={() => setActiveTier('premium')} className={`bg-slate-900 rounded-[32px] p-6 border-2 transition-all relative overflow-hidden ${activeTier === 'premium' ? 'border-amber-400 shadow-2xl scale-[1.03]' : 'border-slate-800 shadow-sm'}`}>
+                <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-200 to-amber-500 text-amber-950 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-lg">Rekomendasi</div>
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Akses Penuh</span>
-                    <h3 className="text-xl font-black mt-2 flex items-center gap-2">Premium VIP <Crown className="w-5 h-5 fill-amber-500 text-amber-500"/></h3>
+                    <span className="text-[10px] font-black text-amber-950 bg-amber-400 px-2.5 py-1 rounded-lg uppercase tracking-wider">Akses Penuh</span>
+                    <h3 className="text-xl font-black mt-2 flex items-center gap-2 text-white">Premium VIP <Crown className="w-5 h-5 fill-amber-400 text-amber-400"/></h3>
                   </div>
                   <div className="text-right">
-                    {cycle === 'annual' && <p className="text-[11px] text-slate-300 line-through font-bold">Rp 12.900</p>}
-                    <p className="text-2xl font-black text-amber-500">Rp {prices.premium.toLocaleString('id-ID')}</p>
+                    {cycle === 'annual' && <p className="text-[11px] text-slate-400 line-through font-bold">Rp 12.900</p>}
+                    <p className="text-2xl font-black text-amber-400">Rp {prices.premium.toLocaleString('id-ID')}</p>
                     <span className="text-[10px] text-slate-400 font-bold">/ bulan</span>
                   </div>
                 </div>
-                <div className="space-y-3 pt-2 border-t border-slate-50">
-                  <BenefitItem active text="Semua Keunggulan Paket Standard" />
-                  <BenefitItem active text="Konsultasi Cerdas AI Tanpa Batas" />
-                  <BenefitItem active highlight icon={<Sparkles className="w-3.5 h-3.5"/>} text="Wealth Blueprint & Peta Cuan AI" />
-                  <BenefitItem active highlight icon={<BookOpen className="w-3.5 h-3.5"/>} text="Bilano Academy (E-Book VIP)" />
-                  <BenefitItem active highlight icon={<TrendingUp className="w-3.5 h-3.5"/>} text="Akses Expert Terminal (Desktop)" />
+                <div className="space-y-4 pt-4 border-t border-slate-700/50">
+                  <BenefitItem dark active text="Pencatatan kas dan piutang masuk" />
+                  <BenefitItem dark active text="Pencatatan kas dan utang keluar" />
+                  <BenefitItem dark active text="Akses fitur pilihan" />
+                  <BenefitItem dark active text="AI Assistant" />
+                  <BenefitItem dark active text="Analisa Performa lengkap" />
+                  <BenefitItem dark active highlight icon={<Sparkles className="w-4 h-4"/>} text="Fitur Panduan Penghasilan (Premium)" />
+                  <BenefitItem dark active highlight icon={<BookOpen className="w-4 h-4"/>} text="Fitur Bilano Academy (Premium)" />
                 </div>
               </div>
             </div>
@@ -232,7 +236,7 @@ export default function Paywall() {
             {activeTier !== 'free' && (
               <div className="flex flex-col gap-2 mb-8 relative" ref={dropdownRef}>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Metode Pembayaran</label>
-                <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="w-full bg-white border border-slate-100 rounded-2xl px-5 py-4 flex items-center justify-between shadow-sm group">
+                <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-4 flex items-center justify-between shadow-sm group hover:border-blue-300 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-slate-50 rounded-lg p-1.5 flex items-center justify-center shrink-0 border border-slate-100">
                       <PaymentIcon src={selectedMethodDetails.icon} name={selectedMethodDetails.name} />
@@ -242,10 +246,10 @@ export default function Paywall() {
                   <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {isDropdownOpen && (
-                  <ul className="absolute bottom-full left-0 w-full bg-white border border-slate-100 rounded-3xl shadow-2xl z-50 p-2 mb-2 max-h-60 overflow-y-auto animate-in slide-in-from-bottom-2">
+                  <ul className="absolute bottom-full left-0 w-full bg-white border border-slate-200 rounded-3xl shadow-2xl z-50 p-2 mb-2 max-h-60 overflow-y-auto animate-in slide-in-from-bottom-2">
                     {PAYMENT_OPTIONS.map((opt) => (
-                      <li key={opt.id} onClick={() => { setPaymentMethod(opt.id); setIsDropdownOpen(false); }} className={`flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-colors ${paymentMethod === opt.id ? 'bg-blue-50 border border-blue-100' : 'hover:bg-slate-50 border border-transparent'}`}>
-                        <div className="w-10 h-10 bg-white rounded-lg p-1.5 flex items-center justify-center shrink-0 shadow-sm"><PaymentIcon src={opt.icon} name={opt.name} /></div>
+                      <li key={opt.id} onClick={() => { setPaymentMethod(opt.id); setIsDropdownOpen(false); }} className={`flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-colors ${paymentMethod === opt.id ? 'bg-blue-50 border border-blue-200' : 'hover:bg-slate-50 border border-transparent'}`}>
+                        <div className="w-10 h-10 bg-white rounded-lg p-1.5 flex items-center justify-center shrink-0 shadow-sm border border-slate-100"><PaymentIcon src={opt.icon} name={opt.name} /></div>
                         <span className={`text-sm ${paymentMethod === opt.id ? 'text-blue-600 font-bold' : 'text-slate-600 font-medium'}`}>{opt.name}</span>
                       </li>
                     ))}
@@ -258,7 +262,7 @@ export default function Paywall() {
             <Button 
               onClick={handleCheckout} 
               disabled={isProcessing}
-              className={`w-full h-16 rounded-[24px] text-sm font-black tracking-widest flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${activeTier === 'premium' ? 'bg-amber-400 text-amber-950 shadow-amber-100' : (activeTier === 'standard' ? 'bg-blue-600 text-white shadow-blue-100' : 'bg-slate-900 text-white')}`}
+              className={`w-full h-16 rounded-[24px] text-sm font-black tracking-widest flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${activeTier === 'premium' ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-amber-950 hover:from-amber-300 hover:to-amber-400' : (activeTier === 'standard' ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-slate-900 text-white')}`}
             >
               {isProcessing ? <Loader2 className="w-6 h-6 animate-spin"/> : (
                 activeTier === 'free' ? "LANJUTKAN GRATIS" : <>AKTIFKAN VIP SEKARANG <ArrowRight className="w-5 h-5" /></>
@@ -270,14 +274,14 @@ export default function Paywall() {
         ) : (
           /* PAYMENT PROCESSING VIEW (QRIS/VA) */
           <div className="w-full px-5 flex flex-col items-center animate-in zoom-in-95 duration-300 my-auto">
-            <div className="bg-white rounded-[40px] p-8 w-full max-w-sm shadow-2xl text-center border border-slate-50">
+            <div className="bg-white rounded-[40px] p-8 w-full max-w-sm shadow-2xl text-center border border-slate-100">
               <h2 className="text-xl font-black text-slate-900 mb-2">Selesaikan Tagihan</h2>
               <p className="text-xs text-slate-400 mb-6 font-medium">Scan QRIS atau transfer menuju Virtual Account di bawah:</p>
 
-              <div className="bg-slate-50 rounded-3xl p-6 mb-6 border border-slate-100">
+              <div className="bg-slate-50 rounded-3xl p-6 mb-6 border border-slate-200">
                 {paymentDetails.qrString || paymentDetails.paymentUrl?.includes("qris") ? (
                   <div className="flex flex-col items-center">
-                    <div className="bg-white p-4 rounded-2xl shadow-sm mb-4">
+                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4">
                       <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(paymentDetails.qrString || paymentDetails.paymentUrl)}`} alt="QRIS" className="w-48 h-48" />
                     </div>
                     <span className="text-slate-400 text-[10px] font-black tracking-widest uppercase">Verifikasi Instan</span>
@@ -285,9 +289,9 @@ export default function Paywall() {
                 ) : (
                   <div className="text-left">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nomor Virtual Account</p>
-                    <div className="bg-white border border-slate-100 rounded-2xl p-4 flex justify-between items-center mb-4">
+                    <div className="bg-white border border-slate-200 rounded-2xl p-4 flex justify-between items-center mb-4">
                       <span className="text-xl font-black tracking-widest text-slate-800">{paymentDetails.vaNumber}</span>
-                      <button onClick={() => { navigator.clipboard.writeText(paymentDetails.vaNumber); toast({ description: "Berhasil disalin!" }); }} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl"><Copy className="w-4 h-4"/></button>
+                      <button onClick={() => { navigator.clipboard.writeText(paymentDetails.vaNumber); toast({ description: "Berhasil disalin!" }); }} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"><Copy className="w-4 h-4"/></button>
                     </div>
                   </div>
                 )}
@@ -298,11 +302,11 @@ export default function Paywall() {
               </div>
 
               <div className="space-y-3">
-                <Button onClick={handleRefreshStatus} disabled={isCheckingPayment} className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black text-xs tracking-widest flex items-center justify-center gap-2">
+                <Button onClick={handleRefreshStatus} disabled={isCheckingPayment} className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black text-xs tracking-widest flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors">
                   {isCheckingPayment ? <Loader2 className="w-5 h-5 animate-spin"/> : <RefreshCw className="w-5 h-5"/>}
                   CEK STATUS PEMBAYARAN
                 </Button>
-                <button onClick={() => setPaymentDetails(null)} className="text-[11px] font-bold text-slate-400 hover:text-slate-800 underline underline-offset-4">Ganti Metode Pembayaran</button>
+                <button onClick={() => setPaymentDetails(null)} className="text-[11px] font-bold text-slate-400 hover:text-slate-800 underline underline-offset-4 transition-colors">Ganti Metode Pembayaran</button>
               </div>
             </div>
           </div>
@@ -314,7 +318,7 @@ export default function Paywall() {
               <div className="w-16 h-16 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4"><AlertCircle className="w-8 h-8"/></div>
               <h3 className="text-xl font-black text-slate-900 mb-2">Belum Terbayar</h3>
               <p className="text-xs text-slate-500 leading-relaxed font-medium mb-6">Mutasi bank belum masuk. Tunggu 1-2 menit lalu klik Refresh kembali. Jika sudah bayar tapi gagal, hubungi Bantuan.</p>
-              <Button onClick={() => setShowPaymentAlert(false)} className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black text-xs">SAYA MENGERTI</Button>
+              <Button onClick={() => setShowPaymentAlert(false)} className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black text-xs hover:bg-slate-800 transition-colors">SAYA MENGERTI</Button>
             </div>
           </div>
         )}
@@ -323,15 +327,24 @@ export default function Paywall() {
   );
 }
 
-function BenefitItem({ active, text, highlight, icon }: { active?: boolean, text: string, highlight?: boolean, icon?: React.ReactNode }) {
+// Komponen BenefitItem Diupdate untuk Mendukung Mode Gelap (Premium VIP) dan Coretan yang Jelas
+function BenefitItem({ active, text, highlight, icon, dark }: { active?: boolean, text: string, highlight?: boolean, icon?: React.ReactNode, dark?: boolean }) {
   return (
-    <div className={`flex items-center gap-3 ${active ? 'opacity-100' : 'opacity-30'}`}>
+    <div className={`flex items-center gap-3`}>
       <div className={`shrink-0 w-5 h-5 flex items-center justify-center`}>
-        {active ? <CheckCircle2 className={`w-4 h-4 ${highlight ? 'text-amber-500' : 'text-emerald-500'}`} /> : <X className="w-4 h-4 text-slate-300" />}
+        {active ? (
+          <CheckCircle2 className={`w-4 h-4 ${highlight ? 'text-amber-400' : (dark ? 'text-emerald-400' : 'text-emerald-500')}`} />
+        ) : (
+          <X className={`w-4 h-4 ${dark ? 'text-slate-500' : 'text-slate-400'}`} />
+        )}
       </div>
       <div className="flex items-center gap-2">
-        {icon && <span className="text-amber-500">{icon}</span>}
-        <span className={`text-[12px] font-bold ${active ? (highlight ? 'text-amber-600' : 'text-slate-700') : 'text-slate-300 line-through'}`}>{text}</span>
+        {icon && <span className="text-amber-400">{icon}</span>}
+        <span className={`text-[12px] font-bold ${
+          active 
+            ? (highlight ? 'text-amber-400' : (dark ? 'text-slate-100' : 'text-slate-700')) 
+            : (dark ? 'text-slate-500 line-through' : 'text-slate-400 line-through')
+        }`}>{text}</span>
       </div>
     </div>
   );

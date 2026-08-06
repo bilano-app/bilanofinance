@@ -90,11 +90,11 @@ def process_all_books():
                 valid_chapters.append(chapter_content)
         
         if len(valid_chapters) == 0:
-            print("⚠️ Gagal menemukan bab yang valid. Pastikan format buku sesuai.")
+            print("⚠️ Gagal menemukn bab yang valid. Pastikan format buku sesuai.")
             continue
             
         print(f"Ditemukan {len(valid_chapters)} bab asli yang utuh. Mulai memproses...")
-        
+
         # Penomoran sekarang dijamin urut dan hanya berlaku untuk bab asli
         for index, chapter_text in enumerate(valid_chapters, start=1):
             
