@@ -296,7 +296,7 @@ function Router() {
         <Route path="/wealth-blueprint" component={WealthBlueprint} />
         <Route path="/academy" component={AcademyList} />
         <Route path="/academy/:ebookId/read/:chapterNum" component={AcademyReader} />
-
+      
         <Route component={NotFound} />
       </Switch>
 
