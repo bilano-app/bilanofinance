@@ -42,10 +42,13 @@ export default function Paywall() {
   const [paymentMethod, setPaymentMethod] = useState("SQ");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const premiumRef = useRef<HTMLDivElement>(null); // Ref baru untuk kotak Premium
+  
   const [paymentDetails, setPaymentDetails] = useState<any>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [showPaymentAlert, setShowPaymentAlert] = useState(false);
 
+  // Effect untuk klik di luar dropdown metode pembayaran
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsDropdownOpen(false);
@@ -53,6 +56,17 @@ export default function Paywall() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Effect baru untuk Auto-Scroll ke kotak Premium VIP saat halaman dibuka
+  useEffect(() => {
+    if (!paymentDetails) {
+      // Diberi jeda 300ms agar animasi halaman selesai terlebih dahulu
+      const timer = setTimeout(() => {
+        premiumRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [paymentDetails]);
 
   const selectedMethodDetails = PAYMENT_OPTIONS.find(p => p.id === paymentMethod) || PAYMENT_OPTIONS[0];
   const userEmail = localStorage.getItem("bilano_email") || user?.email || "";
@@ -202,15 +216,18 @@ export default function Paywall() {
                 </div>
               </div>
 
-              {/* TIER: PREMIUM VIP */}
-              <div onClick={() => setActiveTier('premium')} className={`bg-slate-900 rounded-[32px] p-6 border-2 transition-all relative overflow-hidden ${activeTier === 'premium' ? 'border-amber-400 shadow-2xl scale-[1.03]' : 'border-slate-800 shadow-sm'}`}>
+              {/* TIER: PREMIUM VIP - REF DITAMBAHKAN DI SINI */}
+              <div 
+                ref={premiumRef}
+                onClick={() => setActiveTier('premium')} 
+                className={`bg-slate-900 rounded-[32px] p-6 border-2 transition-all relative overflow-hidden ${activeTier === 'premium' ? 'border-amber-400 shadow-2xl scale-[1.03]' : 'border-slate-800 shadow-sm'}`}
+              >
                 <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-200 to-amber-500 text-amber-950 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-lg">Rekomendasi</div>
                 <div className="flex justify-between items-center mb-4 mt-2">
                   <div>
                     <span className="text-[10px] font-black text-amber-950 bg-amber-400 px-2.5 py-1 rounded-lg uppercase tracking-wider">Akses Penuh</span>
                     <h3 className="text-xl font-black mt-2 flex items-center gap-2 text-white">Premium VIP <Crown className="w-5 h-5 fill-amber-400 text-amber-400"/></h3>
                   </div>
-                  {/* PENYESUAIAN STRUKTUR HARGA CORET DI SINI */}
                   <div className="flex flex-col items-end justify-center min-h-[50px]">
                     {cycle === 'annual' && (
                       <p className="text-xs text-slate-400 line-through font-bold mb-0.5 leading-none">
@@ -235,7 +252,7 @@ export default function Paywall() {
               </div>
             </div>
 
-            {/* PAYMENT SELECTOR (DIPERBAIKI AGAR TIDAK KELUAR KOTAK) */}
+            {/* PAYMENT SELECTOR */}
             {activeTier !== 'free' && (
               <div className="flex flex-col gap-2 mb-8 relative" ref={dropdownRef}>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Metode Pembayaran</label>
