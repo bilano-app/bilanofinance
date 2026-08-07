@@ -857,6 +857,7 @@ export default function Home() {
         <div className="px-1 mt-4 mb-2 space-y-3">
             <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px]">Eksklusif Premium</h3>
             
+            {/* Tampilan Menu Premium pada Home.tsx */}
             <Link href="/wealth-blueprint">
                 <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 rounded-[24px] p-5 shadow-[0_8px_30px_rgba(30,41,59,0.2)] border border-indigo-500/20 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group mb-3">
                     <div className="absolute right-0 top-0 w-36 h-36 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-2xl pointer-events-none group-hover:from-emerald-500/20 transition-colors"></div>
@@ -869,10 +870,12 @@ export default function Home() {
                             </div>
                             <div>
                                 <div className="flex items-center gap-2 mb-0.5">
-                                    <h3 className="font-black text-white text-base tracking-tight">Panduan Penghasilan</h3>
+                                    {/* UBAH JUDUL DI SINI */}
+                                    <h3 className="font-black text-white text-base tracking-tight">Pembimbing Penghasilan</h3>
                                     <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-md border border-emerald-500/30 uppercase tracking-wider">LIVE</span>
                                 </div>
-                                <p className="text-[11px] text-indigo-200/70 font-medium">Pembimbing & Peta Jalur Cuan</p>
+                                {/* UBAH SUBJUDUL DI SINI */}
+                                <p className="text-[11px] text-indigo-200/70 font-medium">Strategi & Peta Jalur Cuan AI</p>
                             </div>
                         </div>
                         <ChevronRight className="w-5 h-5 text-indigo-400 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all"/>

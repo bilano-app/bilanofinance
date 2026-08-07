@@ -12,6 +12,7 @@ import admin from "firebase-admin";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 import { trackingEvents } from "../shared/schema.js";
+import { registerIncomeStrategyRoutes } from "./incomeStrategy.js";
 
 let firebaseAdminInitialized = false;
 try {
@@ -372,94 +373,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 🚀 BILANO WEALTH BLUEPRINT (STRATEGI PEMASUKAN)
   // =========================================================================
 
-  app.post("/api/wealth/recommendations", async (req: any, res: any) => {
-    try {
-        const user = await getUser(req);
-        if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
-
-        const { profile, financialSnapshot } = req.body;
-        const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
-        
-        const systemPrompt = `
-        Kamu adalah Mentor Bisnis dan Wealth Manager elit yang beroperasi di INDONESIA. 
-        Karaktermu: Sangat kritis, realistis, analitis, dan tidak suka basa-basi. Kamu seperti mentor masterclass premium yang membedah kapasitas muridnya.
-
-        Konteks Wajib (SANGAT PENTING):
-        1. Pasar adalah INDONESIA. Pertimbangkan daya beli lokal, tren hiper-lokal, dan kebiasaan masyarakat Indonesia.
-        2. Ekosistem platform yang relevan: WhatsApp, Instagram, TikTok, Shopee, Tokopedia, GoFood/GrabFood, atau jaringan komunitas darat (RT/RW/Kampus/Kantor).
-        3. DILARANG KERAS menyarankan tren dari luar negeri (Eropa/Amerika) yang tidak relevan, butuh modal besar yang tidak sesuai data, atau belum matang di Indonesia.
-
-        PROFIL PENGGUNA (Muridmu): 
-        ${JSON.stringify(profile)}
-        
-        KONDISI KEUANGAN: 
-        ${JSON.stringify(financialSnapshot)}
-        
-        TUGAS DEKONSTRUKSI:
-        1. Pindai profilnya. Apa aset dan skill nyata yang dia miliki SEKARANG?
-        2. Buat 2-4 kandidat ide penghasilan spesifik yang BISA DIEKSEKUSI HARI INI di Indonesia dengan modal yang dia punya.
-        3. Setiap saran harus didekonstruksi logikanya: mengapa ini masuk akal secara finansial dan operasional untuk profil ini. Jangan beri saran generik.
-        
-        FORMAT OUTPUT (WAJIB JSON MURNI TANPA MARKDOWN):
-        {
-          "recommendations": [
-            {
-              "id": "generate-random-id",
-              "title": "Judul spesifik (maks 8 kata, contoh: 'Jasa Titip Beli Lauk Tetangga via WA')",
-              "pitch": "1-2 kalimat penjelasan konkret cara kerjanya di lapangan.",
-              "why_it_fits": "Analisis tajam kenapa ini cocok dengan skill/aset/waktunya.",
-              "capital_level": "TANPA_MODAL | MODAL_KECIL | MODAL_SEDANG",
-              "needs_upskilling": true/false,
-              "upskilling_note": "Tindakan upskill spesifik (jika ada, misal: 'Tonton tutorial riset keyword Shopee')",
-              "difficulty": "MUDAH | SEDANG | MENANTANG",
-              "estimated_time_to_first_income": "Misal: '3-7 hari'",
-              "risk_note": "Risiko utama di pasar Indonesia (misal: 'Perang harga', 'Susah cari pelanggan pertama')"
-            }
-          ]
-        }`;
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
-                generationConfig: { temperature: 0.2, response_mime_type: "application/json" }
-            })
-        });
-
-        if (!response.ok) throw new Error("Gagal menghubungi AI Central.");
-        const aiData = await response.json();
-        const resultText = aiData.candidates[0].content.parts[0].text;
-        
-        res.json({ success: true, data: JSON.parse(resultText) });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/wealth/draft-materials", async (req: any, res: any) => {
-    try {
-        const { recommendation } = req.body;
-        const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
-
-        const systemPrompt = `
-        Ide yang dipilih: ${JSON.stringify(recommendation)}
-        Berikan draft daftar bahan/alat/kebutuhan awal untuk memulai ide ini dalam skala KECIL/percobaan.
-        Maksimal 6 item. Output JSON MURNI: { "draft_items": [{"id": "id-unik", "name": "...", "note": "...", "price": 0}] }`;
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
-                generationConfig: { temperature: 0.1, response_mime_type: "application/json" }
-            })
-        });
-
-        const aiData = await response.json();
-        res.json({ success: true, data: JSON.parse(aiData.candidates[0].content.parts[0].text) });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-  });
 
   app.post("/api/auth/send-otp", async (req: any, res: any) => {
       const cleanEmail = (req.body.email || "").trim().toLowerCase();
@@ -798,107 +711,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 // =========================================================================
 
 // 1. Endpoint Mitigasi Modal / Strategi Modal (S13)
-app.post("/api/wealth/capital-strategy", async (req, res) => {
-    try {
-        const { totalCost, sisaDanaAman, profileData, selectedIdea } = req.body;
-        
-        const prompt = `
-        Anda adalah Sistem Manajemen Kekayaan Premium Bilano. Pengguna ingin mengeksekusi ide bisnis berikut:
-        Nama Bisnis: "${selectedIdea.title}"
-        Deskripsi: "${selectedIdea.pitch}"
-        
-        Kondisi Finansial Aktual Pengguna:
-        - Kebutuhan Modal Awal (RAB): Rp ${totalCost.toLocaleString('id-ID')}
-        - Sisa Dana Aman saat ini: Rp ${sisaDanaAman.toLocaleString('id-ID')}
-        
-        Analisis: Biaya modal awal melebihi atau memotong batas aman perlindungan operasional pengguna. Anda harus meracik 2 alternatif strategi finansial mitigasi yang taktis, realistis, aman, dan tanpa riba/pinjol ilegal.
-        
-        Berikan output dalam format JSON murni yang valid tanpa markdown (\`\`\`json). Jangan berikan saran generik seperti "pinjam bank". Fokus pada bootstrap, skema pre-order, dropship lokal, sewa alat, atau pemanfaatan aset yang sudah ada berdasarkan data profil pengguna:
-        Status Pengguna: ${profileData.status}
-        Aset Fisik: ${profileData.aset?.join(', ') || 'Tidak ada'}
-        Keahlian: ${profileData.keahlian?.join(', ') || 'Tidak ada'}
-        
-        Format JSON harus berupa array objek seperti ini:
-        [
-          {
-            "title": "Nama Strategi Singkat & Menarik",
-            "description": "Penjelasan detail taktis langkah demi langkah bagaimana menekan biaya atau mendapatkan modal awal tanpa mengganggu dana aman.",
-            "estimated_effort": "RENDAH | SEDANG | TINGGI"
-          }
-        ]
-        `;
-
-        // Panggil integrasi Gemini AI yang sudah ada di routes.ts Anda
-        const responseText = await callGeminiEngine(prompt); 
-        let parsedAI = parseCleanJson(responseText);
-
-        res.json({ success: true, data: parsedAI });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 2. Endpoint Bounded Discussion Chat Pemasaran / Strategi Jual (S14)
-app.post("/api/wealth/selling-chat", async (req, res) => {
-    try {
-        const { selectedIdea, profileData, chatHistory, currentMessage } = req.body;
-
-        const historyContext = chatHistory.map((m: any) => `${m.sender === 'user' ? 'Pengguna' : 'Mentor AI'}: ${m.text}`).join('\n');
-
-        const prompt = `
-        Anda adalah Mentor Bisnis & Pemasaran Mikro di aplikasi Bilano. Tugas Anda adalah membimbing pengguna menyusun strategi pemasaran untuk bisnis mereka:
-        Ide Bisnis: "${selectedIdea.title}"
-        Fokus Jurusan/Latar Belakang: "${profileData.latarBelakang || 'Umum'}"
-        Waktu yang Tersedia: ${profileData.konstrainWaktu?.jam_per_minggu || 10} jam/minggu
-        
-        ATURAN KETAT (ANTI-GENERIK):
-        1. JANGAN PERNAH menyarankan hal klise seperti "Jualan saja di Tokopedia/Shopee", "Buat akun TikTok", atau "Pasang iklan Instagram". Itu terlalu dangkal!
-        2. Berikan taktik gerilya lokal atau digital yang spesifik. Misalnya, jika latar belakang mereka adalah Akuntansi, sarankan menawarkan jasa pembukuan ke toko kelontong radius 2 km menggunakan taktik *free-audit* pintu ke pintu, atau teknik jemput bola spesifik.
-        3. Jaga respons tetap ringkas, padat, persuasif, dan maksimal 3-4 kalimat dalam bahasa Indonesia yang profesional namun santai.
-        
-        Histori Diskusi Sebelumnya:
-        ${historyContext || 'Belum ada diskusi. Ini adalah sapaan pertama Anda untuk memicu diskusi pemasaran.'}
-        
-        Pesan Terbaru Pengguna: "${currentMessage || '(Meminta inisialisasi diskusi)'}"
-        
-        Berikan jawaban langsung berupa teks tanggapan Anda sebagai Mentor AI (bukan JSON).
-        `;
-
-        const responseText = await callGeminiEngine(prompt, false); // false artinya return plain text, bukan JSON
-        res.json({ success: true, text: responseText.trim() });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 3. Endpoint Evaluasi Performa Omset / Bisnis Aktif (S15)
-app.post("/api/wealth/evaluate-revenue", async (req, res) => {
-    try {
-        const { selectedIdea, revenueLogs } = req.body;
-
-        const totalCuan = revenueLogs.reduce((acc: number, r: any) => acc + r.amount, 0);
-        const logsText = revenueLogs.map((l: any) => `- ${l.date}: Rp ${l.amount.toLocaleString('id-ID')} (${l.note})`).join('\n');
-
-        const prompt = `
-        Anda adalah Analis Keuangan & Auditor Bisnis PWA Bilano. Pengguna saat ini sedang menjalankan usaha: "${selectedIdea.title}".
-        Berikut adalah Buku Kas Penjualan/Omset riil yang dicatat oleh pengguna:
-        ${logsText}
-        
-        Total Akumulasi Cuan: Rp ${totalCuan.toLocaleString('id-ID')}
-        
-        Tugas Anda:
-        Berikan evaluasi performa bisnis yang objektif, tajam, analitis, dan solutif. Tinjau apakah tren penjualannya sehat, apa risiko operasional terdekatnya, dan berikan 1 rekomendasi konkret untuk melipatgandakan (scaling up) omset ini pada minggu berikutnya berdasarkan pola log tersebut.
-        
-        Berikan respons langsung berupa teks narasi (bantuan paragraf rapi dengan poin-poin singkat) dalam Bahasa Indonesia. Maksimal 150 kata. JANGAN berikan format JSON.
-        `;
-
-        const responseText = await callGeminiEngine(prompt, false);
-        res.json({ success: true, evaluation: responseText.trim() });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // =========================================================================
 // 🧰 FUNGSI HELPER INTERNAL UNTUK IMPLEMENTASI DI ATAS
 // =========================================================================
@@ -2541,6 +2353,8 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
 
       } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
+
+  await registerIncomeStrategyRoutes(app);
   
   const httpServer = createServer(app);
   return httpServer;

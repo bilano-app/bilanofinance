@@ -123,9 +123,9 @@ import Onboarding from "@/pages/Onboarding";
 import VideoPreview from "@/pages/VideoPreview"; 
 import Checkout from "@/pages/Checkout";
 import Manager from "@/pages/Manager"; 
-import WealthBlueprint from "@/pages/WealthBlueprint";
 import AcademyList from "@/pages/AcademyList";
 import AcademyReader from "@/pages/AcademyReader";
+import IncomeStrategy from "@/pages/IncomeStrategy";
 
 
 function Router() {
@@ -293,9 +293,10 @@ function Router() {
         <Route path="/preview" component={VideoPreview} /> 
         <Route path="/checkout" component={Checkout} />
         <Route path="/manager" component={Manager} />
-        <Route path="/wealth-blueprint" component={WealthBlueprint} />
+        <Route path="/wealth-blueprint" component={IncomeStrategy} />
         <Route path="/academy" component={AcademyList} />
         <Route path="/academy/:ebookId/read/:chapterNum" component={AcademyReader} />
+        
       
         <Route component={NotFound} />
       </Switch>
