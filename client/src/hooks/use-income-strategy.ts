@@ -102,9 +102,10 @@ export function useSellingChat(attemptId: number | string) {
   });
 }
 
-export function useAddRevenue(attemptId: number | string) {
+// UPDATE: Hook untuk mencatat Omset (income) atau HPP/Beban (expense)
+export function useAddFinanceLog(attemptId: number | string) {
   return useMutation({
-    mutationFn: (payload: { amount: number; note?: string }) => apiSend(`/api/income-strategy/attempts/${attemptId}/revenue`, "POST", payload),
+    mutationFn: (payload: { amount: number; note?: string; type: 'income' | 'expense' }) => apiSend(`/api/income-strategy/attempts/${attemptId}/revenue`, "POST", payload),
   });
 }
 
@@ -114,10 +115,23 @@ export function useEvaluateAttempt(attemptId: number | string) {
   });
 }
 
+// Mempertahankan fungsi hapus bawaan jika suatu saat dibutuhkan
 export function useDeleteAttempt() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (attemptId: number | string) => apiSend(`/api/income-strategy/attempts/${attemptId}`, "DELETE"),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["income-attempts"] }),
+  });
+}
+
+// FITUR BARU: Membekukan bisnis & memicu cooldown 1 bulan
+export function useStopAttempt(attemptId: number | string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiSend(`/api/income-strategy/attempts/${attemptId}/stop`, "POST", {}),
+    onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["income-attempts"] });
+        qc.invalidateQueries({ queryKey: ["income-profile"] });
+    },
   });
 }

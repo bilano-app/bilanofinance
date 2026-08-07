@@ -40,6 +40,7 @@ function formatAttempt(row: any) {
     profileId: row.profile_id,
     recommendation: safeParse(row.recommendation, {}),
     state: row.state,
+    status: row.status,
     materials: safeParse(row.materials, []),
     totalCost: Number(row.total_cost) || 0,
     feasibilityVerdict: row.feasibility_verdict,
@@ -92,6 +93,12 @@ const ensureIncomeStrategyTables = async () => {
     `);
     await db.execute(sql`SELECT recommendations FROM income_profiles LIMIT 1`);
     await db.execute(sql`SELECT selling_notes, revenue_log FROM income_attempts LIMIT 1`);
+    
+    // Auto-Migrasi Kolom Baru tanpa menghapus tabel
+    await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS jejaring_sosial TEXT;`);
+    await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS preferensi_kerja TEXT;`);
+    await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS cooldown_until TIMESTAMP;`);
+    await db.execute(sql`ALTER TABLE income_attempts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ACTIVE';`);
   } catch (e) {
     await db.execute(sql`DROP TABLE IF EXISTS income_attempts`);
     await db.execute(sql`DROP TABLE IF EXISTS income_profiles`);
@@ -100,13 +107,14 @@ const ensureIncomeStrategyTables = async () => {
         id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, status TEXT, tujuan TEXT, pola_kerja TEXT,
         latar_belakang TEXT, keahlian TEXT DEFAULT '[]', keahlian_lainnya TEXT, aset TEXT DEFAULT '[]',
         konstrain_waktu TEXT DEFAULT '{}', recommendations TEXT DEFAULT '[]',
+        jejaring_sosial TEXT, preferensi_kerja TEXT, cooldown_until TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
       );
     `);
     await db.execute(sql`
       CREATE TABLE income_attempts (
         id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, profile_id INTEGER, recommendation TEXT DEFAULT '{}',
-        state TEXT DEFAULT 'MATERIALS', materials TEXT DEFAULT '[]', total_cost BIGINT DEFAULT 0,
+        state TEXT DEFAULT 'MATERIALS', status TEXT DEFAULT 'ACTIVE', materials TEXT DEFAULT '[]', total_cost BIGINT DEFAULT 0,
         feasibility_verdict TEXT, capital_plan TEXT, selling_notes TEXT DEFAULT '[]', revenue_log TEXT DEFAULT '[]',
         created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
       );
@@ -235,6 +243,8 @@ function fallbackQuestions(status: string) {
   return [
     { field_key: "tujuan", type: "single", question_text: "Apa tujuan utama kamu mencari penghasilan sekarang?", options: tujuanOpts },
     { field_key: "pola_kerja", type: "single", question_text: "Kamu lebih cocok dengan usaha yang jadwalnya rutin & tetap, atau yang fleksibel sesuai waktu luang?", options: [{ value: "RUTIN_TERJADWAL", label: "Rutin & terjadwal" }, { value: "FLEKSIBEL", label: "Fleksibel, sesuai waktu luang" }] },
+    { field_key: "jejaring_sosial", type: "single", question_text: "Seberapa luas jejaring atau koneksimu saat ini? (Teman nongkrong, organisasi, warga sekitar)", options: [{ value: "LUAS", label: "Luas (Banyak ikut organisasi/komunitas)" }, { value: "SEDANG", label: "Sedang (Ada teman dekat, tapi tidak banyak)" }, { value: "TERBATAS", label: "Terbatas (Lebih suka menyendiri)" }] },
+    { field_key: "preferensi_kerja", type: "single", question_text: "Dalam mengeksekusi ide, kamu lebih nyaman yang mana?", options: [{ value: "INTERAKSI_LANGSUNG", label: "Berani tatap muka / ngobrol langsung" }, { value: "BALIK_LAYAR", label: "Lebih suka di balik layar (chat / anonim)" }] },
     { field_key: "latar_belakang", type: "text", question_text: l.q, placeholder: l.p },
     { field_key: "keahlian", type: "multi", question_text: "Keahlian apa saja yang kamu punya?", options: keahlianOpts },
     { field_key: "aset", type: "multi", question_text: "Aset atau alat apa yang kamu punya yang bisa dipakai untuk usaha?", options: asetOpts },
@@ -263,7 +273,7 @@ function buildQuestionsPrompt(status: string) {
   return `Kamu menulis teks pertanyaan untuk fitur onboarding aplikasi keuangan pribadi bernama BILANO.
 Pengguna sudah menjawab status: ${status} (${STATUS_LABELS[status] || status}).
 
-Tulis 6 pertanyaan berurutan dalam Bahasa Indonesia yang natural, hangat, kontekstual untuk status ini.
+Tulis 8 pertanyaan berurutan dalam Bahasa Indonesia yang profesional, to-the-point, kontekstual, dan berwibawa ala Analis Bisnis.
 Gunakan sapaan "kamu", ringkas (maksimal 2 kalimat per pertanyaan), jangan kaku seperti formulir resmi.
 
 ATURAN PENTING: untuk field bertipe "single" dan "multi", kamu HANYA BOLEH menulis LABEL natural untuk
@@ -271,21 +281,26 @@ value yang sudah ditentukan di bawah — JANGAN mengubah, menambah, atau menghap
 
 1. field_key "tujuan", type "single": tanyakan tujuan utama mencari penghasilan.
    Value yang tersedia (jangan diubah): ${tujuanList}
-2. field_key "pola_kerja", type "single": tanyakan RUTIN_TERJADWAL (tetap/terjadwal) atau FLEKSIBEL
-   (bebas sesuai waktu luang). Sesuaikan framing dengan status ${status}.
-3. field_key "latar_belakang", type "text": tanyakan tentang ${latarHint[status] || latarHint.MAHASISWA}.
+2. field_key "pola_kerja", type "single": tanyakan RUTIN_TERJADWAL (tetap/terjadwal) atau FLEKSIBEL.
+3. field_key "jejaring_sosial", type "single": tanyakan luasnya koneksi sosial mereka. 
+   Value: LUAS, SEDANG, TERBATAS.
+4. field_key "preferensi_kerja", type "single": tanyakan tingkat kenyamanan eksekusi.
+   Value: INTERAKSI_LANGSUNG (ekstrovert/berani), BALIK_LAYAR (introvert/anonim).
+5. field_key "latar_belakang", type "text": tanyakan tentang ${latarHint[status] || latarHint.MAHASISWA}.
    Tulis question_text dan placeholder singkat untuk kolom isian.
-4. field_key "keahlian", type "multi": tanyakan keahlian yang dimiliki.
+6. field_key "keahlian", type "multi": tanyakan keahlian yang dimiliki.
    Value yang tersedia (jangan diubah): ${keahlianList}
-5. field_key "aset", type "multi": tanyakan aset/alat yang dimiliki yang bisa dipakai untuk usaha.
+7. field_key "aset", type "multi": tanyakan aset/alat yang dimiliki yang bisa dipakai untuk usaha.
    Value yang tersedia (jangan diubah): ${asetList}
-6. field_key "konstrain_waktu", type "text": tanyakan tentang ${konsHint[status] || konsHint.MAHASISWA}.
+8. field_key "konstrain_waktu", type "text": tanyakan tentang ${konsHint[status] || konsHint.MAHASISWA}.
    Tulis question_text dan placeholder singkat.
 
 Output HANYA JSON array (tanpa markdown, tanpa teks lain) persis format ini:
 [
  {"field_key":"tujuan","type":"single","question_text":"...","options":[{"value":"...","label":"..."}]},
  {"field_key":"pola_kerja","type":"single","question_text":"...","options":[{"value":"RUTIN_TERJADWAL","label":"..."},{"value":"FLEKSIBEL","label":"..."}]},
+ {"field_key":"jejaring_sosial","type":"single","question_text":"...","options":[{"value":"LUAS","label":"..."},{"value":"SEDANG","label":"..."},{"value":"TERBATAS","label":"..."}]},
+ {"field_key":"preferensi_kerja","type":"single","question_text":"...","options":[{"value":"INTERAKSI_LANGSUNG","label":"..."},{"value":"BALIK_LAYAR","label":"..."}]},
  {"field_key":"latar_belakang","type":"text","question_text":"...","placeholder":"..."},
  {"field_key":"keahlian","type":"multi","question_text":"...","options":[...]},
  {"field_key":"aset","type":"multi","question_text":"...","options":[...]},
@@ -294,42 +309,26 @@ Output HANYA JSON array (tanpa markdown, tanpa teks lain) persis format ini:
 }
 
 function buildRecommendationsPrompt(profile: any, snapshot: any) {
-  return `Kamu adalah penasihat penghasilan yang kritis dan realistis — bukan motivator generik.
-Tugasmu membantu pengguna aplikasi keuangan pribadi BILANO menemukan sumber penghasilan yang BENAR-BENAR
-cocok dengan kondisinya, bukan saran template yang bisa berlaku untuk siapa saja.
+  return `Kamu adalah PENGARAH BISNIS GERILYA spesialis pasar lokal Indonesia. 
+Tugasmu membongkar potensi pengguna berdasarkan profil psikologis, modal sosial, dan teknisnya.
 
-PROFIL PENGGUNA:
-- Status: ${profile.status}
-- Tujuan: ${profile.tujuan}
-- Pola kerja yang diinginkan: ${profile.polaKerja}
-- Latar belakang: ${profile.latarBelakang || "-"}
-- Keahlian: ${(profile.keahlian || []).join(", ") || "-"}${profile.keahlianLainnya ? ", " + profile.keahlianLainnya : ""}
-- Aset yang dimiliki: ${(profile.aset || []).join(", ") || "tidak ada aset khusus disebutkan"}
-- Konstrain waktu: ${JSON.stringify(profile.konstrainWaktu || {})}
+DATA PENGGUNA:
+- Jejaring Sosial: ${profile.jejaringSosial || 'Tidak diketahui'} | Preferensi Kerja: ${profile.preferensiKerja || 'Tidak diketahui'}
+- Status: ${profile.status} | Tujuan: ${profile.tujuan} | Pola: ${profile.polaKerja}
+- Latar Belakang: ${profile.latarBelakang || "-"}
+- Keahlian: ${(profile.keahlian || []).join(", ")} ${profile.keahlianLainnya ? ", " + profile.keahlianLainnya : ""}
+- Aset: ${(profile.aset || []).join(", ") || "Tidak ada aset spesifik"}
+- Konstrain Waktu: ${JSON.stringify(profile.konstrainWaktu || {})}
+- Saldo Kas Saat Ini: Rp${snapshot.saldo_saat_ini} (Pertimbangkan ini. Jangan berikan saran bermodal besar jika saldo menipis).
 
-KONDISI KEUANGAN:
-- Saldo kas saat ini: Rp${snapshot.saldo_saat_ini}
-- Rata-rata pemasukan bulanan: Rp${snapshot.rata2_pemasukan_bulanan}
-- Rata-rata pengeluaran bulanan: Rp${snapshot.rata2_pengeluaran_bulanan}
-- Ada utang: ${snapshot.ada_utang ? "ya, Rp" + snapshot.total_utang : "tidak"}
-
-LANGKAH KERJA (internal, jangan ditampilkan di output):
-1. Buat 5-6 kandidat ide penghasilan dari kombinasi status, keahlian, aset, dan waktu yang tersedia.
-2. Uji tiap kandidat: bisa dieksekusi dengan aset yang dipunya SEKARANG? Cocok pola kerja & waktu?
-   Realistis untuk level skill saat ini, atau perlu upskilling dulu?
-3. Buang kandidat generik atau yang tidak lolos uji.
-4. Pilih 2-4 kandidat terbaik.
-
-ATURAN KUALITAS (WAJIB):
-- SPESIFIK: bukan "jualan online" tapi misal "jual kue kering kemasan kecil untuk parcel, dipasarkan
-  lewat story WhatsApp dan grup mahasiswa satu kos".
-- Sebutkan eksplisit skill/aset/waktu APA dari profil yang membuat ide ini masuk akal untuk DIA.
-- Kalau butuh skill yang belum dipunya, sebutkan langkah upskilling paling minim & konkret.
-- Beri perkiraan waktu ke penghasilan pertama dengan disclaimer bukan jaminan.
-- Jangan sarankan yang melebihi kapasitas waktu yang disebutkan pengguna.
+ATURAN WAJIB (HYPER-LOKAL INDONESIA & ANTI-GENERIK):
+1. JANGAN PERNAH MENYARANKAN: "Jualan online di marketplace umum", "Jadi dropshipper generik", "Buat website", atau hal klise yang sudah basi.
+2. SARANKAN TAKTIK GERILYA LOKAL: Manfaatkan grup WA RT/RW, komunitas ibu-ibu PKK, titip warung, jastip teman sekampus, koperasi, atau tawarkan skill B2B ke pedagang/UMKM sekitar.
+3. Sesuaikan dengan 'Jejaring Sosial' & 'Preferensi Kerja'. Jika TERBATAS dan BALIK_LAYAR, arahkan ke digital anonim/jasa B2B di balik layar. Jika LUAS dan INTERAKSI_LANGSUNG, arahkan ke dominasi sirkel terdekat.
+4. Buat 2-4 ide bisnis tajam, langsung bisa dieksekusi HARI INI tanpa perlu izin rumit atau waktu setup lama.
 
 Output HANYA JSON (tanpa markdown) persis format ini:
-{"recommendations":[{"id":"rec_1","title":"judul spesifik maksimal 8 kata","pitch":"1-2 kalimat konkret","why_it_fits":"kaitkan eksplisit ke skill/aset/waktu pengguna","capital_level":"TANPA_MODAL atau MODAL_KECIL atau MODAL_SEDANG","needs_upskilling":true,"upskilling_note":"string atau null","difficulty":"MUDAH atau SEDANG atau MENANTANG","estimated_time_to_first_income":"string singkat","risk_note":"string singkat risiko utama"}]}`;
+{"recommendations":[{"id":"rec_1","title":"Judul Singkat & Provokatif (Maks 6 kata)","pitch":"1-2 kalimat konkret cara kerjanya di lapangan.","why_it_fits":"Analisa tajam kenapa ini sangat cocok dengan jejaring & skillnya.","capital_level":"TANPA_MODAL atau MODAL_KECIL atau MODAL_SEDANG","needs_upskilling":true,"upskilling_note":"Instruksi belajar cepat (jika ada)","difficulty":"MUDAH atau SEDANG atau MENANTANG","estimated_time_to_first_income":"Contoh: 1-3 hari","risk_note":"Risiko real di pasar lokal"}]}`;
 }
 
 function buildMaterialsDraftPrompt(recommendation: any) {
@@ -337,11 +336,9 @@ function buildMaterialsDraftPrompt(recommendation: any) {
 Judul: ${recommendation.title}
 Penjelasan: ${recommendation.pitch}
 
-Berikan draft daftar bahan/alat/kebutuhan awal untuk memulai ide ini dalam skala KECIL/percobaan
-(bukan skala besar/produksi massal). Maksimal 8 item. Kalau ada alternatif lebih murah, sebutkan
-singkat di catatan.
+Berikan draft RAB (Rencana Anggaran Biaya) untuk memulai ide ini dalam skala GERILYA/percobaan sangat minim (bukan produksi massal). Maksimal 8 item. Kalau ada alternatif gratis/lebih murah, sebutkan di catatan.
 
-Output HANYA JSON: {"draft_items":[{"name":"nama bahan/alat","note":"catatan singkat atau null"}]}`;
+Output HANYA JSON: {"draft_items":[{"name":"nama bahan/alat","note":"catatan trik murah/gratis atau null"}]}`;
 }
 
 function buildCapitalStrategyPrompt(totalCost: number, sisaDanaAman: number, selisih: number, context: string) {
@@ -350,43 +347,40 @@ Dana aman yang tersedia: Rp${Math.max(0, sisaDanaAman)}
 Kekurangan: Rp${selisih}
 Konteks tambahan dari pengguna: ${context || "tidak ada"}
 
-Berikan 2-3 opsi strategi mengumpulkan kekurangan modal. Setiap opsi konkret dan actionable.
-Pertimbangkan kategori berikut (sesuaikan, jangan asal pilih semua): menabung bertahap dengan
-proyeksi waktu, patungan/kolaborasi modal dengan teman/keluarga, mengurangi skala awal, meminjam
-alat/bahan yang tidak harus dibeli.
+Berikan 2-3 strategi gerilya untuk menutupi kekurangan modal tanpa meminjam ke pinjol/rentenir! (Misal: sistem pre-order, down payment klien, pinjam alat kerabat, jual barang tak terpakai, kurangi skala awal).
 
 Output HANYA JSON: {"options":[{"title":"...","description":"...","estimated_time_or_effort":"..."}]}`;
 }
 
 function buildSellingSystemPrompt(recommendation: any, profile: any, totalCost: number) {
-  return `Kamu adalah pendamping strategi jualan di aplikasi BILANO. Diskusikan strategi penjualan dengan
-pengguna untuk ide usaha berikut secara natural, satu topik per balasan — jangan dump semua sekaligus.
+  return `Kamu adalah Mentor Sales Agresif BILANO. 
+Ide Bisnis: ${recommendation?.title || "-"} (${recommendation?.pitch || "-"})
+Modal Siap: Rp${totalCost}
+Profil: ${profile?.status || "-"}, Jejaring: ${profile?.jejaringSosial || "-"}, Kerja: ${profile?.preferensiKerja || "-"}
 
-Ide usaha: ${recommendation?.title || "-"} — ${recommendation?.pitch || "-"}
-Modal sudah siap: Rp${totalCost}
-Status pengguna: ${profile?.status || "-"}
-Pola kerja yang diinginkan: ${profile?.polaKerja || "-"}
-
-Pertimbangkan channel yang REALISTIS untuk profil ini. Misalnya kalau status PELAJAR, banyak
-platform delivery/marketplace mensyaratkan usia dewasa (KTP) untuk daftar mitra — jadi channel yang
-lebih cocok adalah media sosial pribadi, WhatsApp/grup sekolah, atau titip jual offline lewat orang
-dewasa terdekat. Kalau PEKERJA dengan waktu terbatas, prioritaskan channel yang tidak butuh respons
-cepat terus-menerus (preorder terjadwal, bukan chat real-time sepanjang hari).
-
-Kalau ini balasan pertama di percakapan ini, mulai dengan SATU pertanyaan pembuka untuk memahami
-target pasar yang dia bayangkan — jangan langsung kasih semua saran sekaligus.
-Balas singkat, hangat, actionable (maksimal 4-5 kalimat), Bahasa Indonesia santai tapi kredibel.
-Balas dengan teks biasa, JANGAN JSON, jangan markdown berlebihan.`;
+Tugasmu membimbing pengguna untuk SEGERA closing/pecah telur.
+ATURAN MUTLAK:
+Setiap balasanmu WAJIB mengandung 1 TAKTIK EKSEKUSI AGRESIF YANG BISA DILAKUKAN HARI INI. 
+Contoh: "Jam 4 sore ini, copy paste template chat ini ke 5 teman terdekatmu: [Isi Chat]" atau "Buat 3 status WA berurutan dengan alur rasa penasaran, lalu tawarkan khusus untuk 3 pembeli pertama."
+JANGAN beri teori panjang lebar. JANGAN bertele-tele. Langsung berikan instruksi lapangan.
+Balas dengan teks biasa, ringkas, tegas, profesional, dan sedikit mendesak.`;
 }
 
 function buildEvaluationPrompt(recommendation: any, revenueLog: any[]) {
-  return `Progress usaha "${recommendation?.title || "-"}"
-Perkiraan awal waktu ke penghasilan pertama: ${recommendation?.estimated_time_to_first_income || "-"}
-Riwayat omset yang tercatat: ${JSON.stringify(revenueLog)}
+  const totalIncome = revenueLog.filter(l => l.type === 'income').reduce((a, b) => a + Number(b.amount), 0);
+  const totalExpense = revenueLog.filter(l => l.type === 'expense').reduce((a, b) => a + Number(b.amount), 0);
+  const netProfit = totalIncome - totalExpense;
 
-Berikan evaluasi singkat (3-4 kalimat): apakah progresnya sesuai perkiraan awal, dan SATU saran
-penyesuaian paling relevan (harga, channel, atau skala) berdasarkan data aktual di atas — bukan
-saran umum. Balas teks biasa, jangan JSON, jangan markdown berlebihan.`;
+  return `Evaluasi Bisnis: "${recommendation?.title || "-"}"
+Total Omset Masuk: Rp${totalIncome}
+Total Pengeluaran (HPP/Operasional Berjalan): Rp${totalExpense}
+LABA BERSIH SAAT INI: Rp${netProfit}
+
+Riwayat Pencatatan Kas Usaha: ${JSON.stringify(revenueLog)}
+
+Tugasmu: Berikan evaluasi bisnis super tajam (maks 4 kalimat). Tinjau margin keuntungannya (apakah sehat/bocor?). 
+WAJIB berikan 1 rekomendasi Pivot/Scaling ekstrem untuk minggu depan berdasarkan angka Laba Bersih di atas. (Contoh: "Hentikan promosi bakar uang di bahan X", atau "Naikkan harga 15%").
+Balas teks biasa, langsung ke poinnya.`;
 }
 
 // ============================================================
@@ -437,10 +431,12 @@ export function registerIncomeStrategyRoutes(app: Express) {
       const p = rows[0];
       res.json({
         id: p.id, status: p.status, tujuan: p.tujuan, polaKerja: p.pola_kerja,
+        jejaringSosial: p.jejaring_sosial, preferensiKerja: p.preferensi_kerja,
         latarBelakang: p.latar_belakang, keahlian: safeParse(p.keahlian, []),
         keahlianLainnya: p.keahlian_lainnya, aset: safeParse(p.aset, []),
         konstrainWaktu: safeParse(p.konstrain_waktu, {}),
         recommendations: safeParse(p.recommendations, []),
+        cooldownUntil: p.cooldown_until,
         updatedAt: p.updated_at,
       });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -456,7 +452,7 @@ export function registerIncomeStrategyRoutes(app: Express) {
 
       try {
         const questions = await askGeminiJSON(buildQuestionsPrompt(status), "Generate sekarang.");
-        if (!Array.isArray(questions) || questions.length < 6) throw new Error("format tidak lengkap");
+        if (!Array.isArray(questions) || questions.length < 8) throw new Error("format tidak lengkap");
         return res.json({ questions, source: "ai" });
       } catch (aiError) {
         return res.json({ questions: fallbackQuestions(status), source: "fallback" });
@@ -469,7 +465,7 @@ export function registerIncomeStrategyRoutes(app: Express) {
       await ensureIncomeStrategyTables();
       const user = await getUser(req);
       if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
-      const { status, tujuan, polaKerja, latarBelakang, keahlian, keahlianLainnya, aset, konstrainWaktu } = req.body;
+      const { status, tujuan, polaKerja, jejaringSosial, preferensiKerja, latarBelakang, keahlian, keahlianLainnya, aset, konstrainWaktu } = req.body;
 
       const existing = await db.execute(sql`SELECT id FROM income_profiles WHERE user_id = ${user.id} ORDER BY updated_at DESC LIMIT 1`);
       const existingRows = Array.isArray(existing) ? existing : (existing as any).rows || [];
@@ -477,16 +473,17 @@ export function registerIncomeStrategyRoutes(app: Express) {
       if (existingRows.length > 0) {
         await db.execute(sql`
           UPDATE income_profiles SET status = ${status}, tujuan = ${tujuan}, pola_kerja = ${polaKerja},
+            jejaring_sosial = ${jejaringSosial || null}, preferensi_kerja = ${preferensiKerja || null},
             latar_belakang = ${latarBelakang}, keahlian = ${JSON.stringify(keahlian || [])},
             keahlian_lainnya = ${keahlianLainnya || null}, aset = ${JSON.stringify(aset || [])},
-            konstrain_waktu = ${JSON.stringify(konstrainWaktu || {})}, updated_at = NOW()
+            konstrain_waktu = ${JSON.stringify(konstrainWaktu || {})}, updated_at = NOW(), cooldown_until = NULL
           WHERE id = ${existingRows[0].id}
         `);
         return res.json({ success: true, id: existingRows[0].id });
       }
       const inserted = await db.execute(sql`
-        INSERT INTO income_profiles (user_id, status, tujuan, pola_kerja, latar_belakang, keahlian, keahlian_lainnya, aset, konstrain_waktu)
-        VALUES (${user.id}, ${status}, ${tujuan}, ${polaKerja}, ${latarBelakang}, ${JSON.stringify(keahlian || [])}, ${keahlianLainnya || null}, ${JSON.stringify(aset || [])}, ${JSON.stringify(konstrainWaktu || {})})
+        INSERT INTO income_profiles (user_id, status, tujuan, pola_kerja, jejaring_sosial, preferensi_kerja, latar_belakang, keahlian, keahlian_lainnya, aset, konstrain_waktu)
+        VALUES (${user.id}, ${status}, ${tujuan}, ${polaKerja}, ${jejaringSosial || null}, ${preferensiKerja || null}, ${latarBelakang}, ${JSON.stringify(keahlian || [])}, ${keahlianLainnya || null}, ${JSON.stringify(aset || [])}, ${JSON.stringify(konstrainWaktu || {})})
         RETURNING id
       `);
       const insertedRows = Array.isArray(inserted) ? inserted : (inserted as any).rows || [];
@@ -505,9 +502,11 @@ export function registerIncomeStrategyRoutes(app: Express) {
       if (rows.length === 0) return res.status(400).json({ error: "Profil identifikasi belum lengkap." });
       const p = rows[0];
       const profile = {
-        status: p.status, tujuan: p.tujuan, polaKerja: p.pola_kerja, latarBelakang: p.latar_belakang,
-        keahlian: safeParse(p.keahlian, []), keahlianLainnya: p.keahlian_lainnya,
-        aset: safeParse(p.aset, []), konstrainWaktu: safeParse(p.konstrain_waktu, {}),
+        status: p.status, tujuan: p.tujuan, polaKerja: p.pola_kerja, 
+        jejaringSosial: p.jejaring_sosial, preferensiKerja: p.preferensi_kerja,
+        latarBelakang: p.latar_belakang, keahlian: safeParse(p.keahlian, []), 
+        keahlianLainnya: p.keahlian_lainnya, aset: safeParse(p.aset, []), 
+        konstrainWaktu: safeParse(p.konstrain_waktu, {}),
       };
       const snapshot = await getFinancialSnapshot(user.id, user.cashBalance);
 
@@ -574,8 +573,8 @@ export function registerIncomeStrategyRoutes(app: Express) {
       }));
 
       const inserted = await db.execute(sql`
-        INSERT INTO income_attempts (user_id, profile_id, recommendation, state, materials)
-        VALUES (${user.id}, ${profileId}, ${JSON.stringify(recommendation)}, 'MATERIALS', ${JSON.stringify(materials)})
+        INSERT INTO income_attempts (user_id, profile_id, recommendation, state, status, materials)
+        VALUES (${user.id}, ${profileId}, ${JSON.stringify(recommendation)}, 'MATERIALS', 'ACTIVE', ${JSON.stringify(materials)})
         RETURNING *
       `);
       const insertedRows = Array.isArray(inserted) ? inserted : (inserted as any).rows || [];
@@ -696,10 +695,10 @@ export function registerIncomeStrategyRoutes(app: Express) {
 
       const profileResult = await db.execute(sql`SELECT * FROM income_profiles WHERE id = ${attempt.profile_id}`);
       const profileRows = Array.isArray(profileResult) ? profileResult : (profileResult as any).rows || [];
-      const profile = profileRows[0] ? { status: profileRows[0].status, polaKerja: profileRows[0].pola_kerja } : {};
+      const profile = profileRows[0] ? { status: profileRows[0].status, polaKerja: profileRows[0].pola_kerja, jejaringSosial: profileRows[0].jejaring_sosial, preferensiKerja: profileRows[0].preferensi_kerja } : {};
 
       const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
-      let replyText = "Yuk cerita dulu, kamu bayangin jualan ini ke siapa? Teman satu sekolah/kampus, tetangga sekitar rumah, atau lewat media sosial ke orang yang lebih luas?";
+      let replyText = "Ayo mulai eksekusi taktik gerilya hari ini. Siap?";
       if (apiKey) {
         try {
           const systemPrompt = buildSellingSystemPrompt(recommendation, profile, Number(attempt.total_cost) || 0);
@@ -707,7 +706,7 @@ export function registerIncomeStrategyRoutes(app: Express) {
           if (message) history.push({ role: "user", parts: [{ text: message }] });
           const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ system_instruction: { parts: [{ text: systemPrompt }] }, contents: history.length ? history : [{ role: "user", parts: [{ text: "Mulai diskusi." }] }] }),
+            body: JSON.stringify({ system_instruction: { parts: [{ text: systemPrompt }] }, contents: history.length ? history : [{ role: "user", parts: [{ text: "Mulai instruksi taktis lapangan hari ini." }] }] }),
           });
           if (resp.ok) {
             const data = await resp.json();
@@ -728,9 +727,9 @@ export function registerIncomeStrategyRoutes(app: Express) {
   app.post("/api/income-strategy/attempts/:id/revenue", async (req: any, res: any) => {
     try {
       const user = await getUser(req);
-      const { amount, note } = req.body;
+      const { amount, note, type = 'income' } = req.body;
       const amt = Math.round(Number(amount) || 0);
-      if (amt <= 0) return res.status(400).json({ error: "Jumlah omset tidak valid." });
+      if (amt <= 0) return res.status(400).json({ error: "Jumlah tidak valid." });
 
       const result = await db.execute(sql`SELECT * FROM income_attempts WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
       const rows = Array.isArray(result) ? result : (result as any).rows || [];
@@ -739,17 +738,21 @@ export function registerIncomeStrategyRoutes(app: Express) {
       const recommendation = safeParse(attempt.recommendation, {});
       const revenueLog = safeParse(attempt.revenue_log, []);
 
-      const entry = { date: new Date().toISOString(), amount: amt, note: note || null };
+      const entry = { date: new Date().toISOString(), amount: amt, type: type, note: note || null };
       const updatedLog = [...revenueLog, entry];
 
       await db.execute(sql`UPDATE income_attempts SET revenue_log = ${JSON.stringify(updatedLog)}, state = 'TRACKING', updated_at = NOW() WHERE id = ${req.params.id}`);
 
+      const txType = type === 'income' ? 'income' : 'expense';
+      const txCat = type === 'income' ? 'Pemasukan Usaha' : 'Beban/HPP Usaha';
+      
       await storage.createTransaction(user!.id, {
-        userId: user!.id, type: "income", amount: amt,
-        category: "Pemasukan Usaha", description: `${recommendation.title || "Usaha sampingan"}${note ? " - " + note : ""}`,
+        userId: user!.id, type: txType, amount: amt,
+        category: txCat, description: `${recommendation.title || "Usaha sampingan"}${note ? " - " + note : ""}`,
         date: new Date(),
       } as any);
-      const newBalance = Math.round((user!.cashBalance || 0) + amt);
+      
+      const newBalance = Math.round((user!.cashBalance || 0) + (type === 'income' ? amt : -amt));
       await storage.updateUserBalance(user!.id, newBalance);
 
       res.json({ success: true, revenueLog: updatedLog, newBalance });
@@ -767,7 +770,7 @@ export function registerIncomeStrategyRoutes(app: Express) {
       const revenueLog = safeParse(attempt.revenue_log, []);
       if (revenueLog.length === 0) return res.status(400).json({ error: "Belum ada catatan omset untuk dievaluasi." });
 
-      const evaluation = (await askGeminiText(buildEvaluationPrompt(recommendation, revenueLog))) || "Terus catat omset kamu secara rutin supaya evaluasi berikutnya lebih akurat.";
+      const evaluation = (await askGeminiText(buildEvaluationPrompt(recommendation, revenueLog))) || "Terus catat keuangan Anda dengan cermat. Perhatikan selalu margin Laba Bersih sebelum menaikkan skala promosi.";
 
       const sellingNotes = safeParse(attempt.selling_notes, []);
       sellingNotes.push({ sender: "evaluation", text: evaluation, at: new Date().toISOString() });
@@ -782,6 +785,27 @@ export function registerIncomeStrategyRoutes(app: Express) {
       const user = await getUser(req);
       await db.execute(sql`DELETE FROM income_attempts WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
       res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // FITUR BARU: BERHENTI USAHA & COOLDOWN 1 BULAN
+  app.post("/api/income-strategy/attempts/:id/stop", async (req: any, res: any) => {
+    try {
+      const user = await getUser(req);
+      const attRes = await db.execute(sql`SELECT profile_id FROM income_attempts WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
+      const rows = Array.isArray(attRes) ? attRes : (attRes as any).rows || [];
+      if (rows.length === 0) return res.status(404).json({ error: "Percobaan usaha tidak ditemukan." });
+      const profileId = rows[0].profile_id;
+      
+      // Update attempt menjadi STOPPED
+      await db.execute(sql`UPDATE income_attempts SET status = 'STOPPED', updated_at = NOW() WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
+      
+      // Set Cooldown 30 Hari di Profile
+      const cooldownDate = new Date();
+      cooldownDate.setDate(cooldownDate.getDate() + 30);
+      await db.execute(sql`UPDATE income_profiles SET cooldown_until = ${cooldownDate.toISOString()} WHERE id = ${profileId}`);
+
+      res.json({ success: true, cooldownUntil: cooldownDate });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 }
