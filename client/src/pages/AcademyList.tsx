@@ -68,7 +68,7 @@ export default function AcademyList() {
                         {ebooks.map((ebook) => (
                             <div 
                                 key={ebook.id}
-                                onClick={() => setLocation(`/academy/${ebook.id}`)}
+                                onClick={() => setLocation(`/academy/${ebook.id}/read/1`)}
                                 className="group flex flex-col bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer border border-slate-100 overflow-hidden"
                             >
                                 {/* Wadah Cover Gambar (Rasio Buku Standar 2:3) */}

@@ -14,11 +14,11 @@ def process_direct():
     FOLDER_BUKU = "books_source"
 
     LIBRARY_CONFIG = {
-        "Extraordinary Popular Delusions and the Madness of Crowds.txt": {
-            "title": "Extraordinary Popular Delusions and the Madness of Crowds",
-            "author": "Charles Mackay",
-            "description": "Buku legendaris yang membedah psikologi massa, gelembung spekulasi, dan bagaimana manusia mudah tertipu oleh tren pasar sesaat.",
-            "cover_url": "https://www.gutenberg.org/cache/epub/24518/pg24518.cover.medium.jpg" # CONTOH LINK COVER DARI GUTENBERG
+        "The Science of Getting Rich.txt": {
+            "title": "The Science of Getting Rich",
+            "author": "Wallace D. Wattles",
+            "description": "Panduan klasik tentang filosofi kesuksesan finansial, membedah bagaimana pola pikir yang terarah dan tindakan yang tepat dapat menarik kekayaan tak terbatas.",
+            "cover_url": "https://isi-dengan-link-gambar-cover-dari-google.com/science-of-getting-rich.jpg"
         }
     }
 
