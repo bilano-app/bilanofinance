@@ -1,90 +1,110 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useRoute } from "wouter";
 import { ChevronLeft, BookOpen, Loader2 } from "lucide-react";
 import { useUser } from "@/hooks/use-finance";
 
 export default function AcademyReader() {
     const [, setLocation] = useLocation();
-    // Route disederhanakan: tidak butuh lagi /:chapterNum
-    const [match, params] = useRoute("/academy/:ebookId/read");
+    const [match, params] = useRoute("/academy/:ebookId/read/:chapterNum");
     const { data: user } = useUser();
     
     const ebookId = params?.ebookId;
+    const initialChapterNum = parseInt(params?.chapterNum || "1");
 
     const [chapters, setChapters] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isFetchingNext, setIsFetchingNext] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
+    
+    const [nextChapter, setNextChapter] = useState(initialChapterNum);
     const [hasMore, setHasMore] = useState(true);
-    const [nextChapter, setNextChapter] = useState(1);
+    const [isFetching, setIsFetching] = useState(false);
 
-    // Fetcher Otomatis: Memuat bab secara berurutan dan menumpuknya ke bawah
+    const observer = useRef<IntersectionObserver | null>(null);
+    
+    // 🔥 INFINITE SCROLL: Memicu pemanggilan bab berikutnya saat mencapai akhir kertas
+    const lastElementRef = useCallback((node: any) => {
+        if (isFetching || !hasMore) return;
+        if (observer.current) observer.current.disconnect();
+        
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting) {
+                setNextChapter(prev => prev + 1);
+            }
+        });
+        
+        if (node) observer.current.observe(node);
+    }, [isFetching, hasMore]);
+
     useEffect(() => {
         const fetchChapter = async () => {
             if (!ebookId || !hasMore) return;
-
+            
+            setIsFetching(true);
             try {
-                if (nextChapter === 1) setIsLoading(true);
-                else setIsFetchingNext(true);
-
                 const res = await fetch(`/api/ebooks/${ebookId}/chapters/${nextChapter}`);
                 const result = await res.json();
                 
                 if (res.status === 402) {
-                    setErrorMsg("Akses Premium Diperlukan. Silakan upgrade ke Bilano Pro.");
+                    if (chapters.length === 0) setErrorMsg("Akses Premium Diperlukan. Silakan upgrade ke Bilano Pro.");
                     setHasMore(false);
                     return;
                 }
 
                 if (result.success && result.data) {
-                    setChapters(prev => [...prev, result.data]);
-                    setNextChapter(prev => prev + 1); // Otomatis trigger muat bab berikutnya
+                    setChapters(prev => {
+                        // Mencegah duplikasi data jika di-render ulang
+                        if (prev.some(c => c.chapter_number === result.data.chapter_number)) return prev;
+                        return [...prev, result.data];
+                    });
                 } else {
-                    setHasMore(false); // Mentok, seluruh buku sudah dimuat
+                    setHasMore(false);
                 }
             } catch (e) {
-                if (nextChapter === 1) setErrorMsg("Terjadi kesalahan koneksi saat memuat buku.");
+                if (chapters.length === 0) setErrorMsg("Terjadi kesalahan koneksi saat memuat buku.");
                 setHasMore(false);
             } finally {
                 setIsLoading(false);
-                setIsFetchingNext(false);
+                setIsFetching(false);
             }
         };
         
         fetchChapter();
-    }, [ebookId, nextChapter, hasMore]);
+    }, [ebookId, nextChapter]);
 
-    // Parser Pintar untuk Markdown dan Paragraf
+    // 🔥 PARSER PINTAR: Merapikan format teks, judul, tebal/miring, dan spasi
     const renderContent = (content: string) => {
         if (!content) return null;
 
-        // Pisahkan berdasarkan ENTER GANDA (Paragraf sesungguhnya)
+        // Memisahkan berdasarkan enter ganda
         const blocks = content.split(/\n\s*\n/);
 
         return blocks.map((block, idx) => {
             let trimmed = block.trim();
             if (!trimmed) return null;
 
-            if (trimmed.startsWith('#')) {
-                const cleanTitle = trimmed.replace(/^#+\s*/, '');
+            // Jika itu adalah Judul/Sub-judul (dimulai dengan #)
+            if (/^#{1,6}\s+/.test(trimmed)) {
+                const cleanTitle = trimmed.replace(/^#{1,6}\s*/, '');
                 return (
-                    <h3 key={`h-${idx}`} className="text-xl font-bold text-slate-900 mt-8 mb-4 border-b border-slate-300 pb-2 font-serif">
+                    <h3 key={`h-${idx}`} className="text-lg font-bold text-slate-900 mt-6 mb-3 border-b border-slate-200 pb-2 font-serif">
                         {cleanTitle}
                     </h3>
                 );
             }
 
-            // Memperbaiki buku lama yang terlanjur terpotong enter tunggal di database
-            // Ganti enter tunggal menjadi spasi, lalu proses **tebal** dan *miring*
+            // Ubah kode Markdown menjadi HTML sesungguhnya
             let formattedHtml = trimmed
-                .replace(/\n/g, ' ') 
+                .replace(/</g, "&lt;").replace(/>/g, "&gt;") // Keamanan dasar
+                .replace(/!\[([^\]]*)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="my-6 max-w-full rounded shadow-sm mx-auto border border-slate-200" />')
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>');
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-blue-600 underline">$1</a>');
 
             return (
                 <p key={`p-${idx}`} 
-                   className="mb-4 text-slate-900 text-justify leading-relaxed"
-                   style={{ fontSize: '12pt', lineHeight: '1.7' }}
+                   className="mb-4 text-slate-800 text-justify"
+                   // Ukuran font sudah dikecilkan (10.5pt) agar lebih nyaman dibaca
+                   style={{ fontSize: '10.5pt', lineHeight: '1.65' }}
                    dangerouslySetInnerHTML={{ __html: formattedHtml }}
                 />
             );
@@ -92,8 +112,8 @@ export default function AcademyReader() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-200 flex flex-col font-sans">
-            {/* Header Sticky */}
+        <div className="min-h-screen bg-slate-300 flex flex-col font-sans">
+            {/* Header Navigasi */}
             <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-md px-4 py-4 flex items-center justify-between border-b border-slate-300 shadow-sm">
                 <div className="flex items-center gap-3">
                     <button onClick={() => setLocation("/academy")} className="w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full transition-colors">
@@ -108,11 +128,11 @@ export default function AcademyReader() {
                 </div>
             </div>
 
-            {/* Area Baca - Efek Kertas A4 Panjang */}
-            <div className="flex-1 flex justify-center p-4 md:p-8">
+            {/* 🔥 AREA BACA: Layout tumpukan lembar kertas A4 */}
+            <div className="flex-1 flex flex-col items-center p-4 md:p-8 gap-8">
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 opacity-50">
-                        <Loader2 className="w-8 h-8 animate-spin text-amber-500 mb-4" />
+                        <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-4" />
                         <p className="text-sm font-medium text-slate-600">Menyiapkan dokumen...</p>
                     </div>
                 ) : errorMsg ? (
@@ -125,38 +145,51 @@ export default function AcademyReader() {
                         </button>
                     </div>
                 ) : (
-                    <div className="animate-in fade-in duration-500 w-full flex flex-col items-center gap-4">
-                        <div 
-                            className="bg-white shadow-[0_10px_40px_rgba(0,0,0,0.15)] w-full max-w-[794px] min-h-[1123px] px-6 py-10 md:px-16 md:py-16"
-                            style={{ fontFamily: '"Times New Roman", Times, serif' }}
-                        >
-                            {chapters.map((chap, index) => (
-                                <div key={chap.id || index} className="mb-12">
-                                    {/* Sembunyikan judul jika isinya cuma tulisan generik "Bagian X" */}
+                    <>
+                        {chapters.map((chap, index) => {
+                            const isLastElement = chapters.length === index + 1;
+                            
+                            return (
+                                <div 
+                                    key={chap.id || index}
+                                    ref={isLastElement ? lastElementRef : null}
+                                    // Setelan ukuran persis kertas A4 dengan bayangan (Shadow)
+                                    className="bg-white shadow-xl w-full max-w-[794px] min-h-[1123px] px-8 py-12 md:px-16 md:py-16 relative"
+                                    style={{ fontFamily: '"Times New Roman", Times, serif' }}
+                                >
+                                    {/* Indikator Halaman / Bab di ujung bawah kertas */}
+                                    <div className="absolute bottom-6 right-8 text-xs text-slate-400 font-sans">
+                                        Bagian {chap.chapter_number}
+                                    </div>
+
                                     {!/^Bagian \d+$/i.test(chap.title) && (
-                                        <h2 className="text-2xl font-bold text-black mb-10 border-b-2 border-black pb-4 text-center">
+                                        <h2 className="text-xl font-bold text-black mb-8 border-b border-black pb-2 text-center">
                                             {chap.title}
                                         </h2>
                                     )}
+                                    
                                     <div className="tracking-wide">
                                         {renderContent(chap.content)}
                                     </div>
                                 </div>
-                            ))}
+                            );
+                        })}
+                        
+                        {/* Status Loading di bawah saat auto-fetch halaman berikutnya */}
+                        {isFetching && hasMore && (
+                            <div className="py-6 flex flex-col items-center">
+                                <Loader2 className="w-6 h-6 animate-spin text-slate-400 mb-2" />
+                                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Memuat halaman berikutnya...</p>
+                            </div>
+                        )}
 
-                            {isFetchingNext && (
-                                <div className="flex items-center justify-center py-8">
-                                    <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-                                </div>
-                            )}
-                            
-                            {!hasMore && !errorMsg && chapters.length > 0 && (
-                                <div className="text-center text-slate-400 italic text-sm mt-16 pt-8 border-t border-slate-200">
-                                    - Akhir dari Dokumen -
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                        {/* Indikator Buku Tamat */}
+                        {!hasMore && chapters.length > 0 && (
+                            <div className="py-10 text-slate-400 italic text-sm font-serif border-t border-slate-300/50 mt-4 w-full text-center max-w-[794px]">
+                                - Akhir dari Dokumen -
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>
