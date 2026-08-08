@@ -1,91 +1,99 @@
 import { useState, useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
-import { ChevronLeft, ChevronRight, BookOpen, Loader2 } from "lucide-react";
+import { ChevronLeft, BookOpen, Loader2 } from "lucide-react";
 import { useUser } from "@/hooks/use-finance";
 
 export default function AcademyReader() {
     const [, setLocation] = useLocation();
-    const [match, params] = useRoute("/academy/:ebookId/read/:chapterNum");
+    // Route disederhanakan: tidak butuh lagi /:chapterNum
+    const [match, params] = useRoute("/academy/:ebookId/read");
     const { data: user } = useUser();
     
     const ebookId = params?.ebookId;
-    const chapterNum = parseInt(params?.chapterNum || "1");
 
-    const [chapterData, setChapterData] = useState<any>(null);
+    const [chapters, setChapters] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isFetchingNext, setIsFetchingNext] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
+    const [hasMore, setHasMore] = useState(true);
+    const [nextChapter, setNextChapter] = useState(1);
 
+    // Fetcher Otomatis: Memuat bab secara berurutan dan menumpuknya ke bawah
     useEffect(() => {
         const fetchChapter = async () => {
-            setIsLoading(true);
-            setErrorMsg("");
+            if (!ebookId || !hasMore) return;
+
             try {
-                const res = await fetch(`/api/ebooks/${ebookId}/chapters/${chapterNum}`);
+                if (nextChapter === 1) setIsLoading(true);
+                else setIsFetchingNext(true);
+
+                const res = await fetch(`/api/ebooks/${ebookId}/chapters/${nextChapter}`);
                 const result = await res.json();
                 
                 if (res.status === 402) {
-                    setErrorMsg("Akses Premium Diperlukan. Silakan upgrade ke Bilano Pro untuk membaca koleksi elit ini.");
+                    setErrorMsg("Akses Premium Diperlukan. Silakan upgrade ke Bilano Pro.");
+                    setHasMore(false);
                     return;
                 }
 
-                if (result.success) {
-                    setChapterData(result.data);
+                if (result.success && result.data) {
+                    setChapters(prev => [...prev, result.data]);
+                    setNextChapter(prev => prev + 1); // Otomatis trigger muat bab berikutnya
                 } else {
-                    setErrorMsg(result.error || "Gagal memuat isi bab.");
+                    setHasMore(false); // Mentok, seluruh buku sudah dimuat
                 }
             } catch (e) {
-                setErrorMsg("Terjadi kesalahan koneksi saat memuat buku.");
+                if (nextChapter === 1) setErrorMsg("Terjadi kesalahan koneksi saat memuat buku.");
+                setHasMore(false);
             } finally {
                 setIsLoading(false);
+                setIsFetchingNext(false);
             }
         };
         
-        if (ebookId && chapterNum) fetchChapter();
-    }, [ebookId, chapterNum]);
+        fetchChapter();
+    }, [ebookId, nextChapter, hasMore]);
 
-    // Fungsi pintar untuk membersihkan format Markdown (##, **, dll)
+    // Parser Pintar untuk Markdown dan Paragraf
     const renderContent = (content: string) => {
         if (!content) return null;
 
-        const lines = content.split('\n');
+        // Pisahkan berdasarkan ENTER GANDA (Paragraf sesungguhnya)
+        const blocks = content.split(/\n\s*\n/);
 
-        return lines.map((line, idx) => {
-            const trimmed = line.trim();
-            
-            // Baris kosong
-            if (!trimmed) return <br key={idx} />;
+        return blocks.map((block, idx) => {
+            let trimmed = block.trim();
+            if (!trimmed) return null;
 
-            // JIKA SUB-JUDUL (Diawali #, ##, atau ###)
             if (trimmed.startsWith('#')) {
-                // Hapus tanda # di awal dan rapikan teks judulnya
                 const cleanTitle = trimmed.replace(/^#+\s*/, '');
                 return (
-                    <h3 key={idx} className="text-lg font-bold text-slate-900 mt-6 mb-3 border-b border-slate-300 pb-1 font-serif">
+                    <h3 key={`h-${idx}`} className="text-xl font-bold text-slate-900 mt-8 mb-4 border-b border-slate-300 pb-2 font-serif">
                         {cleanTitle}
                     </h3>
                 );
             }
 
-            // UNTUK PARAGRAF BIASA: Bersihkan cetak tebal (**) dan cetak miring (*)
-            const cleanParagraph = trimmed
-                .replace(/\*\*(.*?)\*\*/g, '$1') // Hapus **teks**
-                .replace(/\*(.*?)\*/g, '$1');    // Hapus *teks*
+            // Memperbaiki buku lama yang terlanjur terpotong enter tunggal di database
+            // Ganti enter tunggal menjadi spasi, lalu proses **tebal** dan *miring*
+            let formattedHtml = trimmed
+                .replace(/\n/g, ' ') 
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>');
 
             return (
-                <p key={idx} 
+                <p key={`p-${idx}`} 
                    className="mb-4 text-slate-900 text-justify leading-relaxed"
-                   style={{ fontSize: '12pt', lineHeight: '1.7' }}>
-                    {cleanParagraph}
-                </p>
+                   style={{ fontSize: '12pt', lineHeight: '1.7' }}
+                   dangerouslySetInnerHTML={{ __html: formattedHtml }}
+                />
             );
         });
     };
 
     return (
-        // Latar belakang diubah menjadi abu-abu seperti aplikasi PDF Reader (slate-200)
         <div className="min-h-screen bg-slate-200 flex flex-col font-sans">
-            
-            {/* Header Navigasi Atas */}
+            {/* Header Sticky */}
             <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-md px-4 py-4 flex items-center justify-between border-b border-slate-300 shadow-sm">
                 <div className="flex items-center gap-3">
                     <button onClick={() => setLocation("/academy")} className="w-10 h-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full transition-colors">
@@ -94,13 +102,13 @@ export default function AcademyReader() {
                     <div>
                         <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Bilano PDF Reader</p>
                         <h1 className="font-extrabold text-slate-900 text-sm line-clamp-1 max-w-[200px]">
-                            {chapterData ? chapterData.title : "Memuat dokumen..."}
+                            {chapters.length > 0 ? chapters[0].title : "Memuat dokumen..."}
                         </h1>
                     </div>
                 </div>
             </div>
 
-            {/* Area Baca - Efek Kertas A4 */}
+            {/* Area Baca - Efek Kertas A4 Panjang */}
             <div className="flex-1 flex justify-center p-4 md:p-8">
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 opacity-50">
@@ -117,44 +125,40 @@ export default function AcademyReader() {
                         </button>
                     </div>
                 ) : (
-                    <div className="animate-in fade-in duration-500 w-full flex justify-center">
-                        {/* ILUSI KERTAS A4 (max-width setara A4 web, putih, shadow tebal) */}
+                    <div className="animate-in fade-in duration-500 w-full flex flex-col items-center gap-4">
                         <div 
                             className="bg-white shadow-[0_10px_40px_rgba(0,0,0,0.15)] w-full max-w-[794px] min-h-[1123px] px-6 py-10 md:px-16 md:py-16"
                             style={{ fontFamily: '"Times New Roman", Times, serif' }}
                         >
-                            <h2 className="text-2xl font-bold text-black mb-10 border-b-2 border-black pb-4 text-center">
-                                {chapterData.title}
-                            </h2>
-                            <div className="tracking-wide">
-                                {renderContent(chapterData.content)}
-                            </div>
+                            {chapters.map((chap, index) => (
+                                <div key={chap.id || index} className="mb-12">
+                                    {/* Sembunyikan judul jika isinya cuma tulisan generik "Bagian X" */}
+                                    {!/^Bagian \d+$/i.test(chap.title) && (
+                                        <h2 className="text-2xl font-bold text-black mb-10 border-b-2 border-black pb-4 text-center">
+                                            {chap.title}
+                                        </h2>
+                                    )}
+                                    <div className="tracking-wide">
+                                        {renderContent(chap.content)}
+                                    </div>
+                                </div>
+                            ))}
+
+                            {isFetchingNext && (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                                </div>
+                            )}
+                            
+                            {!hasMore && !errorMsg && chapters.length > 0 && (
+                                <div className="text-center text-slate-400 italic text-sm mt-16 pt-8 border-t border-slate-200">
+                                    - Akhir dari Dokumen -
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
             </div>
-
-            {/* Footer Navigasi Pindah Bab */}
-            {!isLoading && !errorMsg && chapterData && (
-                <div className="sticky bottom-0 bg-white/90 backdrop-blur-md border-t border-slate-300 px-4 py-4 flex items-center justify-between shadow-[0_-4px_15px_rgba(0,0,0,0.05)]">
-                    <button 
-                        onClick={() => setLocation(`/academy/${ebookId}/read/${chapterNum - 1}`)}
-                        disabled={chapterNum <= 1}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm transition-colors ${chapterNum <= 1 ? 'opacity-30 cursor-not-allowed text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
-                    >
-                        <ChevronLeft className="w-4 h-4" /> Bab Sebelumnya
-                    </button>
-                    
-                    <span className="text-xs font-bold text-slate-500">Hal {chapterNum}</span>
-
-                    <button 
-                        onClick={() => setLocation(`/academy/${ebookId}/read/${chapterNum + 1}`)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-lg shadow-indigo-200 active:scale-95"
-                    >
-                        Bab Selanjutnya <ChevronRight className="w-4 h-4" />
-                    </button>
-                </div>
-            )}
         </div>
     );
 }

@@ -295,7 +295,7 @@ function Router() {
         <Route path="/manager" component={Manager} />
         <Route path="/wealth-blueprint" component={IncomeStrategy} />
         <Route path="/academy" component={AcademyList} />
-        <Route path="/academy/:ebookId/read/:chapterNum" component={AcademyReader} />
+        <Route path="/academy/:ebookId/read" component={AcademyReader} />
         
       
         <Route component={NotFound} />

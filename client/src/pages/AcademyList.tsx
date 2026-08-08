@@ -76,7 +76,7 @@ export default function AcademyList() {
                     <div className="text-center py-10 text-slate-500 text-sm">E-book tidak ditemukan.</div>
                 ) : (
                     filteredEbooks.map((book) => (
-                        <Link key={book.id} href={`/academy/${book.id}/read/1`}>
+                        <Link key={book.id} href={`/academy/${book.id}/read`}>
                             <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-4 rounded-2xl border border-slate-700 flex gap-4 cursor-pointer active:scale-[0.98] transition-transform relative overflow-hidden group">
                                 {/* Cover Placeholder */}
                                 <div className="w-20 h-28 bg-slate-800 rounded-lg shrink-0 border border-slate-700 flex flex-col items-center justify-center overflow-hidden relative shadow-[0_4px_10px_rgba(0,0,0,0.3)]">
