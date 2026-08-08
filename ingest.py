@@ -14,25 +14,11 @@ def process_direct():
     FOLDER_BUKU = "books_source"
 
     LIBRARY_CONFIG = {
-        "the Wealth of Nations.txt": {
-            "title": "The Wealth of Nations",
-            "author": "Adam Smith",
-            "description": "Buku klasik tentang ekonomi makro fundamental yang merevolusi cara dunia memandang pasar bebas."
-        },
-        "Lombard Street - A Description of the Money Market.txt": {
-            "title": "Lombard Street",
-            "author": "Walter Bagehot",
-            "description": "Membedah cara kerja pasar uang dan perbankan modern."
-        },
         "Extraordinary Popular Delusions and the Madness of Crowds.txt": {
             "title": "Extraordinary Popular Delusions and the Madness of Crowds",
             "author": "Charles Mackay",
-            "description": "Studi mendalam tentang psikologi pasar dan gelembung spekulasi."
-        },
-        "The art of money getting.txt": {
-            "title": "The Art of Money Getting",
-            "author": "P. T. Barnum",
-            "description": "Aturan emas mengenai manajemen keuangan pribadi."
+            "description": "Buku legendaris yang membedah psikologi massa, gelembung spekulasi, dan bagaimana manusia mudah tertipu oleh tren pasar sesaat.",
+            "cover_url": "https://www.gutenberg.org/cache/epub/24518/pg24518.cover.medium.jpg" # CONTOH LINK COVER DARI GUTENBERG
         }
     }
 

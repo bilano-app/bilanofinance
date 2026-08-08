@@ -1,116 +1,124 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
-import { ChevronLeft, BookOpen, Lock, Star, Search, Crown } from "lucide-react";
-import { MobileLayout } from "@/components/Layout"; // Asumsi Anda punya komponen ini
-import { useUser } from "@/hooks/use-finance"; 
+import { useLocation } from "wouter";
+import { BookOpen, Lock, Loader2, ChevronRight, TrendingUp } from "lucide-react";
+
+// Definisi Tipe Data Buku
+interface Ebook {
+    id: number;
+    title: string;
+    author: string;
+    description: string;
+    is_premium: boolean;
+    cover_url?: string; // Menangkap cover dari database
+}
 
 export default function AcademyList() {
     const [, setLocation] = useLocation();
-    const { data: user } = useUser();
-    const [ebooks, setEbooks] = useState<any[]>([]);
+    const [ebooks, setEbooks] = useState<Ebook[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [search, setSearch] = useState("");
 
-    // Fetch data dari API Backend yang sudah kita buat sebelumnya
     useEffect(() => {
         const fetchEbooks = async () => {
             try {
-                const res = await fetch("/api/ebooks");
-                const result = await res.json();
-                if (result.success) setEbooks(result.data);
-            } catch (e) {
-                console.error("Gagal memuat ebook:", e);
+                const response = await fetch("/api/ebooks");
+                const result = await response.json();
+                if (result.success) {
+                    setEbooks(result.data);
+                }
+            } catch (error) {
+                console.error("Gagal mengambil data buku:", error);
             } finally {
                 setIsLoading(false);
             }
         };
+
         fetchEbooks();
     }, []);
 
-    const filteredEbooks = ebooks.filter(book => 
-        book.title.toLowerCase().includes(search.toLowerCase()) || 
-        book.author.toLowerCase().includes(search.toLowerCase())
-    );
-
     return (
-        <div className="min-h-screen bg-[#0B0F19] text-slate-200 flex flex-col font-sans">
-            {/* Header VIP */}
-            <div className="sticky top-0 z-50 bg-[#0B0F19]/90 backdrop-blur-md px-4 py-4 flex items-center justify-between border-b border-slate-800">
-                <div className="flex items-center gap-3">
-                    <button onClick={() => setLocation("/")} className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded-full transition-colors">
-                        <ChevronLeft className="w-5 h-5 text-slate-300" />
-                    </button>
+        <div className="min-h-screen bg-slate-50 pb-20">
+            {/* Header Mewah */}
+            <div className="bg-slate-900 text-white pt-12 pb-20 px-6 rounded-b-[40px] shadow-lg">
+                <div className="max-w-6xl mx-auto flex items-center gap-4">
+                    <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/30">
+                        <TrendingUp className="w-6 h-6 text-slate-900" />
+                    </div>
                     <div>
-                        <h1 className="font-black text-white text-lg tracking-tight flex items-center gap-2">
-                            BILANO Academy
-                        </h1>
-                        <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Premium Library</p>
+                        <h1 className="text-2xl font-black tracking-tight">Bilano Academy</h1>
+                        <p className="text-slate-400 text-sm mt-1">Perpustakaan Eksklusif Ilmu Keuangan</p>
                     </div>
-                </div>
-                {user?.isPro ? (
-                    <div className="bg-amber-500/20 p-2 rounded-full border border-amber-500/30">
-                        <Crown className="w-5 h-5 text-amber-400" />
-                    </div>
-                ) : null}
-            </div>
-
-            {/* Search Bar */}
-            <div className="px-4 mt-6">
-                <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-1 flex items-center">
-                    <div className="pl-4 text-slate-400"><Search className="w-5 h-5" /></div>
-                    <input 
-                        type="text" 
-                        placeholder="Cari e-book ekonomi, investasi..."
-                        className="w-full bg-transparent text-sm text-white px-3 py-3 outline-none placeholder:text-slate-500"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
                 </div>
             </div>
 
-            {/* List Katalog */}
-            <div className="px-4 py-6 flex flex-col gap-4">
+            {/* Kontainer Grid Buku */}
+            <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-10">
                 {isLoading ? (
-                    <div className="text-center py-10 text-slate-500 text-sm">Memuat koleksi buku...</div>
-                ) : filteredEbooks.length === 0 ? (
-                    <div className="text-center py-10 text-slate-500 text-sm">E-book tidak ditemukan.</div>
+                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl shadow-sm border border-slate-100">
+                        <Loader2 className="w-8 h-8 animate-spin text-amber-500 mb-4" />
+                        <p className="text-sm text-slate-500 font-medium">Memuat koleksi buku...</p>
+                    </div>
+                ) : ebooks.length === 0 ? (
+                    <div className="text-center py-20 bg-white rounded-3xl shadow-sm border border-slate-100">
+                        <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                        <h3 className="text-lg font-bold text-slate-700">Belum Ada Buku</h3>
+                        <p className="text-slate-500 text-sm">Koleksi buku sedang dalam proses unggah.</p>
+                    </div>
                 ) : (
-                    filteredEbooks.map((book) => (
-                        <Link key={book.id} href={`/academy/${book.id}/read`}>
-                            <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-4 rounded-2xl border border-slate-700 flex gap-4 cursor-pointer active:scale-[0.98] transition-transform relative overflow-hidden group">
-                                {/* Cover Placeholder */}
-                                <div className="w-20 h-28 bg-slate-800 rounded-lg shrink-0 border border-slate-700 flex flex-col items-center justify-center overflow-hidden relative shadow-[0_4px_10px_rgba(0,0,0,0.3)]">
-                                    {book.coverUrl ? (
-                                        <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover" />
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8">
+                        {ebooks.map((ebook) => (
+                            <div 
+                                key={ebook.id}
+                                onClick={() => setLocation(`/academy/${ebook.id}`)}
+                                className="group flex flex-col bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer border border-slate-100 overflow-hidden"
+                            >
+                                {/* Wadah Cover Gambar (Rasio Buku Standar 2:3) */}
+                                <div className="w-full aspect-[2/3] relative overflow-hidden bg-slate-200">
+                                    {ebook.cover_url ? (
+                                        <img 
+                                            src={ebook.cover_url} 
+                                            alt={ebook.title}
+                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                        />
                                     ) : (
-                                        <>
-                                            <BookOpen className="w-8 h-8 text-slate-600 mb-2" />
-                                            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-black/60"></div>
-                                        </>
+                                        // Fallback kalau cover_url kosong/gagal muat
+                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-slate-800 p-4">
+                                            <span className="text-white font-serif font-bold text-center text-lg drop-shadow-md line-clamp-4">
+                                                {ebook.title}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Overlay Gradient Hitam di bawah cover biar dramatis */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                    
+                                    {/* Badge Premium (Jika ada) */}
+                                    {ebook.is_premium && (
+                                        <div className="absolute top-3 right-3 bg-amber-500 text-slate-900 p-1.5 rounded-full shadow-lg">
+                                            <Lock className="w-4 h-4" />
+                                        </div>
                                     )}
                                 </div>
 
-                                {/* Info E-Book */}
-                                <div className="flex flex-col justify-center flex-1">
-                                    {book.isPremium && (
-                                        <span className="bg-amber-500/10 text-amber-400 text-[9px] font-black px-2 py-0.5 rounded border border-amber-500/20 uppercase tracking-wider w-max mb-1.5 flex items-center gap-1">
-                                            <Star className="w-2.5 h-2.5 fill-amber-400" /> Premium
-                                        </span>
-                                    )}
-                                    <h3 className="font-extrabold text-white text-sm line-clamp-2 leading-tight mb-1 group-hover:text-amber-400 transition-colors">{book.title}</h3>
-                                    <p className="text-[11px] text-slate-400 mb-2">{book.author}</p>
+                                {/* Area Teks Info Buku */}
+                                <div className="p-4 flex flex-col flex-grow">
+                                    <h3 className="font-bold text-slate-800 text-sm md:text-base leading-tight line-clamp-2 mb-1 group-hover:text-indigo-600 transition-colors">
+                                        {ebook.title}
+                                    </h3>
+                                    <p className="text-xs text-slate-500 font-medium mb-3">
+                                        {ebook.author}
+                                    </p>
                                     
-                                    <div className="mt-auto flex items-center justify-between">
-                                        <p className="text-[10px] text-slate-500 line-clamp-1 flex-1 pr-2">{book.description}</p>
-                                        {/* Gembok jika buku premium dan user belum bayar */}
-                                        {book.isPremium && !user?.isPro && (
-                                            <Lock className="w-4 h-4 text-rose-500 shrink-0" />
-                                        )}
+                                    {/* Tombol Aksi di Bawah (Mendorong ke bawah) */}
+                                    <div className="mt-auto flex items-center justify-between pt-3 border-t border-slate-100">
+                                        <span className="text-[11px] font-bold text-amber-500 tracking-wider uppercase">
+                                            Baca Sekarang
+                                        </span>
+                                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors" />
                                     </div>
                                 </div>
                             </div>
-                        </Link>
-                    ))
+                        ))}
+                    </div>
                 )}
             </div>
         </div>
