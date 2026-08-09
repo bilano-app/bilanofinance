@@ -52,7 +52,6 @@ export default function AcademyReader() {
 
                 if (result.success && result.data) {
                     setChapters(prev => {
-                        // Mencegah duplikasi data jika di-render ulang
                         if (prev.some(c => c.chapter_number === result.data.chapter_number)) return prev;
                         return [...prev, result.data];
                     });
@@ -71,18 +70,17 @@ export default function AcademyReader() {
         fetchChapter();
     }, [ebookId, nextChapter]);
 
-    // 🔥 PARSER HIRARKI PINTAR: Merapikan format teks, otomatisasi judul tingkat tinggi, tebal, dan spasi
+    // 🔥 PARSER HIRARKI PINTAR: Merapikan format teks, judul, tebal, dan spasi
     const renderContent = (content: string) => {
         if (!content) return null;
 
-        // Memisahkan teks berdasarkan baris baru bawaan database
         const lines = content.split('\n');
 
         return lines.map((line, index) => {
             const trimmedLine = line.trim();
-            if (!trimmedLine) return <div key={index} className="h-3" />; // Jarak spasi paragraf ideal
+            if (!trimmedLine) return <div key={index} className="h-3" />;
 
-            // Bersihkan sisa metadata Gutenberg yang lolos di database
+            // Filter metadata bawaan Gutenberg
             if (
                 trimmedLine.toLowerCase().includes("gutenberg") || 
                 trimmedLine.toLowerCase().includes("produced by") ||
@@ -95,8 +93,7 @@ export default function AcademyReader() {
                 return null; 
             }
 
-            // 1. HIRARKI TINGKAT 1: BUKU UTAMA / BAGIAN BESAR (Center & Sangat Besar)
-            // Mendeteksi pola: "BUKU I.", "BUKU II", "BOOK ONE", "PART 1", dsb.
+            // 1. HIRARKI TINGKAT 1: BUKU UTAMA / BAGIAN BESAR
             const isMainBook = /^(buku|book|part|volume)\s+([ivx0-9]+|one|two|three|four|five)\b/i.test(trimmedLine);
 
             if (isMainBook) {
@@ -110,8 +107,7 @@ export default function AcademyReader() {
                 );
             }
 
-            // 2. HIRARKI TINGKAT 2: BAB / CHAPTER UTAMA (Tebal & Rata Kiri-Kanan/Kiri)
-            // Mendeteksi pola: "BAB I.", "CHAPTER IV", "BAB 1", "BAB XI."
+            // 2. HIRARKI TINGKAT 2: BAB / CHAPTER UTAMA
             const isChapter = /^(bab|chapter|section)\s+([ivx0-9]+)\b/i.test(trimmedLine);
 
             if (isChapter) {
@@ -125,8 +121,7 @@ export default function AcademyReader() {
                 );
             }
 
-            // 3. HIRARKI TINGKAT 3: SUB-BAB / PENGANTAR (Miring & Semi-bold)
-            // Mendeteksi kata transisi kunci, atau baris pendek (< 75 karakter) bertipe kapital awal tanpa diakhiri titik
+            // 3. HIRARKI TINGKAT 3: SUB-BAB / PENGANTAR
             const isSubChapter = /^(prakata|pendahuluan|intro|kesimpulan|daftar isi|rencana pekerjaan)\b/i.test(trimmedLine) || 
                                  (trimmedLine.length < 75 && /^[A-Z]/.test(trimmedLine) && !trimmedLine.endsWith('.'));
 
@@ -141,11 +136,11 @@ export default function AcademyReader() {
                 );
             }
 
-            // 4. PARAGRAF BUKU STANDAR (Justify & Indentasi Masuk Khas Buku Cetak Resmi)
+            // 4. PARAGRAF BUKU STANDAR
             return (
                 <p 
                     key={index} 
-                    className="text-slate-800 text-[11px] md:text-xs leading-relaxed text-justify mb-2.5 font-serif tracking-normal indent-6"
+                    className="text-slate-800 text-xs md:text-sm leading-relaxed text-justify mb-3 font-serif tracking-normal indent-6"
                 >
                     {trimmedLine}
                 </p>
@@ -170,7 +165,7 @@ export default function AcademyReader() {
                 </div>
             </div>
 
-            {/* AREA BACA UTAMA: Layout Kertas Cetak A5 Premium */}
+            {/* AREA BACA UTAMA: Lembaran Kertas Tanpa Inner Scrollbar */}
             <div className="flex-1 flex flex-col items-center p-4 md:p-6 gap-6">
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 opacity-50">
@@ -195,11 +190,10 @@ export default function AcademyReader() {
                                 <div 
                                     key={chap.id || index}
                                     ref={isLastElement ? lastElementRef : null}
-                                    // 🔥 INTEGRASI RASIO A5 MUTLAK: Lebar 560px, Tinggi 792px, lengkap dengan pembagian halaman otomatis internal
-                                    className="bg-white shadow-2xl w-full max-w-[560px] min-h-[792px] max-h-[792px] overflow-y-auto px-8 py-10 md:px-12 md:py-12 rounded-sm border border-slate-200 relative transition-all duration-300 font-serif flex flex-col"
-                                    style={{ contentVisibility: 'auto' }}
+                                    /* 🔥 FIX MUTLAK: min-h-[750px] h-auto tanpa max-h/overflow internal */
+                                    className="bg-white shadow-2xl w-full max-w-[560px] min-h-[750px] h-auto px-8 py-10 md:px-12 md:py-12 rounded-sm border border-slate-200 relative transition-all duration-300 font-serif flex flex-col"
                                 >
-                                    {/* Judul Atas Halaman Buku (Running Header) */}
+                                    {/* Running Header */}
                                     <div className="w-full text-center border-b border-slate-100 pb-2 mb-4 text-[9px] text-slate-400 font-sans tracking-widest uppercase">
                                         {chapters.length > 0 ? chapters[0].title : "Bilano Academy"}
                                     </div>
@@ -209,15 +203,15 @@ export default function AcademyReader() {
                                         {renderContent(chap.content)}
                                     </div>
 
-                                    {/* Indikator Nomor Halaman Cetak di Bagian Bawah Kertas */}
-                                    <div className="w-full text-center pt-4 mt-2 text-[10px] text-slate-400 font-sans tracking-wider border-t border-slate-50">
+                                    {/* Indikator Halaman di Bawah Kertas */}
+                                    <div className="w-full text-center pt-4 mt-6 text-[10px] text-slate-400 font-sans tracking-wider border-t border-slate-50">
                                         Halaman {chap.chapter_number}
                                     </div>
                                 </div>
                             );
                         })}
                         
-                        {/* Status Loading di bawah saat auto-fetch halaman berikutnya */}
+                        {/* Status Loading saat auto-fetch */}
                         {isFetching && hasMore && (
                             <div className="py-4 flex flex-col items-center">
                                 <Loader2 className="w-5 h-5 animate-spin text-slate-500 mb-1.5" />
@@ -225,7 +219,7 @@ export default function AcademyReader() {
                             </div>
                         )}
 
-                        {/* Indikator Buku Tamat */}
+                        {/* Indikator Tamat */}
                         {!hasMore && chapters.length > 0 && (
                             <div className="py-8 text-slate-500 italic text-xs font-serif mt-2 w-full text-center max-w-[560px] tracking-wide">
                                 • Akhir dari Koleksi Dokumen •
