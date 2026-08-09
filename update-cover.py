@@ -8,11 +8,11 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 def update_Covers():
     # Jalur folder disesuaikan: Murni pakai '/Cover/' sesuai folder asli lu!
     koleksi_Cover = {
-        "Extraordinary Popular Delusions and the Madness of Crowds": "/Cover/Delusions.png",
-        "The Wealth of Nations": "/Cover/Wealth.jpg",
-        "Lombard Street": "/Cover/Description.png",
-        "The Art of Money Getting": "/Cover/The Art.png",
-        "The Science of Getting Rich": "/Cover/Science.jpg"
+        "Extraordinary Popular Delusions and the Madness of Crowds": "/Cover/Cover/Delusions.png",
+        "The Wealth of Nations": "/Cover/Cover/Wealth.jpg",
+        "Lombard Street": "/Cover/Cover/Description.png",
+        "The Art of Money Getting": "/Cover/Cover/The Art.png",
+        "The Science of Getting Rich": "/Cover/Cover/Science.jpg"
     }
 
     try:

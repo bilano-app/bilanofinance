@@ -72,41 +72,48 @@ export default function AcademyReader() {
     }, [ebookId, nextChapter]);
 
     // 🔥 PARSER PINTAR: Merapikan format teks, judul, tebal/miring, dan spasi
+    // Ubah atau ganti fungsi renderContent yang ada dengan regex otomatis ini
     const renderContent = (content: string) => {
         if (!content) return null;
 
-        // Memisahkan berdasarkan enter ganda
-        const blocks = content.split(/\n\s*\n/);
+        // Memisahkan teks berdasarkan baris baru bawaan database
+        const lines = content.split('\n');
 
-        return blocks.map((block, idx) => {
-            let trimmed = block.trim();
-            if (!trimmed) return null;
+        return lines.map((line, index) => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) return <div key={index} className="h-4" />; // Spasi antar paragraf
 
-            // Jika itu adalah Judul/Sub-judul (dimulai dengan #)
-            if (/^#{1,6}\s+/.test(trimmed)) {
-                const cleanTitle = trimmed.replace(/^#{1,6}\s*/, '');
+            // Otomatis bersihkan metadata Gutenberg jika menyelinap masuk ke dalam bab
+            if (
+                trimmedLine.toLowerCase().includes("gutenberg") || 
+                trimmedLine.toLowerCase().includes("produced by") ||
+                trimmedLine.toLowerCase().includes("release date")
+            ) {
+                return null; 
+            }
+
+            // REGEX OTOMATIS: Mendeteksi apakah baris diawali dengan kata BAB, CHAPTER, atau SECTION
+            const isHeader = /^(bab|chapter|section|intro|prakata|daftar isi)\b/i.test(trimmedLine);
+
+            if (isHeader) {
                 return (
-                    <h3 key={`h-${idx}`} className="text-lg font-bold text-slate-900 mt-6 mb-3 border-b border-slate-200 pb-2 font-serif">
-                        {cleanTitle}
+                    <h3 
+                        key={index} 
+                        className="text-lg md:text-xl font-black text-slate-800 tracking-tight mt-8 mb-4 block border-b border-slate-200 pb-2 uppercase font-serif"
+                    >
+                        {trimmedLine}
                     </h3>
                 );
             }
 
-            // Ubah kode Markdown menjadi HTML sesungguhnya
-            let formattedHtml = trimmed
-                .replace(/</g, "&lt;").replace(/>/g, "&gt;") // Keamanan dasar
-                .replace(/!\[([^\]]*)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="my-6 max-w-full rounded shadow-sm mx-auto border border-slate-200" />')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-blue-600 underline">$1</a>');
-
+            // Teks paragraf biasa: berikan spasi antar-paragraf yang lega (leading-relaxed)
             return (
-                <p key={`p-${idx}`} 
-                   className="mb-4 text-slate-800 text-justify"
-                   // Ukuran font sudah dikecilkan (10.5pt) agar lebih nyaman dibaca
-                   style={{ fontSize: '10.5pt', lineHeight: '1.65' }}
-                   dangerouslySetInnerHTML={{ __html: formattedHtml }}
-                />
+                <p 
+                    key={index} 
+                    className="text-slate-700 text-sm md:text-base leading-relaxed text-justify mb-4 font-serif tracking-normal indent-8"
+                >
+                    {trimmedLine}
+                </p>
             );
         });
     };
@@ -154,7 +161,7 @@ export default function AcademyReader() {
                                     key={chap.id || index}
                                     ref={isLastElement ? lastElementRef : null}
                                     // Setelan ukuran persis kertas A4 dengan bayangan (Shadow)
-                                    className="bg-white shadow-xl w-full max-w-[794px] min-h-[1123px] px-8 py-12 md:px-16 md:py-16 relative"
+                                    className="bg-white shadow-xl w-full max-w-[794px] min-h-[600px] px-8 py-12 md:px-16 md:py-16 relative"
                                     style={{ fontFamily: '"Times New Roman", Times, serif' }}
                                 >
                                     {/* Indikator Halaman / Bab di ujung bawah kertas */}
