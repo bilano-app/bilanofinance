@@ -162,7 +162,7 @@ function CooldownScreen({ dateStr }: { dateStr: string }) {
 // =========================================================================
 // FASE 1 — IDENTIFIKASI
 // =========================================================================
-function IdentifyFlow({ onComplete }: { onComplete: (status: string, answers: any) => void }) {
+function IdentifyFlow({ onComplete }: { onComplete: (status: string, answers: any) => Promise<void> | void }) {
   const { toast } = useToast();
   const generateQuestions = useGenerateQuestions();
 
@@ -174,6 +174,7 @@ function IdentifyFlow({ onComplete }: { onComplete: (status: string, answers: an
   const [textValue, setTextValue] = useState("");
   const [keahlianLainnya, setKeahlianLainnya] = useState("");
   const [isFetchingQuestions, setIsFetchingQuestions] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const totalSteps = 8; 
   const currentQuestion = stepIndex >= 1 ? questions[stepIndex - 1] : null;
@@ -193,14 +194,17 @@ function IdentifyFlow({ onComplete }: { onComplete: (status: string, answers: an
     }
   };
 
-  const advance = (fieldKeyCamel: string, value: any) => {
+  const advance = async (fieldKeyCamel: string, value: any) => {
     const nextAnswers = { ...answers, [fieldKeyCamel]: value };
     setAnswers(nextAnswers);
-    setMultiSelected([]);
-    setTextValue("");
+    
     if (stepIndex >= questions.length) {
-      onComplete(status as string, nextAnswers);
+      setIsSubmitting(true);
+      await onComplete(status as string, nextAnswers);
+      setIsSubmitting(false);
     } else {
+      setMultiSelected([]);
+      setTextValue("");
       setStepIndex((s) => s + 1);
     }
   };
@@ -287,22 +291,29 @@ function IdentifyFlow({ onComplete }: { onComplete: (status: string, answers: an
               value={keahlianLainnya}
               onChange={(e) => setKeahlianLainnya(e.target.value)}
               placeholder="Keahlian lain (opsional)"
-              className="w-full px-5 py-4 rounded-[20px] border-2 border-slate-200 text-sm font-semibold focus:border-indigo-400 outline-none"
+              disabled={isSubmitting}
+              className="w-full px-5 py-4 rounded-[20px] border-2 border-slate-200 text-sm font-semibold focus:border-indigo-400 outline-none disabled:opacity-60"
             />
           )}
           <button
-            onClick={() => {
+            onClick={async () => {
               const next = { ...answers, [camelKey]: multiSelected, keahlianLainnya: currentQuestion.field_key === "keahlian" ? keahlianLainnya || null : answers.keahlianLainnya };
               setAnswers(next);
-              setMultiSelected([]);
-              setTextValue("");
-              if (stepIndex >= questions.length) onComplete(status as string, next);
-              else setStepIndex((s) => s + 1);
+              
+              if (stepIndex >= questions.length) {
+                setIsSubmitting(true);
+                await onComplete(status as string, next);
+                setIsSubmitting(false);
+              } else {
+                setMultiSelected([]);
+                setTextValue("");
+                setStepIndex((s) => s + 1);
+              }
             }}
-            disabled={multiSelected.length === 0}
-            className="w-full h-14 bg-indigo-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-full shadow-lg shadow-indigo-200 disabled:shadow-none transition-all active:scale-95 mt-2"
+            disabled={multiSelected.length === 0 || isSubmitting}
+            className="w-full h-14 bg-indigo-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-full shadow-lg shadow-indigo-200 disabled:shadow-none transition-all active:scale-95 mt-2 flex items-center justify-center gap-2"
           >
-            LANJUT
+            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "LANJUT"}
           </button>
         </div>
       )}
@@ -314,14 +325,15 @@ function IdentifyFlow({ onComplete }: { onComplete: (status: string, answers: an
             onChange={(e) => setTextValue(e.target.value)}
             placeholder={currentQuestion.placeholder || ""}
             rows={3}
-            className="w-full px-5 py-4 rounded-[20px] border-2 border-slate-200 text-sm font-semibold focus:border-indigo-400 outline-none resize-none"
+            disabled={isSubmitting}
+            className="w-full px-5 py-4 rounded-[20px] border-2 border-slate-200 text-sm font-semibold focus:border-indigo-400 outline-none resize-none disabled:opacity-60"
           />
           <button
             onClick={() => advance(camelKey, textValue.trim())}
-            disabled={!textValue.trim()}
-            className="w-full h-14 bg-indigo-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-full shadow-lg shadow-indigo-200 disabled:shadow-none transition-all active:scale-95"
+            disabled={!textValue.trim() || isSubmitting}
+            className="w-full h-14 bg-indigo-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-full shadow-lg shadow-indigo-200 disabled:shadow-none transition-all active:scale-95 flex items-center justify-center gap-2"
           >
-            LANJUT
+            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "LANJUT"}
           </button>
         </div>
       )}
@@ -1051,7 +1063,7 @@ export default function IncomeStrategy() {
 
   if (locked) return <LockedScreen />;
 
-  const handleIdentifyComplete = async (status: string, answers: any) => {
+const handleIdentifyComplete = async (status: string, answers: any) => {
     const payload = {
       status,
       tujuan: answers.tujuan,
@@ -1065,12 +1077,14 @@ export default function IncomeStrategy() {
       konstrainWaktu: { text: answers.konstrainWaktu },
     };
     try {
-      // Simpan profil terlebih dahulu
+      toast({ 
+        title: "Sedang Memproses...", 
+        description: "BILANO Intelligence sedang merumuskan taktik. Tunggu sebentar..." 
+      });
+      
       await saveProfile.mutateAsync(payload);
       setProfileOverride(payload);
       
-      // Perbaikan: Jangan cuma ganti view, langsung trigger generate rekomendasi agar data di DB tidak kosong
-      toast({ title: "Profil Disimpan", description: "Menganalisis opsi gerilya terbaik..." });
       const resRecs = await generateRecs.mutateAsync();
       setLocalRecs(resRecs.recommendations || []);
       

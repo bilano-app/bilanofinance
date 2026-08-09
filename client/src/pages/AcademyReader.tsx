@@ -1,232 +1,238 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation, useRoute } from "wouter";
-import { ChevronLeft, BookOpen, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, BookOpen, Loader2 } from "lucide-react";
 import { useUser } from "@/hooks/use-finance";
+
+interface PageChunk {
+    pageNumber: number;
+    chapterTitle: string;
+    paragraphs: string[];
+}
 
 export default function AcademyReader() {
     const [, setLocation] = useLocation();
-    const [match, params] = useRoute("/academy/:ebookId/read/:chapterNum");
+    const [, params] = useRoute("/academy/:ebookId/read/:chapterNum");
     const { data: user } = useUser();
     
     const ebookId = params?.ebookId;
-    const initialChapterNum = parseInt(params?.chapterNum || "1");
 
     const [chapters, setChapters] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState("");
-    
-    const [nextChapter, setNextChapter] = useState(initialChapterNum);
-    const [hasMore, setHasMore] = useState(true);
-    const [isFetching, setIsFetching] = useState(false);
+    const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
-    const observer = useRef<IntersectionObserver | null>(null);
-    
-    // 🔥 INFINITE SCROLL: Memicu pemanggilan bab berikutnya saat mencapai akhir kertas
-    const lastElementRef = useCallback((node: any) => {
-        if (isFetching || !hasMore) return;
-        if (observer.current) observer.current.disconnect();
-        
-        observer.current = new IntersectionObserver(entries => {
-            if (entries[0].isIntersecting) {
-                setNextChapter(prev => prev + 1);
-            }
-        });
-        
-        if (node) observer.current.observe(node);
-    }, [isFetching, hasMore]);
-
+    // Fetch seluruh bab e-book
     useEffect(() => {
-        const fetchChapter = async () => {
-            if (!ebookId || !hasMore) return;
-            
-            setIsFetching(true);
+        const fetchAllChapters = async () => {
+            if (!ebookId) return;
+            setIsLoading(true);
+            setErrorMsg("");
+
             try {
-                const res = await fetch(`/api/ebooks/${ebookId}/chapters/${nextChapter}`);
-                const result = await res.json();
-                
-                if (res.status === 402) {
-                    if (chapters.length === 0) setErrorMsg("Akses Premium Diperlukan. Silakan upgrade ke Bilano Pro.");
-                    setHasMore(false);
-                    return;
+                let allChaps: any[] = [];
+                let chapNum = 1;
+                let hasMore = true;
+
+                while (hasMore && chapNum <= 50) {
+                    const res = await fetch(`/api/ebooks/${ebookId}/chapters/${chapNum}`);
+                    
+                    if (res.status === 402) {
+                        if (allChaps.length === 0) setErrorMsg("Akses Premium Diperlukan. Silakan upgrade ke Bilano Pro.");
+                        hasMore = false;
+                        break;
+                    }
+
+                    const result = await res.json();
+                    if (result.success && result.data) {
+                        allChaps.push(result.data);
+                        chapNum++;
+                    } else {
+                        hasMore = false;
+                    }
                 }
 
-                if (result.success && result.data) {
-                    setChapters(prev => {
-                        if (prev.some(c => c.chapter_number === result.data.chapter_number)) return prev;
-                        return [...prev, result.data];
-                    });
-                } else {
-                    setHasMore(false);
-                }
+                setChapters(allChaps);
             } catch (e) {
-                if (chapters.length === 0) setErrorMsg("Terjadi kesalahan koneksi saat memuat buku.");
-                setHasMore(false);
+                setErrorMsg("Gagal memuat dokumen e-book.");
             } finally {
                 setIsLoading(false);
-                setIsFetching(false);
             }
         };
-        
-        fetchChapter();
-    }, [ebookId, nextChapter]);
 
-    // 🔥 PARSER HIRARKI PINTAR: Font dioptimalkan (lebih besar & nyaman dibaca)
-    const renderContent = (content: string) => {
-        if (!content) return null;
+        fetchAllChapters();
+    }, [ebookId]);
 
-        const lines = content.split('\n');
+    // 🔥 ALGORITMA PAGINASI A5 PERSISI (1500 Karakter / Halaman A5 Statis)
+    const pages = useMemo(() => {
+        if (chapters.length === 0) return [];
 
-        return lines.map((line, index) => {
-            const trimmedLine = line.trim();
-            if (!trimmedLine) return <div key={index} className="h-4" />;
+        const CHARS_PER_A5_PAGE = 1200;
+        const pageList: PageChunk[] = [];
+        let globalPageNum = 1;
 
-            // Filter metadata bawaan Gutenberg
-            if (
-                trimmedLine.toLowerCase().includes("gutenberg") || 
-                trimmedLine.toLowerCase().includes("produced by") ||
-                trimmedLine.toLowerCase().includes("release date") ||
-                trimmedLine.toLowerCase().includes("tanggal rilis") ||
-                trimmedLine.toLowerCase().includes("terakhir diperbarui") ||
-                trimmedLine.toLowerCase().includes("kredit :") ||
-                trimmedLine.toLowerCase().includes("bahasa :")
-            ) {
-                return null; 
+        chapters.forEach((chap) => {
+            const rawParagraphs = chap.content.split('\n\n');
+            let currentParagraphs: string[] = [];
+            let currentLength = 0;
+
+            rawParagraphs.forEach((p: string) => {
+                const cleanP = p.trim();
+                if (!cleanP) return;
+
+                if (currentLength + cleanP.length > CHARS_PER_A5_PAGE && currentParagraphs.length > 0) {
+                    pageList.push({
+                        pageNumber: globalPageNum++,
+                        chapterTitle: chap.title,
+                        paragraphs: currentParagraphs
+                    });
+                    currentParagraphs = [cleanP];
+                    currentLength = cleanP.length;
+                } else {
+                    currentParagraphs.push(cleanP);
+                    currentLength += cleanP.length;
+                }
+            });
+
+            if (currentParagraphs.length > 0) {
+                pageList.push({
+                    pageNumber: globalPageNum++,
+                    chapterTitle: chap.title,
+                    paragraphs: currentParagraphs
+                });
             }
-
-            // 1. HIRARKI TINGKAT 1: BUKU UTAMA / BAGIAN BESAR
-            const isMainBook = /^(buku|book|part|volume)\s+([ivx0-9]+|one|two|three|four|five)\b/i.test(trimmedLine);
-
-            if (isMainBook) {
-                return (
-                    <h2 
-                        key={index} 
-                        className="text-lg md:text-xl font-black text-slate-950 tracking-tight mt-8 mb-4 text-center block uppercase font-serif border-b-2 border-slate-900 pb-2 leading-snug"
-                    >
-                        {trimmedLine}
-                    </h2>
-                );
-            }
-
-            // 2. HIRARKI TINGKAT 2: BAB / CHAPTER UTAMA
-            const isChapter = /^(bab|chapter|section)\s+([ivx0-9]+)\b/i.test(trimmedLine);
-
-            if (isChapter) {
-                return (
-                    <h3 
-                        key={index} 
-                        className="text-base md:text-lg font-extrabold text-slate-900 tracking-tight mt-6 mb-3 block uppercase font-serif border-b border-slate-300 pb-1.5 text-left leading-normal"
-                    >
-                        {trimmedLine}
-                    </h3>
-                );
-            }
-
-            // 3. HIRARKI TINGKAT 3: SUB-BAB / PENGANTAR
-            const isSubChapter = /^(prakata|pendahuluan|intro|kesimpulan|daftar isi|rencana pekerjaan)\b/i.test(trimmedLine) || 
-                                 (trimmedLine.length < 75 && /^[A-Z]/.test(trimmedLine) && !trimmedLine.endsWith('.'));
-
-            if (isSubChapter) {
-                return (
-                    <h4 
-                        key={index} 
-                        className="text-sm md:text-base font-bold italic text-slate-800 mt-4 mb-2 block font-serif leading-normal"
-                    >
-                        {trimmedLine}
-                    </h4>
-                );
-            }
-
-            // 4. PARAGRAF BUKU STANDAR (Ukuran font dinaikkan agar pas dengan lebar kertas yang ringkas)
-            return (
-                <p 
-                    key={index} 
-                    className="text-slate-800 text-sm md:text-base leading-relaxed text-justify mb-4 font-serif tracking-normal indent-6"
-                >
-                    {trimmedLine}
-                </p>
-            );
         });
+
+        return pageList;
+    }, [chapters]);
+
+    // Render Paragraf dengan Hirarki Typography Profesional
+    const renderParagraph = (text: string, idx: number) => {
+        const isHeader = /^(BOOK|BUKU|CHAPTER|BAB|PART|SECTION)\s+[IVXLCDM0-9]+/i.test(text);
+
+        if (isHeader) {
+            return (
+                <h2 
+                    key={idx} 
+                    className="text-base font-black text-slate-900 uppercase font-serif tracking-tight text-center my-4 border-b-2 border-slate-900 pb-2"
+                >
+                    {text}
+                </h2>
+            );
+        }
+
+        const isSubHeader = text.length < 80 && !text.endsWith('.') && /^[A-Z0-9\s\-\:]+$/.test(text);
+        if (isSubHeader) {
+            return (
+                <h3 
+                    key={idx} 
+                    className="text-xs font-bold text-slate-800 uppercase font-serif tracking-normal text-left my-3 border-b border-slate-200 pb-1"
+                >
+                    {text}
+                </h3>
+            );
+        }
+
+        return (
+            <p 
+                key={idx} 
+                className="text-[12px] leading-relaxed text-slate-800 font-serif text-justify indent-6 mb-3 tracking-tight"
+            >
+                {text}
+            </p>
+        );
     };
 
+    const currentPage = pages[currentPageIndex];
+
     return (
-        <div className="min-h-screen bg-slate-300 flex flex-col font-sans select-none">
-            {/* Header Navigasi */}
-            <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-slate-300 shadow-sm">
+        <div className="min-h-screen bg-slate-500 flex flex-col font-sans select-none items-center">
+            {/* Header Navigasi Atas */}
+            <div className="w-full bg-slate-900 text-white px-4 py-3 flex items-center justify-between border-b border-slate-800 shadow-md">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => setLocation("/academy")} className="w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full transition-colors">
-                        <ChevronLeft className="w-4 h-4 text-slate-600" />
+                    <button 
+                        onClick={() => setLocation("/academy")} 
+                        className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded-full transition-colors text-slate-300"
+                    >
+                        <ChevronLeft className="w-4 h-4" />
                     </button>
                     <div>
-                        <p className="text-[9px] font-bold text-amber-600 uppercase tracking-widest">Bilano Academy Reader</p>
-                        <h1 className="font-extrabold text-slate-900 text-xs line-clamp-1 max-w-[220px]">
-                            {chapters.length > 0 ? chapters[0].title : "Memuat dokumen..."}
+                        <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest">Bilano Academy Reader</p>
+                        <h1 className="font-bold text-xs line-clamp-1 max-w-[200px] text-slate-100">
+                            {chapters.length > 0 ? chapters[0].title : "Memuat E-Book..."}
                         </h1>
                     </div>
                 </div>
+
+                {pages.length > 0 && (
+                    <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-3 py-1 rounded-full border border-slate-700">
+                        {currentPageIndex + 1} / {pages.length}
+                    </span>
+                )}
             </div>
 
-            {/* AREA BACA UTAMA */}
-            <div className="flex-1 flex flex-col items-center p-3 md:p-6 gap-4">
+            {/* AREA UTAMA PEMBACA (STANDAR KERTAS A5 MUTLAK) */}
+            <div className="flex-1 flex flex-col items-center justify-center p-4 w-full">
                 {isLoading ? (
-                    <div className="flex flex-col items-center justify-center py-20 opacity-50">
-                        <Loader2 className="w-7 h-7 animate-spin text-indigo-600 mb-3" />
-                        <p className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Menyiapkan lembaran buku...</p>
+                    <div className="flex flex-col items-center justify-center py-20 text-white/80">
+                        <Loader2 className="w-8 h-8 animate-spin text-amber-400 mb-3" />
+                        <p className="text-xs font-semibold uppercase tracking-wider">Mempaginasi Kertas A5...</p>
                     </div>
                 ) : errorMsg ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-300">
-                        <BookOpen className="w-12 h-12 text-rose-500 mb-4 opacity-40" />
+                    <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl p-6 max-w-sm shadow-2xl">
+                        <BookOpen className="w-12 h-12 text-rose-500 mb-3 opacity-60" />
                         <h2 className="text-base font-black text-slate-800 mb-1">Akses Terkunci</h2>
-                        <p className="text-xs text-slate-600 max-w-[240px] leading-relaxed">{errorMsg}</p>
-                        <button onClick={() => setLocation("/paywall")} className="mt-5 px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold rounded-full text-xs transition-transform active:scale-95 shadow-md shadow-amber-500/20">
+                        <p className="text-xs text-slate-600 mb-4">{errorMsg}</p>
+                        <button 
+                            onClick={() => setLocation("/paywall")} 
+                            className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold rounded-full text-xs transition-transform active:scale-95"
+                        >
                             Upgrade Ke Pro
                         </button>
                     </div>
-                ) : (
-                    <>
-                        {chapters.map((chap, index) => {
-                            const isLastElement = chapters.length === index + 1;
-                            
-                            return (
-                                <div 
-                                    key={chap.id || index}
-                                    ref={isLastElement ? lastElementRef : null}
-                                    /* 🔥 LAYOUT DIOPTIMALKAN: Lebar dikunci ke max-w-[420px] agar lebih kecil & ringkas, padding disesuaikan */
-                                    className="bg-white shadow-xl w-full max-w-[420px] min-h-[600px] h-auto px-6 py-8 md:px-8 md:py-10 rounded-sm border border-slate-200/80 relative transition-all duration-300 font-serif flex flex-col"
-                                >
-                                    {/* Running Header */}
-                                    <div className="w-full text-center border-b border-slate-100 pb-2 mb-4 text-[9px] text-slate-400 font-sans tracking-widest uppercase">
-                                        {chapters.length > 0 ? chapters[0].title : "Bilano Academy"}
-                                    </div>
-
-                                    {/* Isi Konten Halaman */}
-                                    <div className="tracking-normal text-slate-900 flex-1 select-text selection:bg-amber-100">
-                                        {renderContent(chap.content)}
-                                    </div>
-
-                                    {/* Indikator Halaman di Bawah Kertas */}
-                                    <div className="w-full text-center pt-3 mt-4 text-[10px] text-slate-400 font-sans tracking-wider border-t border-slate-50">
-                                        Halaman {chap.chapter_number}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        
-                        {/* Status Loading saat auto-fetch */}
-                        {isFetching && hasMore && (
-                            <div className="py-4 flex flex-col items-center">
-                                <Loader2 className="w-5 h-5 animate-spin text-slate-500 mb-1.5" />
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Membuka lembar berikutnya...</p>
+                ) : currentPage ? (
+                    <div className="flex flex-col items-center gap-4">
+                        {/* 📄 LEMBAR KERTAS A5 FISIK (UKURAN DIKUNCI MUTLAK) */}
+                        <div className="bg-[#FFFDF9] shadow-2xl w-[92vw] max-w-[460px] h-[650px] p-8 rounded-sm border border-stone-300 relative flex flex-col justify-between font-serif overflow-hidden">
+                            {/* Running Header */}
+                            <div className="w-full text-center border-b border-stone-200/60 pb-2 text-[9px] text-stone-400 font-sans tracking-widest uppercase line-clamp-1">
+                                {currentPage.chapterTitle || chapters[0]?.title}
                             </div>
-                        )}
 
-                        {/* Indikator Tamat */}
-                        {!hasMore && chapters.length > 0 && (
-                            <div className="py-8 text-slate-500 italic text-xs font-serif mt-2 w-full text-center max-w-[420px] tracking-wide">
-                                • Akhir dari Koleksi Dokumen •
+                            {/* Isi Teks Lembaran Halaman */}
+                            <div className="flex-1 my-4 overflow-hidden select-text">
+                                {currentPage.paragraphs.map((p, idx) => renderParagraph(p, idx))}
                             </div>
-                        )}
-                    </>
-                )}
+
+                            {/* Footer Nomor Halaman Kertas */}
+                            <div className="w-full text-center pt-2 text-[9px] text-stone-400 font-sans tracking-widest border-t border-stone-200/60">
+                                — {currentPage.pageNumber} —
+                            </div>
+                        </div>
+
+                        {/* Kontrol Navigasi Halaman (Prev / Next) */}
+                        <div className="flex items-center gap-4 mt-2">
+                            <button
+                                onClick={() => setCurrentPageIndex(p => Math.max(0, p - 1))}
+                                disabled={currentPageIndex === 0}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-full text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 active:scale-95 transition-all shadow-md"
+                            >
+                                <ChevronLeft className="w-4 h-4" /> Sebelum
+                            </button>
+
+                            <span className="text-xs font-semibold text-slate-200 font-mono">
+                                Hal {currentPageIndex + 1} dari {pages.length}
+                            </span>
+
+                            <button
+                                onClick={() => setCurrentPageIndex(p => Math.min(pages.length - 1, p + 1))}
+                                disabled={currentPageIndex === pages.length - 1}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-full text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 active:scale-95 transition-all shadow-md"
+                            >
+                                Sesudah <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                ) : null}
             </div>
         </div>
     );
