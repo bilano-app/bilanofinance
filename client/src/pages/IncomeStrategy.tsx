@@ -10,7 +10,7 @@ import {
   Crown, GraduationCap, BookOpen, Briefcase, Search, ChevronRight,
   Loader2, Check, Plus, Trash2, Wallet, Send, AlertTriangle, CheckCircle2,
   PiggyBank, ShoppingBag, Compass, Lightbulb, Clock, Layers, RefreshCcw, 
-  ArrowRight, Bot, User as UserIcon, ShieldAlert, PieChart, Coins, TrendingUp, History, Lock
+  ArrowRight, Bot, User as UserIcon, ShieldAlert, PieChart, Coins, TrendingUp, History, Lock, Target, ShoppingCart
 } from "lucide-react";
 import {
   useIncomeProfile, useGenerateQuestions, useSaveIncomeProfile, useGenerateRecommendations,
@@ -175,7 +175,7 @@ function IdentifyFlow({ onComplete }: { onComplete: (status: string, answers: an
   const [keahlianLainnya, setKeahlianLainnya] = useState("");
   const [isFetchingQuestions, setIsFetchingQuestions] = useState(false);
 
-  const totalSteps = 9; 
+  const totalSteps = 8; 
   const currentQuestion = stepIndex >= 1 ? questions[stepIndex - 1] : null;
 
   const handlePickStatus = async (value: string) => {
@@ -480,7 +480,13 @@ function MaterialsStep({ attempt, onUpdated }: { attempt: any; onUpdated: (parti
       } else {
         setClarification(null);
         setVerdictResult(result);
-        onUpdated({ state: result.state, feasibilityVerdict: result.verdict, totalCost: result.total_cost });
+        // Sinkronisasi data ke state komponen induk
+        onUpdated({ 
+          state: result.state, 
+          feasibilityVerdict: result.verdict, 
+          totalCost: result.total_cost 
+        });
+        toast({ title: "Kalibrasi Berhasil", description: `Rencana dialihkan ke tahap: ${result.state}` });
       }
     } catch (e: any) {
       toast({ title: "Gagal cek kelayakan", description: e.message, variant: "destructive" });
@@ -636,15 +642,28 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
   const { toast } = useToast();
   const sellingChat = useSellingChat(attempt.id);
   const updateState = useUpdateAttemptState(attempt.id);
+  
   const [notes, setNotes] = useState<any[]>((attempt.sellingNotes || []).filter((n: any) => n.sender !== "evaluation"));
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
+  
+  // State baru untuk mengontrol centang komitmen misi
+  const [missionDone, setMissionDone] = useState(false); 
+
+  // Reset checklist jika ada pesan/misi baru dari AI
+  useEffect(() => {
+    if (notes.length > 0 && notes[notes.length - 1].sender === "ai") {
+      setMissionDone(false);
+    }
+  }, [notes]);
 
   useEffect(() => {
     if (notes.length === 0) {
       setIsSending(true);
-      sellingChat.mutateAsync(undefined).then((res) => setNotes(res.sellingNotes.filter((n: any) => n.sender !== "evaluation"))).finally(() => setIsSending(false));
+      sellingChat.mutateAsync(undefined).then((res) => {
+        setNotes(res.sellingNotes.filter((n: any) => n.sender !== "evaluation"));
+      }).finally(() => setIsSending(false));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -657,8 +676,11 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
     try {
       const res = await sellingChat.mutateAsync(text);
       setNotes(res.sellingNotes.filter((n: any) => n.sender !== "evaluation"));
-    } catch (e: any) { toast({ title: "Gagal mengirim komando", description: e.message, variant: "destructive" }); }
-    finally { setIsSending(false); }
+    } catch (e: any) { 
+      toast({ title: "Gagal mengirim laporan", description: e.message, variant: "destructive" }); 
+    } finally { 
+      setIsSending(false); 
+    }
   };
 
   const handleAdvance = async () => {
@@ -666,38 +688,130 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
     try {
       await updateState.mutateAsync("TRACKING");
       onUpdated({ state: "TRACKING" });
-    } catch (e: any) { toast({ title: "Gagal membuka dasbor", description: e.message, variant: "destructive" }); }
-    finally { setIsAdvancing(false); }
+    } catch (e: any) { 
+      toast({ title: "Gagal membuka dasbor", description: e.message, variant: "destructive" }); 
+    } finally { 
+      setIsAdvancing(false); 
+    }
   };
 
+  // Logika toggle tombol misi
+  const toggleMission = () => {
+    setMissionDone(!missionDone);
+    if (!missionDone) {
+      // Mengurangi friksi (gesekan) mengetik dengan auto-fill template laporan
+      setMessage("Misi eksekusi selesai. Laporannya: ");
+    } else {
+      setMessage("");
+    }
+  };
+
+  // Cari indeks pesan AI paling terakhir untuk dijadikan "Kartu Misi Utama"
+  let lastAiIndex = -1;
+  for (let i = notes.length - 1; i >= 0; i--) {
+    if (notes[i].sender === "ai") {
+      lastAiIndex = i;
+      break;
+    }
+  }
+
   return (
-    <div className="pt-2 pb-24 flex flex-col" style={{ minHeight: "55vh" }}>
+    <div className="pt-2 pb-24 flex flex-col" style={{ minHeight: "65vh" }}>
       <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-3">Taktik Pemasaran Lapangan</h3>
-      <div className="flex-1 space-y-3 mb-4">
-        {notes.map((n, idx) => (
-          <div key={idx} className={`flex gap-2 ${n.sender === "user" ? "flex-row-reverse" : ""}`}>
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${n.sender === "user" ? "bg-indigo-600" : "bg-slate-800"}`}>
-              {n.sender === "user" ? <UserIcon className="w-3.5 h-3.5 text-white" /> : <Bot className="w-3.5 h-3.5 text-white" />}
+      
+      <div className="flex-1 space-y-4 mb-4">
+        {notes.map((n, idx) => {
+          const isLastAi = idx === lastAiIndex;
+
+          // Render Eksklusif untuk Instruksi AI Terakhir (Fokus Utama)
+          if (isLastAi && !isSending) {
+            return (
+              <div key={idx} className="bg-amber-50 border-2 border-amber-300 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(251,191,36,0.15)] relative mt-6 transition-all">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-amber-950 text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 whitespace-nowrap">
+                  <Target className="w-3.5 h-3.5" /> MISI HARI INI
+                </div>
+                
+                <div className="flex items-start gap-3 mt-3 mb-5">
+                  <div className="w-9 h-9 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0 shadow-lg">
+                    <Bot className="w-4.5 h-4.5 text-white" />
+                  </div>
+                  <div className="text-sm font-semibold text-slate-800 leading-relaxed whitespace-pre-wrap">
+                    {n.text}
+                  </div>
+                </div>
+
+                <button
+                  onClick={toggleMission}
+                  className={`w-full py-3.5 rounded-xl border-2 font-black text-xs flex items-center justify-center gap-2.5 transition-all active:scale-95 ${
+                    missionDone 
+                      ? "bg-emerald-100 border-emerald-500 text-emerald-700 shadow-inner" 
+                      : "bg-white border-slate-200 text-slate-500 hover:border-amber-400 hover:text-amber-700 shadow-sm"
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${
+                    missionDone ? "border-emerald-500 bg-emerald-500" : "border-slate-300 bg-slate-50"
+                  }`}>
+                    {missionDone && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                  </div>
+                  {missionDone ? "MISI SELESAI! TULIS LAPORAN DI BAWAH." : "TANDAI SELESAI & LAPOR HASIL"}
+                </button>
+              </div>
+            );
+          }
+
+          // Render History Chat (Diredupkan agar tidak mendistraksi Misi Utama)
+          return (
+            <div key={idx} className={`flex gap-2 opacity-60 scale-[0.98] ${n.sender === "user" ? "flex-row-reverse" : ""}`}>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${n.sender === "user" ? "bg-indigo-600" : "bg-slate-800"}`}>
+                {n.sender === "user" ? <UserIcon className="w-3.5 h-3.5 text-white" /> : <Bot className="w-3.5 h-3.5 text-white" />}
+              </div>
+              <div className={`max-w-[78%] px-4 py-2.5 rounded-[18px] text-sm font-medium leading-relaxed ${
+                n.sender === "user" ? "bg-indigo-600 text-white rounded-tr-sm" : "bg-slate-100 text-slate-700 rounded-tl-sm"
+              }`}>
+                {n.text}
+              </div>
             </div>
-            <div className={`max-w-[78%] px-4 py-2.5 rounded-[18px] text-sm font-medium leading-relaxed ${n.sender === "user" ? "bg-indigo-600 text-white rounded-tr-sm" : "bg-slate-100 text-slate-700 rounded-tl-sm"}`}>{n.text}</div>
-          </div>
-        ))}
+          );
+        })}
+
+        {/* Indikator AI Sedang Mengetik */}
         {isSending && (
-          <div className="flex gap-2">
-            <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center flex-shrink-0"><Bot className="w-3.5 h-3.5 text-white" /></div>
-            <div className="bg-slate-100 px-4 py-3 rounded-[18px] rounded-tl-sm"><Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" /></div>
+          <div className="flex gap-2 mt-4 animate-in fade-in slide-in-from-bottom-2">
+            <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0 shadow-md">
+              <Bot className="w-4 h-4 text-white" />
+            </div>
+            <div className="bg-slate-100 px-5 py-3.5 rounded-[18px] rounded-tl-sm flex items-center gap-2 shadow-sm">
+              <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" />
+              <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+              <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+            </div>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-2 mb-4 sticky bottom-20 bg-white py-2">
-        <input value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder="Laporkan respon pasar..." className="flex-1 px-4 py-3.5 rounded-full border-2 border-slate-200 text-sm font-medium outline-none focus:border-indigo-400" />
-        <button onClick={handleSend} disabled={isSending || !message.trim()} className="w-12 h-12 bg-indigo-600 disabled:bg-slate-200 rounded-full flex items-center justify-center flex-shrink-0 active:scale-95 transition-all">
+      {/* Baris Input Interaktif */}
+      <div className="flex items-center gap-2 mb-4 sticky bottom-20 bg-white py-3 border-t border-slate-100 z-10">
+        <input 
+          value={message} 
+          onChange={(e) => setMessage(e.target.value)} 
+          onKeyDown={(e) => e.key === "Enter" && handleSend()} 
+          placeholder={missionDone ? "Ketikan hasil lapanganmu di sini..." : "Tuntaskan misi di atas sebelum melapor..."} 
+          className={`flex-1 px-4 py-3.5 rounded-full border-2 text-sm font-semibold outline-none transition-colors ${
+            missionDone ? "border-amber-400 focus:border-amber-500 bg-amber-50/30" : "border-slate-200 focus:border-indigo-400 bg-slate-50"
+          }`} 
+        />
+        <button 
+          onClick={handleSend} 
+          disabled={isSending || !message.trim()} 
+          className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 active:scale-95 transition-all shadow-md ${
+            message.trim() && missionDone ? "bg-amber-500 hover:bg-amber-600" : "bg-indigo-600 disabled:bg-slate-200"
+          }`}
+        >
           <Send className="w-4.5 h-4.5 text-white" />
         </button>
       </div>
 
-      <button onClick={handleAdvance} disabled={isAdvancing} className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-full shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all flex-shrink-0">
+      <button onClick={handleAdvance} disabled={isAdvancing} className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.2)] flex items-center justify-center gap-2 active:scale-95 transition-all flex-shrink-0">
         {isAdvancing ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ShoppingCart className="w-5 h-5" /> BUKA DASBOR ARUS KAS</>}
       </button>
     </div>
@@ -951,8 +1065,15 @@ export default function IncomeStrategy() {
       konstrainWaktu: { text: answers.konstrainWaktu },
     };
     try {
+      // Simpan profil terlebih dahulu
       await saveProfile.mutateAsync(payload);
       setProfileOverride(payload);
+      
+      // Perbaikan: Jangan cuma ganti view, langsung trigger generate rekomendasi agar data di DB tidak kosong
+      toast({ title: "Profil Disimpan", description: "Menganalisis opsi gerilya terbaik..." });
+      const resRecs = await generateRecs.mutateAsync();
+      setLocalRecs(resRecs.recommendations || []);
+      
       setView("recommend");
       await refetchProfile();
     } catch (e: any) {

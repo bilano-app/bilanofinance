@@ -70,7 +70,7 @@ export default function AcademyReader() {
         fetchChapter();
     }, [ebookId, nextChapter]);
 
-    // 🔥 PARSER HIRARKI PINTAR: Merapikan format teks, judul, tebal, dan spasi
+    // 🔥 PARSER HIRARKI PINTAR: Font dioptimalkan (lebih besar & nyaman dibaca)
     const renderContent = (content: string) => {
         if (!content) return null;
 
@@ -78,7 +78,7 @@ export default function AcademyReader() {
 
         return lines.map((line, index) => {
             const trimmedLine = line.trim();
-            if (!trimmedLine) return <div key={index} className="h-3" />;
+            if (!trimmedLine) return <div key={index} className="h-4" />;
 
             // Filter metadata bawaan Gutenberg
             if (
@@ -100,7 +100,7 @@ export default function AcademyReader() {
                 return (
                     <h2 
                         key={index} 
-                        className="text-base md:text-lg font-black text-slate-900 tracking-tight mt-8 mb-4 text-center block uppercase font-serif border-b-2 border-slate-800 pb-2 leading-snug"
+                        className="text-lg md:text-xl font-black text-slate-950 tracking-tight mt-8 mb-4 text-center block uppercase font-serif border-b-2 border-slate-900 pb-2 leading-snug"
                     >
                         {trimmedLine}
                     </h2>
@@ -114,7 +114,7 @@ export default function AcademyReader() {
                 return (
                     <h3 
                         key={index} 
-                        className="text-sm md:text-base font-extrabold text-slate-800 tracking-tight mt-6 mb-3 block uppercase font-serif border-b border-slate-300 pb-1.5 text-left leading-normal"
+                        className="text-base md:text-lg font-extrabold text-slate-900 tracking-tight mt-6 mb-3 block uppercase font-serif border-b border-slate-300 pb-1.5 text-left leading-normal"
                     >
                         {trimmedLine}
                     </h3>
@@ -129,18 +129,18 @@ export default function AcademyReader() {
                 return (
                     <h4 
                         key={index} 
-                        className="text-xs md:text-sm font-bold italic text-slate-700 mt-4 mb-2 block font-serif leading-normal"
+                        className="text-sm md:text-base font-bold italic text-slate-800 mt-4 mb-2 block font-serif leading-normal"
                     >
                         {trimmedLine}
                     </h4>
                 );
             }
 
-            // 4. PARAGRAF BUKU STANDAR
+            // 4. PARAGRAF BUKU STANDAR (Ukuran font dinaikkan agar pas dengan lebar kertas yang ringkas)
             return (
                 <p 
                     key={index} 
-                    className="text-slate-800 text-xs md:text-sm leading-relaxed text-justify mb-3 font-serif tracking-normal indent-6"
+                    className="text-slate-800 text-sm md:text-base leading-relaxed text-justify mb-4 font-serif tracking-normal indent-6"
                 >
                     {trimmedLine}
                 </p>
@@ -149,7 +149,7 @@ export default function AcademyReader() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-400 flex flex-col font-sans select-none">
+        <div className="min-h-screen bg-slate-300 flex flex-col font-sans select-none">
             {/* Header Navigasi */}
             <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-slate-300 shadow-sm">
                 <div className="flex items-center gap-3">
@@ -165,8 +165,8 @@ export default function AcademyReader() {
                 </div>
             </div>
 
-            {/* AREA BACA UTAMA: Lembaran Kertas Tanpa Inner Scrollbar */}
-            <div className="flex-1 flex flex-col items-center p-4 md:p-6 gap-6">
+            {/* AREA BACA UTAMA */}
+            <div className="flex-1 flex flex-col items-center p-3 md:p-6 gap-4">
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 opacity-50">
                         <Loader2 className="w-7 h-7 animate-spin text-indigo-600 mb-3" />
@@ -190,8 +190,8 @@ export default function AcademyReader() {
                                 <div 
                                     key={chap.id || index}
                                     ref={isLastElement ? lastElementRef : null}
-                                    /* 🔥 FIX MUTLAK: min-h-[750px] h-auto tanpa max-h/overflow internal */
-                                    className="bg-white shadow-2xl w-full max-w-[560px] min-h-[750px] h-auto px-8 py-10 md:px-12 md:py-12 rounded-sm border border-slate-200 relative transition-all duration-300 font-serif flex flex-col"
+                                    /* 🔥 LAYOUT DIOPTIMALKAN: Lebar dikunci ke max-w-[420px] agar lebih kecil & ringkas, padding disesuaikan */
+                                    className="bg-white shadow-xl w-full max-w-[420px] min-h-[600px] h-auto px-6 py-8 md:px-8 md:py-10 rounded-sm border border-slate-200/80 relative transition-all duration-300 font-serif flex flex-col"
                                 >
                                     {/* Running Header */}
                                     <div className="w-full text-center border-b border-slate-100 pb-2 mb-4 text-[9px] text-slate-400 font-sans tracking-widest uppercase">
@@ -199,12 +199,12 @@ export default function AcademyReader() {
                                     </div>
 
                                     {/* Isi Konten Halaman */}
-                                    <div className="tracking-normal text-black flex-1 select-text selection:bg-amber-100">
+                                    <div className="tracking-normal text-slate-900 flex-1 select-text selection:bg-amber-100">
                                         {renderContent(chap.content)}
                                     </div>
 
                                     {/* Indikator Halaman di Bawah Kertas */}
-                                    <div className="w-full text-center pt-4 mt-6 text-[10px] text-slate-400 font-sans tracking-wider border-t border-slate-50">
+                                    <div className="w-full text-center pt-3 mt-4 text-[10px] text-slate-400 font-sans tracking-wider border-t border-slate-50">
                                         Halaman {chap.chapter_number}
                                     </div>
                                 </div>
@@ -221,7 +221,7 @@ export default function AcademyReader() {
 
                         {/* Indikator Tamat */}
                         {!hasMore && chapters.length > 0 && (
-                            <div className="py-8 text-slate-500 italic text-xs font-serif mt-2 w-full text-center max-w-[560px] tracking-wide">
+                            <div className="py-8 text-slate-500 italic text-xs font-serif mt-2 w-full text-center max-w-[420px] tracking-wide">
                                 • Akhir dari Koleksi Dokumen •
                             </div>
                         )}
