@@ -62,10 +62,9 @@ export default function AcademyReader() {
         fetchChapter();
     }, [ebookId, nextChapterNum]);
 
-    // 🔥 ALGORITMA PAGINASI GLOBAL (KERTAS MUTLAK)
-    // Menyatukan seluruh bab menjadi aliran air, lalu memotongnya kaku berdasarkan ukuran kertas
+    // 🔥 ALGORITMA PAGINASI PRESISI (MENCEGAH TEKS TERPOTONG)
     const pages = useMemo(() => {
-        const MAX_CAPACITY = 1400; // Kapasitas "berat" ideal teks untuk kertas 650px
+        const MAX_CAPACITY = 900; // Kapasitas ideal agar teks muat sempurna tanpa terpotong di bawah
         const allPages: any[][] = [];
         let currentPage: any[] = [];
         let currentCapacity = 0;
@@ -77,26 +76,22 @@ export default function AcademyReader() {
                 const lower = line.toLowerCase();
                 if (lower.includes("gutenberg") || lower.includes("produced by")) return;
 
-                // Deteksi gaya teks
                 const isMainBook = /^(buku|book|part|volume)\s+([ivx0-9]+|one|two|three|four|five)\b/i.test(line);
                 const isChapter = /^(bab|chapter|section)\s+([ivx0-9]+)\b/i.test(line);
                 const isSub = /^(prakata|pendahuluan|intro|kesimpulan|daftar isi)\b/i.test(line) || (line.length < 80 && /^[A-Z]/.test(line) && !line.endsWith('.'));
 
-                // Teks tebal/besar memakan lebih banyak ruang di kertas, jadi kita beri bobot lebih
                 let weight = line.length;
-                if (isMainBook) weight += 250; 
-                else if (isChapter) weight += 150;
-                else if (isSub) weight += 100;
-                else weight += 20; // spasi antar paragraf
+                if (isMainBook) weight += 200; 
+                else if (isChapter) weight += 120;
+                else if (isSub) weight += 80;
+                else weight += 15;
 
-                // Jika batas kertas tercapai, tutup halaman ini dan buat lembar baru
                 if (currentCapacity + weight > MAX_CAPACITY && currentPage.length > 0) {
                     allPages.push(currentPage);
                     currentPage = [];
                     currentCapacity = 0;
                 }
 
-                // Masukkan teks ke kertas saat ini
                 currentPage.push({
                     text: line,
                     isMainBook,
@@ -109,14 +104,13 @@ export default function AcademyReader() {
             });
         });
 
-        // Sisa teks terakhir dimasukkan ke halaman penutup
         if (currentPage.length > 0) allPages.push(currentPage);
         return allPages;
     }, [chapters]);
 
     return (
         <div className="min-h-screen bg-slate-400 flex flex-col font-sans select-none">
-            {/* Header Sticky Atas */}
+            {/* Header Sticky */}
             <div className="sticky top-0 z-50 bg-slate-900 text-white px-4 py-3 flex items-center gap-3 shadow-md">
                 <button onClick={() => setLocation("/academy")} className="w-8 h-8 flex items-center justify-center bg-slate-800 rounded-full hover:bg-slate-700 transition-colors">
                     <ChevronLeft className="w-4 h-4" />
@@ -127,7 +121,7 @@ export default function AcademyReader() {
                 </div>
             </div>
 
-            {/* CONTAINER VERTICAL SCROLL */}
+            {/* Container Kertas A5 */}
             <div className="flex-1 flex flex-col items-center p-4 md:p-6 gap-6 md:gap-8">
                 {isLoading ? (
                     <Loader2 className="w-8 h-8 animate-spin text-slate-800 mt-20" />
@@ -140,8 +134,6 @@ export default function AcademyReader() {
                     <>
                         {pages.map((pageContent, pageIdx) => {
                             const isLastPage = pageIdx === pages.length - 1;
-                            
-                            // Mengambil referensi header/footer dari paragraf pertama yang merajai halaman ini
                             const dominantChapterNum = pageContent[0]?.chapterNum;
                             const dominantChapterTitle = pageContent[0]?.chapterTitle || "Bilano Academy";
 
@@ -149,32 +141,32 @@ export default function AcademyReader() {
                                 <div
                                     key={`page-${pageIdx}`}
                                     ref={isLastPage ? lastPageRef : null}
-                                    /* 🔥 KERTAS MUTLAK: Tinggi dan Lebar Terkunci Permanen */
-                                    className="bg-[#FFFDF9] shadow-xl w-full max-w-[420px] h-[650px] p-6 md:p-8 rounded-sm border border-stone-300 flex flex-col justify-between font-serif overflow-hidden relative"
+                                    /* 🔥 LAYOUT KERTAS: Tepi bawah diberi padding cukup agar teks tidak terpotong */
+                                    className="bg-[#FFFDF9] shadow-xl w-full max-w-[420px] min-h-[640px] max-h-[660px] p-6 md:p-7 rounded-sm border border-stone-300 flex flex-col justify-between font-serif relative"
                                 >
-                                    {/* Running Header Kertas */}
+                                    {/* Running Header */}
                                     <div className="w-full text-center border-b border-stone-200 pb-2 text-[9px] text-stone-400 tracking-widest uppercase line-clamp-1">
                                         {dominantChapterTitle}
                                     </div>
 
-                                    {/* Konten Utama - Mengisi Sisa Ruang Kertas secara Otomatis */}
-                                    <div className="flex-1 my-3 select-text overflow-hidden">
+                                    {/* Area Isi Teks */}
+                                    <div className="flex-1 my-3 select-text overflow-hidden pb-2">
                                         {pageContent.map((item, idx) => {
                                             if (item.isMainBook) {
-                                                return <h2 key={idx} className="text-base md:text-lg font-black text-slate-900 text-center uppercase font-serif mt-2 mb-4 border-b-2 border-slate-800 pb-2">{item.text}</h2>;
+                                                return <h2 key={idx} className="text-base md:text-lg font-black text-slate-900 text-center uppercase font-serif mt-2 mb-3 border-b-2 border-slate-800 pb-1.5">{item.text}</h2>;
                                             }
                                             if (item.isChapter) {
-                                                return <h3 key={idx} className="text-sm md:text-base font-extrabold text-slate-800 uppercase font-serif mt-2 mb-3 border-b border-slate-300 pb-1">{item.text}</h3>;
+                                                return <h3 key={idx} className="text-sm md:text-base font-extrabold text-slate-800 uppercase font-serif mt-2 mb-2 border-b border-slate-300 pb-1">{item.text}</h3>;
                                             }
                                             if (item.isSub) {
-                                                return <h4 key={idx} className="text-xs md:text-sm font-bold italic text-slate-700 mt-2 mb-2 font-serif">{item.text}</h4>;
+                                                return <h4 key={idx} className="text-xs md:text-sm font-bold italic text-slate-700 mt-2 mb-1.5 font-serif">{item.text}</h4>;
                                             }
                                             return <p key={idx} className="text-slate-800 text-[11px] md:text-xs leading-relaxed text-justify mb-2 font-serif indent-6">{item.text}</p>;
                                         })}
                                     </div>
 
                                     {/* Footer Halaman Kertas */}
-                                    <div className="w-full flex justify-between pt-3 text-[9px] text-stone-400 tracking-widest border-t border-stone-200">
+                                    <div className="w-full flex justify-between pt-2.5 text-[9px] text-stone-400 tracking-widest border-t border-stone-200">
                                         <span>BAGIAN {dominantChapterNum}</span>
                                         <span>HAL {pageIdx + 1}</span>
                                     </div>
