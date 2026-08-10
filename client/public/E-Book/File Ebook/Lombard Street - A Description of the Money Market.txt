@@ -1,51 +1,14 @@
-The Project Gutenberg eBook of Lombard Street: A Description of the Money Market
-
-This eBook is for the use of anyone anywhere in the United States and most other parts of the world at no cost and with almost no restrictions whatsoever. You may copy it, give it away or re-use it under the terms of the Project Gutenberg License included with this eBook or online at www.gutenberg.org. If you are not located in the United States, you will have to check the laws of the country where you are located before using this eBook.
-
-Title: Lombard Street: A Description of the Money Market
-
-Author: Walter Bagehot
-
-
-
-Release date: August 1, 2003 [eBook #4359] Most recently updated: October 20, 2014
-
-Language: English
-
-Other information and formats: www.gutenberg.org/ebooks/4359
-
-Credits: Produced by Edited by Charles Aldarondo
-
-
-*** START OF THE PROJECT GUTENBERG EBOOK LOMBARD STREET: A DESCRIPTION OF THE MONEY MARKET ***
-
-
-
-
 Produced by Edited by Charles Aldarondo (aldarondo@yahoo.com)
 
-
-
-
-
-
-
-
 **LOMBARD STREET**
-
 
 A Description of the Money Market.
 
 By WALTER BAGEHOT
 
-
-
-
 **CHAPTER I.**
 
-
 Introductory.
-
 
 I venture to call this Essay 'Lombard Street,' and not the 'Money Market,' or any such phrase, because I wish to deal, and to show that I mean to deal, with concrete realities. A notion prevails that the Money Market is something so impalpable that it can only be spoken of in very abstract words, and that therefore books on it must always be exceedingly difficult. But I maintain that the Money Market is as concrete and real as anything else; that it can be described in as plain words; that it is the writer's fault if what he says is not clear. In one respect, however, I admit that I am about to take perhaps an unfair advantage. Half, and more than half, of the supposed 'difficulty' of the Money Market has arisen out of the controversies as to 'Peel's Act,' and the abstract discussions on the theory on which that act is based, or supposed to be based. But in the ensuing pages I mean to speak as little as I can of the Act of 1844; and when I do speak of it, I shall deal nearly exclusively with its experienced effects, and scarcely at all, if at all, with its refined basis.
 
@@ -91,16 +54,11 @@ But it is not easy to rouse men of business to the task. They let the tide of bu
 
 I am by no means an alarmist. I believe that our system, though curious and peculiar, may be worked safely; but if we wish so to work it, we must study it. We must not think we have an easy task when we have a difficult task, or that we are living in a natural state when we are really living in an artificial one. Money will not manage itself, and Lombard street has a great deal of money to manage.
 
-
-
-
 **CHAPTER II.**
-
 
 A General View of Lombard Street.
 
 I.
-
 
 The objects which you see in Lombard Street, and in that money world which is grouped about it, are the Bank of England, the Private Banks, the Joint Stock Banks, and the bill brokers. But before describing each of these separately we must look at what all have in common, and at the relation of each to the others.
 
@@ -116,11 +74,9 @@ _An account pursuant to the Act 7th and 8th Victoria, cap. 32, for the week endi
 
 **ISSUE DEPARTMENT.**
 
-
 Notes issued 33,288,640 L| Government debt 11,015,100 L | Other securities 3,984,900 L | Gold coin and bullion 18,288,640 L | Silver bullion 33,288,640| 33,288,640 L
 
 **BANKING DEPARTMENT.**
-
 
 Proprietors' capital 14,553,000 L| Government Securities 13,811,953 L Rest 3,103,301 L| Other securities 19,781,988 L Public deposits, | Notes 10,389,690 L including Exchequer, | Gold and silver coins 907,982 L Savings' Banks, | Commissioners of | National Debt, | and dividend | accounts 8,585,215 L| Other deposits 18,204,607 L| Seven-day and other | bills 445,490 L| 44,891,613 L| 44,891,613 L
 
@@ -182,9 +138,7 @@ The result is that we have placed the exclusive custody of our entire banking re
 
 That such an arrangement is strange must be plain; but its strangeness can only be comprehended when we know what the custody of a national banking reserve means, and how delicate and difficult it is.
 
-
 II.
-
 
 Such a reserve as we have seen is kept to meet sudden and unexpected demands. If the bankers of a country are asked for much more than is commonly wanted, then this reserve must be resorted to. What then are these extra demands? and how is this extra reserve to be used? Speaking broadly, these extra demands are of two kinds--one from abroad to meet foreign payments requisite to pay large and unusual foreign debts, and the other from at home to meet sudden apprehension or panic arising in any manner, rational or irrational.
 
@@ -272,14 +226,9 @@ Thirdly. As these two suggestions are designed to make the Bank as strong as pos
 
 But to explain these proposals, and to gain a full understanding of many arguments that have been used, we must look more in detail at the component parts of Lombard street, and at the curious set of causes which have made it assume its present singular structure.
 
-
-
-
 **CHAPTER III.**
 
-
 How Lombard Street Came to Exist, and Why It Assumed Its Present Form.
-
 
 In the last century, a favourite subject of literary ingenuity was 'conjectural history,' as it was then called. Upon grounds of probability a fictitious sketch was made of the possible origin of things existing. If this kind of speculation were now applied to banking, the natural and first idea would be that large systems of deposit banking grew up in the early world, just as they grow up now in any large English colony. As soon as any such community becomes rich enough to have much money, and compact enough to be able to lodge its money in single banks, it at once begins so to do. English colonists do not like the risk of keeping their money, and they wish to make an interest on it. They carry from home the idea and the habit of banking, and they take to it as soon as they can in their new world. Conjectural history would be inclined to say that all banking began thus: but such history is rarely of any value. The basis of it is false. It assumes that what works most easily when established is that which it would be the most easy to establish, and that what seems simplest when familiar would be most easily appreciated by the mind though unfamiliar. But exactly the contrary is true. Many things which seem simple and which work well when firmly established, are very hard to establish among new people, and not very easy to explain to them. Deposit banking is of this sort. Its essence is that a very large number of persons agree to trust a very few persons, or some one person. Banking would not be a profitable trade if bankers were not a small number, and depositors in comparison an immense number. But to get a great number of persons to do exactly the same thing is always very difficult, and nothing but a very palpable necessity will make them on a sudden begin to do it. And there is no such palpable necessity in banking. If you take a country town in France, even now, you will not find any such system of banking as ours. Cheque-books are unknown, and money kept on running account by bankers is rare. People store their money in a caisse at their houses. Steady savings, which are waiting for investment, and which are sure not to be soon wanted, may be lodged with bankers; but the common floating cash of the community is kept by the community themselves at home. They prefer to keep it so, and it would not answer a banker's purpose to make expensive arrangements for keeping it otherwise. If a 'branch,' such as the National Provincial Bank opens in an English country town, were opened in a corresponding French one, it would not pay its expenses. You could not get any sufficient number of Frenchmen to agree to put their money there. And so it is in all countries not of British descent, though in various degrees. Deposit banking is a very difficult thing to begin, because people do not like to let their money out of their sight, especially do not like to let it out of sight without security--still more, cannot all at once agree on any single person to whom they are content to trust it unseen and unsecured. Hypothetical history, which explains the past by what is simplest and commonest in the present, is in banking, as in most things, quite untrue.
 
@@ -323,9 +272,7 @@ France indeed, before 1789, was an exception. For many years under the old regim
 
 This therefore is the reason why Lombard Street exists; that is, why England is a very great Money Market, and other European countries but small ones in comparison. In England and Scotland a diffused system of note issues started banks all over the country; in these banks the savings of the country have been lodged, and by these they have been sent to London. No similar system arose elsewhere, and in consequence London is full of money, and all continental cities are empty as compared with it.
 
-
 II.
-
 
 The monarchical form of Lombard Street is due also to the note issue. The origin of the Bank of England has been told by Macaulay, and it is never wise for an ordinary writer to tell again what he has told so much better. Nor is it necessary, for his writings are in everyone's hands. Still I must remind my readers of the curious story.
 
@@ -345,14 +292,9 @@ And the practical effect of the clause went further: it was believed to make the
 
 With so many advantages over all competitors, it is quite natural that the Bank of England should have far outstripped them all. Inevitably it became the bank in London; all the other bankers grouped themselves round it, and lodged their reserve with it. Thus our one reserve system of banking was not deliberately founded upon definite reasons; it was the gradual consequence of many singular events, and of an accumulation of legal privileges on a single bank which has now been altered, and which no one would now defend.
 
-
-
-
 **CHAPTER IV.**
 
-
 The Position of the Chancellor of the Exchequer in the Money Market.
-
 
 Nothing can be truer in theory than the economical principle that banking is a trade and only a trade, and nothing can be more surely established by a larger experience than that a Government which interferes with any trade injures that trade. The best thing undeniably that a Government can do with the Money Market is to let it take care of itself.
 
@@ -398,14 +340,9 @@ On the whole, therefore, the position of the Chancellor of the Exchequer in our 
 
 His aid may be most efficient. He is, on finance, the natural exponent of the public opinion of England. And it is by that opinion that we wish the Bank of England to be guided. Under a natural system of banking we should have relied on self-interest, but the State prevented that; we now rely on opinion instead; the public approval is a reward, its disapproval a severe penalty, on the Bank directors; and of these it is most important that the finance minister should be a sound and felicitous exponent.
 
-
-
-
 **CHAPTER V.**
 
-
 The Mode in Which the Value of Money is Settled in Lombard Street.
-
 
 Many persons believe that the Bank of England has some peculiar power of fixing the value of money. They see that the Bank of England varies its minimum rate of discount from time to time, and that, more or less, all other banks follow its lead, and charge much as it charges; and they are puzzled why this should be. 'Money,' as economists teach, 'is a commodity, and only a commodity;' why then, it is asked, is its value fixed in so odd a way, and not the way in which the value of all other commodities is fixed?
 
@@ -431,14 +368,9 @@ The fluctuations in the value of money are therefore greater than those on the v
 
 These considerations enable us to estimate the responsibility which is thrown on the Bank of England by our system, and by every system on the bank or banks who by it keep the reserve of bullion or of legal tender exchangeable for bullion. These banks can in no degree control the permanent value of money, but they can completely control its momentary value. They cannot change the average value, but they can determine the deviations from the average. If the dominant banks manage ill, the rate of interest will at one time be excessively high, and at another time excessively low: there will be first a pernicious excitement, and next a fatal collapse. But if they manage well, the rate of interest will not deviate so much from the average rate; it will neither ascend so high nor descend so low. As far as anything can be steady the value of money will then be steady, and probably in consequence trade will be steady too--at least a principal cause of periodical disturbance will have been withdrawn from it.
 
-
-
-
 **CHAPTER VI.**
 
-
 Why Lombard Street is Often Very Dull, and Sometimes Extremely Excited.
-
 
 Any sudden event which creates a great demand for actual cash may cause, and will tend to cause, a panic in a country where cash is much economised, and where debts payable on demand are large. In such a country an immense credit rests on a small cash reserve, and an unexpected and large diminution of that reserve may easily break up and shatter very much, if not the whole, of that credit. Such accidental events are of the most various nature: a bad harvest, an apprehension of foreign invasion, the sudden failure of a great firm which everybody trusted, and many other similar events, have all caused a sudden demand for cash. And some writers have endeavoured to classify panics according to the nature of the particular accidents producing them. But little, however, is, I believe, to be gained by such classifications. There is little difference in the effect of one accident and another upon our credit system. We must be prepared for all of them, and we must prepare for all of them in the same way--by keeping a large cash reserve.
 
@@ -542,14 +474,9 @@ When we understand that Lombard Street is subject to severe alternations of oppo
 
 Now too that we comprehend the inevitable vicissitudes of Lombard Street, we can also thoroughly comprehend the cardinal importance of always retaining a great banking reserve. Whether the times of adversity are well met or ill met depends far more on this than on any other single circumstance. If the reserve be large, its magnitude sustains credit; and if it be small, its diminution stimulates the gravest apprehensions. And the better we comprehend the importance of the banking reserve, the higher we shall estimate the responsibility of those who keep it.
 
-
-
-
 **CHAPTER VII.**
 
-
 A More Exact Account of the Mode in Which the Bank of England Has Discharged Its Duty of Retaining a Good Bank Reserve, and of Administering It Effectually.
-
 
 The preceding chapters have in some degree enabled us to appreciate the importance of the duties which the Bank of England is bound to discharge as to its banking reserve.
 
@@ -558,7 +485,6 @@ If we ask how the Bank of England has discharged this great responsibility, we s
 At first, it seems exceedingly strange that so important a responsibility should be unimposed, unacknowledged, and denied; but the explanation is this. We are living amid the vestiges of old controversies, and we speak their language, though we are dealing with different thoughts and different facts. For more than fifty years--from 1793 down to 1844--there was a keen controversy as to the public duties of the Bank. It was said to be the 'manager' of the paper currency, and on that account many expected much good from it; others said it did great harm; others again that it could do neither good nor harm. But for the whole period there was an incessant and fierce discussion. That discussion was terminated by the Act of 1844. By that Act the currency manages itself; the entire working is automatic. The Bank of England plainly does not manage--cannot even be said to manage--the currency any more. And naturally, but rashly, the only reason upon which a public responsibility used to be assigned to the Bank having now clearly come to an end, it was inferred by many that the Bank had no responsibility. The complete uncertainty as to the degree of responsibility acknowledged by the Bank of England is best illustrated by what has been said by the Bank directors themselves as to the panic of 1866. The panic of that year, it will be remembered, happened, contrary to precedent, in the spring, and at the next meeting of the Court of Bank proprietors--the September meeting--there was a very remarkable discussion, which I give at length below, and of which all that is most material was thus described in the 'Economist':
 
 'THE GREAT IMPORTANCE OF THE LATE MEETING **OF THE PROPRIETORS OF THE BANK OF ENGLAND.**
-
 
 'The late meeting of the proprietors of the Bank of England has a very unusual importance. There can be no effectual inquiry now into the history of the late crisis. A Parliamentary committee next year would, unless something strange occur in the interval, be a great waste of time. Men of business have keen sensations but short memories, and they will care no more next February for the events of last May than they now care for the events of October 1864. A _pro forma_ inquiry, on which no real mind is spent, and which everyone knows will lead to nothing, is far worse than no inquiry at all. Under these circumstances the official statements of the Governor of the Bank are the only authentic expositions we shall have of the policy of the Bank Directors, whether as respects the past or the future. And when we examine the proceedings with care, we shall find that they contain matter of the gravest import.
 
@@ -698,14 +624,9 @@ The amount of the advance is the main consideration for the Bank of England, and
 
 In common opinion there is always great uncertainty as to the conduct of the Bank: the Bank has never laid down any clear and sound policy on the subject. As we have seen, some of its directors (like Mr. Hankey) advocate an erroneous policy. The public is never sure what policy will be adopted at the most important moment: it is not sure what amount of advance will be made, or on what security it will be made. The best palliative to a panic is a confidence in the adequate amount of the Bank reserve, and in the efficient use of that reserve. And until we have on this point a clear understanding with the Bank of England, both our liability to crises and our terror at crises will always be greater than they would otherwise be.
 
-
-
-
 **CHAPTER VIII.**
 
-
 The Government of the Bank of England.
-
 
 The Bank of England is governed by a board of directors, a Governor, and a Deputy-Governor; and the mode in which these are chosen, and the time for which they hold office, affect the whole of its business. The board of directors is in fact self-electing. In theory a certain portion go out annually, remain out for a year, and are subject to re-election by the proprietors. But in fact they are nearly always, and always if the other directors wish it, re-elected after a year. Such has been the unbroken practice of many years, and it would be hardly possible now to break it. When a vacancy occurs by death or resignation, the whole board chooses the new member, and they do it, as I am told, with great care. For a peculiar reason, it is important that the directors should be young when they begin; and accordingly the board run over the names of the most attentive and promising young men in the old-established firms of London, and select the one who, they think, will be most suitable for a bank director. There is a considerable ambition to fill the office. The status which is given by it, both to the individual who fills it and to the firm of merchants to which he belongs, is considerable. There is surprisingly little favour shown in the selection; there is a great wish on the part of the Bank directors for the time being to provide, to the best of their ability, for the future good government of the Bank. Very few selections in the world are made with nearly equal purity. There is a sincere desire to do the best for the Bank, and to appoint a well-conducted young man who has begun to attend to business, and who seems likely to be fairly sensible and fairly efficient twenty years later.
 
@@ -777,14 +698,9 @@ An objection is also taken to the large number of Bank directors. There are twen
 
 There should be no delicacy as to altering the constitution of the Bank of England. The existing constitution was framed in times that have passed away, and was intended to be used for purposes very different from the present. The founders may have considered that it would lend money to the Government, that it would keep the money of the Government, that it would issue notes payable to bearer, but that it would keep the 'Banking reserve' of a great nation no one in the seventeenth century imagined. And when the use to which we are putting an old thing is a new use, in common sense we should think whether the old thing is quite fit for the use to which we are setting it. 'Putting new wine into old bottles' is safe only when you watch the condition of the bottle, and adapt its structure most carefully.
 
-
-
-
 **CHAPTER IX.**
 
-
 The Joint Stock Banks.
-
 
 The Joint Stock Banks of this country are a most remarkable success. Generally speaking the career of Joint Stock Companies in this country has been chequered. Adam Smith, many years since, threw out many pregnant hints on the difficulty of such undertakings--hints which even after so many years will well repay perusal. But joint stock banking has been an exception to this rule. Four years ago I threw together the facts on the subject and the reasons for them; and I venture to quote the article, because subsequent experience suggests, I think, little to be added to it.
 
@@ -798,7 +714,6 @@ The Joint Stock Banks of this country are a most remarkable success. Generally s
 
 No. of Companies Capital L Above 20 per cent 15 5,302,767 Between 15 and 20 per cent 20 5,439,439 " 10 and 15 per cent 36 14,056,950 " 5 and 10 per cent 36 14,182,379 Under 5 per cent 3 1,350,000 --------------- **110 40,331,535**
 
-
 that is to say, above 25 per cent of the capital employed in these banks pays over 15 per cent, and 62 1/2 per cent of the capital pays more than 10 per cent. So striking a result is not to be shown in any other joint stock trade.
 
 'The period to which these accounts refer was certainly not a particularly profitable one--on the contrary, it has been specially unprofitable. The rate of interest has been very low, and the amount of good security in the market small. Many banks--to some extent most banks--probably had in their books painful reminiscences of 1866. The fever of excitement which passed over the nation was strongest in the classes to whom banks lent most, and consequently the losses of even the most careful banks (save of those in rural and sheltered situations) were probably greater than usual. But even tried by this very unfavourable test banking is a trade profitable far beyond the average of trades.
@@ -810,7 +725,6 @@ that is to say, above 25 per cent of the capital employed in these banks pays ov
 'The value of the opportunity too is proportioned to what has to be paid for it. Some old banks have to pay interest for all their money; some have much for which they pay nothing. Those who give much to their customers have of course less left for their shareholders. Thus Scotland, where there is always a daily interest, has no bank in the lists paying over 15 per cent. The profits of Scotch banks run thus:
 
 Capital Dividend L Bank of Scotland 1,500,000 12 British Linen Company 1,000,000 3 Caledonian 125,000 10 Clydesdale 900,000 10 Commercial Bank of Scotland 1,000,000 13 National Bank of Scotland 1,000,000 112 North of Scotland 280,000 10 Union Bank of Scotland 1,000,000 10 City of Glasgow 870,000 8 Royal Bank 2,000,000 8 ------- **9,675,000**
-
 
 Good profits enough, but not at all like the profits of the London and Westminster, or the other most lucrative banks of the South.
 
@@ -850,14 +764,9 @@ Our great joint stock bands are imprudent in so carefully concealing the details
 
 And not only the depositors and the shareholders of these large banks have a grave interest in their good government, but the public also. We have seen that our banking reserve is, as compared with our liabilities, singularly small; we have seen that the rise of these great banks has lessened the proportion of that reserve to those liabilities; we have seen that the greatest strain on the banking reserve is a 'panic.' Now, no cause is more capable of producing a panic, perhaps none is so capable, as the failure of a first-rate joint stock bank in London. Such an event would have something like the effect of the failure of Overend, Gurney and Co.; scarcely any other event would have an equal effect. And therefore, under the existing constitution of our banking system the government of these great banks is of primary importance to us all.
 
-
-
-
 **CHAPTER X.**
 
-
 The Private Banks.
-
 
 Perhaps some readers of the last part of the last chapter have been inclined to say that I must be a latent enemy to Joint Stock Banking. At any rate, I have pointed out what I think grave defects in it. But I fear that a reader of this chapter may, on like grounds, suppose that I am an enemy to Private Banking. And I can only hope that the two impressions may counteract one another, and may show that I do not intend to be unfair.
 
@@ -891,14 +800,9 @@ The only organisation which I can imagine to be effectual is that which exists i
 
 A subsidiary advantage of this organisation is that it would render the transition from private banking to joint stock banking easier, if that transition should be necessary. The one might merge in the other as convenience suggested and as events required. There is nothing intrusive in discussing this subject. The organisation of the private is just like that of the joint stock banks; all the public are interested that it should be good. The want of a good organisation may cause the failure of one or more of these banks; and such failure of such banks may intensify a panic, even if it should not cause one.
 
-
-
-
 **CHAPTER XI.**
 
-
 The Bill-Brokers.
-
 
 Under every system of banking, whether that in which the reserve is kept in many banks, or one in which it is kept in a single bank only, there will always be a class of persons who examine more carefully than busy bankers can the nature of different securities; and who, by attending only to one class, come to be particularly well acquainted with that class. And as these specially qualified dealers can for the most part lend much more than their own capital, they will always be ready to borrow largely from bankers and others, and to deposit the securities which they know to be good as a pledge for the loan. They act thus as intermediaries between the borrowing public and the less qualified capitalist; knowing better than the ordinary capitalist which loans are better and which are worse, they borrow from him, and gain a profit by charging to the public more than they pay to him.
 
@@ -962,14 +866,9 @@ It might be expected that such a state of things would cause much discontent at 
 
 I shall be asked if this anomaly is inevitable, and I am afraid that for practical purposes we must consider it to be so. It may be lessened; the bill-brokers may, and should, discourage as much as they can the deposit of money with them on demand, and encourage the deposit of it at distant fixed dates or long notice. This will diminish the anomaly, but it will not cure it. Practically, bin-brokers cannot refuse to receive money at call. In every market a dealer must conduct his business according to the custom of the market, or he will not be able to conduct it at all. All the bin-brokers can do is to offer better rates for more permanent money, and this (though possibly not so much as might be wished) they do at present. In its essence, this anomaly is, I believe, an inevitable part of the system of banking which history has given us, and which we have only to make the best of, since we cannot alter it.
 
-
-
-
 **CHAPTER XII.**
 
-
 The Principles Which Should Regulate the Amount of the Banking Reserve to Be Kept by the Bank of England.
-
 
 There is a very common notion that the amount of the reserve which the Bank of England ought to keep can be determined at once from the face of their weekly balance sheet. It is imagined that you have only to take the liabilities of the Banking department, and that a third or some other fixed proportion will in all cases be the amount of reserve which the Bank should keep against those liabilities. But to this there are several objections, some arising from the general nature of the banking trade, and others from the special position of the Bank of England.
 
@@ -1033,14 +932,9 @@ I shall perhaps be told also that a body like the Court of the Directors of the 
 
 Then I should say, putting the foregoing reasoning into figures, that the Bank ought never to keep less than 11,000,000 L.. or 11,500,000 L. since experience shows that a million, or a million and a half, may be taken from us at any time. I should regard this as the practical minimum at which, roughly of course, the Bank should aim, and which it should try never to be below. And, in order not to be below 11,500,000 L., the Bank must begin to take precautions when the reserve is between 14,000,000 L. and 15,000,000 l.; for experience shows that between 2,000,000 L. and 3,000,000 L. may, probably enough, be withdrawn from the Bank store before the right rate of interest is found which will attract money from abroad, and before that rate has had time to attract it. When the reserve is between 14,000,000 L. and 15,000,000 L., and when it begins to be diminished by foreign demand, the Bank of England should, I think, begin to act, and to raise the rate of interest.
 
-
-
-
 **CHAPTER XIII.**
 
-
 Conclusion.
-
 
 I know it will be said that in this work I have pointed out a deep malady, and only suggested a superficial remedy. I have tediously insisted that the natural system of banking is that of many banks keeping their own cash reserve, with the penalty of failure before them if they neglect it. I have shown that our system is that of a single bank keeping the whole reserve under no effectual penalty of failure. And yet I propose to retain that system, and only attempt to mend and palliate it.
 
@@ -1056,11 +950,7 @@ I have explained why the French plan will not suit our English world. The direct
 
 We must therefore, I think, have recourse to feeble and humble palliatives such as I have suggested. With good sense, good judgment, and good care, I have no doubt that they may be enough. But I have written in vain if I require to say now that the problem is delicate, that the solution is varying and difficult, and that the result is inestimable to us all.
 
-
-
-
 **APPENDIX.**
-
 
 Note A.
 
@@ -1107,7 +997,6 @@ Coin and legal tenders in hand L 26,000,000 ============
 Making proportion of cash reserve to liabilities to the public about 12.3 per cent.
 
 **SUMMARY**
-
 
 Liabilities Cash held Proportion of cash to the public to liabilities per cent Bank of England and London Joint Stock Banks 20,000,000 13,500,000 11.2 Bank of France 125,000,000 32,000,000 25.0 Banks of Germany 88,000,000 41,000,000 47.0 National Banks of United States 212,000,000 26,000,000 12.3
 
@@ -1247,7 +1136,6 @@ Year Circulation Deposits L L **1764 30,395 --**
 
 **1864 41,118 684,898**
 
-
 The Bank did not begin to receive deposits until 1792, in which year they amounted to 35,944 L.
 
 Note D.
@@ -1299,135 +1187,3 @@ Mr. P. N. Laurie said he understood the Governor of the Bank to say that it woul
 Mr. Alderman Salomons said that he, too, was of the same opinion.
 
 On the motion of Mr. Alderman Salomons, seconded by Mr. Botly, a vote of thanks was passed to the Governor and the directors for their able and successful management of the Bank during the past half-year, and the proceedings then terminated.
-
-
-
-
-
-
-
-
-
-*** END OF THE PROJECT GUTENBERG EBOOK LOMBARD STREET: A DESCRIPTION OF THE MONEY MARKET ***
-
-
-
-
-Updated editions will replace the previous one—the old editions will be renamed.
-
-Creating the works from print editions not protected by U.S. copyright law means that no one owns a United States copyright in these works, so the Foundation (and you!) can copy and distribute it in the United States without permission and without paying copyright royalties. Special rules, set forth in the General Terms of Use part of this license, apply to copying and distributing Project Gutenberg™ electronic works to protect the PROJECT GUTENBERG™ concept and trademark. Project Gutenberg is a registered trademark, and may not be used if you charge for an eBook, except by following the terms of the trademark license, including paying royalties for use of the Project Gutenberg trademark. If you do not charge anything for copies of this eBook, complying with the trademark license is very easy. You may use this eBook for nearly any purpose such as creation of derivative works, reports, performances and research. Project Gutenberg eBooks may be modified and printed and given away—you may do practically ANYTHING in the United States with eBooks not protected by U.S. copyright law. Redistribution is subject to the trademark license, especially commercial redistribution.
-
-
-START: FULL LICENSE
-
-**THE FULL PROJECT GUTENBERG™ LICENSE**
-
-
-**PLEASE READ THIS BEFORE YOU DISTRIBUTE OR USE THIS WORK**
-
-
-To protect the Project Gutenberg™ mission of promoting the free distribution of electronic works, by using or distributing this work (or any other work associated in any way with the phrase “Project Gutenberg”), you agree to comply with all the terms of the Full Project Gutenberg License available with this file or online at www.gutenberg.org/license.
-
-Section 1. General Terms of Use and Redistributing Project Gutenberg electronic works
-
-1.A. By reading or using any part of this Project Gutenberg electronic work, you indicate that you have read, understand, agree to and accept all the terms of this license and intellectual property (trademark/copyright) agreement. If you do not agree to abide by all the terms of this agreement, you must cease using and return or destroy all copies of Project Gutenberg electronic works in your possession. If you paid a fee for obtaining a copy of or access to a Project Gutenberg electronic work and you do not agree to be bound by the terms of this agreement, you may obtain a refund from the person or entity to whom you paid the fee as set forth in paragraph 1.E.8.
-
-1.B. “Project Gutenberg” is a registered trademark. It may only be used on or associated in any way with an electronic work by people who agree to be bound by the terms of this agreement. There are a few things that you can do with most Project Gutenberg electronic works even without complying with the full terms of this agreement. See paragraph 1.C below. There are a lot of things you can do with Project Gutenberg electronic works if you follow the terms of this agreement and help preserve free future access to Project Gutenberg electronic works. See paragraph 1.E below.
-
-1.C. The Project Gutenberg Literary Archive Foundation (“the Foundation” or PGLAF), owns a compilation copyright in the collection of Project Gutenberg electronic works. Nearly all the individual works in the collection are in the public domain in the United States. If an individual work is unprotected by copyright law in the United States and you are located in the United States, we do not claim a right to prevent you from copying, distributing, performing, displaying or creating derivative works based on the work as long as all references to Project Gutenberg are removed. Of course, we hope that you will support the Project Gutenberg mission of promoting free access to electronic works by freely sharing Project Gutenberg works in compliance with the terms of this agreement for keeping the Project Gutenberg name associated with the work. You can easily comply with the terms of this agreement by keeping this work in the same format with its attached full Project Gutenberg License when you share it without charge with others.
-
-1.D. The copyright laws of the place where you are located also govern what you can do with this work. Copyright laws in most countries are in a constant state of change. If you are outside the United States, check the laws of your country in addition to the terms of this agreement before downloading, copying, displaying, performing, distributing or creating derivative works based on this work or any other Project Gutenberg work. The Foundation makes no representations concerning the copyright status of any work in any country other than the United States.
-
-1.E. Unless you have removed all references to Project Gutenberg:
-
-1.E.1. The following sentence, with active links to, or other immediate access to, the full Project Gutenberg License must appear prominently whenever any copy of a Project Gutenberg work (any work on which the phrase “Project Gutenberg” appears, or with which the phrase “Project Gutenberg” is associated) is accessed, displayed, performed, viewed, copied or distributed:
-
-This eBook is for the use of anyone anywhere in the United States and most other parts of the world at no cost and with almost no restrictions whatsoever. You may copy it, give it away or re-use it under the terms of the Project Gutenberg™ License included with this eBook or online at www.gutenberg.org. If you are not located in the United States, you will have to check the laws of the country where you are located before using this eBook.
-
-1.E.2. If an individual Project Gutenberg electronic work is derived from texts not protected by U.S. copyright law (does not contain a notice indicating that it is posted with permission of the copyright holder), the work can be copied and distributed to anyone in the United States without paying any fees or charges. If you are redistributing or providing access to a work with the phrase “Project Gutenberg” associated with or appearing on the work, you must comply either with the requirements of paragraphs 1.E.1 through 1.E.7 or obtain permission for the use of the work and the Project Gutenberg trademark as set forth in paragraphs 1.E.8 or 1.E.9.
-
-1.E.3. If an individual Project Gutenberg electronic work is posted with the permission of the copyright holder, your use and distribution must comply with both paragraphs 1.E.1 through 1.E.7 and any additional terms imposed by the copyright holder. Additional terms will be linked to the Project Gutenberg License for all works posted with the permission of the copyright holder found at the beginning of this work.
-
-1.E.4. Do not unlink or detach or remove the full Project Gutenberg License terms from this work, or any files containing a part of this work or any other work associated with Project Gutenberg.
-
-1.E.5. Do not copy, display, perform, distribute or redistribute this electronic work, or any part of this electronic work, without prominently displaying the sentence set forth in paragraph 1.E.1 with active links or immediate access to the full terms of the Project Gutenberg License.
-
-1.E.6. You may convert to and distribute this work in any binary, compressed, marked up, nonproprietary or proprietary form, including any word processing or hypertext form. However, if you provide access to or distribute copies of a Project Gutenberg work in a format other than “Plain Vanilla ASCII” or other format used in the official version posted on the official Project Gutenberg website (www.gutenberg.org), you must, at no additional cost, fee or expense to the user, provide a copy, a means of exporting a copy, or a means of obtaining a copy upon request, of the work in its original “Plain Vanilla ASCII” or other form. Any alternate format must include the full Project Gutenberg License as specified in paragraph 1.E.1.
-
-1.E.7. Do not charge a fee for access to, viewing, displaying, performing, copying or distributing any Project Gutenberg works unless you comply with paragraph 1.E.8 or 1.E.9.
-
-1.E.8. You may charge a reasonable fee for copies of or providing access to or distributing Project Gutenberg electronic works provided that:
-
-• You pay a royalty fee of 20% of the gross profits you derive from the use of Project Gutenberg works calculated using the method you already use to calculate your applicable taxes. The fee is owed to the owner of the Project Gutenberg trademark, but he has agreed to donate royalties under this paragraph to the Project Gutenberg Literary Archive Foundation. Royalty payments must be paid within 60 days following each date on which you prepare (or are legally required to prepare) your periodic tax returns. Royalty payments should be clearly marked as such and sent to the Project Gutenberg Literary Archive Foundation at the address specified in Section 4, “Information about donations to the Project Gutenberg Literary Archive Foundation.”
-
-• You provide a full refund of any money paid by a user who notifies you in writing (or by e-mail) within 30 days of receipt that s/he does not agree to the terms of the full Project Gutenberg™ License. You must require such a user to return or destroy all copies of the works possessed in a physical medium and discontinue all use of and all access to other copies of Project Gutenberg™ works.
-
-• You provide, in accordance with paragraph 1.F.3, a full refund of any money paid for a work or a replacement copy, if a defect in the electronic work is discovered and reported to you within 90 days of receipt of the work.
-
-• You comply with all other terms of this agreement for free distribution of Project Gutenberg™ works.
-
-
-1.E.9. If you wish to charge a fee or distribute a Project Gutenberg™ electronic work or group of works on different terms than are set forth in this agreement, you must obtain permission in writing from the Project Gutenberg Literary Archive Foundation, the manager of the Project Gutenberg™ trademark. Contact the Foundation as set forth in Section 3 below.
-
-**1.F.**
-
-
-1.F.1. Project Gutenberg volunteers and employees expend considerable effort to identify, do copyright research on, transcribe and proofread works not protected by U.S. copyright law in creating the Project Gutenberg™ collection. Despite these efforts, Project Gutenberg™ electronic works, and the medium on which they may be stored, may contain “Defects,” such as, but not limited to, incomplete, inaccurate or corrupt data, transcription errors, a copyright or other intellectual property infringement, a defective or damaged disk or other medium, a computer virus, or computer codes that damage or cannot be read by your equipment.
-
-1.F.2. LIMITED WARRANTY, DISCLAIMER OF DAMAGES - Except for the “Right of Replacement or Refund” described in paragraph 1.F.3, the Project Gutenberg Literary Archive Foundation, the owner of the Project Gutenberg™ trademark, and any other party distributing a Project Gutenberg™ electronic work under this agreement, disclaim all liability to you for damages, costs and expenses, including legal fees. YOU AGREE THAT YOU HAVE NO REMEDIES FOR NEGLIGENCE, STRICT **LIABILITY, BREACH OF WARRANTY OR BREACH OF CONTRACT EXCEPT THOSE**
-
-**PROVIDED IN PARAGRAPH 1.F.3. YOU AGREE THAT THE FOUNDATION, THE**
-
-**TRADEMARK OWNER, AND ANY DISTRIBUTOR UNDER THIS AGREEMENT WILL NOT BE**
-
-**LIABLE TO YOU FOR ACTUAL, DIRECT, INDIRECT, CONSEQUENTIAL, PUNITIVE OR**
-
-**INCIDENTAL DAMAGES EVEN IF YOU GIVE NOTICE OF THE POSSIBILITY OF SUCH**
-
-**DAMAGE.**
-
-
-1.F.3. LIMITED RIGHT OF REPLACEMENT OR REFUND - If you discover a defect in this electronic work within 90 days of receiving it, you can receive a refund of the money (if any) you paid for it by sending a written explanation to the person you received the work from. If you received the work on a physical medium, you must return the medium with your written explanation. The person or entity that provided you with the defective work may elect to provide a replacement copy in lieu of a refund. If you received the work electronically, the person or entity providing it to you may choose to give you a second opportunity to receive the work electronically in lieu of a refund. If the second copy is also defective, you may demand a refund in writing without further opportunities to fix the problem.
-
-1.F.4. Except for the limited right of replacement or refund set forth in paragraph 1.F.3, this work is provided to you ‘AS-IS’, WITH NO **OTHER WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT**
-
-**LIMITED TO WARRANTIES OF MERCHANTABILITY OR FITNESS FOR ANY PURPOSE.**
-
-
-1.F.5. Some states do not allow disclaimers of certain implied warranties or the exclusion or limitation of certain types of damages. If any disclaimer or limitation set forth in this agreement violates the law of the state applicable to this agreement, the agreement shall be interpreted to make the maximum disclaimer or limitation permitted by the applicable state law. The invalidity or unenforceability of any provision of this agreement shall not void the remaining provisions.
-
-1.F.6. INDEMNITY - You agree to indemnify and hold the Foundation, the trademark owner, any agent or employee of the Foundation, anyone providing copies of Project Gutenberg™ electronic works in accordance with this agreement, and any volunteers associated with the production, promotion and distribution of Project Gutenberg™ electronic works, harmless from all liability, costs and expenses, including legal fees, that arise directly or indirectly from any of the following which you do or cause to occur: (a) distribution of this or any Project Gutenberg work, (b) alteration, modification, or additions or deletions to any Project Gutenberg work, and (c) any Defect you cause.
-
-Section 2. Information about the Mission of Project Gutenberg
-
-Project Gutenberg is synonymous with the free distribution of electronic works in formats readable by the widest variety of computers including obsolete, old, middle-aged and new computers. It exists because of the efforts of hundreds of volunteers and donations from people in all walks of life.
-
-Volunteers and financial support to provide volunteers with the assistance they need are critical to reaching Project Gutenberg’s goals and ensuring that the Project Gutenberg collection will remain freely available for generations to come. In 2001, the Project Gutenberg Literary Archive Foundation was created to provide a secure and permanent future for Project Gutenberg and future generations. To learn more about the Project Gutenberg Literary Archive Foundation and how your efforts and donations can help, see Sections 3 and 4 and the Foundation information page at www.gutenberg.org.
-
-Section 3. Information about the Project Gutenberg Literary Archive Foundation
-
-The Project Gutenberg Literary Archive Foundation is a non-profit 501(c)(3) educational corporation organized under the laws of the state of Mississippi and granted tax exempt status by the Internal Revenue Service. The Foundation’s EIN or federal tax identification number is 64-6221541. Contributions to the Project Gutenberg Literary Archive Foundation are tax deductible to the full extent permitted by U.S. federal laws and your state’s laws.
-
-The Foundation’s business office is located at 41 Watchung Plaza #516, Montclair NJ 07042, USA, +1 (862) 621-9288. Email contact links and up to date contact information can be found at the Foundation’s website and official page at www.gutenberg.org/contact
-
-Section 4. Information about Donations to the Project Gutenberg Literary Archive Foundation
-
-Project Gutenberg™ depends upon and cannot survive without widespread public support and donations to carry out its mission of increasing the number of public domain and licensed works that can be freely distributed in machine-readable form accessible by the widest array of equipment including outdated equipment. Many small donations ($1 to $5,000) are particularly important to maintaining tax exempt status with the IRS.
-
-The Foundation is committed to complying with the laws regulating charities and charitable donations in all 50 states of the United States. Compliance requirements are not uniform and it takes a considerable effort, much paperwork and many fees to meet and keep up with these requirements. We do not solicit donations in locations where we have not received written confirmation of compliance. To SEND DONATIONS or determine the status of compliance for any particular state visit www.gutenberg.org/donate.
-
-While we cannot and do not solicit contributions from states where we have not met the solicitation requirements, we know of no prohibition against accepting unsolicited donations from donors in such states who approach us with offers to donate.
-
-International donations are gratefully accepted, but we cannot make any statements concerning tax treatment of donations received from outside the United States. U.S. laws alone swamp our small staff.
-
-Please check the Project Gutenberg web pages for current donation methods and addresses. Donations are accepted in a number of other ways including checks, online payments and credit card donations. To donate, please visit: www.gutenberg.org/donate.
-
-Section 5. General Information About Project Gutenberg electronic works
-
-Professor Michael S. Hart was the originator of the Project Gutenberg concept of a library of electronic works that could be freely shared with anyone. For forty years, he produced and distributed Project Gutenberg eBooks with only a loose network of volunteer support.
-
-Project Gutenberg eBooks are often created from several printed editions, all of which are confirmed as not protected by copyright in the U.S. unless a copyright notice is included. Thus, we do not necessarily keep eBooks in compliance with any particular paper edition.
-
-Most people start at our website which has the main PG search facility: www.gutenberg.org.
-
-This website includes information about Project Gutenberg, including how to make donations to the Project Gutenberg Literary Archive Foundation, how to help produce our new eBooks, and how to subscribe to our email newsletter to hear about new eBooks.

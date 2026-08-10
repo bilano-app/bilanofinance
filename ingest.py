@@ -6,174 +6,87 @@ from dotenv import load_dotenv
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Daftar file e-book dan metadata resmi
-EBOOKS_DATA = [
-    {
-        "file": "the Wealth of Nations.txt",
-        "title": "The Wealth of Nations",
-        "author": "Adam Smith",
-        "description": "Karya monumental Adam Smith tentang fondasi ekonomi pasar bebas dan kapitalisme modern.",
-        "cover_url": "/Cover/Cover/Wealth.jpg",
-        "is_premium": True
-    },
-    {
-        "file": "Extraordinary Popular Delusions and the Madness of Crowds.txt",
-        "title": "Extraordinary Popular Delusions and the Madness of Crowds",
-        "author": "Charles Mackay",
-        "description": "Studi klasik tentang psikologi massa, gelembung finansial, dan kebiasaan konyol manusia.",
-        "cover_url": "/Cover/Cover/Delusions.png",
-        "is_premium": True
-    },
-    {
-        "file": "Lombard Street - A Description of the Money Market.txt",
-        "title": "Lombard Street",
-        "author": "Walter Bagehot",
-        "description": "Analisis mendalam mengenai sistem perbankan dan pasar uang London.",
-        "cover_url": "/Cover/Cover/Description.png",
-        "is_premium": False
-    },
-    {
-        "file": "The art of money getting.txt",
-        "title": "The Art of Money Getting",
-        "author": "P. T. Barnum",
-        "description": "Panduan pragmatis tentang akumulasi kekayaan dan etika bisnis dari P.T. Barnum.",
-        "cover_url": "/Cover/Cover/The Art.png",
-        "is_premium": False
-    },
-    {
-        "file": "The Science of Getting Rich.txt",
-        "title": "The Science of Getting Rich",
-        "author": "Wallace D. Wattles",
-        "description": "Buku filosofi kemakmuran yang menginspirasi pemikiran finansial modern.",
-        "cover_url": "/Cover/Cover/Science.jpg",
-        "is_premium": False
-    }
-]
+TARGET_BUKU = {
+    "file": "the Wealth of Nations.txt",
+    "title": "The Wealth of Nations",
+    "author": "Adam Smith",
+    "description": "Karya monumental Adam Smith tentang fondasi ekonomi pasar bebas.",
+    "cover_url": "/Cover/Cover/Wealth.jpg",
+    "is_premium": True
+}
 
-def find_ebook_file(filename, search_dir):
-    """Mencari lokasi file secara otomatis di seluruh pelosok folder proyek."""
-    for root, dirs, files in os.walk(search_dir):
-        # Abaikan folder yang tidak perlu agar pencarian super cepat
-        if 'node_modules' in dirs:
-            dirs.remove('node_modules')
-        if '.git' in dirs:
-            dirs.remove('.git')
-            
-        if filename in files:
-            return os.path.join(root, filename)
+def find_file(filename):
+    for root, dirs, files in os.walk(os.getcwd()):
+        if 'node_modules' in dirs: dirs.remove('node_modules')
+        if '.git' in dirs: dirs.remove('.git')
+        if filename in files: return os.path.join(root, filename)
     return None
 
-def clean_gutenberg_text(raw_text):
-    """Membersihkan header/footer Gutenberg & menggabungkan baris terputus."""
-    start_match = re.search(r"\*\*\* START OF (THE|THIS) PROJECT GUTENBERG EBOOK.*?\*\*\*", raw_text, re.IGNORECASE)
-    if start_match:
-        raw_text = raw_text[start_match.end():]
+def process():
+    file_path = find_file(TARGET_BUKU["file"])
+    if not file_path:
+        return print("❌ File tidak ditemukan.")
 
-    end_match = re.search(r"\*\*\* END OF (THE|THIS) PROJECT GUTENBERG EBOOK.*?\*\*\*", raw_text, re.IGNORECASE)
-    if end_match:
-        raw_text = raw_text[:end_match.start()]
+    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        text = f.read()
 
-    raw_text = raw_text.strip()
+    # Hapus Lisensi Gutenberg
+    start_m = re.search(r"\*\*\* START OF.*?GUTENBERG.*?\*\*\*", text, re.IGNORECASE)
+    if start_m: text = text[start_m.end():]
+    end_m = re.search(r"\*\*\* END OF.*?GUTENBERG.*?\*\*\*", text, re.IGNORECASE)
+    if end_m: text = text[:end_m.start()]
 
-    paragraphs = re.split(r'\n\s*\n', raw_text)
-    clean_paragraphs = []
+    text = text.strip()
+
+    # 🔥 TRIK MENGAMANKAN DAFTAR ISI:
+    # Samarkan kata "BAB" dan "BUKU" di 3500 karakter pertama (area daftar isi)
+    # Agar skrip tidak mencincang daftar isi menjadi bab-bab palsu.
+    area_daftar_isi = text[:3500]
+    area_naskah_asli = text[3500:]
     
-    for p in paragraphs:
-        cleaned_p = re.sub(r'\s+', ' ', p.strip())
-        if cleaned_p:
-            clean_paragraphs.append(cleaned_p)
+    area_daftar_isi = area_daftar_isi.replace("BUKU", "Bag-Buku").replace("BAB", "Bag-Bab")
+    text_aman = area_daftar_isi + area_naskah_asli
 
-    return "\n\n".join(clean_paragraphs)
+    # Sekarang aman untuk dipotong berdasarkan BAB / BUKU
+    pattern = r'(?=\n+(?:BUKU|BOOK|CHAPTER|BAB|PART|SECTION)\s+[IVXLCDM0-9]+)'
+    raw_chapters = re.split(pattern, "\n\n" + text_aman, flags=re.IGNORECASE)
 
-def split_into_chapters(full_text):
-    """Memecah naskah menjadi bab-bab terstruktur."""
-    pattern = r'(?=\n\n(?:BOOK|BUKU|CHAPTER|BAB|PART|SECTION)\s+[IVXLCDM0-9]+)'
-    raw_chapters = re.split(pattern, full_text, flags=re.IGNORECASE)
-
-    structured_chapters = []
-    chapter_num = 1
-
+    chapters = []
+    chap_num = 1
     for ch in raw_chapters:
-        ch_text = ch.strip()
-        if not ch_text or len(ch_text) < 100:
-            continue
-
-        lines = ch_text.split('\n\n')
-        first_line = lines[0].strip()
+        ch_t = ch.strip()
+        if len(ch_t) < 50: continue
         
-        if re.match(r'^(BOOK|BUKU|CHAPTER|BAB|PART|SECTION)\s+[IVXLCDM0-9]+', first_line, re.IGNORECASE):
-            title = first_line[:100]
-        else:
-            title = f"Bab {chapter_num}"
+        # Kembalikan lagi teks daftar isi ke bentuk aslinya (opsional untuk estetika)
+        ch_t = ch_t.replace("Bag-Buku", "BUKU").replace("Bag-Bab", "BAB")
+        
+        title = ch_t.split('\n')[0].strip()[:100]
+        chapters.append({"chapter_number": chap_num, "title": title, "content": ch_t})
+        chap_num += 1
 
-        structured_chapters.append({
-            "chapter_number": chapter_num,
-            "title": title,
-            "content": ch_text
-        })
-        chapter_num += 1
+    # MASUKKAN KE DATABASE
+    conn = psycopg2.connect(DATABASE_URL)
+    cursor = conn.cursor()
 
-    if not structured_chapters:
-        structured_chapters.append({
-            "chapter_number": 1,
-            "title": "Isi Lengkap",
-            "content": full_text
-        })
+    cursor.execute("SELECT id FROM ebooks WHERE title ILIKE %s LIMIT 1;", (f"%{TARGET_BUKU['title']}%",))
+    row = cursor.fetchone()
+    
+    if row:
+        ebook_id = row[0]
+        cursor.execute("DELETE FROM ebook_chapters WHERE ebook_id = %s;", (ebook_id,))
+    else:
+        cursor.execute("INSERT INTO ebooks (title, author, description, cover_url, is_premium) VALUES (%s, %s, %s, %s, %s) RETURNING id;", 
+                       (TARGET_BUKU["title"], TARGET_BUKU["author"], TARGET_BUKU["description"], TARGET_BUKU["cover_url"], TARGET_BUKU["is_premium"]))
+        ebook_id = cursor.fetchone()[0]
 
-    return structured_chapters
+    for ch in chapters:
+        cursor.execute("INSERT INTO ebook_chapters (ebook_id, chapter_number, title, content) VALUES (%s, %s, %s, %s);", 
+                       (ebook_id, ch["chapter_number"], ch["title"], ch["content"]))
 
-def run_ingest():
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cursor = conn.cursor()
-        print("🚀 Memulai Ingestion E-book Ke Database...")
-
-        cursor.execute("TRUNCATE TABLE ebook_chapters RESTART IDENTITY CASCADE;")
-        cursor.execute("TRUNCATE TABLE ebooks RESTART IDENTITY CASCADE;")
-
-        # Mengambil lokasi tempat script ini dijalankan
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-
-        for book in EBOOKS_DATA:
-            print(f"🔍 Mencari file: {book['file']}...")
-            
-            # FITUR BARU: Cari otomatis file ini di dalam proyek
-            file_path = find_ebook_file(book["file"], base_dir)
-            
-            if not file_path:
-                print(f"⚠️ Gagal menemukan file '{book['file']}' di seluruh folder proyek!")
-                continue
-                
-            print(f"  👉 Ditemukan di: {file_path}")
-
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                raw_content = f.read()
-
-            clean_text = clean_gutenberg_text(raw_content)
-            chapters = split_into_chapters(clean_text)
-
-            cursor.execute("""
-                INSERT INTO ebooks (title, author, description, cover_url, is_premium)
-                VALUES (%s, %s, %s, %s, %s) RETURNING id;
-            """, (book["title"], book["author"], book["description"], book["cover_url"], book["is_premium"]))
-            
-            ebook_id = cursor.fetchone()[0]
-
-            for ch in chapters:
-                cursor.execute("""
-                    INSERT INTO ebook_chapters (ebook_id, chapter_number, title, content)
-                    VALUES (%s, %s, %s, %s);
-                """, (ebook_id, ch["chapter_number"], ch["title"], ch["content"]))
-
-            print(f"  ✅ Sukses memasukkan '{book['title']}' ({len(chapters)} Bab/Bagian)")
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-        print("\n🎉 SELURUH E-BOOK BERHASIL DIBERSIHKAN DAN DIMASUKKAN KE DATABASE!")
-
-    except Exception as e:
-        print(f"❌ Terjadi kesalahan: {e}")
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print(f"🎉 SUKSES! 'The Wealth of Nations' dirapikan jadi {len(chapters)} bagian.")
 
 if __name__ == "__main__":
-    run_ingest()
+    process()

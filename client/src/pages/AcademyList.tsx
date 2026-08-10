@@ -16,6 +16,7 @@ export default function AcademyList() {
     const [, setLocation] = useLocation();
     const [ebooks, setEbooks] = useState<Ebook[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [coverErrors, setCoverErrors] = useState<Record<number, boolean>>({});
 
     useEffect(() => {
         const fetchEbooks = async () => {
@@ -73,10 +74,11 @@ export default function AcademyList() {
                             >
                                 {/* Wadah Cover Gambar (Rasio Buku Standar 2:3) */}
                                 <div className="w-full aspect-[2/3] relative overflow-hidden bg-slate-200">
-                                    {ebook.cover_url ? (
+                                    {ebook.cover_url && !coverErrors[ebook.id] ? (
                                         <img 
                                             src={ebook.cover_url} 
                                             alt={ebook.title}
+                                            onError={() => setCoverErrors((prev) => ({ ...prev, [ebook.id]: true }))}
                                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                         />
                                     ) : (

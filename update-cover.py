@@ -5,14 +5,22 @@ from dotenv import load_dotenv
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+
+def build_cover_url(filename):
+    if not filename:
+        return ""
+    if filename.startswith(("http://", "https://", "/")):
+        return filename
+    return f"/E-Book/Cover/{filename}"
+
+
 def update_Covers():
-    # Jalur folder disesuaikan: Murni pakai '/Cover/' sesuai folder asli lu!
     koleksi_Cover = {
-        "Extraordinary Popular Delusions and the Madness of Crowds": "/Cover/Cover/Delusions.png",
-        "The Wealth of Nations": "/Cover/Cover/Wealth.jpg",
-        "Lombard Street": "/Cover/Cover/Description.png",
-        "The Art of Money Getting": "/Cover/Cover/The Art.png",
-        "The Science of Getting Rich": "/Cover/Cover/Science.jpg"
+        "Extraordinary Popular Delusions and the Madness of Crowds": build_cover_url("Delusions.png"),
+        "The Wealth of Nations": build_cover_url("Wealth.jpg"),
+        "Lombard Street": build_cover_url("Description.png"),
+        "The Art of Money Getting": build_cover_url("The Art.png"),
+        "The Science of Getting Rich": build_cover_url("Science.jpg")
     }
 
     try:
