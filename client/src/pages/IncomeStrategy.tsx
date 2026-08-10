@@ -19,7 +19,7 @@ import {
 } from "@/hooks/use-income-strategy";
 
 // =========================================================================
-// KONSTAN (value tetap dikontrol kode — lihat dokumen desain sistem)
+// KONSTAN
 // =========================================================================
 const STATUS_OPTIONS = [
   { value: "PELAJAR", label: "Pelajar", sub: "SMP / SMA / SMK", icon: GraduationCap, color: "from-sky-400 to-blue-600" },
@@ -59,7 +59,7 @@ const STATE_BADGE: Record<string, { label: string; className: string }> = {
 };
 
 // =========================================================================
-// KOMPONEN KECIL UI
+// KOMPONEN UI PENDUKUNG
 // =========================================================================
 function ProgressBar({ step, total }: { step: number; total: number }) {
   const pct = Math.min(100, Math.round((step / total) * 100));
@@ -103,7 +103,7 @@ function DisclaimerBanner() {
     <div className="bg-amber-50 border-2 border-amber-200 rounded-[20px] p-4 flex gap-3 items-start mb-5">
       <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
       <p className="text-xs text-amber-800 font-semibold leading-relaxed">
-        Ini saran, bukan keputusan. Kondisi keuangan tiap orang beda — pertimbangkan baik-baik sebelum bertindak. Keputusan akhir sepenuhnya di tangan kamu.
+        Ini saran, bukan keputusan. Kondisi keuangan tiap orang beda — pertimbangkan baik-baik sebelum bertindak.
       </p>
     </div>
   );
@@ -116,7 +116,6 @@ function LockedScreen() {
         <div className="p-4 space-y-5 blur-md opacity-40 select-none pointer-events-none mt-2">
           <div className="bg-gradient-to-br from-blue-600 to-violet-800 h-40 rounded-[32px] w-full" />
           <div className="bg-white h-24 rounded-[24px] w-full border border-slate-200" />
-          <div className="bg-white h-24 rounded-[24px] w-full border border-slate-200" />
         </div>
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center px-6 text-center">
           <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(251,191,36,0.4)]">
@@ -124,7 +123,7 @@ function LockedScreen() {
           </div>
           <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Fitur Khusus BILANO PRO</h2>
           <p className="text-sm text-slate-600 mb-6 max-w-xs leading-relaxed font-medium">
-            Strategi Pemasukan adalah fitur premium yang membimbingmu menemukan dan mengeksekusi sumber penghasilan baru, dari identifikasi sampai pantau omset.
+            Strategi Pemasukan adalah fitur premium untuk menemukan dan mengeksekusi sumber penghasilan baru.
           </p>
           <Link href="/paywall">
             <button className="w-full max-w-xs h-14 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-full shadow-2xl transition-transform active:scale-95">
@@ -200,8 +199,11 @@ function IdentifyFlow({ onComplete }: { onComplete: (status: string, answers: an
     
     if (stepIndex >= questions.length) {
       setIsSubmitting(true);
-      await onComplete(status as string, nextAnswers);
-      setIsSubmitting(false);
+      try {
+        await onComplete(status as string, nextAnswers);
+      } finally {
+        setIsSubmitting(false);
+      }
     } else {
       setMultiSelected([]);
       setTextValue("");
@@ -302,8 +304,11 @@ function IdentifyFlow({ onComplete }: { onComplete: (status: string, answers: an
               
               if (stepIndex >= questions.length) {
                 setIsSubmitting(true);
-                await onComplete(status as string, next);
-                setIsSubmitting(false);
+                try {
+                  await onComplete(status as string, next);
+                } finally {
+                  setIsSubmitting(false);
+                }
               } else {
                 setMultiSelected([]);
                 setTextValue("");
@@ -492,13 +497,7 @@ function MaterialsStep({ attempt, onUpdated }: { attempt: any; onUpdated: (parti
       } else {
         setClarification(null);
         setVerdictResult(result);
-        // Sinkronisasi data ke state komponen induk
-        onUpdated({ 
-          state: result.state, 
-          feasibilityVerdict: result.verdict, 
-          totalCost: result.total_cost 
-        });
-        toast({ title: "Kalibrasi Berhasil", description: `Rencana dialihkan ke tahap: ${result.state}` });
+        onUpdated({ state: result.state, feasibilityVerdict: result.verdict, totalCost: result.total_cost });
       }
     } catch (e: any) {
       toast({ title: "Gagal cek kelayakan", description: e.message, variant: "destructive" });
@@ -593,7 +592,7 @@ function CapitalStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
     if (!attempt.capitalPlan) {
       capitalStrategy.mutateAsync(undefined).then((res) => { setPlan(res); onUpdated({ capitalPlan: res }); }).catch((e) => toast({ title: "Gagal memuat strategi modal", description: e.message, variant: "destructive" })).finally(() => setIsLoadingPlan(false));
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); 
 
   const handleRegenerate = async () => {
     setIsLoadingPlan(true);
@@ -608,7 +607,7 @@ function CapitalStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
   const handleReady = async () => {
     setIsRechecking(true);
     try {
-      const result = await checkFeasibility.mutateAsync({ manualMonthlyExpense: 0 }); // Force pass state
+      const result = await checkFeasibility.mutateAsync({ manualMonthlyExpense: 0 });
       onUpdated({ state: result.state, feasibilityVerdict: result.verdict, totalCost: result.total_cost });
     } catch (e: any) { toast({ title: "Gagal memproses permodalan", description: e.message, variant: "destructive" }); }
     finally { setIsRechecking(false); }
@@ -659,11 +658,8 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
-  
-  // State baru untuk mengontrol centang komitmen misi
-  const [missionDone, setMissionDone] = useState(false); 
+  const [missionDone, setMissionDone] = useState(false);
 
-  // Reset checklist jika ada pesan/misi baru dari AI
   useEffect(() => {
     if (notes.length > 0 && notes[notes.length - 1].sender === "ai") {
       setMissionDone(false);
@@ -677,7 +673,7 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
         setNotes(res.sellingNotes.filter((n: any) => n.sender !== "evaluation"));
       }).finally(() => setIsSending(false));
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSend = async () => {
     if (!message.trim()) return;
@@ -707,18 +703,15 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
     }
   };
 
-  // Logika toggle tombol misi
   const toggleMission = () => {
     setMissionDone(!missionDone);
     if (!missionDone) {
-      // Mengurangi friksi (gesekan) mengetik dengan auto-fill template laporan
       setMessage("Misi eksekusi selesai. Laporannya: ");
     } else {
       setMessage("");
     }
   };
 
-  // Cari indeks pesan AI paling terakhir untuk dijadikan "Kartu Misi Utama"
   let lastAiIndex = -1;
   for (let i = notes.length - 1; i >= 0; i--) {
     if (notes[i].sender === "ai") {
@@ -735,7 +728,6 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
         {notes.map((n, idx) => {
           const isLastAi = idx === lastAiIndex;
 
-          // Render Eksklusif untuk Instruksi AI Terakhir (Fokus Utama)
           if (isLastAi && !isSending) {
             return (
               <div key={idx} className="bg-amber-50 border-2 border-amber-300 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(251,191,36,0.15)] relative mt-6 transition-all">
@@ -771,7 +763,6 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
             );
           }
 
-          // Render History Chat (Diredupkan agar tidak mendistraksi Misi Utama)
           return (
             <div key={idx} className={`flex gap-2 opacity-60 scale-[0.98] ${n.sender === "user" ? "flex-row-reverse" : ""}`}>
               <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${n.sender === "user" ? "bg-indigo-600" : "bg-slate-800"}`}>
@@ -786,22 +777,18 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
           );
         })}
 
-        {/* Indikator AI Sedang Mengetik */}
         {isSending && (
-          <div className="flex gap-2 mt-4 animate-in fade-in slide-in-from-bottom-2">
+          <div className="flex gap-2 mt-4 animate-in fade-in">
             <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0 shadow-md">
               <Bot className="w-4 h-4 text-white" />
             </div>
             <div className="bg-slate-100 px-5 py-3.5 rounded-[18px] rounded-tl-sm flex items-center gap-2 shadow-sm">
-              <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" />
-              <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-              <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+              <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
             </div>
           </div>
         )}
       </div>
 
-      {/* Baris Input Interaktif */}
       <div className="flex items-center gap-2 mb-4 sticky bottom-20 bg-white py-3 border-t border-slate-100 z-10">
         <input 
           value={message} 
@@ -1031,7 +1018,6 @@ export default function IncomeStrategy() {
   const isTrialExpired = daysPassed >= 3;
   const locked = !isUserLoading && !isPro && isTrialExpired;
 
-  // Auto-Routing & Persistent Engine (Menahan progress operasional aktif secara persisten)
   useEffect(() => {
     if (!isAttemptsLoading && !isProfileLoading) {
       if (profile?.cooldownUntil && new Date(profile.cooldownUntil) > new Date()) {
@@ -1047,7 +1033,7 @@ export default function IncomeStrategy() {
         setView("recommend");
       }
     }
-  }, [isAttemptsLoading, isProfileLoading, profile, attempts]); // eslint-disable-line
+  }, [isAttemptsLoading, isProfileLoading, profile, attempts]);
 
   if (isUserLoading || isProfileLoading || isAttemptsLoading) {
     return (
@@ -1063,11 +1049,11 @@ export default function IncomeStrategy() {
 
   if (locked) return <LockedScreen />;
 
-const handleIdentifyComplete = async (status: string, answers: any) => {
+  const handleIdentifyComplete = async (status: string, answers: any) => {
     const payload = {
       status,
       tujuan: answers.tujuan,
-      polaWork: answers.polaKerja, 
+      polaKerja: answers.polaKerja, 
       jejaringSosial: answers.jejaringSosial,
       preferensiKerja: answers.preferensiKerja,
       latarBelakang: answers.latarBelakang,
@@ -1145,6 +1131,9 @@ const handleIdentifyComplete = async (status: string, answers: any) => {
         )}
         {view === "execute" && activeAttempt && (
           <ExecuteView attempt={activeAttempt} onBack={() => setView("recommend")} onUpdated={(p) => setActiveAttempt((prev: any) => ({ ...prev, ...p }))} onStop={handleStopBusiness} />
+        )}
+        {view === "cooldown" && profile?.cooldownUntil && (
+          <CooldownScreen dateStr={profile.cooldownUntil} />
         )}
       </div>
     </MobileLayout>

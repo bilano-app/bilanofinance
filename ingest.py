@@ -7,7 +7,6 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Daftar file e-book dan metadata resmi
-# URL Cover sudah disesuaikan dengan struktur folder ganda /Cover/Cover/
 EBOOKS_DATA = [
     {
         "file": "the Wealth of Nations.txt",
@@ -51,26 +50,35 @@ EBOOKS_DATA = [
     }
 ]
 
+def find_ebook_file(filename, search_dir):
+    """Mencari lokasi file secara otomatis di seluruh pelosok folder proyek."""
+    for root, dirs, files in os.walk(search_dir):
+        # Abaikan folder yang tidak perlu agar pencarian super cepat
+        if 'node_modules' in dirs:
+            dirs.remove('node_modules')
+        if '.git' in dirs:
+            dirs.remove('.git')
+            
+        if filename in files:
+            return os.path.join(root, filename)
+    return None
+
 def clean_gutenberg_text(raw_text):
     """Membersihkan header/footer Gutenberg & menggabungkan baris terputus."""
-    # 1. Potong Header Gutenberg
     start_match = re.search(r"\*\*\* START OF (THE|THIS) PROJECT GUTENBERG EBOOK.*?\*\*\*", raw_text, re.IGNORECASE)
     if start_match:
         raw_text = raw_text[start_match.end():]
 
-    # 2. Potong Footer Gutenberg
     end_match = re.search(r"\*\*\* END OF (THE|THIS) PROJECT GUTENBERG EBOOK.*?\*\*\*", raw_text, re.IGNORECASE)
     if end_match:
         raw_text = raw_text[:end_match.start()]
 
     raw_text = raw_text.strip()
 
-    # 3. Normalisasi Line Breaks (Un-wrapping Gutenberg Line Breaks)
     paragraphs = re.split(r'\n\s*\n', raw_text)
     clean_paragraphs = []
     
     for p in paragraphs:
-        # Hapus newline tunggal di dalam paragraf agar kalimat menyatu utuh
         cleaned_p = re.sub(r'\s+', ' ', p.strip())
         if cleaned_p:
             clean_paragraphs.append(cleaned_p)
@@ -120,20 +128,23 @@ def run_ingest():
         cursor = conn.cursor()
         print("🚀 Memulai Ingestion E-book Ke Database...")
 
-        # Bersihkan tabel lama
         cursor.execute("TRUNCATE TABLE ebook_chapters RESTART IDENTITY CASCADE;")
         cursor.execute("TRUNCATE TABLE ebooks RESTART IDENTITY CASCADE;")
 
-        # 🔥 PERBAIKAN LOKASI FOLDER: Mengarah langsung ke client/public/Cover/Cover/File Ebook
+        # Mengambil lokasi tempat script ini dijalankan
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.abspath(os.path.join(base_dir, ".."))
-        books_dir = os.path.join(project_root, "client", "public", "Cover", "Cover", "File Ebook")
 
         for book in EBOOKS_DATA:
-            file_path = os.path.join(books_dir, book["file"])
-            if not os.path.exists(file_path):
-                print(f"⚠️ File tidak ditemukan di: {file_path}")
+            print(f"🔍 Mencari file: {book['file']}...")
+            
+            # FITUR BARU: Cari otomatis file ini di dalam proyek
+            file_path = find_ebook_file(book["file"], base_dir)
+            
+            if not file_path:
+                print(f"⚠️ Gagal menemukan file '{book['file']}' di seluruh folder proyek!")
                 continue
+                
+            print(f"  👉 Ditemukan di: {file_path}")
 
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 raw_content = f.read()
@@ -154,7 +165,7 @@ def run_ingest():
                     VALUES (%s, %s, %s, %s);
                 """, (ebook_id, ch["chapter_number"], ch["title"], ch["content"]))
 
-            print(f"✅ Sukses memasukkan '{book['title']}' ({len(chapters)} Bab/Bagian)")
+            print(f"  ✅ Sukses memasukkan '{book['title']}' ({len(chapters)} Bab/Bagian)")
 
         conn.commit()
         cursor.close()
