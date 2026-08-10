@@ -19,7 +19,7 @@ export default function AcademyReader() {
 
     const observer = useRef<IntersectionObserver | null>(null);
 
-    // Infinite Scroll
+    // Infinite Scroll saat mencapai halaman akhir
     const lastPageRef = useCallback((node: HTMLDivElement | null) => {
         if (isFetchingMore || !hasMore) return;
         if (observer.current) observer.current.disconnect();
@@ -62,29 +62,32 @@ export default function AcademyReader() {
         fetchChapter();
     }, [ebookId, nextChapterNum]);
 
-    // 🔥 ALGORITMA PAGINASI PRESISI (MENCEGAH TEKS TERPOTONG)
+    // 🔥 ALGORITMA PAGINASI PARAGRAF UTUH (MENCEGAH TEKS TERPOTONG & KELONGKAP)
     const pages = useMemo(() => {
-        const MAX_CAPACITY = 900; // Kapasitas ideal agar teks muat sempurna tanpa terpotong di bawah
+        const MAX_CAPACITY = 850; // Kapasitas aman karakter per lembar A5
         const allPages: any[][] = [];
         let currentPage: any[] = [];
         let currentCapacity = 0;
 
         chapters.forEach((chap) => {
-            const lines = chap.content.replace(/\*\*/g, '').split('\n').map((l: string) => l.trim()).filter((l: string) => l);
+            // Memisah berdasarkan PARAGRAF UTUH (\n\n), bukan baris tunggal
+            const rawParagraphs = chap.content.replace(/\*\*/g, '').split(/\n\s*\n/);
 
-            lines.forEach((line: string) => {
-                const lower = line.toLowerCase();
-                if (lower.includes("gutenberg") || lower.includes("produced by")) return;
+            rawParagraphs.forEach((paraStr: string) => {
+                const trimmedPara = paraStr.trim();
+                if (!trimmedPara) return;
 
-                const isMainBook = /^(buku|book|part|volume)\s+([ivx0-9]+|one|two|three|four|five)\b/i.test(line);
-                const isChapter = /^(bab|chapter|section)\s+([ivx0-9]+)\b/i.test(line);
-                const isSub = /^(prakata|pendahuluan|intro|kesimpulan|daftar isi)\b/i.test(line) || (line.length < 80 && /^[A-Z]/.test(line) && !line.endsWith('.'));
+                const lower = trimmedPara.toLowerCase();
+                if (lower.includes("gutenberg") || lower.includes("produced by") || lower.includes("project gutenberg")) return;
 
-                let weight = line.length;
-                if (isMainBook) weight += 200; 
-                else if (isChapter) weight += 120;
-                else if (isSub) weight += 80;
-                else weight += 15;
+                // Deteksi tipe judul / bab / paragraf
+                const isMainBook = /^(buku|book|part|volume)\s+([ivx0-9]+|one|two|three|four|five)\b/i.test(trimmedPara);
+                const isChapter = /^(bab|chapter|section)\s+([ivx0-9]+)\b/i.test(trimmedPara) || /^[IVXLCDM]+\.\s+/i.test(trimmedPara);
+                const isHeading = isMainBook || isChapter || (trimmedPara.length < 80 && trimmedPara === trimmedPara.toUpperCase() && !trimmedPara.endsWith('.'));
+
+                let weight = trimmedPara.length;
+                if (isHeading) weight += 150;
+                else weight += 40;
 
                 if (currentCapacity + weight > MAX_CAPACITY && currentPage.length > 0) {
                     allPages.push(currentPage);
@@ -93,10 +96,10 @@ export default function AcademyReader() {
                 }
 
                 currentPage.push({
-                    text: line,
+                    text: trimmedPara,
                     isMainBook,
                     isChapter,
-                    isSub,
+                    isHeading,
                     chapterTitle: chap.title,
                     chapterNum: chap.chapter_number
                 });
@@ -110,7 +113,7 @@ export default function AcademyReader() {
 
     return (
         <div className="min-h-screen bg-slate-400 flex flex-col font-sans select-none">
-            {/* Header Sticky */}
+            {/* Header Sticky Atas */}
             <div className="sticky top-0 z-50 bg-slate-900 text-white px-4 py-3 flex items-center gap-3 shadow-md">
                 <button onClick={() => setLocation("/academy")} className="w-8 h-8 flex items-center justify-center bg-slate-800 rounded-full hover:bg-slate-700 transition-colors">
                     <ChevronLeft className="w-4 h-4" />
@@ -121,7 +124,7 @@ export default function AcademyReader() {
                 </div>
             </div>
 
-            {/* Container Kertas A5 */}
+            {/* Container Lembaran Kertas A5 */}
             <div className="flex-1 flex flex-col items-center p-4 md:p-6 gap-6 md:gap-8">
                 {isLoading ? (
                     <Loader2 className="w-8 h-8 animate-spin text-slate-800 mt-20" />
@@ -141,32 +144,42 @@ export default function AcademyReader() {
                                 <div
                                     key={`page-${pageIdx}`}
                                     ref={isLastPage ? lastPageRef : null}
-                                    /* 🔥 LAYOUT KERTAS: Tepi bawah diberi padding cukup agar teks tidak terpotong */
-                                    className="bg-[#FFFDF9] shadow-xl w-full max-w-[420px] min-h-[640px] max-h-[660px] p-6 md:p-7 rounded-sm border border-stone-300 flex flex-col justify-between font-serif relative"
+                                    /* 🔥 DIMENSI KERTAS A5 DIKUNCI PRESISI */
+                                    className="bg-[#FFFDF9] shadow-xl w-full max-w-[420px] h-[640px] p-6 md:p-7 rounded-sm border border-stone-300 flex flex-col justify-between font-serif relative overflow-hidden"
                                 >
                                     {/* Running Header */}
                                     <div className="w-full text-center border-b border-stone-200 pb-2 text-[9px] text-stone-400 tracking-widest uppercase line-clamp-1">
                                         {dominantChapterTitle}
                                     </div>
 
-                                    {/* Area Isi Teks */}
-                                    <div className="flex-1 my-3 select-text overflow-hidden pb-2">
+                                    {/* Area Teks Paragraf */}
+                                    <div className="flex-1 my-3 select-text overflow-hidden flex flex-col justify-start">
                                         {pageContent.map((item, idx) => {
                                             if (item.isMainBook) {
                                                 return <h2 key={idx} className="text-base md:text-lg font-black text-slate-900 text-center uppercase font-serif mt-2 mb-3 border-b-2 border-slate-800 pb-1.5">{item.text}</h2>;
                                             }
-                                            if (item.isChapter) {
+                                            if (item.isHeading) {
                                                 return <h3 key={idx} className="text-sm md:text-base font-extrabold text-slate-800 uppercase font-serif mt-2 mb-2 border-b border-slate-300 pb-1">{item.text}</h3>;
                                             }
-                                            if (item.isSub) {
-                                                return <h4 key={idx} className="text-xs md:text-sm font-bold italic text-slate-700 mt-2 mb-1.5 font-serif">{item.text}</h4>;
+
+                                            // Teks bermode daftar isi atau dengan line break
+                                            if (item.text.includes('\n')) {
+                                                return (
+                                                    <div key={idx} className="my-2 text-[11px] text-slate-700 font-serif leading-relaxed pl-3 border-l-2 border-slate-300 bg-slate-50/50 py-1.5 px-2 rounded-r">
+                                                        {item.text.split('\n').map((lineStr: string, i: number) => (
+                                                            <div key={i}>{lineStr.trim()}</div>
+                                                        ))}
+                                                    </div>
+                                                );
                                             }
-                                            return <p key={idx} className="text-slate-800 text-[11px] md:text-xs leading-relaxed text-justify mb-2 font-serif indent-6">{item.text}</p>;
+
+                                            // Paragraf Utuh Biasa
+                                            return <p key={idx} className="text-slate-800 text-[11px] md:text-xs leading-relaxed text-justify mb-2.5 font-serif indent-6">{item.text}</p>;
                                         })}
                                     </div>
 
-                                    {/* Footer Halaman Kertas */}
-                                    <div className="w-full flex justify-between pt-2.5 text-[9px] text-stone-400 tracking-widest border-t border-stone-200">
+                                    {/* Footer Kertas */}
+                                    <div className="w-full flex justify-between pt-2 text-[9px] text-stone-400 tracking-widest border-t border-stone-200">
                                         <span>BAGIAN {dominantChapterNum}</span>
                                         <span>HAL {pageIdx + 1}</span>
                                     </div>
