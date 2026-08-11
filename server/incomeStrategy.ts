@@ -110,27 +110,36 @@ const ensureIncomeStrategyTables = async () => {
   }
 };
 
-async function askGeminiJSON(systemPrompt: string, userPrompt: string): Promise<any> {
-  const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
-  if (!apiKey) throw new Error("Kunci API Sistem AI belum terpasang.");
+// 1. Tambahkan fungsi panggil DeepSeek-R1 via OpenRouter di bagian atas file
+async function askDeepSeekR1(systemPrompt: string, userPrompt: string): Promise<any> {
+  // Panggil kunci API OpenRouter dari .env kamu
+  const apiKey = (process.env.OPENROUTER_API_KEY || "").trim();
+  if (!apiKey) throw new Error("Kunci API OpenRouter / DeepSeek belum terpasang di env.");
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://bilano.app", // Opsional untuk OpenRouter
+      "X-Title": "BILANO App"
+    },
     body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.6, responseMimeType: "application/json" },
+      model: "deepseek/deepseek-r1:free", // Menggunakan R1 versi Gratis
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      response_format: { type: "json_object" } // Mengunci output berupa JSON murni
     }),
   });
-  if (!response.ok) throw new Error("Koneksi ke otak pusat sedang sibuk, coba lagi.");
+
+  if (!response.ok) throw new Error("Otak DeepSeek sedang padat, coba lagi sebentar.");
   const data = await response.json();
-  const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!resultText) throw new Error("Pesan ditahan filter keamanan internal.");
+  const resultText = data.choices?.[0]?.message?.content;
+  if (!resultText) throw new Error("DeepSeek mengembalikan respons kosong.");
 
   let cleanText = String(resultText).replace(/```json/gi, "").replace(/```/g, "").trim();
-  const jsonMatch = cleanText.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-  if (jsonMatch) cleanText = jsonMatch[0];
   return JSON.parse(cleanText);
 }
 
@@ -395,6 +404,7 @@ export function registerIncomeStrategyRoutes(app: Express) {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // 2. Ubah rute pembuat rekomendasi agar menembak fungsi DeepSeek baru tersebut
   app.post("/api/income-strategy/recommendations", async (req: any, res: any) => {
     try {
       await ensureIncomeStrategyTables();
@@ -404,6 +414,7 @@ export function registerIncomeStrategyRoutes(app: Express) {
       const existing = await db.execute(sql`SELECT * FROM income_profiles WHERE user_id = ${user.id} ORDER BY updated_at DESC LIMIT 1`);
       const rows = Array.isArray(existing) ? existing : (existing as any).rows || [];
       if (rows.length === 0) return res.status(400).json({ error: "Profil identifikasi belum lengkap." });
+      
       const p = rows[0];
       const profile = {
         status: p.status, tujuan: p.tujuan, polaKerja: p.pola_kerja, 
@@ -416,10 +427,11 @@ export function registerIncomeStrategyRoutes(app: Express) {
 
       let recommendations: any[];
       try {
-        const parsed = await askGeminiJSON(buildRecommendationsPrompt(profile, snapshot), "Generate sekarang.");
+        // 🔥 DI SINI PERUBAHANNYA: Menggunakan DeepSeek-R1 untuk Merumuskan Strategi Tajam
+        const parsed = await askDeepSeekR1(buildRecommendationsPrompt(profile, snapshot), "Rumuskan 3 strategi gerilya terbaik.");
         recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
       } catch (aiError: any) {
-        return res.status(502).json({ error: "AI belum berhasil menyusun rekomendasi, coba lagi sebentar lagi.", detail: aiError.message });
+        return res.status(502).json({ error: "DeepSeek gagal merakit taktik, coba lagi.", detail: aiError.message });
       }
 
       await db.execute(sql`UPDATE income_profiles SET recommendations = ${JSON.stringify(recommendations)}, updated_at = NOW() WHERE id = ${p.id}`);

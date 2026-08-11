@@ -22,68 +22,51 @@ def find_file(filename):
         if filename in files: return os.path.join(root, filename)
     return None
 
-def clean_toc_and_frontmatter(text):
-    """Merapikan bagian awal (Copyright/Penerbit) dan memformat Daftar Isi dengan elegan."""
-    # 1. Bersihkan Lisensi Gutenberg
+def clean_and_parse_book(raw_text):
+    # 1. Bersihkan Lisensi Gutenberg & Markdown
+    text = raw_text.replace('**', '')
+    
     start_m = re.search(r"\*\*\* AWAL DARI EBOOK PROYEK GUTENBERG.*?\*\*\*", text, re.IGNORECASE)
     if not start_m:
         start_m = re.search(r"\*\*\* START OF.*?GUTENBERG.*?\*\*\*", text, re.IGNORECASE)
-    if start_m: text = text[start_m.end():]
+    if start_m:
+        text = text[start_m.end():]
 
     end_m = re.search(r"\*\*\* AKHIR DARI EBOOK PROYEK GUTENBERG.*?\*\*\*", text, re.IGNORECASE)
     if not end_m:
         end_m = re.search(r"\*\*\* END OF.*?GUTENBERG.*?\*\*\*", text, re.IGNORECASE)
-    if end_m: text = text[:end_m.start()]
+    if end_m:
+        text = text[:end_m.start()]
 
-    text = text.replace('**', '').strip()
+    text = text.strip()
 
-    # 2. Pisahkan Bagian Depan (Daftar Isi & Prakata) dari Bab Utama
-    # Mencari titik masuk BAB I pertama
-    first_bab = re.search(r'\n+(?:BAB|CHAPTER)\s+I\b', text, re.IGNORECASE)
-    
+    # 2. Cari pemisah Bab (BAB I, BAB II, ... atau PRAKATA / PREFACE)
+    pattern = r'(?=\n+(?:BAB|CHAPTER)\s+[IVXLCDM0-9]+|\n+(?:PRAKATA|PREFACE)\b)'
+    raw_sections = re.split(pattern, "\n\n" + text, flags=re.IGNORECASE)
+
     chapters = []
+    chap_num = 1
 
-    if first_bab:
-        front_matter = text[:first_bab.start()].strip()
-        body_text = text[first_bab.start():].strip()
-
-        # Merapikan Daftar Isi di bagian front matter
-        lines = front_matter.split('\n')
-        clean_front_lines = []
-        for line in lines:
-            l = line.strip()
-            if not l or "HALAMAN" in l or "_______" in l: continue
-            # Hapus angka halaman fisik di ujung kanan (misal '9', '15', '109')
-            l_clean = re.sub(r'\s+\d+$', '', l)
-            l_clean = re.sub(r'^\t+', '', l_clean)
-            clean_front_lines.append(l_clean)
-
-        front_formatted = "\n\n".join(clean_front_lines)
-        
-        chapters.append({
-            "chapter_number": 1,
-            "title": "Pengantar & Daftar Isi",
-            "content": front_formatted
-        })
-    else:
-        body_text = text
-
-    # 3. Potong Bab Utama (BAB I sampai BAB XVII)
-    pattern = r'(?=\n+(?:BAB|CHAPTER)\s+[IVXLCDM0-9]+)'
-    raw_sections = re.split(pattern, "\n\n" + body_text, flags=re.IGNORECASE)
-
-    chap_num = len(chapters) + 1
     for sec in raw_sections:
         sec_clean = sec.strip()
-        if len(sec_clean) < 50: continue
+        if len(sec_clean) < 30: 
+            continue
 
-        # Merapikan paragraf terputus
-        paragraphs = re.split(r'\n\s*\n', sec_clean)
-        clean_p = [re.sub(r'\s+', ' ', p.strip()) for p in paragraphs if p.strip()]
-        final_content = "\n\n".join(clean_p)
+        # Menyertakan paragraf utuh (\n\n)
+        raw_paras = re.split(r'\n\s*\n', sec_clean)
+        clean_paras = []
+        for p in raw_paras:
+            p_single_line = re.sub(r'\s+', ' ', p.strip())
+            if p_single_line:
+                clean_paras.append(p_single_line)
 
-        first_line = clean_p[0] if clean_p else f"Bab {chap_num}"
-        title = first_line if len(first_line) < 100 else f"Bab {chap_num}"
+        final_content = "\n\n".join(clean_paras)
+        first_line = clean_paras[0] if clean_paras else f"Bagian {chap_num}"
+        
+        if len(first_line) < 100:
+            title = first_line
+        else:
+            title = f"Bagian {chap_num}"
 
         chapters.append({
             "chapter_number": chap_num,
@@ -100,9 +83,9 @@ def process():
         return print(f"❌ File '{TARGET_BUKU['file']}' tidak ditemukan.")
 
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-        text = f.read()
+        raw_text = f.read()
 
-    chapters = clean_toc_and_frontmatter(text)
+    chapters = clean_and_parse_book(raw_text)
 
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
@@ -125,7 +108,7 @@ def process():
     conn.commit()
     cursor.close()
     conn.close()
-    print(f"🎉 SUKSES! '{TARGET_BUKU['title']}' dirapikan menjadi {len(chapters)} bab utuh.")
+    print(f"🎉 SUKSES! '{TARGET_BUKU['title']}' berhasil di-ingest ({len(chapters)} bab utuh).")
 
 if __name__ == "__main__":
     process()
