@@ -110,34 +110,35 @@ const ensureIncomeStrategyTables = async () => {
   }
 };
 
-// 1. Tambahkan fungsi panggil DeepSeek-R1 via OpenRouter di bagian atas file
+// =========================================================================
+// 🧠 MESIN KOGNITIF DEEPSEEK R1 (VIA ENDPOINT OPENROUTER)
+// =========================================================================
 async function askDeepSeekR1(systemPrompt: string, userPrompt: string): Promise<any> {
-  // Panggil kunci API OpenRouter dari .env kamu
   const apiKey = (process.env.OPENROUTER_API_KEY || "").trim();
-  if (!apiKey) throw new Error("Kunci API OpenRouter / DeepSeek belum terpasang di env.");
+  if (!apiKey) throw new Error("Kunci API OpenRouter / DeepSeek belum terpasang di env lokal.");
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://bilano.app", // Opsional untuk OpenRouter
+      "HTTP-Referer": "https://bilano.app",
       "X-Title": "BILANO App"
     },
     body: JSON.stringify({
-      model: "deepseek/deepseek-r1:free", // Menggunakan R1 versi Gratis
+      model: "deepseek/deepseek-r1:free", 
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      response_format: { type: "json_object" } // Mengunci output berupa JSON murni
+      response_format: { type: "json_object" } 
     }),
   });
 
-  if (!response.ok) throw new Error("Otak DeepSeek sedang padat, coba lagi sebentar.");
+  if (!response.ok) throw new Error("Jaringan pipa OpenRouter sedang sibuk, coba lagi.");
   const data = await response.json();
   const resultText = data.choices?.[0]?.message?.content;
-  if (!resultText) throw new Error("DeepSeek mengembalikan respons kosong.");
+  if (!resultText) throw new Error("DeepSeek mengembalikan balasan kosong.");
 
   let cleanText = String(resultText).replace(/```json/gi, "").replace(/```/g, "").trim();
   return JSON.parse(cleanText);
@@ -220,7 +221,7 @@ function fallbackQuestions(status: string) {
     BELUM_BEKERJA: { q: "Pendidikan terakhirmu apa, dan ada pengalaman kerja sebelumnya?", p: "Contoh: D3 Akuntansi, pernah magang 6 bulan" },
   };
   const kons: Record<string, { q: string; p: string }> = {
-    PELAJAR: { q: "Kira-kira berapa jam luang kamu di luar sekolah tiap minggu?", p: "Contoh: 5-8 jam, biasanya sore dan weekend" },
+    PELAJAR: { q: "Kira-kira berapa jam luang kamu di luar sekolah tiap minggu?", p: "Contoh: 5-8 jam, biasanya sore and weekend" },
     MAHASISWA: { q: "Berapa jam kosong kamu per minggu di luar jadwal kuliah dan organisasi?", p: "Contoh: 10-15 jam" },
     PEKERJA: { q: "Di luar jam kerja, berapa waktu luangmu per minggu? Kontrak kerjamu ada larangan kerja sampingan?", p: "Contoh: 8 jam, tidak ada larangan" },
     BELUM_BEKERJA: { q: "Sudah berapa lama belum berpenghasilan, dan kira-kira tabunganmu bertahan berapa lama?", p: "Contoh: 2 bulan, tabungan cukup untuk 1 bulan lagi" },
@@ -241,10 +242,6 @@ function fallbackQuestions(status: string) {
 }
 
 function buildQuestionsPrompt(status: string) {
-  const tujuanList = (TUJUAN_OPTIONS[status] || TUJUAN_OPTIONS.MAHASISWA).map((o) => `${o.value} (${o.desc})`).join(", ");
-  const keahlianList = KEAHLIAN_OPTIONS.map((o) => `${o.value} (${o.desc})`).join(", ");
-  const asetList = ASET_OPTIONS.map((o) => `${o.value} (${o.desc})`).join(", ");
-
   return `Kamu menulis teks pertanyaan untuk fitur onboarding aplikasi keuangan pribadi bernama BILANO.
 Pengguna sudah menjawab status: ${status} (${STATUS_LABELS[status] || status}).
 
@@ -264,18 +261,26 @@ Output HANYA JSON array persis format ini:
 }
 
 function buildRecommendationsPrompt(profile: any, snapshot: any) {
-  return `Kamu adalah PENGARAH BISNIS GERILYA spesialis pasar lokal Indonesia. 
+  return `Kamu adalah "BILANO Alpha Mentor", eksekutor bisnis B2B dan arsitek monetisasi digital tingkat tinggi. Kamu BUKAN asisten virtual biasa. 
 
-DATA PENGGUNA:
-- Jejaring Sosial: ${profile.jejaringSosial || 'Tidak diketahui'} | Preferensi Kerja: ${profile.preferensiKerja || 'Tidak diketahui'}
-- Status: ${profile.status} | Tujuan: ${profile.tujuan} | Pola: ${profile.polaKerja}
-- Latar Belakang: ${profile.latarBelakang || "-"}
-- Keahlian: ${(profile.keahlian || []).join(", ")} ${profile.keahlianLainnya ? ", " + profile.keahlianLainnya : ""}
-- Aset: ${(profile.aset || []).join(", ") || "Tidak ada aset spesifik"}
-- Saldo Kas Saat Ini: Rp${snapshot.saldo_saat_ini}.
+DATA MENTAH PENGGUNA:
+- Latar Belakang: ${profile.status} | ${profile.latarBelakang || "-"}
+- Keahlian Inti: ${(profile.keahlian || []).join(", ")} ${profile.keahlianLainnya ? ", " + profile.keahlianLainnya : ""}
+- Aset: ${(profile.aset || []).join(", ") || "-"}
+- Saldo Kas: Rp${snapshot.saldo_saat_ini}
+- Pola & Waktu: ${profile.konstrainWaktu?.text || "-"} | ${profile.polaKerja}
+- Karakter Eksekusi: Jejaring ${profile.jejaringSosial || '-'} | Preferensi ${profile.preferensiKerja || '-'}
 
-Output HANYA JSON persis format ini:
-{"recommendations":[{"id":"rec_1","title":"Judul Singkat & Provokatif","pitch":"Cara kerjanya di lapangan.","why_it_fits":"Kenapa cocok.","capital_level":"TANPA_MODAL","needs_upskilling":false,"upskilling_note":null,"difficulty":"MUDAH","estimated_time_to_first_income":"1-3 hari","risk_note":"Risiko utama"}]}`;
+ATURAN MUTLAK (SYSTEM OVERRIDE - DILARANG DILANGGAR):
+1. FATAL ERROR JIKALAU MENYARANKAN UMKM PASARAN: Jualan makanan/minuman (kopi, seblak, dll), dropship, reseller baju, thrifting, joki tugas, atau jasa titip. (Sistem akan menolak jawabanmu jika ini terjadi).
+2. TARGETKAN KLIEN HIGH-TICKET (B2B): Arahkan target pasarnya ke Pemilik Bisnis, Kreator, atau Agency. Jangan arahkan jualan ke mahasiswa/pelajar dengan daya beli rendah.
+3. DEKONSTRUKSI SILANG KEAHLIAN: Paksa penggabungan keahlian. 
+   - Contoh: Jika latar belakangnya Akuntansi dan bisa Python/React, jangan suruh buka jasa pembukuan biasa, tapi suruh buat Dasbor Rekonsiliasi Kas (Micro-SaaS). 
+   - Contoh: Jika suka Filsafat dan bisa Menulis, suruh buat Jasa Ghostwriting Skrip Edukasi/Dekonstruksi Logika untuk Influencer.
+4. EKSEKUSI 48 JAM: Taktik harus bisa divalidasi ke 1 calon klien dalam 48 jam dengan modal maksimal Rp${snapshot.saldo_saat_ini}.
+
+OUTPUT WAJIB JSON MURNI TANPA MARKDOWN. SKEMA:
+{"recommendations":[{"id":"rec_1","title":"[Judul Taktis B2B/High-Ticket]","pitch":"[Cara kotor tapi legal mengeksekusinya hari ini]","why_it_fits":"[Logika tajam mengapa kombinasi skill spesifik pengguna ini menjadi daya ungkit yang mahal]","capital_level":"[TANPA_MODAL/MODAL_KECIL/MODAL_SEDANG]","needs_upskilling":false,"upskilling_note":"[Opsional: 1 hal spesifik untuk dipelajari kilat]","difficulty":"[MUDAH/SEDANG/MENANTANG]","estimated_time_to_first_income":"[Misal: 1-7 Hari]","risk_note":"[Risiko realistis di lapangan]"}]}`;
 }
 
 function buildSellingSystemPrompt(recommendation: any, profile: any, totalCost: number) {
@@ -293,7 +298,7 @@ ATURAN MUTLAK:
 
 FORMAT BALASAN:
 [Analisis Singkat]
-[1 Instruksi Eksekusi Konkret Hari Ini]
+[1 Instruksi Eksekusi Conkret Hari Ini]
 [Template Copywriting / Skrip Percakapan]`;
 }
 
@@ -364,7 +369,17 @@ export function registerIncomeStrategyRoutes(app: Express) {
       if (!STATUS_LABELS[status]) return res.status(400).json({ error: "Status tidak valid." });
 
       try {
-        const questions = await askGeminiJSON(buildQuestionsPrompt(status), "Generate sekarang.");
+        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: buildQuestionsPrompt(status) }] }],
+            generationConfig: { responseMimeType: "application/json" }
+          })
+        });
+        const json = await response.json();
+        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+        const questions = JSON.parse(text.replace(/```json/gi, "").replace(/```/g, "").trim());
         if (!Array.isArray(questions) || questions.length < 8) throw new Error("format tidak lengkap");
         return res.json({ questions, source: "ai" });
       } catch (aiError) {
@@ -404,7 +419,6 @@ export function registerIncomeStrategyRoutes(app: Express) {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // 2. Ubah rute pembuat rekomendasi agar menembak fungsi DeepSeek baru tersebut
   app.post("/api/income-strategy/recommendations", async (req: any, res: any) => {
     try {
       await ensureIncomeStrategyTables();
@@ -427,7 +441,6 @@ export function registerIncomeStrategyRoutes(app: Express) {
 
       let recommendations: any[];
       try {
-        // 🔥 DI SINI PERUBAHANNYA: Menggunakan DeepSeek-R1 untuk Merumuskan Strategi Tajam
         const parsed = await askDeepSeekR1(buildRecommendationsPrompt(profile, snapshot), "Rumuskan 3 strategi gerilya terbaik.");
         recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
       } catch (aiError: any) {
