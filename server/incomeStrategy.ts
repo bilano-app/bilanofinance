@@ -524,11 +524,6 @@ export function registerIncomeStrategyRoutes(app: Express) {
         VALUES (${user.id}, ${profileId}, ${JSON.stringify(recommendation)}, 'MATERIALS', 'ACTIVE', ${JSON.stringify(initialMaterials)})
         RETURNING *
       `);
-      const inserted = await db.execute(sql`
-        INSERT INTO income_attempts (user_id, profile_id, recommendation, state, status, materials)
-        VALUES (${user.id}, ${profileId}, ${JSON.stringify(recommendation)}, 'MATERIALS', 'ACTIVE', '[]')
-        RETURNING *
-      `);
       const insertedRows = Array.isArray(inserted) ? inserted : (inserted as any).rows || [];
       res.json(formatAttempt(insertedRows[0]));
     } catch (e: any) { res.status(500).json({ error: e.message }); }
