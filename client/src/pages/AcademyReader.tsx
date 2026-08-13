@@ -63,6 +63,7 @@ export default function AcademyReader() {
 
     // 🔥 ALGORITMA PAGINASI: ANTI-JUDUL TERPISAH & DAFTAR ISI PADAT
     // 🔥 ALGORITMA PAGINASI REVISI: ANTI-JUDUL TERPISAH & ANTI-PARAGRAF TERPOTONG
+    // 🔥 ALGORITMA PAGINASI FINAL: REACT YANG LEBIH PINTAR
     const pages = useMemo(() => {
         const MAX_CAPACITY = 850; 
         const allPages: any[][] = [];
@@ -70,85 +71,84 @@ export default function AcademyReader() {
         let currentCapacity = 0;
 
         chapters.forEach((chap) => {
+            // Ambil teks mentah dari database
             const rawParagraphs = chap.content.replace(/\*\*/g, '').split(/\n\s*\n/);
             
-            // 1. PRE-PROCESS PARAGRAF PANJANG
-            // Memecah paragraf yang karakternya terlalu panjang agar tidak terpotong oleh overflow-hidden
-            const processedParagraphs: string[] = [];
+            // TAHAP 1: MEMBERI LABEL TEKS (Klasifikasi internal React)
+            const typedBlocks: { type: string, text: string, chapterTitle: string, chapterNum: number }[] = [];
+            
             rawParagraphs.forEach((paraStr: string) => {
                 let text = paraStr.trim();
                 if (!text) return;
                 
-                const SAFE_LENGTH = 650; // Batas aman render per blok teks
-                if (text.length > SAFE_LENGTH && !text.includes('\n')) {
-                    let remaining = text;
-                    while (remaining.length > SAFE_LENGTH) {
-                        // Cari titik terdekat untuk memotong kalimat dengan aman agar bermakna
-                        let breakPoint = remaining.lastIndexOf('. ', SAFE_LENGTH);
-                        if (breakPoint === -1) breakPoint = remaining.lastIndexOf(' ', SAFE_LENGTH);
-                        if (breakPoint === -1) breakPoint = SAFE_LENGTH;
-                        
-                        processedParagraphs.push(remaining.substring(0, breakPoint + 1).trim());
-                        remaining = remaining.substring(breakPoint + 1).trim();
-                    }
-                    if (remaining) processedParagraphs.push(remaining);
+                const lower = text.toLowerCase();
+                if (lower.includes("gutenberg") || lower.includes("produced by")) return;
+
+                // React menebak identitas paragraf ini
+                const isMainBook = /^(buku|book|part|volume)\s+([ivx0-9]+|one|two|three|four|five)\b/i.test(text);
+                const isChapter = /^(bab|chapter|section)\s+([ivx0-9]+)\b/i.test(text) || /^[IVXLCDM]+\.\s+/i.test(text);
+                const isHeading = isMainBook || isChapter || (text.length < 90 && text === text.toUpperCase() && !text.endsWith('.'));
+                const isTOC = text.includes('\n') || lower.includes("daftar isi");
+
+                if (isMainBook) {
+                    typedBlocks.push({ type: 'main_book', text, chapterTitle: chap.title, chapterNum: chap.chapter_number });
+                } else if (isHeading) {
+                    typedBlocks.push({ type: 'heading', text, chapterTitle: chap.title, chapterNum: chap.chapter_number });
+                } else if (isTOC) {
+                    typedBlocks.push({ type: 'toc', text, chapterTitle: chap.title, chapterNum: chap.chapter_number });
                 } else {
-                    processedParagraphs.push(text);
+                    // Jika ini paragraf biasa tapi RAKSASA, potong jadi 2 agar tidak hilang
+                    const SAFE_LENGTH = 650;
+                    if (text.length > SAFE_LENGTH) {
+                        let remaining = text;
+                        while (remaining.length > SAFE_LENGTH) {
+                            let breakPoint = remaining.lastIndexOf('. ', SAFE_LENGTH);
+                            if (breakPoint === -1) breakPoint = remaining.lastIndexOf(' ', SAFE_LENGTH);
+                            if (breakPoint === -1) breakPoint = SAFE_LENGTH;
+                            
+                            typedBlocks.push({ type: 'p', text: remaining.substring(0, breakPoint + 1).trim(), chapterTitle: chap.title, chapterNum: chap.chapter_number });
+                            remaining = remaining.substring(breakPoint + 1).trim();
+                        }
+                        if (remaining) typedBlocks.push({ type: 'p', text: remaining, chapterTitle: chap.title, chapterNum: chap.chapter_number });
+                    } else {
+                        typedBlocks.push({ type: 'p', text, chapterTitle: chap.title, chapterNum: chap.chapter_number });
+                    }
                 }
             });
 
-            // 2. LOGIKA PEMBAGIAN HALAMAN (PAGINATION)
-            processedParagraphs.forEach((trimmedPara: string) => {
-                const lower = trimmedPara.toLowerCase();
-                if (lower.includes("gutenberg") || lower.includes("produced by")) return;
-
-                const isMainBook = /^(buku|book|part|volume)\s+([ivx0-9]+|one|two|three|four|five)\b/i.test(trimmedPara);
-                const isChapter = /^(bab|chapter|section)\s+([ivx0-9]+)\b/i.test(trimmedPara) || /^[IVXLCDM]+\.\s+/i.test(trimmedPara);
-                const isHeading = isMainBook || isChapter || (trimmedPara.length < 90 && trimmedPara === trimmedPara.toUpperCase() && !trimmedPara.endsWith('.'));
-                const isTOC = trimmedPara.includes('\n') || lower.includes("daftar isi");
-
-                let weight = trimmedPara.length;
-                if (isHeading) weight += 150;
-                else if (isTOC) weight = weight * 0.5;
+            // TAHAP 2: PEMBAGIAN HALAMAN (Sangat Aman)
+            typedBlocks.forEach((block) => {
+                let weight = block.text.length;
+                if (block.type === 'main_book' || block.type === 'heading') weight += 150;
+                else if (block.type === 'toc') weight = (block.text.split('\n').length * 40);
                 else weight += 40;
 
-                // Pengecekan elemen terakhir di halaman saat ini
-                const isLastItemHeading = currentPage.length > 0 && currentPage[currentPage.length - 1].isHeading;
+                const isLastItemHeading = currentPage.length > 0 && 
+                    (currentPage[currentPage.length - 1].type === 'heading' || currentPage[currentPage.length - 1].type === 'main_book');
 
+                // Kalau kapasitas penuh, tutup halaman
                 if (currentCapacity + weight > MAX_CAPACITY && currentPage.length > 0) {
-                    // 🚨 PROTEKSI 1: TARIK JUDUL YATIM (FIX UNTUK BAB TERPISAH)
-                    if (isLastItemHeading && !isHeading) {
-                        // Ambil judul yang tertinggal di array halaman ini
+                    // Cegah judul yatim ditinggal sendirian di halaman
+                    if (isLastItemHeading && block.type !== 'heading' && block.type !== 'main_book') {
                         const orphanedHeading = currentPage.pop();
-                        // Tutup halaman tanpa judul tersebut
-                        allPages.push(currentPage);
+                        if (currentPage.length > 0) allPages.push(currentPage);
                         
-                        // Buka halaman baru dengan judul tersebut di posisi paling atas
                         currentPage = [orphanedHeading];
-                        currentCapacity = orphanedHeading.text.length + 150; 
+                        currentCapacity = orphanedHeading.text.length + 150;
                     } else {
-                        // Perilaku normal: tutup halaman lama, buka halaman baru kosong
                         allPages.push(currentPage);
                         currentPage = [];
                         currentCapacity = 0;
                     }
                 } 
-                // 🚨 PROTEKSI 2: MENCEGAH JUDUL BARU DILETAKKAN DI UJUNG HALAMAN
-                else if (isHeading && currentCapacity > (MAX_CAPACITY * 0.65) && currentPage.length > 0) {
+                // Cegah nulis judul baru kalau halaman udah mau habis
+                else if ((block.type === 'heading' || block.type === 'main_book') && currentCapacity > (MAX_CAPACITY * 0.65) && currentPage.length > 0) {
                     allPages.push(currentPage);
                     currentPage = [];
                     currentCapacity = 0;
                 }
 
-                currentPage.push({
-                    text: trimmedPara,
-                    isMainBook,
-                    isChapter,
-                    isHeading,
-                    isTOC,
-                    chapterTitle: chap.title,
-                    chapterNum: chap.chapter_number
-                });
+                currentPage.push(block);
                 currentCapacity += weight;
             });
         });
@@ -196,15 +196,13 @@ export default function AcademyReader() {
 
                                     <div className="flex-1 my-2 select-text overflow-hidden flex flex-col justify-start">
                                         {pageContent.map((item, idx) => {
-                                            if (item.isMainBook) {
+                                            if (item.type === 'main_book') {
                                                 return <h2 key={idx} className="text-sm md:text-base font-black text-slate-900 text-center uppercase font-serif mt-3 mb-3 border-b-2 border-slate-800 pb-1.5">{item.text}</h2>;
                                             }
-                                            if (item.isHeading) {
+                                            if (item.type === 'heading') {
                                                 return <h3 key={idx} className="text-xs md:text-sm font-extrabold text-slate-800 uppercase font-serif mt-2 mb-2 border-b border-stone-200 pb-0.5">{item.text}</h3>;
                                             }
-
-                                            // DAFTAR ISI DIJADIKAN PADAT DAN RAPAT KOTAK
-                                            if (item.isTOC) {
+                                            if (item.type === 'toc') {
                                                 return (
                                                     <div key={idx} className="my-1 text-[10.5px] text-slate-700 font-serif leading-tight bg-stone-50/60 p-2.5 rounded border border-stone-200/50">
                                                         {item.text.split('\n').map((lineStr: string, i: number) => {
@@ -215,7 +213,7 @@ export default function AcademyReader() {
                                                     </div>
                                                 );
                                             }
-
+                                            // Render Paragraf Biasa
                                             return <p key={idx} className="text-slate-800 text-[11.5px] leading-relaxed text-justify mb-2.5 font-serif indent-6">{item.text}</p>;
                                         })}
                                     </div>
