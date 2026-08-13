@@ -113,6 +113,9 @@ const ensureIncomeStrategyTables = async () => {
 // =========================================================================
 // 🧠 MESIN KOGNITIF DEEPSEEK R1 (VIA ENDPOINT OPENROUTER)
 // =========================================================================
+// =========================================================================
+// 🧠 MESIN KOGNITIF DEEPSEEK R1 (VIA ENDPOINT OPENROUTER)
+// =========================================================================
 async function askDeepSeekR1(systemPrompt: string, userPrompt: string): Promise<any> {
   const apiKey = (process.env.OPENROUTER_API_KEY || "").trim();
   if (!apiKey) throw new Error("Kunci API OpenRouter / DeepSeek belum terpasang di env lokal.");
@@ -130,8 +133,8 @@ async function askDeepSeekR1(systemPrompt: string, userPrompt: string): Promise<
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
-      ],
-      response_format: { type: "json_object" } 
+      ]
+      // Catatan: response_format dihilangkan karena endpoint 'free' OpenRouter terkadang menolaknya
     }),
   });
 
@@ -140,7 +143,18 @@ async function askDeepSeekR1(systemPrompt: string, userPrompt: string): Promise<
   const resultText = data.choices?.[0]?.message?.content;
   if (!resultText) throw new Error("DeepSeek mengembalikan balasan kosong.");
 
-  let cleanText = String(resultText).replace(/```json/gi, "").replace(/```/g, "").trim();
+  let cleanText = String(resultText);
+  
+  // 1. Buang tag <think> bawaan R1
+  cleanText = cleanText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  
+  // 2. Buang syntax markdown ```json
+  cleanText = cleanText.replace(/```json/gi, "").replace(/```/g, "").trim();
+  
+  // 3. Ekstrak paksa hanya blok JSON-nya saja
+  const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+  if (jsonMatch) cleanText = jsonMatch[0];
+
   return JSON.parse(cleanText);
 }
 
@@ -441,10 +455,25 @@ export function registerIncomeStrategyRoutes(app: Express) {
 
       let recommendations: any[];
       try {
+        // Coba gunakan DeepSeek R1 terlebih dahulu
         const parsed = await askDeepSeekR1(buildRecommendationsPrompt(profile, snapshot), "Rumuskan 3 strategi gerilya terbaik.");
         recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
       } catch (aiError: any) {
-        return res.status(502).json({ error: "DeepSeek gagal merakit taktik, coba lagi.", detail: aiError.message });
+        // FALLBACK: Jika DeepSeek R1 gagal/sibuk, alihkan seketika ke Gemini
+        try {
+          const geminiPrompt = buildRecommendationsPrompt(profile, snapshot) + "\n\nPastikan output HANYA JSON MURNI.";
+          const geminiResult = await askGeminiText(geminiPrompt);
+          if (!geminiResult) throw new Error("Gemini mengembalikan balasan kosong.");
+          
+          let cleanText = geminiResult.replace(/```json/gi, "").replace(/```/g, "").trim();
+          const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) cleanText = jsonMatch[0];
+          
+          const parsedGemini = JSON.parse(cleanText);
+          recommendations = Array.isArray(parsedGemini.recommendations) ? parsedGemini.recommendations : [];
+        } catch (fallbackError: any) {
+          return res.status(502).json({ error: "Sistem AI sedang *overloaded*, gagal merakit taktik. Coba lagi dalam beberapa saat.", detail: aiError.message });
+        }
       }
 
       await db.execute(sql`UPDATE income_profiles SET recommendations = ${JSON.stringify(recommendations)}, updated_at = NOW() WHERE id = ${p.id}`);
