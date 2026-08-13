@@ -86,6 +86,7 @@ const ensureIncomeStrategyTables = async () => {
     await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS jejaring_sosial TEXT;`);
     await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS preferensi_kerja TEXT;`);
     await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS cooldown_until TIMESTAMP;`);
+    await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS aset_lainnya TEXT;`);
     await db.execute(sql`ALTER TABLE income_attempts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ACTIVE';`);
   } catch (e) {
     await db.execute(sql`DROP TABLE IF EXISTS income_attempts`);
@@ -275,27 +276,27 @@ Output HANYA JSON array persis format ini:
 }
 
 function buildRecommendationsPrompt(profile: any, snapshot: any) {
-  return `Kamu adalah "BILANO Alpha Mentor", eksekutor bisnis lapangan dan arsitek monetisasi B2B tingkat tinggi. Kamu BUKAN asisten virtual biasa. 
+  return `Kamu adalah "BILANO Alpha Mentor", eksekutor bisnis gerilya kelas kakap dan arsitek "Blue-Ocean Strategy". Otakmu merancang taktik monetisasi B2B yang SANGAT TIDAK TERPIKIRKAN oleh orang awam (brilian, niche, dan hiper-spesifik). Kamu sangat sinis terhadap ide bisnis yang biasa-biasa saja.
 
 DATA MENTAH PENGGUNA:
 - Latar Belakang: ${profile.status} | ${profile.latarBelakang || "-"}
 - Keahlian Inti: ${(profile.keahlian || []).join(", ")} ${profile.keahlianLainnya ? ", " + profile.keahlianLainnya : ""}
-- Aset: ${(profile.aset || []).join(", ") || "-"}
+- Aset Tersedia: ${(profile.aset || []).join(", ")} ${profile.asetLainnya ? ", " + profile.asetLainnya : ""}
 - Saldo Kas Riil: Rp${snapshot.saldo_saat_ini}
 - Pola & Waktu: ${profile.konstrainWaktu?.text || "-"} | ${profile.polaKerja}
 - Karakter Eksekusi: Jejaring ${profile.jejaringSosial || '-'} | Preferensi ${profile.preferensiKerja || '-'}
 
 ATURAN MUTLAK (SYSTEM OVERRIDE - DILARANG DILANGGAR):
-1. WAJIB BERIKAN TEPAT 3 (TIGA) REKOMENDASI: Jika kurang atau lebih dari 3, sistem akan menolak jawabanmu. Ketiga ide ini harus sangat berbeda satu sama lain (diversifikasi sudut pandang).
-2. BENAR-BENAR REALISTIS & MASUK AKAL: Jangan berikan ide halu atau startup miliaran rupiah. Sesuaikan 100% dengan "Saldo Kas Riil" (Rp${snapshot.saldo_saat_ini}). Jika saldo minim, berikan ide murni jasa (jual skill). Harus bisa dieksekusi oleh 1 orang (solo).
-3. FATAL ERROR JIKALAU MENYARANKAN UMKM PASARAN: Jualan makanan/minuman (kopi, seblak), dropship, reseller baju, thrifting, joki tugas, atau jasa titip dilarang keras.
-4. TARGETKAN KLIEN HIGH-TICKET (B2B): Arahkan target pasarnya ke Pemilik Bisnis Lokal, Kreator, atau Agency.
-5. DEKONSTRUKSI SILANG KEAHLIAN: Paksa penggabungan keahlian pengguna menjadi layanan unik yang mahal.
-6. EKSEKUSI 48 JAM: Taktik harus bisa divalidasi ke 1 calon klien dalam 48 jam ke depan.
-7. Benar-benar jadikan data pengguna terutama status keuangan yang dimilikinya saat sebagai patokan dalam memberikan saran.
+1. WAJIB TEPAT 3 IDE SUPER UNIK (OUT-OF-THE-BOX): Berikan ide yang membuat orang berkata, "Gila, kok bisa kepikiran ke situ?". Ketiga ide harus datang dari sudut pandang yang berbeda (misal: 1 ide jasa hiper-spesifik, 1 ide arbitrase digital, 1 ide optimasi aset).
+2. BLACKLIST IDE GENERIK (FATAL ERROR): DILARANG KERAS menyarankan UMKM pasaran (jual makanan, thrifting), dan DILARANG KERAS menyarankan freelance standar (admin sosmed biasa, desain grafis umum, copywriter generik, joki tugas). 
+3. TARGETKAN PAIN-POINT HIGH-TICKET (B2B): Arahkan ke Pemilik Bisnis Lokal, Kreator Besar, atau Agency yang punya uang. Selesaikan masalah spesifik mereka yang menjengkelkan tapi sering diabaikan.
+4. DEKONSTRUKSI SILANG YANG ANEH TAPI MAHAL: Paksa penggabungan keahlian pengguna dan asetnya menjadi layanan langka. (Contoh: Punya motor + Keahlian komunikasi = Jangan jadi ojol, tapi buka "Jasa Kurir Dokumen Rahasia & Tanda Tangan VIP untuk Notaris").
+5. SANGAT REALISTIS DENGAN KAS & KAPASITAS: Ide HARUS 100% selaras dengan "Saldo Kas Riil" (Rp${snapshot.saldo_saat_ini}) dan berstatus solo-player. Jangan halu menyuruh membuat startup teknologi jika modal minim.
+6. VALIDASI 48 JAM: Taktik harus bisa dieksekusi dan ditawarkan ke 1 calon klien dalam 48 jam ke depan.
+7. DAFTAR BAHAN/ALAT (RAB): Pikirkan secara logis dan rinci alat, bahan, atau langganan software apa saja yang HARUS disiapkan pengguna untuk memulai ide ini.
 
 OUTPUT WAJIB JSON MURNI TANPA MARKDOWN. SKEMA:
-{"recommendations":[{"id":"rec_1","title":"[Judul Taktis B2B/High-Ticket]","pitch":"[Cara kotor tapi legal mengeksekusinya hari ini]","why_it_fits":"[Logika realistis mengapa ini cocok dengan profilnya]","capital_level":"[TANPA_MODAL/MODAL_KECIL/MODAL_SEDANG]","needs_upskilling":false,"upskilling_note":"[Opsional: 1 hal spesifik untuk dipelajari kilat]","difficulty":"[MUDAH/SEDANG/MENANTANG]","estimated_time_to_first_income":"[Misal: 1-7 Hari]","risk_note":"[Risiko realistis di lapangan]"}]}`;
+{"recommendations":[{"id":"rec_1","title":"[Judul Taktis B2B Hyper-Niche]","pitch":"[Cara kotor/cerdik tapi legal mengeksekusinya hari ini juga]","why_it_fits":"[Logika tajam mengapa kombinasi skill/aset pengguna ini menjadi daya ungkit yang mahal]","capital_level":"[TANPA_MODAL/MODAL_KECIL/MODAL_SEDANG]","needs_upskilling":false,"upskilling_note":"[Opsional: 1 hal super spesifik untuk dipelajari kilat, misal 'Cara pakai tools X']","difficulty":"[MUDAH/SEDANG/MENANTANG]","estimated_time_to_first_income":"[Misal: 1-7 Hari]","risk_note":"[Risiko realistis terburuk di lapangan]","suggested_materials":["Bahan/Alat spesifik 1", "Bahan/Alat spesifik 2"]}]}`;
 }
 
 function buildSellingSystemPrompt(recommendation: any, profile: any, totalCost: number) {
@@ -420,12 +421,13 @@ export function registerIncomeStrategyRoutes(app: Express) {
             latar_belakang = ${latarBelakang || null}, keahlian = ${JSON.stringify(keahlian || [])},
             keahlian_lainnya = ${keahlianLainnya || null}, aset = ${JSON.stringify(aset || [])},
             konstrain_waktu = ${JSON.stringify(konstrainWaktu || {})}, updated_at = NOW(), cooldown_until = NULL
+            aset_lainnya = ${asetLainnya || null}, konstrain_waktu = ${JSON.stringify(konstrainWaktu || {})}, updated_at = NOW(), cooldown_until = NULL
           WHERE id = ${existingRows[0].id}
         `);
         return res.json({ success: true, id: existingRows[0].id });
       }
       const inserted = await db.execute(sql`
-        INSERT INTO income_profiles (user_id, status, tujuan, pola_kerja, jejaring_sosial, preferensi_kerja, latar_belakang, keahlian, keahlian_lainnya, aset, konstrain_waktu)
+        INSERT INTO income_profiles (user_id, status, tujuan, pola_kerja, jejaring_sosial, preferensi_kerja, latar_belakang, keahlian, keahlian_lainnya, aset, konstrain_waktu, aset_lainnya)
         VALUES (${user.id}, ${status || null}, ${tujuan || null}, ${polaKerja || null}, ${jejaringSosial || null}, ${preferensiKerja || null}, ${latarBelakang || null}, ${JSON.stringify(keahlian || [])}, ${keahlianLainnya || null}, ${JSON.stringify(aset || [])}, ${JSON.stringify(konstrainWaktu || {})})
         RETURNING id
       `);
@@ -504,10 +506,24 @@ export function registerIncomeStrategyRoutes(app: Express) {
       const { recommendation } = req.body;
       if (!recommendation || !recommendation.title) return res.status(400).json({ error: "Ide usaha tidak valid." });
 
+      // 👇 AUTO-GENERATE MATERIAL DARI AI
+      let initialMaterials = [];
+      if (recommendation.suggested_materials && Array.isArray(recommendation.suggested_materials)) {
+          initialMaterials = recommendation.suggested_materials.map((m: string, i: number) => ({ 
+              id: 'ai_' + i, 
+              name: m, 
+              price: 0 
+          }));
+      }
+
       const profileResult = await db.execute(sql`SELECT id FROM income_profiles WHERE user_id = ${user.id} ORDER BY updated_at DESC LIMIT 1`);
       const profileRows = Array.isArray(profileResult) ? profileResult : (profileResult as any).rows || [];
       const profileId = profileRows[0]?.id || null;
-
+      const inserted = await db.execute(sql`
+        INSERT INTO income_attempts (user_id, profile_id, recommendation, state, status, materials)
+        VALUES (${user.id}, ${profileId}, ${JSON.stringify(recommendation)}, 'MATERIALS', 'ACTIVE', ${JSON.stringify(initialMaterials)})
+        RETURNING *
+      `);
       const inserted = await db.execute(sql`
         INSERT INTO income_attempts (user_id, profile_id, recommendation, state, status, materials)
         VALUES (${user.id}, ${profileId}, ${JSON.stringify(recommendation)}, 'MATERIALS', 'ACTIVE', '[]')

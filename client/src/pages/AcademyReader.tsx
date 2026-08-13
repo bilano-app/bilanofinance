@@ -62,6 +62,7 @@ export default function AcademyReader() {
     }, [ebookId, nextChapterNum]);
 
     // 🔥 ALGORITMA PAGINASI: ANTI-JUDUL TERPISAH & DAFTAR ISI PADAT
+    // 🔥 ALGORITMA PAGINASI REVISI: ANTI-JUDUL TERPISAH & ANTI-PARAGRAF TERPOTONG
     const pages = useMemo(() => {
         const MAX_CAPACITY = 850; 
         const allPages: any[][] = [];
@@ -70,11 +71,34 @@ export default function AcademyReader() {
 
         chapters.forEach((chap) => {
             const rawParagraphs = chap.content.replace(/\*\*/g, '').split(/\n\s*\n/);
-
+            
+            // 1. PRE-PROCESS PARAGRAF PANJANG
+            // Memecah paragraf yang karakternya terlalu panjang agar tidak terpotong oleh overflow-hidden
+            const processedParagraphs: string[] = [];
             rawParagraphs.forEach((paraStr: string) => {
-                const trimmedPara = paraStr.trim();
-                if (!trimmedPara) return;
+                let text = paraStr.trim();
+                if (!text) return;
+                
+                const SAFE_LENGTH = 650; // Batas aman render per blok teks
+                if (text.length > SAFE_LENGTH && !text.includes('\n')) {
+                    let remaining = text;
+                    while (remaining.length > SAFE_LENGTH) {
+                        // Cari titik terdekat untuk memotong kalimat dengan aman agar bermakna
+                        let breakPoint = remaining.lastIndexOf('. ', SAFE_LENGTH);
+                        if (breakPoint === -1) breakPoint = remaining.lastIndexOf(' ', SAFE_LENGTH);
+                        if (breakPoint === -1) breakPoint = SAFE_LENGTH;
+                        
+                        processedParagraphs.push(remaining.substring(0, breakPoint + 1).trim());
+                        remaining = remaining.substring(breakPoint + 1).trim();
+                    }
+                    if (remaining) processedParagraphs.push(remaining);
+                } else {
+                    processedParagraphs.push(text);
+                }
+            });
 
+            // 2. LOGIKA PEMBAGIAN HALAMAN (PAGINATION)
+            processedParagraphs.forEach((trimmedPara: string) => {
                 const lower = trimmedPara.toLowerCase();
                 if (lower.includes("gutenberg") || lower.includes("produced by")) return;
 
@@ -85,18 +109,32 @@ export default function AcademyReader() {
 
                 let weight = trimmedPara.length;
                 if (isHeading) weight += 150;
-                else if (isTOC) weight = weight * 0.5; // Daftar isi dihitung setengah beban agar muat banyak
+                else if (isTOC) weight = weight * 0.5;
                 else weight += 40;
 
-                // 🚨 PROTEKSI JUDUL YATIM:
-                // Jika ini adalah JUDUL BAB, dan halaman sudah terisi lebih dari 65%,
-                // PAKSA pindah ke halaman baru agar judul tidak terpisah dari isi bawahnya!
-                if (isHeading && currentCapacity > (MAX_CAPACITY * 0.65) && currentPage.length > 0) {
-                    allPages.push(currentPage);
-                    currentPage = [];
-                    currentCapacity = 0;
+                // Pengecekan elemen terakhir di halaman saat ini
+                const isLastItemHeading = currentPage.length > 0 && currentPage[currentPage.length - 1].isHeading;
+
+                if (currentCapacity + weight > MAX_CAPACITY && currentPage.length > 0) {
+                    // 🚨 PROTEKSI 1: TARIK JUDUL YATIM (FIX UNTUK BAB TERPISAH)
+                    if (isLastItemHeading && !isHeading) {
+                        // Ambil judul yang tertinggal di array halaman ini
+                        const orphanedHeading = currentPage.pop();
+                        // Tutup halaman tanpa judul tersebut
+                        allPages.push(currentPage);
+                        
+                        // Buka halaman baru dengan judul tersebut di posisi paling atas
+                        currentPage = [orphanedHeading];
+                        currentCapacity = orphanedHeading.text.length + 150; 
+                    } else {
+                        // Perilaku normal: tutup halaman lama, buka halaman baru kosong
+                        allPages.push(currentPage);
+                        currentPage = [];
+                        currentCapacity = 0;
+                    }
                 } 
-                else if (currentCapacity + weight > MAX_CAPACITY && currentPage.length > 0) {
+                // 🚨 PROTEKSI 2: MENCEGAH JUDUL BARU DILETAKKAN DI UJUNG HALAMAN
+                else if (isHeading && currentCapacity > (MAX_CAPACITY * 0.65) && currentPage.length > 0) {
                     allPages.push(currentPage);
                     currentPage = [];
                     currentCapacity = 0;

@@ -174,6 +174,7 @@ function IdentifyFlow({ onComplete }: { onComplete: (status: string, answers: an
   const [keahlianLainnya, setKeahlianLainnya] = useState("");
   const [isFetchingQuestions, setIsFetchingQuestions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [asetLainnya, setAsetLainnya] = useState(""); //
 
   const totalSteps = 8; 
   const currentQuestion = stepIndex >= 1 ? questions[stepIndex - 1] : null;
@@ -297,9 +298,20 @@ function IdentifyFlow({ onComplete }: { onComplete: (status: string, answers: an
               className="w-full px-5 py-4 rounded-[20px] border-2 border-slate-200 text-sm font-semibold focus:border-indigo-400 outline-none disabled:opacity-60"
             />
           )}
+          {currentQuestion.field_key === "aset" && (
+            <input
+              value={asetLainnya}
+              onChange={(e) => setAsetLainnya(e.target.value)}
+              placeholder="Aset/alat lain yang dimiliki (opsional)"
+              disabled={isSubmitting}
+              className="w-full px-5 py-4 rounded-[20px] border-2 border-slate-200 text-sm font-semibold focus:border-indigo-400 outline-none disabled:opacity-60"
+            />
+          )}
           <button
             onClick={async () => {
-              const next = { ...answers, [camelKey]: multiSelected, keahlianLainnya: currentQuestion.field_key === "keahlian" ? keahlianLainnya || null : answers.keahlianLainnya };
+              const next = { ...answers, [camelKey]: multiSelected, 
+              keahlianLainnya: currentQuestion.field_key === "keahlian" ? keahlianLainnya || null : answers.keahlianLainnya,
+              asetLainnya: currentQuestion.field_key === "aset" ? asetLainnya || null : answers.asetLainnya };
               setAnswers(next);
               
               if (stepIndex >= questions.length) {
@@ -571,7 +583,10 @@ function MaterialsStep({ attempt, onUpdated }: { attempt: any; onUpdated: (parti
       )}
 
       {!clarification && !verdictResult && (
-        <button onClick={() => runFeasibility()} disabled={isChecking || materials.length === 0 || total === 0} className="w-full h-14 bg-indigo-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-full shadow-lg shadow-indigo-200 disabled:shadow-none flex items-center justify-center gap-2 active:scale-95 transition-all">
+        <button 
+          onClick={() => runFeasibility()} 
+          disabled={isChecking} // 👇 DIUBAH: Pengguna kini bebas lanjut meski bahan kosong/0
+          className="w-full h-14 bg-indigo-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold rounded-full shadow-lg shadow-indigo-200 disabled:shadow-none flex items-center justify-center gap-2 active:scale-95 transition-all">
           {isChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Wallet className="w-5 h-5" /> KALIBRASI STRATEGI MODAL</>}
         </button>
       )}
@@ -1060,6 +1075,7 @@ export default function IncomeStrategy() {
       keahlian: answers.keahlian || [],
       keahlianLainnya: answers.keahlianLainnya || null,
       aset: answers.aset || [],
+      asetLainnya: answers.asetLainnya || null,
       konstrainWaktu: { text: answers.konstrainWaktu },
     };
     try {
