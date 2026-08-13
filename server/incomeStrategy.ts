@@ -275,26 +275,27 @@ Output HANYA JSON array persis format ini:
 }
 
 function buildRecommendationsPrompt(profile: any, snapshot: any) {
-  return `Kamu adalah "BILANO Alpha Mentor", eksekutor bisnis B2B dan arsitek monetisasi digital tingkat tinggi. Kamu BUKAN asisten virtual biasa. 
+  return `Kamu adalah "BILANO Alpha Mentor", eksekutor bisnis lapangan dan arsitek monetisasi B2B tingkat tinggi. Kamu BUKAN asisten virtual biasa. 
 
 DATA MENTAH PENGGUNA:
 - Latar Belakang: ${profile.status} | ${profile.latarBelakang || "-"}
 - Keahlian Inti: ${(profile.keahlian || []).join(", ")} ${profile.keahlianLainnya ? ", " + profile.keahlianLainnya : ""}
 - Aset: ${(profile.aset || []).join(", ") || "-"}
-- Saldo Kas: Rp${snapshot.saldo_saat_ini}
+- Saldo Kas Riil: Rp${snapshot.saldo_saat_ini}
 - Pola & Waktu: ${profile.konstrainWaktu?.text || "-"} | ${profile.polaKerja}
 - Karakter Eksekusi: Jejaring ${profile.jejaringSosial || '-'} | Preferensi ${profile.preferensiKerja || '-'}
 
 ATURAN MUTLAK (SYSTEM OVERRIDE - DILARANG DILANGGAR):
-1. FATAL ERROR JIKALAU MENYARANKAN UMKM PASARAN: Jualan makanan/minuman (kopi, seblak, dll), dropship, reseller baju, thrifting, joki tugas, atau jasa titip. (Sistem akan menolak jawabanmu jika ini terjadi).
-2. TARGETKAN KLIEN HIGH-TICKET (B2B): Arahkan target pasarnya ke Pemilik Bisnis, Kreator, atau Agency. Jangan arahkan jualan ke mahasiswa/pelajar dengan daya beli rendah.
-3. DEKONSTRUKSI SILANG KEAHLIAN: Paksa penggabungan keahlian. 
-   - Contoh: Jika latar belakangnya Akuntansi dan bisa Python/React, jangan suruh buka jasa pembukuan biasa, tapi suruh buat Dasbor Rekonsiliasi Kas (Micro-SaaS). 
-   - Contoh: Jika suka Filsafat dan bisa Menulis, suruh buat Jasa Ghostwriting Skrip Edukasi/Dekonstruksi Logika untuk Influencer.
-4. EKSEKUSI 48 JAM: Taktik harus bisa divalidasi ke 1 calon klien dalam 48 jam dengan modal maksimal Rp${snapshot.saldo_saat_ini}.
+1. WAJIB BERIKAN TEPAT 3 (TIGA) REKOMENDASI: Jika kurang atau lebih dari 3, sistem akan menolak jawabanmu. Ketiga ide ini harus sangat berbeda satu sama lain (diversifikasi sudut pandang).
+2. BENAR-BENAR REALISTIS & MASUK AKAL: Jangan berikan ide halu atau startup miliaran rupiah. Sesuaikan 100% dengan "Saldo Kas Riil" (Rp${snapshot.saldo_saat_ini}). Jika saldo minim, berikan ide murni jasa (jual skill). Harus bisa dieksekusi oleh 1 orang (solo).
+3. FATAL ERROR JIKALAU MENYARANKAN UMKM PASARAN: Jualan makanan/minuman (kopi, seblak), dropship, reseller baju, thrifting, joki tugas, atau jasa titip dilarang keras.
+4. TARGETKAN KLIEN HIGH-TICKET (B2B): Arahkan target pasarnya ke Pemilik Bisnis Lokal, Kreator, atau Agency.
+5. DEKONSTRUKSI SILANG KEAHLIAN: Paksa penggabungan keahlian pengguna menjadi layanan unik yang mahal.
+6. EKSEKUSI 48 JAM: Taktik harus bisa divalidasi ke 1 calon klien dalam 48 jam ke depan.
+7. Benar-benar jadikan data pengguna terutama status keuangan yang dimilikinya saat sebagai patokan dalam memberikan saran.
 
 OUTPUT WAJIB JSON MURNI TANPA MARKDOWN. SKEMA:
-{"recommendations":[{"id":"rec_1","title":"[Judul Taktis B2B/High-Ticket]","pitch":"[Cara kotor tapi legal mengeksekusinya hari ini]","why_it_fits":"[Logika tajam mengapa kombinasi skill spesifik pengguna ini menjadi daya ungkit yang mahal]","capital_level":"[TANPA_MODAL/MODAL_KECIL/MODAL_SEDANG]","needs_upskilling":false,"upskilling_note":"[Opsional: 1 hal spesifik untuk dipelajari kilat]","difficulty":"[MUDAH/SEDANG/MENANTANG]","estimated_time_to_first_income":"[Misal: 1-7 Hari]","risk_note":"[Risiko realistis di lapangan]"}]}`;
+{"recommendations":[{"id":"rec_1","title":"[Judul Taktis B2B/High-Ticket]","pitch":"[Cara kotor tapi legal mengeksekusinya hari ini]","why_it_fits":"[Logika realistis mengapa ini cocok dengan profilnya]","capital_level":"[TANPA_MODAL/MODAL_KECIL/MODAL_SEDANG]","needs_upskilling":false,"upskilling_note":"[Opsional: 1 hal spesifik untuk dipelajari kilat]","difficulty":"[MUDAH/SEDANG/MENANTANG]","estimated_time_to_first_income":"[Misal: 1-7 Hari]","risk_note":"[Risiko realistis di lapangan]"}]}`;
 }
 
 function buildSellingSystemPrompt(recommendation: any, profile: any, totalCost: number) {
@@ -453,15 +454,19 @@ export function registerIncomeStrategyRoutes(app: Express) {
       };
       const snapshot = await getFinancialSnapshot(user.id, user.cashBalance);
 
+      // Di dalam app.post("/api/income-strategy/recommendations") ...
+      
       let recommendations: any[];
+      // Buat seed waktu agar jika di-refresh, AI menghasilkan angle ide yang benar-benar baru
+      const randomizeSeed = new Date().getTime(); 
+      const userPrompt = `Abaikan ide-ide standar. Berikan TEPAT 3 strategi gerilya B2B yang BENAR-BENAR REALISTIS, belum pernah terpikirkan, dan DAPAT DIEKSEKUSI HARI INI JUGA. (Seed: ${randomizeSeed})`;
+
       try {
-        // Coba gunakan DeepSeek R1 terlebih dahulu
-        const parsed = await askDeepSeekR1(buildRecommendationsPrompt(profile, snapshot), "Rumuskan 3 strategi gerilya terbaik.");
+        const parsed = await askDeepSeekR1(buildRecommendationsPrompt(profile, snapshot), userPrompt);
         recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
       } catch (aiError: any) {
-        // FALLBACK: Jika DeepSeek R1 gagal/sibuk, alihkan seketika ke Gemini
         try {
-          const geminiPrompt = buildRecommendationsPrompt(profile, snapshot) + "\n\nPastikan output HANYA JSON MURNI.";
+          const geminiPrompt = buildRecommendationsPrompt(profile, snapshot) + "\n\nUser: " + userPrompt + "\n\nPastikan output HANYA JSON MURNI.";
           const geminiResult = await askGeminiText(geminiPrompt);
           if (!geminiResult) throw new Error("Gemini mengembalikan balasan kosong.");
           
@@ -472,7 +477,7 @@ export function registerIncomeStrategyRoutes(app: Express) {
           const parsedGemini = JSON.parse(cleanText);
           recommendations = Array.isArray(parsedGemini.recommendations) ? parsedGemini.recommendations : [];
         } catch (fallbackError: any) {
-          return res.status(502).json({ error: "Sistem AI sedang *overloaded*, gagal merakit taktik. Coba lagi dalam beberapa saat.", detail: aiError.message });
+          return res.status(502).json({ error: "Sistem AI sedang sibuk, gagal merakit taktik. Coba lagi dalam beberapa saat." });
         }
       }
 
