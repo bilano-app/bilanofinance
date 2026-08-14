@@ -1,236 +1,97 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
 import { ChevronLeft, BookOpen, Loader2 } from "lucide-react";
 
 export default function AcademyReader() {
     const [, setLocation] = useLocation();
+    
+    // Tetap menggunakan route bawaan Bilano agar kamu tidak perlu merombak App.tsx
     const [, params] = useRoute("/academy/:ebookId/read/:chapterNum");
 
     const ebookId = params?.ebookId;
-    const initialChapterNum = parseInt(params?.chapterNum || "1");
 
-    const [chapters, setChapters] = useState<any[]>([]);
+    const [ebook, setEbook] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState("");
 
-    const [nextChapterNum, setNextChapterNum] = useState(initialChapterNum);
-    const [hasMore, setHasMore] = useState(true);
-    const [isFetchingMore, setIsFetchingMore] = useState(false);
-
-    const observer = useRef<IntersectionObserver | null>(null);
-
-    const lastPageRef = useCallback((node: HTMLDivElement | null) => {
-        if (isFetchingMore || !hasMore) return;
-        if (observer.current) observer.current.disconnect();
-
-        observer.current = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
-                setNextChapterNum((prev) => prev + 1);
-            }
-        });
-
-        if (node) observer.current.observe(node);
-    }, [isFetchingMore, hasMore]);
-
     useEffect(() => {
-        const fetchChapter = async () => {
-            if (!ebookId || !hasMore) return;
-            chapters.length === 0 ? setIsLoading(true) : setIsFetchingMore(true);
+        const fetchEbook = async () => {
+            if (!ebookId) return;
+            setIsLoading(true);
 
             try {
-                const res = await fetch(`/api/ebooks/${ebookId}/chapters/${nextChapterNum}`);
+                // Memanggil endpoint API untuk mengambil data detail buku (termasuk pdf_url)
+                const res = await fetch(`/api/ebooks/${ebookId}`);
+                
+                // Menangani satpam premium dari backend
                 if (res.status === 402) {
-                    if (chapters.length === 0) setErrorMsg("Akses Premium Diperlukan.");
-                    setHasMore(false);
+                    setErrorMsg("Akses Premium Diperlukan.");
+                    setIsLoading(false);
                     return;
                 }
+
                 const result = await res.json();
+                
                 if (result.success && result.data) {
-                    setChapters((prev) => prev.some(c => c.chapter_number === result.data.chapter_number) ? prev : [...prev, result.data]);
+                    setEbook(result.data);
                 } else {
-                    setHasMore(false);
+                    setErrorMsg("Buku tidak ditemukan di perpustakaan.");
                 }
             } catch (err) {
-                if (chapters.length === 0) setErrorMsg("Gagal memuat dokumen.");
-                setHasMore(false);
+                setErrorMsg("Gagal memuat dokumen PDF.");
             } finally {
                 setIsLoading(false);
-                setIsFetchingMore(false);
             }
         };
-        fetchChapter();
-    }, [ebookId, nextChapterNum]);
 
-    // 🔥 ALGORITMA PAGINASI: ANTI-JUDUL TERPISAH & DAFTAR ISI PADAT
-    // 🔥 ALGORITMA PAGINASI REVISI: ANTI-JUDUL TERPISAH & ANTI-PARAGRAF TERPOTONG
-    // 🔥 ALGORITMA PAGINASI FINAL: REACT YANG LEBIH PINTAR
-    const pages = useMemo(() => {
-        const MAX_CAPACITY = 850; 
-        const allPages: any[][] = [];
-        let currentPage: any[] = [];
-        let currentCapacity = 0;
-
-        chapters.forEach((chap) => {
-            // Ambil teks mentah dari database
-            const rawParagraphs = chap.content.replace(/\*\*/g, '').split(/\n\s*\n/);
-            
-            // TAHAP 1: MEMBERI LABEL TEKS (Klasifikasi internal React)
-            const typedBlocks: { type: string, text: string, chapterTitle: string, chapterNum: number }[] = [];
-            
-            rawParagraphs.forEach((paraStr: string) => {
-                let text = paraStr.trim();
-                if (!text) return;
-                
-                const lower = text.toLowerCase();
-                if (lower.includes("gutenberg") || lower.includes("produced by")) return;
-
-                // React menebak identitas paragraf ini
-                const isMainBook = /^(buku|book|part|volume)\s+([ivx0-9]+|one|two|three|four|five)\b/i.test(text);
-                const isChapter = /^(bab|chapter|section)\s+([ivx0-9]+)\b/i.test(text) || /^[IVXLCDM]+\.\s+/i.test(text);
-                const isHeading = isMainBook || isChapter || (text.length < 90 && text === text.toUpperCase() && !text.endsWith('.'));
-                const isTOC = text.includes('\n') || lower.includes("daftar isi");
-
-                if (isMainBook) {
-                    typedBlocks.push({ type: 'main_book', text, chapterTitle: chap.title, chapterNum: chap.chapter_number });
-                } else if (isHeading) {
-                    typedBlocks.push({ type: 'heading', text, chapterTitle: chap.title, chapterNum: chap.chapter_number });
-                } else if (isTOC) {
-                    typedBlocks.push({ type: 'toc', text, chapterTitle: chap.title, chapterNum: chap.chapter_number });
-                } else {
-                    // Jika ini paragraf biasa tapi RAKSASA, potong jadi 2 agar tidak hilang
-                    const SAFE_LENGTH = 650;
-                    if (text.length > SAFE_LENGTH) {
-                        let remaining = text;
-                        while (remaining.length > SAFE_LENGTH) {
-                            let breakPoint = remaining.lastIndexOf('. ', SAFE_LENGTH);
-                            if (breakPoint === -1) breakPoint = remaining.lastIndexOf(' ', SAFE_LENGTH);
-                            if (breakPoint === -1) breakPoint = SAFE_LENGTH;
-                            
-                            typedBlocks.push({ type: 'p', text: remaining.substring(0, breakPoint + 1).trim(), chapterTitle: chap.title, chapterNum: chap.chapter_number });
-                            remaining = remaining.substring(breakPoint + 1).trim();
-                        }
-                        if (remaining) typedBlocks.push({ type: 'p', text: remaining, chapterTitle: chap.title, chapterNum: chap.chapter_number });
-                    } else {
-                        typedBlocks.push({ type: 'p', text, chapterTitle: chap.title, chapterNum: chap.chapter_number });
-                    }
-                }
-            });
-
-            // TAHAP 2: PEMBAGIAN HALAMAN (Sangat Aman)
-            typedBlocks.forEach((block) => {
-                let weight = block.text.length;
-                if (block.type === 'main_book' || block.type === 'heading') weight += 150;
-                else if (block.type === 'toc') weight = (block.text.split('\n').length * 40);
-                else weight += 40;
-
-                const isLastItemHeading = currentPage.length > 0 && 
-                    (currentPage[currentPage.length - 1].type === 'heading' || currentPage[currentPage.length - 1].type === 'main_book');
-
-                // Kalau kapasitas penuh, tutup halaman
-                if (currentCapacity + weight > MAX_CAPACITY && currentPage.length > 0) {
-                    // Cegah judul yatim ditinggal sendirian di halaman
-                    if (isLastItemHeading && block.type !== 'heading' && block.type !== 'main_book') {
-                        const orphanedHeading = currentPage.pop();
-                        if (currentPage.length > 0) allPages.push(currentPage);
-                        
-                        currentPage = [orphanedHeading];
-                        currentCapacity = orphanedHeading.text.length + 150;
-                    } else {
-                        allPages.push(currentPage);
-                        currentPage = [];
-                        currentCapacity = 0;
-                    }
-                } 
-                // Cegah nulis judul baru kalau halaman udah mau habis
-                else if ((block.type === 'heading' || block.type === 'main_book') && currentCapacity > (MAX_CAPACITY * 0.65) && currentPage.length > 0) {
-                    allPages.push(currentPage);
-                    currentPage = [];
-                    currentCapacity = 0;
-                }
-
-                currentPage.push(block);
-                currentCapacity += weight;
-            });
-        });
-
-        if (currentPage.length > 0) allPages.push(currentPage);
-        return allPages;
-    }, [chapters]);
+        fetchEbook();
+    }, [ebookId]);
 
     return (
-        <div className="min-h-screen bg-slate-400 flex flex-col font-sans select-none">
-            <div className="sticky top-0 z-50 bg-slate-900 text-white px-4 py-3 flex items-center gap-3 shadow-md">
-                <button onClick={() => setLocation("/academy")} className="w-8 h-8 flex items-center justify-center bg-slate-800 rounded-full hover:bg-slate-700 text-slate-300">
+        <div className="min-h-screen bg-slate-900 flex flex-col font-sans select-none overflow-hidden">
+            
+            {/* Header Navbar Super Clean */}
+            <div className="sticky top-0 z-50 bg-slate-900 text-white px-4 py-3 flex items-center gap-3 shadow-md border-b border-slate-800">
+                <button 
+                    onClick={() => setLocation("/academy")} 
+                    className="w-8 h-8 flex items-center justify-center bg-slate-800 rounded-full hover:bg-slate-700 text-slate-300 transition-colors"
+                >
                     <ChevronLeft className="w-4 h-4" />
                 </button>
                 <div>
                     <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest">Bilano Academy</p>
-                    <h1 className="font-bold text-xs line-clamp-1">{chapters[0]?.title || "Memuat..."}</h1>
+                    <h1 className="font-bold text-xs line-clamp-1">{ebook?.title || "Memuat Dokumen..."}</h1>
                 </div>
             </div>
 
-            <div className="flex-1 flex flex-col items-center p-4 md:p-6 gap-6 md:gap-8">
+            {/* Tampilan Konten PDF (Full Layar) */}
+            <div className="flex-1 w-full h-[calc(100vh-60px)] bg-[#525659] flex flex-col items-center justify-center relative">
                 {isLoading ? (
-                    <Loader2 className="w-8 h-8 animate-spin text-slate-800 mt-20" />
+                    <div className="flex flex-col items-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-amber-500 mb-3" />
+                        <p className="text-xs text-slate-300 font-medium tracking-wide">Membuka lembaran buku...</p>
+                    </div>
                 ) : errorMsg ? (
-                    <div className="mt-20 p-6 bg-white rounded-xl text-center shadow-xl">
-                        <BookOpen className="w-10 h-10 text-rose-500 mx-auto mb-3" />
-                        <p className="text-sm font-bold text-slate-700">{errorMsg}</p>
+                    <div className="p-8 bg-slate-900 rounded-2xl text-center shadow-2xl border border-slate-800 max-w-sm mx-4">
+                        <BookOpen className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+                        <p className="text-sm font-bold text-slate-300 mb-6">{errorMsg}</p>
+                        <button 
+                            onClick={() => setLocation("/academy")}
+                            className="w-full py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-300 transition-colors uppercase tracking-wider"
+                        >
+                            Kembali ke Rak Buku
+                        </button>
                     </div>
                 ) : (
-                    <>
-                        {pages.map((pageContent, pageIdx) => {
-                            const isLastPage = pageIdx === pages.length - 1;
-                            const dominantChapterNum = pageContent[0]?.chapterNum;
-                            const dominantChapterTitle = pageContent[0]?.chapterTitle || "Bilano Academy";
-
-                            return (
-                                <div
-                                    key={`page-${pageIdx}`}
-                                    ref={isLastPage ? lastPageRef : null}
-                                    className="bg-[#FFFDF9] shadow-xl w-full max-w-[420px] h-[640px] p-6 md:p-7 rounded-sm border border-stone-300 flex flex-col justify-between font-serif relative overflow-hidden"
-                                >
-                                    <div className="w-full text-center border-b border-stone-200 pb-2 text-[9px] text-stone-400 tracking-widest uppercase line-clamp-1">
-                                        {dominantChapterTitle}
-                                    </div>
-
-                                    <div className="flex-1 my-2 select-text overflow-hidden flex flex-col justify-start">
-                                        {pageContent.map((item, idx) => {
-                                            if (item.type === 'main_book') {
-                                                return <h2 key={idx} className="text-sm md:text-base font-black text-slate-900 text-center uppercase font-serif mt-3 mb-3 border-b-2 border-slate-800 pb-1.5">{item.text}</h2>;
-                                            }
-                                            if (item.type === 'heading') {
-                                                return <h3 key={idx} className="text-xs md:text-sm font-extrabold text-slate-800 uppercase font-serif mt-2 mb-2 border-b border-stone-200 pb-0.5">{item.text}</h3>;
-                                            }
-                                            if (item.type === 'toc') {
-                                                return (
-                                                    <div key={idx} className="my-1 text-[10.5px] text-slate-700 font-serif leading-tight bg-stone-50/60 p-2.5 rounded border border-stone-200/50">
-                                                        {item.text.split('\n').map((lineStr: string, i: number) => {
-                                                            const tl = lineStr.trim();
-                                                            if (!tl) return null;
-                                                            return <div key={i} className="py-0.5 border-b border-dashed border-stone-200/40 last:border-none flex justify-between">{tl}</div>;
-                                                        })}
-                                                    </div>
-                                                );
-                                            }
-                                            // Render Paragraf Biasa
-                                            return <p key={idx} className="text-slate-800 text-[11.5px] leading-relaxed text-justify mb-2.5 font-serif indent-6">{item.text}</p>;
-                                        })}
-                                    </div>
-
-                                    <div className="w-full flex justify-between pt-2 text-[9px] text-stone-400 tracking-widest border-t border-stone-200">
-                                        <span>BAGIAN {dominantChapterNum}</span>
-                                        <span>HAL {pageIdx + 1}</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        
-                        {isFetchingMore && <Loader2 className="w-5 h-5 animate-spin text-slate-700 my-4" />}
-                        {!hasMore && chapters.length > 0 && <div className="py-8 text-slate-700 italic text-xs font-serif">• Akhir Dokumen •</div>}
-                    </>
+                    // Iframe perender PDF. Tambahan toolbar=0 untuk menyembunyikan menu browser bawaan
+                    <iframe 
+                        src={`${ebook?.pdf_url}#toolbar=0&navpanes=0`} 
+                        className="w-full h-full border-none"
+                        title={ebook?.title}
+                    />
                 )}
             </div>
+            
         </div>
     );
 }
