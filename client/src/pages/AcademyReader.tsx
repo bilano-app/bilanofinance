@@ -5,9 +5,8 @@ import { ChevronLeft, BookOpen, Loader2 } from "lucide-react";
 export default function AcademyReader() {
     const [, setLocation] = useLocation();
     
-    // Tetap menggunakan route bawaan Bilano agar kamu tidak perlu merombak App.tsx
+    // Rute tetap tidak berubah agar sistem tidak error
     const [, params] = useRoute("/academy/:ebookId/read/:chapterNum");
-
     const ebookId = params?.ebookId;
 
     const [ebook, setEbook] = useState<any>(null);
@@ -20,10 +19,9 @@ export default function AcademyReader() {
             setIsLoading(true);
 
             try {
-                // Memanggil endpoint API untuk mengambil data detail buku (termasuk pdf_url)
-                const res = await fetch(`/api/ebooks/${ebookId}`);
+                // Tembak ke API utama yang sudah pasti ada di backend
+                const res = await fetch(`/api/ebooks`);
                 
-                // Menangani satpam premium dari backend
                 if (res.status === 402) {
                     setErrorMsg("Akses Premium Diperlukan.");
                     setIsLoading(false);
@@ -33,11 +31,24 @@ export default function AcademyReader() {
                 const result = await res.json();
                 
                 if (result.success && result.data) {
-                    setEbook(result.data);
+                    // Cari buku spesifik yang sedang diklik user
+                    const currentBook = result.data.find((b: any) => b.id === Number(ebookId));
+                    
+                    if (currentBook) {
+                        // Cek apakah URL PDF-nya sudah dimasukkan dari database
+                        if (!currentBook.pdf_url) {
+                            setErrorMsg("File PDF untuk buku ini belum diunggah.");
+                        } else {
+                            setEbook(currentBook);
+                        }
+                    } else {
+                        setErrorMsg("Buku tidak ditemukan di perpustakaan.");
+                    }
                 } else {
-                    setErrorMsg("Buku tidak ditemukan di perpustakaan.");
+                    setErrorMsg("Gagal mengambil data dari server.");
                 }
             } catch (err) {
+                console.error("Fetch error:", err);
                 setErrorMsg("Gagal memuat dokumen PDF.");
             } finally {
                 setIsLoading(false);
@@ -50,7 +61,6 @@ export default function AcademyReader() {
     return (
         <div className="min-h-screen bg-slate-900 flex flex-col font-sans select-none overflow-hidden">
             
-            {/* Header Navbar Super Clean */}
             <div className="sticky top-0 z-50 bg-slate-900 text-white px-4 py-3 flex items-center gap-3 shadow-md border-b border-slate-800">
                 <button 
                     onClick={() => setLocation("/academy")} 
@@ -64,7 +74,6 @@ export default function AcademyReader() {
                 </div>
             </div>
 
-            {/* Tampilan Konten PDF (Full Layar) */}
             <div className="flex-1 w-full h-[calc(100vh-60px)] bg-[#525659] flex flex-col items-center justify-center relative">
                 {isLoading ? (
                     <div className="flex flex-col items-center">
@@ -83,7 +92,6 @@ export default function AcademyReader() {
                         </button>
                     </div>
                 ) : (
-                    // Iframe perender PDF. Tambahan toolbar=0 untuk menyembunyikan menu browser bawaan
                     <iframe 
                         src={`${ebook?.pdf_url}#toolbar=0&navpanes=0`} 
                         className="w-full h-full border-none"
