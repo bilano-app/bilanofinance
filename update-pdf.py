@@ -16,7 +16,7 @@ def update_pdf_database():
         
         # 2. Tembak URL PDF ke buku The Wealth of Nations
         # PERHATIKAN: URL ini persis dengan nama file kamu (tanpa 's' di kata Nation)
-        url_pdf = "/E-Book/Wealth of Nations.pdf"
+        url_pdf = "/E-Book/Wealth_of_Nations.pdf"
         
         cursor.execute(
             "UPDATE ebooks SET pdf_url = %s WHERE title ILIKE %s;", 
