@@ -61,6 +61,7 @@ export default function AcademyReader() {
     return (
         <div className="min-h-screen bg-slate-900 flex flex-col font-sans select-none overflow-hidden">
             
+            {/* Header Atas (Tidak Berubah) */}
             <div className="sticky top-0 z-50 bg-slate-900 text-white px-4 py-3 flex items-center gap-3 shadow-md border-b border-slate-800">
                 <button 
                     onClick={() => setLocation("/academy")} 
@@ -74,27 +75,30 @@ export default function AcademyReader() {
                 </div>
             </div>
 
-            <div className="flex-1 w-full h-[calc(100vh-60px)] bg-[#525659] flex flex-col items-center justify-center relative">
+            {/* Container Pembaca (Diperbaiki agar PDF Full Layar) */}
+            <div className="flex-1 w-full relative bg-[#525659]">
                 {isLoading ? (
-                    <div className="flex flex-col items-center">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <Loader2 className="w-8 h-8 animate-spin text-amber-500 mb-3" />
                         <p className="text-xs text-slate-300 font-medium tracking-wide">Membuka lembaran buku...</p>
                     </div>
                 ) : errorMsg ? (
-                    <div className="p-8 bg-slate-900 rounded-2xl text-center shadow-2xl border border-slate-800 max-w-sm mx-4">
-                        <BookOpen className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-                        <p className="text-sm font-bold text-slate-300 mb-6">{errorMsg}</p>
-                        <button 
-                            onClick={() => setLocation("/academy")}
-                            className="w-full py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-300 transition-colors uppercase tracking-wider"
-                        >
-                            Kembali ke Rak Buku
-                        </button>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="p-8 bg-slate-900 rounded-2xl text-center shadow-2xl border border-slate-800 max-w-sm mx-4">
+                            <BookOpen className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+                            <p className="text-sm font-bold text-slate-300 mb-6">{errorMsg}</p>
+                            <button 
+                                onClick={() => setLocation("/academy")}
+                                className="w-full py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-300 transition-colors uppercase tracking-wider"
+                            >
+                                Kembali ke Rak Buku
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     <iframe 
                         src={`${ebook?.pdf_url}#toolbar=0&navpanes=0`} 
-                        className="w-full h-full border-none"
+                        className="absolute inset-0 w-full h-full border-none"
                         title={ebook?.title}
                     />
                 )}
