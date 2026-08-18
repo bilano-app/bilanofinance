@@ -674,10 +674,9 @@ export default function Home() {
       )}
 
       <div className="flex flex-col gap-6">
-        {/* HEADER SECTION */}
         <div className="flex items-center justify-between px-2 pt-2 relative">
             <div className="flex items-center gap-3">
-                <div onClick={() => setIsProfileZoomed(true)} className="w-[46px] h-[46px] rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform bg-slate-100 shrink-0">
+                <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100 shrink-0">
                     {user?.profilePicture ? (
                         <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
@@ -689,21 +688,24 @@ export default function Home() {
                 
                 <div className="flex flex-col">
                     <p className="text-xs font-medium text-slate-500 whitespace-nowrap">
-                        Selamat datang,
+                        Selamat datang
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
-                        <h2 className="text-lg font-bold text-slate-800 capitalize leading-tight truncate max-w-[130px]">
+                        <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight truncate max-w-[130px]">
                             {greetingName}
                         </h2>
-                        {user?.isPro ? (
-                            <Crown className="w-4 h-4 text-yellow-500 shrink-0" />
-                        ) : (
-                            <Link href="/paywall">
-                                <span className="bg-yellow-100 text-yellow-700 font-bold text-[9px] px-2 py-0.5 rounded-full cursor-pointer shrink-0">
-                                    PRO
-                                </span>
-                            </Link>
-                        )}
+                        
+                        {user ? (
+                            user.isPro === true ? (
+                                <Crown className="w-4 h-4 text-amber-500 shrink-0" />
+                            ) : (
+                                <Link href="/paywall">
+                                    <span className="text-amber-500 font-bold text-[11px] leading-tight flex items-center hover:text-amber-600 transition-colors cursor-pointer shrink-0">
+                                        UPGRADE
+                                    </span>
+                                </Link>
+                            )
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -720,7 +722,7 @@ export default function Home() {
                 <button 
                     onClick={handleUndo}
                     disabled={undoTx.isPending}
-                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-slate-700 active:scale-90 transition-all shrink-0"
+                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all shrink-0"
                     title="Batalkan Transaksi Terakhir"
                 >
                     {undoTx.isPending ? <Loader2 className="w-4 h-4 animate-spin"/> : <Undo2 className="w-4 h-4"/>}
@@ -735,14 +737,14 @@ export default function Home() {
                     </button>
 
                     {isMenuOpen && (
-                        <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.08)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
+                        <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
                             <Link href="/profile">
                                 <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400"/> Edit Profil & Sandi</button>
                             </Link>
                             <Link href="/security">
                                 <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400"/> Keamanan</button>
                             </Link>
-                            <div className="h-px bg-slate-50 my-1 mx-2"></div>
+                            <div className="h-px bg-slate-100 my-1 mx-2"></div>
                             <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500"/> Keluar</button>
                         </div>
                     )}
@@ -750,187 +752,192 @@ export default function Home() {
             </div>
         </div>
 
-        {/* 1. TOP CARD (SALDO) - EXPERT REDESIGN */}
-        <div className="bg-[#0B1736] p-7 rounded-[32px] shadow-[0_20px_40px_-15px_rgba(11,23,54,0.4)] relative overflow-hidden group">
-           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
-           <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-yellow-500/5 rounded-full blur-3xl pointer-events-none"></div>
-           
-           <div className="relative z-10 flex flex-col">
-              <div className="flex justify-between items-center mb-1.5">
-                  <p className="text-[12px] font-medium text-blue-200/80 tracking-wide">Total Saldo Kas</p>
-                  <button onClick={togglePrivacy} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-blue-200/80">
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
+           <div className="relative z-10 flex flex-col pt-2 pb-4">
+              <div className="flex justify-between items-center mb-1">
+                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">Saldo Kas</p>
+                  <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-blue-200">
                       {isPrivacyMode ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                   </button>
               </div>
               
-              <h2 className={`${getBalanceTextSize(displayBalance)} font-black tracking-tight text-white mb-6 flex items-center h-10 whitespace-nowrap`}>
+              <h2 className={`${getBalanceTextSize(displayBalance)} font-extrabold tracking-tight text-white mb-6 drop-shadow-sm flex items-center h-10 whitespace-nowrap transition-all duration-300`}>
                  {displayBalance}
               </h2>
 
-              <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-blue-50 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm">
-                      <ShieldCheck className="w-3.5 h-3.5 text-yellow-400" />
-                      <span>Aman & Tersinkronisasi</span>
+              <div className="flex gap-3">
+                  <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
+                      <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                   </div>
               </div>
            </div>
+           <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
+           <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+           <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
         </div>
 
-        {/* 2. INCOME & EXPENSE CARDS - EXPERT REDESIGN */}
-        <div className="grid grid-cols-2 gap-3 px-1 mt-1">
+        <div className="grid grid-cols-2 gap-3 px-1 mt-2">
            <Link href="/income">
-               <div className="bg-white p-4.5 rounded-[24px] shadow-[0_12px_24px_-12px_rgba(0,0,0,0.05)] border border-slate-100/60 cursor-pointer flex flex-col gap-3 active:scale-95 transition-all group hover:shadow-[0_16px_32px_-16px_rgba(16,185,129,0.15)] relative overflow-hidden">
-                    <div className="flex items-center gap-2.5 relative z-10">
-                        <div className="w-[34px] h-[34px] rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-colors shrink-0">
-                            <TrendingUp className="w-4 h-4" strokeWidth={2.5} />
-                        </div>
-                        <p className="text-[12px] font-bold text-slate-500 tracking-wide">Pemasukan</p>
+               <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
+                    <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                        <img src="https://api.iconify.design/solar/round-arrow-left-down-bold.svg?color=%2310b981" className="w-16 h-16" alt="income bg" />
                     </div>
-                    <div className="relative z-10">
+                    <div className="flex items-center gap-2 relative z-10">
+                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors shadow-sm shrink-0">
+                            <img src="https://api.iconify.design/solar/round-arrow-left-down-bold.svg?color=%2310b981" className="w-4 h-4" alt="Income" />
+                        </div>
+                        <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pemasukan</p>
+                    </div>
+                    <div className="relative z-10 mt-1">
                         <p className="text-lg font-black text-slate-800 leading-none truncate">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
                     </div>
                </div>
            </Link>
            <Link href="/expense">
-               <div className="bg-white p-4.5 rounded-[24px] shadow-[0_12px_24px_-12px_rgba(0,0,0,0.05)] border border-slate-100/60 cursor-pointer flex flex-col gap-3 active:scale-95 transition-all group hover:shadow-[0_16px_32px_-16px_rgba(244,63,94,0.15)] relative overflow-hidden">
-                    <div className="flex items-center gap-2.5 relative z-10">
-                        <div className="w-[34px] h-[34px] rounded-full bg-rose-50 text-rose-500 flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-colors shrink-0">
-                            <TrendingUp className="w-4 h-4 rotate-180" strokeWidth={2.5} />
-                        </div>
-                        <p className="text-[12px] font-bold text-slate-500 tracking-wide">Pengeluaran</p>
+               <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
+                    <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                        <img src="https://api.iconify.design/solar/round-arrow-right-up-bold.svg?color=%23f43f5e" className="w-16 h-16" alt="expense bg" />
                     </div>
-                    <div className="relative z-10">
+                    <div className="flex items-center gap-2 relative z-10">
+                        <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center group-hover:bg-rose-100 transition-colors shadow-sm shrink-0">
+                            <img src="https://api.iconify.design/solar/round-arrow-right-up-bold.svg?color=%23f43f5e" className="w-4 h-4" alt="Expense" />
+                        </div>
+                        <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pengeluaran</p>
+                    </div>
+                    <div className="relative z-10 mt-1">
                         <p className="text-lg font-black text-slate-800 leading-none truncate">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
                     </div>
                </div>
            </Link>
         </div>
 
-        {/* 3. FITUR PILIHAN - EXPERT REDESIGN */}
-        <div className="px-1 mt-4">
-            <div className="flex justify-between items-center mb-3 px-1">
-                <h3 className="font-bold text-slate-800 text-[13px]">Fitur Pilihan</h3>
+        <div className="px-1 mt-2">
+            <div className="flex justify-between items-center mb-4 px-1">
+                <h3 className="font-bold text-slate-800 text-sm">Fitur Pilihan</h3>
             </div>
             
             <div 
-                className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-2 pt-2 -mx-1"
+                className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-2 pt-4 -mt-4 -mx-1"
                 onScroll={handleMenuScroll}
             >
                 <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
                 
                 <div className="min-w-full flex-none snap-center px-1">
-                    <div className="grid grid-cols-4 gap-y-6 gap-x-2">
-                        <MenuIconBox href="/forex" icon={DollarSign} label="Valas" />
-                        <MenuIconBox href="/debts" icon={HandCoins} label="Hutang" />
-                        <MenuIconBox href="/subscriptions" icon={RefreshCcw} label="Langganan" />
-                        <MenuIconBox href="/investment" icon={TrendingUp} label="Investasi" />
-                        
-                        <MenuIconBox href="/reports" icon={FileText} label="Laporan" />
-                        <MenuIconBox href="/scan" icon={ScanLine} label="Scan" />
-                        <MenuIconBox href="/amal" icon={HeartHandshake} label="Amal" />
-                        <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" />
+                    <div className="grid grid-cols-3 gap-y-6 gap-x-3">
+                        <MenuIconBox href="/forex" icon={DollarSign} bg="bg-blue-500" label="Valas" />
+                        <MenuIconBox href="/debts" icon={HandCoins} bg="bg-pink-500" label="Hutang" />
+                        <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-teal-400" label="Langganan" />
+                        <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-emerald-500" label="Investasi" />
+                        <MenuIconBox href="/reports" icon={FileText} bg="bg-orange-400" label="Laporan" />
+                        <MenuIconBox href="/scan" icon={ScanLine} bg="bg-indigo-500" label="Scan" />
                     </div>
                 </div>
 
                 <div className="min-w-full flex-none snap-center px-1">
-                    <div className="grid grid-cols-4 gap-y-6 gap-x-2">
-                        <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2.5 cursor-pointer group">
-                            <div className="w-[52px] h-[52px] rounded-[18px] bg-slate-50 border border-slate-200/60 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all duration-300">
-                                <CreditCard className="w-6 h-6" strokeWidth={1.5}/>
+                    <div className="grid grid-cols-3 gap-y-6 gap-x-3">
+                        <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-emerald-500" label="Amal" />
+                        <MenuIconBox href="/retained" icon={Hourglass} bg="bg-amber-500" label="Tertahan" />
+                        
+                        <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
+                            <div className={`bg-slate-800 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
+                                <CreditCard className="w-6 h-6"/>
                             </div>
-                            <span className="text-[11px] font-semibold text-slate-500 text-center whitespace-nowrap">Cicilan</span>
+                            <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">Cicilan</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div className="flex justify-center gap-1.5 mt-2">
-                <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 0 ? 'bg-blue-600 w-4' : 'bg-slate-200 w-1.5'}`}></div>
-                <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 1 ? 'bg-blue-600 w-4' : 'bg-slate-200 w-1.5'}`}></div>
+            <div className="flex justify-center gap-1.5 mt-3">
+                <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 0 ? 'bg-indigo-600 w-4' : 'bg-slate-200 w-1.5'}`}></div>
+                <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 1 ? 'bg-indigo-600 w-4' : 'bg-slate-200 w-1.5'}`}></div>
             </div>
         </div>
 
-        {/* 4. EKSKLUSIF PREMIUM - EXPERT REDESIGN */}
-        <div className="px-1 mt-6 mb-2 space-y-3">
-            <h3 className="font-bold text-slate-400 mb-2 px-1 uppercase tracking-widest text-[10px]">Eksklusif Premium</h3>
+        <div className="px-1 mt-4 mb-2 space-y-3">
+            <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px]">Eksklusif Premium</h3>
             
+            {/* Tampilan Menu Premium pada Home.tsx */}
             <Link href="/wealth-blueprint">
-                <div className="bg-[#0A1128] rounded-[24px] p-5 shadow-[0_16px_32px_-12px_rgba(10,17,40,0.5)] border border-blue-900/50 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group mb-3">
-                    <div className="absolute right-0 top-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-yellow-500/20 transition-colors"></div>
+                <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 rounded-[24px] p-5 shadow-[0_8px_30px_rgba(30,41,59,0.2)] border border-indigo-500/20 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group mb-3">
+                    <div className="absolute right-0 top-0 w-36 h-36 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-2xl pointer-events-none group-hover:from-emerald-500/20 transition-colors"></div>
+                    <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-amber-500/5 rounded-full blur-xl pointer-events-none"></div>
                     
                     <div className="flex items-center justify-between relative z-10">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-blue-900/50 border border-blue-700/50 flex items-center justify-center">
-                                <Banknote className="w-5 h-5 text-yellow-400"/>
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 via-yellow-500 to-emerald-600 flex items-center justify-center shadow-md shadow-amber-500/20">
+                                <Banknote className="w-6 h-6 text-slate-950"/>
                             </div>
                             <div>
                                 <div className="flex items-center gap-2 mb-0.5">
-                                    <h3 className="font-bold text-white text-[15px] tracking-tight">Pembimbing Cuan</h3>
-                                    <span className="bg-yellow-500/10 text-yellow-400 text-[9px] font-bold px-2 py-0.5 rounded-md border border-yellow-500/20 uppercase tracking-wider">LIVE</span>
+                                    {/* UBAH JUDUL DI SINI */}
+                                    <h3 className="font-black text-white text-base tracking-tight">Pembimbing Penghasilan</h3>
+                                    <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-md border border-emerald-500/30 uppercase tracking-wider">LIVE</span>
                                 </div>
-                                <p className="text-[11px] text-blue-200/60 font-medium">Strategi & Peta Jalur AI</p>
+                                {/* UBAH SUBJUDUL DI SINI */}
+                                <p className="text-[11px] text-indigo-200/70 font-medium">Strategi & Peta Jalur Cuan AI</p>
                             </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-blue-800 group-hover:text-yellow-400 group-hover:translate-x-1 transition-all"/>
+                        <ChevronRight className="w-5 h-5 text-indigo-400 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all"/>
                     </div>
                 </div>
             </Link>
 
             <Link href="/academy">
-                <div className="bg-[#0A1128] rounded-[24px] p-5 shadow-[0_16px_32px_-12px_rgba(10,17,40,0.5)] border border-blue-900/50 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
+                <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
+                    <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
                     <div className="flex items-center justify-between relative z-10">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-blue-900/50 border border-blue-700/50 flex items-center justify-center">
-                                <BookOpen className="w-5 h-5 text-yellow-400"/>
+                            <div className="w-12 h-12 rounded-full bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
+                                <BookOpen className="w-6 h-6 text-amber-400"/>
                             </div>
                             <div>
-                                <div className="flex items-center gap-2 mb-0.5">
-                                    <h3 className="font-bold text-white text-[15px]">BILANO Academy</h3>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <h3 className="font-black text-white text-base">BILANO Academy</h3>
                                 </div>
-                                <p className="text-[11px] text-blue-200/60 font-medium">E-Book & Panduan VIP</p>
+                                <p className="text-[11px] text-slate-400 font-medium">E-Book & Panduan Finansial VIP</p>
                             </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-blue-800 group-hover:text-yellow-400 group-hover:translate-x-1 transition-all"/>
+                        <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-amber-400 transition-colors"/>
                     </div>
                 </div>
             </Link>
         </div>
 
-        {/* 5. BOTTOM CARDS */}
-        <div className="flex flex-col gap-3 mt-4 px-1">
+        <div className="flex flex-col gap-4 mt-2 px-1">
             <Link href="/chat-ai">
-                <div className="bg-white rounded-[24px] p-4.5 shadow-[0_8px_24px_-12px_rgba(37,99,235,0.15)] border border-blue-50/80 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative group">
-                    <div className="flex items-center gap-4">
-                        <div className="w-11 h-11 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                            <Bot className="w-5 h-5"/>
+                <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
+                    <div className="flex items-center gap-4 z-10">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-900 via-indigo-800 to-blue-950 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-blue-900/20">
+                            <Bot className="w-6 h-6 text-blue-100"/>
                         </div>
                         <div>
-                            <h3 className="font-bold text-slate-800 text-[14px]">Tanya AI Assistant</h3>
-                            <p className="text-[11px] text-slate-500 mt-0.5">Konsultasi cerdas 24/7</p>
+                            <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
+                            <p className="text-xs text-slate-500 mt-0.5">Konsultasi cerdas 24/7</p>
                         </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors"/>
+                    <ChevronRight className="w-5 h-5 text-slate-300 z-10"/>
                 </div>
             </Link>
 
             <Link href="/performance">
-                <div className="bg-white rounded-[24px] p-4.5 shadow-[0_8px_24px_-12px_rgba(245,158,11,0.15)] border border-amber-50/80 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
+                <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
                     <div className="flex items-center gap-4">
-                        <div className="w-11 h-11 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center group-hover:scale-105 transition-transform">
-                            <BarChart3 className="w-5 h-5"/>
+                        <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <BarChart3 className="w-6 h-6 text-orange-500"/>
                         </div>
                         <div>
-                            <h3 className="font-bold text-slate-800 text-[14px]">Analisa Performa</h3>
-                            <p className="text-[11px] text-slate-500 mt-0.5">Pantau target & grafikmu</p>
+                            <h3 className="font-bold text-slate-800 text-base">Analisa Performa</h3>
+                            <p className="text-xs text-slate-500 mt-0.5">Pantau target & grafikmu</p>
                         </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-amber-500 transition-colors"/>
+                    <ChevronRight className="w-5 h-5 text-slate-300"/>
                 </div>
             </Link>
         </div>
 
         <div className="mt-8 mb-6 flex flex-col items-center justify-center opacity-60 px-4 text-center">
-            <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Smart Wealth Management</p>
+            <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Smart Wealth Management</p>
             <p className="text-[10px] text-slate-400 mt-1.5 font-medium leading-relaxed">
                 © {new Date().getFullYear()} • Bilano Official
             </p>
@@ -940,15 +947,14 @@ export default function Home() {
   );
 }
 
-// Unified style untuk ikon menu (Expert Design)
-function MenuIconBox({ href, icon: Icon, label }: any) {
+function MenuIconBox({ href, icon: Icon, bg, label }: any) {
     return (
         <Link href={href}>
-            <div className="relative flex flex-col items-center justify-start gap-2.5 cursor-pointer group">
-                <div className="w-[52px] h-[52px] rounded-[18px] bg-blue-50/60 border border-blue-100/50 flex items-center justify-center text-blue-600 shadow-[0_8px_16px_-6px_rgba(37,99,235,0.1)] group-hover:bg-blue-600 group-hover:border-blue-600 group-hover:text-white transition-all duration-300">
-                    <Icon className="w-6 h-6" strokeWidth={1.5}/>
+            <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
+                <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
+                    <Icon className="w-6 h-6"/>
                 </div>
-                <span className="text-[11px] font-semibold text-slate-600 text-center whitespace-nowrap">{label}</span>
+                <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
             </div>
         </Link>
     );
