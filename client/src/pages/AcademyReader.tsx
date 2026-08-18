@@ -82,6 +82,30 @@ export default function AcademyReader() {
         }
     }, [ebook?.title]);
 
+    // ==========================================
+    // LOGIKA CEGAT TOMBOL BACK HP / SWIPE BACK
+    // ==========================================
+    useEffect(() => {
+        // Trik: Kita tambah riwayat "palsu" ke dalam browser
+        window.history.pushState(null, "", window.location.href);
+
+        const handlePopState = (event: PopStateEvent) => {
+            // Ketika user swipe back di HP, munculkan pop-up kita
+            setShowExitModal(true);
+            
+            // Dorong lagi riwayat palsu agar user tidak benar-benar terlempar keluar dari halaman
+            window.history.pushState(null, "", window.location.href);
+        };
+
+        // Pasang pendeteksi tombol back bawaan HP
+        window.addEventListener("popstate", handlePopState);
+
+        return () => {
+            // Bersihkan memori saat aplikasi ditutup
+            window.removeEventListener("popstate", handlePopState);
+        };
+    }, []);
+
     const handleBackClick = () => {
         setShowExitModal(true); // Memunculkan pop-up saat mau kembali
     };
