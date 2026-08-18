@@ -44,8 +44,10 @@ function formatAttempt(row: any) {
   };
 }
 
+// 🛡️ HYPER-SAFE DATABASE MIGRATION
 const ensureIncomeStrategyTables = async () => {
   try {
+    // 1. Pastikan tabel inti ada
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS income_profiles (
         id SERIAL PRIMARY KEY,
@@ -80,43 +82,18 @@ const ensureIncomeStrategyTables = async () => {
         updated_at TIMESTAMP DEFAULT NOW()
       );
     `);
-    await db.execute(sql`SELECT recommendations FROM income_profiles LIMIT 1`);
-    await db.execute(sql`SELECT selling_notes, revenue_log FROM income_attempts LIMIT 1`);
     
-    await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS jejaring_sosial TEXT;`);
-    await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS preferensi_kerja TEXT;`);
-    await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS cooldown_until TIMESTAMP;`);
-    await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS aset_lainnya TEXT;`);
-    await db.execute(sql`ALTER TABLE income_attempts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ACTIVE';`);
+    // 2. Tambah kolom dengan silent catch (mengabaikan error jika kolom sudah ada)
+    try { await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS jejaring_sosial TEXT;`); } catch (e) {}
+    try { await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS preferensi_kerja TEXT;`); } catch (e) {}
+    try { await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS cooldown_until TIMESTAMP;`); } catch (e) {}
+    try { await db.execute(sql`ALTER TABLE income_attempts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ACTIVE';`); } catch (e) {}
   } catch (e) {
-    await db.execute(sql`DROP TABLE IF EXISTS income_attempts`);
-    await db.execute(sql`DROP TABLE IF EXISTS income_profiles`);
-    await db.execute(sql`
-      CREATE TABLE income_profiles (
-        id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, status TEXT, tujuan TEXT, pola_kerja TEXT,
-        latar_belakang TEXT, keahlian TEXT DEFAULT '[]', keahlian_lainnya TEXT, aset TEXT DEFAULT '[]',
-        konstrain_waktu TEXT DEFAULT '{}', recommendations TEXT DEFAULT '[]',
-        jejaring_sosial TEXT, preferensi_kerja TEXT, cooldown_until TIMESTAMP,
-        created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-    await db.execute(sql`
-      CREATE TABLE income_attempts (
-        id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, profile_id INTEGER, recommendation TEXT DEFAULT '{}',
-        state TEXT DEFAULT 'MATERIALS', status TEXT DEFAULT 'ACTIVE', materials TEXT DEFAULT '[]', total_cost BIGINT DEFAULT 0,
-        feasibility_verdict TEXT, capital_plan TEXT, selling_notes TEXT DEFAULT '[]', revenue_log TEXT DEFAULT '[]',
-        created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
+    console.error("Abaikan jika ini error inisialisasi tabel:", e);
   }
 };
 
-// =========================================================================
 // 🧠 MESIN KOGNITIF DEEPSEEK R1 (VIA ENDPOINT OPENROUTER)
-// =========================================================================
-// =========================================================================
-// 🧠 MESIN KOGNITIF DEEPSEEK R1 (VIA ENDPOINT OPENROUTER)
-// =========================================================================
 async function askDeepSeekR1(systemPrompt: string, userPrompt: string): Promise<any> {
   const apiKey = (process.env.OPENROUTER_API_KEY || "").trim();
   if (!apiKey) throw new Error("Kunci API OpenRouter / DeepSeek belum terpasang di env lokal.");
@@ -134,31 +111,21 @@ async function askDeepSeekR1(systemPrompt: string, userPrompt: string): Promise<
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
-      ]
-      // Catatan: response_format dihilangkan karena endpoint 'free' OpenRouter terkadang menolaknya
+      ],
+      response_format: { type: "json_object" } 
     }),
   });
 
-  if (!response.ok) throw new Error("Jaringan pipa OpenRouter sedang sibuk, coba lagi.");
+  if (!response.ok) throw new Error("Jaringan OpenRouter sedang padat, coba lagi beberapa detik.");
   const data = await response.json();
   const resultText = data.choices?.[0]?.message?.content;
-  if (!resultText) throw new Error("DeepSeek mengembalikan balasan kosong.");
+  if (!resultText) throw new Error("DeepSeek mengembalikan respons kosong.");
 
-  let cleanText = String(resultText);
-  
-  // 1. Buang tag <think> bawaan R1
-  cleanText = cleanText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-  
-  // 2. Buang syntax markdown ```json
-  cleanText = cleanText.replace(/```json/gi, "").replace(/```/g, "").trim();
-  
-  // 3. Ekstrak paksa hanya blok JSON-nya saja
-  const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-  if (jsonMatch) cleanText = jsonMatch[0];
-
+  let cleanText = String(resultText).replace(/```json/gi, "").replace(/```/g, "").trim();
   return JSON.parse(cleanText);
 }
 
+// MESIN KOGNITIF GEMINI UNTUK CHAT LAPANGAN
 async function askGeminiText(prompt: string): Promise<string | null> {
   const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
   if (!apiKey) return null;
@@ -276,27 +243,26 @@ Output HANYA JSON array persis format ini:
 }
 
 function buildRecommendationsPrompt(profile: any, snapshot: any) {
-  return `Kamu adalah "BILANO Alpha Mentor", eksekutor bisnis gerilya kelas kakap dan arsitek "Blue-Ocean Strategy". Otakmu merancang taktik monetisasi B2B yang SANGAT TIDAK TERPIKIRKAN oleh orang awam (brilian, niche, dan hiper-spesifik). Kamu sangat sinis terhadap ide bisnis yang biasa-biasa saja.
+  return `Kamu adalah "BILANO Alpha Mentor", eksekutor bisnis B2B dan arsitek monetisasi digital tingkat tinggi. Kamu BUKAN asisten virtual biasa. 
 
 DATA MENTAH PENGGUNA:
 - Latar Belakang: ${profile.status} | ${profile.latarBelakang || "-"}
 - Keahlian Inti: ${(profile.keahlian || []).join(", ")} ${profile.keahlianLainnya ? ", " + profile.keahlianLainnya : ""}
-- Aset Tersedia: ${(profile.aset || []).join(", ")} ${profile.asetLainnya ? ", " + profile.asetLainnya : ""}
-- Saldo Kas Riil: Rp${snapshot.saldo_saat_ini}
+- Aset: ${(profile.aset || []).join(", ") || "-"}
+- Saldo Kas: Rp${snapshot.saldo_saat_ini}
 - Pola & Waktu: ${profile.konstrainWaktu?.text || "-"} | ${profile.polaKerja}
 - Karakter Eksekusi: Jejaring ${profile.jejaringSosial || '-'} | Preferensi ${profile.preferensiKerja || '-'}
 
 ATURAN MUTLAK (SYSTEM OVERRIDE - DILARANG DILANGGAR):
-1. WAJIB TEPAT 3 IDE SUPER UNIK (OUT-OF-THE-BOX): Berikan ide yang membuat orang berkata, "Gila, kok bisa kepikiran ke situ?". Ketiga ide harus datang dari sudut pandang yang berbeda (misal: 1 ide jasa hiper-spesifik, 1 ide arbitrase digital, 1 ide optimasi aset).
-2. BLACKLIST IDE GENERIK (FATAL ERROR): DILARANG KERAS menyarankan UMKM pasaran (jual makanan, thrifting), dan DILARANG KERAS menyarankan freelance standar (admin sosmed biasa, desain grafis umum, copywriter generik, joki tugas). 
-3. TARGETKAN PAIN-POINT HIGH-TICKET (B2B): Arahkan ke Pemilik Bisnis Lokal, Kreator Besar, atau Agency yang punya uang. Selesaikan masalah spesifik mereka yang menjengkelkan tapi sering diabaikan.
-4. DEKONSTRUKSI SILANG YANG ANEH TAPI MAHAL: Paksa penggabungan keahlian pengguna dan asetnya menjadi layanan langka. (Contoh: Punya motor + Keahlian komunikasi = Jangan jadi ojol, tapi buka "Jasa Kurir Dokumen Rahasia & Tanda Tangan VIP untuk Notaris").
-5. SANGAT REALISTIS DENGAN KAS & KAPASITAS: Ide HARUS 100% selaras dengan "Saldo Kas Riil" (Rp${snapshot.saldo_saat_ini}) dan berstatus solo-player. Jangan halu menyuruh membuat startup teknologi jika modal minim.
-6. VALIDASI 48 JAM: Taktik harus bisa dieksekusi dan ditawarkan ke 1 calon klien dalam 48 jam ke depan.
-7. DAFTAR BAHAN/ALAT (RAB): Pikirkan secara logis dan rinci alat, bahan, atau langganan software apa saja yang HARUS disiapkan pengguna untuk memulai ide ini.
+1. FATAL ERROR JIKALAU MENYARANKAN UMKM PASARAN: Jualan makanan/minuman (kopi, seblak, dll), dropship, reseller baju, thrifting, joki tugas, atau jasa titip. (Sistem akan menolak jawabanmu jika ini terjadi).
+2. TARGETKAN KLIEN HIGH-TICKET (B2B): Arahkan target pasarnya ke Pemilik Bisnis, Kreator, atau Agency. Jangan arahkan jualan ke mahasiswa/pelajar dengan daya beli rendah.
+3. DEKONSTRUKSI SILANG KEAHLIAN: Paksa penggabungan keahlian. 
+   - Contoh: Jika latar belakangnya Akuntansi dan bisa Python/React, jangan suruh buka jasa pembukuan biasa, tapi suruh buat Dasbor Rekonsiliasi Kas (Micro-SaaS). 
+   - Contoh: Jika suka Filsafat dan bisa Menulis, suruh buat Jasa Ghostwriting Skrip Edukasi/Dekonstruksi Logika untuk Influencer.
+4. EKSEKUSI 48 JAM: Taktik harus bisa divalidasi ke 1 calon klien dalam 48 jam dengan modal maksimal Rp${snapshot.saldo_saat_ini}.
 
 OUTPUT WAJIB JSON MURNI TANPA MARKDOWN. SKEMA:
-{"recommendations":[{"id":"rec_1","title":"[Judul Taktis B2B Hyper-Niche]","pitch":"[Cara kotor/cerdik tapi legal mengeksekusinya hari ini juga]","why_it_fits":"[Logika tajam mengapa kombinasi skill/aset pengguna ini menjadi daya ungkit yang mahal]","capital_level":"[TANPA_MODAL/MODAL_KECIL/MODAL_SEDANG]","needs_upskilling":false,"upskilling_note":"[Opsional: 1 hal super spesifik untuk dipelajari kilat, misal 'Cara pakai tools X']","difficulty":"[MUDAH/SEDANG/MENANTANG]","estimated_time_to_first_income":"[Misal: 1-7 Hari]","risk_note":"[Risiko realistis terburuk di lapangan]","suggested_materials":["Bahan/Alat spesifik 1", "Bahan/Alat spesifik 2"]}]}`;
+{"recommendations":[{"id":"rec_1","title":"[Judul Taktis B2B/High-Ticket]","pitch":"[Cara kotor tapi legal mengeksekusinya hari ini]","why_it_fits":"[Logika tajam mengapa kombinasi skill spesifik pengguna ini menjadi daya ungkit yang mahal]","capital_level":"[TANPA_MODAL/MODAL_KECIL/MODAL_SEDANG]","needs_upskilling":false,"upskilling_note":"[Opsional: 1 hal spesifik untuk dipelajari kilat]","difficulty":"[MUDAH/SEDANG/MENANTANG]","estimated_time_to_first_income":"[Misal: 1-7 Hari]","risk_note":"[Risiko realistis di lapangan]"}]}`;
 }
 
 function buildSellingSystemPrompt(recommendation: any, profile: any, totalCost: number) {
@@ -354,6 +320,7 @@ async function getFinancialSnapshot(userId: number, cashBalance: number) {
 }
 
 export function registerIncomeStrategyRoutes(app: Express) {
+  
   app.get("/api/income-strategy/profile", async (req: any, res: any) => {
     try {
       await ensureIncomeStrategyTables();
@@ -404,36 +371,60 @@ export function registerIncomeStrategyRoutes(app: Express) {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // 🛡️ HYPER-SAFE PROFILE SAVING ROUTE (Anti 500 Error)
   app.post("/api/income-strategy/profile", async (req: any, res: any) => {
     try {
       await ensureIncomeStrategyTables();
       const user = await getUser(req);
       if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
-      const { status, tujuan, polaKerja, jejaringSosial, preferensiKerja, latarBelakang, keahlian, keahlianLainnya, aset, konstrainWaktu } = req.body;
+      
+      // Sanitasi ketat semua variabel untuk mencegah 'undefined' merusak SQL Drizzle
+      const body = req.body || {};
+      const safeStatus = body.status !== undefined ? String(body.status) : null;
+      const safeTujuan = body.tujuan !== undefined ? String(body.tujuan) : null;
+      const safePola = body.polaKerja !== undefined ? String(body.polaKerja) : null;
+      const safeJejaring = body.jejaringSosial !== undefined ? String(body.jejaringSosial) : null;
+      const safePreferensi = body.preferensiKerja !== undefined ? String(body.preferensiKerja) : null;
+      const safeLatar = body.latarBelakang !== undefined ? String(body.latarBelakang) : null;
+      const safeKeahlian = body.keahlian ? JSON.stringify(body.keahlian) : '[]';
+      const safeKeahlianLainnya = body.keahlianLainnya !== undefined && body.keahlianLainnya !== null ? String(body.keahlianLainnya) : null;
+      const safeAset = body.aset ? JSON.stringify(body.aset) : '[]';
+      const safeKonstrain = body.konstrainWaktu ? JSON.stringify(body.konstrainWaktu) : '{}';
 
       const existing = await db.execute(sql`SELECT id FROM income_profiles WHERE user_id = ${user.id} ORDER BY updated_at DESC LIMIT 1`);
       const existingRows = Array.isArray(existing) ? existing : (existing as any).rows || [];
 
-      if (existingRows.length > 0) {
+      if (existingRows.length > 0 && existingRows[0]?.id) {
         await db.execute(sql`
-          UPDATE income_profiles SET status = ${status || null}, tujuan = ${tujuan || null}, pola_kerja = ${polaKerja || null},
-            jejaring_sosial = ${jejaringSosial || null}, preferensi_kerja = ${preferensiKerja || null},
-            latar_belakang = ${latarBelakang || null}, keahlian = ${JSON.stringify(keahlian || [])},
-            keahlian_lainnya = ${keahlianLainnya || null}, aset = ${JSON.stringify(aset || [])},
-            konstrain_waktu = ${JSON.stringify(konstrainWaktu || {})}, updated_at = NOW(), cooldown_until = NULL
-            aset_lainnya = ${asetLainnya || null}, konstrain_waktu = ${JSON.stringify(konstrainWaktu || {})}, updated_at = NOW(), cooldown_until = NULL
+          UPDATE income_profiles SET 
+            status = ${safeStatus}, 
+            tujuan = ${safeTujuan}, 
+            pola_kerja = ${safePola},
+            jejaring_sosial = ${safeJejaring}, 
+            preferensi_kerja = ${safePreferensi},
+            latar_belakang = ${safeLatar}, 
+            keahlian = ${safeKeahlian},
+            keahlian_lainnya = ${safeKeahlianLainnya}, 
+            aset = ${safeAset},
+            konstrain_waktu = ${safeKonstrain}, 
+            updated_at = NOW(), 
+            cooldown_until = NULL
           WHERE id = ${existingRows[0].id}
         `);
         return res.json({ success: true, id: existingRows[0].id });
       }
+      
       const inserted = await db.execute(sql`
-        INSERT INTO income_profiles (user_id, status, tujuan, pola_kerja, jejaring_sosial, preferensi_kerja, latar_belakang, keahlian, keahlian_lainnya, aset, konstrain_waktu, aset_lainnya)
-        VALUES (${user.id}, ${status || null}, ${tujuan || null}, ${polaKerja || null}, ${jejaringSosial || null}, ${preferensiKerja || null}, ${latarBelakang || null}, ${JSON.stringify(keahlian || [])}, ${keahlianLainnya || null}, ${JSON.stringify(aset || [])}, ${JSON.stringify(konstrainWaktu || {})})
+        INSERT INTO income_profiles (user_id, status, tujuan, pola_kerja, jejaring_sosial, preferensi_kerja, latar_belakang, keahlian, keahlian_lainnya, aset, konstrain_waktu)
+        VALUES (${user.id}, ${safeStatus}, ${safeTujuan}, ${safePola}, ${safeJejaring}, ${safePreferensi}, ${safeLatar}, ${safeKeahlian}, ${safeKeahlianLainnya}, ${safeAset}, ${safeKonstrain})
         RETURNING id
       `);
       const insertedRows = Array.isArray(inserted) ? inserted : (inserted as any).rows || [];
       res.json({ success: true, id: insertedRows[0]?.id });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) { 
+      console.error("Terjadi Error saat Simpan Profil:", e);
+      res.status(500).json({ error: e.message || "Gagal menyimpan ke basis data." }); 
+    }
   });
 
   app.post("/api/income-strategy/recommendations", async (req: any, res: any) => {
@@ -456,31 +447,12 @@ export function registerIncomeStrategyRoutes(app: Express) {
       };
       const snapshot = await getFinancialSnapshot(user.id, user.cashBalance);
 
-      // Di dalam app.post("/api/income-strategy/recommendations") ...
-      
       let recommendations: any[];
-      // Buat seed waktu agar jika di-refresh, AI menghasilkan angle ide yang benar-benar baru
-      const randomizeSeed = new Date().getTime(); 
-      const userPrompt = `Abaikan ide-ide standar. Berikan TEPAT 3 strategi gerilya B2B yang BENAR-BENAR REALISTIS, belum pernah terpikirkan, dan DAPAT DIEKSEKUSI HARI INI JUGA. (Seed: ${randomizeSeed})`;
-
       try {
-        const parsed = await askDeepSeekR1(buildRecommendationsPrompt(profile, snapshot), userPrompt);
+        const parsed = await askDeepSeekR1(buildRecommendationsPrompt(profile, snapshot), "Rumuskan 3 strategi gerilya terbaik.");
         recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
       } catch (aiError: any) {
-        try {
-          const geminiPrompt = buildRecommendationsPrompt(profile, snapshot) + "\n\nUser: " + userPrompt + "\n\nPastikan output HANYA JSON MURNI.";
-          const geminiResult = await askGeminiText(geminiPrompt);
-          if (!geminiResult) throw new Error("Gemini mengembalikan balasan kosong.");
-          
-          let cleanText = geminiResult.replace(/```json/gi, "").replace(/```/g, "").trim();
-          const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-          if (jsonMatch) cleanText = jsonMatch[0];
-          
-          const parsedGemini = JSON.parse(cleanText);
-          recommendations = Array.isArray(parsedGemini.recommendations) ? parsedGemini.recommendations : [];
-        } catch (fallbackError: any) {
-          return res.status(502).json({ error: "Sistem AI sedang sibuk, gagal merakit taktik. Coba lagi dalam beberapa saat." });
-        }
+        return res.status(502).json({ error: "DeepSeek gagal merakit taktik, coba lagi.", detail: aiError.message });
       }
 
       await db.execute(sql`UPDATE income_profiles SET recommendations = ${JSON.stringify(recommendations)}, updated_at = NOW() WHERE id = ${p.id}`);
@@ -506,22 +478,13 @@ export function registerIncomeStrategyRoutes(app: Express) {
       const { recommendation } = req.body;
       if (!recommendation || !recommendation.title) return res.status(400).json({ error: "Ide usaha tidak valid." });
 
-      // 👇 AUTO-GENERATE MATERIAL DARI AI
-      let initialMaterials = [];
-      if (recommendation.suggested_materials && Array.isArray(recommendation.suggested_materials)) {
-          initialMaterials = recommendation.suggested_materials.map((m: string, i: number) => ({ 
-              id: 'ai_' + i, 
-              name: m, 
-              price: 0 
-          }));
-      }
-
       const profileResult = await db.execute(sql`SELECT id FROM income_profiles WHERE user_id = ${user.id} ORDER BY updated_at DESC LIMIT 1`);
       const profileRows = Array.isArray(profileResult) ? profileResult : (profileResult as any).rows || [];
       const profileId = profileRows[0]?.id || null;
+
       const inserted = await db.execute(sql`
         INSERT INTO income_attempts (user_id, profile_id, recommendation, state, status, materials)
-        VALUES (${user.id}, ${profileId}, ${JSON.stringify(recommendation)}, 'MATERIALS', 'ACTIVE', ${JSON.stringify(initialMaterials)})
+        VALUES (${user.id}, ${profileId}, ${JSON.stringify(recommendation)}, 'MATERIALS', 'ACTIVE', '[]')
         RETURNING *
       `);
       const insertedRows = Array.isArray(inserted) ? inserted : (inserted as any).rows || [];

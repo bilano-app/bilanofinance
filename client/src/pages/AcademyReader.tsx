@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
-import { ChevronLeft, BookOpen, Loader2 } from "lucide-react";
+// Tambahan ikon Bookmark dari lucide-react
+import { ChevronLeft, BookOpen, Loader2, Bookmark } from "lucide-react";
 
 export default function AcademyReader() {
     const [, setLocation] = useLocation();
@@ -13,6 +14,16 @@ export default function AcademyReader() {
     const [isLoading, setIsLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState("");
 
+    // ==========================================
+    // STATE BARU UNTUK FITUR BOOKMARK MANUAL
+    // ==========================================
+    const [showExitModal, setShowExitModal] = useState(false);
+    const [inputPage, setInputPage] = useState("");
+    const [savedBookmark, setSavedBookmark] = useState<string | null>(null);
+
+    // ==========================================
+    // LOGIKA FETCH DATA ASLI BAWAAN LU
+    // ==========================================
     useEffect(() => {
         const fetchEbook = async () => {
             if (!ebookId) return;
@@ -58,24 +69,103 @@ export default function AcademyReader() {
         fetchEbook();
     }, [ebookId]);
 
+    // ==========================================
+    // LOGIKA MEMORI BROWSER UNTUK BOOKMARK
+    // ==========================================
+    useEffect(() => {
+        // Cek apakah ada halaman tersimpan saat buku selesai dimuat
+        if (ebook?.title) {
+            const memori = localStorage.getItem(`bookmark_bilano_${ebook.title}`);
+            if (memori) {
+                setSavedBookmark(memori);
+            }
+        }
+    }, [ebook?.title]);
+
+    const handleBackClick = () => {
+        setShowExitModal(true); // Memunculkan pop-up saat mau kembali
+    };
+
+    const handleSaveAndExit = () => {
+        if (inputPage.trim() !== "" && ebook?.title) {
+            // Simpan angka halaman ke memori lokal browser
+            localStorage.setItem(`bookmark_bilano_${ebook.title}`, inputPage);
+        }
+        setLocation("/academy"); 
+    };
+
+    const handleSkipAndExit = () => {
+        setLocation("/academy"); // Keluar tanpa menyimpan
+    };
+
     return (
-        <div className="min-h-screen bg-slate-900 flex flex-col font-sans select-none overflow-hidden">
+        <div className="min-h-screen bg-slate-900 flex flex-col font-sans select-none overflow-hidden relative">
             
-            {/* Header Atas (Tidak Berubah) */}
-            <div className="sticky top-0 z-50 bg-slate-900 text-white px-4 py-3 flex items-center gap-3 shadow-md border-b border-slate-800">
+            {/* ========================================== */}
+            {/* MODAL POP-UP EXIT (TAMPIL JIKA DITEKAN KEMBALI) */}
+            {/* ========================================== */}
+            {showExitModal && (
+                <div className="absolute inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="flex items-center gap-3 mb-4 text-amber-400">
+                            <Bookmark className="w-6 h-6" />
+                            <h2 className="font-bold text-lg text-white">Tandai Halaman?</h2>
+                        </div>
+                        <p className="text-sm text-slate-300 mb-6">
+                            Mau simpan halaman berapa buat dibaca nanti? (Kosongkan kalau tidak perlu).
+                        </p>
+                        
+                        <input 
+                            type="number" 
+                            placeholder="Contoh: 45"
+                            value={inputPage}
+                            onChange={(e) => setInputPage(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white mb-6 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+                            autoFocus
+                        />
+                        
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={handleSkipAndExit}
+                                className="flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-wider text-slate-400 bg-slate-800 hover:bg-slate-700 transition-colors"
+                            >
+                                Lewati
+                            </button>
+                            <button 
+                                onClick={handleSaveAndExit}
+                                className="flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-wider text-slate-900 bg-amber-500 hover:bg-amber-400 transition-colors"
+                            >
+                                Simpan & Keluar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Header Atas */}
+            <div className="sticky top-0 z-50 bg-slate-900 text-white px-4 py-3 flex items-center shadow-md border-b border-slate-800">
                 <button 
-                    onClick={() => setLocation("/academy")} 
-                    className="w-8 h-8 flex items-center justify-center bg-slate-800 rounded-full hover:bg-slate-700 text-slate-300 transition-colors"
+                    onClick={handleBackClick} 
+                    className="w-8 h-8 flex flex-shrink-0 items-center justify-center bg-slate-800 rounded-full hover:bg-slate-700 text-slate-300 transition-colors mr-3"
                 >
                     <ChevronLeft className="w-4 h-4" />
                 </button>
-                <div>
+                
+                <div className="flex-1 min-w-0 pr-2">
                     <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest">Bilano Academy</p>
-                    <h1 className="font-bold text-xs line-clamp-1">{ebook?.title || "Memuat Dokumen..."}</h1>
+                    <h1 className="font-bold text-xs truncate">{ebook?.title || "Memuat Dokumen..."}</h1>
                 </div>
+
+                {/* INDIKATOR BOOKMARK DI KANAN ATAS */}
+                {savedBookmark && (
+                    <div className="flex-shrink-0 flex items-center gap-1.5 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-full">
+                        <Bookmark className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-[10px] font-bold text-slate-300 whitespace-nowrap">Hal: {savedBookmark}</span>
+                    </div>
+                )}
             </div>
 
-            {/* Container Pembaca (Diperbaiki agar PDF Full Layar) */}
+            {/* Container Pembaca */}
             <div className="flex-1 w-full relative bg-[#525659]">
                 {isLoading ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
