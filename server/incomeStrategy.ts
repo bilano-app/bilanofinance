@@ -44,10 +44,8 @@ function formatAttempt(row: any) {
   };
 }
 
-// 🛡️ HYPER-SAFE DATABASE MIGRATION
 const ensureIncomeStrategyTables = async () => {
   try {
-    // 1. Pastikan tabel inti ada
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS income_profiles (
         id SERIAL PRIMARY KEY,
@@ -82,21 +80,22 @@ const ensureIncomeStrategyTables = async () => {
         updated_at TIMESTAMP DEFAULT NOW()
       );
     `);
+    await db.execute(sql`SELECT recommendations FROM income_profiles LIMIT 1`);
+    await db.execute(sql`SELECT selling_notes, revenue_log FROM income_attempts LIMIT 1`);
     
-    // 2. Tambah kolom dengan silent catch (mengabaikan error jika kolom sudah ada)
     try { await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS jejaring_sosial TEXT;`); } catch (e) {}
     try { await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS preferensi_kerja TEXT;`); } catch (e) {}
     try { await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS cooldown_until TIMESTAMP;`); } catch (e) {}
     try { await db.execute(sql`ALTER TABLE income_attempts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ACTIVE';`); } catch (e) {}
-  } catch (e) {
-    console.error("Abaikan jika ini error inisialisasi tabel:", e);
-  }
+  } catch (e) {}
 };
 
+// =========================================================================
 // 🧠 MESIN KOGNITIF DEEPSEEK R1 (VIA ENDPOINT OPENROUTER)
+// =========================================================================
 async function askDeepSeekR1(systemPrompt: string, userPrompt: string): Promise<any> {
   const apiKey = (process.env.OPENROUTER_API_KEY || "").trim();
-  if (!apiKey) throw new Error("Kunci API OpenRouter / DeepSeek belum terpasang di env lokal.");
+  if (!apiKey) throw new Error("Kunci API OpenRouter belum terpasang.");
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -111,21 +110,57 @@ async function askDeepSeekR1(systemPrompt: string, userPrompt: string): Promise<
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
-      ],
-      response_format: { type: "json_object" } 
+      ]
+      // Dihapus: response_format karena model gratis sering error jika dipaksa
     }),
   });
 
-  if (!response.ok) throw new Error("Jaringan OpenRouter sedang padat, coba lagi beberapa detik.");
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`OpenRouter Error: ${errText}`);
+  }
+  
   const data = await response.json();
-  const resultText = data.choices?.[0]?.message?.content;
-  if (!resultText) throw new Error("DeepSeek mengembalikan respons kosong.");
+  let resultText = data.choices?.[0]?.message?.content;
+  if (!resultText) throw new Error("DeepSeek mengembalikan balasan kosong.");
+
+  // 🔥 SOLUSI FATAL ERROR: Hapus tag <think> bawaan DeepSeek R1 sebelum mem-parsing JSON
+  resultText = resultText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 
   let cleanText = String(resultText).replace(/```json/gi, "").replace(/```/g, "").trim();
+  const jsonMatch = cleanText.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+  if (jsonMatch) cleanText = jsonMatch[0];
+
   return JSON.parse(cleanText);
 }
 
-// MESIN KOGNITIF GEMINI UNTUK CHAT LAPANGAN
+// =========================================================================
+// 🚀 BACKUP AUTO-FALLBACK: MESIN GEMINI
+// =========================================================================
+async function askGeminiJSON(systemPrompt: string, userPrompt: string): Promise<any> {
+  const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
+  if (!apiKey) throw new Error("Kunci API Gemini belum terpasang.");
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      generationConfig: { temperature: 0.6, responseMimeType: "application/json" },
+    }),
+  });
+  if (!response.ok) throw new Error("Koneksi ke Gemini sibuk.");
+  const data = await response.json();
+  const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!resultText) throw new Error("Pesan ditahan filter keamanan internal.");
+
+  let cleanText = String(resultText).replace(/```json/gi, "").replace(/```/g, "").trim();
+  const jsonMatch = cleanText.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+  if (jsonMatch) cleanText = jsonMatch[0];
+  return JSON.parse(cleanText);
+}
+
 async function askGeminiText(prompt: string): Promise<string | null> {
   const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
   if (!apiKey) return null;
@@ -352,33 +387,21 @@ export function registerIncomeStrategyRoutes(app: Express) {
       if (!STATUS_LABELS[status]) return res.status(400).json({ error: "Status tidak valid." });
 
       try {
-        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim(), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: buildQuestionsPrompt(status) }] }],
-            generationConfig: { responseMimeType: "application/json" }
-          })
-        });
-        const json = await response.json();
-        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-        const questions = JSON.parse(text.replace(/```json/gi, "").replace(/```/g, "").trim());
-        if (!Array.isArray(questions) || questions.length < 8) throw new Error("format tidak lengkap");
-        return res.json({ questions, source: "ai" });
+        const parsed = await askGeminiJSON(buildQuestionsPrompt(status), "Generate sekarang.");
+        if (!Array.isArray(parsed) || parsed.length < 8) throw new Error("format tidak lengkap");
+        return res.json({ questions: parsed, source: "ai" });
       } catch (aiError) {
         return res.json({ questions: fallbackQuestions(status), source: "fallback" });
       }
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // 🛡️ HYPER-SAFE PROFILE SAVING ROUTE (Anti 500 Error)
   app.post("/api/income-strategy/profile", async (req: any, res: any) => {
     try {
       await ensureIncomeStrategyTables();
       const user = await getUser(req);
       if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
       
-      // Sanitasi ketat semua variabel untuk mencegah 'undefined' merusak SQL Drizzle
       const body = req.body || {};
       const safeStatus = body.status !== undefined ? String(body.status) : null;
       const safeTujuan = body.tujuan !== undefined ? String(body.tujuan) : null;
@@ -422,11 +445,13 @@ export function registerIncomeStrategyRoutes(app: Express) {
       const insertedRows = Array.isArray(inserted) ? inserted : (inserted as any).rows || [];
       res.json({ success: true, id: insertedRows[0]?.id });
     } catch (e: any) { 
-      console.error("Terjadi Error saat Simpan Profil:", e);
       res.status(500).json({ error: e.message || "Gagal menyimpan ke basis data." }); 
     }
   });
 
+  // =========================================================================
+  // ⚡ SISTEM AUTO-FALLBACK: DEEPSEEK -> GEMINI
+  // =========================================================================
   app.post("/api/income-strategy/recommendations", async (req: any, res: any) => {
     try {
       await ensureIncomeStrategyTables();
@@ -448,15 +473,27 @@ export function registerIncomeStrategyRoutes(app: Express) {
       const snapshot = await getFinancialSnapshot(user.id, user.cashBalance);
 
       let recommendations: any[];
+      
       try {
+        // PERCOBAAN 1: Tembak DeepSeek R1 (Sangat tajam, tapi rawan timeout/error)
         const parsed = await askDeepSeekR1(buildRecommendationsPrompt(profile, snapshot), "Rumuskan 3 strategi gerilya terbaik.");
         recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
+        if (recommendations.length === 0) throw new Error("Format kosong");
+        
       } catch (aiError: any) {
-        return res.status(502).json({ error: "DeepSeek gagal merakit taktik, coba lagi.", detail: aiError.message });
+        console.error("DeepSeek Gagal (Timeout/Limit). Mengaktifkan Fallback Gemini...", aiError.message);
+        try {
+          // PERCOBAAN 2 (AUTO-FALLBACK): Tembak Gemini Flash (Sangat stabil)
+          const fallbackParsed = await askGeminiJSON(buildRecommendationsPrompt(profile, snapshot), "Rumuskan 3 strategi gerilya terbaik.");
+          recommendations = Array.isArray(fallbackParsed.recommendations) ? fallbackParsed.recommendations : [];
+        } catch (geminiError: any) {
+          return res.status(502).json({ error: "Semua server AI sedang penuh.", detail: geminiError.message });
+        }
       }
 
       await db.execute(sql`UPDATE income_profiles SET recommendations = ${JSON.stringify(recommendations)}, updated_at = NOW() WHERE id = ${p.id}`);
       res.json({ recommendations, financial_snapshot: snapshot });
+      
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
