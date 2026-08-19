@@ -12,12 +12,27 @@ import {
   HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
   MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
   BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
-  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Sparkles, Banknote
+  Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Sparkles, Banknote,
+  ArrowDownLeft, ArrowUpRight
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/tracking";
+
+// ─────────────────────────────────────────────────────────────
+// BILANO BRAND TOKENS
+// Dua warna ini dipakai konsisten di SEMUA elemen "flagship"
+// (kartu saldo, kartu premium, ikon fitur) — bukan warna acak
+// per komponen. Kalau hex logo asli kamu beda, tinggal
+// find-and-replace 3 string ini di seluruh file:
+//   navy       #14294D  -> warna biru utama
+//   navy deep  #0A1B38  -> dipakai khusus untuk "shadow kartu"
+//   gold       #F6B93B  -> warna aksen kuning/emas
+// (Ditulis literal di className, bukan lewat variabel JS, karena
+// Tailwind men-scan teks class secara statis saat build — kalau
+// dibuat dinamis dari variabel, class-nya tidak akan ter-generate.)
+// ─────────────────────────────────────────────────────────────
 
 const FINANCIAL_TIPS = [
     "Bunga majemuk (Compound Interest) adalah keajaiban dunia kedelapan. - Albert Einstein",
@@ -448,18 +463,16 @@ export default function Home() {
     <MobileLayout>
       {showPremiumPrompt && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-[#040814] rounded-[32px] w-full max-w-sm shadow-[0_0_50px_rgba(59,130,246,0.2)] relative animate-in zoom-in-95 text-center overflow-hidden border border-blue-500/30">
-                  <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-blue-600/20 to-transparent pointer-events-none"></div>
-                  
+              <div className="bg-[#0A1B38] rounded-[32px] w-full max-w-sm shadow-[10px_10px_0px_0px_rgba(0,0,0,0.25)] relative animate-in zoom-in-95 text-center overflow-hidden border border-[#F6B93B]/20">
                   <div className="p-8 relative z-10">
                       <img 
                           src="/BILANO-PREMIUM.png" 
                           alt="Premium" 
-                          className="w-32 h-32 mx-auto mb-6 drop-shadow-[0_0_20px_rgba(251,191,36,0.4)] object-contain" 
+                          className="w-32 h-32 mx-auto mb-6 object-contain" 
                       />
                       
                       <h2 className="text-3xl font-black text-white mb-3 tracking-tighter italic">
-                          BILANO <span className="text-amber-400">PREMIUM</span>
+                          BILANO <span className="text-[#F6B93B]">PREMIUM</span>
                       </h2>
                       
                       <p className="text-sm text-blue-100/70 mb-8 leading-relaxed font-medium">
@@ -469,7 +482,7 @@ export default function Home() {
                       <div className="space-y-3">
                           <Button 
                               onClick={() => { handleClosePremiumPrompt(); setLocation('/paywall'); }} 
-                              className="w-full h-14 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 text-slate-900 rounded-2xl font-black text-sm shadow-[0_10px_25px_rgba(251,191,36,0.3)] active:scale-95 transition-all border-b-4 border-amber-800"
+                              className="w-full h-14 bg-[#F6B93B] hover:bg-[#e5aa2e] text-[#14294D] rounded-2xl font-black text-sm shadow-[5px_5px_0px_0px_#14294D] active:shadow-[2px_2px_0px_0px_#14294D] active:translate-x-[3px] active:translate-y-[3px] transition-all"
                           >
                               PILIH PAKET AKSES
                           </Button>
@@ -488,22 +501,20 @@ export default function Home() {
 
       {pendingFeatureModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-indigo-500/30">
-                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
-                  
+              <div className="bg-[#14294D] rounded-[32px] p-6 max-w-sm w-full shadow-[10px_10px_0px_0px_rgba(0,0,0,0.2)] relative animate-in zoom-in-95 text-center overflow-hidden border border-[#F6B93B]/25">
                   <button onClick={() => setPendingFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5"/></button>
                   
-                  <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(251,191,36,0.3)] relative z-10 animate-bounce">
-                      <Rocket className="w-10 h-10 text-amber-950"/>
+                  <div className="w-20 h-20 bg-[#F6B93B] rounded-full flex items-center justify-center mx-auto mb-5 relative z-10">
+                      <Rocket className="w-10 h-10 text-[#14294D]" strokeWidth={2.25}/>
                   </div>
                   
                   <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Segera Hadir! 🚀</h2>
-                  <p className="text-sm text-indigo-200 mb-6 leading-relaxed px-2 font-medium">
-                      Fitur <b className="text-amber-400">{pendingFeatureModal.title}</b> saat ini sedang dalam perakitan tahap akhir oleh tim kami. <br/><br/>
+                  <p className="text-sm text-blue-100 mb-6 leading-relaxed px-2 font-medium">
+                      Fitur <b className="text-[#F6B93B]">{pendingFeatureModal.title}</b> saat ini sedang dalam perakitan tahap akhir oleh tim kami. <br/><br/>
                       {pendingFeatureModal.desc}
                   </p>
                   
-                  <Button onClick={() => setPendingFeatureModal(null)} className="w-full h-14 bg-white hover:bg-slate-100 text-indigo-950 rounded-full font-black text-[13px] shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10">
+                  <Button onClick={() => setPendingFeatureModal(null)} className="w-full h-14 bg-white hover:bg-slate-100 text-[#14294D] rounded-full font-black text-[13px] shadow-[5px_5px_0px_0px_#0A1B38] active:shadow-[2px_2px_0px_0px_#0A1B38] active:translate-x-[3px] active:translate-y-[3px] transition-all flex items-center justify-center gap-2 relative z-10">
                       <CheckCircle2 className="w-5 h-5"/> SAYA MENGERTI
                   </Button>
               </div>
@@ -512,7 +523,7 @@ export default function Home() {
 
       <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
           {showGuideTooltip && (
-              <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-slate-900 p-4 rounded-[20px] shadow-[6px_6px_0px_#0f172a] animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
+              <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-[#14294D] p-4 rounded-[20px] shadow-[6px_6px_0px_#0A1B38] animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
                   <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-full hover:bg-slate-100">
                       <X className="w-4 h-4" />
                   </button>
@@ -522,14 +533,14 @@ export default function Home() {
                   <p className="text-[11px] text-slate-600 leading-relaxed font-bold pr-2">
                       Baru pertama kali pakai BILANO? Klik buku pintar ini untuk melihat panduan lengkap cara memaksimalkan seluruh fitur canggih kami!
                   </p>
-                  <div className="absolute bottom-[14px] -right-[10px] w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[10px] border-l-slate-900"></div>
+                  <div className="absolute bottom-[14px] -right-[10px] w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[10px] border-l-[#14294D]"></div>
                   <div className="absolute bottom-[16px] -right-[7px] w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[8px] border-l-white"></div>
               </div>
           )}
 
           <Link href="/help">
-              <button className="w-12 h-12 bg-yellow-400 text-emerald-900 rounded-full shadow-lg shadow-yellow-200 flex items-center justify-center hover:scale-105 active:scale-95 transition-all group relative">
-                  <HelpCircle className="w-6 h-6 group-hover:animate-bounce" />
+              <button className="w-12 h-12 bg-[#F6B93B] text-[#14294D] rounded-full shadow-[3px_3px_0px_0px_#14294D] active:shadow-[1px_1px_0px_0px_#14294D] active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center transition-all group relative">
+                  <HelpCircle className="w-6 h-6" strokeWidth={2.25} />
                   <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                       Pusat Bantuan
                   </span>
@@ -537,8 +548,8 @@ export default function Home() {
           </Link>
 
           <Link href="/guide">
-              <button onClick={dismissGuideTooltip} className="w-12 h-12 bg-sky-400 text-amber-900 rounded-full shadow-lg shadow-sky-200 flex items-center justify-center hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all group relative">
-                  <Notebook className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+              <button onClick={dismissGuideTooltip} className="w-12 h-12 bg-[#14294D] text-[#F6B93B] rounded-full shadow-[3px_3px_0px_0px_#0A1B38] active:shadow-[1px_1px_0px_0px_#0A1B38] active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center transition-all group relative">
+                  <Notebook className="w-6 h-6" strokeWidth={2.25} />
                   <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                       Panduan Fitur
                   </span>
@@ -548,8 +559,8 @@ export default function Home() {
 
       {dueSub && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
-            <div className={`bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 ${dueSub.category === 'dinamis' ? 'border-orange-500' : 'border-indigo-500'}`}>
-                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${dueSub.category === 'dinamis' ? 'bg-orange-100 text-orange-500' : 'bg-indigo-100 text-indigo-500'}`}>
+            <div className={`bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 ${dueSub.category === 'dinamis' ? 'border-amber-500' : 'border-[#14294D]'}`}>
+                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${dueSub.category === 'dinamis' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-[#14294D]'}`}>
                     {dueSub.category === 'dinamis' ? <AlertTriangle className="w-8 h-8" /> : <RefreshCcw className="w-8 h-8" />}
                 </div>
                 <h3 className="text-xl font-extrabold text-slate-800 mb-2">Tagihan Jatuh Tempo!</h3>
@@ -574,7 +585,7 @@ export default function Home() {
                 )}
 
                 <div className="space-y-3">
-                    <Button onClick={handlePaySub} className={`w-full h-14 rounded-full text-white font-extrabold shadow-lg active:scale-95 transition-transform ${dueSub.category === 'dinamis' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}>
+                    <Button onClick={handlePaySub} className={`w-full h-14 rounded-full text-white font-extrabold shadow-lg active:scale-95 transition-transform ${dueSub.category === 'dinamis' ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200' : 'bg-[#14294D] hover:bg-[#0A1B38] shadow-blue-200'}`}>
                         {dueSub.category === 'dinamis' ? 'BAYAR & CATAT SEKARANG' : 'YA, CATAT PENGELUARAN'}
                     </Button>
                     <Button variant="ghost" onClick={handleSkipSub} className="w-full h-12 rounded-full font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">
@@ -594,28 +605,28 @@ export default function Home() {
           <div className="fixed inset-0 z-[99997] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100">
                   <div className="text-center mb-6 pt-2">
-                      <img src="/BILANO-ICON.png" alt="BILANO" className="w-20 h-20 object-contain mx-auto mb-5 drop-shadow-xl" />
+                      <img src="/BILANO-ICON.png" alt="BILANO" className="w-20 h-20 object-contain mx-auto mb-5" />
                       <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">Satu Langkah Lagi!</h2>
                       <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">Biar BILANO makin pintar bantu kelola uangmu, kami butuh sedikit izin untuk fitur ini:</p>
                   </div>
 
                   <div className="space-y-4 mb-8">
                       <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                          <div className="bg-blue-100 p-2.5 rounded-full text-blue-600"><BellRing className="w-5 h-5"/></div>
+                          <div className="bg-blue-100 p-2.5 rounded-full text-[#14294D]"><BellRing className="w-5 h-5"/></div>
                           <div>
                               <h4 className="font-bold text-slate-800 text-sm">Notifikasi Pengingat</h4>
                               <p className="text-[11px] text-slate-500 mt-0.5">Biar kamu gak lupa catat jajan hari ini.</p>
                           </div>
                       </div>
                       <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                          <div className="bg-rose-100 p-2.5 rounded-full text-rose-600"><Mic className="w-5 h-5"/></div>
+                          <div className="bg-amber-50 p-2.5 rounded-full text-amber-600"><Mic className="w-5 h-5"/></div>
                           <div>
                               <h4 className="font-bold text-slate-800 text-sm">Akses Mikrofon</h4>
                               <p className="text-[11px] text-slate-500 mt-0.5">Catat cepat pakai perintah suara AI.</p>
                           </div>
                       </div>
                       <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                          <div className="bg-emerald-100 p-2.5 rounded-full text-emerald-600"><Camera className="w-5 h-5"/></div>
+                          <div className="bg-blue-100 p-2.5 rounded-full text-[#14294D]"><Camera className="w-5 h-5"/></div>
                           <div>
                               <h4 className="font-bold text-slate-800 text-sm">Akses Kamera</h4>
                               <p className="text-[11px] text-slate-500 mt-0.5">Biar bisa scan struk belanja otomatis.</p>
@@ -627,7 +638,7 @@ export default function Home() {
                       <Button 
                           onClick={requestAllPermissions} 
                           disabled={isRequestingPerms} 
-                          className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-extrabold rounded-full shadow-lg shadow-indigo-200 active:scale-95 transition-transform"
+                          className="w-full h-14 bg-[#14294D] hover:bg-[#0A1B38] text-white text-lg font-extrabold rounded-full shadow-lg shadow-blue-200 active:scale-95 transition-transform"
                       >
                           {isRequestingPerms ? <Loader2 className="w-6 h-6 animate-spin"/> : "IZINKAN SEMUA"}
                       </Button>
@@ -665,7 +676,7 @@ export default function Home() {
                 {user?.profilePicture ? (
                     <img src={user.profilePicture} alt="Profile Large" className="max-w-full max-h-[80vh] rounded-full border-4 border-white shadow-2xl" />
                 ) : (
-                    <div className="w-64 h-64 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-6xl border-4 border-white">
+                    <div className="w-64 h-64 bg-[#14294D] rounded-full flex items-center justify-center text-white font-bold text-6xl border-4 border-white">
                         {greetingName.charAt(0).toUpperCase()}
                     </div>
                 )}
@@ -680,7 +691,7 @@ export default function Home() {
                     {user?.profilePicture ? (
                         <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
-                        <div className="w-full h-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg">
+                        <div className="w-full h-full bg-[#14294D] flex items-center justify-center text-white font-bold text-lg">
                             {greetingName.charAt(0).toUpperCase()}
                         </div>
                     )}
@@ -697,10 +708,10 @@ export default function Home() {
                         
                         {user ? (
                             user.isPro === true ? (
-                                <Crown className="w-4 h-4 text-amber-500 shrink-0" />
+                                <Crown className="w-4 h-4 text-[#F6B93B] shrink-0" fill="#F6B93B" />
                             ) : (
                                 <Link href="/paywall">
-                                    <span className="text-amber-500 font-bold text-[11px] leading-tight flex items-center hover:text-amber-600 transition-colors cursor-pointer shrink-0">
+                                    <span className="text-amber-600 font-bold text-[11px] leading-tight flex items-center hover:text-amber-700 transition-colors cursor-pointer shrink-0">
                                         UPGRADE
                                     </span>
                                 </Link>
@@ -713,7 +724,7 @@ export default function Home() {
             <div className="flex items-center gap-2">
                 <button 
                     onClick={handleRefresh}
-                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-indigo-500 hover:text-indigo-700 active:scale-90 transition-all shrink-0"
+                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-[#14294D] hover:text-[#0A1B38] active:scale-90 transition-all shrink-0"
                     title="Refresh Aplikasi"
                 >
                     <RefreshCcw className="w-4 h-4"/>
@@ -752,60 +763,53 @@ export default function Home() {
             </div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-[32px] shadow-xl relative overflow-hidden group transition-all hover:scale-[1.01]">
+        {/* Kartu Saldo — flat navy + gold, tanpa gradient/blur-orb. 
+            Aksen strip emas di kiri jadi "signature" yang diulang di kartu premium. */}
+        <div className="bg-[#14294D] text-white p-6 rounded-[28px] border-l-[6px] border-[#F6B93B] shadow-[8px_8px_0px_0px_#0A1B38] relative overflow-hidden">
            <div className="relative z-10 flex flex-col pt-2 pb-4">
               <div className="flex justify-between items-center mb-1">
-                  <p className="text-[11px] font-bold text-blue-100 uppercase tracking-widest">Saldo Kas</p>
-                  <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-blue-200">
+                  <p className="text-[11px] font-bold text-blue-200/80 uppercase tracking-widest">Saldo Kas</p>
+                  <button onClick={togglePrivacy} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-[#F6B93B]">
                       {isPrivacyMode ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
                   </button>
               </div>
               
-              <h2 className={`${getBalanceTextSize(displayBalance)} font-extrabold tracking-tight text-white mb-6 drop-shadow-sm flex items-center h-10 whitespace-nowrap transition-all duration-300`}>
+              <h2 className={`${getBalanceTextSize(displayBalance)} font-black tracking-tight tabular-nums text-white mb-6 flex items-center h-10 whitespace-nowrap transition-all duration-300`}>
                  {displayBalance}
               </h2>
 
               <div className="flex gap-3">
-                  <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                      <span>IDR:</span> <span className="font-bold text-white">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+                  <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 border border-white/10 px-3 py-1.5 rounded-full">
+                      <span>IDR:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                   </div>
               </div>
            </div>
-           <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
-           <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
-           <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 px-1 mt-2">
            <Link href="/income">
-               <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
-                    <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-                        <img src="https://api.iconify.design/solar/round-arrow-left-down-bold.svg?color=%2310b981" className="w-16 h-16" alt="income bg" />
-                    </div>
-                    <div className="flex items-center gap-2 relative z-10">
-                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors shadow-sm shrink-0">
-                            <img src="https://api.iconify.design/solar/round-arrow-left-down-bold.svg?color=%2310b981" className="w-4 h-4" alt="Income" />
+               <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-emerald-400 shadow-[4px_4px_0px_0px_rgba(20,41,77,0.06)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                            <ArrowDownLeft className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
                         </div>
                         <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pemasukan</p>
                     </div>
-                    <div className="relative z-10 mt-1">
-                        <p className="text-lg font-black text-slate-800 leading-none truncate">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
+                    <div className="mt-1">
+                        <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
                     </div>
                </div>
            </Link>
            <Link href="/expense">
-               <div className="bg-white p-4 rounded-[20px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 cursor-pointer flex flex-col gap-2 active:scale-95 transition-all group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative overflow-hidden">
-                    <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-                        <img src="https://api.iconify.design/solar/round-arrow-right-up-bold.svg?color=%23f43f5e" className="w-16 h-16" alt="expense bg" />
-                    </div>
-                    <div className="flex items-center gap-2 relative z-10">
-                        <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center group-hover:bg-rose-100 transition-colors shadow-sm shrink-0">
-                            <img src="https://api.iconify.design/solar/round-arrow-right-up-bold.svg?color=%23f43f5e" className="w-4 h-4" alt="Expense" />
+               <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-rose-400 shadow-[4px_4px_0px_0px_rgba(20,41,77,0.06)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+                            <ArrowUpRight className="w-4 h-4 text-rose-500" strokeWidth={2.5} />
                         </div>
                         <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pengeluaran</p>
                     </div>
-                    <div className="relative z-10 mt-1">
-                        <p className="text-lg font-black text-slate-800 leading-none truncate">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
+                    <div className="mt-1">
+                        <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
                     </div>
                </div>
            </Link>
@@ -813,7 +817,10 @@ export default function Home() {
 
         <div className="px-1 mt-2">
             <div className="flex justify-between items-center mb-4 px-1">
-                <h3 className="font-bold text-slate-800 text-sm">Fitur Pilihan</h3>
+                <h3 className="font-bold text-slate-800 text-sm flex items-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#F6B93B] mr-2"></span>
+                    Fitur Pilihan
+                </h3>
             </div>
             
             <div 
@@ -824,23 +831,23 @@ export default function Home() {
                 
                 <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
-                        <MenuIconBox href="/forex" icon={DollarSign} bg="bg-blue-500" label="Valas" />
-                        <MenuIconBox href="/debts" icon={HandCoins} bg="bg-pink-500" label="Hutang" />
-                        <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-teal-400" label="Langganan" />
-                        <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-emerald-500" label="Investasi" />
-                        <MenuIconBox href="/reports" icon={FileText} bg="bg-orange-400" label="Laporan" />
-                        <MenuIconBox href="/scan" icon={ScanLine} bg="bg-indigo-500" label="Scan" />
+                        <MenuIconBox href="/forex" icon={DollarSign} bg="bg-[#14294D]" label="Valas" />
+                        <MenuIconBox href="/debts" icon={HandCoins} bg="bg-[#14294D]" label="Hutang" />
+                        <MenuIconBox href="/subscriptions" icon={RefreshCcw} bg="bg-[#14294D]" label="Langganan" />
+                        <MenuIconBox href="/investment" icon={TrendingUp} bg="bg-[#14294D]" label="Investasi" />
+                        <MenuIconBox href="/reports" icon={FileText} bg="bg-[#14294D]" label="Laporan" />
+                        <MenuIconBox href="/scan" icon={ScanLine} bg="bg-[#14294D]" label="Scan" />
                     </div>
                 </div>
 
                 <div className="min-w-full flex-none snap-center px-1">
                     <div className="grid grid-cols-3 gap-y-6 gap-x-3">
-                        <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-emerald-500" label="Amal" />
-                        <MenuIconBox href="/retained" icon={Hourglass} bg="bg-amber-500" label="Tertahan" />
+                        <MenuIconBox href="/amal" icon={HeartHandshake} bg="bg-[#14294D]" label="Amal" />
+                        <MenuIconBox href="/retained" icon={Hourglass} bg="bg-[#14294D]" label="Tertahan" />
                         
                         <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                            <div className={`bg-slate-800 w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
-                                <CreditCard className="w-6 h-6"/>
+                            <div className="bg-[#14294D] w-14 h-14 rounded-full flex items-center justify-center text-white shadow-[3px_3px_0px_0px_#0A1B38] group-active:shadow-[1px_1px_0px_0px_#0A1B38] group-active:translate-x-[2px] group-active:translate-y-[2px] transition-all relative">
+                                <CreditCard className="w-6 h-6" strokeWidth={2.25}/>
                             </div>
                             <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">Cicilan</span>
                         </div>
@@ -849,56 +856,55 @@ export default function Home() {
             </div>
 
             <div className="flex justify-center gap-1.5 mt-3">
-                <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 0 ? 'bg-indigo-600 w-4' : 'bg-slate-200 w-1.5'}`}></div>
-                <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 1 ? 'bg-indigo-600 w-4' : 'bg-slate-200 w-1.5'}`}></div>
+                <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 0 ? 'bg-[#F6B93B] w-4' : 'bg-slate-200 w-1.5'}`}></div>
+                <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 1 ? 'bg-[#F6B93B] w-4' : 'bg-slate-200 w-1.5'}`}></div>
             </div>
         </div>
 
         <div className="px-1 mt-4 mb-2 space-y-3">
-            <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px]">Eksklusif Premium</h3>
+            <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px] flex items-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#F6B93B] mr-2"></span>
+                Eksklusif Premium
+            </h3>
             
             {/* Tampilan Menu Premium pada Home.tsx */}
             <Link href="/wealth-blueprint">
-                <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 rounded-[24px] p-5 shadow-[0_8px_30px_rgba(30,41,59,0.2)] border border-indigo-500/20 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group mb-3">
-                    <div className="absolute right-0 top-0 w-36 h-36 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-2xl pointer-events-none group-hover:from-emerald-500/20 transition-colors"></div>
-                    <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-amber-500/5 rounded-full blur-xl pointer-events-none"></div>
-                    
+                <div className="bg-[#14294D] rounded-[24px] p-5 border-l-[6px] border-[#F6B93B] shadow-[6px_6px_0px_0px_#0A1B38] cursor-pointer active:shadow-[3px_3px_0px_0px_#0A1B38] active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group mb-3">
                     <div className="flex items-center justify-between relative z-10">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 via-yellow-500 to-emerald-600 flex items-center justify-center shadow-md shadow-amber-500/20">
-                                <Banknote className="w-6 h-6 text-slate-950"/>
+                            <div className="w-12 h-12 rounded-full bg-[#F6B93B] flex items-center justify-center shrink-0">
+                                <Banknote className="w-6 h-6 text-[#14294D]" strokeWidth={2.25}/>
                             </div>
                             <div>
-                                <div className="flex items-center gap-2 mb-0.5">
+                                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                                     {/* UBAH JUDUL DI SINI */}
                                     <h3 className="font-black text-white text-base tracking-tight">Pembimbing Penghasilan</h3>
                                     <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-md border border-emerald-500/30 uppercase tracking-wider">LIVE</span>
                                 </div>
                                 {/* UBAH SUBJUDUL DI SINI */}
-                                <p className="text-[11px] text-indigo-200/70 font-medium">Strategi & Peta Jalur Cuan AI</p>
+                                <p className="text-[11px] text-blue-200/70 font-medium">Strategi & Peta Jalur Cuan AI</p>
                             </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-indigo-400 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all"/>
+                        <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-[#F6B93B] group-hover:translate-x-0.5 transition-all shrink-0"/>
                     </div>
                 </div>
             </Link>
 
             <Link href="/academy">
-                <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-700 cursor-pointer active:scale-[0.98] transition-all relative overflow-hidden group">
-                    <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-colors"></div>
+                <div className="bg-[#14294D] rounded-[24px] p-5 border-l-[6px] border-[#F6B93B] shadow-[6px_6px_0px_0px_#0A1B38] cursor-pointer active:shadow-[3px_3px_0px_0px_#0A1B38] active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group">
                     <div className="flex items-center justify-between relative z-10">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
-                                <BookOpen className="w-6 h-6 text-amber-400"/>
+                            <div className="w-12 h-12 rounded-full bg-[#F6B93B] flex items-center justify-center shrink-0">
+                                <BookOpen className="w-6 h-6 text-[#14294D]" strokeWidth={2.25}/>
                             </div>
                             <div>
                                 <div className="flex items-center gap-2 mb-1">
                                     <h3 className="font-black text-white text-base">BILANO Academy</h3>
                                 </div>
-                                <p className="text-[11px] text-slate-400 font-medium">E-Book & Panduan Finansial VIP</p>
+                                <p className="text-[11px] text-blue-200/70 font-medium">E-Book & Panduan Finansial VIP</p>
                             </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-amber-400 transition-colors"/>
+                        <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-[#F6B93B] transition-colors shrink-0"/>
                     </div>
                 </div>
             </Link>
@@ -906,10 +912,10 @@ export default function Home() {
 
         <div className="flex flex-col gap-4 mt-2 px-1">
             <Link href="/chat-ai">
-                <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
+                <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[4px_4px_0px_0px_rgba(20,41,77,0.06)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
                     <div className="flex items-center gap-4 z-10">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-900 via-indigo-800 to-blue-950 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md shadow-blue-900/20">
-                            <Bot className="w-6 h-6 text-blue-100"/>
+                        <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                            <Bot className="w-6 h-6 text-[#14294D]" strokeWidth={2.25}/>
                         </div>
                         <div>
                             <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
@@ -921,10 +927,10 @@ export default function Home() {
             </Link>
 
             <Link href="/performance">
-                <div className="bg-white rounded-[24px] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-slate-100 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
+                <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[4px_4px_0px_0px_rgba(20,41,77,0.06)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <BarChart3 className="w-6 h-6 text-orange-500"/>
+                        <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                            <BarChart3 className="w-6 h-6 text-amber-600" strokeWidth={2.25}/>
                         </div>
                         <div>
                             <h3 className="font-bold text-slate-800 text-base">Analisa Performa</h3>
@@ -951,8 +957,8 @@ function MenuIconBox({ href, icon: Icon, bg, label }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md shadow-slate-200 group-hover:shadow-lg transition-all relative`}>
-                    <Icon className="w-6 h-6"/>
+                <div className={`${bg} w-14 h-14 rounded-full flex items-center justify-center text-white shadow-[3px_3px_0px_0px_#0A1B38] group-active:shadow-[1px_1px_0px_0px_#0A1B38] group-active:translate-x-[2px] group-active:translate-y-[2px] transition-all relative`}>
+                    <Icon className="w-6 h-6" strokeWidth={2.25}/>
                 </div>
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
             </div>
