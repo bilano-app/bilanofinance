@@ -816,47 +816,49 @@ export default function Home() {
                     </Link>
                 </div>
 
-                <div className="px-1 mt-5">
-                    <div className="flex justify-between items-center mb-5 px-1">
-                        <h3 className="font-extrabold text-slate-800 text-[15px] flex items-center tracking-tight">
+                <div className="px-1 mt-3">
+                    <div className="flex justify-between items-center mb-4 px-1">
+                        <h3 className="font-extrabold text-slate-800 text-sm flex items-center tracking-tight">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#F6B93B] mr-2"></span>
                             Fitur Pilihan
                         </h3>
                     </div>
 
                     <div
-                        className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-3 -mt-2 -mx-1"
+                        className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-2 pt-2 -mt-2 -mx-1"
                         onScroll={handleMenuScroll}
                     >
                         <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
 
                         <div className="min-w-full flex-none snap-center px-1">
-                            <div className="grid grid-cols-4 gap-y-6 gap-x-2">
+                            <div className="grid grid-cols-3 gap-y-7 gap-x-4">
                                 <MenuIconBox href="/forex" icon={DollarSign} label="Valas" colorVariant="teal" />
                                 <MenuIconBox href="/debts" icon={HandCoins} label="Hutang" colorVariant="rose" />
                                 <MenuIconBox href="/subscriptions" icon={RefreshCcw} label="Langganan" colorVariant="purple" />
                                 <MenuIconBox href="/investment" icon={TrendingUp} label="Investasi" colorVariant="amber" />
                                 <MenuIconBox href="/reports" icon={FileText} label="Laporan" colorVariant="blue" />
                                 <MenuIconBox href="/scan" icon={ScanLine} label="Scan" colorVariant="indigo" />
-                                <MenuIconBox href="/amal" icon={HeartHandshake} label="Amal" colorVariant="emerald" />
-                                <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" colorVariant="orange" />
                             </div>
                         </div>
 
                         <div className="min-w-full flex-none snap-center px-1">
-                            <div className="grid grid-cols-4 gap-y-6 gap-x-2">
-                                <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2.5 cursor-pointer active:scale-95 transition-transform group">
-                                    <div className="w-[52px] h-[52px] rounded-[18px] flex items-center justify-center bg-cyan-100 text-cyan-700 shadow-sm group-hover:opacity-80 transition-opacity">
+                            <div className="grid grid-cols-3 gap-y-7 gap-x-4">
+                                <MenuIconBox href="/amal" icon={HeartHandshake} label="Amal" colorVariant="emerald" />
+                                <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" colorVariant="orange" />
+
+                                <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
+                                    <div className="w-14 h-14 rounded-full flex items-center justify-center bg-cyan-100 text-cyan-600 shadow-sm group-hover:bg-cyan-200 transition-colors">
                                         <CreditCard className="w-6 h-6" strokeWidth={2.25} />
                                     </div>
-                                    <span className="text-[11px] font-bold text-slate-700 text-center leading-tight max-w-[64px] truncate w-full px-1">Cicilan</span>
+                                    <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">Cicilan</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex justify-center gap-1.5 mt-2">
-                        <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 0 ? 'bg-[#1D3E72] w-4' : 'bg-slate-200 w-1.5'}`}></div>
-                        <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 1 ? 'bg-[#1D3E72] w-4' : 'bg-slate-200 w-1.5'}`}></div>
+                    <div className="flex justify-center gap-1.5 mt-3">
+                        <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 0 ? 'bg-[#F6B93B] w-4' : 'bg-slate-200 w-1.5'}`}></div>
+                        <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 1 ? 'bg-[#F6B93B] w-4' : 'bg-slate-200 w-1.5'}`}></div>
                     </div>
                 </div>
 
@@ -913,10 +915,10 @@ export default function Home() {
 
                 <div className="flex flex-col gap-4 mt-2 px-1">
                     <Link href="/chat-ai">
-                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
+                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
                             <div className="flex items-center gap-4 z-10">
-                                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                                    <Bot className="w-6 h-6 text-[#1D3E72]" strokeWidth={2.25} />
+                                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center shrink-0 transition-colors group-hover:bg-blue-200">
+                                    <Bot className="w-6 h-6 text-blue-600" strokeWidth={2.25} />
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
@@ -928,9 +930,9 @@ export default function Home() {
                     </Link>
 
                     <Link href="/performance">
-                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
+                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center shrink-0 transition-colors group-hover:bg-amber-200">
                                     <BarChart3 className="w-6 h-6 text-amber-600" strokeWidth={2.25} />
                                 </div>
                                 <div>
@@ -956,26 +958,26 @@ export default function Home() {
 
 function MenuIconBox({ href, icon: Icon, label, colorVariant = "blue" }: any) {
     const variants: any = {
-        blue: "bg-blue-100 text-blue-700",
-        emerald: "bg-emerald-100 text-emerald-700",
-        rose: "bg-rose-100 text-rose-700",
-        amber: "bg-amber-100 text-amber-700",
-        purple: "bg-purple-100 text-purple-700",
-        cyan: "bg-cyan-100 text-cyan-700",
-        indigo: "bg-indigo-100 text-indigo-700",
-        teal: "bg-teal-100 text-teal-700",
-        orange: "bg-orange-100 text-orange-700",
+        blue: "bg-blue-100 text-blue-600 group-hover:bg-blue-200",
+        emerald: "bg-emerald-100 text-emerald-600 group-hover:bg-emerald-200",
+        rose: "bg-rose-100 text-rose-600 group-hover:bg-rose-200",
+        amber: "bg-amber-100 text-amber-600 group-hover:bg-amber-200",
+        purple: "bg-purple-100 text-purple-600 group-hover:bg-purple-200",
+        cyan: "bg-cyan-100 text-cyan-600 group-hover:bg-cyan-200",
+        indigo: "bg-indigo-100 text-indigo-600 group-hover:bg-indigo-200",
+        teal: "bg-teal-100 text-teal-600 group-hover:bg-teal-200",
+        orange: "bg-orange-100 text-orange-600 group-hover:bg-orange-200",
     };
     
     const colors = variants[colorVariant] || variants.blue;
 
     return (
         <Link href={href}>
-            <div className="relative flex flex-col items-center justify-start gap-2.5 cursor-pointer active:scale-95 transition-transform group">
-                <div className={`w-[52px] h-[52px] rounded-[18px] flex items-center justify-center ${colors} shadow-sm group-hover:opacity-80 transition-opacity`}>
+            <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center ${colors} shadow-sm transition-colors`}>
                     <Icon className="w-6 h-6" strokeWidth={2.25} />
                 </div>
-                <span className="text-[11px] font-bold text-slate-700 text-center leading-tight max-w-[64px] truncate w-full px-1">{label}</span>
+                <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
             </div>
         </Link>
     );
