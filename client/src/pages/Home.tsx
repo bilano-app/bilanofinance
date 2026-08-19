@@ -787,78 +787,76 @@ export default function Home() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 px-1 mt-2">
+                <div className="grid grid-cols-2 gap-3 px-1 mt-3">
                     <Link href="/income">
-                        <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-emerald-400 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                        <div className="bg-white p-4 rounded-[22px] border border-slate-100 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer flex flex-col gap-3 active:scale-[0.97] transition-all">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100/50">
                                     <ArrowDownLeft className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
                                 </div>
-                                <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pemasukan</p>
+                                <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest truncate">Pemasukan</p>
                             </div>
-                            <div className="mt-1">
-                                <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
+                            <div>
+                                <p className="text-[19px] font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
                             </div>
                         </div>
                     </Link>
                     <Link href="/expense">
-                        <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-rose-400 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
-                                    <ArrowUpRight className="w-4 h-4 text-rose-500" strokeWidth={2.5} />
+                        <div className="bg-white p-4 rounded-[22px] border border-slate-100 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer flex flex-col gap-3 active:scale-[0.97] transition-all">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0 border border-rose-100/50">
+                                    <ArrowUpRight className="w-4 h-4 text-rose-600" strokeWidth={2.5} />
                                 </div>
-                                <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pengeluaran</p>
+                                <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest truncate">Pengeluaran</p>
                             </div>
-                            <div className="mt-1">
-                                <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
+                            <div>
+                                <p className="text-[19px] font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
                             </div>
                         </div>
                     </Link>
                 </div>
 
-                <div className="px-1 mt-2">
-                    <div className="flex justify-between items-center mb-4 px-1">
-                        <h3 className="font-bold text-slate-800 text-sm flex items-center">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#F6B93B] mr-2"></span>
+                <div className="px-1 mt-5">
+                    <div className="flex justify-between items-center mb-5 px-1">
+                        <h3 className="font-extrabold text-slate-800 text-[15px] flex items-center tracking-tight">
                             Fitur Pilihan
                         </h3>
                     </div>
 
                     <div
-                        className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-2 pt-4 -mt-4 -mx-1"
+                        className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-3 -mt-2 -mx-1"
                         onScroll={handleMenuScroll}
                     >
                         <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
 
                         <div className="min-w-full flex-none snap-center px-1">
-                            <div className="grid grid-cols-3 gap-y-7 gap-x-4">
-                                <MenuIconBox href="/forex" icon={DollarSign} label="Valas" />
-                                <MenuIconBox href="/debts" icon={HandCoins} label="Hutang" />
-                                <MenuIconBox href="/subscriptions" icon={RefreshCcw} label="Langganan" />
-                                <MenuIconBox href="/investment" icon={TrendingUp} label="Investasi" />
-                                <MenuIconBox href="/reports" icon={FileText} label="Laporan" />
-                                <MenuIconBox href="/scan" icon={ScanLine} label="Scan" />
+                            <div className="grid grid-cols-4 gap-y-6 gap-x-2">
+                                <MenuIconBox href="/forex" icon={DollarSign} label="Valas" colorVariant="teal" />
+                                <MenuIconBox href="/debts" icon={HandCoins} label="Hutang" colorVariant="rose" />
+                                <MenuIconBox href="/subscriptions" icon={RefreshCcw} label="Langganan" colorVariant="purple" />
+                                <MenuIconBox href="/investment" icon={TrendingUp} label="Investasi" colorVariant="amber" />
+                                <MenuIconBox href="/reports" icon={FileText} label="Laporan" colorVariant="blue" />
+                                <MenuIconBox href="/scan" icon={ScanLine} label="Scan" colorVariant="indigo" />
+                                <MenuIconBox href="/amal" icon={HeartHandshake} label="Amal" colorVariant="emerald" />
+                                <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" colorVariant="orange" />
                             </div>
                         </div>
 
                         <div className="min-w-full flex-none snap-center px-1">
-                            <div className="grid grid-cols-3 gap-y-7 gap-x-4">
-                                <MenuIconBox href="/amal" icon={HeartHandshake} label="Amal" />
-                                <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" />
-
-                                <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                                    <div className="w-14 h-14 rounded-full flex items-center justify-center bg-blue-50 border border-blue-100 text-[#1D3E72] shadow-sm group-hover:bg-blue-100/60 transition-colors">
+                            <div className="grid grid-cols-4 gap-y-6 gap-x-2">
+                                <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2.5 cursor-pointer active:scale-95 transition-transform group">
+                                    <div className="w-[52px] h-[52px] rounded-[18px] flex items-center justify-center bg-cyan-100 text-cyan-700 shadow-sm group-hover:opacity-80 transition-opacity">
                                         <CreditCard className="w-6 h-6" strokeWidth={2.25} />
                                     </div>
-                                    <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">Cicilan</span>
+                                    <span className="text-[11px] font-bold text-slate-700 text-center leading-tight max-w-[64px] truncate w-full px-1">Cicilan</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex justify-center gap-1.5 mt-3">
-                        <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 0 ? 'bg-[#F6B93B] w-4' : 'bg-slate-200 w-1.5'}`}></div>
-                        <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 1 ? 'bg-[#F6B93B] w-4' : 'bg-slate-200 w-1.5'}`}></div>
+                    <div className="flex justify-center gap-1.5 mt-2">
+                        <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 0 ? 'bg-[#1D3E72] w-4' : 'bg-slate-200 w-1.5'}`}></div>
+                        <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 1 ? 'bg-[#1D3E72] w-4' : 'bg-slate-200 w-1.5'}`}></div>
                     </div>
                 </div>
 
@@ -956,14 +954,28 @@ export default function Home() {
     );
 }
 
-function MenuIconBox({ href, icon: Icon, label }: any) {
+function MenuIconBox({ href, icon: Icon, label, colorVariant = "blue" }: any) {
+    const variants: any = {
+        blue: "bg-blue-100 text-blue-700",
+        emerald: "bg-emerald-100 text-emerald-700",
+        rose: "bg-rose-100 text-rose-700",
+        amber: "bg-amber-100 text-amber-700",
+        purple: "bg-purple-100 text-purple-700",
+        cyan: "bg-cyan-100 text-cyan-700",
+        indigo: "bg-indigo-100 text-indigo-700",
+        teal: "bg-teal-100 text-teal-700",
+        orange: "bg-orange-100 text-orange-700",
+    };
+    
+    const colors = variants[colorVariant] || variants.blue;
+
     return (
         <Link href={href}>
-            <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className="w-14 h-14 rounded-full flex items-center justify-center bg-blue-50 border border-blue-100 text-[#1D3E72] shadow-sm group-hover:bg-blue-100/60 transition-colors">
+            <div className="relative flex flex-col items-center justify-start gap-2.5 cursor-pointer active:scale-95 transition-transform group">
+                <div className={`w-[52px] h-[52px] rounded-[18px] flex items-center justify-center ${colors} shadow-sm group-hover:opacity-80 transition-opacity`}>
                     <Icon className="w-6 h-6" strokeWidth={2.25} />
                 </div>
-                <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
+                <span className="text-[11px] font-bold text-slate-700 text-center leading-tight max-w-[64px] truncate w-full px-1">{label}</span>
             </div>
         </Link>
     );
