@@ -790,30 +790,27 @@ export default function Home() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 px-1 mt-2">
-                    <Link href="/income">
-                        <div className="bg-white p-5 rounded-[24px] border border-slate-100 border-t-[3px] border-t-emerald-400 shadow-[0_8px_24px_rgba(29,62,114,0.06)] hover:shadow-[0_12px_30px_rgba(29,62,114,0.1)] hover:-translate-y-0.5 cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all group">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                                    <ArrowDownLeft className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
-                                </div>
-                                <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pemasukan</p>
+                <div className="bg-white rounded-[28px] p-1.5 shadow-[0_8px_24px_rgba(29,62,114,0.06)] flex mt-2 border border-slate-100/50">
+                    <Link href="/income" className="flex-1">
+                        <div className="p-3.5 rounded-[24px] hover:bg-slate-50 cursor-pointer flex items-center justify-center gap-3 active:scale-[0.98] transition-all group">
+                            <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                <ArrowDownLeft className="w-5 h-5 text-emerald-600" strokeWidth={2.5} />
                             </div>
-                            <div className="mt-1">
-                                <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
+                            <div className="flex flex-col">
+                                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Pemasukan</p>
+                                <p className="text-[15px] font-black text-slate-800 leading-none mt-1 tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
                             </div>
                         </div>
                     </Link>
-                    <Link href="/expense">
-                        <div className="bg-white p-5 rounded-[24px] border border-slate-100 border-t-[3px] border-t-rose-400 shadow-[0_8px_24px_rgba(29,62,114,0.06)] hover:shadow-[0_12px_30px_rgba(29,62,114,0.1)] hover:-translate-y-0.5 cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all group">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                                    <ArrowUpRight className="w-4 h-4 text-rose-500" strokeWidth={2.5} />
-                                </div>
-                                <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pengeluaran</p>
+                    <div className="w-px bg-slate-100 my-4"></div>
+                    <Link href="/expense" className="flex-1">
+                        <div className="p-3.5 rounded-[24px] hover:bg-slate-50 cursor-pointer flex items-center justify-center gap-3 active:scale-[0.98] transition-all group">
+                            <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                <ArrowUpRight className="w-5 h-5 text-rose-500" strokeWidth={2.5} />
                             </div>
-                            <div className="mt-1">
-                                <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
+                            <div className="flex flex-col">
+                                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Pengeluaran</p>
+                                <p className="text-[15px] font-black text-slate-800 leading-none mt-1 tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
                             </div>
                         </div>
                     </Link>
@@ -850,11 +847,13 @@ export default function Home() {
                                 <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" />
 
                                 <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                                    <CreditCard 
-                                        className="w-12 h-12 text-[#1D3E72] drop-shadow-[0_4px_6px_rgba(246,185,59,0.5)] group-hover:drop-shadow-[0_8px_12px_rgba(246,185,59,0.6)] group-hover:-translate-y-0.5 transition-all" 
-                                        fill="#F6B93B" 
-                                        strokeWidth={1.5} 
-                                    />
+                                    <div className="w-14 h-14 rounded-full bg-gradient-to-b from-[#1D3E72]/15 to-transparent flex items-center justify-center group-hover:from-[#1D3E72]/25 transition-all">
+                                        <CreditCard 
+                                            className="w-7 h-7 text-[#1D3E72] drop-shadow-sm group-hover:-translate-y-0.5 transition-transform" 
+                                            fill="#F6B93B" 
+                                            strokeWidth={2} 
+                                        />
+                                    </div>
                                     <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">Cicilan</span>
                                 </div>
                             </div>
@@ -920,32 +919,34 @@ export default function Home() {
 
                 <div className="flex flex-col gap-4 mt-2 px-1">
                     <Link href="/chat-ai">
-                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_8px_24px_rgba(29,62,114,0.06)] hover:shadow-[0_12px_30px_rgba(29,62,114,0.1)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
+                        <div className="bg-gradient-to-r from-[#1D3E72] to-[#2B5699] rounded-[24px] p-5 shadow-[0_8px_24px_rgba(29,62,114,0.15)] hover:shadow-[0_12px_30px_rgba(29,62,114,0.2)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
+                            <div className="absolute right-0 top-0 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
                             <div className="flex items-center gap-4 z-10">
-                                <div className="w-12 h-12 rounded-full bg-[#1D3E72] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform">
-                                    <Bot className="w-6 h-6 text-[#F6B93B]" strokeWidth={2.25} />
+                                <div className="w-12 h-12 rounded-full bg-[#F6B93B] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform">
+                                    <Bot className="w-6 h-6 text-[#1D3E72]" strokeWidth={2.25} />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
-                                    <p className="text-xs text-slate-500 mt-0.5">Konsultasi cerdas 24/7</p>
+                                    <h3 className="font-bold text-white text-base">Tanya AI Assistant</h3>
+                                    <p className="text-xs text-blue-200 mt-0.5">Konsultasi cerdas 24/7</p>
                                 </div>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#1D3E72] group-hover:translate-x-1 transition-all z-10" />
+                            <ChevronRight className="w-5 h-5 text-white/50 group-hover:text-white group-hover:translate-x-1 transition-all z-10" />
                         </div>
                     </Link>
 
                     <Link href="/performance">
-                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_8px_24px_rgba(29,62,114,0.06)] hover:shadow-[0_12px_30px_rgba(29,62,114,0.1)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-[#F6B93B] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform">
-                                    <BarChart3 className="w-6 h-6 text-[#1D3E72]" strokeWidth={2.25} />
+                        <div className="bg-gradient-to-r from-[#F6B93B] to-[#FFD166] rounded-[24px] p-5 shadow-[0_8px_24px_rgba(246,185,59,0.2)] hover:shadow-[0_12px_30px_rgba(246,185,59,0.3)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group relative overflow-hidden">
+                            <div className="absolute right-0 bottom-0 w-32 h-32 bg-[#1D3E72]/5 rounded-tl-full pointer-events-none"></div>
+                            <div className="flex items-center gap-4 relative z-10">
+                                <div className="w-12 h-12 rounded-full bg-[#1D3E72] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform">
+                                    <BarChart3 className="w-6 h-6 text-[#F6B93B]" strokeWidth={2.25} />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-slate-800 text-base">Analisa Performa</h3>
-                                    <p className="text-xs text-slate-500 mt-0.5">Pantau target & grafikmu</p>
+                                    <h3 className="font-bold text-[#1D3E72] text-base tracking-tight">Analisa Performa</h3>
+                                    <p className="text-xs text-[#1D3E72]/80 font-bold mt-0.5">Pantau target & grafikmu</p>
                                 </div>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#F6B93B] group-hover:translate-x-1 transition-all" />
+                            <ChevronRight className="w-5 h-5 text-[#1D3E72]/40 group-hover:text-[#1D3E72] group-hover:translate-x-1 transition-all relative z-10" />
                         </div>
                     </Link>
                 </div>
@@ -965,11 +966,13 @@ function MenuIconBox({ href, icon: Icon, label }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <Icon 
-                    className="w-12 h-12 text-[#1D3E72] drop-shadow-[0_4px_6px_rgba(246,185,59,0.5)] group-hover:drop-shadow-[0_8px_12px_rgba(246,185,59,0.6)] group-hover:-translate-y-0.5 transition-all" 
-                    fill="#F6B93B" 
-                    strokeWidth={1.5} 
-                />
+                <div className="w-14 h-14 rounded-full bg-gradient-to-b from-[#1D3E72]/15 to-transparent flex items-center justify-center group-hover:from-[#1D3E72]/25 transition-all">
+                    <Icon 
+                        className="w-7 h-7 text-[#1D3E72] drop-shadow-sm group-hover:-translate-y-0.5 transition-transform" 
+                        fill="#F6B93B" 
+                        strokeWidth={2} 
+                    />
+                </div>
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
             </div>
         </Link>
