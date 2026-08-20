@@ -827,45 +827,15 @@ export default function Home() {
                         </h3>
                     </div>
 
-                    <div
-                        className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-2 pt-4 -mt-4 -mx-1"
-                        onScroll={handleMenuScroll}
-                    >
-                        <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
-
-                        <div className="min-w-full flex-none snap-center px-1">
-                            <div className="grid grid-cols-3 gap-y-7 gap-x-4">
-                                <MenuIconBox href="/forex" icon={DollarSign} label="Valas" />
-                                <MenuIconBox href="/debts" icon={HandCoins} label="Hutang" />
-                                <MenuIconBox href="/subscriptions" icon={RefreshCcw} label="Langganan" />
-                                <MenuIconBox href="/investment" icon={TrendingUp} label="Investasi" />
-                                <MenuIconBox href="/reports" icon={FileText} label="Laporan" />
-                                <MenuIconBox href="/scan" icon={ScanLine} label="Scan" />
-                            </div>
-                        </div>
-
-                        <div className="min-w-full flex-none snap-center px-1">
-                            <div className="grid grid-cols-3 gap-y-7 gap-x-4">
-                                <MenuIconBox href="/amal" icon={HeartHandshake} label="Amal" />
-                                <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" />
-
-                                <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                                    <div className="w-14 h-14 rounded-full bg-gradient-to-b from-[#1D3E72]/15 to-transparent flex items-center justify-center group-hover:from-[#1D3E72]/25 transition-all">
-                                        <div className="relative w-7 h-7 group-hover:-translate-y-0.5 transition-transform drop-shadow-[0_4px_4px_rgba(246,185,59,0.4)]">
-                                            {/* Teknik stacked icon agar ikon terlihat gemuk (bold/solid) */}
-                                            <CreditCard className="absolute inset-0 w-7 h-7 text-[#1D3E72]" strokeWidth={4} />
-                                            <CreditCard className="absolute inset-0 w-7 h-7 text-[#F6B93B]" strokeWidth={2.5} />
-                                        </div>
-                                    </div>
-                                    <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">Cicilan</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-center gap-1.5 mt-3">
-                        <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 0 ? 'bg-[#F6B93B] w-4' : 'bg-slate-200 w-1.5'}`}></div>
-                        <div className={`h-1.5 rounded-full transition-all duration-300 ${activeMenuPage === 1 ? 'bg-[#F6B93B] w-4' : 'bg-slate-200 w-1.5'}`}></div>
+                    <div className="grid grid-cols-4 gap-y-7 gap-x-2 py-2">
+                        <MenuIconBox href="/forex" icon={DollarSign} label="Valas" />
+                        <MenuIconBox href="/debts" icon={HandCoins} label="Hutang" />
+                        <MenuIconBox href="/subscriptions" icon={RefreshCcw} label="Langganan" />
+                        <MenuIconBox href="/investment" icon={TrendingUp} label="Investasi" />
+                        <MenuIconBox href="/reports" icon={FileText} label="Laporan" />
+                        <MenuIconBox href="/scan" icon={ScanLine} label="Scan" />
+                        <MenuIconBox href="/amal" icon={HeartHandshake} label="Amal" />
+                        <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" />
                     </div>
                 </div>
 
@@ -967,11 +937,10 @@ function MenuIconBox({ href, icon: Icon, label }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-b from-[#1D3E72]/15 to-transparent flex items-center justify-center group-hover:from-[#1D3E72]/25 transition-all">
-                    <div className="relative w-7 h-7 group-hover:-translate-y-0.5 transition-transform drop-shadow-[0_4px_4px_rgba(246,185,59,0.4)]">
-                        {/* Teknik stacked icon agar ikon terlihat gemuk (bold/solid) */}
-                        <Icon className="absolute inset-0 w-7 h-7 text-[#1D3E72]" strokeWidth={4} />
-                        <Icon className="absolute inset-0 w-7 h-7 text-[#F6B93B]" strokeWidth={2.5} />
+                <div className="w-14 h-14 rounded-full bg-gradient-to-b from-[#1D3E72]/25 to-[#1D3E72]/5 flex items-center justify-center group-hover:from-[#1D3E72]/35 transition-all">
+                    <div className="relative w-7 h-7 group-hover:-translate-y-0.5 transition-transform">
+                        <Icon className="absolute inset-0 w-7 h-7 text-[#1D3E72]" strokeWidth={3} />
+                        <Icon className="absolute inset-0 w-7 h-7 text-[#F6B93B]" strokeWidth={1.5} />
                     </div>
                 </div>
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
