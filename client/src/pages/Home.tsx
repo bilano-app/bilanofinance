@@ -13,7 +13,7 @@ import {
     MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
     BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
     Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Sparkles, Banknote,
-    ArrowDownLeft, ArrowUpRight
+    ArrowDownLeft, ArrowUpRight, Wallet
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -223,6 +223,14 @@ export default function Home() {
 
     const userEmail = rawEmail || "Pengguna";
     const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
+
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 10) return "Selamat pagi";
+        if (hour < 15) return "Selamat siang";
+        if (hour < 18) return "Selamat sore";
+        return "Selamat malam";
+    };
 
     const handleMenuScroll = (e: any) => {
         const scrollLeft = e.target.scrollLeft;
@@ -699,7 +707,7 @@ export default function Home() {
 
                         <div className="flex flex-col">
                             <p className="text-xs font-medium text-slate-500 whitespace-nowrap">
-                                Selamat datang
+                                {getGreeting()},
                             </p>
                             <div className="flex items-center gap-2 mt-0.5">
                                 <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight truncate max-w-[130px]">
@@ -711,7 +719,8 @@ export default function Home() {
                                         <Crown className="w-4 h-4 text-[#F6B93B] shrink-0" fill="#F6B93B" />
                                     ) : (
                                         <Link href="/paywall">
-                                            <span className="text-amber-600 font-bold text-[11px] leading-tight flex items-center hover:text-amber-700 transition-colors cursor-pointer shrink-0">
+                                            <span className="flex items-center gap-1 bg-gradient-to-r from-[#F6B93B] to-[#e5aa2e] text-[#1D3E72] text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm active:scale-95 transition-transform cursor-pointer shrink-0 tracking-wide">
+                                                <Sparkles className="w-3 h-3" strokeWidth={2.5} />
                                                 UPGRADE
                                             </span>
                                         </Link>
@@ -763,10 +772,20 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* Kartu Saldo — flat navy + gold, tanpa gradient/blur-orb. 
-            Aksen strip emas di kiri jadi "signature" yang diulang di kartu premium. */}
-                <div className="bg-[#1D3E72] text-white p-6 rounded-[28px] border-l-[6px] border-[#F6B93B] shadow-[8px_8px_0px_0px_#0F2247] relative overflow-hidden">
-                    <div className="absolute -right-10 -top-14 w-48 h-48 bg-[#F6B93B]/[0.14] rounded-full blur-2xl pointer-events-none"></div>
+                {/* Kartu Saldo — gradasi navy + tekstur dot-grid + sparkline emas sebagai
+            "signature" khas Bilano (satu elemen berani, sisanya tenang & disiplin). */}
+                <div className="bg-gradient-to-br from-[#25497F] via-[#1D3E72] to-[#122A54] text-white p-6 rounded-[28px] border-l-[6px] border-[#F6B93B] shadow-[8px_8px_0px_0px_#0F2247] relative overflow-hidden">
+                    {/* Tekstur titik halus — kesan "material", bukan flat solid */}
+                    <div className="absolute inset-0 opacity-[0.07] bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.9)_1px,transparent_0)] bg-[length:14px_14px] pointer-events-none"></div>
+                    {/* Sheen kaca diagonal */}
+                    <div className="absolute -left-16 -top-20 w-64 h-64 bg-white/[0.05] rotate-[18deg] blur-xl pointer-events-none"></div>
+                    <div className="absolute -right-10 -top-14 w-48 h-48 bg-[#F6B93B]/[0.16] rounded-full blur-2xl pointer-events-none"></div>
+
+                    {/* Sparkline tren — elemen dekoratif bermakna: melambangkan "pertumbuhan" */}
+                    <svg className="absolute bottom-0 right-0 w-2/3 h-20 opacity-[0.18] pointer-events-none" viewBox="0 0 220 70" fill="none" preserveAspectRatio="none">
+                        <path d="M0 55 L35 42 L70 48 L105 25 L140 32 L175 12 L220 18" stroke="#F6B93B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+
                     <div className="relative z-10 flex flex-col pt-2 pb-4">
                         <div className="flex justify-between items-center mb-1">
                             <p className="text-[11px] font-bold text-blue-200/80 uppercase tracking-widest">Saldo Kas</p>
@@ -780,7 +799,8 @@ export default function Home() {
                         </h2>
 
                         <div className="flex gap-3">
-                            <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 border border-white/10 px-3 py-1.5 rounded-full">
+                            <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/[0.08] backdrop-blur-sm border border-white/15 px-3 py-1.5 rounded-full">
+                                <Wallet className="w-3 h-3 text-[#F6B93B]" strokeWidth={2.5} />
                                 <span>IDR:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                             </div>
                         </div>
@@ -789,10 +809,11 @@ export default function Home() {
 
                 <div className="grid grid-cols-2 gap-3 px-1 mt-3">
                     <Link href="/income">
-                        <div className="bg-white p-4 rounded-[22px] border border-slate-100 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer flex flex-col gap-3 active:scale-[0.97] transition-all">
+                        <div className="relative bg-white p-4 pt-5 rounded-[22px] border border-slate-100 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer flex flex-col gap-3 active:scale-[0.97] transition-all overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-400 to-emerald-600"></div>
                             <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100/50">
-                                    <ArrowDownLeft className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shrink-0 shadow-md shadow-emerald-500/25">
+                                    <ArrowDownLeft className="w-4 h-4 text-white" strokeWidth={2.5} />
                                 </div>
                                 <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest truncate">Pemasukan</p>
                             </div>
@@ -802,10 +823,11 @@ export default function Home() {
                         </div>
                     </Link>
                     <Link href="/expense">
-                        <div className="bg-white p-4 rounded-[22px] border border-slate-100 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer flex flex-col gap-3 active:scale-[0.97] transition-all">
+                        <div className="relative bg-white p-4 pt-5 rounded-[22px] border border-slate-100 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer flex flex-col gap-3 active:scale-[0.97] transition-all overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-rose-400 to-rose-600"></div>
                             <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0 border border-rose-100/50">
-                                    <ArrowUpRight className="w-4 h-4 text-rose-600" strokeWidth={2.5} />
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center shrink-0 shadow-md shadow-rose-500/25">
+                                    <ArrowUpRight className="w-4 h-4 text-white" strokeWidth={2.5} />
                                 </div>
                                 <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest truncate">Pengeluaran</p>
                             </div>
@@ -837,7 +859,7 @@ export default function Home() {
                                 <MenuIconBox href="/subscriptions" icon={RefreshCcw} label="Langganan" colorVariant="purple" />
                                 <MenuIconBox href="/investment" icon={TrendingUp} label="Investasi" colorVariant="amber" />
                                 <MenuIconBox href="/reports" icon={FileText} label="Laporan" colorVariant="blue" />
-                                <MenuIconBox href="/scan" icon={ScanLine} label="Scan" colorVariant="indigo" />
+                                <MenuIconBox href="/scan" icon={ScanLine} label="Scan" colorVariant="indigo" badge="BARU" />
                             </div>
                         </div>
 
@@ -847,8 +869,8 @@ export default function Home() {
                                 <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" colorVariant="orange" />
 
                                 <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                                    <div className="w-14 h-14 rounded-full flex items-center justify-center bg-cyan-100 text-cyan-600 shadow-sm group-hover:bg-cyan-200 transition-colors">
-                                        <CreditCard className="w-6 h-6" strokeWidth={2.25} />
+                                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-br from-cyan-400 to-sky-600 shadow-lg shadow-cyan-500/25 transition-transform group-active:scale-90">
+                                        <CreditCard className="w-6 h-6 text-white" strokeWidth={2.25} />
                                     </div>
                                     <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">Cicilan</span>
                                 </div>
@@ -870,11 +892,13 @@ export default function Home() {
 
                     {/* Tampilan Menu Premium pada Home.tsx */}
                     <Link href="/wealth-blueprint">
-                        <div className="bg-[#1D3E72] rounded-[24px] p-5 border-l-[6px] border-[#F6B93B] shadow-[6px_6px_0px_0px_#0F2247] cursor-pointer active:shadow-[3px_3px_0px_0px_#0F2247] active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group mb-3">
-                            <div className="absolute -right-8 -top-10 w-32 h-32 bg-[#F6B93B]/[0.12] rounded-full blur-2xl pointer-events-none"></div>
+                        <div className="bg-gradient-to-br from-[#22467d] via-[#1D3E72] to-[#132C56] rounded-[24px] p-5 border-l-[6px] border-[#F6B93B] shadow-[6px_6px_0px_0px_#0F2247] cursor-pointer active:shadow-[3px_3px_0px_0px_#0F2247] active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group mb-3">
+                            <div className="absolute inset-x-0 top-0 h-px bg-white/10"></div>
+                            <div className="absolute -right-8 -top-10 w-32 h-32 bg-[#F6B93B]/[0.14] rounded-full blur-2xl pointer-events-none"></div>
+                            <Banknote className="absolute -right-3 -bottom-5 w-28 h-28 text-white/[0.06] rotate-[-12deg] pointer-events-none" strokeWidth={1.25} />
                             <div className="flex items-center justify-between relative z-10">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full bg-[#F6B93B] flex items-center justify-center shrink-0">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#F6B93B] to-[#e5aa2e] flex items-center justify-center shrink-0 shadow-md shadow-black/20">
                                         <Banknote className="w-6 h-6 text-[#1D3E72]" strokeWidth={2.25} />
                                     </div>
                                     <div>
@@ -893,11 +917,13 @@ export default function Home() {
                     </Link>
 
                     <Link href="/academy">
-                        <div className="bg-[#1D3E72] rounded-[24px] p-5 border-l-[6px] border-[#F6B93B] shadow-[6px_6px_0px_0px_#0F2247] cursor-pointer active:shadow-[3px_3px_0px_0px_#0F2247] active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group">
-                            <div className="absolute -right-8 -top-10 w-32 h-32 bg-[#F6B93B]/[0.12] rounded-full blur-2xl pointer-events-none"></div>
+                        <div className="bg-gradient-to-br from-[#22467d] via-[#1D3E72] to-[#132C56] rounded-[24px] p-5 border-l-[6px] border-[#F6B93B] shadow-[6px_6px_0px_0px_#0F2247] cursor-pointer active:shadow-[3px_3px_0px_0px_#0F2247] active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group">
+                            <div className="absolute inset-x-0 top-0 h-px bg-white/10"></div>
+                            <div className="absolute -right-8 -top-10 w-32 h-32 bg-[#F6B93B]/[0.14] rounded-full blur-2xl pointer-events-none"></div>
+                            <BookOpen className="absolute -right-3 -bottom-5 w-28 h-28 text-white/[0.06] rotate-[-12deg] pointer-events-none" strokeWidth={1.25} />
                             <div className="flex items-center justify-between relative z-10">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full bg-[#F6B93B] flex items-center justify-center shrink-0">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#F6B93B] to-[#e5aa2e] flex items-center justify-center shrink-0 shadow-md shadow-black/20">
                                         <BookOpen className="w-6 h-6 text-[#1D3E72]" strokeWidth={2.25} />
                                     </div>
                                     <div>
@@ -917,30 +943,33 @@ export default function Home() {
                     <Link href="/chat-ai">
                         <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
                             <div className="flex items-center gap-4 z-10">
-                                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center shrink-0 transition-colors group-hover:bg-blue-200">
-                                    <Bot className="w-6 h-6 text-blue-600" strokeWidth={2.25} />
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center shrink-0 shadow-md shadow-blue-500/25 transition-transform group-active:scale-90">
+                                    <Bot className="w-6 h-6 text-white" strokeWidth={2.25} />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
+                                        <span className="bg-blue-50 text-blue-600 text-[8px] font-black px-1.5 py-[2px] rounded-md border border-blue-100 uppercase tracking-wider">AI</span>
+                                    </div>
                                     <p className="text-xs text-slate-500 mt-0.5">Konsultasi cerdas 24/7</p>
                                 </div>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-slate-300 z-10" />
+                            <ChevronRight className="w-5 h-5 text-slate-300 z-10 group-active:translate-x-0.5 transition-transform" />
                         </div>
                     </Link>
 
                     <Link href="/performance">
                         <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center shrink-0 transition-colors group-hover:bg-amber-200">
-                                    <BarChart3 className="w-6 h-6 text-amber-600" strokeWidth={2.25} />
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/25 transition-transform group-active:scale-90">
+                                    <BarChart3 className="w-6 h-6 text-white" strokeWidth={2.25} />
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-800 text-base">Analisa Performa</h3>
                                     <p className="text-xs text-slate-500 mt-0.5">Pantau target & grafikmu</p>
                                 </div>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-slate-300" />
+                            <ChevronRight className="w-5 h-5 text-slate-300 group-active:translate-x-0.5 transition-transform" />
                         </div>
                     </Link>
                 </div>
@@ -956,17 +985,20 @@ export default function Home() {
     );
 }
 
-function MenuIconBox({ href, icon: Icon, label, colorVariant = "blue" }: any) {
+function MenuIconBox({ href, icon: Icon, label, colorVariant = "blue", badge }: any) {
+    // Dari lingkaran pastel flat -> squircle dua-warna (gradasi) dengan ikon putih.
+    // Ini yang paling mendekatkan Bilano ke bahasa visual Wondr/OVO/Gojek: mereka
+    // hampir tidak pernah pakai ikon flat-on-pastel, selalu ada depth (gradasi/shadow warna).
     const variants: any = {
-        blue: "bg-blue-100 text-blue-600 group-hover:bg-blue-200",
-        emerald: "bg-emerald-100 text-emerald-600 group-hover:bg-emerald-200",
-        rose: "bg-rose-100 text-rose-600 group-hover:bg-rose-200",
-        amber: "bg-amber-100 text-amber-600 group-hover:bg-amber-200",
-        purple: "bg-purple-100 text-purple-600 group-hover:bg-purple-200",
-        cyan: "bg-cyan-100 text-cyan-600 group-hover:bg-cyan-200",
-        indigo: "bg-indigo-100 text-indigo-600 group-hover:bg-indigo-200",
-        teal: "bg-teal-100 text-teal-600 group-hover:bg-teal-200",
-        orange: "bg-orange-100 text-orange-600 group-hover:bg-orange-200",
+        blue: "from-blue-400 to-indigo-600 shadow-blue-500/25",
+        emerald: "from-emerald-400 to-green-600 shadow-emerald-500/25",
+        rose: "from-rose-400 to-pink-600 shadow-rose-500/25",
+        amber: "from-amber-400 to-orange-500 shadow-amber-500/25",
+        purple: "from-violet-400 to-purple-600 shadow-purple-500/25",
+        cyan: "from-cyan-400 to-sky-600 shadow-cyan-500/25",
+        indigo: "from-indigo-400 to-blue-700 shadow-indigo-500/25",
+        teal: "from-teal-400 to-cyan-600 shadow-teal-500/25",
+        orange: "from-orange-400 to-amber-600 shadow-orange-500/25",
     };
 
     const colors = variants[colorVariant] || variants.blue;
@@ -974,8 +1006,13 @@ function MenuIconBox({ href, icon: Icon, label, colorVariant = "blue" }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className={`w-14 h-14 rounded-full flex items-center justify-center ${colors} shadow-sm transition-colors`}>
-                    <Icon className="w-6 h-6" strokeWidth={2.25} />
+                {badge && (
+                    <span className="absolute -top-1.5 -right-1.5 z-10 bg-[#F6B93B] text-[#1D3E72] text-[8px] font-black px-1.5 py-[2px] rounded-full leading-none shadow-sm border border-white">
+                        {badge}
+                    </span>
+                )}
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-br ${colors} shadow-lg transition-transform group-active:scale-90`}>
+                    <Icon className="w-6 h-6 text-white" strokeWidth={2.25} />
                 </div>
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
             </div>
