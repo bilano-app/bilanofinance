@@ -792,9 +792,9 @@ export default function Home() {
 
                 <div className="grid grid-cols-2 gap-3 px-1 mt-2">
                     <Link href="/income">
-                        <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-emerald-400 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
+                        <div className="bg-white p-5 rounded-[24px] border border-slate-100 border-t-[3px] border-t-emerald-400 shadow-[0_8px_24px_rgba(29,62,114,0.06)] hover:shadow-[0_12px_30px_rgba(29,62,114,0.1)] hover:-translate-y-0.5 cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all group">
                             <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                                     <ArrowDownLeft className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
                                 </div>
                                 <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pemasukan</p>
@@ -805,9 +805,9 @@ export default function Home() {
                         </div>
                     </Link>
                     <Link href="/expense">
-                        <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-rose-400 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
+                        <div className="bg-white p-5 rounded-[24px] border border-slate-100 border-t-[3px] border-t-rose-400 shadow-[0_8px_24px_rgba(29,62,114,0.06)] hover:shadow-[0_12px_30px_rgba(29,62,114,0.1)] hover:-translate-y-0.5 cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all group">
                             <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                                     <ArrowUpRight className="w-4 h-4 text-rose-500" strokeWidth={2.5} />
                                 </div>
                                 <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pengeluaran</p>
@@ -850,9 +850,11 @@ export default function Home() {
                                 <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" />
 
                                 <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-b from-[#FFD166] to-[#F6B93B] text-[#1D3E72] border-[1.5px] border-[#1D3E72] shadow-[0_4px_10px_rgba(246,185,59,0.4),inset_0_2px_0_rgba(255,255,255,0.5)] group-hover:shadow-[0_6px_14px_rgba(246,185,59,0.5),inset_0_3px_0_rgba(255,255,255,0.6)] group-hover:-translate-y-0.5 transition-all">
-                                        <CreditCard className="w-6 h-6" strokeWidth={2.25} />
-                                    </div>
+                                    <CreditCard 
+                                        className="w-12 h-12 text-[#1D3E72] drop-shadow-[0_4px_6px_rgba(246,185,59,0.5)] group-hover:drop-shadow-[0_8px_12px_rgba(246,185,59,0.6)] group-hover:-translate-y-0.5 transition-all" 
+                                        fill="#F6B93B" 
+                                        strokeWidth={1.5} 
+                                    />
                                     <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">Cicilan</span>
                                 </div>
                             </div>
@@ -918,32 +920,32 @@ export default function Home() {
 
                 <div className="flex flex-col gap-4 mt-2 px-1">
                     <Link href="/chat-ai">
-                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
+                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_8px_24px_rgba(29,62,114,0.06)] hover:shadow-[0_12px_30px_rgba(29,62,114,0.1)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
                             <div className="flex items-center gap-4 z-10">
-                                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                                    <Bot className="w-6 h-6 text-[#1D3E72]" strokeWidth={2.25} />
+                                <div className="w-12 h-12 rounded-full bg-[#1D3E72] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform">
+                                    <Bot className="w-6 h-6 text-[#F6B93B]" strokeWidth={2.25} />
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
                                     <p className="text-xs text-slate-500 mt-0.5">Konsultasi cerdas 24/7</p>
                                 </div>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-slate-300 z-10" />
+                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#1D3E72] group-hover:translate-x-1 transition-all z-10" />
                         </div>
                     </Link>
 
                     <Link href="/performance">
-                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
+                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_8px_24px_rgba(29,62,114,0.06)] hover:shadow-[0_12px_30px_rgba(29,62,114,0.1)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-                                    <BarChart3 className="w-6 h-6 text-amber-600" strokeWidth={2.25} />
+                                <div className="w-12 h-12 rounded-full bg-[#F6B93B] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform">
+                                    <BarChart3 className="w-6 h-6 text-[#1D3E72]" strokeWidth={2.25} />
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-800 text-base">Analisa Performa</h3>
                                     <p className="text-xs text-slate-500 mt-0.5">Pantau target & grafikmu</p>
                                 </div>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-slate-300" />
+                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#F6B93B] group-hover:translate-x-1 transition-all" />
                         </div>
                     </Link>
                 </div>
@@ -963,9 +965,11 @@ function MenuIconBox({ href, icon: Icon, label }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-b from-[#FFD166] to-[#F6B93B] text-[#1D3E72] border-[1.5px] border-[#1D3E72] shadow-[0_4px_10px_rgba(246,185,59,0.4),inset_0_2px_0_rgba(255,255,255,0.5)] group-hover:shadow-[0_6px_14px_rgba(246,185,59,0.5),inset_0_3px_0_rgba(255,255,255,0.6)] group-hover:-translate-y-0.5 transition-all">
-                    <Icon className="w-6 h-6" strokeWidth={2.25} />
-                </div>
+                <Icon 
+                    className="w-12 h-12 text-[#1D3E72] drop-shadow-[0_4px_6px_rgba(246,185,59,0.5)] group-hover:drop-shadow-[0_8px_12px_rgba(246,185,59,0.6)] group-hover:-translate-y-0.5 transition-all" 
+                    fill="#F6B93B" 
+                    strokeWidth={1.5} 
+                />
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
             </div>
         </Link>
