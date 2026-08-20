@@ -767,7 +767,7 @@ export default function Home() {
             Aksen strip emas di kiri jadi "signature" yang diulang di kartu premium. */}
                 <div className="bg-[#1D3E72] text-white p-6 rounded-[28px] shadow-[8px_8px_0px_0px_#0F2247] relative overflow-hidden">
                     {/* Efek buletan setengah seperti referensi */}
-                    <div className="absolute -right-20 top-1/2 -translate-y-1/2 w-72 h-72 bg-white/[0.08] rounded-full pointer-events-none"></div>
+                    <div className="absolute -right-12 -bottom-24 w-80 h-80 bg-white/[0.06] rounded-full pointer-events-none"></div>
                     <div className="relative z-10 flex flex-col pt-2 pb-4">
                         <div className="flex justify-between items-center mb-1">
                             <p className="text-[11px] font-bold text-blue-200/80 uppercase tracking-widest">Saldo Kas</p>
@@ -848,7 +848,7 @@ export default function Home() {
                                 <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" />
 
                                 <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[#1D3E72] text-[#F6B93B] shadow-[0_4px_10px_rgba(29,62,114,0.2)] group-hover:shadow-[0_6px_14px_rgba(29,62,114,0.3)] group-hover:-translate-y-0.5 transition-all">
+                                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[#F6B93B] text-[#1D3E72] border-2 border-[#1D3E72] shadow-[3px_3px_0px_0px_#1D3E72] active:shadow-[1px_1px_0px_0px_#1D3E72] group-hover:-translate-y-0.5 transition-all">
                                         <CreditCard className="w-6 h-6" strokeWidth={2.25} />
                                     </div>
                                     <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">Cicilan</span>
@@ -961,7 +961,7 @@ function MenuIconBox({ href, icon: Icon, label }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[#1D3E72] text-[#F6B93B] shadow-[0_4px_10px_rgba(29,62,114,0.2)] group-hover:shadow-[0_6px_14px_rgba(29,62,114,0.3)] group-hover:-translate-y-0.5 transition-all">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[#F6B93B] text-[#1D3E72] border-2 border-[#1D3E72] shadow-[3px_3px_0px_0px_#1D3E72] active:shadow-[1px_1px_0px_0px_#1D3E72] group-hover:-translate-y-0.5 transition-all">
                     <Icon className="w-6 h-6" strokeWidth={2.25} />
                 </div>
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
