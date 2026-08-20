@@ -765,10 +765,9 @@ export default function Home() {
 
                 {/* Kartu Saldo — flat navy + gold, tanpa gradient/blur-orb. 
             Aksen strip emas di kiri jadi "signature" yang diulang di kartu premium. */}
-                <div className="bg-[#1D3E72] text-white p-6 rounded-[28px] border-l-[6px] border-[#F6B93B] shadow-[8px_8px_0px_0px_#0F2247] relative overflow-hidden">
-                    {/* Efek Lingkaran Elegan */}
-                    <div className="absolute -right-10 -top-10 w-64 h-64 bg-white/[0.04] rounded-full pointer-events-none"></div>
-                    <div className="absolute -right-20 -bottom-20 w-72 h-72 bg-white/[0.03] rounded-full pointer-events-none"></div>
+                <div className="bg-[#1D3E72] text-white p-6 rounded-[28px] shadow-[8px_8px_0px_0px_#0F2247] relative overflow-hidden">
+                    {/* Efek buletan setengah seperti referensi */}
+                    <div className="absolute -right-20 top-1/2 -translate-y-1/2 w-72 h-72 bg-white/[0.08] rounded-full pointer-events-none"></div>
                     <div className="relative z-10 flex flex-col pt-2 pb-4">
                         <div className="flex justify-between items-center mb-1">
                             <p className="text-[11px] font-bold text-blue-200/80 uppercase tracking-widest">Saldo Kas</p>
@@ -849,7 +848,7 @@ export default function Home() {
                                 <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" />
 
                                 <div onClick={() => setPendingFeatureModal({ title: "Manajemen Cicilan", desc: "Fitur kalkulator dan pemantau pembayaran cicilan e-commerce otomatis sedang dikembangkan." })} className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-b from-white to-blue-50 border border-blue-100 text-[#1D3E72] shadow-[0_4px_10px_rgba(29,62,114,0.08)] group-hover:shadow-[0_6px_14px_rgba(29,62,114,0.12)] group-hover:-translate-y-0.5 transition-all">
+                                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[#1D3E72] text-[#F6B93B] shadow-[0_4px_10px_rgba(29,62,114,0.2)] group-hover:shadow-[0_6px_14px_rgba(29,62,114,0.3)] group-hover:-translate-y-0.5 transition-all">
                                         <CreditCard className="w-6 h-6" strokeWidth={2.25} />
                                     </div>
                                     <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">Cicilan</span>
@@ -895,21 +894,21 @@ export default function Home() {
                     </Link>
 
                     <Link href="/academy">
-                        <div className="bg-[#1D3E72] rounded-[24px] p-5 border-l-[6px] border-[#F6B93B] shadow-[6px_6px_0px_0px_#0F2247] cursor-pointer active:shadow-[3px_3px_0px_0px_#0F2247] active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group">
-                            <BookOpen className="absolute -right-4 -bottom-4 w-32 h-32 text-white/[0.05] rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-6" strokeWidth={1} />
+                        <div className="bg-[#F6B93B] rounded-[24px] p-5 border-l-[6px] border-[#1D3E72] shadow-[6px_6px_0px_0px_#1D3E72] cursor-pointer active:shadow-[3px_3px_0px_0px_#1D3E72] active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group">
+                            <BookOpen className="absolute -right-4 -bottom-4 w-32 h-32 text-[#1D3E72]/10 rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-6" strokeWidth={1} />
                             <div className="flex items-center justify-between relative z-10">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-2xl bg-[#F6B93B] flex items-center justify-center shrink-0 shadow-inner">
-                                        <BookOpen className="w-7 h-7 text-[#1D3E72]" strokeWidth={2.25} />
+                                    <div className="w-14 h-14 rounded-2xl bg-[#1D3E72] flex items-center justify-center shrink-0 shadow-inner">
+                                        <BookOpen className="w-7 h-7 text-[#F6B93B]" strokeWidth={2.25} />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2 mb-1">
-                                            <h3 className="font-black text-white text-base tracking-tight">BILANO Academy</h3>
+                                            <h3 className="font-black text-[#1D3E72] text-base tracking-tight">BILANO Academy</h3>
                                         </div>
-                                        <p className="text-[11px] text-blue-200/70 font-medium">E-Book & Panduan Finansial VIP</p>
+                                        <p className="text-[11px] text-[#1D3E72]/80 font-bold">E-Book & Panduan Finansial VIP</p>
                                     </div>
                                 </div>
-                                <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-[#F6B93B] transition-colors shrink-0" />
+                                <ChevronRight className="w-5 h-5 text-[#1D3E72]/40 group-hover:text-[#1D3E72] transition-colors shrink-0" />
                             </div>
                         </div>
                     </Link>
@@ -962,7 +961,7 @@ function MenuIconBox({ href, icon: Icon, label }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-b from-white to-blue-50 border border-blue-100 text-[#1D3E72] shadow-[0_4px_10px_rgba(29,62,114,0.08)] group-hover:shadow-[0_6px_14px_rgba(29,62,114,0.12)] group-hover:-translate-y-0.5 transition-all">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[#1D3E72] text-[#F6B93B] shadow-[0_4px_10px_rgba(29,62,114,0.2)] group-hover:shadow-[0_6px_14px_rgba(29,62,114,0.3)] group-hover:-translate-y-0.5 transition-all">
                     <Icon className="w-6 h-6" strokeWidth={2.25} />
                 </div>
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
