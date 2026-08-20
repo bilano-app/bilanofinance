@@ -937,8 +937,11 @@ function MenuIconBox({ href, icon: Icon, label }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className="w-14 h-14 rounded-[18px] bg-[#1D3E72]/5 flex items-center justify-center group-hover:bg-[#1D3E72]/10 transition-colors border border-[#1D3E72]/10">
-                    <Icon className="w-6 h-6 text-[#1D3E72]" strokeWidth={2.25} />
+                <div className="w-14 h-14 rounded-full bg-gradient-to-b from-[#1D3E72]/25 to-[#1D3E72]/5 flex items-center justify-center group-hover:from-[#1D3E72]/35 transition-all">
+                    <div className="relative w-7 h-7 group-hover:-translate-y-0.5 transition-transform">
+                        <Icon className="absolute inset-0 w-7 h-7 text-[#1D3E72]" strokeWidth={3} />
+                        <Icon className="absolute inset-0 w-7 h-7 text-[#F6B93B]" strokeWidth={1.5} />
+                    </div>
                 </div>
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
             </div>
