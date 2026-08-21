@@ -459,7 +459,7 @@ export default function Manager() {
       <div className="min-h-screen bg-[#e8ecf1] text-[#1e293b] flex items-center justify-center p-6 font-sans">
         <div className="bg-white p-10 rounded-sm w-full max-w-md border border-[#cbd5e1] shadow-[0_8px_30px_rgb(0,0,0,0.06)] relative">
           <div className="absolute top-0 left-0 w-full h-1 bg-[#2563eb]"></div>
-          <div className="flex justify-center mb-6"><img src="/BILANO-ICON.png" alt="Bilano Logo" className="h-14 object-contain" /></div>
+          <div className="flex justify-center mb-6"><img src="/BILANO-LOGO-NEW.png" alt="Bilano Logo" className="h-14 object-contain" /></div>
           <h1 className="text-xl font-bold text-center mb-1 text-[#0f172a] uppercase tracking-wider">Manager Terminal</h1>
           <p className="text-[#64748b] text-xs text-center mb-8 font-medium tracking-wide">SECURE ACCESS REQUIRED</p>
           <form onSubmit={handleLoginSubmit} className="space-y-5">
@@ -559,7 +559,7 @@ export default function Manager() {
       <header className="bg-white border-b border-[#cbd5e1] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <img src="/BILANO-ICON.png" alt="Bilano Icon" className="h-8 object-contain" />
+            <img src="/BILANO-LOGO-NEW.png" alt="Bilano Icon" className="h-8 object-contain" />
             <div className="border-l border-[#e2e8f0] pl-4">
               <h1 className="text-sm font-bold text-[#0f172a] uppercase tracking-wider">Manager Terminal</h1>
               <p className="text-[#64748b] text-[10px] font-mono uppercase tracking-widest">Live Data Analytics & Operations</p>
