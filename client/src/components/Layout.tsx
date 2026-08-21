@@ -34,7 +34,7 @@ export function MobileLayout({ children, title, showBack = false }: LayoutProps)
                <img 
                  src="/BILANO-LOGO-NEW.png" 
                  alt="BILANO" 
-                 className="h-9 w-auto object-contain" 
+                 className="h-12 w-auto object-contain" 
                />
            )}
         </div>
