@@ -929,7 +929,7 @@ function MenuIconBox({ href, icon: Icon, label }: any) {
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
                 <div className="relative w-14 h-14">
                     <div className="absolute inset-0 bg-brand-navy/40 rounded-full blur-md translate-y-1.5 scale-90"></div>
-                    <div className="relative w-14 h-14 rounded-full bg-brand-navy bg-gradient-to-t from-white/25 to-transparent flex items-center justify-center group-hover:bg-slate-900 transition-all border border-white/10 overflow-hidden">
+                    <div className="relative w-14 h-14 rounded-full bg-brand-navy/90 bg-gradient-to-t from-white/50 to-transparent flex items-center justify-center group-hover:bg-slate-900 transition-all border border-white/10 overflow-hidden">
                         <div className="relative w-7 h-7 group-hover:-translate-y-0.5 transition-transform z-10">
                             <Icon className="absolute inset-0 w-7 h-7 text-amber-700/60 translate-y-[2px]" strokeWidth={3.5} />
                             <Icon className="absolute inset-0 w-7 h-7 text-brand-gold" strokeWidth={3} />
