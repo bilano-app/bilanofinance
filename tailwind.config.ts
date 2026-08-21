@@ -81,16 +81,6 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
-        brand: {
-          navy: '#1D3E72',
-          navyTintLight: '#DDE2EA',
-          navyTintMed: '#B0BBCE',
-          navyHover: '#61789C',
-          gold: '#F6B93B',
-          goldTintLight: '#FEF4E2',
-          goldTintMed: '#FBE0A7',
-          goldDark: '#936F23',
-        },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],

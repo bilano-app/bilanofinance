@@ -523,7 +523,7 @@ export default function Home() {
 
             <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
                 {showGuideTooltip && (
-                    <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-brand-navy p-4 rounded-[20px] shadow-[6px_6px_0px_0px] shadow-slate-900 animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
+                    <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-brand-navy p-4 rounded-[20px] shadow-[6px_6px_0px_#0F2247] animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
                         <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-full hover:bg-slate-100">
                             <X className="w-4 h-4" />
                         </button>
@@ -708,7 +708,7 @@ export default function Home() {
 
                                 {user ? (
                                     user.isPro === true ? (
-                                        <Crown className="w-4 h-4 text-brand-gold shrink-0" fill="currentColor" />
+                                        <Crown className="w-4 h-4 text-brand-gold shrink-0" fill="#F6B93B" />
                                     ) : (
                                         <Link href="/paywall">
                                             <span className="text-brand-gold font-bold text-[11px] leading-tight flex items-center hover:text-brand-goldDark transition-colors cursor-pointer shrink-0">
@@ -937,8 +937,9 @@ function MenuIconBox({ href, icon: Icon, label }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className="w-14 h-14 rounded-full bg-brand-navyTintLight flex items-center justify-center group-hover:bg-brand-navyTintMed transition-all">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-b from-[#F6B93B]/35 to-[#F6B93B]/5 flex items-center justify-center group-hover:from-[#F6B93B]/50 transition-all">
                     <div className="relative w-7 h-7 group-hover:-translate-y-0.5 transition-transform">
+                        <Icon className="absolute inset-0 w-7 h-7 text-brand-gold" strokeWidth={4.5} />
                         <Icon className="absolute inset-0 w-7 h-7 text-brand-navy" strokeWidth={2.5} />
                     </div>
                 </div>
