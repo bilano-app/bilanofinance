@@ -792,28 +792,28 @@ export default function Home() {
 
                 <div className="grid grid-cols-2 gap-3 px-1 mt-2">
                     <Link href="/income">
-                        <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-emerald-400 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
+                        <div className="bg-emerald-50/80 p-4 rounded-[24px] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all border border-emerald-100/50">
                             <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                                     <ArrowDownLeft className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
                                 </div>
-                                <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pemasukan</p>
+                                <p className="text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider truncate">Pemasukan</p>
                             </div>
                             <div className="mt-1">
-                                <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
+                                <p className="text-lg font-black text-emerald-950 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
                             </div>
                         </div>
                     </Link>
                     <Link href="/expense">
-                        <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-rose-400 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
+                        <div className="bg-rose-50/80 p-4 rounded-[24px] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all border border-rose-100/50">
                             <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
-                                    <ArrowUpRight className="w-4 h-4 text-rose-500" strokeWidth={2.5} />
+                                <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                                    <ArrowUpRight className="w-4 h-4 text-rose-600" strokeWidth={2.5} />
                                 </div>
-                                <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pengeluaran</p>
+                                <p className="text-[11px] font-extrabold text-rose-700 uppercase tracking-wider truncate">Pengeluaran</p>
                             </div>
                             <div className="mt-1">
-                                <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
+                                <p className="text-lg font-black text-rose-950 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
                             </div>
                         </div>
                     </Link>
@@ -828,14 +828,14 @@ export default function Home() {
                     </div>
 
                     <div className="grid grid-cols-4 gap-y-7 gap-x-2 py-2">
-                        <MenuIconBox href="/forex" icon={DollarSign} label="Valas" />
-                        <MenuIconBox href="/debts" icon={HandCoins} label="Hutang" />
-                        <MenuIconBox href="/subscriptions" icon={RefreshCcw} label="Langganan" />
-                        <MenuIconBox href="/investment" icon={TrendingUp} label="Investasi" />
-                        <MenuIconBox href="/reports" icon={FileText} label="Laporan" />
-                        <MenuIconBox href="/scan" icon={ScanLine} label="Scan" />
-                        <MenuIconBox href="/amal" icon={HeartHandshake} label="Amal" />
-                        <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" />
+                        <MenuIconBox href="/forex" icon={DollarSign} label="Valas" bgClass="bg-blue-100" textClass="text-blue-600" />
+                        <MenuIconBox href="/debts" icon={HandCoins} label="Hutang" bgClass="bg-rose-100" textClass="text-rose-600" />
+                        <MenuIconBox href="/subscriptions" icon={RefreshCcw} label="Langganan" bgClass="bg-emerald-100" textClass="text-emerald-600" />
+                        <MenuIconBox href="/investment" icon={TrendingUp} label="Investasi" bgClass="bg-purple-100" textClass="text-purple-600" />
+                        <MenuIconBox href="/reports" icon={FileText} label="Laporan" bgClass="bg-amber-100" textClass="text-amber-600" />
+                        <MenuIconBox href="/scan" icon={ScanLine} label="Scan" bgClass="bg-teal-100" textClass="text-teal-600" />
+                        <MenuIconBox href="/amal" icon={HeartHandshake} label="Amal" bgClass="bg-pink-100" textClass="text-pink-600" />
+                        <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" bgClass="bg-slate-200" textClass="text-slate-600" />
                     </div>
                 </div>
 
@@ -890,36 +890,38 @@ export default function Home() {
                     </Link>
                 </div>
 
-                <div className="flex flex-col gap-4 mt-2 px-1">
-                    <Link href="/chat-ai">
-                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
-                            <div className="flex items-center gap-4 z-10">
-                                <div className="w-12 h-12 rounded-full bg-brand-navyTintLight flex items-center justify-center shrink-0">
-                                    <Bot className="w-6 h-6 text-brand-navy" strokeWidth={2.25} />
+                <div className="px-1 mt-4">
+                    <div className="flex justify-between items-center mb-4 px-1">
+                        <h3 className="font-bold text-slate-800 text-sm flex items-center">
+                            <span className="w-1.5 h-1.5 rounded-full bg-brand-gold mr-2"></span>
+                            Insight Pintar
+                        </h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <Link href="/chat-ai">
+                            <div className="bg-white rounded-[24px] p-4 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] cursor-pointer flex flex-col justify-between active:scale-[0.97] transition-all h-full">
+                                <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center mb-3">
+                                    <Bot className="w-5 h-5 text-indigo-500" strokeWidth={2.25} />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
-                                    <p className="text-xs text-slate-500 mt-0.5">Konsultasi cerdas 24/7</p>
+                                    <h3 className="font-bold text-slate-800 text-sm leading-tight mb-1">Tanya AI Assistant</h3>
+                                    <p className="text-[10px] text-slate-500 font-medium">Konsultasi cerdas 24/7</p>
                                 </div>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-slate-300 z-10" />
-                        </div>
-                    </Link>
+                        </Link>
 
-                    <Link href="/performance">
-                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-                                    <BarChart3 className="w-6 h-6 text-amber-600" strokeWidth={2.25} />
+                        <Link href="/performance">
+                            <div className="bg-white rounded-[24px] p-4 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] cursor-pointer flex flex-col justify-between active:scale-[0.97] transition-all h-full">
+                                <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center mb-3">
+                                    <BarChart3 className="w-5 h-5 text-amber-500" strokeWidth={2.25} />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-slate-800 text-base">Analisa Performa</h3>
-                                    <p className="text-xs text-slate-500 mt-0.5">Pantau target & grafikmu</p>
+                                    <h3 className="font-bold text-slate-800 text-sm leading-tight mb-1">Analisa Performa</h3>
+                                    <p className="text-[10px] text-slate-500 font-medium">Pantau target & grafikmu</p>
                                 </div>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-slate-300" />
-                        </div>
-                    </Link>
+                        </Link>
+                    </div>
                 </div>
 
                 <div className="mt-8 mb-6 flex flex-col items-center justify-center opacity-60 px-4 text-center">
@@ -933,15 +935,12 @@ export default function Home() {
     );
 }
 
-function MenuIconBox({ href, icon: Icon, label }: any) {
+function MenuIconBox({ href, icon: Icon, label, bgClass, textClass }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-b from-[#F6B93B]/35 to-[#F6B93B]/5 flex items-center justify-center group-hover:from-[#F6B93B]/50 transition-all">
-                    <div className="relative w-7 h-7 group-hover:-translate-y-0.5 transition-transform">
-                        <Icon className="absolute inset-0 w-7 h-7 text-brand-gold" strokeWidth={4.5} />
-                        <Icon className="absolute inset-0 w-7 h-7 text-brand-navy" strokeWidth={2.5} />
-                    </div>
+                <div className={`w-14 h-14 rounded-full ${bgClass} flex items-center justify-center transition-all`}>
+                    <Icon className={`w-7 h-7 ${textClass}`} strokeWidth={2.5} />
                 </div>
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
             </div>
