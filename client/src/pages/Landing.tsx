@@ -151,7 +151,7 @@ export default function Landing() {
         {/* 🚀 HEADER */}
         <header className="px-5 sm:px-6 lg:px-10 pt-6 pb-2 animate-in slide-in-from-top-4 fade-in duration-500 w-full lg:pt-10">
           <div className="bg-white rounded-[20px] p-3.5 lg:p-4 flex items-center justify-center shadow-lg shadow-black/20 border border-slate-100 w-full max-w-7xl mx-auto">
-            <img src="/Bilano_horiz_rbg.png" alt="Bilano Logo" className="h-8 md:h-10 object-contain" />
+            <img src="/BILANO-LOGO-NEW.png" alt="Bilano Logo" className="h-8 md:h-10 object-contain" />
           </div>
         </header>
 
@@ -341,7 +341,7 @@ export default function Landing() {
 
         {/* 🚀 FOOTER */}
         <footer className="mt-auto pb-10 pt-10 text-center relative z-10 border-t border-white/5 w-full flex flex-col items-center px-4">
-            <img src="/Bilano_horiz_rbg.png" alt="Bilano" className="h-5 mx-auto mb-6 opacity-50 grayscale mix-blend-screen" />
+            <img src="/BILANO-LOGO-NEW.png" alt="Bilano" className="h-5 mx-auto mb-6 opacity-50 grayscale mix-blend-screen" />
             <div className="flex flex-col md:flex-row justify-center items-center gap-3 md:gap-8 mb-8 text-slate-400 text-xs md:text-[13px] font-medium">
               <div className="flex items-center gap-2 hover:text-amber-400 transition-colors cursor-default">
                 <Mail className="w-4 h-4 text-slate-500" />
