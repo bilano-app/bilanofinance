@@ -890,34 +890,34 @@ export default function Home() {
                     </Link>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 mt-2 px-1">
+                <div className="flex flex-col gap-4 mt-2 px-1">
                     <Link href="/chat-ai">
-                        <div className="bg-white rounded-[24px] p-4 border border-slate-100 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col items-start gap-3 active:scale-[0.98] transition-all relative overflow-hidden group h-full">
-                            <div className="w-12 h-12 rounded-full bg-brand-navyTintLight flex items-center justify-center shrink-0">
-                                <Bot className="w-6 h-6 text-brand-navy" strokeWidth={2.25} />
+                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
+                            <div className="flex items-center gap-4 z-10">
+                                <div className="w-12 h-12 rounded-full bg-brand-navyTintLight flex items-center justify-center shrink-0">
+                                    <Bot className="w-6 h-6 text-brand-navy" strokeWidth={2.25} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
+                                    <p className="text-xs text-slate-500 mt-0.5">Konsultasi cerdas 24/7</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="font-bold text-slate-800 text-sm leading-tight">AI Assistant</h3>
-                                <p className="text-[11px] text-slate-500 mt-1 leading-snug">Konsultasi cerdas</p>
-                            </div>
-                            <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <ChevronRight className="w-4 h-4 text-slate-300" />
-                            </div>
+                            <ChevronRight className="w-5 h-5 text-slate-300 z-10" />
                         </div>
                     </Link>
 
                     <Link href="/performance">
-                        <div className="bg-white rounded-[24px] p-4 border border-slate-100 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col items-start gap-3 active:scale-[0.98] transition-all relative overflow-hidden group h-full">
-                            <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-                                <BarChart3 className="w-6 h-6 text-amber-600" strokeWidth={2.25} />
+                        <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all group">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                                    <BarChart3 className="w-6 h-6 text-amber-600" strokeWidth={2.25} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-base">Analisa Performa</h3>
+                                    <p className="text-xs text-slate-500 mt-0.5">Pantau target & grafikmu</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="font-bold text-slate-800 text-sm leading-tight">Performa</h3>
-                                <p className="text-[11px] text-slate-500 mt-1 leading-snug">Pantau targetmu</p>
-                            </div>
-                            <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <ChevronRight className="w-4 h-4 text-slate-300" />
-                            </div>
+                            <ChevronRight className="w-5 h-5 text-slate-300" />
                         </div>
                     </Link>
                 </div>
@@ -937,13 +937,9 @@ function MenuIconBox({ href, icon: Icon, label }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className="relative w-14 h-14">
-                    <div className="absolute inset-0 bg-brand-navy/40 rounded-full blur-md translate-y-1.5 scale-90"></div>
-                    <div className="relative w-14 h-14 rounded-full bg-brand-navy flex items-center justify-center group-hover:bg-slate-900 transition-all border border-white/5">
-                        <div className="relative w-7 h-7 group-hover:-translate-y-0.5 transition-transform">
-                            <Icon className="absolute inset-0 w-7 h-7 text-amber-700/60 translate-y-[2px]" strokeWidth={3} />
-                            <Icon className="absolute inset-0 w-7 h-7 text-brand-gold" strokeWidth={2.5} />
-                        </div>
+                <div className="w-14 h-14 rounded-full bg-brand-navyTintLight flex items-center justify-center group-hover:bg-brand-navyTintMed transition-all">
+                    <div className="relative w-7 h-7 group-hover:-translate-y-0.5 transition-transform">
+                        <Icon className="absolute inset-0 w-7 h-7 text-brand-navy" strokeWidth={2.5} />
                     </div>
                 </div>
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
