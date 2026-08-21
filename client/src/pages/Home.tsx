@@ -890,24 +890,24 @@ export default function Home() {
                     </Link>
                 </div>
 
-                <div className="flex flex-col gap-4 mt-2 px-1">
+                <div className="grid grid-cols-2 gap-3 mt-2 px-1">
                     <Link href="/chat-ai">
-                        <div className="bg-white rounded-[24px] p-6 border-2 border-slate-100 border-b-[6px] border-b-brand-navy shadow-[4px_4px_0px_0px] shadow-slate-200 cursor-pointer flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all group">
-                            <div className="w-14 h-14 rounded-full bg-brand-navyTintLight flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                <Bot className="w-7 h-7 text-brand-navy" strokeWidth={2.25} />
+                        <div className="aspect-square bg-white rounded-[24px] p-3 border-2 border-slate-100 border-b-[6px] border-b-brand-navy shadow-[4px_4px_0px_0px] shadow-slate-200 cursor-pointer flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all group">
+                            <div className="w-12 h-12 rounded-full bg-brand-navyTintLight flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                                <Bot className="w-6 h-6 text-brand-navy" strokeWidth={2.25} />
                             </div>
-                            <h3 className="font-black text-slate-800 text-base">Tanya AI Assistant</h3>
-                            <p className="text-xs text-slate-500 mt-1 font-medium">Konsultasi cerdas 24/7</p>
+                            <h3 className="font-black text-slate-800 text-[13px] leading-tight">Tanya AI</h3>
+                            <p className="text-[10px] text-slate-500 mt-1 font-medium leading-snug px-1">Konsultasi 24/7</p>
                         </div>
                     </Link>
 
                     <Link href="/performance">
-                        <div className="bg-white rounded-[24px] p-6 border-2 border-slate-100 border-b-[6px] border-b-amber-400 shadow-[4px_4px_0px_0px] shadow-slate-200 cursor-pointer flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all group">
-                            <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                <BarChart3 className="w-7 h-7 text-amber-600" strokeWidth={2.25} />
+                        <div className="aspect-square bg-white rounded-[24px] p-3 border-2 border-slate-100 border-b-[6px] border-b-amber-400 shadow-[4px_4px_0px_0px] shadow-slate-200 cursor-pointer flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all group">
+                            <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                                <BarChart3 className="w-6 h-6 text-amber-600" strokeWidth={2.25} />
                             </div>
-                            <h3 className="font-black text-slate-800 text-base">Analisa Performa</h3>
-                            <p className="text-xs text-slate-500 mt-1 font-medium">Pantau target & grafikmu</p>
+                            <h3 className="font-black text-slate-800 text-[13px] leading-tight">Performa</h3>
+                            <p className="text-[10px] text-slate-500 mt-1 font-medium leading-snug px-1">Pantau targetmu</p>
                         </div>
                     </Link>
                 </div>
