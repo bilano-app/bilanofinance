@@ -463,7 +463,7 @@ export default function Home() {
         <MobileLayout>
             {showPremiumPrompt && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-[#0F2247] rounded-[32px] w-full max-w-sm shadow-[10px_10px_0px_0px_rgba(0,0,0,0.25)] relative animate-in zoom-in-95 text-center overflow-hidden border border-[#F6B93B]/20">
+                    <div className="bg-slate-900 rounded-[32px] w-full max-w-sm shadow-[10px_10px_0px_0px_rgba(0,0,0,0.25)] relative animate-in zoom-in-95 text-center overflow-hidden border border-brand-gold/20">
                         <div className="p-8 relative z-10">
                             <img
                                 src="/BILANO-PREMIUM.png"
@@ -472,7 +472,7 @@ export default function Home() {
                             />
 
                             <h2 className="text-3xl font-black text-white mb-3 tracking-tighter italic">
-                                BILANO <span className="text-[#F6B93B]">PREMIUM</span>
+                                BILANO <span className="text-brand-gold">PREMIUM</span>
                             </h2>
 
                             <p className="text-sm text-blue-100/70 mb-8 leading-relaxed font-medium">
@@ -482,7 +482,7 @@ export default function Home() {
                             <div className="space-y-3">
                                 <Button
                                     onClick={() => { handleClosePremiumPrompt(); setLocation('/paywall'); }}
-                                    className="w-full h-14 bg-[#F6B93B] hover:bg-[#e5aa2e] text-[#1D3E72] rounded-2xl font-black text-sm shadow-[5px_5px_0px_0px_#1D3E72] active:shadow-[2px_2px_0px_0px_#1D3E72] active:translate-x-[3px] active:translate-y-[3px] transition-all"
+                                    className="w-full h-14 bg-brand-gold hover:bg-brand-goldDark text-brand-navy rounded-2xl font-black text-sm shadow-[5px_5px_0px_0px] shadow-brand-navy active:shadow-[2px_2px_0px_0px] active:shadow-brand-navy active:translate-x-[3px] active:translate-y-[3px] transition-all"
                                 >
                                     PILIH PAKET AKSES
                                 </Button>
@@ -501,20 +501,20 @@ export default function Home() {
 
             {pendingFeatureModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-[#1D3E72] rounded-[32px] p-6 max-w-sm w-full shadow-[10px_10px_0px_0px_rgba(0,0,0,0.2)] relative animate-in zoom-in-95 text-center overflow-hidden border border-[#F6B93B]/25">
+                    <div className="bg-brand-navy rounded-[32px] p-6 max-w-sm w-full shadow-[10px_10px_0px_0px_rgba(0,0,0,0.2)] relative animate-in zoom-in-95 text-center overflow-hidden border border-brand-gold/25">
                         <button onClick={() => setPendingFeatureModal(null)} className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10"><X className="w-5 h-5" /></button>
 
-                        <div className="w-20 h-20 bg-[#F6B93B] rounded-full flex items-center justify-center mx-auto mb-5 relative z-10">
-                            <Rocket className="w-10 h-10 text-[#1D3E72]" strokeWidth={2.25} />
+                        <div className="w-20 h-20 bg-brand-gold rounded-full flex items-center justify-center mx-auto mb-5 relative z-10">
+                            <Rocket className="w-10 h-10 text-brand-navy" strokeWidth={2.25} />
                         </div>
 
                         <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Segera Hadir! 🚀</h2>
                         <p className="text-sm text-blue-100 mb-6 leading-relaxed px-2 font-medium">
-                            Fitur <b className="text-[#F6B93B]">{pendingFeatureModal.title}</b> saat ini sedang dalam perakitan tahap akhir oleh tim kami. <br /><br />
+                            Fitur <b className="text-brand-gold">{pendingFeatureModal.title}</b> saat ini sedang dalam perakitan tahap akhir oleh tim kami. <br /><br />
                             {pendingFeatureModal.desc}
                         </p>
 
-                        <Button onClick={() => setPendingFeatureModal(null)} className="w-full h-14 bg-white hover:bg-slate-100 text-[#1D3E72] rounded-full font-black text-[13px] shadow-[5px_5px_0px_0px_#0F2247] active:shadow-[2px_2px_0px_0px_#0F2247] active:translate-x-[3px] active:translate-y-[3px] transition-all flex items-center justify-center gap-2 relative z-10">
+                        <Button onClick={() => setPendingFeatureModal(null)} className="w-full h-14 bg-white hover:bg-slate-100 text-brand-navy rounded-full font-black text-[13px] shadow-[5px_5px_0px_0px] shadow-slate-900 active:shadow-[2px_2px_0px_0px] active:shadow-slate-900 active:translate-x-[3px] active:translate-y-[3px] transition-all flex items-center justify-center gap-2 relative z-10">
                             <CheckCircle2 className="w-5 h-5" /> SAYA MENGERTI
                         </Button>
                     </div>
@@ -523,7 +523,7 @@ export default function Home() {
 
             <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
                 {showGuideTooltip && (
-                    <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-[#1D3E72] p-4 rounded-[20px] shadow-[6px_6px_0px_#0F2247] animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
+                    <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-brand-navy p-4 rounded-[20px] shadow-[6px_6px_0px_0px] shadow-slate-900 animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
                         <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-full hover:bg-slate-100">
                             <X className="w-4 h-4" />
                         </button>
@@ -533,13 +533,13 @@ export default function Home() {
                         <p className="text-[11px] text-slate-600 leading-relaxed font-bold pr-2">
                             Baru pertama kali pakai BILANO? Klik buku pintar ini untuk melihat panduan lengkap cara memaksimalkan seluruh fitur canggih kami!
                         </p>
-                        <div className="absolute bottom-[14px] -right-[10px] w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[10px] border-l-[#1D3E72]"></div>
+                        <div className="absolute bottom-[14px] -right-[10px] w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[10px] border-l-brand-navy"></div>
                         <div className="absolute bottom-[16px] -right-[7px] w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[8px] border-l-white"></div>
                     </div>
                 )}
 
                 <Link href="/help">
-                    <button className="w-12 h-12 bg-[#F6B93B] text-[#1D3E72] rounded-full shadow-[3px_3px_0px_0px_#1D3E72] active:shadow-[1px_1px_0px_0px_#1D3E72] active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center transition-all group relative">
+                    <button className="w-12 h-12 bg-brand-gold text-brand-navy rounded-full shadow-[3px_3px_0px_0px] shadow-brand-navy active:shadow-[1px_1px_0px_0px] active:shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center transition-all group relative">
                         <HelpCircle className="w-6 h-6" strokeWidth={2.25} />
                         <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                             Pusat Bantuan
@@ -548,7 +548,7 @@ export default function Home() {
                 </Link>
 
                 <Link href="/guide">
-                    <button onClick={dismissGuideTooltip} className="w-12 h-12 bg-[#1D3E72] text-[#F6B93B] rounded-full shadow-[3px_3px_0px_0px_#0F2247] active:shadow-[1px_1px_0px_0px_#0F2247] active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center transition-all group relative">
+                    <button onClick={dismissGuideTooltip} className="w-12 h-12 bg-brand-navy text-brand-gold rounded-full shadow-[3px_3px_0px_0px] shadow-slate-900 active:shadow-[1px_1px_0px_0px] active:shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center transition-all group relative">
                         <Notebook className="w-6 h-6" strokeWidth={2.25} />
                         <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                             Panduan Fitur
@@ -559,8 +559,8 @@ export default function Home() {
 
             {dueSub && (
                 <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in zoom-in-95">
-                    <div className={`bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 ${dueSub.category === 'dinamis' ? 'border-amber-500' : 'border-[#1D3E72]'}`}>
-                        <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${dueSub.category === 'dinamis' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-[#1D3E72]'}`}>
+                    <div className={`bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl relative text-center border-t-8 ${dueSub.category === 'dinamis' ? 'border-amber-500' : 'border-brand-navy'}`}>
+                        <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${dueSub.category === 'dinamis' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-brand-navy'}`}>
                             {dueSub.category === 'dinamis' ? <AlertTriangle className="w-8 h-8" /> : <RefreshCcw className="w-8 h-8" />}
                         </div>
                         <h3 className="text-xl font-extrabold text-slate-800 mb-2">Tagihan Jatuh Tempo!</h3>
@@ -585,7 +585,7 @@ export default function Home() {
                         )}
 
                         <div className="space-y-3">
-                            <Button onClick={handlePaySub} className={`w-full h-14 rounded-full text-white font-extrabold shadow-lg active:scale-95 transition-transform ${dueSub.category === 'dinamis' ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200' : 'bg-[#1D3E72] hover:bg-[#0F2247] shadow-blue-200'}`}>
+                            <Button onClick={handlePaySub} className={`w-full h-14 rounded-full text-white font-extrabold shadow-lg active:scale-95 transition-transform ${dueSub.category === 'dinamis' ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200' : 'bg-brand-navy hover:bg-slate-900 shadow-blue-200'}`}>
                                 {dueSub.category === 'dinamis' ? 'BAYAR & CATAT SEKARANG' : 'YA, CATAT PENGELUARAN'}
                             </Button>
                             <Button variant="ghost" onClick={handleSkipSub} className="w-full h-12 rounded-full font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">
@@ -612,7 +612,7 @@ export default function Home() {
 
                         <div className="space-y-4 mb-8">
                             <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                                <div className="bg-blue-100 p-2.5 rounded-full text-[#1D3E72]"><BellRing className="w-5 h-5" /></div>
+                                <div className="bg-blue-100 p-2.5 rounded-full text-brand-navy"><BellRing className="w-5 h-5" /></div>
                                 <div>
                                     <h4 className="font-bold text-slate-800 text-sm">Notifikasi Pengingat</h4>
                                     <p className="text-[11px] text-slate-500 mt-0.5">Biar kamu gak lupa catat jajan hari ini.</p>
@@ -626,7 +626,7 @@ export default function Home() {
                                 </div>
                             </div>
                             <div className="flex gap-4 items-center bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                                <div className="bg-blue-100 p-2.5 rounded-full text-[#1D3E72]"><Camera className="w-5 h-5" /></div>
+                                <div className="bg-blue-100 p-2.5 rounded-full text-brand-navy"><Camera className="w-5 h-5" /></div>
                                 <div>
                                     <h4 className="font-bold text-slate-800 text-sm">Akses Kamera</h4>
                                     <p className="text-[11px] text-slate-500 mt-0.5">Biar bisa scan struk belanja otomatis.</p>
@@ -638,7 +638,7 @@ export default function Home() {
                             <Button
                                 onClick={requestAllPermissions}
                                 disabled={isRequestingPerms}
-                                className="w-full h-14 bg-[#1D3E72] hover:bg-[#0F2247] text-white text-lg font-extrabold rounded-full shadow-lg shadow-blue-200 active:scale-95 transition-transform"
+                                className="w-full h-14 bg-brand-navy hover:bg-slate-900 text-white text-lg font-extrabold rounded-full shadow-lg shadow-blue-200 active:scale-95 transition-transform"
                             >
                                 {isRequestingPerms ? <Loader2 className="w-6 h-6 animate-spin" /> : "IZINKAN SEMUA"}
                             </Button>
@@ -676,7 +676,7 @@ export default function Home() {
                         {user?.profilePicture ? (
                             <img src={user.profilePicture} alt="Profile Large" className="max-w-full max-h-[80vh] rounded-full border-4 border-white shadow-2xl" />
                         ) : (
-                            <div className="w-64 h-64 bg-[#1D3E72] rounded-full flex items-center justify-center text-white font-bold text-6xl border-4 border-white">
+                            <div className="w-64 h-64 bg-brand-navy rounded-full flex items-center justify-center text-white font-bold text-6xl border-4 border-white">
                                 {greetingName.charAt(0).toUpperCase()}
                             </div>
                         )}
@@ -691,7 +691,7 @@ export default function Home() {
                             {user?.profilePicture ? (
                                 <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
                             ) : (
-                                <div className="w-full h-full bg-[#1D3E72] flex items-center justify-center text-white font-bold text-lg">
+                                <div className="w-full h-full bg-brand-navy flex items-center justify-center text-white font-bold text-lg">
                                     {greetingName.charAt(0).toUpperCase()}
                                 </div>
                             )}
@@ -708,10 +708,10 @@ export default function Home() {
 
                                 {user ? (
                                     user.isPro === true ? (
-                                        <Crown className="w-4 h-4 text-[#F6B93B] shrink-0" fill="#F6B93B" />
+                                        <Crown className="w-4 h-4 text-brand-gold shrink-0" fill="currentColor" />
                                     ) : (
                                         <Link href="/paywall">
-                                            <span className="text-amber-600 font-bold text-[11px] leading-tight flex items-center hover:text-amber-700 transition-colors cursor-pointer shrink-0">
+                                            <span className="text-brand-gold font-bold text-[11px] leading-tight flex items-center hover:text-brand-goldDark transition-colors cursor-pointer shrink-0">
                                                 UPGRADE
                                             </span>
                                         </Link>
@@ -724,7 +724,7 @@ export default function Home() {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={handleRefresh}
-                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-[#1D3E72] hover:text-[#0F2247] active:scale-90 transition-all shrink-0"
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-brand-navy hover:text-slate-900 active:scale-90 transition-all shrink-0"
                             title="Refresh Aplikasi"
                         >
                             <RefreshCcw className="w-4 h-4" />
@@ -765,7 +765,7 @@ export default function Home() {
 
                 {/* Kartu Saldo — flat navy + gold, tanpa gradient/blur-orb. 
             Aksen strip emas di kiri jadi "signature" yang diulang di kartu premium. */}
-                <div className="bg-[#1D3E72] text-white p-6 rounded-[28px] border-l-[6px] border-[#F6B93B] shadow-[8px_8px_0px_0px_#0F2247] relative overflow-hidden">
+                <div className="bg-brand-navy text-white p-6 rounded-[28px] border-l-[6px] border-brand-gold shadow-[8px_8px_0px_0px] shadow-slate-900 relative overflow-hidden">
                     {/* Efek buletan dan kilau persis sesuai referensi lama */}
                     <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
                     <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
@@ -773,7 +773,7 @@ export default function Home() {
                     <div className="relative z-10 flex flex-col pt-2 pb-4">
                         <div className="flex justify-between items-center mb-1">
                             <p className="text-[11px] font-bold text-blue-200/80 uppercase tracking-widest">Saldo Kas</p>
-                            <button onClick={togglePrivacy} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-[#F6B93B]">
+                            <button onClick={togglePrivacy} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-brand-gold">
                                 {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
                         </div>
@@ -822,7 +822,7 @@ export default function Home() {
                 <div className="px-1 mt-2">
                     <div className="flex justify-between items-center mb-4 px-1">
                         <h3 className="font-bold text-slate-800 text-sm flex items-center">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#F6B93B] mr-2"></span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-brand-gold mr-2"></span>
                             Fitur Pilihan
                         </h3>
                     </div>
@@ -841,50 +841,50 @@ export default function Home() {
 
                 <div className="px-1 mt-4 mb-2 space-y-3">
                     <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px] flex items-center">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#F6B93B] mr-2"></span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-brand-gold mr-2"></span>
                         Eksklusif Premium
                     </h3>
 
                     {/* Tampilan Menu Premium pada Home.tsx */}
                     <Link href="/wealth-blueprint">
-                        <div className="bg-[#1D3E72] rounded-[24px] p-5 border-l-[6px] border-[#F6B93B] shadow-[6px_6px_0px_0px_#0F2247] cursor-pointer active:shadow-[3px_3px_0px_0px_#0F2247] active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group mb-3">
+                        <div className="bg-brand-navy rounded-[24px] p-5 border-l-[6px] border-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 cursor-pointer active:shadow-[3px_3px_0px_0px] active:shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group mb-3">
                             <Banknote className="absolute -right-2 -bottom-2 w-28 h-28 text-white/[0.05] -rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:-rotate-6" strokeWidth={1} />
                             <div className="flex items-center justify-between relative z-10">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-2xl bg-[#F6B93B] flex items-center justify-center shrink-0 shadow-inner">
-                                        <Banknote className="w-7 h-7 text-[#1D3E72]" strokeWidth={2.25} />
+                                    <div className="w-14 h-14 rounded-2xl bg-brand-gold flex items-center justify-center shrink-0 shadow-inner">
+                                        <Banknote className="w-7 h-7 text-brand-navy" strokeWidth={2.25} />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                                             {/* UBAH JUDUL DI SINI */}
                                             <h3 className="font-black text-white text-base tracking-tight">Pembimbing Penghasilan</h3>
-                                            <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-md border border-emerald-500/30 uppercase tracking-wider">LIVE</span>
+                                            <span className="bg-brand-goldTintMed text-brand-goldDark text-[9px] font-black px-2 py-0.5 rounded-md border border-brand-gold uppercase tracking-wider">LIVE</span>
                                         </div>
                                         {/* UBAH SUBJUDUL DI SINI */}
                                         <p className="text-[11px] text-blue-200/70 font-medium">Strategi & Peta Jalur Cuan AI</p>
                                     </div>
                                 </div>
-                                <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-[#F6B93B] group-hover:translate-x-0.5 transition-all shrink-0" />
+                                <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-brand-gold group-hover:translate-x-0.5 transition-all shrink-0" />
                             </div>
                         </div>
                     </Link>
 
                     <Link href="/academy">
-                        <div className="bg-[#F6B93B] rounded-[24px] p-5 border-l-[6px] border-[#1D3E72] shadow-[6px_6px_0px_0px_#1D3E72] cursor-pointer active:shadow-[3px_3px_0px_0px_#1D3E72] active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group">
-                            <BookOpen className="absolute -right-4 -bottom-4 w-32 h-32 text-[#1D3E72]/10 rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-6" strokeWidth={1} />
+                        <div className="bg-brand-gold rounded-[24px] p-5 border-l-[6px] border-brand-navy shadow-[6px_6px_0px_0px] shadow-brand-navy cursor-pointer active:shadow-[3px_3px_0px_0px] shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group">
+                            <BookOpen className="absolute -right-4 -bottom-4 w-32 h-32 text-brand-navy/10 rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-6" strokeWidth={1} />
                             <div className="flex items-center justify-between relative z-10">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-2xl bg-[#1D3E72] flex items-center justify-center shrink-0 shadow-inner">
-                                        <BookOpen className="w-7 h-7 text-[#F6B93B]" strokeWidth={2.25} />
+                                    <div className="w-14 h-14 rounded-2xl bg-brand-navy flex items-center justify-center shrink-0 shadow-inner">
+                                        <BookOpen className="w-7 h-7 text-brand-gold" strokeWidth={2.25} />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2 mb-1">
-                                            <h3 className="font-black text-[#1D3E72] text-base tracking-tight">BILANO Academy</h3>
+                                            <h3 className="font-black text-brand-navy text-base tracking-tight">BILANO Academy</h3>
                                         </div>
-                                        <p className="text-[11px] text-[#1D3E72]/80 font-bold">E-Book & Panduan Finansial VIP</p>
+                                        <p className="text-[11px] text-brand-navy/80 font-bold">E-Book & Panduan Finansial VIP</p>
                                     </div>
                                 </div>
-                                <ChevronRight className="w-5 h-5 text-[#1D3E72]/40 group-hover:text-[#1D3E72] transition-colors shrink-0" />
+                                <ChevronRight className="w-5 h-5 text-brand-navy/40 group-hover:text-brand-navy transition-colors shrink-0" />
                             </div>
                         </div>
                     </Link>
@@ -894,8 +894,8 @@ export default function Home() {
                     <Link href="/chat-ai">
                         <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex items-center justify-between active:scale-[0.98] transition-all relative overflow-hidden group">
                             <div className="flex items-center gap-4 z-10">
-                                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                                    <Bot className="w-6 h-6 text-[#1D3E72]" strokeWidth={2.25} />
+                                <div className="w-12 h-12 rounded-full bg-brand-navyTintLight flex items-center justify-center shrink-0">
+                                    <Bot className="w-6 h-6 text-brand-navy" strokeWidth={2.25} />
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-800 text-base">Tanya AI Assistant</h3>
@@ -937,10 +937,9 @@ function MenuIconBox({ href, icon: Icon, label }: any) {
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-b from-[#F6B93B]/35 to-[#F6B93B]/5 flex items-center justify-center group-hover:from-[#F6B93B]/50 transition-all">
+                <div className="w-14 h-14 rounded-full bg-brand-navyTintLight flex items-center justify-center group-hover:bg-brand-navyTintMed transition-all">
                     <div className="relative w-7 h-7 group-hover:-translate-y-0.5 transition-transform">
-                        <Icon className="absolute inset-0 w-7 h-7 text-[#F6B93B]" strokeWidth={4.5} />
-                        <Icon className="absolute inset-0 w-7 h-7 text-[#1D3E72]" strokeWidth={2.5} />
+                        <Icon className="absolute inset-0 w-7 h-7 text-brand-navy" strokeWidth={2.5} />
                     </div>
                 </div>
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
