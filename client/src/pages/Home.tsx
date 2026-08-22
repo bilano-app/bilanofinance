@@ -13,7 +13,7 @@ import {
     MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
     BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
     Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Sparkles, Banknote,
-    ArrowDownLeft, ArrowUpRight
+    ArrowDownLeft, ArrowUpRight, Send
 } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -686,7 +686,7 @@ export default function Home() {
 
             <div className="flex flex-col">
                 {/* TOP HEADER SECTION: Soft colored background banner */}
-                <div className="-mx-5 -mt-5 px-5 pt-5 pb-8 bg-gradient-to-b from-[#f1f5f9] to-[#dbe4f0] flex flex-col gap-5">
+                <div className="-mx-5 -mt-5 px-5 pt-5 pb-12 bg-gradient-to-b from-[#f1f5f9] to-[#dbe4f0] flex flex-col gap-5 rounded-t-[32px] -mb-8">
                     {/* 1. Header (Profile, Refresh, Undo, Menu) */}
                     <div className="flex items-center justify-between px-2 pt-2 relative">
                         <div className="flex items-center gap-3">
@@ -780,14 +780,44 @@ export default function Home() {
                                 </button>
                             </div>
 
-                            <h2 className={`${getBalanceTextSize(displayBalance)} font-black tracking-tight tabular-nums text-white mb-6 flex items-center h-10 whitespace-nowrap transition-all duration-300`}>
+                            <h2 className={`${getBalanceTextSize(displayBalance)} font-black tracking-tight tabular-nums text-white mb-3 flex items-center h-10 whitespace-nowrap transition-all duration-300`}>
                                 {displayBalance}
                             </h2>
 
-                            <div className="flex gap-3">
+                            <div className="flex justify-between items-center">
                                 <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 border border-white/10 px-3 py-1.5 rounded-full">
                                     <span>IDR:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                                 </div>
+                            </div>
+
+                            {/* FITUR CEPAT DI DALAM KARTU */}
+                            <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-white/10">
+                                <Link href="/income">
+                                    <button className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform group">
+                                        <div className="w-10 h-10 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
+                                            <ArrowDownLeft className="w-5 h-5 text-emerald-400" strokeWidth={3} />
+                                        </div>
+                                        <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wide">Pemasukan</span>
+                                    </button>
+                                </Link>
+
+                                <Link href="/expense">
+                                    <button className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform group">
+                                        <div className="w-10 h-10 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
+                                            <ArrowUpRight className="w-5 h-5 text-rose-400" strokeWidth={3} />
+                                        </div>
+                                        <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wide">Pengeluaran</span>
+                                    </button>
+                                </Link>
+
+                                <Link href="/debts">
+                                    <button className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform group">
+                                        <div className="w-10 h-10 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
+                                            <Send className="w-5 h-5 text-brand-gold" strokeWidth={2.5} />
+                                        </div>
+                                        <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wide">Transfer</span>
+                                    </button>
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -795,35 +825,6 @@ export default function Home() {
 
                 {/* BOTTOM CONTENT SECTION: White container with rounded top corners (Patahan Border) */}
                 <div className="-mx-5 px-5 pt-7 pb-16 bg-white rounded-t-[32px] shadow-[0_-10px_30px_rgba(29,62,114,0.08)] flex flex-col gap-6 relative z-20">
-                    {/* 3. Grid Pemasukan & Pengeluaran */}
-                    <div className="grid grid-cols-2 gap-3 px-1">
-                        <Link href="/income">
-                            <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-emerald-400 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                                        <ArrowDownLeft className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
-                                    </div>
-                                    <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pemasukan</p>
-                                </div>
-                                <div className="mt-1">
-                                    <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
-                                </div>
-                            </div>
-                        </Link>
-                        <Link href="/expense">
-                            <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-rose-400 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
-                                        <ArrowUpRight className="w-4 h-4 text-rose-500" strokeWidth={2.5} />
-                                    </div>
-                                    <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pengeluaran</p>
-                                </div>
-                                <div className="mt-1">
-                                    <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
-                                </div>
-                            </div>
-                        </Link>
-                    </div>
 
                     {/* 4. Fitur Pilihan */}
                     <div className="px-1">
