@@ -685,137 +685,137 @@ export default function Home() {
             )}
 
             <div className="flex flex-col">
-                {/* TOP HEADER SECTION: Soft colored background banner */}
-                <div className="-mx-5 -mt-5 px-5 pt-5 pb-12 bg-gradient-to-b from-[#f1f5f9] to-[#dbe4f0] flex flex-col gap-5 rounded-t-[32px] -mb-8">
-                    {/* 1. Header (Profile, Refresh, Undo, Menu) */}
-                    <div className="flex items-center justify-between px-2 pt-2 relative">
-                        <div className="flex items-center gap-3">
-                            <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100 shrink-0">
-                                {user?.profilePicture ? (
-                                    <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full bg-brand-navy flex items-center justify-center text-white font-bold text-lg">
-                                        {greetingName.charAt(0).toUpperCase()}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex flex-col">
-                                <p className="text-xs font-medium text-slate-500 whitespace-nowrap">
-                                    Selamat datang
-                                </p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                    <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight truncate max-w-[130px]">
-                                        {greetingName}
-                                    </h2>
-
-                                    {user ? (
-                                        user.isPro === true ? (
-                                            <Crown className="w-4 h-4 text-brand-gold shrink-0" fill="currentColor" />
-                                        ) : (
-                                            <Link href="/paywall">
-                                                <span className="text-brand-gold font-bold text-[11px] leading-tight flex items-center hover:text-brand-goldDark transition-colors cursor-pointer shrink-0">
-                                                    UPGRADE
-                                                </span>
-                                            </Link>
-                                        )
-                                    ) : null}
+                {/* WELCOME HEADER SECTION: Seamless white background under the logo header */}
+                <div className="-mx-5 -mt-5 px-5 pt-5 pb-5 bg-white flex items-center justify-between border-b border-slate-100 relative z-30">
+                    <div className="flex items-center gap-3">
+                        <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100 shrink-0">
+                            {user?.profilePicture ? (
+                                <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full bg-brand-navy flex items-center justify-center text-white font-bold text-lg">
+                                    {greetingName.charAt(0).toUpperCase()}
                                 </div>
-                            </div>
+                            )}
                         </div>
 
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={handleRefresh}
-                                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-brand-navy hover:text-slate-900 active:scale-90 transition-all shrink-0"
-                                title="Refresh Aplikasi"
-                            >
-                                <RefreshCcw className="w-4 h-4" />
-                            </button>
+                        <div className="flex flex-col">
+                            <p className="text-xs font-medium text-slate-500 whitespace-nowrap">
+                                Selamat datang
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight truncate max-w-[130px]">
+                                    {greetingName}
+                                </h2>
 
-                            <button
-                                onClick={handleUndo}
-                                disabled={undoTx.isPending}
-                                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all shrink-0"
-                                title="Batalkan Transaksi Terakhir"
-                            >
-                                {undoTx.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
-                            </button>
-
-                            <div className="relative shrink-0">
-                                <button
-                                    onClick={() => { setIsMenuOpen(!isMenuOpen); dismissGuideTooltip(); }}
-                                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 active:bg-slate-100 transition-colors"
-                                >
-                                    <MoreVertical className="w-4 h-4" />
-                                </button>
-
-                                {isMenuOpen && (
-                                    <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
-                                        <Link href="/profile">
-                                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400" /> Edit Profil & Sandi</button>
+                                {user ? (
+                                    user.isPro === true ? (
+                                        <Crown className="w-4 h-4 text-brand-gold shrink-0" fill="currentColor" />
+                                    ) : (
+                                        <Link href="/paywall">
+                                            <span className="text-brand-gold font-bold text-[11px] leading-tight flex items-center hover:text-brand-goldDark transition-colors cursor-pointer shrink-0">
+                                                UPGRADE
+                                            </span>
                                         </Link>
-                                        <Link href="/security">
-                                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400" /> Keamanan</button>
-                                        </Link>
-                                        <div className="h-px bg-slate-100 my-1 mx-2"></div>
-                                        <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500" /> Keluar</button>
-                                    </div>
-                                )}
+                                    )
+                                ) : null}
                             </div>
                         </div>
                     </div>
 
-                    {/* 2. Kartu Saldo — flat navy + gold dengan shadow */}
-                    <div className="bg-brand-navy text-white p-6 rounded-[28px] border-l-[6px] border-brand-gold shadow-[8px_8px_0px_0px] shadow-slate-900 relative overflow-hidden">
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleRefresh}
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-brand-navy hover:text-slate-900 active:scale-90 transition-all shrink-0"
+                            title="Refresh Aplikasi"
+                        >
+                            <RefreshCcw className="w-4 h-4" />
+                        </button>
+
+                        <button
+                            onClick={handleUndo}
+                            disabled={undoTx.isPending}
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all shrink-0"
+                            title="Batalkan Transaksi Terakhir"
+                        >
+                            {undoTx.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
+                        </button>
+
+                        <div className="relative shrink-0">
+                            <button
+                                onClick={() => { setIsMenuOpen(!isMenuOpen); dismissGuideTooltip(); }}
+                                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                            >
+                                <MoreVertical className="w-4 h-4" />
+                            </button>
+
+                            {isMenuOpen && (
+                                <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
+                                    <Link href="/profile">
+                                        <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400" /> Edit Profil & Sandi</button>
+                                    </Link>
+                                    <Link href="/security">
+                                        <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400" /> Keamanan</button>
+                                    </Link>
+                                    <div className="h-px bg-slate-100 my-1 mx-2"></div>
+                                    <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500" /> Keluar</button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* CARD SECTION BANNER: Soft colored gradient background, rounded at the top */}
+                <div className="-mx-5 px-5 pt-6 pb-12 bg-gradient-to-b from-[#f1f5f9] to-[#dbe4f0] rounded-t-[32px] flex flex-col gap-5 -mb-8 relative z-10">
+                    {/* 2. Kartu Saldo — flat navy + gold dengan shadow, lebih compact */}
+                    <div className="bg-brand-navy text-white p-5 rounded-[24px] border-l-[6px] border-brand-gold shadow-[8px_8px_0px_0px] shadow-slate-900 relative overflow-hidden">
                         {/* Efek buletan dan kilau */}
                         <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
                         <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
                         <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
-                        <div className="relative z-10 flex flex-col pt-2 pb-4">
+                        <div className="relative z-10 flex flex-col pt-1 pb-1">
                             <div className="flex justify-between items-center mb-1">
-                                <p className="text-[11px] font-bold text-blue-200/80 uppercase tracking-widest">Saldo Kas</p>
-                                <button onClick={togglePrivacy} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-brand-gold">
-                                    {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                <p className="text-[10px] font-bold text-blue-200/80 uppercase tracking-widest">Saldo Kas</p>
+                                <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-brand-gold">
+                                    {isPrivacyMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                                 </button>
                             </div>
 
-                            <h2 className={`${getBalanceTextSize(displayBalance)} font-black tracking-tight tabular-nums text-white mb-3 flex items-center h-10 whitespace-nowrap transition-all duration-300`}>
+                            <h2 className={`${getBalanceTextSize(displayBalance)} font-black tracking-tight tabular-nums text-white mb-2.5 flex items-center h-9 whitespace-nowrap transition-all duration-300`}>
                                 {displayBalance}
                             </h2>
 
                             <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 border border-white/10 px-3 py-1.5 rounded-full">
+                                <div className="flex items-center gap-1 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1 rounded-full">
                                     <span>IDR:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                                 </div>
                             </div>
 
-                            {/* FITUR CEPAT DI DALAM KARTU */}
-                            <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-white/10">
+                            {/* FITUR CEPAT DI DALAM KARTU (Transfer di Tengah, Lebih Ramping) */}
+                            <div className="grid grid-cols-3 gap-1 mt-4 pt-3.5 border-t border-white/10">
                                 <Link href="/income">
-                                    <button className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform group">
-                                        <div className="w-10 h-10 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
-                                            <ArrowDownLeft className="w-5 h-5 text-emerald-400" strokeWidth={3} />
+                                    <button className="flex flex-col items-center gap-1 active:scale-95 transition-transform group">
+                                        <div className="w-9 h-9 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
+                                            <ArrowDownLeft className="w-4.5 h-4.5 text-emerald-400" strokeWidth={3} />
                                         </div>
-                                        <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wide">Pemasukan</span>
-                                    </button>
-                                </Link>
-
-                                <Link href="/expense">
-                                    <button className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform group">
-                                        <div className="w-10 h-10 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
-                                            <ArrowUpRight className="w-5 h-5 text-rose-400" strokeWidth={3} />
-                                        </div>
-                                        <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wide">Pengeluaran</span>
+                                        <span className="text-[9px] font-bold text-blue-100 uppercase tracking-wider">Pemasukan</span>
                                     </button>
                                 </Link>
 
                                 <Link href="/debts">
-                                    <button className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform group">
-                                        <div className="w-10 h-10 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
-                                            <Send className="w-5 h-5 text-brand-gold" strokeWidth={2.5} />
+                                    <button className="flex flex-col items-center gap-1 active:scale-95 transition-transform group">
+                                        <div className="w-9 h-9 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
+                                            <Send className="w-4.5 h-4.5 text-brand-gold" strokeWidth={2.5} />
                                         </div>
-                                        <span className="text-[11px] font-bold text-blue-100 uppercase tracking-wide">Transfer</span>
+                                        <span className="text-[9px] font-bold text-blue-100 uppercase tracking-wider">Transfer</span>
+                                    </button>
+                                </Link>
+
+                                <Link href="/expense">
+                                    <button className="flex flex-col items-center gap-1 active:scale-95 transition-transform group">
+                                        <div className="w-9 h-9 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
+                                            <ArrowUpRight className="w-4.5 h-4.5 text-rose-400" strokeWidth={3} />
+                                        </div>
+                                        <span className="text-[9px] font-bold text-blue-100 uppercase tracking-wider">Pengeluaran</span>
                                     </button>
                                 </Link>
                             </div>
