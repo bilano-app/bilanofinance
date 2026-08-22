@@ -13,8 +13,10 @@ import {
     MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
     BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
     Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Sparkles, Banknote,
-    ArrowDownLeft, ArrowUpRight, Send
+    ArrowDownLeft, ArrowUpRight, Send, Target, Plus
 } from "lucide-react";
+import LegacyMigrationPopup from "@/components/LegacyMigrationPopup";
+import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -71,6 +73,7 @@ export default function Home() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isProfileZoomed, setIsProfileZoomed] = useState(false);
     const [showTargetModal, setShowTargetModal] = useState(false);
+    const [showOnboardingTargetPopup, setShowOnboardingTargetPopup] = useState(false);
     const [pendingFeatureModal, setPendingFeatureModal] = useState<{ title: string, desc: string } | null>(null);
 
     const [isPrivacyMode, setIsPrivacyMode] = useState(false);
@@ -95,6 +98,8 @@ export default function Home() {
     const [loadingTipIndex, setLoadingTipIndex] = useState(() => Math.floor(Math.random() * FINANCIAL_TIPS.length));
 
     const [showRetryButton, setShowRetryButton] = useState(false);
+    const [hasCompletedMigration, setHasCompletedMigration] = useState(false);
+    const [showSourcePopup, setShowSourcePopup] = useState(false);
 
     const isStandalone = typeof window !== 'undefined' &&
         (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
@@ -116,6 +121,11 @@ export default function Home() {
 
         const hasPrompted = localStorage.getItem("bilano_permissions_prompted");
         if (!hasPrompted) setShowPermissionPrompt(true);
+
+        if (localStorage.getItem("onboarding_just_finished") === "true") {
+            setShowOnboardingTargetPopup(true);
+            localStorage.removeItem("onboarding_just_finished");
+        }
     }, []);
 
     const isAnyDataLoading = isUserLoading || isTargetLoading || isTxLoading || isFxLoading || isSubLoading;
@@ -252,7 +262,18 @@ export default function Home() {
         setDueSub(due || null);
     }, [subscriptions]);
 
-    const handlePaySub = async () => {
+    const handlePaySubInit = () => {
+        if (!dueSub) return;
+        if (dueSub.category === 'dinamis' && !dynamicAmount) return;
+
+        if (user?.walletSources && (user.walletSources as any[]).length > 0) {
+            setShowSourcePopup(true);
+        } else {
+            handlePaySub();
+        }
+    };
+
+    const handlePaySub = async (selectedSource?: string) => {
         if (!dueSub) return;
         if (dueSub.category === 'dinamis' && !dynamicAmount) return;
 
@@ -266,7 +287,8 @@ export default function Home() {
                     amount: amountToPay,
                     category: "Tagihan Bulanan",
                     description: `Bayar Tagihan: ${dueSub.name}`,
-                    date: new Date(dueSub.nextPaymentDate)
+                    date: new Date(dueSub.nextPaymentDate),
+                    source: selectedSource
                 })
             });
 
@@ -325,7 +347,7 @@ export default function Home() {
     useEffect(() => {
         if (!isUserLoading && !isTargetLoading && target !== undefined) {
             if (isTargetEmpty) {
-                setLocation("/target");
+                setLocation("/setup-balance");
             }
         }
     }, [isTargetEmpty, isUserLoading, isTargetLoading, setLocation]);
@@ -459,8 +481,14 @@ export default function Home() {
     const income = baseIncomeTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'income').reduce((acc, v) => acc + v.amount, 0);
     const expense = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'expense').reduce((acc, v) => acc + v.amount, 0);
 
+    const needsMigration = user && !user.walletSources?.length && user.cashBalance > 0 && !hasCompletedMigration;
+
     return (
         <MobileLayout>
+            {needsMigration && (
+                <LegacyMigrationPopup onComplete={() => setHasCompletedMigration(true)} />
+            )}
+
             {showPremiumPrompt && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="bg-slate-900 rounded-[32px] w-full max-w-sm shadow-[10px_10px_0px_0px_rgba(0,0,0,0.25)] relative animate-in zoom-in-95 text-center overflow-hidden border border-brand-gold/20">
@@ -585,7 +613,7 @@ export default function Home() {
                         )}
 
                         <div className="space-y-3">
-                            <Button onClick={handlePaySub} className={`w-full h-14 rounded-full text-white font-extrabold shadow-lg active:scale-95 transition-transform ${dueSub.category === 'dinamis' ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200' : 'bg-brand-navy hover:bg-slate-900 shadow-blue-200'}`}>
+                            <Button onClick={handlePaySubInit} className={`w-full h-14 rounded-full text-white font-extrabold shadow-lg active:scale-95 transition-transform ${dueSub.category === 'dinamis' ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200' : 'bg-brand-navy hover:bg-slate-900 shadow-blue-200'}`}>
                                 {dueSub.category === 'dinamis' ? 'BAYAR & CATAT SEKARANG' : 'YA, CATAT PENGELUARAN'}
                             </Button>
                             <Button variant="ghost" onClick={handleSkipSub} className="w-full h-12 rounded-full font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50">
@@ -599,6 +627,19 @@ export default function Home() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showSourcePopup && (
+                <SourceSelectionPopup
+                    type="expense"
+                    title="Pilih Sumber Dana"
+                    description="Pilih dompet yang digunakan untuk membayar langganan ini"
+                    onCancel={() => setShowSourcePopup(false)}
+                    onSelect={(src) => {
+                        setShowSourcePopup(false);
+                        handlePaySub(src);
+                    }}
+                />
             )}
 
             {showPermissionPrompt && (
@@ -665,6 +706,31 @@ export default function Home() {
                         <div className="space-y-3">
                             <Button onClick={() => { dismissTargetModal(); setLocation('/target'); }} className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 font-bold rounded-full text-lg shadow-lg shadow-emerald-200">BUAT TARGET BARU</Button>
                             <Button variant="ghost" onClick={dismissTargetModal} className="w-full h-14 font-bold text-slate-400 hover:text-slate-600 rounded-full">BIARKAN SAJA</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showOnboardingTargetPopup && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-slate-100">
+                        <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-5 relative z-10">
+                            <Target className="w-10 h-10 text-emerald-600" strokeWidth={2.25} />
+                        </div>
+
+                        <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Buat Target Keuangan? 🎯</h2>
+                        <p className="text-[13px] text-slate-500 mb-6 leading-relaxed px-2 font-medium">
+                            Keren! Semua aset, utang, dan tagihanmu sudah tercatat rapi. <br/><br/>
+                            Mau sekalian pasang target tabungan atau batas pengeluaran biar keuanganmu makin terarah?
+                        </p>
+
+                        <div className="space-y-3">
+                            <Button onClick={() => { setShowOnboardingTargetPopup(false); setLocation('/target'); }} className="w-full h-14 bg-brand-navy text-white text-[13px] font-black rounded-full shadow-[5px_5px_0px_0px] shadow-slate-900 active:shadow-[2px_2px_0px_0px] active:translate-x-[3px] active:translate-y-[3px] transition-all flex items-center justify-center gap-2 relative z-10">
+                                YA, BUAT TARGET SEKARANG
+                            </Button>
+                            <Button variant="ghost" onClick={() => setShowOnboardingTargetPopup(false)} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full relative z-10">
+                                LEWATI (NANTI SAJA)
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -786,8 +852,25 @@ export default function Home() {
                             </h2>
 
                             <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-1 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1 rounded-full">
-                                    <span>IDR:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+                                <div className="flex w-full items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                    {user?.walletSources && (user.walletSources as any[]).length > 0 ? (
+                                        <>
+                                            {(user.walletSources as any[]).map((wallet: any, idx: number) => (
+                                                <div key={idx} className="flex items-center gap-1 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-3 py-1.5 rounded-full shrink-0">
+                                                    <span>{wallet.name}:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(wallet.balance).split(",")[0]}</span>
+                                                </div>
+                                            ))}
+                                            <Link href="/transfer">
+                                                <button className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-gold text-brand-navy shrink-0 ml-1 hover:bg-brand-goldDark transition-colors active:scale-95 shadow-sm">
+                                                    <Plus className="w-4 h-4" strokeWidth={3} />
+                                                </button>
+                                            </Link>
+                                        </>
+                                    ) : (
+                                        <div className="flex items-center gap-1 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1 rounded-full shrink-0">
+                                            <span>IDR:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

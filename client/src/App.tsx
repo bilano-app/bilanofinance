@@ -126,7 +126,8 @@ import Manager from "@/pages/Manager";
 import AcademyList from "@/pages/AcademyList";
 import AcademyReader from "@/pages/AcademyReader";
 import IncomeStrategy from "@/pages/IncomeStrategy";
-
+import SetupBalance from "@/pages/SetupBalance";
+import Transfer from "@/pages/Transfer";
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -289,6 +290,7 @@ function Router() {
         <Route path="/guide" component={Guide} />
         <Route path="/amal" component={Amal} /> 
         <Route path="/retained" component={Retained} />
+        <Route path="/setup-balance" component={SetupBalance} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/preview" component={VideoPreview} /> 
         <Route path="/checkout" component={Checkout} />
@@ -296,6 +298,7 @@ function Router() {
         <Route path="/wealth-blueprint" component={IncomeStrategy} />
         <Route path="/academy" component={AcademyList} />
         <Route path="/academy/:ebookId/read/:chapterNum" component={AcademyReader} />
+        <Route path="/transfer" component={Transfer} />
         
       
         <Route component={NotFound} />

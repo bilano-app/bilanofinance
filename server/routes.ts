@@ -148,6 +148,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_plan TEXT;`);
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_price BIGINT;`);
           
+          // 🔥 MULTI-WALLET SCHEMA UPDATES
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_sources JSON DEFAULT '[]';`);
+          await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source TEXT;`);
+          await db.execute(sql`ALTER TABLE debts ADD COLUMN IF NOT EXISTS source TEXT;`);
+          await db.execute(sql`ALTER TABLE investments ADD COLUMN IF NOT EXISTS sekuritas TEXT;`);
+          
           // 🚀 KOLOM PASSWORD SEMENTARA & MIGRASI AMAN (DIBIARKAN UTUH)
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_custom_password_set BOOLEAN DEFAULT FALSE;`);
           await db.execute(sql`UPDATE users SET is_custom_password_set = TRUE WHERE password IS NOT NULL AND length(password) > 6;`);
@@ -1033,7 +1039,7 @@ function parseCleanJson(text: string): any {
   app.post("/api/retained/:id/withdraw", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
-          const { amount } = req.body;
+          const { amount, source } = req.body;
           const result = await db.execute(sql`SELECT * FROM retained_balances WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
           const rows = Array.isArray(result) ? result : (result as any).rows || [];
           if (rows.length === 0) return res.status(404).json({ error: "Data tidak ditemukan" });
@@ -1051,6 +1057,15 @@ function parseCleanJson(text: string): any {
 
           const newBalance = Math.round(user!.cashBalance) + amountIDR;
           await storage.updateUserBalance(user!.id, newBalance);
+          
+          if (source) {
+              const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
+              const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+              if (wsIdx >= 0) {
+                  walletSources[wsIdx].balance += amountIDR;
+                  await storage.updateUserWalletSources(user!.id, walletSources);
+              }
+          }
 
           await storage.createTransaction(user!.id, { 
               userId: user!.id, 
@@ -1058,11 +1073,30 @@ function parseCleanJson(text: string): any {
               amount: amountIDR, 
               category: 'Pencairan Dana', 
               description: `Pencairan dari ${retained.source} (${amount} ${retained.currency})`, 
-              date: new Date() 
+              date: new Date(),
+              source: source || null
           } as any);
 
           res.json({ success: true, newBalance });
       } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/user/wallet-sources", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+          const { walletSources, cashBalance } = req.body; // Array of sources and total balance
+          
+          if (walletSources !== undefined) {
+              await storage.updateUserWalletSources(user.id, walletSources);
+          }
+          if (cashBalance !== undefined) {
+              await storage.updateUserBalance(user.id, Math.round(cashBalance));
+          }
+          res.json({ success: true, message: "Sumber dompet berhasil diperbarui." });
+      } catch (e: any) {
+          res.status(500).json({ error: e.message });
+      }
   });
 
   app.get("/api/transactions", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getTransactions(user!.id)); });
@@ -1074,15 +1108,35 @@ function parseCleanJson(text: string): any {
       
       const tx = await storage.createTransaction(user!.id, { ...parsed.data, userId: user!.id } as any); 
       let newBalance = Math.round(user!.cashBalance); 
+      let walletSources: any[] = user!.walletSources ? [...(user!.walletSources as any[])] : [];
       
       const isValas = parsed.data.category?.includes('Valas');
+      const amt = Math.round(parsed.data.amount);
+      const sourceName = parsed.data.source;
 
       if (!isValas) {
-          if (parsed.data.type === 'income') newBalance += Math.round(parsed.data.amount); 
-          else if (parsed.data.type === 'expense') newBalance -= Math.round(parsed.data.amount); 
+          if (parsed.data.type === 'income') {
+              newBalance += amt;
+              if (sourceName) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
+                  if (wsIdx >= 0) walletSources[wsIdx].balance += amt;
+              }
+          } 
+          else if (parsed.data.type === 'expense') {
+              newBalance -= amt; 
+              if (sourceName) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
+                  if (wsIdx >= 0) walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+              }
+          }
       }
       
-      if (newBalance !== Math.round(user!.cashBalance)) await storage.updateUserBalance(user!.id, newBalance); 
+      if (newBalance !== Math.round(user!.cashBalance)) {
+          await storage.updateUserBalance(user!.id, newBalance); 
+      }
+      if (sourceName) {
+          await storage.updateUserWalletSources(user!.id, walletSources);
+      }
       res.json(tx); 
   });
 
@@ -1465,11 +1519,11 @@ function parseCleanJson(text: string): any {
   
   app.post("/api/target", async (req: any, res: any) => { 
       const user = await getUser(req); 
-      const { addCurrentCash, initialForexList, initialDebts, initialReceivables, initialInvestments, ...targetData } = req.body; 
+      const { setCashBalance, initialForexList, initialDebts, initialReceivables, initialInvestments, initialSubscriptions, ...targetData } = req.body; 
       const target = await storage.setTarget(user!.id, targetData as any); 
       const promises = [];
       
-      if (addCurrentCash !== undefined && addCurrentCash > 0) promises.push(storage.updateUserBalance(user!.id, Math.round(addCurrentCash))); 
+      if (setCashBalance !== undefined) promises.push(storage.updateUserBalance(user!.id, Math.round(setCashBalance))); 
       
       if (initialForexList && Array.isArray(initialForexList)) {
           for (const item of initialForexList) {
@@ -1502,6 +1556,14 @@ function parseCleanJson(text: string): any {
               }
           }
       }
+
+      if (initialSubscriptions && Array.isArray(initialSubscriptions)) {
+          for (const item of initialSubscriptions) {
+              if (item.cost > 0 && item.name) {
+                  promises.push(storage.createSubscription(user!.id, { userId: user!.id, name: item.name, cost: item.cost, cycle: item.cycle || 'bulanan', nextBilling: item.nextBilling ? new Date(item.nextBilling) : null, isActive: true } as any));
+              }
+          }
+      }
       await Promise.all(promises);
       res.json(target); 
   });
@@ -1529,6 +1591,19 @@ function parseCleanJson(text: string): any {
           const totalIDR = Math.round(totalInCurrency * rate);
 
           if (curr === 'IDR') {
+              const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
+              const sourceName = req.body.source;
+              if (sourceName) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
+                  if (wsIdx >= 0 && walletSources[wsIdx].balance < totalIDR) {
+                      return res.status(400).json({message: `Saldo RDN/Dompet ${sourceName} tidak cukup.`});
+                  }
+                  if (wsIdx >= 0) {
+                      walletSources[wsIdx].balance -= totalIDR;
+                      await storage.updateUserWalletSources(user!.id, walletSources);
+                  }
+              }
+
               if (user!.cashBalance < totalIDR) {
                   return res.status(400).json({message: "Saldo Rupiah tidak cukup untuk pembelian ini."}); 
               }
@@ -1608,6 +1683,15 @@ function parseCleanJson(text: string): any {
           const profitLossText = ` (P/L: ${plIDR >= 0 ? '+' : ''}Rp ${plIDR.toLocaleString('id-ID')})`;
 
           if (curr === 'IDR') {
+              const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
+              const sourceName = req.body.source;
+              if (sourceName) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
+                  if (wsIdx >= 0) {
+                      walletSources[wsIdx].balance += totalSellPriceIDR;
+                      await storage.updateUserWalletSources(user!.id, walletSources);
+                  }
+              }
               await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + totalSellPriceIDR)); 
           } else {
               const existingForex = await storage.getForexByCurrency(user!.id, curr);

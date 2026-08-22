@@ -18,6 +18,7 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(), 
   lockedPlan: text("locked_plan"), // Menyimpan 'year' atau 'month'
   lockedPrice: bigint("locked_price", { mode: "number" }),
+  walletSources: json("wallet_sources").default([]), // ARRAY of { id, name, type, balance }
 });
 
 // --- 2. TRANSACTIONS ---
@@ -28,6 +29,7 @@ export const transactions = pgTable("transactions", {
   amount: bigint("amount", { mode: "number" }).notNull(),
   category: text("category").notNull(),
   description: text("description"),
+  source: text("source"), // SUMBER UANG TRANSAKSI INI (BCA, GoPay, dll)
   date: timestamp("date").notNull().defaultNow(),
 });
 
@@ -39,6 +41,7 @@ export const investments = pgTable("investments", {
   quantity: real("quantity").notNull(),
   avgPrice: real("avg_price").notNull(),
   type: text("type").default('saham'),
+  sekuritas: text("sekuritas"), // RDN/Sekuritas yang menaungi aset ini
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -63,6 +66,7 @@ export const debts = pgTable("debts", {
   type: text("type").notNull(),
   dueDate: timestamp("due_date"),
   isPaid: boolean("is_paid").default(false),
+  source: text("source"), // SUMBER UANG YANG DIPAKAI MEMINJAMKAN/DIPAKAI SAAT TERIMA UTANG
   createdAt: timestamp("created_at").defaultNow(),
 });
 

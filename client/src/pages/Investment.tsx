@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { trackEvent } from "@/lib/tracking";
+import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 
 type AssetType = 'saham' | 'crypto' | 'reksadana' | 'obligasi' | 'p2p' | 'emas' | 'properti' | 'koleksi';
 
@@ -24,6 +25,7 @@ export default function Investment() {
   
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
+  const [showSourcePopup, setShowSourcePopup] = useState(false);
 
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: portfolioRaw = [], isLoading: isInvLoading } = useInvestments();
@@ -127,7 +129,17 @@ export default function Investment() {
       return defaultSize; 
   };
 
-  const handleTransaction = async () => {
+  const handleTransactionInit = () => {
+    if (!inputPrice || !inputQty) return;
+    
+    if (user?.walletSources && (user.walletSources as any[]).length > 0) {
+        setShowSourcePopup(true);
+    } else {
+        handleTransaction();
+    }
+  };
+
+  const handleTransaction = async (selectedSource?: string) => {
     if (!inputPrice || !inputQty) return;
     
     const price = parseNum(inputPrice);
@@ -142,7 +154,8 @@ export default function Investment() {
            symbol: symbolPayload,
            quantity: qty, 
            price: price, 
-           type: activeCategory || 'saham' 
+           type: activeCategory || 'saham',
+           source: selectedSource
         };
 
         const endpoint = txType === 'BUY' ? "/api/investments/buy" : "/api/investments/sell";
@@ -306,7 +319,7 @@ export default function Investment() {
 
         <Button 
             className={`w-full h-14 font-extrabold text-lg shadow-lg rounded-full mt-4 transition-transform active:scale-95 flex items-center justify-center gap-2 ${txType==='BUY'?'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200':'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`} 
-            onClick={handleTransaction} 
+            onClick={handleTransactionInit} 
             disabled={!isFormValid || isSellOverLimit || isSubmitting}
         >
            {isSubmitting && <Loader2 className="w-6 h-6 animate-spin"/>}
@@ -545,6 +558,19 @@ export default function Investment() {
                   </div>
               </div>
           </div>
+      )}
+
+      {showSourcePopup && (
+          <SourceSelectionPopup 
+              type={txType === 'BUY' ? 'expense' : 'income'}
+              title={txType === 'BUY' ? 'Pilih RDN / Sumber Pembelian' : 'Pilih RDN / Tujuan Penjualan'}
+              description={txType === 'BUY' ? 'Pilih dompet yang akan digunakan (saldo dipotong).' : 'Pilih dompet untuk menampung hasil jual (saldo ditambah).'}
+              onCancel={() => setShowSourcePopup(false)}
+              onSelect={(src) => {
+                  setShowSourcePopup(false);
+                  handleTransaction(src);
+              }}
+          />
       )}
        
     </MobileLayout>

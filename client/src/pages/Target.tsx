@@ -35,11 +35,8 @@ export default function Target() {
     const { data: userData, isLoading: isUserLoading, refetch: refetchUser } = useUser();
     const [target, setTarget] = useState<TargetData | null>(null);
     
-    // 🚀 Alur baru: Memulai langsung dari pengisian Saldo Kas Awal saja
-    const [step, setStep] = useState<'balance-entry' | 'intro' | 'target-input' | 'budget-ask' | 'budget-setup'>('balance-entry');
-    const [isTargetMode, setIsTargetMode] = useState(false); 
-    
-    const [rawCurrentCash, setRawCurrentCash] = useState("");
+    const [step, setStep] = useState<'intro' | 'target-input' | 'budget-ask' | 'budget-setup'>('intro');
+    const [isTargetMode, setIsTargetMode] = useState(false);
     const [rawTargetAmount, setRawTargetAmount] = useState("");
     const [inputDuration, setInputDuration] = useState(""); 
     const [rawBudgetAmount, setRawBudgetAmount] = useState("");
@@ -79,11 +76,7 @@ export default function Target() {
         }
     }, [fetchedTarget]);
 
-    useEffect(() => {
-        if (userData && userData.cashBalance !== undefined && userData.cashBalance !== null && !rawCurrentCash) {
-            setRawCurrentCash(userData.cashBalance.toString());
-        }
-    }, [userData, rawCurrentCash]);
+    // Saldo awal kini di-handle di SetupBalance.tsx
 
     const isEditMode = target && target.targetAmount !== undefined;
 
@@ -155,7 +148,6 @@ export default function Target() {
 
         try {
             const payload = {
-                addCurrentCash: parseNumber(rawCurrentCash) || 0,
                 targetAmount: parseNumber(rawTargetAmount) || 0,
                 durationMonths: Number(inputDuration) || 12,
                 monthlyBudget: withBudget ? budgetVal : 0,
@@ -232,43 +224,17 @@ export default function Target() {
                     </div>
                 )}
 
-                {/* STEP 1: HALAMAN SALDO AWAL (SEKARANG MANDIRI & PERTAMA KALI MASUK) */}
-                {step === 'balance-entry' && (
-                    <div className="space-y-6 animate-in slide-in-from-bottom-4 pt-4">
-                        <div className="bg-gradient-to-br from-[#0a1128] to-[#121c3a] p-8 rounded-[32px] text-white text-center shadow-2xl border border-blue-500/20">
-                            <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
-                                <Wallet className="w-10 h-10 text-emerald-400" />
-                            </div>
-                            <h2 className="text-2xl font-black mb-2">Saldo Kas Awal</h2>
-                            <p className="text-sm text-slate-400">Berapa uang tunai / saldo bank yang Anda miliki saat ini untuk dikawal?</p>
-                        </div>
-
-                        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-200">
-                            <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1 block mb-3 text-center">Nominal Rupiah (IDR)</label>
-                            <Input 
-                                type="tel"
-                                placeholder="0" 
-                                value={rawCurrentCash} 
-                                onChange={(e) => handleNumberChange(setRawCurrentCash, e.target.value)} 
-                                className="font-black text-slate-800 h-16 rounded-2xl border-slate-200 text-3xl text-center focus:border-indigo-500 transition-all shadow-inner"
-                            />
-                        </div>
-
-                        <Button 
-                            onClick={() => setStep('intro')} 
-                            className="w-full h-16 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-black rounded-full shadow-lg shadow-indigo-200 transition-transform active:scale-95"
-                        >
-                            LANJUTKAN
-                        </Button>
-                    </div>
-                )}
+                {/* Step Saldo Awal telah dipindahkan ke SetupBalance.tsx */}
 
                 {/* STEP 2: PILIHAN METODE / INTRO */}
                 {step === 'intro' && (
                     <div className="space-y-5 animate-in slide-in-from-right">
-                        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-[32px] text-white text-center shadow-xl relative overflow-hidden">
-                            <h2 className="text-2xl font-extrabold mb-1">Pilih Arsitektur Keuangan</h2>
-                            <p className="text-sm text-blue-100">Tentukan metode pemantauan visi aset jangka panjangmu.</p>
+                        <div className="bg-brand-navy p-6 rounded-[24px] shadow-[8px_8px_0px_0px] shadow-slate-900 border-l-[6px] border-brand-gold text-white text-center relative overflow-hidden">
+                            <div className="absolute right-0 top-0 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
+                            <div className="relative z-10">
+                                <h2 className="text-2xl font-black mb-2">Pilih Arsitektur Keuangan</h2>
+                                <p className="text-sm text-blue-100 max-w-[250px] mx-auto leading-relaxed font-medium">Tentukan metode pemantauan visi aset jangka panjangmu.</p>
+                            </div>
                         </div>
                         
                         <div className="space-y-4 pt-2">
@@ -288,20 +254,19 @@ export default function Target() {
                                 <div><h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500">Saya ingin melihat keluar masuk uang harian secara bebas.</p></div>
                             </button>
                         </div>
-                        <Button variant="ghost" onClick={() => setStep('balance-entry')} className="w-full text-slate-400 font-bold">KEMBALI KE SALDO AWAL</Button>
                     </div>
                 )}
 
                 {/* STEP 3: INPUT DETAIL TARGET */}
                 {step === 'target-input' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-2">
-                        <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6 text-center">
-                            <div className="w-14 h-14 bg-indigo-50 rounded-full flex items-center justify-center mx-auto">
-                                <Calculator className="w-7 h-7 text-indigo-500"/> 
+                        <div className="bg-white p-6 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6 text-center">
+                            <div className="w-14 h-14 bg-brand-navy/5 rounded-full flex items-center justify-center mx-auto">
+                                <Calculator className="w-7 h-7 text-brand-navy"/> 
                             </div>
                             <div>
                                 <h3 className="font-extrabold text-slate-800 text-xl">Kalkulator Target</h3>
-                                <p className="text-xs text-slate-500 mt-1">Berapa besar nominal impian besarmu?</p>
+                                <p className="text-[13px] text-slate-500 mt-1 font-medium">Berapa besar nominal impian besarmu?</p>
                             </div>
                             <div className="space-y-4 text-left">
                                 <div>
@@ -315,8 +280,8 @@ export default function Target() {
                             </div>
                         </div>
                         <div className="pt-2 space-y-3">
-                            <Button onClick={nextToBudgetAsk} className="w-full bg-indigo-600 hover:bg-indigo-700 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-indigo-200">LANJUTKAN</Button>
-                            <Button variant="ghost" onClick={() => setStep('intro')} className="w-full text-slate-400 font-bold">KEMBALI</Button>
+                            <Button onClick={nextToBudgetAsk} className="w-full h-14 bg-brand-gold hover:bg-brand-gold/90 text-brand-navy text-base font-black rounded-full shadow-[5px_5px_0px_0px] shadow-brand-navy active:shadow-[2px_2px_0px_0px] active:translate-x-[3px] active:translate-y-[3px] transition-all">LANJUTKAN</Button>
+                            <Button variant="ghost" onClick={() => setStep('intro')} className="w-full h-12 text-slate-400 font-bold hover:bg-slate-50 rounded-full">KEMBALI</Button>
                         </div>
                     </div>
                 )}
@@ -324,32 +289,32 @@ export default function Target() {
                 {/* STEP 4: PERTANYAAN PEMBATASAN BUDGET */}
                 {step === 'budget-ask' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-6">
-                        <div className="bg-white p-8 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 text-center">
-                            <div className="bg-rose-50 p-5 rounded-full w-24 h-24 mx-auto flex items-center justify-center mb-6">
-                                <ShieldCheck className="w-10 h-10 text-rose-500"/>
+                        <div className="bg-white p-8 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 text-center">
+                            <div className="bg-brand-navy/5 p-5 rounded-full w-24 h-24 mx-auto flex items-center justify-center mb-6">
+                                <ShieldCheck className="w-10 h-10 text-brand-navy"/>
                             </div>
-                            <h2 className="text-2xl font-extrabold text-slate-800">Batasi Pengeluaran Bulanan?</h2>
-                            <p className="text-slate-500 text-sm mt-3 leading-relaxed">Aktifkan batas darurat otomatis agar arus kasmu tidak bocor halus.</p>
+                            <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">Batasi Pengeluaran Bulanan?</h2>
+                            <p className="text-slate-500 text-[13px] font-medium mt-3 leading-relaxed">Aktifkan batas darurat otomatis agar arus kasmu tidak bocor halus.</p>
                             
-                            <div className="space-y-3 pt-8">
-                                <Button onClick={() => handleBudgetAnswer(true)} className="w-full bg-slate-900 hover:bg-slate-800 h-14 text-lg font-extrabold rounded-full shadow-lg">YA, PASANG BATAS</Button>
-                                <Button onClick={() => handleBudgetAnswer(false)} variant="outline" className="w-full h-14 text-slate-500 border-slate-200 hover:bg-slate-50 font-bold rounded-full">TIDAK, SAYA BEBAS</Button>
+                            <div className="space-y-4 pt-8">
+                                <Button onClick={() => handleBudgetAnswer(true)} className="w-full h-14 bg-brand-navy text-white text-[15px] font-black rounded-full shadow-[5px_5px_0px_0px] shadow-slate-900 active:shadow-[2px_2px_0px_0px] active:translate-x-[3px] active:translate-y-[3px] transition-all">YA, PASANG BATAS</Button>
+                                <Button onClick={() => handleBudgetAnswer(false)} variant="outline" className="w-full h-14 bg-white border-2 border-slate-200 text-slate-500 font-black text-[13px] rounded-full hover:bg-slate-50 transition-all shadow-[3px_3px_0px_0px] shadow-slate-200 active:shadow-[1px_1px_0px_0px] active:translate-x-[2px] active:translate-y-[2px]">TIDAK, SAYA BEBAS</Button>
                             </div>
                         </div>
-                        <Button variant="ghost" onClick={() => isTargetMode ? setStep('target-input') : setStep('intro')} className="w-full text-sm text-slate-400 font-bold mt-2">KEMBALI</Button>
+                        <Button variant="ghost" onClick={() => isTargetMode ? setStep('target-input') : setStep('intro')} className="w-full h-12 text-slate-400 font-bold hover:bg-slate-50 rounded-full mt-2">KEMBALI</Button>
                     </div>
                 )}
 
                 {/* STEP 5: PENGATURAN LIMIT BUDGET & ROLLOVER */}
                 {step === 'budget-setup' && (
                     <div className="space-y-6 animate-in slide-in-from-right pt-2">
-                        <div className="bg-white p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6">
+                        <div className="bg-white p-6 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6">
                             <div className="text-center pb-2 border-b border-slate-100">
-                                <div className="w-14 h-14 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <ShieldAlert className="w-7 h-7 text-rose-500"/>
+                                <div className="w-14 h-14 bg-brand-navy/5 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <ShieldAlert className="w-7 h-7 text-brand-navy"/>
                                 </div>
-                                <h3 className="font-extrabold text-slate-800 text-xl">Atur Batasan Jatah</h3>
-                                <p className="text-xs text-slate-500 mt-1">Maksimal uang keluar per bulan.</p>
+                                <h3 className="font-extrabold text-slate-800 text-xl tracking-tight">Atur Batasan Jatah</h3>
+                                <p className="text-[13px] font-medium text-slate-500 mt-1">Maksimal uang keluar per bulan.</p>
                             </div>
                             
                             <div>
@@ -360,13 +325,13 @@ export default function Target() {
 
                             <div className="space-y-3 pt-2">
                                 <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1 block mb-2">Metode Sisa Budget</label>
-                                <button onClick={() => setBudgetType('static')} className={`w-full text-left p-4 rounded-[20px] border-2 transition-all flex gap-4 items-start ${budgetType === 'static' ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-100 bg-white hover:bg-slate-50'}`}>
-                                    <div className={`w-5 h-5 rounded-full border-4 mt-0.5 flex-shrink-0 ${budgetType === 'static' ? 'border-indigo-600 bg-white' : 'border-slate-200'}`}></div>
-                                    <div><div className="font-extrabold text-sm text-slate-800 mb-0.5">Hangus / Ditabung (Statis)</div><div className="text-[11px] text-slate-500 leading-relaxed">Sisa budget bulan ini tidak ditambahkan ke bulan depan.</div></div>
+                                <button onClick={() => setBudgetType('static')} className={`w-full text-left p-4 rounded-[20px] border-2 transition-all flex gap-4 items-start ${budgetType === 'static' ? 'border-brand-navy bg-brand-navy/5' : 'border-slate-100 bg-white hover:bg-slate-50'}`}>
+                                    <div className={`w-5 h-5 rounded-full border-4 mt-0.5 flex-shrink-0 ${budgetType === 'static' ? 'border-brand-navy bg-white' : 'border-slate-200'}`}></div>
+                                    <div><div className="font-extrabold text-sm text-slate-800 mb-0.5">Hangus / Ditabung (Statis)</div><div className="text-[12px] font-medium text-slate-500 leading-relaxed">Sisa budget bulan ini tidak ditambahkan ke bulan depan.</div></div>
                                 </button>
-                                <button onClick={() => setBudgetType('rollover')} className={`w-full text-left p-4 rounded-[20px] border-2 transition-all flex gap-4 items-start ${budgetType === 'rollover' ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-100 bg-white hover:bg-slate-50'}`}>
-                                    <div className={`w-5 h-5 rounded-full border-4 mt-0.5 flex-shrink-0 ${budgetType === 'rollover' ? 'border-indigo-600 bg-white' : 'border-slate-200'}`}></div>
-                                    <div><div className="font-extrabold text-sm text-slate-800 mb-0.5">Akumulasi (Rollover)</div><div className="text-[11px] text-slate-500 leading-relaxed">Sisa budget bulan ini akan ditambahkan otomatis ke jatah bulan depan.</div></div>
+                                <button onClick={() => setBudgetType('rollover')} className={`w-full text-left p-4 rounded-[20px] border-2 transition-all flex gap-4 items-start ${budgetType === 'rollover' ? 'border-brand-navy bg-brand-navy/5' : 'border-slate-100 bg-white hover:bg-slate-50'}`}>
+                                    <div className={`w-5 h-5 rounded-full border-4 mt-0.5 flex-shrink-0 ${budgetType === 'rollover' ? 'border-brand-navy bg-white' : 'border-slate-200'}`}></div>
+                                    <div><div className="font-extrabold text-sm text-slate-800 mb-0.5">Akumulasi (Rollover)</div><div className="text-[12px] font-medium text-slate-500 leading-relaxed">Sisa budget bulan ini akan ditambahkan otomatis ke jatah bulan depan.</div></div>
                                 </button>
                             </div>
                         </div>
@@ -374,11 +339,11 @@ export default function Target() {
                             <Button 
                                 onClick={() => handleSubmitFinal(true)} 
                                 disabled={isSubmitting}
-                                className="w-full bg-slate-900 hover:bg-slate-800 h-16 text-lg font-extrabold rounded-full shadow-lg shadow-slate-900/20"
+                                className="w-full h-14 bg-brand-gold hover:bg-brand-gold/90 text-brand-navy text-base font-black rounded-full shadow-[5px_5px_0px_0px] shadow-brand-navy active:shadow-[2px_2px_0px_0px] active:translate-x-[3px] active:translate-y-[3px] transition-all"
                             >
                                 {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : (isEditMode ? "SIMPAN PERUBAHAN" : "SIMPAN STRATEGI")}
                             </Button>
-                            <Button variant="ghost" onClick={() => setStep('budget-ask')} className="w-full text-slate-400 font-bold">KEMBALI</Button>
+                            <Button variant="ghost" onClick={() => setStep('budget-ask')} className="w-full h-12 text-slate-400 font-bold hover:bg-slate-50 rounded-full">KEMBALI</Button>
                         </div>
                     </div>
                 )}

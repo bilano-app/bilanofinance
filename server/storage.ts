@@ -19,6 +19,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserBalance(id: number, newBalance: number): Promise<User>;
+  updateUserWalletSources(id: number, walletSources: any): Promise<User>;
   updateUserProfile(id: number, firstName: string, lastName: string, profilePicture?: string): Promise<User>;
   
   getAllUsers(): Promise<User[]>;
@@ -111,6 +112,12 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async updateUserWalletSources(id: number, walletSources: any): Promise<User> {
+    const [user] = await db.update(users).set({ walletSources: walletSources || [] }).where(eq(users.id, id)).returning();
+    if (!user) throw new Error("User not found");
+    return user;
+  }
+
   async updateUserProStatus(userId: number, isPro: boolean, validUntil: Date | null): Promise<User> {
     const [updatedUser] = await db.update(users)
         .set({ isPro, proValidUntil: validUntil })
@@ -150,7 +157,8 @@ export class DatabaseStorage implements IStorage {
         ...tx, 
         userId, 
         date: new Date(), 
-        description: tx.description || null
+        description: tx.description || null,
+        source: tx.source || null
     }).returning();
     return transaction;
   }
@@ -165,7 +173,7 @@ export class DatabaseStorage implements IStorage {
   
   async createInvestment(userId: number, inv: InsertInvestment): Promise<Investment> {
       const [investment] = await db.insert(investments).values({
-          ...inv, userId, type: inv.type || 'saham'
+          ...inv, userId, type: inv.type || 'saham', sekuritas: inv.sekuritas || null
       }).returning();
       return investment;
   }
@@ -253,7 +261,7 @@ export class DatabaseStorage implements IStorage {
   
   async createDebt(userId: number, debt: InsertDebt): Promise<Debt> {
       const [newDebt] = await db.insert(debts).values({
-          ...debt, userId, isPaid: false, dueDate: debt.dueDate ? new Date(debt.dueDate) : null
+          ...debt, userId, isPaid: false, dueDate: debt.dueDate ? new Date(debt.dueDate) : null, source: debt.source || null
       }).returning();
       return newDebt;
   }

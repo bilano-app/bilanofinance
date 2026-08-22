@@ -5,6 +5,7 @@ import { Button, Input } from "@/components/UIComponents";
 import { Wallet, AlertOctagon, Loader2, HandCoins, X, AlertCircle } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/tracking";
+import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 
 export default function Expense() {
   const { toast } = useToast();
@@ -38,6 +39,8 @@ export default function Expense() {
   
   // 🚀 PENAMBAHAN: Cek Setup Selesai & State Pop-u
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
+  const [showSourcePopup, setShowSourcePopup] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState<{isEmergency: boolean} | null>(null);
 
   let remainingBudget = 0;     
   let budgetLabel = "Batas Bulan Ini";
@@ -70,7 +73,27 @@ export default function Expense() {
       }
   }
 
-  const handleSubmit = async (isEmergencyOverride = false) => {
+  const handleInitiateSubmit = (isEmergencyOverride = false) => {
+      const nominal = parseNumber(amountStr);
+      if (!nominal || nominal <= 0) {
+          toast({ title: "Error", description: "Isi nominal pengeluaran!", variant: "destructive" });
+          return;
+      }
+
+      if (paymentMode === 'hutang' && (!debtName || !dueDate)) { 
+          toast({ title: "Error", description: "Isi nama pihak dan tenggat waktu!", variant: "destructive" }); 
+          return; 
+      }
+
+      if (user?.walletSources && (user.walletSources as any[]).length > 0) {
+          setPendingSubmit({ isEmergency: isEmergencyOverride });
+          setShowSourcePopup(true);
+      } else {
+          handleSubmit(isEmergencyOverride);
+      }
+  };
+
+  const handleSubmit = async (isEmergencyOverride = false, selectedSource?: string) => {
       // 🚀 PENAMBAHAN: BLOKIR JIKA BELUM SETUP
       const nominal = parseNumber(amountStr);
       if (!nominal || nominal <= 0) {
@@ -110,7 +133,8 @@ export default function Expense() {
                   amount: spendingAmount, 
                   category: category,
                   description: desc || "Pengeluaran Rutin",
-                  date: new Date().toISOString()
+                  date: new Date().toISOString(),
+                  source: selectedSource
               });
 
               if (isEmergencyOverride) {
@@ -142,7 +166,8 @@ export default function Expense() {
                   amount: spendingAmount, 
                   category: `Hutang: ${category}`, 
                   description: `Belum Dibayar - ${debtName}`, 
-                  date: new Date().toISOString() 
+                  date: new Date().toISOString(),
+                  source: selectedSource
               });
           }
 
@@ -221,7 +246,7 @@ export default function Expense() {
                             <Button variant="outline" onClick={() => setShowEmergencyModal(false)} className="flex-1 rounded-full border-slate-200">
                                 Batalkan
                             </Button>
-                            <Button onClick={() => handleSubmit(true)} className="flex-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full shadow-lg shadow-rose-200" disabled={isSubmitting}>
+                            <Button onClick={() => { setShowEmergencyModal(false); handleInitiateSubmit(true); }} className="flex-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full shadow-lg shadow-rose-200" disabled={isSubmitting}>
                                 {isSubmitting ? "Memproses..." : "Pakai Darurat"}
                             </Button>
                         </div>
@@ -292,11 +317,28 @@ export default function Expense() {
                 </div>
             </div>
 
-            <Button onClick={() => handleSubmit(false)} disabled={isSubmitting} className={`w-full h-16 text-white text-lg font-extrabold shadow-lg rounded-full active:scale-95 transition-transform ${paymentMode === 'hutang' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`}>
+            <Button onClick={() => handleInitiateSubmit(false)} disabled={isSubmitting} className={`w-full h-16 text-white text-lg font-extrabold shadow-lg rounded-full active:scale-95 transition-transform ${paymentMode === 'hutang' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-200'}`}>
                 {isSubmitting ? "MENYIMPAN..." : (paymentMode === 'hutang' ? "SIMPAN HUTANG" : "SIMPAN PENGELUARAN")}
             </Button>
         </div>
       </div>
+
+      {showSourcePopup && (
+          <SourceSelectionPopup 
+              type="expense"
+              onCancel={() => {
+                  setShowSourcePopup(false);
+                  setPendingSubmit(null);
+              }}
+              onSelect={(src) => {
+                  setShowSourcePopup(false);
+                  if (pendingSubmit) {
+                      handleSubmit(pendingSubmit.isEmergency, src);
+                  }
+                  setPendingSubmit(null);
+              }}
+          />
+      )}
 
       {/* 🚀 PENAMBAHAN: Pop-up Penghalang Submit (Belum Setup) */}
       {showSetupPrompt && (

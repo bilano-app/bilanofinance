@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-finance";
 import { trackEvent } from "@/lib/tracking";
+import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 
 const FALLBACK_CURRENCIES = ["USD", "EUR", "SGD", "JPY", "AUD", "GBP", "CNY", "MYR", "SAR", "KRW", "THB"];
 
@@ -39,6 +40,7 @@ export default function Retained() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState<RetainedBalance | null>(null);
     const [showWithdrawModal, setShowWithdrawModal] = useState<RetainedBalance | null>(null);
+    const [showSourcePopup, setShowSourcePopup] = useState(false);
 
     const [tempSource, setTempSource] = useState("");
     const [tempAmount, setTempAmount] = useState("");
@@ -168,7 +170,20 @@ export default function Retained() {
         } catch (e) {}
     };
 
-    const handleWithdraw = async () => {
+    const handleWithdrawInit = () => {
+        if (!showWithdrawModal || !tempAmount) return;
+        const wAmount = parseNumber(tempAmount);
+        if (wAmount > showWithdrawModal.amount) return toast({ title: "Error", description: "Jumlah tarik melebihi saldo!", variant: "destructive" });
+        if (wAmount <= 0) return;
+
+        if (user?.walletSources && (user.walletSources as any[]).length > 0) {
+            setShowSourcePopup(true);
+        } else {
+            handleWithdraw();
+        }
+    };
+
+    const handleWithdraw = async (selectedSource?: string) => {
         if (!showWithdrawModal || !tempAmount) return;
         const wAmount = parseNumber(tempAmount);
         if (wAmount > showWithdrawModal.amount) return toast({ title: "Error", description: "Jumlah tarik melebihi saldo!", variant: "destructive" });
@@ -178,7 +193,7 @@ export default function Retained() {
         try {
             const res = await fetch(`/api/retained/${showWithdrawModal.id}/withdraw`, {
                 method: "POST", headers: { "Content-Type": "application/json", "x-user-email": userEmail },
-                body: JSON.stringify({ amount: wAmount })
+                body: JSON.stringify({ amount: wAmount, source: selectedSource })
             });
             if (res.ok) {
                 trackEvent("retained_balance_withdrawn", {});
@@ -351,10 +366,23 @@ export default function Retained() {
                                     <span className="absolute left-4 top-3.5 font-bold text-slate-400">{showWithdrawModal.currency}</span>
                                     <Input type="text" inputMode="decimal" placeholder="Masukkan jumlah penarikan..." value={tempAmount} onChange={e => setTempAmount(formatNumber(e.target.value))} className="pl-14 h-12 font-bold text-lg bg-slate-50 rounded-xl"/>
                                 </div>
-                                <Button disabled={isSubmitting} onClick={handleWithdraw} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 font-bold rounded-full">KONFIRMASI PENCAIRAN</Button>
+                                <Button disabled={isSubmitting} onClick={handleWithdrawInit} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 font-bold rounded-full">KONFIRMASI PENCAIRAN</Button>
                             </div>
                         </div>
                     </div>
+                )}
+                
+                {showSourcePopup && (
+                    <SourceSelectionPopup 
+                        type="income"
+                        title="Pilih Sumber Dana"
+                        description="Pilih dompet tujuan untuk pencairan saldo tertahan ini."
+                        onCancel={() => setShowSourcePopup(false)}
+                        onSelect={(src) => {
+                            setShowSourcePopup(false);
+                            handleWithdraw(src);
+                        }}
+                    />
                 )}
                 
             </div>

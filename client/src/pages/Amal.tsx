@@ -5,6 +5,7 @@ import { useUser, useTransactions, useAddTransaction } from "@/hooks/use-finance
 import { formatCurrency } from "@/lib/utils";
 import { HeartHandshake, Loader2, CheckCircle2, History, Settings, Info, PieChart, X, AlertTriangle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 
 export default function Amal() {
   const { data: user } = useUser();
@@ -29,6 +30,13 @@ export default function Amal() {
   // Cek Status Setup & State Modal Pop-up
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
+  const [showSourcePopup, setShowSourcePopup] = useState(false);
+  const [pendingAmalArgs, setPendingAmalArgs] = useState<{
+      finalAmt: number;
+      description: string;
+      ikhlasEkstra: boolean;
+      excessAmt: number;
+  } | null>(null);
 
   useEffect(() => {
       const savedPct = localStorage.getItem(`bilano_amal_pct_${userEmail}`);
@@ -161,11 +169,20 @@ const pureIncomes = (transactions || []).filter(t => {
       if (excess > 0) {
           setExcessData({ amount: finalAmount, excess, desc: desc || "Amal / Sedekah" });
       } else {
-          executeSaveAmal(finalAmount, desc || "Amal / Sedekah", false, 0);
+          executeSaveAmalInit(finalAmount, desc || "Amal / Sedekah", false, 0);
       }
   };
 
-  const executeSaveAmal = async (finalAmt: number, description: string, ikhlasEkstra: boolean, excessAmt: number) => {
+  const executeSaveAmalInit = (finalAmt: number, description: string, ikhlasEkstra: boolean, excessAmt: number) => {
+      if (user?.walletSources && (user.walletSources as any[]).length > 0) {
+          setPendingAmalArgs({ finalAmt, description, ikhlasEkstra, excessAmt });
+          setShowSourcePopup(true);
+      } else {
+          executeSaveAmal(finalAmt, description, ikhlasEkstra, excessAmt);
+      }
+  };
+
+  const executeSaveAmal = async (finalAmt: number, description: string, ikhlasEkstra: boolean, excessAmt: number, selectedSource?: string) => {
       setIsSubmitting(true);
     
       let finalDesc = description;
@@ -179,7 +196,8 @@ const pureIncomes = (transactions || []).filter(t => {
               amount: finalAmt,
               category: 'Amal', 
               description: finalDesc,
-              date: new Date().toISOString()
+              date: new Date().toISOString(),
+              source: selectedSource
           } as any);
 
           trackEvent("amal_tx_added", { 
@@ -370,10 +388,10 @@ const pureIncomes = (transactions || []).filter(t => {
                   </p>
                   
                   <div className="space-y-3">
-                      <Button onClick={() => executeSaveAmal(excessData.amount, excessData.desc, false, 0)} className="w-full h-12 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-lg active:scale-95 transition-transform">
+                      <Button onClick={() => executeSaveAmalInit(excessData.amount, excessData.desc, false, 0)} className="w-full h-12 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-lg active:scale-95 transition-transform">
                           YA, JADIKAN PEMOTONG MASA DEPAN
                       </Button>
-                      <Button variant="ghost" onClick={() => executeSaveAmal(excessData.amount, excessData.desc, true, excessData.excess)} className="w-full h-12 rounded-full font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 text-xs transition-colors">
+                      <Button variant="ghost" onClick={() => executeSaveAmalInit(excessData.amount, excessData.desc, true, excessData.excess)} className="w-full h-12 rounded-full font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 text-xs transition-colors">
                           TIDAK, SAYA IKHLASKAN SEPENUHNYA
                       </Button>
                       <button onClick={() => setExcessData(null)} className="text-[10px] font-bold text-slate-400 hover:text-slate-600 underline pt-2">Batal & Kembali</button>
@@ -398,6 +416,28 @@ const pureIncomes = (transactions || []).filter(t => {
                   </div>
               </div>
           </div>
+      )}
+
+      {showSourcePopup && (
+          <SourceSelectionPopup 
+              type="expense"
+              title="Pilih Sumber Dana"
+              description="Pilih dompet sumber dana amal Anda."
+              onCancel={() => {
+                  setShowSourcePopup(false);
+                  setPendingAmalArgs(null);
+              }}
+              onSelect={(src) => {
+                  setShowSourcePopup(false);
+                  if (pendingAmalArgs) {
+                      executeSaveAmal(pendingAmalArgs.finalAmt, pendingAmalArgs.description, pendingAmalArgs.ikhlasEkstra, pendingAmalArgs.excessAmt, src);
+                  }
+                  setPendingAmalArgs(null);
+                  if (excessData) {
+                      setExcessData(null);
+                  }
+              }}
+          />
       )}
 
     </MobileLayout>

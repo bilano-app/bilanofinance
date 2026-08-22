@@ -4,9 +4,9 @@ import { Card, Button, Input } from "@/components/UIComponents";
 import { 
     RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, 
     Globe, ChevronDown, ArrowRightLeft, FileText, Wallet,
-    TrendingUp, X, Activity, StickyNote, Plus, Check, Loader2, HandCoins, AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { 
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from "recharts";
@@ -76,6 +76,8 @@ export default function Forex() {
   // Cek Status Setup & State Modal Pop-up
   
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
+  const [showSourcePopup, setShowSourcePopup] = useState(false);
+  const [pendingForexSubmit, setPendingForexSubmit] = useState<{ action: 'exchange' | 'mutation' } | null>(null);
 
   const formatIdr = (val: string) => {
       if (!val) return "";
@@ -216,6 +218,18 @@ export default function Forex() {
       const rate = parseIdr(rateExchange);
       if (!qty || !rate) { toast({ title: "Error", description: "Isi jumlah dan kurs.", variant: "destructive" }); return; }
 
+      if (user?.walletSources && (user.walletSources as any[]).length > 0) {
+          setPendingForexSubmit({ action: 'exchange' });
+          setShowSourcePopup(true);
+      } else {
+          executeExchange();
+      }
+  };
+
+  const executeExchange = async (selectedSource?: string) => {
+      const qty = parseValas(amountExchange);
+      const rate = parseIdr(rateExchange);
+
       if (exchangeMode === 'buy') {
           const totalCost = qty * rate;
           if ((user?.cashBalance || 0) < totalCost) {
@@ -248,7 +262,8 @@ export default function Forex() {
                   currency: selectedCurr.code, 
                   amount: qty, 
                   rate: rate,
-                  type: forexType 
+                  type: forexType,
+                  source: selectedSource
               })
           });
           
@@ -287,6 +302,17 @@ export default function Forex() {
           return;
       }
 
+      if (user?.walletSources && (user.walletSources as any[]).length > 0) {
+          setPendingForexSubmit({ action: 'mutation' });
+          setShowSourcePopup(true);
+      } else {
+          executeMutation();
+      }
+  };
+
+  const executeMutation = async (selectedSource?: string) => {
+      const qty = parseValas(amountMutation);
+
       if (mutationMode === 'out' && paymentMode === 'cash') {
           const existingAsset = assets.find((a: any) => a.currency === selectedCurr.code);
           if (!existingAsset || existingAsset.amount < qty) {
@@ -310,7 +336,8 @@ export default function Forex() {
                       currency: selectedCurr.code, 
                       amount: qty, 
                       type: mutationMode === 'in' ? 'income' : 'expense',
-                      description: note
+                      description: note,
+                      source: selectedSource
                   })
               });
 
@@ -333,7 +360,8 @@ export default function Forex() {
                       amount: qty,
                       dueDate: dueDate,
                       description: `[${debtType.toUpperCase()} VALAS] ${note}`,
-                      isFromTransaction: true 
+                      isFromTransaction: true,
+                      source: selectedSource
                   })
               });
               trackEvent("forex_mutation_tx", { type: mutationMode, paymentMode: "debt", currency: selectedCurr.code });
@@ -630,6 +658,29 @@ export default function Forex() {
         </div>
 
       </div>
+      {showSourcePopup && (
+          <SourceSelectionPopup 
+              type={
+                  pendingForexSubmit?.action === 'exchange' 
+                      ? (exchangeMode === 'buy' ? 'expense' : 'income') 
+                      : (mutationMode === 'in' ? 'expense' : 'income') // Note: if mutationMode in, we use cash to buy it? No, mutationMode in means we GET valas. Did we pay? If we paid, it's expense. Wait!
+              }
+              title={pendingForexSubmit?.action === 'exchange' ? (exchangeMode === 'buy' ? "Sumber Dana Beli Valas" : "Tujuan Dana Jual Valas") : "Pilih Sumber Dana"}
+              onCancel={() => {
+                  setShowSourcePopup(false);
+                  setPendingForexSubmit(null);
+              }}
+              onSelect={(src) => {
+                  setShowSourcePopup(false);
+                  if (pendingForexSubmit?.action === 'exchange') {
+                      executeExchange(src);
+                  } else if (pendingForexSubmit?.action === 'mutation') {
+                      executeMutation(src);
+                  }
+                  setPendingForexSubmit(null);
+              }}
+          />
+      )}
       {showSetupPrompt && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">

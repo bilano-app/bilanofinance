@@ -5,9 +5,10 @@ import {
     Users, ArrowUpRight, ArrowDownLeft, Calendar, 
     CheckCircle2, Plus, HandCoins, AlertCircle, X, Loader2, ArrowRight, HeartCrack, RefreshCw
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { trackEvent } from "@/lib/tracking";
+import SourceSelectionPopup from "@/components/SourceSelectionPopup";
+import { useUser } from "@/hooks/use-finance";
 
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -23,8 +24,8 @@ interface DebtItem {
   description: string;
   isPaid: boolean;
 }
-
 export default function Debts() {
+  const { data: user } = useUser();
   const [activeTab, setActiveTab] = useState<'hutang' | 'piutang'>('piutang'); 
 
   const [name, setName] = useState("");
@@ -43,9 +44,10 @@ export default function Debts() {
   const { toast } = useToast();
   
   // 🚨 DEKLARASI HANYA SATU KALI DI SINI (Error Vercel sudah diperbaiki)
-  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
+  const [showSourcePopup, setShowSourcePopup] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'add' | 'pay' | null>(null);
 
   const formatNum = (val: string, isForeign: boolean = false) => {
       if (!val) return "";
@@ -117,6 +119,18 @@ export default function Debts() {
           return; 
       }
       if (isSubmitting) return;
+
+      if (user?.walletSources && (user.walletSources as any[]).length > 0) {
+          setPendingAction('add');
+          setShowSourcePopup(true);
+      } else {
+          executeAdd();
+      }
+  };
+
+  const executeAdd = async (selectedSource?: string) => {
+      const isForeign = currency !== 'IDR';
+      const nominal = parseNum(amount, isForeign);
       
       setIsSubmitting(true);
       toast({ title: "Mencatat...", description: "Mohon tunggu sebentar." });
@@ -126,7 +140,7 @@ export default function Debts() {
           const resDebt = await fetch("/api/debts", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ type: activeTab, name: nameWithCurrency, amount: nominal, dueDate, description: desc, isFromTransaction: false })
+              body: JSON.stringify({ type: activeTab, name: nameWithCurrency, amount: nominal, dueDate, description: desc, isFromTransaction: false, source: selectedSource })
           });
           
           if (!resDebt.ok) throw new Error("Gagal menyimpan data.");
@@ -162,6 +176,19 @@ export default function Debts() {
       if (nominal > selectedDebt.amount) { toast({title: "Nominal Berlebih", variant: "destructive"}); return; }
       if (nominal <= 0) { toast({title: "Nominal tidak valid", variant: "destructive"}); return; }
       
+      if (user?.walletSources && (user.walletSources as any[]).length > 0) {
+          setPendingAction('pay');
+          setShowSourcePopup(true);
+      } else {
+          executePay();
+      }
+  };
+
+  const executePay = async (selectedSource?: string) => {
+      if (!selectedDebt) return;
+      const isPayForeign = selectedDebt.name.split('|')[1] !== 'IDR' && selectedDebt.name.split('|')[1] !== undefined;
+      const nominal = parseNum(payAmount, isPayForeign) || selectedDebt.amount; 
+
       setIsPaying(true);
       toast({ title: "Memproses Pembayaran...", description: "Menyinkronkan data valas..." });
 
@@ -169,7 +196,7 @@ export default function Debts() {
           const res = await fetch(`/api/debts/${selectedDebt.id}/pay`, { 
               method: "POST", 
               headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ amount: nominal, isWriteOff: false }) 
+              body: JSON.stringify({ amount: nominal, isWriteOff: false, source: selectedSource }) 
           });
 
           if (!res.ok) {
@@ -465,6 +492,34 @@ export default function Debts() {
         </div>
 
       </div>
+
+      {showSourcePopup && (
+          <SourceSelectionPopup 
+              type={
+                  pendingAction === 'add' 
+                      ? (activeTab === 'hutang' ? 'income' : 'expense') 
+                      : (activeTab === 'hutang' ? 'expense' : 'income')
+              }
+              title={
+                  pendingAction === 'add'
+                      ? (activeTab === 'hutang' ? 'Pilih Dompet Penerima Utang' : 'Pilih Dompet Pengirim Piutang')
+                      : (activeTab === 'hutang' ? 'Pilih Dompet Untuk Membayar' : 'Pilih Dompet Penerima Cicilan')
+              }
+              onCancel={() => {
+                  setShowSourcePopup(false);
+                  setPendingAction(null);
+              }}
+              onSelect={(src) => {
+                  setShowSourcePopup(false);
+                  if (pendingAction === 'add') {
+                      executeAdd(src);
+                  } else if (pendingAction === 'pay') {
+                      executePay(src);
+                  }
+                  setPendingAction(null);
+              }}
+          />
+      )}
 
       {/* 🚀 Pop-up Penghalang Submit (Belum Setup) */}
       {showSetupPrompt && (

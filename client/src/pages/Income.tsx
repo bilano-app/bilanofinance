@@ -2,10 +2,10 @@ import { useState } from "react";
 import { useAddTransaction, useUser } from "@/hooks/use-finance";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
-// 🚨 PERBAIKAN: AlertCircle sudah ditambahkan di sini!
 import { Loader2, Wallet, HandCoins, AlertCircle } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { trackEvent } from "@/lib/tracking";
+import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 
 export default function Income() {
   const { data: user, isLoading: isUserLoading } = useUser();
@@ -26,6 +26,7 @@ export default function Income() {
   // 🚨 PERBAIKAN: Pastikan 3 baris ini HANYA MUNCUL SATU KALI di seluruh file ini!
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
+  const [showSourcePopup, setShowSourcePopup] = useState(false);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, "");
@@ -37,7 +38,25 @@ export default function Income() {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleInitiateSubmit = () => {
+      const cleanAmount = parseInt(amountStr.replace(/\./g, ""), 10);
+      if (!cleanAmount || cleanAmount <= 0) {
+          alert("Masukkan jumlah uang yang valid");
+          return;
+      }
+      if (paymentMode === 'piutang' && (!debtName || !dueDate)) { 
+          alert("Masukkan nama pihak dan tenggat waktu piutang"); 
+          return; 
+      }
+
+      if (user?.walletSources && (user.walletSources as any[]).length > 0) {
+          setShowSourcePopup(true);
+      } else {
+          handleSubmit();
+      }
+  };
+
+  const handleSubmit = async (selectedSource?: string) => {
     // 🚀 BLOKIR JIKA BELUM SETUP
 
     const cleanAmount = parseInt(amountStr.replace(/\./g, ""), 10);
@@ -60,7 +79,8 @@ export default function Income() {
               type: "income", 
               category, 
               description: description || "Pemasukan Rutin", 
-              date: new Date().toISOString() 
+              date: new Date().toISOString(),
+              source: selectedSource
           });
       } else {
           await fetch("/api/debts", {
@@ -81,7 +101,8 @@ export default function Income() {
               type: "piutang_record", 
               category: `Piutang: ${category}`, 
               description: `[PIUTANG_PENDAPATAN] Belum Dibayar - ${debtName}`, 
-              date: new Date().toISOString() 
+              date: new Date().toISOString(),
+              source: selectedSource
           });
       }
 
@@ -165,7 +186,7 @@ export default function Income() {
             </div>
 
             <Button 
-                onClick={handleSubmit} 
+                onClick={handleInitiateSubmit} 
                 className={`w-full h-16 text-white text-lg font-extrabold shadow-lg rounded-full active:scale-95 transition-transform ${paymentMode === 'piutang' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200'}`} 
                 disabled={isSubmitting}
             >
@@ -173,6 +194,17 @@ export default function Income() {
             </Button>
         </div>
       </div>
+
+      {showSourcePopup && (
+          <SourceSelectionPopup 
+              type="income"
+              onCancel={() => setShowSourcePopup(false)}
+              onSelect={(src) => {
+                  setShowSourcePopup(false);
+                  handleSubmit(src);
+              }}
+          />
+      )}
 
       {/* 🚀 Pop-up Penghalang Submit (Belum Setup) */}
       {showSetupPrompt && (
