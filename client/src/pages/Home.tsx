@@ -767,56 +767,66 @@ export default function Home() {
                         </div>
                     </div>
 
-                    {/* 2. Kartu Saldo — flat navy + gold dengan shadow, lebih compact */}
-                    <div className="bg-brand-navy text-white p-5 rounded-[24px] border-l-[6px] border-brand-gold shadow-[8px_8px_0px_0px] shadow-slate-900 relative overflow-hidden mt-3">
-                        {/* Efek buletan dan kilau */}
-                        <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
-                        <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
-                        <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
-                        <div className="relative z-10 flex flex-col pt-1 pb-1">
-                            <div className="flex justify-between items-center mb-1">
-                                <p className="text-[10px] font-bold text-blue-200/80 uppercase tracking-widest">Saldo Kas</p>
-                                <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-brand-gold">
-                                    {isPrivacyMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                </button>
-                            </div>
+                    {/* 2. Kartu Saldo — Two-Tone Split Card (Kotak Gelap Diperluas) */}
+                    <div className="bg-slate-900 rounded-[24px] shadow-[0_12px_24px_rgba(15,23,42,0.15)] mt-3 flex flex-col relative overflow-hidden">
+                        
+                        {/* TOP NAVY SECTION (Balance) */}
+                        <div className="bg-brand-navy text-white p-5 relative z-10">
+                            {/* Efek buletan dan kilau */}
+                            <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
+                            <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
+                            
+                            <div className="relative z-10 flex flex-col pt-1 pb-1">
+                                <div className="flex justify-between items-center mb-1">
+                                    <p className="text-[10px] font-bold text-blue-200/80 uppercase tracking-widest">Saldo Kas</p>
+                                    <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-brand-gold">
+                                        {isPrivacyMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                    </button>
+                                </div>
 
-                            <h2 className={`${getBalanceTextSize(displayBalance)} font-black tracking-tight tabular-nums text-white mb-2.5 flex items-center h-9 whitespace-nowrap transition-all duration-300`}>
-                                {displayBalance}
-                            </h2>
+                                <h2 className={`${getBalanceTextSize(displayBalance)} font-black tracking-tight tabular-nums text-white mb-2.5 flex items-center h-9 whitespace-nowrap transition-all duration-300`}>
+                                    {displayBalance}
+                                </h2>
 
-                            <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-1 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1 rounded-full">
-                                    <span>IDR:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-1 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1 rounded-full">
+                                        <span>IDR:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* FITUR CEPAT DI DALAM KARTU (Transfer di Tengah, Lebih Ramping) */}
-                            <div className="grid grid-cols-3 gap-1 mt-4 pt-3.5 border-t border-white/10">
+                        {/* YELLOW DIVIDER (Nasib warna kuning) */}
+                        <div className="h-[3px] w-full bg-brand-gold relative z-20 shadow-[0_2px_10px_rgba(246,185,59,0.4)]"></div>
+
+                        {/* BOTTOM DARK SECTION (Kotak Gelap untuk tombol) */}
+                        <div className="pt-5 pb-5 px-4 relative z-0">
+                            <div className="grid grid-cols-3 gap-2">
                                 <Link href="/income">
-                                    <button className="flex flex-col items-center gap-1 active:scale-95 transition-transform group">
-                                        <div className="w-9 h-9 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
+                                    <button className="flex flex-col items-center gap-2 active:scale-95 transition-transform group">
+                                        <div className="w-10 h-10 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
                                             <ArrowDownLeft className="w-4.5 h-4.5 text-emerald-400" strokeWidth={3} />
                                         </div>
-                                        <span className="text-[9px] font-bold text-blue-100 uppercase tracking-wider">Pemasukan</span>
+                                        <span className="text-[9px] font-bold text-slate-300 uppercase tracking-wider">Pemasukan</span>
                                     </button>
                                 </Link>
 
                                 <Link href="/debts">
-                                    <button className="flex flex-col items-center gap-1 active:scale-95 transition-transform group">
-                                        <div className="w-9 h-9 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
+                                    <button className="flex flex-col items-center gap-2 active:scale-95 transition-transform group">
+                                        <div className="w-10 h-10 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
                                             <Send className="w-4.5 h-4.5 text-brand-gold" strokeWidth={2.5} />
                                         </div>
-                                        <span className="text-[9px] font-bold text-blue-100 uppercase tracking-wider">Transfer</span>
+                                        <span className="text-[9px] font-bold text-slate-300 uppercase tracking-wider">Transfer</span>
                                     </button>
                                 </Link>
 
                                 <Link href="/expense">
-                                    <button className="flex flex-col items-center gap-1 active:scale-95 transition-transform group">
-                                        <div className="w-9 h-9 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
+                                    <button className="flex flex-col items-center gap-2 active:scale-95 transition-transform group">
+                                        <div className="w-10 h-10 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
                                             <ArrowUpRight className="w-4.5 h-4.5 text-rose-400" strokeWidth={3} />
                                         </div>
-                                        <span className="text-[9px] font-bold text-blue-100 uppercase tracking-wider">Pengeluaran</span>
+                                        <span className="text-[9px] font-bold text-slate-300 uppercase tracking-wider">Pengeluaran</span>
                                     </button>
                                 </Link>
                             </div>
