@@ -685,89 +685,90 @@ export default function Home() {
             )}
 
             <div className="flex flex-col">
-                {/* WELCOME HEADER SECTION: Seamless white background under the logo header */}
-                <div className="-mx-5 -mt-5 px-5 pt-5 pb-5 bg-white flex items-center justify-between border-b border-slate-100 relative z-30">
-                    <div className="flex items-center gap-3">
-                        <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100 shrink-0">
-                            {user?.profilePicture ? (
-                                <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full bg-brand-navy flex items-center justify-center text-white font-bold text-lg">
-                                    {greetingName.charAt(0).toUpperCase()}
+                {/* TOP BANNER CONTAINER: Gradient background covering welcome area and card area */}
+                <div className="-mx-5 -mt-5 px-5 pt-5 pb-12 bg-gradient-to-b from-[#f1f5f9] to-[#dbe4f0] flex flex-col gap-5 -mb-8 relative z-10">
+                    
+                    {/* 1. WELCOME HEADER SECTION: White background seamless at top, rounded bottom corners (border radius ke atas) */}
+                    <div className="-mx-5 -mt-5 px-5 pt-6 pb-6 bg-white rounded-b-[32px] shadow-[0_8px_20px_rgba(15,23,42,0.04)] flex items-center justify-between relative z-30">
+                        <div className="flex items-center gap-3">
+                            <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100 shrink-0">
+                                {user?.profilePicture ? (
+                                    <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full bg-brand-navy flex items-center justify-center text-white font-bold text-lg">
+                                        {greetingName.charAt(0).toUpperCase()}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex flex-col">
+                                <p className="text-xs font-medium text-slate-500 whitespace-nowrap">
+                                    Selamat datang
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight truncate max-w-[130px]">
+                                        {greetingName}
+                                    </h2>
+
+                                    {user ? (
+                                        user.isPro === true ? (
+                                            <Crown className="w-4 h-4 text-brand-gold shrink-0" fill="currentColor" />
+                                        ) : (
+                                            <Link href="/paywall">
+                                                <span className="text-brand-gold font-bold text-[11px] leading-tight flex items-center hover:text-brand-goldDark transition-colors cursor-pointer shrink-0">
+                                                    UPGRADE
+                                                </span>
+                                            </Link>
+                                        )
+                                    ) : null}
                                 </div>
-                            )}
+                            </div>
                         </div>
 
-                        <div className="flex flex-col">
-                            <p className="text-xs font-medium text-slate-500 whitespace-nowrap">
-                                Selamat datang
-                            </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                                <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight truncate max-w-[130px]">
-                                    {greetingName}
-                                </h2>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleRefresh}
+                                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-brand-navy hover:text-slate-900 active:scale-90 transition-all shrink-0"
+                                title="Refresh Aplikasi"
+                            >
+                                <RefreshCcw className="w-4 h-4" />
+                            </button>
 
-                                {user ? (
-                                    user.isPro === true ? (
-                                        <Crown className="w-4 h-4 text-brand-gold shrink-0" fill="currentColor" />
-                                    ) : (
-                                        <Link href="/paywall">
-                                            <span className="text-brand-gold font-bold text-[11px] leading-tight flex items-center hover:text-brand-goldDark transition-colors cursor-pointer shrink-0">
-                                                UPGRADE
-                                            </span>
+                            <button
+                                onClick={handleUndo}
+                                disabled={undoTx.isPending}
+                                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all shrink-0"
+                                title="Batalkan Transaksi Terakhir"
+                            >
+                                {undoTx.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
+                            </button>
+
+                            <div className="relative shrink-0">
+                                <button
+                                    onClick={() => { setIsMenuOpen(!isMenuOpen); dismissGuideTooltip(); }}
+                                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                                >
+                                    <MoreVertical className="w-4 h-4" />
+                                </button>
+
+                                {isMenuOpen && (
+                                    <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
+                                        <Link href="/profile">
+                                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400" /> Edit Profil & Sandi</button>
                                         </Link>
-                                    )
-                                ) : null}
+                                        <Link href="/security">
+                                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400" /> Keamanan</button>
+                                        </Link>
+                                        <div className="h-px bg-slate-100 my-1 mx-2"></div>
+                                        <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500" /> Keluar</button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={handleRefresh}
-                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-brand-navy hover:text-slate-900 active:scale-90 transition-all shrink-0"
-                            title="Refresh Aplikasi"
-                        >
-                            <RefreshCcw className="w-4 h-4" />
-                        </button>
-
-                        <button
-                            onClick={handleUndo}
-                            disabled={undoTx.isPending}
-                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all shrink-0"
-                            title="Batalkan Transaksi Terakhir"
-                        >
-                            {undoTx.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
-                        </button>
-
-                        <div className="relative shrink-0">
-                            <button
-                                onClick={() => { setIsMenuOpen(!isMenuOpen); dismissGuideTooltip(); }}
-                                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 active:bg-slate-100 transition-colors"
-                            >
-                                <MoreVertical className="w-4 h-4" />
-                            </button>
-
-                            {isMenuOpen && (
-                                <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
-                                    <Link href="/profile">
-                                        <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400" /> Edit Profil & Sandi</button>
-                                    </Link>
-                                    <Link href="/security">
-                                        <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400" /> Keamanan</button>
-                                    </Link>
-                                    <div className="h-px bg-slate-100 my-1 mx-2"></div>
-                                    <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500" /> Keluar</button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* CARD SECTION BANNER: Soft colored gradient background, rounded at the top */}
-                <div className="-mx-5 px-5 pt-6 pb-12 bg-gradient-to-b from-[#f1f5f9] to-[#dbe4f0] rounded-t-[32px] flex flex-col gap-5 -mb-8 relative z-10">
                     {/* 2. Kartu Saldo — flat navy + gold dengan shadow, lebih compact */}
-                    <div className="bg-brand-navy text-white p-5 rounded-[24px] border-l-[6px] border-brand-gold shadow-[8px_8px_0px_0px] shadow-slate-900 relative overflow-hidden">
+                    <div className="bg-brand-navy text-white p-5 rounded-[24px] border-l-[6px] border-brand-gold shadow-[8px_8px_0px_0px] shadow-slate-900 relative overflow-hidden mt-3">
                         {/* Efek buletan dan kilau */}
                         <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
                         <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
