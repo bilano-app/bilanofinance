@@ -684,239 +684,247 @@ export default function Home() {
                 </div>
             )}
 
-            <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between px-2 pt-2 relative">
-                    <div className="flex items-center gap-3">
-                        <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100 shrink-0">
-                            {user?.profilePicture ? (
-                                <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full bg-brand-navy flex items-center justify-center text-white font-bold text-lg">
-                                    {greetingName.charAt(0).toUpperCase()}
+            <div className="flex flex-col">
+                {/* TOP HEADER SECTION: Soft colored background banner */}
+                <div className="-mx-5 -mt-5 px-5 pt-5 pb-8 bg-gradient-to-b from-[#f1f5f9] to-[#dbe4f0] flex flex-col gap-5">
+                    {/* 1. Header (Profile, Refresh, Undo, Menu) */}
+                    <div className="flex items-center justify-between px-2 pt-2 relative">
+                        <div className="flex items-center gap-3">
+                            <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100 shrink-0">
+                                {user?.profilePicture ? (
+                                    <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full bg-brand-navy flex items-center justify-center text-white font-bold text-lg">
+                                        {greetingName.charAt(0).toUpperCase()}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex flex-col">
+                                <p className="text-xs font-medium text-slate-500 whitespace-nowrap">
+                                    Selamat datang
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight truncate max-w-[130px]">
+                                        {greetingName}
+                                    </h2>
+
+                                    {user ? (
+                                        user.isPro === true ? (
+                                            <Crown className="w-4 h-4 text-brand-gold shrink-0" fill="currentColor" />
+                                        ) : (
+                                            <Link href="/paywall">
+                                                <span className="text-brand-gold font-bold text-[11px] leading-tight flex items-center hover:text-brand-goldDark transition-colors cursor-pointer shrink-0">
+                                                    UPGRADE
+                                                </span>
+                                            </Link>
+                                        )
+                                    ) : null}
                                 </div>
-                            )}
-                        </div>
-
-                        <div className="flex flex-col">
-                            <p className="text-xs font-medium text-slate-500 whitespace-nowrap">
-                                Selamat datang
-                            </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                                <h2 className="text-lg font-extrabold text-slate-800 capitalize leading-tight truncate max-w-[130px]">
-                                    {greetingName}
-                                </h2>
-
-                                {user ? (
-                                    user.isPro === true ? (
-                                        <Crown className="w-4 h-4 text-brand-gold shrink-0" fill="currentColor" />
-                                    ) : (
-                                        <Link href="/paywall">
-                                            <span className="text-brand-gold font-bold text-[11px] leading-tight flex items-center hover:text-brand-goldDark transition-colors cursor-pointer shrink-0">
-                                                UPGRADE
-                                            </span>
-                                        </Link>
-                                    )
-                                ) : null}
                             </div>
                         </div>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={handleRefresh}
-                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-brand-navy hover:text-slate-900 active:scale-90 transition-all shrink-0"
-                            title="Refresh Aplikasi"
-                        >
-                            <RefreshCcw className="w-4 h-4" />
-                        </button>
-
-                        <button
-                            onClick={handleUndo}
-                            disabled={undoTx.isPending}
-                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all shrink-0"
-                            title="Batalkan Transaksi Terakhir"
-                        >
-                            {undoTx.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
-                        </button>
-
-                        <div className="relative shrink-0">
+                        <div className="flex items-center gap-2">
                             <button
-                                onClick={() => { setIsMenuOpen(!isMenuOpen); dismissGuideTooltip(); }}
-                                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                                onClick={handleRefresh}
+                                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-brand-navy hover:text-slate-900 active:scale-90 transition-all shrink-0"
+                                title="Refresh Aplikasi"
                             >
-                                <MoreVertical className="w-4 h-4" />
+                                <RefreshCcw className="w-4 h-4" />
                             </button>
 
-                            {isMenuOpen && (
-                                <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
-                                    <Link href="/profile">
-                                        <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400" /> Edit Profil & Sandi</button>
-                                    </Link>
-                                    <Link href="/security">
-                                        <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400" /> Keamanan</button>
-                                    </Link>
-                                    <div className="h-px bg-slate-100 my-1 mx-2"></div>
-                                    <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500" /> Keluar</button>
+                            <button
+                                onClick={handleUndo}
+                                disabled={undoTx.isPending}
+                                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 active:scale-90 transition-all shrink-0"
+                                title="Batalkan Transaksi Terakhir"
+                            >
+                                {undoTx.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
+                            </button>
+
+                            <div className="relative shrink-0">
+                                <button
+                                    onClick={() => { setIsMenuOpen(!isMenuOpen); dismissGuideTooltip(); }}
+                                    className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                                >
+                                    <MoreVertical className="w-4 h-4" />
+                                </button>
+
+                                {isMenuOpen && (
+                                    <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
+                                        <Link href="/profile">
+                                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400" /> Edit Profil & Sandi</button>
+                                        </Link>
+                                        <Link href="/security">
+                                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400" /> Keamanan</button>
+                                        </Link>
+                                        <div className="h-px bg-slate-100 my-1 mx-2"></div>
+                                        <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500" /> Keluar</button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 2. Kartu Saldo — flat navy + gold dengan shadow */}
+                    <div className="bg-brand-navy text-white p-6 rounded-[28px] border-l-[6px] border-brand-gold shadow-[8px_8px_0px_0px] shadow-slate-900 relative overflow-hidden">
+                        {/* Efek buletan dan kilau */}
+                        <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
+                        <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                        <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
+                        <div className="relative z-10 flex flex-col pt-2 pb-4">
+                            <div className="flex justify-between items-center mb-1">
+                                <p className="text-[11px] font-bold text-blue-200/80 uppercase tracking-widest">Saldo Kas</p>
+                                <button onClick={togglePrivacy} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-brand-gold">
+                                    {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+
+                            <h2 className={`${getBalanceTextSize(displayBalance)} font-black tracking-tight tabular-nums text-white mb-6 flex items-center h-10 whitespace-nowrap transition-all duration-300`}>
+                                {displayBalance}
+                            </h2>
+
+                            <div className="flex gap-3">
+                                <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 border border-white/10 px-3 py-1.5 rounded-full">
+                                    <span>IDR:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Kartu Saldo — flat navy + gold, tanpa gradient/blur-orb. 
-            Aksen strip emas di kiri jadi "signature" yang diulang di kartu premium. */}
-                <div className="bg-brand-navy text-white p-6 rounded-[28px] border-l-[6px] border-brand-gold shadow-[8px_8px_0px_0px] shadow-slate-900 relative overflow-hidden">
-                    {/* Efek buletan dan kilau persis sesuai referensi lama */}
-                    <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
-                    <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="absolute left-0 bottom-0 w-24 h-24 bg-blue-400/20 rounded-tr-full blur-xl pointer-events-none"></div>
-                    <div className="relative z-10 flex flex-col pt-2 pb-4">
-                        <div className="flex justify-between items-center mb-1">
-                            <p className="text-[11px] font-bold text-blue-200/80 uppercase tracking-widest">Saldo Kas</p>
-                            <button onClick={togglePrivacy} className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-brand-gold">
-                                {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
+                {/* BOTTOM CONTENT SECTION: White container with rounded top corners (Patahan Border) */}
+                <div className="-mx-5 px-5 pt-7 pb-16 bg-white rounded-t-[32px] shadow-[0_-10px_30px_rgba(29,62,114,0.08)] flex flex-col gap-6 relative z-20">
+                    {/* 3. Grid Pemasukan & Pengeluaran */}
+                    <div className="grid grid-cols-2 gap-3 px-1">
+                        <Link href="/income">
+                            <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-emerald-400 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                                        <ArrowDownLeft className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
+                                    </div>
+                                    <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pemasukan</p>
+                                </div>
+                                <div className="mt-1">
+                                    <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
+                                </div>
+                            </div>
+                        </Link>
+                        <Link href="/expense">
+                            <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-rose-400 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+                                        <ArrowUpRight className="w-4 h-4 text-rose-500" strokeWidth={2.5} />
+                                    </div>
+                                    <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pengeluaran</p>
+                                </div>
+                                <div className="mt-1">
+                                    <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
+                                </div>
+                            </div>
+                        </Link>
+                    </div>
+
+                    {/* 4. Fitur Pilihan */}
+                    <div className="px-1">
+                        <div className="flex justify-between items-center mb-4 px-1">
+                            <h3 className="font-bold text-slate-800 text-sm flex items-center">
+                                <span className="w-1.5 h-1.5 rounded-full bg-brand-gold mr-2"></span>
+                                Fitur Pilihan
+                            </h3>
                         </div>
 
-                        <h2 className={`${getBalanceTextSize(displayBalance)} font-black tracking-tight tabular-nums text-white mb-6 flex items-center h-10 whitespace-nowrap transition-all duration-300`}>
-                            {displayBalance}
-                        </h2>
-
-                        <div className="flex gap-3">
-                            <div className="flex items-center gap-1.5 text-xs text-blue-100 bg-white/10 border border-white/10 px-3 py-1.5 rounded-full">
-                                <span>IDR:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
-                            </div>
+                        <div className="grid grid-cols-4 gap-y-7 gap-x-2 py-2">
+                            <MenuIconBox href="/forex" icon={DollarSign} label="Valas" />
+                            <MenuIconBox href="/debts" icon={HandCoins} label="Hutang" />
+                            <MenuIconBox href="/subscriptions" icon={RefreshCcw} label="Langganan" />
+                            <MenuIconBox href="/investment" icon={TrendingUp} label="Investasi" />
+                            <MenuIconBox href="/reports" icon={FileText} label="Laporan" />
+                            <MenuIconBox href="/scan" icon={ScanLine} label="Scan" />
+                            <MenuIconBox href="/amal" icon={HeartHandshake} label="Amal" />
+                            <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" />
                         </div>
                     </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-3 px-1 mt-2">
-                    <Link href="/income">
-                        <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-emerald-400 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                                    <ArrowDownLeft className="w-4 h-4 text-emerald-600" strokeWidth={2.5} />
-                                </div>
-                                <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pemasukan</p>
-                            </div>
-                            <div className="mt-1">
-                                <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(income).split(",")[0]}</p>
-                            </div>
-                        </div>
-                    </Link>
-                    <Link href="/expense">
-                        <div className="bg-white p-4 rounded-[20px] border border-slate-100 border-t-[3px] border-t-rose-400 shadow-[0_2px_14px_rgba(15,23,42,0.05)] cursor-pointer flex flex-col gap-2 active:scale-[0.97] transition-all">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
-                                    <ArrowUpRight className="w-4 h-4 text-rose-500" strokeWidth={2.5} />
-                                </div>
-                                <p className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider truncate">Pengeluaran</p>
-                            </div>
-                            <div className="mt-1">
-                                <p className="text-lg font-black text-slate-800 leading-none truncate tabular-nums">{isPrivacyMode ? "••••••" : formatCurrency(expense).split(",")[0]}</p>
-                            </div>
-                        </div>
-                    </Link>
-                </div>
-
-                <div className="px-1 mt-2">
-                    <div className="flex justify-between items-center mb-4 px-1">
-                        <h3 className="font-bold text-slate-800 text-sm flex items-center">
+                    {/* 5. Eksklusif Premium */}
+                    <div className="px-1 space-y-3">
+                        <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px] flex items-center">
                             <span className="w-1.5 h-1.5 rounded-full bg-brand-gold mr-2"></span>
-                            Fitur Pilihan
+                            Eksklusif Premium
                         </h3>
+
+                        <Link href="/wealth-blueprint">
+                            <div className="bg-brand-navy rounded-[24px] p-5 border-l-[6px] border-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 cursor-pointer active:shadow-[3px_3px_0px_0px] active:shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group mb-3">
+                                <Banknote className="absolute -right-2 -bottom-2 w-28 h-28 text-white/[0.05] -rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:-rotate-6" strokeWidth={1} />
+                                <div className="flex items-center justify-between relative z-10">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-14 h-14 rounded-2xl bg-brand-gold flex items-center justify-center shrink-0 shadow-inner">
+                                            <Banknote className="w-7 h-7 text-brand-navy" strokeWidth={2.25} />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                                <h3 className="font-black text-white text-base tracking-tight">Pembimbing Penghasilan</h3>
+                                                <span className="bg-brand-goldTintMed text-brand-goldDark text-[9px] font-black px-2 py-0.5 rounded-md border border-brand-gold uppercase tracking-wider">LIVE</span>
+                                            </div>
+                                            <p className="text-[11px] text-blue-200/70 font-medium">Strategi & Peta Jalur Cuan AI</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-brand-gold group-hover:translate-x-0.5 transition-all shrink-0" />
+                                </div>
+                            </div>
+                        </Link>
+
+                        <Link href="/academy">
+                            <div className="bg-brand-gold rounded-[24px] p-5 border-l-[6px] border-brand-navy shadow-[6px_6px_0px_0px] shadow-brand-navy cursor-pointer active:shadow-[3px_3px_0px_0px] shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group">
+                                <BookOpen className="absolute -right-4 -bottom-4 w-32 h-32 text-brand-navy/10 rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-6" strokeWidth={1} />
+                                <div className="flex items-center justify-between relative z-10">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-14 h-14 rounded-2xl bg-brand-navy flex items-center justify-center shrink-0 shadow-inner">
+                                            <BookOpen className="w-7 h-7 text-brand-gold" strokeWidth={2.25} />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h3 className="font-black text-brand-navy text-base tracking-tight">BILANO Academy</h3>
+                                            </div>
+                                            <p className="text-[11px] text-brand-navy/80 font-bold">E-Book & Panduan Finansial VIP</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight className="w-5 h-5 text-brand-navy/40 group-hover:text-brand-navy transition-colors shrink-0" />
+                                </div>
+                            </div>
+                        </Link>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-y-7 gap-x-2 py-2">
-                        <MenuIconBox href="/forex" icon={DollarSign} label="Valas" />
-                        <MenuIconBox href="/debts" icon={HandCoins} label="Hutang" />
-                        <MenuIconBox href="/subscriptions" icon={RefreshCcw} label="Langganan" />
-                        <MenuIconBox href="/investment" icon={TrendingUp} label="Investasi" />
-                        <MenuIconBox href="/reports" icon={FileText} label="Laporan" />
-                        <MenuIconBox href="/scan" icon={ScanLine} label="Scan" />
-                        <MenuIconBox href="/amal" icon={HeartHandshake} label="Amal" />
-                        <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" />
+                    {/* 6. Tanya AI & Performa */}
+                    <div className="grid grid-cols-2 gap-3 px-1">
+                        <Link href="/chat-ai">
+                            <div className="aspect-square bg-white rounded-[24px] p-3 border-2 border-slate-100 border-b-[6px] border-b-brand-navy shadow-[4px_4px_0px_0px] shadow-slate-200 cursor-pointer flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all group">
+                                <div className="w-12 h-12 rounded-full bg-brand-navyTintLight flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                                    <Bot className="w-6 h-6 text-brand-navy" strokeWidth={2.25} />
+                                </div>
+                                <h3 className="font-black text-slate-800 text-[13px] leading-tight">Tanya AI</h3>
+                                <p className="text-[10px] text-slate-500 mt-1 font-medium leading-snug px-1">Konsultasi 24/7</p>
+                            </div>
+                        </Link>
+
+                        <Link href="/performance">
+                            <div className="aspect-square bg-white rounded-[24px] p-3 border-2 border-slate-100 border-b-[6px] border-b-amber-400 shadow-[4px_4px_0px_0px] shadow-slate-200 cursor-pointer flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all group">
+                                <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                                    <BarChart3 className="w-6 h-6 text-amber-600" strokeWidth={2.25} />
+                                </div>
+                                <h3 className="font-black text-slate-800 text-[13px] leading-tight">Performa</h3>
+                                <p className="text-[10px] text-slate-500 mt-1 font-medium leading-snug px-1">Pantau targetmu</p>
+                            </div>
+                        </Link>
                     </div>
-                </div>
 
-                <div className="px-1 mt-4 mb-2 space-y-3">
-                    <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px] flex items-center">
-                        <span className="w-1.5 h-1.5 rounded-full bg-brand-gold mr-2"></span>
-                        Eksklusif Premium
-                    </h3>
-
-                    {/* Tampilan Menu Premium pada Home.tsx */}
-                    <Link href="/wealth-blueprint">
-                        <div className="bg-brand-navy rounded-[24px] p-5 border-l-[6px] border-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 cursor-pointer active:shadow-[3px_3px_0px_0px] active:shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group mb-3">
-                            <Banknote className="absolute -right-2 -bottom-2 w-28 h-28 text-white/[0.05] -rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:-rotate-6" strokeWidth={1} />
-                            <div className="flex items-center justify-between relative z-10">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-2xl bg-brand-gold flex items-center justify-center shrink-0 shadow-inner">
-                                        <Banknote className="w-7 h-7 text-brand-navy" strokeWidth={2.25} />
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                            {/* UBAH JUDUL DI SINI */}
-                                            <h3 className="font-black text-white text-base tracking-tight">Pembimbing Penghasilan</h3>
-                                            <span className="bg-brand-goldTintMed text-brand-goldDark text-[9px] font-black px-2 py-0.5 rounded-md border border-brand-gold uppercase tracking-wider">LIVE</span>
-                                        </div>
-                                        {/* UBAH SUBJUDUL DI SINI */}
-                                        <p className="text-[11px] text-blue-200/70 font-medium">Strategi & Peta Jalur Cuan AI</p>
-                                    </div>
-                                </div>
-                                <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-brand-gold group-hover:translate-x-0.5 transition-all shrink-0" />
-                            </div>
-                        </div>
-                    </Link>
-
-                    <Link href="/academy">
-                        <div className="bg-brand-gold rounded-[24px] p-5 border-l-[6px] border-brand-navy shadow-[6px_6px_0px_0px] shadow-brand-navy cursor-pointer active:shadow-[3px_3px_0px_0px] shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group">
-                            <BookOpen className="absolute -right-4 -bottom-4 w-32 h-32 text-brand-navy/10 rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-6" strokeWidth={1} />
-                            <div className="flex items-center justify-between relative z-10">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-2xl bg-brand-navy flex items-center justify-center shrink-0 shadow-inner">
-                                        <BookOpen className="w-7 h-7 text-brand-gold" strokeWidth={2.25} />
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <h3 className="font-black text-brand-navy text-base tracking-tight">BILANO Academy</h3>
-                                        </div>
-                                        <p className="text-[11px] text-brand-navy/80 font-bold">E-Book & Panduan Finansial VIP</p>
-                                    </div>
-                                </div>
-                                <ChevronRight className="w-5 h-5 text-brand-navy/40 group-hover:text-brand-navy transition-colors shrink-0" />
-                            </div>
-                        </div>
-                    </Link>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mt-2 px-1">
-                    <Link href="/chat-ai">
-                        <div className="aspect-square bg-white rounded-[24px] p-3 border-2 border-slate-100 border-b-[6px] border-b-brand-navy shadow-[4px_4px_0px_0px] shadow-slate-200 cursor-pointer flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all group">
-                            <div className="w-12 h-12 rounded-full bg-brand-navyTintLight flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
-                                <Bot className="w-6 h-6 text-brand-navy" strokeWidth={2.25} />
-                            </div>
-                            <h3 className="font-black text-slate-800 text-[13px] leading-tight">Tanya AI</h3>
-                            <p className="text-[10px] text-slate-500 mt-1 font-medium leading-snug px-1">Konsultasi 24/7</p>
-                        </div>
-                    </Link>
-
-                    <Link href="/performance">
-                        <div className="aspect-square bg-white rounded-[24px] p-3 border-2 border-slate-100 border-b-[6px] border-b-amber-400 shadow-[4px_4px_0px_0px] shadow-slate-200 cursor-pointer flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all group">
-                            <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
-                                <BarChart3 className="w-6 h-6 text-amber-600" strokeWidth={2.25} />
-                            </div>
-                            <h3 className="font-black text-slate-800 text-[13px] leading-tight">Performa</h3>
-                            <p className="text-[10px] text-slate-500 mt-1 font-medium leading-snug px-1">Pantau targetmu</p>
-                        </div>
-                    </Link>
-                </div>
-
-                <div className="mt-8 mb-6 flex flex-col items-center justify-center opacity-60 px-4 text-center">
-                    <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Smart Wealth Management</p>
-                    <p className="text-[10px] text-slate-400 mt-1.5 font-medium leading-relaxed">
-                        © {new Date().getFullYear()} • Bilano Official
-                    </p>
+                    {/* 7. Footer / Copyright */}
+                    <div className="mt-4 mb-2 flex flex-col items-center justify-center opacity-60 px-4 text-center">
+                        <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Smart Wealth Management</p>
+                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium leading-relaxed">
+                            © {new Date().getFullYear()} • Bilano Official
+                        </p>
+                    </div>
                 </div>
             </div>
         </MobileLayout>
