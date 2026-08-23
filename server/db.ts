@@ -16,6 +16,7 @@ export const pool = new Pool({
     max: 1, // KUNCI UTAMA: Cukup 1 koneksi per instance Vercel agar tidak melebihi limit 20 Aiven
     idleTimeoutMillis: 5000, // Tutup antrean lebih cepat (5 detik) jika sudah tidak dipakai
     connectionTimeoutMillis: 10000, // Cegah loading muter-muter tanpa batas
+    ssl: { rejectUnauthorized: false }
 });
 
 export const db = drizzle(pool, { schema });
