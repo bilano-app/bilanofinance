@@ -135,7 +135,7 @@ export default function Expense() {
                   description: desc || "Pengeluaran Rutin",
                   date: new Date(),
                   source: selectedSource
-              });
+              } as any);
 
               if (isEmergencyOverride) {
                   try {
@@ -168,7 +168,7 @@ export default function Expense() {
                   description: `Belum Dibayar - ${debtName}`, 
                   date: new Date(),
                   source: selectedSource
-              });
+              } as any);
           }
 
           trackEvent("manual_tx_added", { 

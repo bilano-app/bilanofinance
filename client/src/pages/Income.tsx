@@ -81,7 +81,7 @@ export default function Income() {
               description: description || "Pemasukan Rutin", 
               date: new Date(),
               source: selectedSource
-          });
+          } as any);
       } else {
           await fetch("/api/debts", {
               method: "POST", 
@@ -103,7 +103,7 @@ export default function Income() {
               description: `[PIUTANG_PENDAPATAN] Belum Dibayar - ${debtName}`, 
               date: new Date(),
               source: selectedSource
-          });
+          } as any);
       }
 
       trackEvent("manual_tx_added", { 
