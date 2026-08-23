@@ -1,15 +1,9 @@
 import { useState, useMemo } from "react";
 import { Button, Input } from "@/components/UIComponents";
-import { Wallet, Plus, Trash2, ArrowRight, Loader2, ChevronDown } from "lucide-react";
+import { Wallet, Plus, Trash2, ArrowRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
-
-const SOURCES = [
-  "Cash (Uang Kertas)",
-  "BCA", "Mandiri", "BNI", "BRI", "BSI",
-  "GoPay", "OVO", "DANA", "ShopeePay", "LinkAja",
-  "RDN", "Stockbit", "Pluang", "Ajaib", "Bareksa", "Bibit"
-];
+import WalletSourceSelect from "@/components/WalletSourceSelect";
 
 const formatNumber = (val: string) => {
     let clean = val.replace(/\D/g, '');
@@ -131,22 +125,19 @@ export default function LegacyMigrationPopup({ onComplete }: { onComplete: () =>
                         </button>
                         )}
                         <div className="mb-3 pr-8">
-                            <label className="text-xs font-bold text-slate-500 mb-1 block">Dompet {index + 1}</label>
-                            {!entry.isCustomSource ? (
-                            <div className="relative">
-                                <select
+                            <label className="text-xs font-bold text-slate-500 mb-1.5 block">Dompet {index + 1}</label>
+                            <WalletSourceSelect
                                 value={entry.source}
-                                onChange={(e) => updateEntry(entry.id, 'source', e.target.value)}
-                                className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 text-sm font-bold rounded-xl h-12 px-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                >
-                                {SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-                                <option value="custom">+ Ketik Manual (Lainnya)</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                            </div>
-                            ) : (
-                            <Input placeholder="Ketik nama sumber..." value={entry.source} onChange={(e) => updateEntry(entry.id, 'source', e.target.value)} className="h-12 bg-slate-50 border-slate-200 rounded-xl font-bold text-sm" autoFocus />
-                            )}
+                                isCustom={entry.isCustomSource}
+                                onChange={(val, isCustom) => {
+                                    setEntries(entries.map(e => {
+                                        if (e.id === entry.id) {
+                                            return { ...e, source: val, isCustomSource: !!isCustom };
+                                        }
+                                        return e;
+                                    }));
+                                }}
+                            />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-slate-500 mb-1 block">Saldo di Dalamnya</label>

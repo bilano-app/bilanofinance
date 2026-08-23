@@ -4,14 +4,11 @@ import { Button, Input } from "@/components/UIComponents";
 import { Wallet, Plus, Trash2, ChevronDown, Check, Loader2, ArrowRight, TrendingUp, HandCoins, Users, CalendarClock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/tracking";
+import WalletSourceSelect from "@/components/WalletSourceSelect";
+import { ALL_WALLET_NAMES } from "@/lib/wallet-sources";
 
 // Constants
-const SOURCES = [
-  "Cash (Uang Kertas)",
-  "BCA", "Mandiri", "BNI", "BRI", "BSI",
-  "GoPay", "OVO", "DANA", "ShopeePay", "LinkAja",
-  "RDN", "Stockbit", "Pluang", "Ajaib", "Bareksa", "Bibit"
-];
+const SOURCES = ["Cash (Uang Kertas)", ...ALL_WALLET_NAMES];
 
 const CURRENCIES = ["IDR", "USD", "EUR", "SGD", "JPY", "GBP", "AUD", "MYR", "CNY"];
 
@@ -429,21 +426,18 @@ export default function SetupBalance() {
                 <div className="mt-3 space-y-4">
                   <div>
                     <label className="text-xs font-bold text-slate-500 mb-1.5 block">Nama Sumber Uang</label>
-                    {!entry.isCustomSource ? (
-                      <div className="relative">
-                        <select
-                          value={entry.source}
-                          onChange={(e) => updateEntry(entry.id, 'source', e.target.value)}
-                          className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 text-sm font-bold rounded-2xl h-14 px-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                        >
-                          {SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-                          <option value="custom">+ Ketik Manual (Lainnya)</option>
-                        </select>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                      </div>
-                    ) : (
-                      <Input placeholder="Ketik nama sumber..." value={entry.source} onChange={(e) => updateEntry(entry.id, 'source', e.target.value)} className="h-14 bg-slate-50 border-slate-200 rounded-2xl font-bold text-sm" autoFocus />
-                    )}
+                    <WalletSourceSelect
+                      value={entry.source}
+                      isCustom={entry.isCustomSource}
+                      onChange={(val, isCustom) => {
+                        setEntries(entries.map(e => {
+                          if (e.id === entry.id) {
+                            return { ...e, source: val, isCustomSource: !!isCustom };
+                          }
+                          return e;
+                        }));
+                      }}
+                    />
                   </div>
                   <div className="flex gap-3">
                     <div className="w-2/5">

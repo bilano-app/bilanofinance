@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import LegacyMigrationPopup from "@/components/LegacyMigrationPopup";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
+import { getWalletLogo } from "@/lib/wallet-sources";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -908,7 +909,7 @@ export default function Home() {
 
             <div className="flex flex-col">
                 {/* TOP BANNER CONTAINER: Gradient background covering welcome area and card area */}
-                <div className="-mx-5 -mt-5 px-5 pt-5 pb-5 bg-gradient-to-b from-[#f1f5f9] via-[#e2eaf4] to-[#d6e3f2] flex flex-col relative z-10">
+                <div className="-mx-5 -mt-5 px-5 pt-5 pb-8 bg-gradient-to-b from-[#f1f5f9] via-[#e2eaf4] to-[#d6e3f2] flex flex-col relative z-10">
                     
                     {/* 1. WELCOME HEADER SECTION: White background seamless at top, rounded bottom corners */}
                     <div className="-mx-5 -mt-5 px-5 pt-6 pb-5 bg-white rounded-b-[28px] shadow-[0_4px_16px_rgba(15,23,42,0.03)] flex items-center justify-between relative z-30">
@@ -1011,32 +1012,48 @@ export default function Home() {
                                 <div className="flex w-full items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
                                     {user?.walletSources && (user.walletSources as any[]).length > 0 ? (
                                         <>
-                                            {(user.walletSources as any[]).map((wallet: any, idx: number) => (
-                                                <div key={idx} className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0">
-                                                    <span>{wallet.name}:</span> 
-                                                    <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(wallet.balance).split(",")[0]}</span>
-                                                    <button 
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleOpenEditWallet(wallet);
-                                                        }} 
-                                                        className="ml-0.5 p-0.5 hover:bg-white/20 rounded-full text-blue-200 hover:text-white transition-colors active:scale-95"
-                                                        title={`Edit Saldo ${wallet.name}`}
-                                                    >
-                                                        <Pencil className="w-2.5 h-2.5 text-brand-gold" />
-                                                    </button>
-                                                </div>
-                                            ))}
+                                            {(user.walletSources as any[]).map((wallet: any, idx: number) => {
+                                                const logo = getWalletLogo(wallet.name);
+                                                return (
+                                                    <div key={idx} className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0 shadow-xs backdrop-blur-xs">
+                                                        {logo ? (
+                                                            <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs" title={wallet.name}>
+                                                                <img 
+                                                                    src={logo} 
+                                                                    alt={wallet.name} 
+                                                                    className="w-full h-full object-contain rounded-full"
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <span className="font-bold text-blue-200 text-[10px]">{wallet.name}:</span>
+                                                        )}
+                                                        <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(wallet.balance).split(",")[0]}</span>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleOpenEditWallet(wallet);
+                                                            }} 
+                                                            className="ml-0.5 p-0.5 hover:bg-white/20 rounded-full text-blue-200 hover:text-white transition-colors active:scale-95"
+                                                            title={`Edit Saldo ${wallet.name}`}
+                                                        >
+                                                            <Pencil className="w-2.5 h-2.5 text-brand-gold" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
                                             <Link href="/transfer">
-                                                <button className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-gold text-brand-navy shrink-0 ml-1 hover:bg-brand-goldDark transition-colors active:scale-95 shadow-sm">
+                                                <button className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-gold text-brand-navy shrink-0 ml-1 hover:bg-brand-goldDark transition-colors active:scale-95 shadow-sm" title="Tambah / Pindah Dompet">
                                                     <Plus className="w-4 h-4" strokeWidth={3} />
                                                 </button>
                                             </Link>
                                         </>
                                     ) : (
-                                        <div className="flex items-center gap-1 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1 rounded-full shrink-0">
-                                            <span>IDR:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+                                        <div className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0">
+                                            <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
+                                                <img src="/ATM.png" alt="IDR" className="w-full h-full object-contain" />
+                                            </div>
+                                            <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                                         </div>
                                     )}
                                 </div>
@@ -1076,7 +1093,7 @@ export default function Home() {
                 </div>
 
                 {/* BOTTOM CONTENT SECTION: White container with rounded top corners */}
-                <div className="-mx-5 px-5 pt-6 pb-16 bg-white rounded-t-[32px] shadow-[0_-8px_24px_rgba(29,62,114,0.06)] flex flex-col gap-6 relative z-20">
+                <div className="-mx-5 -mt-6 px-5 pt-6 pb-16 bg-white rounded-t-[32px] border-t border-slate-100 shadow-[0_-8px_24px_rgba(29,62,114,0.06)] flex flex-col gap-6 relative z-20">
 
                     {/* 4. Fitur Pilihan dengan Ikon PNG */}
                     <div className="px-1">
@@ -1111,12 +1128,12 @@ export default function Home() {
                                 <Banknote className="absolute -right-2 -bottom-2 w-28 h-28 text-white/[0.05] -rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:-rotate-6" strokeWidth={1} />
                                 <div className="flex items-center justify-between relative z-10">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-14 h-14 rounded-2xl bg-brand-gold flex items-center justify-center shrink-0 shadow-inner">
-                                            <Banknote className="w-7 h-7 text-brand-navy" strokeWidth={2.25} />
+                                        <div className="w-14 h-14 rounded-2xl bg-brand-gold flex items-center justify-center shrink-0 shadow-inner p-2.5">
+                                            <img src="/IDEA.png" alt="Ide & Pembimbing Penghasilan" className="w-full h-full object-contain drop-shadow-xs" />
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                                <h3 className="font-black text-white text-base tracking-tight">Pembimbing Penghasilan</h3>
+                                                <h3 className="font-black text-white text-base tracking-tight">Ide & Pembimbing Penghasilan</h3>
                                                 <span className="bg-brand-goldTintMed text-brand-goldDark text-[9px] font-black px-2 py-0.5 rounded-md border border-brand-gold uppercase tracking-wider">LIVE</span>
                                             </div>
                                             <p className="text-[11px] text-blue-200/70 font-medium">Strategi & Peta Jalur Cuan AI</p>
@@ -1132,8 +1149,8 @@ export default function Home() {
                                 <BookOpen className="absolute -right-4 -bottom-4 w-32 h-32 text-brand-navy/10 rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-6" strokeWidth={1} />
                                 <div className="flex items-center justify-between relative z-10">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-14 h-14 rounded-2xl bg-brand-navy flex items-center justify-center shrink-0 shadow-inner">
-                                            <BookOpen className="w-7 h-7 text-brand-gold" strokeWidth={2.25} />
+                                        <div className="w-14 h-14 rounded-2xl bg-brand-navy flex items-center justify-center shrink-0 shadow-inner p-2.5">
+                                            <img src="/EBOOK.png" alt="BILANO Academy" className="w-full h-full object-contain drop-shadow-xs" />
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
@@ -1148,25 +1165,80 @@ export default function Home() {
                         </Link>
                     </div>
 
-                    {/* 6. Tanya AI & Performa */}
-                    <div className="grid grid-cols-2 gap-3 px-1">
+                    {/* 6. Tanya AI & Performa - Card Visual Backwrap dengan Floating Action Bar */}
+                    <div className="px-1 space-y-3.5">
+                        <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px] flex items-center">
+                            <span className="w-1.5 h-1.5 rounded-full bg-brand-navy mr-2"></span>
+                            Konsultasi & Analitik
+                        </h3>
+
+                        {/* Tanya AI Card */}
                         <Link href="/chat-ai">
-                            <div className="aspect-square bg-white rounded-[24px] p-3 border-2 border-slate-100 border-b-[6px] border-b-brand-navy shadow-[4px_4px_0px_0px] shadow-slate-200 cursor-pointer flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all group">
-                                <div className="w-12 h-12 rounded-full bg-brand-navyTintLight flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
-                                    <Bot className="w-6 h-6 text-brand-navy" strokeWidth={2.25} />
+                            <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#dbebfb] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
+                                <img 
+                                    src="/AI.png" 
+                                    alt="AI Consultation" 
+                                    className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 group-hover:scale-105" 
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-transparent to-black/35 pointer-events-none" />
+                                
+                                <div className="relative z-10">
+                                    <span className="inline-flex items-center gap-1 bg-brand-navy text-brand-gold text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs mb-1">
+                                        <Sparkles className="w-3 h-3" /> ASISTEN PINTAR 24/7
+                                    </span>
+                                    <h3 className="font-black text-brand-navy text-xl leading-tight">Tanya AI</h3>
+                                    <p className="text-xs text-slate-700 font-bold max-w-[220px] mt-0.5 leading-snug">Konsultasi strategi & evaluasi keuangan pribadi</p>
                                 </div>
-                                <h3 className="font-black text-slate-800 text-[13px] leading-tight">Tanya AI</h3>
-                                <p className="text-[10px] text-slate-500 mt-1 font-medium leading-snug px-1">Konsultasi 24/7</p>
+
+                                <div className="relative z-10 mt-6 bg-[#16386d]/95 backdrop-blur-md text-white p-3 rounded-2xl border border-white/25 shadow-lg flex items-center justify-between group-hover:bg-[#122e5a] transition-all">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-blue-500/30 border border-white/20 flex items-center justify-center text-blue-200 shrink-0 shadow-inner">
+                                            <Bot className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-black text-white text-[13px] leading-tight">Mulai Konsultasi</h4>
+                                            <p className="text-[10px] text-blue-200 font-semibold leading-tight mt-0.5">Dapatkan jawaban instan</p>
+                                        </div>
+                                    </div>
+                                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 group-hover:bg-white/30 group-hover:translate-x-0.5 transition-all">
+                                        <ChevronRight className="w-4 h-4" />
+                                    </div>
+                                </div>
                             </div>
                         </Link>
 
+                        {/* Performa Card */}
                         <Link href="/performance">
-                            <div className="aspect-square bg-white rounded-[24px] p-3 border-2 border-slate-100 border-b-[6px] border-b-amber-400 shadow-[4px_4px_0px_0px] shadow-slate-200 cursor-pointer flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all group">
-                                <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
-                                    <BarChart3 className="w-6 h-6 text-amber-600" strokeWidth={2.25} />
+                            <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#fdf5ea] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
+                                <img 
+                                    src="/Performance.png" 
+                                    alt="Performance Analytics" 
+                                    className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 group-hover:scale-105" 
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-transparent to-black/35 pointer-events-none" />
+                                
+                                <div className="relative z-10">
+                                    <span className="inline-flex items-center gap-1 bg-amber-500 text-slate-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs mb-1">
+                                        <TrendingUp className="w-3 h-3" /> ANALISIS REAL-TIME
+                                    </span>
+                                    <h3 className="font-black text-slate-900 text-xl leading-tight">Performa</h3>
+                                    <p className="text-xs text-slate-700 font-bold max-w-[220px] mt-0.5 leading-snug">Pantau rasio laba, aset & pencapaian target</p>
                                 </div>
-                                <h3 className="font-black text-slate-800 text-[13px] leading-tight">Performa</h3>
-                                <p className="text-[10px] text-slate-500 mt-1 font-medium leading-snug px-1">Pantau targetmu</p>
+
+                                <div className="relative z-10 mt-6 bg-[#261d14]/95 backdrop-blur-md text-white p-3 rounded-2xl border border-amber-500/25 shadow-lg flex items-center justify-between group-hover:bg-[#1c150e] transition-all">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-amber-500/30 border border-amber-400/20 flex items-center justify-center text-amber-200 shrink-0 shadow-inner">
+                                            <BarChart3 className="w-5 h-5 text-amber-300" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-black text-white text-[13px] leading-tight">Pantau Performa</h4>
+                                            <p className="text-[10px] text-amber-200 font-semibold leading-tight mt-0.5">Analisis kesehatan finansial</p>
+                                        </div>
+                                    </div>
+                                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 group-hover:bg-white/30 group-hover:translate-x-0.5 transition-all">
+                                        <ChevronRight className="w-4 h-4" />
+                                    </div>
+                                </div>
                             </div>
                         </Link>
                     </div>

@@ -972,10 +972,10 @@ function IntroView({ onStart }: { onStart: () => void }) {
           <span className="inline-flex items-center gap-1.5 bg-amber-400 text-amber-950 px-3 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-widest mb-4">
             <Crown className="w-3 h-3" /> Modul Premium
           </span>
-          <div className="w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center mb-4">
-            <Compass className="w-7 h-7 text-white" />
+          <div className="w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center mb-4 p-2.5">
+            <img src="/IDEA.png" alt="Ide & Pembimbing Penghasilan" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-2xl font-black mb-2 tracking-tight">Pembimbing Penghasilan</h1>
+          <h1 className="text-2xl font-black mb-2 tracking-tight">Ide & Pembimbing Penghasilan</h1>
           <p className="text-sm text-indigo-100 leading-relaxed font-medium">
             Dibimbing langkah demi langkah oleh BILANO Intelligence untuk membedah modal sosial, keahlian terpendam, serta melacak laba bersih operasional riil.
           </p>
@@ -1138,7 +1138,7 @@ export default function IncomeStrategy() {
   const effectiveProfile = profile && profile.status ? profile : profileOverride;
 
   return (
-    <MobileLayout title={view === "execute" ? "Pusat Operasional" : "Pembimbing Penghasilan"} showBack>
+    <MobileLayout title={view === "execute" ? "Pusat Operasional" : "Ide & Pembimbing Penghasilan"} showBack>
       <div className="px-1">
         {view === "intro" && <IntroView onStart={() => setView("identify")} />}
         {view === "identify" && <IdentifyFlow onComplete={handleIdentifyComplete} />}

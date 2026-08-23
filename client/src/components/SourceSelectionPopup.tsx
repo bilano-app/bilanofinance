@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/UIComponents";
 import { Wallet, X, ArrowDown, ArrowUp } from "lucide-react";
 import { useUser } from "@/hooks/use-finance";
+import { getWalletLogo } from "@/lib/wallet-sources";
 
 interface SourceSelectionPopupProps {
     type: 'income' | 'expense' | 'piutang' | 'hutang';
@@ -39,26 +40,33 @@ export default function SourceSelectionPopup({ type, title, description, onSelec
 
                 <div className="p-5 max-h-[50vh] overflow-y-auto space-y-2 bg-slate-50">
                     {walletSources.length > 0 ? (
-                        walletSources.map((wallet) => (
-                            <button
-                                key={wallet.name}
-                                onClick={() => setSelected(wallet.name)}
-                                className={`w-full flex items-center justify-between p-4 rounded-[20px] border-2 transition-all text-left ${selected === wallet.name ? 'border-brand-navy bg-white shadow-sm' : 'border-transparent bg-white hover:border-slate-200 shadow-[0_2px_10px_rgb(0,0,0,0.02)]'}`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${selected === wallet.name ? 'bg-brand-navy text-brand-gold' : 'bg-slate-100 text-slate-500'}`}>
-                                        <Wallet className="w-5 h-5" />
+                        walletSources.map((wallet) => {
+                            const logo = getWalletLogo(wallet.name);
+                            return (
+                                <button
+                                    key={wallet.name}
+                                    onClick={() => setSelected(wallet.name)}
+                                    className={`w-full flex items-center justify-between p-4 rounded-[20px] border-2 transition-all text-left ${selected === wallet.name ? 'border-brand-navy bg-white shadow-sm' : 'border-transparent bg-white hover:border-slate-200 shadow-[0_2px_10px_rgb(0,0,0,0.02)]'}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center p-1.5 shadow-2xs border ${selected === wallet.name ? 'bg-white border-brand-navy' : 'bg-slate-50 border-slate-200'}`}>
+                                            {logo ? (
+                                                <img src={logo} alt={wallet.name} className="w-full h-full object-contain" />
+                                            ) : (
+                                                <Wallet className="w-5 h-5 text-slate-500" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-slate-800 text-sm">{wallet.name}</div>
+                                            <div className="text-[11px] text-slate-500 font-medium">Saldo: Rp {wallet.balance.toLocaleString('id-ID')}</div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <div className="font-bold text-slate-800 text-sm">{wallet.name}</div>
-                                        <div className="text-[11px] text-slate-500 font-medium">Saldo: Rp {wallet.balance.toLocaleString('id-ID')}</div>
+                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selected === wallet.name ? 'border-brand-navy' : 'border-slate-300'}`}>
+                                        {selected === wallet.name && <div className="w-2.5 h-2.5 bg-brand-navy rounded-full" />}
                                     </div>
-                                </div>
-                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selected === wallet.name ? 'border-brand-navy' : 'border-slate-300'}`}>
-                                    {selected === wallet.name && <div className="w-2.5 h-2.5 bg-brand-navy rounded-full" />}
-                                </div>
-                            </button>
-                        ))
+                                </button>
+                            );
+                        })
                     ) : (
                         <div className="text-center p-4 text-sm text-slate-500">
                             Belum ada dompet spesifik. Silakan rincikan dompet Anda di halaman Beranda.
