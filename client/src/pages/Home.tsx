@@ -991,7 +991,7 @@ export default function Home() {
                     </div>
 
                     {/* 2. Kartu Saldo — flat navy + gold dengan shadow proporsional */}
-                    <div className="bg-brand-navy text-white p-5 rounded-[28px] border-l-[6px] border-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 border border-slate-900/40 relative overflow-hidden mt-4 mb-2">
+                    <div className="bg-brand-navy text-white p-5 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4 mb-2">
                         {/* Efek buletan dan kilau */}
                         <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
                         <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
