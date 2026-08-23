@@ -1128,8 +1128,8 @@ export default function Home() {
                                 <Banknote className="absolute -right-2 -bottom-2 w-28 h-28 text-white/[0.05] -rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:-rotate-6" strokeWidth={1} />
                                 <div className="flex items-center justify-between relative z-10">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-[72px] h-[72px] rounded-[22px] bg-brand-gold flex items-center justify-center shrink-0 shadow-inner p-1">
-                                            <img src="/IDEA.png" alt="Ide & Pembimbing Penghasilan" className="w-full h-full object-contain drop-shadow-sm scale-110" />
+                                        <div className="w-16 h-16 rounded-2xl bg-brand-gold flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-black/10">
+                                            <img src="/IDEA.png" alt="Ide & Pembimbing Penghasilan" className="w-full h-full object-cover" />
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
@@ -1149,8 +1149,8 @@ export default function Home() {
                                 <BookOpen className="absolute -right-4 -bottom-4 w-32 h-32 text-brand-navy/10 rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-6" strokeWidth={1} />
                                 <div className="flex items-center justify-between relative z-10">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-[72px] h-[72px] rounded-[22px] bg-brand-navy flex items-center justify-center shrink-0 shadow-inner p-1">
-                                            <img src="/EBOOK.png" alt="BILANO Academy" className="w-full h-full object-contain drop-shadow-sm scale-110" />
+                                        <div className="w-16 h-16 rounded-2xl bg-brand-navy flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-white/10">
+                                            <img src="/EBOOK.png" alt="BILANO Academy" className="w-full h-full object-cover" />
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
