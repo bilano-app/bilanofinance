@@ -1175,7 +1175,7 @@ export default function ExpertTerminal() {
                   <div className="absolute top-2 right-2 text-[8px] text-[#00FF41] font-bold animate-pulse">● SECURE</div>
 
                   <div className="text-center mb-8 pt-4">
-                      <img src="/BILANO-ICON.png" alt="BILANO" className="w-14 h-14 mx-auto mb-4 object-contain drop-shadow-[0_0_10px_rgba(0,255,65,0.5)]" />
+                      <img src="/BILANO-ICON-NEW.png" alt="BILANO" className="w-14 h-14 mx-auto mb-4 object-contain drop-shadow-[0_0_10px_rgba(0,255,65,0.5)]" />
                       <h2 className="text-xl font-black text-white tracking-wider uppercase font-sans">BILANO EXPERT</h2>
                       <div className="inline-block bg-[#00E5FF]/10 border border-[#00E5FF]/30 px-3 py-1 rounded-sm mt-2">
                           <p className="text-[9px] text-[#00E5FF] font-bold uppercase tracking-[0.25em]">QUANT INSTITUTIONAL PORTAL</p>
@@ -1372,7 +1372,7 @@ export default function ExpertTerminal() {
 
       <aside className="w-64 bg-[#09090B] border-r border-[#27272A] flex flex-col z-20">
         <div className="p-6 flex items-center gap-3 border-b border-[#27272A]">
-          <img src="/BILANO-ICON.png" alt="BILANO" className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(0,255,65,0.5)]" />
+          <img src="/BILANO-ICON-NEW.png" alt="BILANO" className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(0,255,65,0.5)]" />
           <div>
             <h1 className="text-white font-black text-lg tracking-tight leading-none uppercase">BILANO</h1>
             <p className="text-[9px] text-[#00FF41] font-bold uppercase tracking-[0.2em] mt-1">Terminal Pro</p>

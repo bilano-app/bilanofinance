@@ -964,9 +964,9 @@ function parseCleanJson(text: string): any {
               headings: { en: "BILANO Finance", id: "BILANO Finance" },
               contents: { en: randomMsg, id: randomMsg },
               url: "https://bilanofinance-dvbi.vercel.app/dashboard",
-              chrome_web_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png",
-              chrome_web_badge: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png",
-              firefox_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON.png"
+              chrome_web_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON-NEW.png",
+              chrome_web_badge: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON-NEW.png",
+              firefox_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON-NEW.png"
           };
 
           const response = await fetch("https://onesignal.com/api/v1/notifications", {

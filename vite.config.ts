@@ -13,7 +13,7 @@ export default defineConfig({
     // Konfigurasi PWA
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['BILANO-ICON.png'], 
+      includeAssets: ['BILANO-ICON-NEW.png'], 
       // 🚀 INJEKSI SW.JS (AGAR NOTIFIKASI PWA JALAN)
       workbox: {
         importScripts: ['/sw.js'], 
@@ -30,12 +30,12 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: '/BILANO-ICON.png',
+            src: '/BILANO-ICON-NEW.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: '/BILANO-ICON.png',
+            src: '/BILANO-ICON-NEW.png',
             sizes: '512x512',
             type: 'image/png'
           }

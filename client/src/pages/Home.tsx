@@ -13,7 +13,7 @@ import {
     MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
     BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
     Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Sparkles, Banknote,
-    ArrowDownLeft, ArrowUpRight, Send, Target, Plus
+    ArrowDownLeft, ArrowUpRight, Send, Target, Plus, Pencil
 } from "lucide-react";
 import LegacyMigrationPopup from "@/components/LegacyMigrationPopup";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
@@ -21,6 +21,7 @@ import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/tracking";
+import { queryClient } from "@/lib/queryClient";
 
 // ─────────────────────────────────────────────────────────────
 // BILANO BRAND TOKENS
@@ -100,6 +101,78 @@ export default function Home() {
     const [showRetryButton, setShowRetryButton] = useState(false);
     const [hasCompletedMigration, setHasCompletedMigration] = useState(false);
     const [showSourcePopup, setShowSourcePopup] = useState(false);
+
+    // Edit Wallet Source Balance State
+    const [editingWallet, setEditingWallet] = useState<{ id?: string; name: string; balance: number } | null>(null);
+    const [editWalletAmount, setEditWalletAmount] = useState("");
+    const [isSavingWallet, setIsSavingWallet] = useState(false);
+    const [editWalletError, setEditWalletError] = useState("");
+
+    const formatNumInput = (val: string) => {
+        let clean = val.replace(/\D/g, '');
+        if (clean.length > 1) {
+            clean = clean.replace(/^0+/, ''); 
+        }
+        return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    };
+    const parseNumInput = (val: string) => parseFloat(val.replace(/\./g, '')) || 0;
+
+    const handleOpenEditWallet = (wallet: any) => {
+        setEditingWallet(wallet);
+        setEditWalletAmount(formatNumInput(String(Math.round(wallet.balance || 0))));
+        setEditWalletError("");
+    };
+
+    const handleSaveEditWallet = async () => {
+        if (!editingWallet || !user) return;
+        const newBal = parseNumInput(editWalletAmount);
+        const maxAllowed = user.cashBalance || 0;
+
+        if (newBal > maxAllowed) {
+            setEditWalletError(`Saldo tidak boleh melebihi Total Saldo Kas (Maks: Rp ${formatCurrency(maxAllowed).replace('Rp', '').trim()})`);
+            return;
+        }
+
+        setIsSavingWallet(true);
+        try {
+            const walletSources = user.walletSources ? [...(user.walletSources as any[])] : [];
+            const wsIdx = walletSources.findIndex((w: any) => (editingWallet.id && w.id === editingWallet.id) || w.name === editingWallet.name);
+            
+            if (wsIdx >= 0) {
+                walletSources[wsIdx] = {
+                    ...walletSources[wsIdx],
+                    balance: newBal
+                };
+            } else {
+                walletSources.push({
+                    id: Date.now().toString(),
+                    name: editingWallet.name,
+                    type: 'bank',
+                    balance: newBal
+                });
+            }
+
+            const res = await fetch("/api/user/wallet-sources", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-user-email": rawEmail
+                },
+                body: JSON.stringify({ walletSources })
+            });
+
+            if (!res.ok) throw new Error("Gagal menyimpan perubahan.");
+
+            queryClient.invalidateQueries({ queryKey: ["user"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+            toast({ title: "Berhasil!", description: `Saldo ${editingWallet.name} berhasil diperbarui.` });
+            setEditingWallet(null);
+        } catch (err: any) {
+            toast({ title: "Gagal Mengubah", description: err.message, variant: "destructive" });
+        } finally {
+            setIsSavingWallet(false);
+        }
+    };
 
     const isStandalone = typeof window !== 'undefined' &&
         (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
@@ -489,6 +562,89 @@ export default function Home() {
                 <LegacyMigrationPopup onComplete={() => setHasCompletedMigration(true)} />
             )}
 
+            {/* Modal Edit Saldo Sumber Dana */}
+            {editingWallet && (
+                <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100">
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                                    <Pencil className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-extrabold text-slate-800 text-base">Edit Saldo Dompet</h3>
+                                    <p className="text-xs text-slate-400 font-bold">{editingWallet.name}</p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button"
+                                onClick={() => setEditingWallet(null)}
+                                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                                <p className="text-[11px] text-slate-500 font-semibold mb-0.5">Total Saldo Kas Utama:</p>
+                                <p className="text-sm font-black text-slate-800 tabular-nums">
+                                    {formatCurrency(user?.cashBalance || 0)}
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                                    Saldo Baru {editingWallet.name} (Rp)
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">Rp</span>
+                                    <Input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={editWalletAmount}
+                                        onChange={(e) => {
+                                            setEditWalletAmount(formatNumInput(e.target.value));
+                                            setEditWalletError("");
+                                        }}
+                                        className="pl-10 h-12 text-base font-extrabold text-slate-800 rounded-2xl bg-white border-slate-200 focus:border-indigo-600 focus:ring-indigo-600"
+                                        placeholder="0"
+                                    />
+                                </div>
+                                {editWalletError && (
+                                    <p className="text-[11px] text-rose-500 font-bold mt-1.5 flex items-center gap-1">
+                                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                        {editWalletError}
+                                    </p>
+                                )}
+                                <p className="text-[11px] text-slate-400 mt-1">
+                                    *Jumlah saldo tidak boleh melebihi Total Saldo Kas ({formatCurrency(user?.cashBalance || 0)}).
+                                </p>
+                            </div>
+
+                            <div className="flex gap-2 pt-2">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => setEditingWallet(null)}
+                                    className="flex-1 h-12 rounded-2xl font-bold text-slate-500 hover:bg-slate-100"
+                                >
+                                    Batal
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleSaveEditWallet}
+                                    disabled={isSavingWallet}
+                                    className="flex-1 h-12 rounded-2xl font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-200 active:scale-95 transition-transform"
+                                >
+                                    {isSavingWallet ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Simpan"}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showPremiumPrompt && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="bg-slate-900 rounded-[32px] w-full max-w-sm shadow-[10px_10px_0px_0px_rgba(0,0,0,0.25)] relative animate-in zoom-in-95 text-center overflow-hidden border border-brand-gold/20">
@@ -646,7 +802,7 @@ export default function Home() {
                 <div className="fixed inset-0 z-[99997] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
                     <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100">
                         <div className="text-center mb-6 pt-2">
-                            <img src="/BILANO-ICON.png" alt="BILANO" className="w-20 h-20 object-contain mx-auto mb-5" />
+                            <img src="/BILANO-ICON-NEW.png" alt="BILANO" className="w-20 h-20 object-contain mx-auto mb-5" />
                             <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">Satu Langkah Lagi!</h2>
                             <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">Biar BILANO makin pintar bantu kelola uangmu, kami butuh sedikit izin untuk fitur ini:</p>
                         </div>
@@ -752,10 +908,10 @@ export default function Home() {
 
             <div className="flex flex-col">
                 {/* TOP BANNER CONTAINER: Gradient background covering welcome area and card area */}
-                <div className="-mx-5 -mt-5 px-5 pt-5 pb-12 bg-gradient-to-b from-[#f1f5f9] to-[#dbe4f0] flex flex-col gap-5 -mb-8 relative z-10">
+                <div className="-mx-5 -mt-5 px-5 pt-5 pb-5 bg-gradient-to-b from-[#f1f5f9] via-[#e2eaf4] to-[#d6e3f2] flex flex-col relative z-10">
                     
-                    {/* 1. WELCOME HEADER SECTION: White background seamless at top, rounded bottom corners (border radius ke atas) */}
-                    <div className="-mx-5 -mt-5 px-5 pt-6 pb-6 bg-white rounded-b-[32px] shadow-[0_8px_20px_rgba(15,23,42,0.04)] flex items-center justify-between relative z-30">
+                    {/* 1. WELCOME HEADER SECTION: White background seamless at top, rounded bottom corners */}
+                    <div className="-mx-5 -mt-5 px-5 pt-6 pb-5 bg-white rounded-b-[28px] shadow-[0_4px_16px_rgba(15,23,42,0.03)] flex items-center justify-between relative z-30">
                         <div className="flex items-center gap-3">
                             <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100 shrink-0">
                                 {user?.profilePicture ? (
@@ -833,8 +989,8 @@ export default function Home() {
                         </div>
                     </div>
 
-                    {/* 2. Kartu Saldo — flat navy + gold dengan shadow, lebih compact */}
-                    <div className="bg-brand-navy text-white p-5 rounded-[24px] border-l-[6px] border-brand-gold shadow-[8px_8px_0px_0px] shadow-slate-900 relative overflow-hidden mt-3">
+                    {/* 2. Kartu Saldo — flat navy + gold dengan shadow proporsional */}
+                    <div className="bg-brand-navy text-white p-5 rounded-[24px] border-l-[6px] border-brand-gold shadow-[0_12px_24px_-6px_rgba(15,23,42,0.28)] relative overflow-hidden mt-4 mb-2">
                         {/* Efek buletan dan kilau */}
                         <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
                         <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
@@ -856,8 +1012,20 @@ export default function Home() {
                                     {user?.walletSources && (user.walletSources as any[]).length > 0 ? (
                                         <>
                                             {(user.walletSources as any[]).map((wallet: any, idx: number) => (
-                                                <div key={idx} className="flex items-center gap-1 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-3 py-1.5 rounded-full shrink-0">
-                                                    <span>{wallet.name}:</span> <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(wallet.balance).split(",")[0]}</span>
+                                                <div key={idx} className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0">
+                                                    <span>{wallet.name}:</span> 
+                                                    <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(wallet.balance).split(",")[0]}</span>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleOpenEditWallet(wallet);
+                                                        }} 
+                                                        className="ml-0.5 p-0.5 hover:bg-white/20 rounded-full text-blue-200 hover:text-white transition-colors active:scale-95"
+                                                        title={`Edit Saldo ${wallet.name}`}
+                                                    >
+                                                        <Pencil className="w-2.5 h-2.5 text-brand-gold" />
+                                                    </button>
                                                 </div>
                                             ))}
                                             <Link href="/transfer">
@@ -874,32 +1042,32 @@ export default function Home() {
                                 </div>
                             </div>
 
-                            {/* FITUR CEPAT DI DALAM KARTU (Transfer di Tengah, Lebih Ramping) */}
-                            <div className="grid grid-cols-3 gap-1 mt-4 pt-3.5 border-t border-white/10">
+                            {/* FITUR CEPAT DI DALAM KARTU DENGAN IKON PNG PRESISI */}
+                            <div className="grid grid-cols-3 gap-2 mt-4 pt-3.5 border-t border-white/10">
                                 <Link href="/income">
-                                    <button className="flex flex-col items-center gap-1 active:scale-95 transition-transform group">
-                                        <div className="w-9 h-9 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
-                                            <ArrowDownLeft className="w-4.5 h-4.5 text-emerald-400" strokeWidth={3} />
+                                    <button className="flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform group w-full">
+                                        <div className="w-12 h-12 rounded-2xl bg-white/10 group-hover:bg-white/20 flex items-center justify-center p-1.5 shadow-inner transition-all">
+                                            <img src="/INCOME.png" alt="Pemasukan" className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-105 transition-transform" />
                                         </div>
-                                        <span className="text-[9px] font-bold text-blue-100 uppercase tracking-wider">Pemasukan</span>
+                                        <span className="text-[10px] font-bold text-blue-100 uppercase tracking-wider text-center">Pemasukan</span>
                                     </button>
                                 </Link>
 
-                                <Link href="/debts">
-                                    <button className="flex flex-col items-center gap-1 active:scale-95 transition-transform group">
-                                        <div className="w-9 h-9 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
-                                            <Send className="w-4.5 h-4.5 text-brand-gold" strokeWidth={2.5} />
+                                <Link href="/transfer">
+                                    <button className="flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform group w-full">
+                                        <div className="w-12 h-12 rounded-2xl bg-white/10 group-hover:bg-white/20 flex items-center justify-center p-1.5 shadow-inner transition-all">
+                                            <img src="/TRANSFER.png" alt="Transfer" className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-105 transition-transform" />
                                         </div>
-                                        <span className="text-[9px] font-bold text-blue-100 uppercase tracking-wider">Transfer</span>
+                                        <span className="text-[10px] font-bold text-blue-100 uppercase tracking-wider text-center">Transfer</span>
                                     </button>
                                 </Link>
 
                                 <Link href="/expense">
-                                    <button className="flex flex-col items-center gap-1 active:scale-95 transition-transform group">
-                                        <div className="w-9 h-9 bg-white/10 group-hover:bg-white/20 rounded-full flex items-center justify-center text-white shadow-inner">
-                                            <ArrowUpRight className="w-4.5 h-4.5 text-rose-400" strokeWidth={3} />
+                                    <button className="flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform group w-full">
+                                        <div className="w-12 h-12 rounded-2xl bg-white/10 group-hover:bg-white/20 flex items-center justify-center p-1.5 shadow-inner transition-all">
+                                            <img src="/EXPENSE.png" alt="Pengeluaran" className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-105 transition-transform" />
                                         </div>
-                                        <span className="text-[9px] font-bold text-blue-100 uppercase tracking-wider">Pengeluaran</span>
+                                        <span className="text-[10px] font-bold text-blue-100 uppercase tracking-wider text-center">Pengeluaran</span>
                                     </button>
                                 </Link>
                             </div>
@@ -907,10 +1075,10 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* BOTTOM CONTENT SECTION: White container with rounded top corners (Patahan Border) */}
-                <div className="-mx-5 px-5 pt-7 pb-16 bg-white rounded-t-[32px] shadow-[0_-10px_30px_rgba(29,62,114,0.08)] flex flex-col gap-6 relative z-20">
+                {/* BOTTOM CONTENT SECTION: White container with rounded top corners */}
+                <div className="-mx-5 px-5 pt-6 pb-16 bg-white rounded-t-[32px] shadow-[0_-8px_24px_rgba(29,62,114,0.06)] flex flex-col gap-6 relative z-20">
 
-                    {/* 4. Fitur Pilihan */}
+                    {/* 4. Fitur Pilihan dengan Ikon PNG */}
                     <div className="px-1">
                         <div className="flex justify-between items-center mb-4 px-1">
                             <h3 className="font-bold text-slate-800 text-sm flex items-center">
@@ -919,15 +1087,15 @@ export default function Home() {
                             </h3>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-y-7 gap-x-2 py-2">
-                            <MenuIconBox href="/forex" icon={DollarSign} label="Valas" />
-                            <MenuIconBox href="/debts" icon={HandCoins} label="Hutang" />
-                            <MenuIconBox href="/subscriptions" icon={RefreshCcw} label="Langganan" />
-                            <MenuIconBox href="/investment" icon={TrendingUp} label="Investasi" />
-                            <MenuIconBox href="/reports" icon={FileText} label="Laporan" />
-                            <MenuIconBox href="/scan" icon={ScanLine} label="Scan" />
-                            <MenuIconBox href="/amal" icon={HeartHandshake} label="Amal" />
-                            <MenuIconBox href="/retained" icon={Hourglass} label="Tertahan" />
+                        <div className="grid grid-cols-4 gap-y-6 gap-x-2 py-1">
+                            <MenuIconBox href="/forex" imageSrc="/Valas.png" label="Valas" />
+                            <MenuIconBox href="/debts" imageSrc="/Hutang.png" label="Hutang" />
+                            <MenuIconBox href="/subscriptions" imageSrc="/Langganan.png" label="Langganan" />
+                            <MenuIconBox href="/investment" imageSrc="/Investasi.png" label="Investasi" />
+                            <MenuIconBox href="/reports" imageSrc="/Laporan.png" label="Laporan" />
+                            <MenuIconBox href="/scan" imageSrc="/Scanner.png" label="Scanner" />
+                            <MenuIconBox href="/amal" imageSrc="/Amal.png" label="Amal" />
+                            <MenuIconBox href="/retained" imageSrc="/Tertahan.png" label="Tertahan" />
                         </div>
                     </div>
 
@@ -1016,18 +1184,16 @@ export default function Home() {
     );
 }
 
-function MenuIconBox({ href, icon: Icon, label }: any) {
+function MenuIconBox({ href, imageSrc, label }: { href: string; imageSrc: string; label: string }) {
     return (
         <Link href={href}>
-            <div className="relative flex flex-col items-center justify-start gap-2 cursor-pointer active:scale-95 transition-transform group">
-                <div className="relative w-14 h-14">
-                    <div className="absolute inset-0 bg-brand-navy/40 rounded-full blur-md translate-y-1.5 scale-90"></div>
-                    <div className="relative w-14 h-14 rounded-full bg-brand-navy/95 bg-gradient-to-t from-white/40 via-white/5 to-transparent flex items-center justify-center group-hover:bg-slate-900 transition-all border border-white/20 overflow-hidden shadow-inner">
-                        <div className="relative w-7 h-7 group-hover:-translate-y-0.5 transition-transform z-10">
-                            <Icon className="absolute inset-0 w-7 h-7 text-amber-700/60 translate-y-[2px]" strokeWidth={3.5} />
-                            <Icon className="absolute inset-0 w-7 h-7 text-brand-gold" strokeWidth={3} />
-                        </div>
-                    </div>
+            <div className="relative flex flex-col items-center justify-start gap-1.5 cursor-pointer active:scale-95 transition-transform group">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center p-0.5 group-hover:scale-105 transition-all">
+                    <img 
+                        src={imageSrc} 
+                        alt={label} 
+                        className="w-full h-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform" 
+                    />
                 </div>
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
             </div>
