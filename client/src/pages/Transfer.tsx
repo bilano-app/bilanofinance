@@ -5,11 +5,11 @@ import { useUser } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
 import { 
   ArrowRightLeft, Loader2, Plus, ArrowDown, ArrowUp, 
-  Wallet, Check, ChevronDown, Sparkles, Building2, Smartphone, TrendingUp 
+  Wallet, Check, ChevronDown, Sparkles, X 
 } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import WalletSourceSelect from "@/components/WalletSourceSelect";
-import { getWalletLogo, ALL_WALLET_SOURCES } from "@/lib/wallet-sources";
+import { getWalletLogo } from "@/lib/wallet-sources";
 
 const formatNumber = (val: string) => {
     let clean = val.replace(/\D/g, '');
@@ -31,13 +31,18 @@ export default function Transfer() {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // New Source Mode: 'existing' vs 'new'
+  // Modal selector states for custom registered wallet popups with logos
+  const [isFromModalOpen, setIsFromModalOpen] = useState(false);
+  const [isToModalOpen, setIsToModalOpen] = useState(false);
+
+  // Destination mode: 'existing' vs 'new'
   const [destinationMode, setDestinationMode] = useState<'existing' | 'new'>('existing');
   const [newSourceName, setNewSourceName] = useState("");
   const [isNewCustom, setIsNewCustom] = useState(false);
   
   const walletSources = (user?.walletSources as any[]) || [];
   const selectedFromWallet = walletSources.find(w => w.name === fromSource);
+  const selectedToWallet = walletSources.find(w => w.name === toSource);
 
   const setPresetAmount = (val: number) => {
     setAmount(formatNumber(val.toString()));
@@ -209,28 +214,35 @@ export default function Transfer() {
                         )}
                     </div>
 
-                    <div className="relative">
-                        <select
-                            value={fromSource}
-                            onChange={(e) => setFromSource(e.target.value)}
-                            className="w-full h-14 bg-slate-50 border border-slate-200 text-slate-800 text-sm font-bold rounded-2xl pl-12 pr-10 focus:ring-2 focus:ring-brand-navy focus:outline-none appearance-none cursor-pointer"
-                        >
-                            <option value="">-- Pilih Sumber Asal --</option>
-                            {walletSources.map((w) => (
-                                <option key={w.name} value={w.name}>
-                                    {w.name} — {formatRp(w.balance)}
-                                </option>
-                            ))}
-                        </select>
-                        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center pointer-events-none shadow-2xs">
-                            {fromLogo ? (
-                                <img src={fromLogo} alt="Logo" className="w-full h-full object-contain" />
-                            ) : (
-                                <Wallet className="w-4 h-4 text-slate-400" />
-                            )}
+                    {/* Custom Dropdown Trigger with Logo */}
+                    <button
+                        type="button"
+                        onClick={() => setIsFromModalOpen(true)}
+                        className="w-full h-15 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-2xl px-4 flex items-center justify-between transition-all text-left shadow-2xs group active:scale-[0.99]"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                {fromLogo ? (
+                                    <img src={fromLogo} alt="Logo" className="w-full h-full object-contain" />
+                                ) : (
+                                    <Wallet className="w-4 h-4 text-slate-400" />
+                                )}
+                            </div>
+                            <div>
+                                {fromSource ? (
+                                    <div className="flex flex-col">
+                                        <span className="font-extrabold text-sm text-slate-800 leading-tight">{fromSource}</span>
+                                        {selectedFromWallet && (
+                                            <span className="text-[11px] font-bold text-slate-500">{formatRp(selectedFromWallet.balance)}</span>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <span className="text-sm font-bold text-slate-400">Pilih Dompet Asal...</span>
+                                )}
+                            </div>
                         </div>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                    </div>
+                        <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                    </button>
                 </div>
 
                 {/* 2. KE TUJUAN (DENGAN DROPDOWN FULL SUMBER BARU) */}
@@ -273,28 +285,35 @@ export default function Transfer() {
                     {/* Tampilan Sesuai Mode */}
                     {destinationMode === 'existing' ? (
                         <div className="space-y-2 pt-1">
-                            <div className="relative">
-                                <select
-                                    value={toSource}
-                                    onChange={(e) => setToSource(e.target.value)}
-                                    className="w-full h-14 bg-slate-50 border border-slate-200 text-slate-800 text-sm font-bold rounded-2xl pl-12 pr-10 focus:ring-2 focus:ring-brand-navy focus:outline-none appearance-none cursor-pointer"
-                                >
-                                    <option value="">-- Pilih Dompet Tujuan --</option>
-                                    {walletSources.filter(w => w.name !== fromSource).map((w) => (
-                                        <option key={w.name} value={w.name}>
-                                            {w.name} — {formatRp(w.balance)}
-                                        </option>
-                                    ))}
-                                </select>
-                                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center pointer-events-none shadow-2xs">
-                                    {toLogo ? (
-                                        <img src={toLogo} alt="Logo" className="w-full h-full object-contain" />
-                                    ) : (
-                                        <Wallet className="w-4 h-4 text-slate-400" />
-                                    )}
+                            {/* Custom Dropdown Trigger with Logo for Destination */}
+                            <button
+                                type="button"
+                                onClick={() => setIsToModalOpen(true)}
+                                className="w-full h-15 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-2xl px-4 flex items-center justify-between transition-all text-left shadow-2xs group active:scale-[0.99]"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                        {toLogo ? (
+                                            <img src={toLogo} alt="Logo" className="w-full h-full object-contain" />
+                                        ) : (
+                                            <Wallet className="w-4 h-4 text-slate-400" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        {toSource ? (
+                                            <div className="flex flex-col">
+                                                <span className="font-extrabold text-sm text-slate-800 leading-tight">{toSource}</span>
+                                                {selectedToWallet && (
+                                                    <span className="text-[11px] font-bold text-slate-500">{formatRp(selectedToWallet.balance)}</span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-sm font-bold text-slate-400">Pilih Dompet Tujuan...</span>
+                                        )}
+                                    </div>
                                 </div>
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                            </div>
+                                <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                            </button>
                         </div>
                     ) : (
                         /* Full Dropdown 3 Kategori untuk Sumber Baru */
@@ -386,6 +405,132 @@ export default function Transfer() {
                     </Button>
                 </div>
             </div>
+
+            {/* MODAL POPUP: PILIH SUMBER ASAL DENGAN LOGO */}
+            {isFromModalOpen && (
+                <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-t-[32px] sm:rounded-[32px] w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-5">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center">
+                                    <ArrowUp className="w-4 h-4 text-rose-600" />
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-slate-800 text-sm">Pilih Dompet Asal</h3>
+                                    <p className="text-[11px] text-slate-500">Pilih sumber dana yang akan ditarik</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setIsFromModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-4 overflow-y-auto space-y-2.5 flex-1 bg-slate-50/40">
+                            {walletSources.map((wallet) => {
+                                const logo = getWalletLogo(wallet.name);
+                                const isSelected = fromSource === wallet.name;
+                                return (
+                                    <button
+                                        key={wallet.name}
+                                        type="button"
+                                        onClick={() => {
+                                            setFromSource(wallet.name);
+                                            setIsFromModalOpen(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all text-left bg-white ${
+                                            isSelected 
+                                                ? 'border-brand-navy bg-blue-50/40 shadow-xs ring-1 ring-brand-navy' 
+                                                : 'border-slate-200/80 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-3.5">
+                                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                                {logo ? (
+                                                    <img src={logo} alt={wallet.name} className="w-full h-full object-contain" />
+                                                ) : (
+                                                    <Wallet className="w-5 h-5 text-slate-400" />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <div className="font-extrabold text-slate-800 text-sm leading-tight">{wallet.name}</div>
+                                                <div className="text-xs font-bold text-slate-500 mt-0.5">Saldo: {formatRp(wallet.balance)}</div>
+                                            </div>
+                                        </div>
+                                        {isSelected && (
+                                            <div className="w-6 h-6 rounded-full bg-brand-navy text-brand-gold flex items-center justify-center shrink-0 shadow-xs">
+                                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                            </div>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL POPUP: PILIH DOMPET TUJUAN DENGAN LOGO */}
+            {isToModalOpen && (
+                <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-t-[32px] sm:rounded-[32px] w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-5">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                                    <ArrowDown className="w-4 h-4 text-emerald-600" />
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-slate-800 text-sm">Pilih Dompet Tujuan</h3>
+                                    <p className="text-[11px] text-slate-500">Pilih dompet yang akan menerima dana</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setIsToModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-4 overflow-y-auto space-y-2.5 flex-1 bg-slate-50/40">
+                            {walletSources.filter(w => w.name !== fromSource).map((wallet) => {
+                                const logo = getWalletLogo(wallet.name);
+                                const isSelected = toSource === wallet.name;
+                                return (
+                                    <button
+                                        key={wallet.name}
+                                        type="button"
+                                        onClick={() => {
+                                            setToSource(wallet.name);
+                                            setIsToModalOpen(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all text-left bg-white ${
+                                            isSelected 
+                                                ? 'border-brand-navy bg-blue-50/40 shadow-xs ring-1 ring-brand-navy' 
+                                                : 'border-slate-200/80 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-3.5">
+                                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                                {logo ? (
+                                                    <img src={logo} alt={wallet.name} className="w-full h-full object-contain" />
+                                                ) : (
+                                                    <Wallet className="w-5 h-5 text-slate-400" />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <div className="font-extrabold text-slate-800 text-sm leading-tight">{wallet.name}</div>
+                                                <div className="text-xs font-bold text-slate-500 mt-0.5">Saldo: {formatRp(wallet.balance)}</div>
+                                            </div>
+                                        </div>
+                                        {isSelected && (
+                                            <div className="w-6 h-6 rounded-full bg-brand-navy text-brand-gold flex items-center justify-center shrink-0 shadow-xs">
+                                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                            </div>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
       </div>
     </MobileLayout>
   );

@@ -211,9 +211,9 @@ export default function WalletSourceSelect({
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 p-1 flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 p-1 flex items-center justify-center shrink-0 shadow-2xs">
                         <img 
-                          src="/ATM.png" 
+                          src="/CASH.svg" 
                           alt="Cash" 
                           className="w-full h-full object-contain"
                           onError={(e) => {

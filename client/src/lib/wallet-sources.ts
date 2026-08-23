@@ -93,7 +93,7 @@ export function getWalletLogo(name: string | undefined | null): string | null {
   if (clean.includes('pluang')) return '/Pluang.png';
   
   // Cash / Tunai
-  if (clean.includes('cash') || clean.includes('tunai') || clean.includes('kertas') || clean.includes('dompet')) return '/ATM.png';
+  if (clean.includes('cash') || clean.includes('tunai') || clean.includes('kertas') || clean.includes('dompet')) return '/CASH.svg';
   
   // Exact match from all sources
   const found = ALL_WALLET_SOURCES.find(s => s.name.toLowerCase() === clean);

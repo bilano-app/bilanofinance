@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <defs>
+    <linearGradient id="cashBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="50%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <linearGradient id="cashGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Background Card -->
+  <rect x="6" y="16" width="108" height="88" rx="20" fill="url(#cashBg)" filter="url(#shadow)" stroke="#34D399" stroke-width="2.5" />
+
+  <!-- Inner Banknote Border -->
+  <rect x="14" y="24" width="92" height="72" rx="14" fill="none" stroke="#A7F3D0" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.8" />
+
+  <!-- Corner Circles for Banknote aesthetic -->
+  <circle cx="22" cy="32" r="3.5" fill="#A7F3D0" opacity="0.7" />
+  <circle cx="98" cy="32" r="3.5" fill="#A7F3D0" opacity="0.7" />
+  <circle cx="22" cy="88" r="3.5" fill="#A7F3D0" opacity="0.7" />
+  <circle cx="98" cy="88" r="3.5" fill="#A7F3D0" opacity="0.7" />
+
+  <!-- Center Decorative Glow -->
+  <ellipse cx="60" cy="60" rx="36" ry="22" fill="#065F46" opacity="0.4" />
+
+  <!-- Bold Typography: CASH -->
+  <text x="60" y="67" 
+        font-family="system-ui, -apple-system, 'Inter', 'Segoe UI', Roboto, sans-serif" 
+        font-size="24" 
+        font-weight="900" 
+        letter-spacing="1.5"
+        text-anchor="middle" 
+        fill="#FFFFFF" 
+        filter="url(#shadow)">
+    CASH
+  </text>
+  
+  <!-- Subtle Currency Mini Symbol Underneath -->
+  <text x="60" y="80" 
+        font-family="system-ui, -apple-system, sans-serif" 
+        font-size="8" 
+        font-weight="800" 
+        letter-spacing="2"
+        text-anchor="middle" 
+        fill="url(#cashGold)" 
+        opacity="0.95">
+    TUNAI
+  </text>
+</svg>
