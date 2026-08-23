@@ -844,6 +844,18 @@ function parseCleanJson(text: string): any {
           }
 
           await storage.updateUserBalance(user!.id, newBalance);
+          if (lastTx.source && user!.walletSources) {
+              let walletSources: any[] = [...(user!.walletSources as any[])];
+              const wsIdx = walletSources.findIndex((w: any) => w.name === lastTx.source);
+              if (wsIdx >= 0) {
+                  if (lastTx.type === 'income' || lastTx.type === 'debt_borrow' || lastTx.type === 'debt_receive' || lastTx.type === 'invest_sell' || lastTx.type === 'forex_sell') {
+                      walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+                  } else if (lastTx.type === 'expense' || lastTx.type === 'debt_lend' || lastTx.type === 'debt_pay' || lastTx.type === 'invest_buy' || lastTx.type === 'forex_buy') {
+                      walletSources[wsIdx].balance += amt;
+                  }
+                  await storage.updateUserWalletSources(user!.id, walletSources);
+              }
+          }
           await storage.deleteTransaction(lastTx.id);
 
           res.json({ success: true, message: `Berhasil membatalkan: ${lastTx.category}` });
@@ -1119,7 +1131,16 @@ function parseCleanJson(text: string): any {
               newBalance += amt;
               if (sourceName) {
                   const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
-                  if (wsIdx >= 0) walletSources[wsIdx].balance += amt;
+                  if (wsIdx >= 0) {
+                      walletSources[wsIdx].balance += amt;
+                  } else {
+                      walletSources.push({
+                          id: Date.now().toString(),
+                          name: sourceName,
+                          type: 'bank',
+                          balance: amt
+                      });
+                  }
               }
           } 
           else if (parsed.data.type === 'expense') {
@@ -1224,6 +1245,18 @@ function parseCleanJson(text: string): any {
           }
 
           if (newBalance !== Math.round(user!.cashBalance)) await storage.updateUserBalance(user!.id, newBalance);
+          if (txToDelete.source && user!.walletSources) {
+              let walletSources: any[] = [...(user!.walletSources as any[])];
+              const wsIdx = walletSources.findIndex((w: any) => w.name === txToDelete.source);
+              if (wsIdx >= 0) {
+                  if (txToDelete.type === 'income' || txToDelete.type === 'debt_borrow' || txToDelete.type === 'debt_receive' || txToDelete.type === 'invest_sell' || txToDelete.type === 'forex_sell') {
+                      walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+                  } else if (txToDelete.type === 'expense' || txToDelete.type === 'debt_lend' || txToDelete.type === 'debt_pay' || txToDelete.type === 'invest_buy' || txToDelete.type === 'forex_buy') {
+                      walletSources[wsIdx].balance += amt;
+                  }
+                  await storage.updateUserWalletSources(user!.id, walletSources);
+              }
+          }
           if (typeof storage.deleteTransaction === 'function') await storage.deleteTransaction(txId);
           res.json({ success: true, message: "Transaksi berhasil dimusnahkan dan dikembalikan" });
       } catch (error) { res.status(500).json({ error: "Terjadi kesalahan pada server saat menghapus" }); }
@@ -1245,7 +1278,7 @@ function parseCleanJson(text: string): any {
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
           // 1. Ambil customRate dari req.body yang diinput pengguna di UI
-          const { type, currency, amount, description, rate: customRate } = req.body;
+          const { type, currency, amount, description, rate: customRate, source } = req.body;
           const existing = await storage.getForexByCurrency(user!.id, currency);
           let currentAmount = existing ? existing.amount : 0;
           
@@ -1263,6 +1296,7 @@ function parseCleanJson(text: string): any {
           const rate = customRate || cachedRates[currency as keyof typeof cachedRates] || 15000;
           const amountIDR = Math.round(amount * rate);
           let newCashBalance = Math.round(user!.cashBalance);
+          let walletSources: any[] = user!.walletSources ? [...(user!.walletSources as any[])] : [];
 
           if (description) {
               if (isIncome) {
@@ -1273,7 +1307,8 @@ function parseCleanJson(text: string): any {
                       amount: amountIDR, 
                       category: 'Pemasukan Valas', 
                       description: description, 
-                      date: new Date() 
+                      date: new Date(),
+                      source: source || null
                   } as any);
               } else {
                   if (currentAmount < amount) {
@@ -1287,7 +1322,8 @@ function parseCleanJson(text: string): any {
                       amount: amountIDR, 
                       category: 'Pengeluaran Valas', 
                       description: description, 
-                      date: new Date() 
+                      date: new Date(),
+                      source: source || null
                   } as any);
               }
           } else {
@@ -1297,13 +1333,18 @@ function parseCleanJson(text: string): any {
                   }
                   currentAmount += amount;
                   newCashBalance -= amountIDR;
+                  if (source) {
+                      const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                      if (wsIdx >= 0) walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amountIDR);
+                  }
                   await storage.createTransaction(user!.id, { 
                       userId: user!.id, 
                       type: 'forex_buy', 
                       amount: amountIDR, 
                       category: 'Tukar Valas', 
                       description: `Beli ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, 
-                      date: new Date() 
+                      date: new Date(),
+                      source: source || null
                   } as any);
               } else {
                   if (currentAmount < amount) {
@@ -1312,18 +1353,35 @@ function parseCleanJson(text: string): any {
                   currentAmount -= amount;
                   if (currentAmount < 0) currentAmount = 0;
                   newCashBalance += amountIDR;
+                  if (source) {
+                      const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                      if (wsIdx >= 0) {
+                          walletSources[wsIdx].balance += amountIDR;
+                      } else {
+                          walletSources.push({
+                              id: Date.now().toString(),
+                              name: source,
+                              type: 'bank',
+                              balance: amountIDR
+                          });
+                      }
+                  }
                   await storage.createTransaction(user!.id, { 
                       userId: user!.id, 
                       type: 'forex_sell', 
                       amount: amountIDR, 
                       category: 'Cairkan Valas', 
                       description: `Jual ${amount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`, 
-                      date: new Date() 
+                      date: new Date(),
+                      source: source || null
                   } as any);
               }
           }
 
           await storage.updateUserBalance(user!.id, newCashBalance);
+          if (source) {
+              await storage.updateUserWalletSources(user!.id, walletSources);
+          }
           if (existing) {
               await storage.updateForexAsset(existing.id, currentAmount);
           } else {
@@ -1341,8 +1399,8 @@ function parseCleanJson(text: string): any {
   app.post("/api/debts", async (req: any, res: any) => { 
       try {
           const user = await getUser(req); 
-          const { type, amount, name, description, isFromTransaction } = req.body;
-          const d = await storage.createDebt(user!.id, req.body as any); 
+          const { type, amount, name, description, isFromTransaction, source } = req.body;
+          const d = await storage.createDebt(user!.id, { ...req.body, source: source || null } as any); 
           
           if (!isFromTransaction) {
               const now = Date.now();
@@ -1359,9 +1417,36 @@ function parseCleanJson(text: string): any {
                   else { txType = 'debt_lend'; txCat = 'Beri Pinjaman'; }
                   
                   let newBalance = Math.round(user!.cashBalance);
-                  if(type === 'hutang') { newBalance += amountIDR; } 
-                  else { newBalance -= amountIDR; }
+                  let walletSources: any[] = user!.walletSources ? [...(user!.walletSources as any[])] : [];
+
+                  if(type === 'hutang') { 
+                      newBalance += amountIDR; 
+                      if (source) {
+                          const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                          if (wsIdx >= 0) {
+                              walletSources[wsIdx].balance += amountIDR;
+                          } else {
+                              walletSources.push({
+                                  id: Date.now().toString(),
+                                  name: source,
+                                  type: 'bank',
+                                  balance: amountIDR
+                              });
+                          }
+                      }
+                  } else { 
+                      newBalance -= amountIDR; 
+                      if (source) {
+                          const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                          if (wsIdx >= 0) {
+                              walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amountIDR);
+                          }
+                      }
+                  }
                   await storage.updateUserBalance(user!.id, newBalance);
+                  if (source) {
+                      await storage.updateUserWalletSources(user!.id, walletSources);
+                  }
               } else {
                   if(type === 'hutang') { txType = 'debt_borrow'; txCat = 'Dapat Pinjaman Valas'; } 
                   else { txType = 'debt_lend'; txCat = 'Beri Pinjaman Valas'; }
@@ -1375,7 +1460,7 @@ function parseCleanJson(text: string): any {
                   if (existingForex) await storage.updateForexAsset(existingForex.id, currentForexAmount);
                   else if (currentForexAmount > 0) await storage.createForexAsset(user!.id, { currency: curr, amount: currentForexAmount } as any);
               }
-              await storage.createTransaction(user!.id, { userId: user!.id, type: txType, amount: amountIDR, category: txCat, description: `[${type.toUpperCase()}] ${name} - ${description||''}`, date: new Date() } as any);
+              await storage.createTransaction(user!.id, { userId: user!.id, type: txType, amount: amountIDR, category: txCat, description: `[${type.toUpperCase()}] ${name} - ${description||''}`, date: new Date(), source: source || null } as any);
           }
           res.json(d); 
       } catch(e:any) { res.status(500).json({error: e.message}); }
@@ -1433,7 +1518,7 @@ function parseCleanJson(text: string): any {
       try {
           const user = await getUser(req);
           const id = parseInt(req.params.id);
-          const { amount, isWriteOff } = req.body; 
+          const { amount, isWriteOff, source } = req.body; 
           
           if (!id || isNaN(id)) return res.status(400).json({ error: "ID Tagihan tidak terbaca oleh server." });
 
@@ -1451,6 +1536,7 @@ function parseCleanJson(text: string): any {
 
           const payAmount = (amount !== undefined && amount > 0) ? Math.min(amount, debt.amount) : debt.amount;
           let newBalance = Math.round(user!.cashBalance);
+          let walletSources: any[] = user!.walletSources ? [...(user!.walletSources as any[])] : [];
           
           const curr = (debt.name || "").split('|')[1] || 'IDR';
           const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
@@ -1459,7 +1545,7 @@ function parseCleanJson(text: string): any {
           if (isWriteOff) {
               const txType = debt.type === 'piutang' ? 'expense' : 'income';
               const txCat = debt.type === 'piutang' ? 'Penghapusan Piutang' : 'Pemutihan Hutang';
-              await storage.createTransaction(user!.id, { userId: user!.id, type: txType, amount: payAmountIDR, category: txCat, description: `[WRITE_OFF] ${debt.name}`, date: new Date() } as any);
+              await storage.createTransaction(user!.id, { userId: user!.id, type: txType, amount: payAmountIDR, category: txCat, description: `[WRITE_OFF] ${debt.name}`, date: new Date(), source: source || null } as any);
           } else {
               if (curr === 'IDR') {
                   if (debt.type === 'piutang') { 
@@ -1468,12 +1554,35 @@ function parseCleanJson(text: string): any {
                           ? `[PIUTANG_PENDAPATAN] Lunas/Cicilan dari ${debt.name.split('|')[0]}${cairPostfix}`
                           : `Lunas/Cicilan dari ${debt.name.split('|')[0]}`;
 
-                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Dibayar', description: finalDesc, date: new Date() } as any); 
+                      if (source) {
+                          const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                          if (wsIdx >= 0) {
+                              walletSources[wsIdx].balance += payAmountIDR;
+                          } else {
+                              walletSources.push({
+                                  id: Date.now().toString(),
+                                  name: source,
+                                  type: 'bank',
+                                  balance: payAmountIDR
+                              });
+                          }
+                      }
+
+                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Dibayar', description: finalDesc, date: new Date(), source: source || null } as any); 
                   } else { 
                       newBalance -= payAmountIDR; 
-                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]}`, date: new Date() } as any); 
+                      if (source) {
+                          const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                          if (wsIdx >= 0) {
+                              walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - payAmountIDR);
+                          }
+                      }
+                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]}`, date: new Date(), source: source || null } as any); 
                   }
                   await storage.updateUserBalance(user!.id, newBalance);
+                  if (source) {
+                      await storage.updateUserWalletSources(user!.id, walletSources);
+                  }
               } else {
                   const existingForex = await storage.getForexByCurrency(user!.id, curr);
                   let currentForexAmount = existingForex ? existingForex.amount : 0;
@@ -1484,11 +1593,11 @@ function parseCleanJson(text: string): any {
                           ? `[PIUTANG_PENDAPATAN] Lunas/Cicilan dari ${debt.name.split('|')[0]} (Masuk ke Dompet Valas)${cairPostfix}`
                           : `Lunas/Cicilan dari ${debt.name.split('|')[0]} (Masuk ke Dompet Valas)`;
 
-                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Valas Dibayar', description: finalDesc, date: new Date() } as any); 
+                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_receive', amount: payAmountIDR, category: 'Piutang Valas Dibayar', description: finalDesc, date: new Date(), source: source || null } as any); 
                   } else { 
                       currentForexAmount -= payAmount; 
                       if (currentForexAmount < 0) currentForexAmount = 0;
-                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang Valas', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]} (Potong dari Dompet Valas)`, date: new Date() } as any); 
+                      await storage.createTransaction(user!.id, { userId: user!.id, type: 'debt_pay', amount: payAmountIDR, category: 'Bayar Hutang Valas', description: `Lunas/Cicilan ke ${debt.name.split('|')[0]} (Potong dari Dompet Valas)`, date: new Date(), source: source || null } as any); 
                   }
 
                   if (existingForex) await storage.updateForexAsset(existingForex.id, currentForexAmount);
@@ -1498,7 +1607,7 @@ function parseCleanJson(text: string): any {
           
           const remaining = debt.amount - payAmount;
           if (remaining > 0) {
-              await storage.createDebt(user!.id, { userId: user!.id, type: debt.type, name: debt.name, amount: remaining, dueDate: (debt as any).dueDate || null, description: (debt.description || '') + ` (Sisa dari ${debt.amount})` } as any);
+              await storage.createDebt(user!.id, { userId: user!.id, type: debt.type, name: debt.name, amount: remaining, dueDate: (debt as any).dueDate || null, description: (debt.description || '') + ` (Sisa dari ${debt.amount})`, source: (debt as any).source || null } as any);
           }
           
           await storage.markDebtPaid(id); 
@@ -1622,7 +1731,8 @@ function parseCleanJson(text: string): any {
               amount: totalIDR, 
               category: 'Beli Aset', 
               description: `${quantity} unit/lot ${symbol} @ ${curr} ${price.toLocaleString('en-US')} (Eqv: Rp ${totalIDR.toLocaleString('id-ID')})`, 
-              date: new Date()
+              date: new Date(),
+              source: req.body.source || null
           } as any); 
           
           await storage.createInvestment(user!.id, {

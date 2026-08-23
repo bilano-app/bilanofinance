@@ -10,6 +10,7 @@ import { trackEvent } from "@/lib/tracking";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { useUser } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -100,6 +101,10 @@ export default function Debts() {
       await refetchDebts();
       await refetchRates();
       await refetchTxs();
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
   };
 
   const checkPaywall = () => {
