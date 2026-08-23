@@ -16,6 +16,7 @@ export default defineConfig({
       includeAssets: ['BILANO-ICON-NEW.png'], 
       // 🚀 INJEKSI SW.JS (AGAR NOTIFIKASI PWA JALAN)
       workbox: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB
         importScripts: ['/sw.js'], 
         cleanupOutdatedCaches: true,
         clientsClaim: true,
