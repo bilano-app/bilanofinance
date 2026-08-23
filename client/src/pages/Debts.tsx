@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { trackEvent } from "@/lib/tracking";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { useUser } from "@/hooks/use-finance";
+import { useToast } from "@/hooks/use-toast";
 
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -42,6 +43,7 @@ export default function Debts() {
   const [isPaying, setIsPaying] = useState(false);
 
   const { toast } = useToast();
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   
   // 🚨 DEKLARASI HANYA SATU KALI DI SINI (Error Vercel sudah diperbaiki)
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;

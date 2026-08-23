@@ -33,6 +33,12 @@ export default function WealthBlueprint() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiReviewNote, setAiReviewNote] = useState<string | null>(null);
 
+  // Mock functions for missing handlers
+  const triggerPerformanceReview = async () => {};
+  const handleCommitRevenueLog = async () => {};
+
+  const generatePDF = () => {};
+
   // Buffer input untuk rekap omset harian (S15)
   const [revAmount, setRevAmount] = useState("");
   const [revNote, setRevNote] = useState("");

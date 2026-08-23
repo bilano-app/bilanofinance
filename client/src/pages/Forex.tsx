@@ -4,6 +4,7 @@ import { Card, Button, Input } from "@/components/UIComponents";
 import { 
     RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, 
     Globe, ChevronDown, ArrowRightLeft, FileText, Wallet,
+    Activity, HandCoins, StickyNote, AlertCircle, Loader2, X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";

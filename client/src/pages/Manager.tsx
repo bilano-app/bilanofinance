@@ -355,7 +355,7 @@ export default function Manager() {
       head: [['Bulan', 'Jumlah Pengunjung', 'Jumlah Checkout', 'Penjualan Lunas', 'Konversi Lunas (%)']],
       body: tableRows,
       theme: 'grid',
-      headStyles: { fillStyle: 'F', fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold' },
+      headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold' },
       bodyStyles: { fontSize: 9 },
       alternateRowStyles: { fillColor: [248, 250, 252] }
     });

@@ -6,6 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 import { HeartHandshake, Loader2, CheckCircle2, History, Settings, Info, PieChart, X, AlertTriangle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
+import { trackEvent } from "@/lib/tracking";
 
 export default function Amal() {
   const { data: user } = useUser();

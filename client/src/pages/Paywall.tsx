@@ -124,7 +124,7 @@ export default function Paywall() {
   };
 
   return (
-    <MobileLayout hideNav>
+    <MobileLayout>
       <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-10 flex flex-col items-center">
         
         {/* TOP BAR */}

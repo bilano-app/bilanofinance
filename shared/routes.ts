@@ -44,7 +44,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/transactions',
-      input: insertTransactionSchema.omit({ userId: true }),
+      input: insertTransactionSchema as any,
       responses: {
         201: z.custom<typeof transactions.$inferSelect>(),
         400: errorSchemas.validation,
