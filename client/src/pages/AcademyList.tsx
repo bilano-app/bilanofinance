@@ -155,7 +155,7 @@ export default function AcademyList() {
                                     KOMPILASI EKSKLUSIF
                                 </span>
                                 <span className="text-[11px] font-bold text-brand-navy/80 flex items-center gap-1">
-                                    <Sparkles className="w-3 h-3 text-brand-navy" /> E-Book Pilihan
+                                    <BookOpen className="w-3 h-3 text-brand-navy" /> E-Book Pilihan
                                 </span>
                             </div>
 

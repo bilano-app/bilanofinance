@@ -353,8 +353,8 @@ export default function ChatAI() {
 
                     <div className="flex items-center gap-2">
                         {isPro ? (
-                            <div className="flex items-center gap-1 bg-[#1D3E72] text-white px-3 py-1.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-950 border border-blue-400/30">
-                                <Sparkles className="w-3.5 h-3.5 text-blue-300 fill-current" />
+                            <div className="flex items-center gap-1 bg-[#1D3E72] text-white px-3 py-1.5 rounded-full shadow-xs border border-blue-400/30">
+                                <Crown className="w-3.5 h-3.5 text-blue-300 fill-current" />
                                 <span className="text-[10px] font-black tracking-wider uppercase">PRO UNLIMITED</span>
                             </div>
                         ) : (

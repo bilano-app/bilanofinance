@@ -10,7 +10,7 @@ import {
   Loader2, Check, Plus, Trash2, Wallet, Send, AlertTriangle, CheckCircle2,
   PiggyBank, ShoppingBag, Compass, Lightbulb, Clock, Layers, RefreshCcw, 
   ArrowRight, Bot, User as UserIcon, ShieldAlert, PieChart, Coins, TrendingUp, 
-  History, Lock, Target, ShoppingCart, ArrowLeft, Sparkles, ChevronLeft,
+  History, Lock, Target, ShoppingCart, ArrowLeft, ChevronLeft,
   Banknote, Flame, AlertCircle
 } from "lucide-react";
 import {
@@ -1471,8 +1471,8 @@ export default function IncomeStrategy() {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-brand-navy text-brand-gold px-3 py-1.5 rounded-full border border-brand-gold/30 shadow-xs text-[10px] font-bold">
-                <Sparkles className="w-3.5 h-3.5 text-brand-gold fill-current" />
+              <div className="flex items-center gap-1.5 bg-brand-navy text-brand-gold px-3 py-1.5 rounded-full border border-brand-gold/30 shadow-xs text-[10px] font-bold">
+                <Compass className="w-3.5 h-3.5 text-brand-gold" />
                 <span>AI BLUEPRINT</span>
               </div>
             </div>

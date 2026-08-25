@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { 
     Mic, ImagePlus, Check, X, Globe, AlertTriangle, RefreshCw, 
-    Loader2, HandCoins, Wallet, AlertCircle, ArrowLeft, Sparkles, 
+    Loader2, HandCoins, Wallet, AlertCircle, ArrowLeft, 
     Camera, ScanLine, CheckCircle2, ChevronRight, Info, ShieldAlert,
     HelpCircle, Banknote
 } from "lucide-react";
@@ -440,7 +440,7 @@ export default function SmartScan() {
                         <div className="relative z-10 flex flex-col">
                             <div className="flex justify-between items-center mb-2">
                                 <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
-                                    <Sparkles className="w-3 h-3 fill-current" /> AUTO REKAPITULASI
+                                    <ScanLine className="w-3 h-3 fill-current" /> AUTO REKAPITULASI
                                 </span>
                                 <span className="text-[10px] text-amber-200 font-bold bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
                                     Multi-Receipt & Voice
@@ -630,7 +630,7 @@ export default function SmartScan() {
                             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
                                 <div>
                                     <div className="flex items-center gap-1.5">
-                                        <Sparkles className="w-4 h-4 text-amber-500 fill-current" />
+                                        <ScanLine className="w-4 h-4 text-amber-600" />
                                         <h3 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider">
                                             Hasil Rekapitulasi AI
                                         </h3>

@@ -4,9 +4,9 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
     Globe, RefreshCw, TrendingUp, TrendingDown, ArrowRightLeft, 
-    Wallet, Plus, Trash2, ArrowLeft, Sparkles, X, ChevronDown, 
+    Wallet, Plus, Trash2, ArrowLeft, X, ChevronDown, 
     Search, Activity, FileText, ArrowDownCircle, ArrowUpCircle, 
-    StickyNote, Loader2, HandCoins 
+    StickyNote, Loader2, HandCoins, Check, DollarSign
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useTransactions } from "@/hooks/use-finance";
@@ -105,7 +105,7 @@ export default function Forex() {
 
   useEffect(() => {
     fetchData();
-  }, [currentUserEmail]);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -117,274 +117,202 @@ export default function Forex() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const getSafeRate = (code: string) => {
-      if (rates[code] && rates[code] > 0) return rates[code];
-      const fallbacks: Record<string, number> = {
-          USD: 16250, EUR: 17500, SGD: 12200, JPY: 108, GBP: 20500,
-          MYR: 3500, AUD: 10600, SAR: 4330, CNY: 2240, KRW: 12, THB: 450, AED: 4420
-      };
-      return fallbacks[code] || 15000;
-  };
+  const getSafeRate = (code: string) => rates[code] || 1;
 
+  const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
   const formatIdr = (val: string) => {
-      let clean = val.replace(/\D/g, '');
-      return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    let clean = val.replace(/\D/g, '');
+    if (clean.length > 1) {
+        clean = clean.replace(/^0+/, ''); 
+    }
+    return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
+
   const parseIdr = (val: string) => parseFloat(val.replace(/\./g, '')) || 0;
+  const parseValas = (val: string) => parseFloat(val.replace(/,/g, '.')) || 0;
 
-  const parseValas = (val: string) => {
-      let clean = val.replace(/[^0-9.,]/g, '');
-      const parts = clean.split(',');
-      if (parts.length > 2) clean = parts[0] + ',' + parts.slice(1).join('');
-      return parseFloat(clean.replace(/\./g, '').replace(/,/g, '.')) || 0;
-  };
+  const filteredCurrencies = CURRENCY_LIST.filter(c => 
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.country.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const fetchWithTimeout = async (url: string, timeout = 2500) => {
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), timeout);
-      try {
-          const response = await fetch(url, { signal: controller.signal });
-          clearTimeout(id);
-          return response;
-      } catch (error) {
-          clearTimeout(id);
-          throw error;
-      }
-  };
-
-  const handleCurrencyClick = async (currencyCode: string) => {
-      if (isTrialExpired) {
-          window.dispatchEvent(new Event('trigger-paywall-lock'));
-          return;
-      }
-
-      setChartCurr(currencyCode);
-      setLoadingChart(true);
-      setChartData([]); 
-
-      const baseRate = getSafeRate(currencyCode);
-      
-      const safeMockData = Array.from({ length: 30 }).map((_, i) => {
-          const d = new Date();
-          d.setDate(d.getDate() - (29 - i));
-          return {
-              date: d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
-              value: Math.round(baseRate * (1 + (Math.random() * 0.015 - 0.0075)))
-          };
-      });
-      safeMockData[safeMockData.length - 1].value = Math.round(baseRate);
-
-      try {
-          const endDate = new Date().toISOString().split('T')[0];
-          const startDateObj = new Date();
-          startDateObj.setDate(startDateObj.getDate() - 30);
-          const startDate = startDateObj.toISOString().split('T')[0];
-
-          const res = await fetchWithTimeout(`https://api.frankfurter.app/${startDate}..${endDate}?from=${currencyCode}&to=IDR`, 2500);
-          
-          if (!res.ok) throw new Error("API Tutup");
-          
-          const data = await res.json();
-          if (data.rates && Object.keys(data.rates).length > 0) {
-              const formattedData = Object.keys(data.rates).map(date => ({
-                  date: new Date(date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
-                  value: data.rates[date].IDR
-              }));
-              setChartData(formattedData);
-          } else {
-              throw new Error("Data rates kosong");
-          }
-      } catch (error) { 
-          setChartData(safeMockData); 
-      } finally { 
-          setLoadingChart(false); 
-      }
-  };
-
-  const handleExchange = async () => {
-      if (isTrialExpired) {
-          window.dispatchEvent(new Event('trigger-paywall-lock'));
-          return;
-      }
-
-      const qty = parseValas(amountExchange);
-      const rate = parseIdr(rateExchange);
-      if (!qty || !rate) { 
-          toast({ title: "Form Belum Lengkap", description: "Masukkan jumlah valas dan kurs kesepakatan.", variant: "destructive" }); 
-          return; 
-      }
-
-      if (user?.walletSources && (user.walletSources as any[]).length > 0) {
-          setPendingForexSubmit({ action: 'exchange' });
-          setShowSourcePopup(true);
-      } else {
-          executeExchange();
-      }
-  };
-
-  const executeExchange = async (selectedSource?: string) => {
-      const qty = parseValas(amountExchange);
-      const rate = parseIdr(rateExchange);
-
-      if (exchangeMode === 'buy') {
-          const totalCost = qty * rate;
-          if ((user?.cashBalance || 0) < totalCost) {
-              toast({ 
-                  title: "Saldo Kas Tidak Cukup", 
-                  description: `Butuh Rp ${totalCost.toLocaleString('id-ID')} tapi Kas Tunai Anda hanya Rp ${(user?.cashBalance || 0).toLocaleString('id-ID')}.`, 
-                  variant: "destructive" 
-              });
-              return; 
-          }
-      } else {
-          const existingAsset = assets.find((a: any) => a.currency === selectedCurr.code);
-          if (!existingAsset || existingAsset.amount < qty) {
-              toast({ 
-                  title: "Saldo Valas Tidak Cukup", 
-                  description: `Anda hanya memiliki ${existingAsset?.amount || 0} ${selectedCurr.code}. Tidak cukup untuk dijual.`, 
-                  variant: "destructive" 
-              });
-              return; 
-          }
-      }
-
-      setIsSubmitting(true);
-      try {
-          const res = await fetch("/api/forex/exchange", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({
-                  action: exchangeMode,
-                  currency: selectedCurr.code,
-                  amount: qty,
-                  exchangeRate: rate,
-                  source: selectedSource
-              })
-          });
-
-          if (res.ok) {
-              trackEvent("forex_exchange_tx", { action: exchangeMode, currency: selectedCurr.code, amount: qty });
-              toast({ title: "Transaksi Berhasil! 💱", description: `Sukses ${exchangeMode === 'buy' ? 'membeli' : 'menjual'} ${qty} ${selectedCurr.code}.` });
-              setAmountExchange("");
-              setRateExchange("");
-              await refetchUser();
-              fetchData();
-          } else {
-              const err = await res.json().catch(() => ({}));
-              toast({ title: "Gagal", description: err.error || "Gagal memproses transaksi pertukaran.", variant: "destructive" });
-          }
-      } catch (e) {
-          toast({ title: "Error", description: "Terjadi kesalahan jaringan.", variant: "destructive" });
-      } finally {
-          setIsSubmitting(false);
-      }
+  const calculateTotalValasIDR = () => {
+    return assets.reduce((total, asset) => {
+      const rate = getSafeRate(asset.currency);
+      return total + (asset.amount * rate);
+    }, 0);
   };
 
   const handleMutation = async () => {
-      if (isTrialExpired) {
-          window.dispatchEvent(new Event('trigger-paywall-lock'));
-          return;
-      }
+    const num = parseValas(amountMutation);
+    if (!num || num <= 0) {
+        toast({ title: "Nominal Belum Diisi", description: "Masukkan nominal valas yang valid.", variant: "destructive" });
+        return;
+    }
 
-      const qty = parseValas(amountMutation);
-      if (!qty) {
-          toast({ title: "Nominal Kosong", description: "Masukkan nominal valas yang valid.", variant: "destructive" });
-          return;
-      }
+    if (paymentMode === 'debt' && !debtName.trim()) {
+        toast({ title: "Nama Pihak Belum Diisi", description: "Harap isi nama pihak terkait hutang/piutang ini.", variant: "destructive" });
+        return;
+    }
 
-      if (paymentMode === 'debt' && !debtName.trim()) {
-          toast({ title: "Nama Pihak Wajib Diisi", description: "Masukkan nama pihak yang berhutang/di-hutangi.", variant: "destructive" });
-          return;
-      }
+    setIsSubmitting(true);
+    try {
+        const finalAmount = mutationMode === 'in' ? num : -num;
+        
+        const res = await fetch("/api/forex/mutation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+            body: JSON.stringify({
+                currency: selectedCurr.code,
+                amount: finalAmount,
+                type: mutationMode === 'in' ? 'IN' : 'OUT',
+                paymentMode: paymentMode,
+                debtName: debtName.trim(),
+                dueDate: dueDate || null,
+                notes: noteMutation.trim() || undefined,
+                rateSnapshot: getSafeRate(selectedCurr.code)
+            })
+        });
 
-      if (paymentMode === 'cash') {
-          const existingAsset = assets.find((a: any) => a.currency === selectedCurr.code);
-          if (mutationMode === 'out' && (!existingAsset || existingAsset.amount < qty)) {
-              toast({ 
-                  title: "Saldo Valas Kurang", 
-                  description: `Saldo ${selectedCurr.code} Anda hanya ${existingAsset?.amount || 0}.`, 
-                  variant: "destructive" 
-              });
-              return;
-          }
-      }
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "Gagal mencatat mutasi valas.");
+        }
 
-      if (paymentMode === 'cash' && user?.walletSources && (user.walletSources as any[]).length > 0) {
-          setPendingForexSubmit({ action: 'mutation' });
-          setShowSourcePopup(true);
-      } else {
-          executeMutation();
-      }
+        trackEvent("forex_mutation_recorded", {
+            currency: selectedCurr.code,
+            amount: finalAmount,
+            mode: mutationMode,
+            paymentMode: paymentMode
+        });
+
+        toast({
+            title: "Mutasi Valas Berhasil! 🌍",
+            description: `Saldo ${selectedCurr.code} berhasil diperbarui.`
+        });
+
+        setAmountMutation("");
+        setNoteMutation("");
+        setDebtName("");
+        setDueDate("");
+        await fetchData();
+        await refetchUser();
+    } catch (e: any) {
+        toast({ title: "Gagal Mencatat", description: e.message, variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
-  const executeMutation = async (selectedSource?: string) => {
-      const qty = parseValas(amountMutation);
-      const note = noteMutation.trim() || `Mutasi ${mutationMode === 'in' ? 'Pemasukan' : 'Pengeluaran'} ${selectedCurr.code}`;
+  const handleExchange = async () => {
+    const amountVal = parseValas(amountExchange);
+    const rateVal = parseIdr(rateExchange) || getSafeRate(selectedCurr.code);
+    const totalIDR = amountVal * rateVal;
 
-      setIsSubmitting(true);
-      try {
-          if (paymentMode === 'cash') {
-              const res = await fetch("/api/forex/transaction", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({
-                      type: mutationMode === 'in' ? 'income' : 'expense',
-                      currency: selectedCurr.code,
-                      amount: qty,
-                      description: note,
-                      source: selectedSource
-                  })
-              });
+    if (!amountVal || amountVal <= 0) {
+        toast({ title: "Jumlah Belum Diisi", description: "Masukkan jumlah valas yang ingin ditukar.", variant: "destructive" });
+        return;
+    }
 
-              if (res.ok) {
-                  trackEvent("forex_mutation_tx", { type: mutationMode, paymentMode: "cash", currency: selectedCurr.code });
-                  toast({ title: "Berhasil Tercatat! 💵", description: `Saldo ${selectedCurr.code} berhasil diperbarui.` });
-                  setAmountMutation(""); setNoteMutation(""); setDebtName(""); setDueDate("");
-                  fetchData();
-              } else {
-                  toast({ title: "Gagal", description: "Gagal memproses transaksi valas.", variant: "destructive" });
-              }
-          } else {
-              const debtType = mutationMode === 'in' ? 'piutang' : 'hutang';
-
-              await fetch("/api/debts", {
-                  method: "POST", 
-                  headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-                  body: JSON.stringify({
-                      type: debtType,
-                      name: `${debtName.trim()}|${selectedCurr.code}`,
-                      amount: qty,
-                      dueDate: dueDate,
-                      description: `[${debtType.toUpperCase()} VALAS] ${note}`,
-                      isFromTransaction: true,
-                      source: selectedSource
-                  })
-              });
-              trackEvent("forex_mutation_tx", { type: mutationMode, paymentMode: "debt", currency: selectedCurr.code });
-              toast({ title: "Tercatat ke Tagihan! 📝", description: `${debtType === 'piutang' ? 'Piutang' : 'Hutang'} ${selectedCurr.code} berhasil disimpan.` });
-              setAmountMutation(""); setNoteMutation(""); setDebtName(""); setDueDate("");
-              fetchData();
-          }
-      } catch (e) { 
-          toast({ title: "Error", description: "Gagal terhubung ke server.", variant: "destructive" }); 
-      } finally {
-          setIsSubmitting(false);
-      }
+    if (exchangeMode === 'buy') {
+        const cashBalance = user?.cashBalance || 0;
+        if (totalIDR > cashBalance) {
+            toast({
+                title: "Saldo Kas Tidak Cukup",
+                description: `Pembelian membutuhkan ${formatRp(totalIDR)}, saldo kas Anda ${formatRp(cashBalance)}.`,
+                variant: "destructive"
+            });
+            return;
+        }
+        await executeExchangeDirect();
+    } else {
+        const existingAsset = assets.find(a => a.currency === selectedCurr.code);
+        const currentValasBal = existingAsset ? existingAsset.amount : 0;
+        if (amountVal > currentValasBal) {
+            toast({
+                title: "Saldo Valas Tidak Cukup",
+                description: `Anda hanya memiliki ${currentValasBal.toLocaleString()} ${selectedCurr.code}.`,
+                variant: "destructive"
+            });
+            return;
+        }
+        setPendingForexSubmit({ action: 'exchange' });
+        setShowSourcePopup(true);
+    }
   };
 
-  const totalValasInRupiah = assets.reduce((acc: number, asset: ForexAsset) => {
-      const rate = getSafeRate(asset.currency);
-      return acc + (asset.amount * rate);
-  }, 0);
+  const executeExchangeDirect = async (targetSource?: string) => {
+    const amountVal = parseValas(amountExchange);
+    const rateVal = parseIdr(rateExchange) || getSafeRate(selectedCurr.code);
+    const totalIDR = amountVal * rateVal;
 
-  const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
-  const displayTotalValas = isTrialExpired ? "✨ Premium" : formatRp(totalValasInRupiah);
+    setIsSubmitting(true);
+    try {
+        const res = await fetch("/api/forex/exchange", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+            body: JSON.stringify({
+                action: exchangeMode.toUpperCase(),
+                currency: selectedCurr.code,
+                amount: amountVal,
+                rate: rateVal,
+                totalIDR: totalIDR,
+                source: targetSource || "Kas Utama"
+            })
+        });
 
-  const filteredCurrencies = CURRENCY_LIST.filter(c => 
-      c.code.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.country.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "Gagal memproses pertukaran valas.");
+        }
+
+        trackEvent("forex_exchange_completed", {
+            action: exchangeMode,
+            currency: selectedCurr.code,
+            amount: amountVal,
+            rate: rateVal,
+            totalIDR: totalIDR
+        });
+
+        toast({
+            title: exchangeMode === 'buy' ? "Beli Valas Sukses! 💵" : "Jual Valas Sukses! 💰",
+            description: `Transaksi ${selectedCurr.code} berhasil diselesaikan.`
+        });
+
+        setAmountExchange("");
+        setRateExchange("");
+        setShowSourcePopup(false);
+        setPendingForexSubmit(null);
+        await fetchData();
+        await refetchUser();
+    } catch (e: any) {
+        toast({ title: "Gagal Menukar", description: e.message, variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const handleCurrencyClick = async (curr: string) => {
+    setChartCurr(curr);
+    setLoadingChart(true);
+    try {
+        const res = await fetch(`/api/forex/history/${curr}`, {
+            headers: { "x-user-email": currentUserEmail }
+        });
+        if (res.ok) {
+            const json = await res.json();
+            setChartData(json.data || []);
+        } else {
+            setChartData([]);
+        }
+    } catch (e) {
+        console.error(e);
+        setChartData([]);
+    } finally {
+        setLoadingChart(false);
+    }
+  };
 
   if (isLoading) {
       return (
@@ -398,20 +326,24 @@ export default function Forex() {
       );
   }
 
+  const totalValasIDR = calculateTotalValasIDR();
+  const displayTotalValas = isTrialExpired ? "✨ Rp ********" : formatRp(totalValasIDR);
+
   return (
     <MobileLayout>
       <div className="flex flex-col -mx-5 -mt-5">
         
         {/* ========================================================================= */}
-        {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO GOLD & NAVY */}
+        {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO NAVY & GOLD */}
         {/* ========================================================================= */}
         <div className="px-5 pt-5 pb-8 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b border-amber-300/60">
             
             {/* Top Navigation Bar */}
-            <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(245,158,11,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">
+            <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">
                 <div className="flex items-center gap-3">
                     <Link href="/">
                         <button 
+                            type="button"
                             className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
                             title="Kembali ke Beranda"
                         >
@@ -423,7 +355,7 @@ export default function Forex() {
                         <div className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
                             <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest">
-                                Valuta Asing (Forex)
+                                Multi-Mata Uang
                             </p>
                         </div>
                         <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
@@ -434,6 +366,7 @@ export default function Forex() {
 
                 <div className="flex items-center gap-2">
                     <button 
+                        type="button"
                         onClick={fetchData} 
                         className={`w-10 h-10 rounded-full bg-white border border-slate-200 text-brand-navy shadow-xs flex items-center justify-center transition-all cursor-pointer active:scale-95 ${refreshing ? "animate-spin" : ""}`}
                         title="Segarkan Kurs Pasar"
@@ -451,7 +384,7 @@ export default function Forex() {
                 <div className="relative z-10 flex flex-col">
                     <div className="flex justify-between items-center mb-3">
                         <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-brand-navy fill-current" />
+                            <Globe className="w-3 h-3 text-brand-navy fill-current" />
                             ESTIMASI TOTAL NILAI VALAS
                         </span>
 
@@ -480,7 +413,7 @@ export default function Forex() {
         {/* ========================================================================= */}
         {/* 2. BODY CONTENT SECTION - CLEAN, CRISP & MODERN ELEVATION */}
         {/* ========================================================================= */}
-        <div className="px-5 pt-5 pb-28 bg-slate-50 flex flex-col gap-5">
+        <div className="px-5 pt-5 pb-28 bg-slate-50 flex flex-col gap-4">
             
             {/* LIVE MARKET RATES GRID */}
             <div>
@@ -489,7 +422,7 @@ export default function Forex() {
                         <TrendingUp className="w-3.5 h-3.5 text-amber-600" />
                         Kurs Live Pasar Global
                     </h3>
-                    <span className="text-[10px] font-bold text-brand-navy bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold text-brand-navy bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full">
                         Klik untuk Grafik 📈
                     </span>
                 </div>
@@ -500,6 +433,7 @@ export default function Forex() {
                         return (
                             <button 
                                 key={curr} 
+                                type="button"
                                 onClick={() => handleCurrencyClick(curr)} 
                                 className="bg-white border border-slate-200/80 p-3 rounded-2xl shadow-xs hover:border-amber-300 hover:shadow-sm transition-all flex flex-col items-center justify-center cursor-pointer group"
                             >
@@ -519,8 +453,9 @@ export default function Forex() {
             </div>
 
             {/* TAB SWITCHER */}
-            <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-xs flex gap-1.5">
+            <div className="bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs flex gap-1">
                 <button 
+                    type="button"
                     onClick={() => setActiveTab('mutation')} 
                     className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                         activeTab === 'mutation' 
@@ -533,6 +468,7 @@ export default function Forex() {
                 </button>
 
                 <button 
+                    type="button"
                     onClick={() => setActiveTab('exchange')} 
                     className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                         activeTab === 'exchange' 
@@ -550,7 +486,7 @@ export default function Forex() {
                 
                 {/* SELECTOR MATA UANG CUSTOM DROPDOWN */}
                 <div className="relative" ref={dropdownRef}>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5 ml-1">
                         Pilih Mata Uang Asing
                     </label>
                     <div 
@@ -608,15 +544,15 @@ export default function Forex() {
 
                 {/* FORM TAB 1: CATAT MUTASI */}
                 {activeTab === 'mutation' && (
-                    <div className="space-y-3.5 animate-in fade-in slide-in-from-left-2">
-                        <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-4 animate-in fade-in">
+                        <div className="flex bg-slate-100 p-1 rounded-2xl">
                             <button 
                                 type="button"
                                 onClick={() => setMutationMode('in')} 
-                                className={`py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                                     mutationMode === 'in' 
                                         ? 'bg-emerald-600 text-white shadow-xs' 
-                                        : 'bg-slate-100 text-slate-600 hover:bg-emerald-50'
+                                        : 'text-slate-500 hover:text-slate-900'
                                 }`}
                             >
                                 <ArrowDownCircle className="w-4 h-4" /> PEMASUKAN
@@ -624,24 +560,24 @@ export default function Forex() {
                             <button 
                                 type="button"
                                 onClick={() => setMutationMode('out')} 
-                                className={`py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                                     mutationMode === 'out' 
                                         ? 'bg-rose-600 text-white shadow-xs' 
-                                        : 'bg-slate-100 text-slate-600 hover:bg-rose-50'
+                                        : 'text-slate-500 hover:text-slate-900'
                                 }`}
                             >
                                 <ArrowUpCircle className="w-4 h-4" /> PENGELUARAN
                             </button>
                         </div>
                         
-                        <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200">
+                        <div className="flex bg-slate-100 p-1 rounded-2xl">
                             <button 
                                 type="button"
                                 onClick={() => setPaymentMode('cash')} 
-                                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                                     paymentMode === 'cash' 
-                                        ? (mutationMode === 'in' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800') 
-                                        : 'text-slate-400'
+                                        ? (mutationMode === 'in' ? 'bg-emerald-100 text-emerald-800 shadow-xs' : 'bg-rose-100 text-rose-800 shadow-xs') 
+                                        : 'text-slate-500'
                                 }`}
                             >
                                 <Wallet className="w-3.5 h-3.5"/> TUNAI (Cash Valas)
@@ -649,8 +585,8 @@ export default function Forex() {
                             <button 
                                 type="button"
                                 onClick={() => setPaymentMode('debt')} 
-                                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                                    paymentMode === 'debt' ? 'bg-amber-100 text-amber-800' : 'text-slate-400'
+                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                                    paymentMode === 'debt' ? 'bg-amber-100 text-amber-800 shadow-xs' : 'text-slate-500'
                                 }`}
                             >
                                 <HandCoins className="w-3.5 h-3.5"/> {mutationMode === 'in' ? 'PIUTANG VALAS' : 'HUTANG VALAS'}
@@ -658,62 +594,63 @@ export default function Forex() {
                         </div>
 
                         {paymentMode === 'debt' && (
-                            <div className="bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200 space-y-2.5 animate-in fade-in slide-in-from-top-2">
+                            <div className="bg-amber-50/80 p-4 rounded-2xl border border-amber-200 space-y-3 animate-in fade-in">
                                 <div>
-                                    <label className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block mb-1">
+                                    <label className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block mb-1 ml-1">
                                         {mutationMode === 'in' ? 'Ditagih Ke Siapa?' : 'Ngutang Ke Siapa?'}
                                     </label>
-                                    <Input 
+                                    <input 
                                         placeholder="Nama Pihak / Teman / Klien..." 
                                         value={debtName} 
                                         onChange={e => setDebtName(e.target.value)} 
-                                        className="h-11 text-xs bg-white border border-amber-200 focus:border-amber-500 rounded-xl font-semibold"
+                                        className="w-full h-12 px-4 text-xs bg-white border border-amber-200 focus:border-amber-500 rounded-2xl font-semibold outline-none"
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block mb-1">
+                                    <label className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block mb-1 ml-1">
                                         Tenggat Waktu Pelunasan
                                     </label>
-                                    <Input 
+                                    <input 
                                         type="date" 
                                         value={dueDate} 
                                         onChange={e => setDueDate(e.target.value)} 
-                                        className="h-11 text-xs bg-white border border-amber-200 focus:border-amber-500 rounded-xl font-semibold w-full"
+                                        className="w-full h-12 px-4 text-xs bg-white border border-amber-200 focus:border-amber-500 rounded-2xl font-semibold outline-none"
                                     />
                                 </div>
                             </div>
                         )}
 
                         <div>
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5 ml-1">
                                 Nominal ({selectedCurr.code})
                             </label>
-                            <Input 
+                            <input 
                                 type="text" 
                                 inputMode="decimal" 
                                 placeholder="Contoh: 100" 
-                                className="h-12 text-lg font-black rounded-xl bg-slate-50 border border-slate-200 focus:border-brand-navy tabular-nums" 
+                                className="w-full h-12 px-4 text-lg font-black rounded-2xl bg-slate-50 border border-slate-200 focus:border-brand-navy focus:bg-white outline-none tabular-nums" 
                                 value={amountMutation} 
                                 onChange={(e) => setAmountMutation(e.target.value.replace(/[^0-9.,]/g, ''))}
                             />
                         </div>
                         
                         <div>
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1 flex items-center gap-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5 ml-1 flex items-center gap-1">
                                 <StickyNote className="w-3 h-3 text-amber-600"/> Catatan / Keperluan
                             </label>
                             <textarea 
                                 placeholder="Contoh: Honor freelance luar negeri, beli souvenir..." 
-                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs font-medium focus:border-brand-navy focus:bg-white transition-all min-h-[75px] resize-none" 
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-medium focus:border-brand-navy focus:bg-white outline-none transition-all min-h-[80px] resize-none" 
                                 value={noteMutation} 
                                 onChange={(e) => setNoteMutation(e.target.value)}
                             />
                         </div>
 
                         <button 
+                            type="button"
                             disabled={isSubmitting} 
                             onClick={handleMutation} 
-                            className={`w-full h-13 font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer text-white ${
+                            className={`w-full h-14 font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer text-white disabled:opacity-50 ${
                                 paymentMode === 'debt' 
                                     ? 'bg-amber-600 hover:bg-amber-700' 
                                     : (mutationMode === 'in' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700')
@@ -726,15 +663,15 @@ export default function Forex() {
 
                 {/* FORM TAB 2: TUKAR VALAS (JUAL / BELI) */}
                 {activeTab === 'exchange' && (
-                    <div className="space-y-3.5 animate-in fade-in slide-in-from-right-2">
-                        <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-4 animate-in fade-in">
+                        <div className="flex bg-slate-100 p-1 rounded-2xl">
                             <button 
                                 type="button"
                                 onClick={() => setExchangeMode('buy')} 
-                                className={`py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                                     exchangeMode === 'buy' 
                                         ? 'bg-brand-navy text-brand-gold shadow-xs font-extrabold' 
-                                        : 'bg-slate-100 text-slate-600 hover:bg-blue-50'
+                                        : 'text-slate-500 hover:text-slate-900'
                                 }`}
                             >
                                 BELI ({selectedCurr.code})
@@ -742,39 +679,39 @@ export default function Forex() {
                             <button 
                                 type="button"
                                 onClick={() => setExchangeMode('sell')} 
-                                className={`py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                                     exchangeMode === 'sell' 
                                         ? 'bg-amber-500 text-white shadow-xs font-extrabold' 
-                                        : 'bg-slate-100 text-slate-600 hover:bg-amber-50'
+                                        : 'text-slate-500 hover:text-slate-900'
                                 }`}
                             >
                                 JUAL ({selectedCurr.code})
                             </button>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-2.5">
+                        <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5 ml-1">
                                     Jumlah ({selectedCurr.code})
                                 </label>
-                                <Input 
+                                <input 
                                     type="text" 
                                     inputMode="decimal" 
                                     placeholder="0" 
-                                    className="h-12 text-base font-black rounded-xl bg-slate-50 border border-slate-200 focus:border-brand-navy tabular-nums" 
+                                    className="w-full h-12 px-4 text-base font-black rounded-2xl bg-slate-50 border border-slate-200 focus:border-brand-navy focus:bg-white outline-none tabular-nums" 
                                     value={amountExchange} 
                                     onChange={(e) => setAmountExchange(e.target.value.replace(/[^0-9.,]/g, ''))}
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5 ml-1">
                                     Kurs Deal (Rp)
                                 </label>
-                                <Input 
+                                <input 
                                     type="text" 
                                     inputMode="decimal" 
                                     placeholder={isTrialExpired ? "✨" : formatIdr(Math.round(getSafeRate(selectedCurr.code)).toString())} 
-                                    className="h-12 text-base font-black rounded-xl bg-slate-50 border border-slate-200 focus:border-brand-navy tabular-nums" 
+                                    className="w-full h-12 px-4 text-base font-black rounded-2xl bg-slate-50 border border-slate-200 focus:border-brand-navy focus:bg-white outline-none tabular-nums" 
                                     value={rateExchange} 
                                     onChange={(e) => setRateExchange(formatIdr(e.target.value))}
                                 />
@@ -782,8 +719,8 @@ export default function Forex() {
                         </div>
                         
                         {/* Kalkulasi Total Rupiah */}
-                        <div className="p-3.5 rounded-2xl border border-amber-200 bg-amber-50/50 text-center">
-                            <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest mb-0.5">
+                        <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50/70 text-center space-y-1">
+                            <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest">
                                 Total Rupiah ({exchangeMode === 'buy' ? 'Dipotong Kas' : 'Masuk Kas'})
                             </p>
                             <p className="text-xl font-black text-slate-900 tabular-nums">
@@ -792,9 +729,10 @@ export default function Forex() {
                         </div>
                         
                         <button 
+                            type="button"
                             disabled={isSubmitting} 
                             onClick={handleExchange} 
-                            className="w-full h-13 font-bold text-xs uppercase tracking-wider rounded-2xl bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                            className="w-full h-14 font-bold text-xs uppercase tracking-wider rounded-2xl bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                         >
                             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : "KONFIRMASI TRANSAKSI PERTUKARAN"}
                         </button>
@@ -813,7 +751,7 @@ export default function Forex() {
 
                 {assets.length === 0 ? (
                     <div className="text-center py-10 bg-white rounded-3xl border border-dashed border-amber-200 shadow-xs p-6">
-                        <div className="w-14 h-14 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-3 border border-amber-200">
+                        <div className="w-14 h-14 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-amber-200">
                             <Globe className="w-7 h-7" />
                         </div>
                         <h4 className="font-extrabold text-slate-800 text-sm">Belum Ada Aset Asing</h4>
@@ -883,10 +821,11 @@ export default function Forex() {
                           </p>
                       </div>
                       <button 
+                          type="button"
                           onClick={() => setChartCurr(null)} 
-                          className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer"
+                          className="w-9 h-9 bg-slate-100 rounded-full hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
                       >
-                          <X className="w-5 h-5" />
+                          <X className="w-4 h-4" />
                       </button>
                   </div>
                   
@@ -899,107 +838,49 @@ export default function Forex() {
                           </div>
                       ) : chartData.length > 0 ? (
                           <ResponsiveContainer width="100%" height="100%">
-                              <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                   <defs>
-                                      <linearGradient id="forexGoldGrad" x1="0" y1="0" x2="0" y2="1">
-                                          <stop offset="5%" stopColor="#F6B93B" stopOpacity={0.4}/>
-                                          <stop offset="95%" stopColor="#F6B93B" stopOpacity={0.0}/>
+                                      <linearGradient id="colorRate" x1="0" y1="0" x2="0" y2="1">
+                                          <stop offset="5%" stopColor="#1D3E72" stopOpacity={0.4}/>
+                                          <stop offset="95%" stopColor="#1D3E72" stopOpacity={0.0}/>
                                       </linearGradient>
                                   </defs>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
-                                  <XAxis 
-                                      dataKey="date" 
-                                      axisLine={false} 
-                                      tickLine={false} 
-                                      tick={{ fontSize: 9, fill: '#64748b', fontWeight: 600 }} 
-                                      minTickGap={20}
-                                  />
-                                  <YAxis 
-                                      domain={['auto', 'auto']} 
-                                      axisLine={false} 
-                                      tickLine={false} 
-                                      tick={{ fontSize: 9, fill: '#64748b', fontWeight: 600 }}
-                                      tickFormatter={(val) => `Rp ${(val/1000).toFixed(1)}k`}
-                                      orientation="right"
-                                  />
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} axisLine={false} />
+                                  <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v) => `Rp ${v.toLocaleString('id-ID')}`} />
                                   <Tooltip 
-                                      contentStyle={{ 
-                                          borderRadius: '16px', 
-                                          border: '1px solid #e2e8f0', 
-                                          backgroundColor: '#1D3E72',
-                                          color: '#ffffff',
-                                          boxShadow: '0 8px 24px rgba(0,0,0,0.15)', 
-                                          fontSize: '12px', 
-                                          fontWeight: 'bold' 
-                                      }} 
-                                      formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Kurs']}
-                                      labelStyle={{ color: '#F6B93B', marginBottom: '4px', fontSize: '10px', fontWeight: 800 }}
+                                      contentStyle={{ borderRadius: '16px', border: '1px solid #E2E8F0', fontSize: '12px', fontWeight: 'bold' }}
+                                      formatter={(v: any) => [`Rp ${Number(v).toLocaleString('id-ID')}`, 'Kurs Penutupan']}
                                   />
-                                  <Area 
-                                      type="monotone" 
-                                      dataKey="value" 
-                                      stroke="#F6B93B" 
-                                      strokeWidth={3} 
-                                      fill="url(#forexGoldGrad)" 
-                                      activeDot={{ r: 6, fill: '#F6B93B', stroke: '#1D3E72', strokeWidth: 3 }} 
-                                  />
+                                  <Area type="monotone" dataKey="rate" stroke="#1D3E72" strokeWidth={3} fillOpacity={1} fill="url(#colorRate)" />
                               </AreaChart>
                           </ResponsiveContainer>
                       ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-400">
-                              <p className="text-xs font-bold">Gagal memuat grafik pasar.</p>
+                          <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+                              Data grafik pasar belum tersedia untuk mata uang ini.
                           </div>
                       )}
                   </div>
 
-                  {/* Harga Saat Ini Highlight */}
-                  <div className="flex items-center justify-between bg-amber-50 border border-amber-200 p-3.5 rounded-2xl mb-4">
-                      <span className="text-[10px] font-bold text-amber-900 uppercase tracking-widest">
-                          Harga Kurs Saat Ini
-                      </span>
-                      <span className="font-black text-brand-navy text-lg tabular-nums">
-                          Rp {Math.round(getSafeRate(chartCurr)).toLocaleString('id-ID')}
-                      </span>
-                  </div>
-
                   <button 
-                      onClick={() => { 
-                          setChartCurr(null); 
-                          setSelectedCurr(CURRENCY_LIST.find(c => c.code === chartCurr) || CURRENCY_LIST[0]); 
-                          setActiveTab('exchange'); 
-                      }} 
-                      className="w-full bg-brand-navy hover:bg-[#152e55] text-brand-gold h-13 text-xs font-bold uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer"
+                      type="button"
+                      onClick={() => setChartCurr(null)}
+                      className="w-full h-12 rounded-2xl bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider shadow-sm active:scale-95 transition-all cursor-pointer"
                   >
-                      TRANSAKSI {chartCurr} SEKARANG
+                      Tutup Grafik
                   </button>
               </div>
           </div>
       )}
 
-      {/* POPUP PEMILIHAN SUMBER DANA */}
-      {showSourcePopup && (
-          <SourceSelectionPopup 
-              type={
-                  pendingForexSubmit?.action === 'exchange' 
-                      ? (exchangeMode === 'buy' ? 'expense' : 'income') 
-                      : (mutationMode === 'in' ? 'expense' : 'income')
-              }
-              title={pendingForexSubmit?.action === 'exchange' ? (exchangeMode === 'buy' ? "Sumber Dana Beli Valas" : "Tujuan Dana Jual Valas") : "Pilih Sumber Dana"}
-              onCancel={() => {
-                  setShowSourcePopup(false);
-                  setPendingForexSubmit(null);
-              }}
-              onSelect={(src) => {
-                  setShowSourcePopup(false);
-                  if (pendingForexSubmit?.action === 'exchange') {
-                      executeExchange(src);
-                  } else if (pendingForexSubmit?.action === 'mutation') {
-                      executeMutation(src);
-                  }
-                  setPendingForexSubmit(null);
-              }}
-          />
-      )}
+      {/* MODAL PILIH SUMBER DANA KETIKA MENJUAL VALAS */}
+      <SourceSelectionPopup
+          isOpen={showSourcePopup}
+          onClose={() => setShowSourcePopup(false)}
+          onSelect={(source) => executeExchangeDirect(source)}
+          title="Tujuan Masuk Saldo Penjualan"
+          description="Pilih akun atau dompet yang menerima dana hasil penukaran valas ini:"
+      />
     </MobileLayout>
   );
 }

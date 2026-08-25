@@ -5,7 +5,7 @@ import {
     Target as TargetIcon, ShieldCheck, Calculator, Plus, Trash2, 
     X, ListPlus, ShieldAlert, Loader2, ArrowLeft, Compass, 
     Gauge, Scale, Layers, CheckCircle2, ArrowRight, Milestone,
-    Coins, Receipt, HelpCircle, Sparkles
+    Coins, Receipt, HelpCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";

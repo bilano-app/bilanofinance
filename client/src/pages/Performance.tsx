@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { 
     Trophy, TrendingUp, AlertCircle, ArrowUpRight, ArrowDownRight, 
-    CalendarClock, RefreshCcw, Sparkles, CheckCircle2, ChevronRight, 
+    CalendarClock, RefreshCcw, CheckCircle2, ChevronRight, 
     ArrowLeft, Crown, ShieldCheck, Loader2, DollarSign, Wallet, 
     Activity, Zap, Target, Briefcase, HelpCircle, ShieldAlert, 
     HeartHandshake, ChevronDown, ChevronUp, ArrowDownCircle, ArrowUpCircle,

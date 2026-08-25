@@ -18,7 +18,7 @@ import FinanceSafetyBanner from "@/components/wealth-blueprint/FinanceSafetyBann
 
 // Ikon pendukung estetika premium
 import { 
-  Sparkles, Brain, Target, ArrowRight, Loader2, Info, 
+  Brain, Target, ArrowRight, Loader2, Info, 
   ChevronRight, CheckCircle2, Trash2, PlusCircle, BarChart3, Rocket
 } from "lucide-react";
 
@@ -273,7 +273,7 @@ export default function WealthBlueprint() {
         {state.currentState === 'S0_LANDING' && (
           <div className="flex flex-col items-center justify-center pt-12 px-6 text-center animate-in zoom-in-95 duration-300">
             <div className="w-24 h-24 bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 rounded-[28px] flex items-center justify-center shadow-2xl mb-6 border border-indigo-500/20">
-              <Sparkles className="w-12 h-12 text-amber-400 animate-pulse" />
+              <Brain className="w-12 h-12 text-amber-400" />
             </div>
             <div className="bg-amber-100 text-amber-900 text-[10px] font-black px-4 py-1 rounded-full uppercase tracking-widest mb-3 border border-amber-200">
               VIP ACCESS PLATINUM
@@ -705,7 +705,7 @@ export default function WealthBlueprint() {
             {aiReviewNote && (
               <div className="bg-indigo-950 text-indigo-100 border border-indigo-500/20 p-5 rounded-[26px] shadow-sm animate-in zoom-in-95">
                 <h4 className="font-black text-amber-400 text-xs uppercase tracking-wider mb-2 flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-400"/> Tinjauan Pengembang Bisnis AI:
+                  <Brain className="w-3.5 h-3.5 text-amber-400"/> Tinjauan Pengembang Bisnis AI:
                 </h4>
                 <p className="text-xs leading-relaxed text-indigo-200 font-medium whitespace-pre-line">{aiReviewNote}</p>
               </div>

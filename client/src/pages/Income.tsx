@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
-    TrendingUp, ArrowLeft, Plus, Check, Loader2, Sparkles, 
+    TrendingUp, ArrowLeft, Plus, Check, Loader2, 
     Wallet, HandCoins, AlertCircle, ArrowDownLeft
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -224,7 +224,7 @@ export default function Income() {
                 <div className="relative z-10 flex flex-col">
                     <div className="flex justify-between items-center mb-3">
                         <span className="bg-white/20 text-white text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-white/20 backdrop-blur-xs flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-brand-gold fill-current" />
+                            <ArrowDownLeft className="w-3 h-3 text-emerald-200" />
                             SALDO KAS SAAT INI
                         </span>
 

@@ -5,7 +5,7 @@ import { Button, Input } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
 import { 
     LifeBuoy, Send, Loader2, CheckCircle2, AlertCircle, 
-    ArrowLeft, Sparkles, MessageSquare, HelpCircle, Mail,
+    ArrowLeft, MessageSquare, HelpCircle, Mail,
     ChevronDown, Check, ShieldCheck, HeartHandshake
 } from "lucide-react"; 
 import { trackEvent } from "@/lib/tracking";
@@ -114,7 +114,7 @@ export default function Help() {
                 <div className="relative z-10 flex flex-col">
                     <div className="flex justify-between items-center mb-3">
                         <span className="bg-brand-navy text-brand-gold text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-brand-gold fill-current" />
+                            <MessageSquare className="w-3 h-3 text-brand-gold" />
                             KONSULTASI & KELUHAN
                         </span>
 

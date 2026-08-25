@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { 
     Download, FileText, Globe, Wallet, FileBarChart, Loader2, 
     Briefcase, HandCoins, Archive, HeartHandshake, AlertCircle,
-    ArrowLeft, Sparkles, CheckCircle2, ShieldCheck, TrendingUp,
+    ArrowLeft, CheckCircle2, ShieldCheck, TrendingUp,
     Calendar, Lock, Layers
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -1060,7 +1060,7 @@ export default function Reports() {
                 <div className="relative z-10 flex flex-col">
                     <div className="flex justify-between items-center mb-3">
                         <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 fill-current" /> STANDAR KORPORAT
+                            <FileCheck className="w-3 h-3 fill-current" /> STANDAR KORPORAT
                         </span>
                         <span className="text-[10px] text-amber-200 font-bold bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
                             Bulan Berjalan

@@ -5,7 +5,7 @@ import { Button, Input } from "@/components/UIComponents";
 import { 
     Hourglass, Plus, Edit2, Trash2, ArrowDownToLine, 
     X, Check, AlertCircle, Loader2, ArrowLeft, Landmark, 
-    DollarSign, Sparkles, Crown, ShieldCheck, CheckCircle2,
+    DollarSign, Crown, ShieldCheck, CheckCircle2,
     RefreshCcw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";

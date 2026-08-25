@@ -1,6 +1,6 @@
 import React from "react";
 import { Button, Input } from "@/components/UIComponents";
-import { Brain, Target, Sparkles, CheckCircle2, ChevronRight, Info } from "lucide-react";
+import { Brain, Target, Zap, CheckCircle2, ChevronRight, Info } from "lucide-react";
 
 // =========================================================================
 // 📐 INTERFACE CONTRACT FOR DYNAMIC RENDERER
@@ -58,7 +58,7 @@ export default function DynamicStepCard({
     const titleLower = title.toLowerCase();
     if (titleLower.includes("identifikasi") || titleLower.includes("profil")) return <Brain className="w-5 h-5 animate-pulse" />;
     if (titleLower.includes("tujuan") || titleLower.includes("target")) return <Target className="w-5 h-5" />;
-    if (titleLower.includes("keahlian") || titleLower.includes("skill")) return <Sparkles className="w-5 h-5 text-amber-300" />;
+    if (titleLower.includes("keahlian") || titleLower.includes("skill")) return <Zap className="w-5 h-5 text-amber-300" />;
     return <CheckCircle2 className="w-5 h-5" />;
   };
 

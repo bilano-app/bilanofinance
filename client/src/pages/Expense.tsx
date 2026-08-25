@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
-    CreditCard, ArrowLeft, Plus, Check, Loader2, Sparkles, 
+    CreditCard, ArrowLeft, Plus, Check, Loader2, 
     Wallet, HandCoins, AlertCircle, ArrowUpRight, AlertTriangle, X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -278,7 +278,7 @@ export default function Expense() {
                 <div className="relative z-10 flex flex-col">
                     <div className="flex justify-between items-center mb-3">
                         <span className="bg-white/20 text-white text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-white/20 backdrop-blur-xs flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-brand-gold fill-current" />
+                            <ArrowUpRight className="w-3 h-3 text-rose-200" />
                             SALDO KAS TERSEDIA
                         </span>
 

@@ -12,7 +12,7 @@ import {
     HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
     MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
     BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
-    Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Sparkles, Banknote,
+    Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Banknote,
     ArrowDownLeft, ArrowUpRight, Send, Target, Plus, Pencil
 } from "lucide-react";
 import LegacyMigrationPopup from "@/components/LegacyMigrationPopup";
@@ -1093,7 +1093,7 @@ export default function Home() {
                 </div>
 
                 {/* BOTTOM CONTENT SECTION: White container with rounded top corners */}
-                <div className="-mx-5 -mt-6 px-5 pt-7 pb-16 bg-white rounded-t-[32px] border-t border-slate-100 shadow-[0_-8px_24px_rgba(29,62,114,0.06)] flex flex-col gap-9 relative z-20">
+                <div className="-mx-5 -mt-6 px-5 pt-8 pb-16 bg-white rounded-t-[32px] border-t border-slate-100 shadow-[0_-8px_24px_rgba(29,62,114,0.06)] flex flex-col gap-11 relative z-20">
 
                     {/* 4. Fitur Pilihan dengan Ikon PNG */}
                     <div className="px-1">
@@ -1116,27 +1116,28 @@ export default function Home() {
                         </div>
                     </div>
 
-                    {/* 5. Eksklusif Premium */}
-                    <div className="px-1 space-y-3">
+                    {/* 5. KONSULTASI & ANALITIK (Format Persegi Panjang Kecil) */}
+                    <div className="px-1 space-y-4">
                         <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px] flex items-center">
-                            <span className="w-1.5 h-1.5 rounded-full bg-brand-gold mr-2"></span>
-                            Eksklusif Premium
+                            <span className="w-1.5 h-1.5 rounded-full bg-brand-navy mr-2"></span>
+                            Konsultasi & Analitik
                         </h3>
 
-                        <Link href="/wealth-blueprint">
-                            <div className="bg-brand-navy rounded-[24px] p-5 border-l-[6px] border-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 cursor-pointer active:shadow-[3px_3px_0px_0px] active:shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group mb-3">
-                                <Banknote className="absolute -right-2 -bottom-2 w-28 h-28 text-white/[0.05] -rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:-rotate-6" strokeWidth={1} />
+                        {/* Chat AI Card (Persegi Panjang Kecil) */}
+                        <Link href="/chat-ai">
+                            <div className="bg-brand-navy rounded-[24px] p-5 border-l-[6px] border-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 cursor-pointer active:shadow-[3px_3px_0px_0px] active:shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group mb-3.5">
+                                <Bot className="absolute -right-2 -bottom-2 w-28 h-28 text-white/[0.05] -rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:-rotate-6" strokeWidth={1} />
                                 <div className="flex items-center justify-between relative z-10">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-16 h-16 rounded-2xl bg-brand-gold flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-black/10">
-                                            <img src="/IDEA.png" alt="Ide & Pembimbing Penghasilan" className="w-full h-full object-cover" />
+                                        <div className="w-16 h-16 rounded-2xl bg-brand-gold flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-black/10 p-1">
+                                            <img src="/AI.png" alt="ChatAI" className="w-full h-full object-contain" />
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                                <h3 className="font-black text-white text-base tracking-tight">Ide & Pembimbing Penghasilan</h3>
-                                                <span className="bg-brand-goldTintMed text-brand-goldDark text-[9px] font-black px-2 py-0.5 rounded-md border border-brand-gold uppercase tracking-wider">LIVE</span>
+                                                <h3 className="font-black text-white text-base tracking-tight">ChatAI</h3>
+                                                <span className="bg-brand-goldTintMed text-brand-goldDark text-[9px] font-black px-2 py-0.5 rounded-md border border-brand-gold uppercase tracking-wider">24/7 ONLINE</span>
                                             </div>
-                                            <p className="text-[11px] text-blue-200/70 font-medium">Strategi & Peta Jalur Cuan AI</p>
+                                            <p className="text-[11px] text-blue-200/80 font-medium">Konsultasi strategi & evaluasi keuangan pribadi</p>
                                         </div>
                                     </div>
                                     <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-brand-gold group-hover:translate-x-0.5 transition-all shrink-0" />
@@ -1144,56 +1145,58 @@ export default function Home() {
                             </div>
                         </Link>
 
-                        <Link href="/academy">
+                        {/* Performa Card (Persegi Panjang Kecil) */}
+                        <Link href="/performance">
                             <div className="bg-brand-gold rounded-[24px] p-5 border-l-[6px] border-brand-navy shadow-[6px_6px_0px_0px] shadow-brand-navy cursor-pointer active:shadow-[3px_3px_0px_0px] shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group">
-                                <BookOpen className="absolute -right-4 -bottom-4 w-32 h-32 text-brand-navy/10 rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-6" strokeWidth={1} />
+                                <BarChart3 className="absolute -right-4 -bottom-4 w-32 h-32 text-brand-navy/10 rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-6" strokeWidth={1} />
                                 <div className="flex items-center justify-between relative z-10">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-16 h-16 rounded-2xl bg-brand-navy flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-white/10">
-                                            <img src="/EBOOK.png" alt="BILANO Academy" className="w-full h-full object-cover" />
+                                        <div className="w-16 h-16 rounded-2xl bg-brand-navy flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-white/10 p-1">
+                                            <img src="/Performance.png" alt="Performa" className="w-full h-full object-contain" />
                                         </div>
                                         <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h3 className="font-black text-brand-navy text-base tracking-tight">BILANO Academy</h3>
+                                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                                <h3 className="font-black text-brand-navy text-base tracking-tight">Performa</h3>
+                                                <span className="bg-brand-navy text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider">REAL-TIME</span>
                                             </div>
-                                            <p className="text-[11px] text-brand-navy/80 font-bold">E-Book & Panduan Finansial VIP</p>
+                                            <p className="text-[11px] text-brand-navy/80 font-bold">Pantau rasio laba, aset & pencapaian target</p>
                                         </div>
                                     </div>
-                                    <ChevronRight className="w-5 h-5 text-brand-navy/40 group-hover:text-brand-navy transition-colors shrink-0" />
+                                    <ChevronRight className="w-5 h-5 text-brand-navy/40 group-hover:text-brand-navy group-hover:translate-x-0.5 transition-all shrink-0" />
                                 </div>
                             </div>
                         </Link>
                     </div>
 
-                    {/* 6. Tanya AI & Performa - Card Visual Backwrap dengan Floating Action Bar */}
-                    <div className="px-1 space-y-3.5">
+                    {/* 6. EKSKLUSIF PREMIUM (Format Kotak Besar dengan Visual Backwrap & Action Bar) */}
+                    <div className="px-1 space-y-4">
                         <h3 className="font-bold text-slate-800 text-sm mb-1 px-1 uppercase tracking-widest text-[11px] flex items-center">
-                            <span className="w-1.5 h-1.5 rounded-full bg-brand-navy mr-2"></span>
-                            Konsultasi & Analitik
+                            <span className="w-1.5 h-1.5 rounded-full bg-brand-gold mr-2"></span>
+                            Eksklusif Premium
                         </h3>
 
-                        {/* Tanya AI Card */}
-                        <Link href="/chat-ai">
-                            <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#dbebfb] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
+                        {/* Ide & Pembimbing Penghasilan (Kotak Besar) */}
+                        <Link href="/wealth-blueprint">
+                            <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#0d2146] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
                                 <img 
-                                    src="/AI.png" 
-                                    alt="AI Consultation" 
+                                    src="/IDEA.png" 
+                                    alt="Ide & Pembimbing Penghasilan" 
                                     className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 group-hover:scale-105" 
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-transparent to-black/35 pointer-events-none" />
+                                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-transparent to-black/60 pointer-events-none" />
                                 
                                 <div className="relative z-10">
-                                    <span className="inline-flex items-center bg-brand-navy text-brand-gold text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs mb-1">
-                                        ASISTEN PINTAR 24/7
+                                    <span className="inline-flex items-center bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs mb-1">
+                                        STRATEGI CUAN AI • LIVE
                                     </span>
-                                    <h3 className="font-black text-brand-navy text-xl leading-tight">Tanya AI</h3>
-                                    <p className="text-xs text-slate-700 font-bold max-w-[240px] mt-0.5 leading-snug">Konsultasi strategi & evaluasi keuangan pribadi</p>
+                                    <h3 className="font-black text-white text-xl leading-tight drop-shadow-sm">Ide & Pembimbing Penghasilan</h3>
+                                    <p className="text-xs text-blue-100 font-bold max-w-[240px] mt-0.5 leading-snug drop-shadow-xs">Peta jalur cuan & blueprint strategi bisnis AI</p>
                                 </div>
 
                                 <div className="relative z-10 mt-6 bg-[#16386d]/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl border border-white/25 shadow-lg flex items-center justify-between group-hover:bg-[#122e5a] transition-all">
                                     <div>
-                                        <h4 className="font-black text-white text-[13px] leading-tight">Mulai Konsultasi</h4>
-                                        <p className="text-[10px] text-blue-200 font-semibold leading-tight mt-0.5">Dapatkan jawaban instan</p>
+                                        <h4 className="font-black text-white text-[13px] leading-tight">Buka Peta Ide</h4>
+                                        <p className="text-[10px] text-blue-200 font-semibold leading-tight mt-0.5">Mulai bangun sumber income baru</p>
                                     </div>
                                     <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 group-hover:bg-white/30 group-hover:translate-x-0.5 transition-all">
                                         <ChevronRight className="w-4 h-4" />
@@ -1202,28 +1205,28 @@ export default function Home() {
                             </div>
                         </Link>
 
-                        {/* Performa Card */}
-                        <Link href="/performance">
-                            <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#fdf5ea] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
+                        {/* BILANO Academy (Kotak Besar) */}
+                        <Link href="/academy">
+                            <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#5c4314] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
                                 <img 
-                                    src="/Performance.png" 
-                                    alt="Performance Analytics" 
+                                    src="/ACADEMY.png" 
+                                    alt="BILANO Academy" 
                                     className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 group-hover:scale-105" 
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-transparent to-black/35 pointer-events-none" />
+                                <div className="absolute inset-0 bg-gradient-to-b from-[#1e150b]/80 via-transparent to-black/60 pointer-events-none" />
                                 
                                 <div className="relative z-10">
-                                    <span className="inline-flex items-center bg-amber-500 text-slate-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs mb-1">
-                                        ANALISIS REAL-TIME
+                                    <span className="inline-flex items-center bg-brand-gold text-slate-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs mb-1">
+                                        E-BOOK & PANDUAN VIP
                                     </span>
-                                    <h3 className="font-black text-slate-900 text-xl leading-tight">Performa</h3>
-                                    <p className="text-xs text-slate-700 font-bold max-w-[240px] mt-0.5 leading-snug">Pantau rasio laba, aset & pencapaian target</p>
+                                    <h3 className="font-black text-white text-xl leading-tight drop-shadow-sm">BILANO Academy</h3>
+                                    <p className="text-xs text-amber-100 font-bold max-w-[240px] mt-0.5 leading-snug drop-shadow-xs">Koleksi E-Book & kurikulum finansial eksklusif</p>
                                 </div>
 
                                 <div className="relative z-10 mt-6 bg-[#261d14]/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl border border-amber-500/25 shadow-lg flex items-center justify-between group-hover:bg-[#1c150e] transition-all">
                                     <div>
-                                        <h4 className="font-black text-white text-[13px] leading-tight">Pantau Performa</h4>
-                                        <p className="text-[10px] text-amber-200 font-semibold leading-tight mt-0.5">Analisis kesehatan finansial</p>
+                                        <h4 className="font-black text-white text-[13px] leading-tight">Akses Academy</h4>
+                                        <p className="text-[10px] text-amber-200 font-semibold leading-tight mt-0.5">Pelajari materi & e-book VIP</p>
                                     </div>
                                     <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 group-hover:bg-white/30 group-hover:translate-x-0.5 transition-all">
                                         <ChevronRight className="w-4 h-4" />

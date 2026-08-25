@@ -6,7 +6,7 @@ import { useUser } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
 import { 
     User, Camera, Save, Loader2, X, Check, ZoomIn, 
-    KeyRound, ArrowLeft, Sparkles, ShieldCheck, Mail, Crown,
+    KeyRound, ArrowLeft, ShieldCheck, Mail, Crown,
     AlertCircle, CheckCircle2
 } from "lucide-react";
 import Cropper from "react-easy-crop"; 

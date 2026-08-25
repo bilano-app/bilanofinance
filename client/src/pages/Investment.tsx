@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { 
-    TrendingUp, PieChart, PlusCircle, Sparkles, Layers,
+    TrendingUp, PieChart, PlusCircle, Layers,
     Clock, ArrowLeft, Loader2, CheckCircle2,
     Crown, Lock, ChevronRight, X, AlertCircle, RefreshCcw,
-    ShieldAlert, Wallet, Info, ArrowUpRight, AlertTriangle
+    ShieldAlert, Wallet, Info, ArrowUpRight, AlertTriangle,
+    Gem, HandCoins, Building2, ShieldCheck, Store, Coins,
+    Brain, LineChart, BarChart3
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useInvestments, useForexRates } from "@/hooks/use-finance";
@@ -65,46 +67,54 @@ export default function Investment() {
   const fcf = user?.cashBalance || 0;
   const portfolioRaw = investments || [];
 
-  const assetConfig: Record<AssetType, { label: string; imgUrl: string; bg: string }> = {
+  const assetConfig: Record<AssetType, { label: string; icon: any; bg: string; iconColor: string }> = {
       saham: {
           label: "Saham",
-          imgUrl: "/icons/assets/saham.png",
-          bg: "bg-sky-50 border-sky-200 text-sky-700"
+          icon: TrendingUp,
+          bg: "bg-sky-50 border-sky-200",
+          iconColor: "text-sky-600"
       },
       reksadana: {
           label: "Reksa Dana",
-          imgUrl: "/icons/assets/reksadana.png",
-          bg: "bg-emerald-50 border-emerald-200 text-emerald-700"
+          icon: PieChart,
+          bg: "bg-emerald-50 border-emerald-200",
+          iconColor: "text-emerald-600"
       },
       kripto: {
           label: "Kripto",
-          imgUrl: "/icons/assets/kripto.png",
-          bg: "bg-amber-50 border-amber-200 text-amber-700"
+          icon: Coins,
+          bg: "bg-amber-50 border-amber-200",
+          iconColor: "text-amber-600"
       },
       emas: {
           label: "Emas & Logam",
-          imgUrl: "/icons/assets/emas.png",
-          bg: "bg-yellow-50 border-yellow-200 text-yellow-700"
+          icon: Gem,
+          bg: "bg-yellow-50 border-yellow-200",
+          iconColor: "text-yellow-600"
       },
       p2p: {
           label: "P2P Lending",
-          imgUrl: "/icons/assets/p2p.png",
-          bg: "bg-indigo-50 border-indigo-200 text-indigo-700"
+          icon: HandCoins,
+          bg: "bg-indigo-50 border-indigo-200",
+          iconColor: "text-indigo-600"
       },
       properti: {
           label: "Properti",
-          imgUrl: "/icons/assets/properti.png",
-          bg: "bg-orange-50 border-orange-200 text-orange-700"
+          icon: Building2,
+          bg: "bg-orange-50 border-orange-200",
+          iconColor: "text-orange-600"
       },
       obligasi: {
           label: "Surat Berharga / SBN",
-          imgUrl: "/icons/assets/obligasi.png",
-          bg: "bg-teal-50 border-teal-200 text-teal-700"
+          icon: ShieldCheck,
+          bg: "bg-teal-50 border-teal-200",
+          iconColor: "text-teal-600"
       },
       bisnis: {
           label: "Bisnis Riil / UMKM",
-          imgUrl: "/icons/assets/bisnis.png",
-          bg: "bg-rose-50 border-rose-200 text-rose-700"
+          icon: Store,
+          bg: "bg-rose-50 border-rose-200",
+          iconColor: "text-rose-600"
       },
   };
 
@@ -150,268 +160,285 @@ export default function Investment() {
   const displayTotalPortfolio = formatRp(totalPortfolioValue);
   const displayCategoryValue = formatRp(categoryValue);
 
-  const handleTransactionInit = () => {
-    if (!inputPrice || !inputQty) return;
-    
-    if (user?.walletSources && (user.walletSources as any[]).length > 0) {
-        setShowSourcePopup(true);
-    } else {
-        handleTransaction();
-    }
+  const getConversionRate = (currency: string) => {
+      if (currency === 'IDR') return 1;
+      return forexRates[currency] || 1;
   };
 
-  const handleTransaction = async (selectedSource?: string) => {
-    if (!inputPrice || !inputQty) return;
-    
-    const price = parseNum(inputPrice);
-    const qty = parseNum(inputQty);
-
-    setIsSubmitting(true); 
-
-    try {
-        const symbolPayload = txType === 'SELL' ? selectedSellSymbol : `${inputName.toUpperCase()}|${inputCurrency}`;
-        
-        const payload = {
-           symbol: symbolPayload,
-           quantity: qty, 
-           price: price, 
-           type: activeCategory || 'saham',
-           source: selectedSource
-        };
-
-        const endpoint = txType === 'BUY' ? "/api/investments/buy" : "/api/investments/sell";
-
-        const res = await fetch(endpoint, {
-            method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                "x-user-email": currentUserEmail 
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || "Gagal memproses transaksi.");
-        }
-
-        trackEvent("investment_tx_added", { 
-            txType: txType,
-            assetCategory: activeCategory || 'saham',
-            currency: inputCurrency
-        });
-        
-        toast({ 
-            title: "Berhasil! 📈", 
-            description: `Transaksi ${txType === 'BUY' ? 'Beli' : 'Jual'} aset berhasil dicatat dalam portofolio.` 
-        });
-        
-        resetForm();
-        queryClient.invalidateQueries({ queryKey: ["investments"] });
-        queryClient.invalidateQueries({ queryKey: ["user"] });
-        queryClient.invalidateQueries({ queryKey: ["global-finance-state"] });
-
-    } catch (error: any) {
-        toast({ title: "Transaksi Ditolak", description: error.message, variant: "destructive" });
-    } finally {
-        setIsSubmitting(false); 
-    }
+  const calculateTotalCost = () => {
+      const qty = parseNum(inputQty);
+      const prc = parseNum(inputPrice);
+      if (!qty || !prc) return 0;
+      const isStock = activeCategory === 'saham';
+      const multiplier = isStock ? 100 : 1;
+      return qty * prc * multiplier;
   };
 
-  const resetForm = () => {
-    setInputName(""); setInputQty(""); setInputPrice(""); setSelectedSellSymbol(""); setInputCurrency("IDR");
+  const calculateTotalCostInIDR = () => {
+      const totalInNative = calculateTotalCost();
+      const rate = getConversionRate(inputCurrency);
+      return totalInNative * rate;
+  };
+
+  const executeTransaction = async (targetSource?: string) => {
+      if (!activeCategory) return;
+      const qty = parseNum(inputQty);
+      const prc = parseNum(inputPrice);
+      const totalIDR = calculateTotalCostInIDR();
+
+      if (txType === 'BUY' && totalIDR > fcf) {
+          toast({
+              title: "Saldo Kas Tidak Cukup",
+              description: `Total pembelian (${formatRp(totalIDR)}) melebihi Saldo Kas FCF Anda (${formatRp(fcf)}).`,
+              variant: "destructive"
+          });
+          return;
+      }
+
+      setIsSubmitting(true);
+      try {
+          const finalSymbol = inputCurrency !== 'IDR' ? `${inputName.trim().toUpperCase()}|${inputCurrency}` : inputName.trim().toUpperCase();
+
+          const res = await fetch("/api/investments", {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+                  "x-user-email": currentUserEmail
+              },
+              body: JSON.stringify({
+                  action: txType,
+                  symbol: txType === 'BUY' ? finalSymbol : selectedSellSymbol,
+                  type: activeCategory,
+                  quantity: qty,
+                  price: prc,
+                  source: targetSource || "Kas Utama",
+                  currency: inputCurrency
+              })
+          });
+
+          if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.message || "Gagal memproses transaksi investasi.");
+          }
+
+          trackEvent("investment_transaction_created", {
+              action: txType,
+              type: activeCategory,
+              symbol: txType === 'BUY' ? finalSymbol : selectedSellSymbol,
+              amountIdr: totalIDR
+          });
+
+          toast({
+              title: txType === 'BUY' ? "Pembelian Sukses! 📈" : "Penjualan Sukses! 💰",
+              description: `Transaksi ${assetConfig[activeCategory].label} berhasil tercatat dan kas diperbarui.`
+          });
+
+          setInputName("");
+          setInputQty("");
+          setInputPrice("");
+          setSelectedSellSymbol("");
+          setShowSourcePopup(false);
+
+          await queryClient.invalidateQueries({ queryKey: ["investments"] });
+          await queryClient.invalidateQueries({ queryKey: ["user"] });
+          await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      } catch (e: any) {
+          toast({
+              title: "Transaksi Gagal",
+              description: e.message || "Terjadi kesalahan server.",
+              variant: "destructive"
+          });
+      } finally {
+          setIsSubmitting(false);
+      }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!inputQty || !inputPrice) {
+          toast({ title: "Form Belum Lengkap", description: "Harap isi jumlah dan harga transaksi.", variant: "destructive" });
+          return;
+      }
+      if (txType === 'BUY' && !inputName.trim()) {
+          toast({ title: "Nama/Ticker Belum Diisi", description: "Harap masukkan kode atau nama aset.", variant: "destructive" });
+          return;
+      }
+      if (txType === 'SELL' && !selectedSellSymbol) {
+          toast({ title: "Pilih Aset Yang Dijual", description: "Pilih aset dari portofolio Anda.", variant: "destructive" });
+          return;
+      }
+
+      if (txType === 'SELL') {
+          setShowSourcePopup(true);
+      } else {
+          executeTransaction();
+      }
   };
 
   const renderDynamicForm = () => {
-    const qtyNum = parseNum(inputQty) || 0;
-    const priceNum = parseNum(inputPrice) || 0;
-    
-    const isForeign = inputCurrency !== 'IDR';
-    const rate = isForeign ? (Number(forexRates[inputCurrency]) || 1) : 1;
-    const isSaham = activeCategory === 'saham';
-    const multiplier = (isSaham && !isForeign) ? 100 : 1; 
+      if (!activeCategory) return null;
+      const isStock = activeCategory === 'saham';
+      const isCrypto = activeCategory === 'kripto';
+      const totalIDR = calculateTotalCostInIDR();
+      const isInsufficient = txType === 'BUY' && totalIDR > fcf;
 
-    const rawEstimasi = qtyNum * priceNum * multiplier;
-    const estimasiIDR = rawEstimasi * rate;
-    
-    let isSellOverLimit = false;
-    let ownedQty = 0;
-
-    if (txType === 'SELL' && selectedSellSymbol) {
-        const asset = aggregatedPortfolio.find((p: any) => p.symbol === selectedSellSymbol);
-        if (asset) {
-            ownedQty = asset.quantity;
-            if (qtyNum > ownedQty) isSellOverLimit = true;
-        }
-    }
-
-    const isFormValid = txType === 'BUY' ? (inputName && inputQty && inputPrice) : (selectedSellSymbol && inputQty && inputPrice);
-
-    return (
-      <div className="space-y-4">
-        {/* Switcher Beli vs Jual */}
-        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
-          <button 
-            type="button"
-            onClick={() => { setTxType('BUY'); resetForm(); }} 
-            className={`flex-1 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
-                txType === 'BUY' ? 'bg-sky-500 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            BELI ASET
-          </button>
-          <button 
-            type="button"
-            onClick={() => { setTxType('SELL'); resetForm(); }} 
-            className={`flex-1 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
-                txType === 'SELL' ? 'bg-rose-500 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            JUAL ASET
-          </button>
-        </div>
-
-        {/* Input Aset */}
-        <div className="space-y-1.5">
-           <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">
-               {txType === 'BUY' ? 'Kode / Nama Aset' : 'Pilih Aset Portofolio'}
-           </label>
-           {txType === 'BUY' ? (
-              <div className="flex gap-2">
-                  <select 
-                    value={inputCurrency} 
-                    onChange={e => setInputCurrency(e.target.value)} 
-                    className="w-24 px-3 h-12 font-bold bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-sky-500 text-xs text-slate-800 cursor-pointer"
+      return (
+          <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="flex bg-slate-100 p-1 rounded-2xl">
+                  <button
+                      type="button"
+                      onClick={() => { setTxType('BUY'); setInputQty(""); setInputPrice(""); }}
+                      className={`flex-1 py-2.5 rounded-xl font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+                          txType === 'BUY' 
+                              ? 'bg-sky-600 text-white shadow-xs' 
+                              : 'text-slate-500 hover:text-slate-900'
+                      }`}
                   >
-                      <option value="IDR">IDR</option>
-                      {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <input 
-                    value={inputName} 
-                    onChange={e => setInputName(e.target.value.toUpperCase())} 
-                    placeholder={isSaham ? "Cth: BBCA / AAPL" : "Kode Aset"} 
-                    className="uppercase font-bold text-xs h-12 px-4 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-sky-500 flex-1 outline-none text-slate-800"
-                  />
+                      BELI / TOP UP
+                  </button>
+                  <button
+                      type="button"
+                      onClick={() => { setTxType('SELL'); setInputQty(""); setInputPrice(""); }}
+                      className={`flex-1 py-2.5 rounded-xl font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer ${
+                          txType === 'SELL' 
+                              ? 'bg-amber-500 text-white shadow-xs' 
+                              : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                  >
+                      JUAL / WITHDRAW
+                  </button>
               </div>
-           ) : (
-              <select 
-                  value={selectedSellSymbol}
-                  className="w-full h-12 px-4 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:border-sky-500 uppercase font-bold text-xs text-slate-800 outline-none transition-all cursor-pointer" 
-                  onChange={e => {
-                      const val = e.target.value;
-                      setSelectedSellSymbol(val);
-                      const p = aggregatedPortfolio.find((x: any) => x.symbol === val);
-                      if (p) {
-                          const symRaw = p.symbol || "";
-                          const parts = symRaw.split('|');
-                          setInputCurrency(parts[1] || 'IDR');
-                          setInputName(parts[0] || "");
-                      } else {
-                          setInputCurrency('IDR');
-                          setInputName("");
-                      }
-                  }}
+
+              {txType === 'BUY' ? (
+                  <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5 ml-1">
+                          {isStock ? "Kode Saham (Ticker)" : isCrypto ? "Simbol Kripto" : "Nama / Keterangan Aset"}
+                      </label>
+                      <div className="flex gap-2">
+                          <input
+                              type="text"
+                              placeholder={isStock ? "Cth: BBCA / BBRI" : isCrypto ? "Cth: BTC / ETH / SOL" : "Cth: Reksadana Pasar Uang / Emas Antam"}
+                              value={inputName}
+                              onChange={(e) => setInputName(isStock || isCrypto ? e.target.value.toUpperCase() : e.target.value)}
+                              className="flex-1 h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
+                          />
+                          <select
+                              value={inputCurrency}
+                              onChange={(e) => setInputCurrency(e.target.value)}
+                              className="w-24 h-12 px-2 bg-slate-50 border border-slate-200 rounded-2xl font-black text-xs text-brand-navy outline-none focus:border-brand-navy focus:bg-white text-center cursor-pointer"
+                          >
+                              {availableCurrencies.map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                              ))}
+                          </select>
+                      </div>
+                  </div>
+              ) : (
+                  <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5 ml-1">
+                          Pilih Aset Yang Ingin Dijual
+                      </label>
+                      <select
+                          value={selectedSellSymbol}
+                          onChange={(e) => {
+                              setSelectedSellSymbol(e.target.value);
+                              const found = filteredItems.find(p => p.symbol === e.target.value);
+                              if (found) {
+                                  const parts = found.symbol.split('|');
+                                  setInputCurrency(parts[1] || 'IDR');
+                              }
+                          }}
+                          className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs text-slate-900 outline-none focus:border-brand-navy focus:bg-white cursor-pointer"
+                      >
+                          <option value="">-- Pilih dari Portofolio --</option>
+                          {filteredItems.map((item: any) => (
+                              <option key={item.symbol} value={item.symbol}>
+                                  {item.symbol} (Sisa: {item.quantity.toLocaleString()} {isStock ? 'Lot' : 'Unit'})
+                              </option>
+                          ))}
+                      </select>
+                  </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                  <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5 ml-1">
+                          {isStock ? "Jumlah (Lot)" : "Jumlah (Unit / Lembar)"}
+                      </label>
+                      <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="0"
+                          value={inputQty}
+                          onChange={(e) => setInputQty(formatNum(e.target.value))}
+                          className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-sm text-slate-900 outline-none focus:border-brand-navy focus:bg-white tabular-nums"
+                      />
+                  </div>
+                  <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5 ml-1">
+                          Harga per {isStock ? "Lembar" : "Unit"} ({inputCurrency})
+                      </label>
+                      <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="0"
+                          value={inputPrice}
+                          onChange={(e) => setInputPrice(formatNum(e.target.value))}
+                          className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-sm text-slate-900 outline-none focus:border-brand-navy focus:bg-white tabular-nums"
+                      />
+                  </div>
+              </div>
+
+              {/* ESTIMASI TOTAL HARGA */}
+              <div className="bg-sky-50/70 border border-sky-200 rounded-2xl p-4 text-center space-y-1">
+                  <p className="text-[10px] font-bold text-sky-900 uppercase tracking-widest">
+                      Estimasi Total Nilai Transaksi
+                  </p>
+                  <p className="text-xl font-black text-brand-navy tabular-nums">
+                      {formatRp(totalIDR)}
+                  </p>
+                  {inputCurrency !== 'IDR' && (
+                      <p className="text-[10px] text-sky-700 font-semibold">
+                          ({inputCurrency} {calculateTotalCost().toLocaleString()} @ Rp {Math.round(getConversionRate(inputCurrency)).toLocaleString("id-ID")})
+                      </p>
+                  )}
+              </div>
+
+              {isInsufficient && (
+                  <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-2xl flex items-center gap-2 font-medium">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>Saldo kas Anda ({formatRp(fcf)}) tidak cukup untuk transaksi ini.</span>
+                  </div>
+              )}
+
+              <button
+                  type="submit"
+                  disabled={isSubmitting || (txType === 'BUY' && isInsufficient)}
+                  className={`w-full h-14 font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
+                      txType === 'BUY' 
+                          ? 'bg-sky-600 hover:bg-sky-700 text-white' 
+                          : 'bg-amber-500 hover:bg-amber-600 text-white'
+                  }`}
               >
-                 <option value="">-- PILIH ASET DI PORTOFOLIO --</option>
-                 {filteredItems.map((p: any) => {
-                     const symRaw = p.symbol || "";
-                     const parts = symRaw.split('|');
-                     const sym = parts[0] || "";
-                     const c = parts[1] || "IDR";
-                     const keyId = p.id || p.symbol;
-                     return <option key={keyId} value={symRaw}>{sym} {c !== 'IDR' ? `(${c})` : ''} - Sisa {p.quantity} Unit</option>
-                 })}
-              </select>
-           )}
-        </div>
-
-        {/* Input Jumlah & Harga */}
-        <div className="grid grid-cols-2 gap-2.5">
-            <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">
-                    Jumlah ({isSaham && inputCurrency === 'IDR' ? 'Lot' : 'Unit'})
-                </label>
-                <input 
-                    type="text" 
-                    inputMode="decimal" 
-                    value={inputQty} 
-                    onChange={e => setInputQty(formatNum(e.target.value))} 
-                    placeholder="0" 
-                    className={`h-12 px-4 rounded-xl bg-slate-50 border font-bold text-sm text-slate-900 focus:bg-white transition-all outline-none w-full tabular-nums ${
-                        isSellOverLimit ? "border-rose-500 bg-rose-50 text-rose-700" : "border-slate-200 focus:border-sky-500"
-                    }`}
-                />
-            </div>
-            <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">
-                    Harga ({inputCurrency})
-                </label>
-                <input 
-                    type="text" 
-                    inputMode="decimal" 
-                    value={inputPrice} 
-                    onChange={e => setInputPrice(formatNum(e.target.value))} 
-                    placeholder="0" 
-                    className="h-12 px-4 rounded-xl bg-slate-50 border border-slate-200 font-bold text-sm text-slate-900 focus:bg-white focus:border-sky-500 transition-all outline-none w-full tabular-nums" 
-                />
-            </div>
-        </div>
-
-        {isSaham && !isForeign && (
-            <div className="flex items-center gap-2 text-[11px] text-sky-800 bg-sky-50 border border-sky-200 p-2.5 rounded-xl font-medium">
-                <Info className="w-4 h-4 text-sky-600 shrink-0" />
-                <span>Harga per lembar saham. Total otomatis dikalikan 100 (1 Lot = 100 Lembar).</span>
-            </div>
-        )}
-        
-        {isForeign && (
-            <div className="flex items-center gap-2 text-[11px] text-blue-800 bg-blue-50 border border-blue-200 p-2.5 rounded-xl font-medium">
-                <Info className="w-4 h-4 text-blue-600 shrink-0" />
-                <span>Akan {txType === 'BUY' ? 'memotong' : 'menambah'} Dompet Valas ({inputCurrency}).</span>
-            </div>
-        )}
-
-        {/* Box Estimasi IDR / Valas */}
-        <div className={`p-4 rounded-2xl border flex flex-col transition-colors ${
-            txType === 'BUY' ? 'bg-sky-50/70 border-sky-200' : 'bg-emerald-50/70 border-emerald-200'
-        }`}>
-           <div className="flex justify-between items-center">
-               <span className={`text-[10px] font-bold uppercase tracking-wider ${txType === 'BUY' ? 'text-sky-800' : 'text-emerald-800'}`}>
-                   Estimasi {isForeign ? inputCurrency : 'IDR'} {txType === 'BUY' ? 'Keluar' : 'Masuk'}
-               </span>
-               <span className={`font-black text-lg tabular-nums ${txType === 'BUY' ? 'text-sky-900' : 'text-emerald-900'}`}>
-                  {isForeign ? `${inputCurrency} ${Number(rawEstimasi).toLocaleString('en-US')}` : formatRp(Number(rawEstimasi))}
-               </span>
-           </div>
-           {isForeign && (
-               <div className={`flex justify-between items-center mt-1.5 pt-1.5 border-t ${txType === 'BUY' ? 'border-sky-200/60' : 'border-emerald-200/60'}`}>
-                   <span className="text-[10px] font-medium text-slate-500">Estimasi Nilai IDR (Kurs Live)</span>
-                   <span className="text-[10px] font-bold text-slate-700">≈ {formatRp(Number(estimasiIDR))}</span>
-               </div>
-           )}
-        </div>
-
-        <button 
-            type="button"
-            onClick={handleTransactionInit} 
-            disabled={!isFormValid || isSellOverLimit || isSubmitting}
-            className={`w-full h-14 font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
-                txType === 'BUY' ? 'bg-sky-500 hover:bg-sky-600 text-white' : 'bg-rose-500 hover:bg-rose-600 text-white'
-            }`} 
-        >
-           {isSubmitting && <Loader2 className="w-5 h-5 animate-spin"/>}
-           {isSellOverLimit ? "STOK TIDAK CUKUP" : (isSubmitting ? "MEMPROSES TRANSAKSI..." : `KONFIRMASI ${txType === 'BUY' ? 'BELI' : 'JUAL'} ASET`)}
-        </button>
-      </div>
-    );
+                  {isSubmitting ? (
+                      <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>MEMPROSES...</span>
+                      </>
+                  ) : (
+                      <span>{txType === 'BUY' ? "KONFIRMASI BELI / TOP UP" : "KONFIRMASI JUAL / CAIRKAN"}</span>
+                  )}
+              </button>
+          </form>
+      );
   };
 
-  if (isUserLoading || isInvLoading || isRatesLoading) {
+  if (isUserLoading || isInvLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
               <img src="/BILANO-ICON-NEW.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-sky-700 font-bold text-sm bg-sky-50 border border-sky-200 px-5 py-2.5 rounded-full shadow-sm">
-                  <Loader2 className="w-4 h-4 animate-spin text-sky-500" />
+              <div className="flex items-center gap-2 text-brand-navy font-bold text-sm bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin text-brand-gold"/>
                   <span>Memuat Portofolio Investasi...</span>
               </div>
           </div>
@@ -423,21 +450,21 @@ export default function Investment() {
       <div className="flex flex-col -mx-5 -mt-5">
         
         {/* ========================================================================= */}
-        {/* 1. TOP HEADER BANNER DENGAN TEMA BIRU MUDA (SKY BLUE #0EA5E9) & NAVY */}
+        {/* 1. TOP HEADER BANNER DENGAN TEMA BIRU MUDA / SKY BLUE & NAVY */}
         {/* ========================================================================= */}
-        <div className="px-5 pt-5 pb-8 bg-gradient-to-b from-[#F0F9FF] via-[#E0F2FE] to-[#BAE6FD] flex flex-col relative z-10 border-b border-sky-300/60">
+        <div className="px-5 pt-5 pb-8 bg-gradient-to-b from-[#E0F2FE] via-[#BAE6FD] to-[#7DD3FC] flex flex-col relative z-10 border-b border-sky-300/60">
             
             {/* Top Navigation Bar */}
-            <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(14,165,233,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">
+            <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(12,74,110,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">
                 <div className="flex items-center gap-3">
                     <button 
                         type="button"
                         onClick={() => {
                             if (viewState === 'detail') {
                                 setViewState('main');
-                                setDetailTab('transaksi');
+                                setActiveCategory(null);
                             } else {
-                                setLocation('/');
+                                setLocation("/");
                             }
                         }}
                         className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
@@ -479,7 +506,7 @@ export default function Investment() {
                 <div className="relative z-10 flex flex-col">
                     <div className="flex justify-between items-center mb-2">
                         <span className="bg-sky-400 text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-brand-navy fill-current" />
+                            <PieChart className="w-3 h-3 text-brand-navy fill-current" />
                             {viewState === 'detail' && activeCategory ? `KATEGORI ${assetConfig[activeCategory].label.toUpperCase()}` : "TOTAL NILAI PORTOFOLIO"}
                         </span>
 
@@ -523,10 +550,11 @@ export default function Investment() {
                         <span className="text-[10px] font-bold text-slate-400">8 Kelas Aset</span>
                     </div>
 
-                    {/* 8 GRID KELAS ASET */}
+                    {/* 8 GRID KELAS ASET DENGAN VEKTOR IKON CRISP & BALANCED CONTAINER */}
                     <div className="grid grid-cols-2 gap-3">
                         {(Object.keys(assetConfig) as AssetType[]).map((key) => {
                             const cfg = assetConfig[key];
+                            const Icon = cfg.icon;
                             
                             // Hitung valuasi kategori ini
                             const catItems = aggregatedPortfolio.filter((p: any) => {
@@ -550,8 +578,8 @@ export default function Investment() {
                                     }}
                                     className="bg-white rounded-3xl p-4 border border-slate-200/80 hover:border-sky-300 shadow-xs hover:shadow-sm active:scale-[0.98] transition-all flex flex-col items-center text-center gap-2.5 cursor-pointer group relative overflow-hidden"
                                 >
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-105 shadow-xs border ${cfg.bg}`}>
-                                        <img src={cfg.imgUrl} className="w-7 h-7 object-contain drop-shadow-sm" alt={cfg.label} />
+                                    <div className={`w-13 h-13 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-105 shadow-xs border ${cfg.bg}`}>
+                                        <Icon className={`w-6 h-6 ${cfg.iconColor}`} strokeWidth={2.2} />
                                     </div>
                                     <div className="w-full">
                                         <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm">{cfg.label}</h4>
@@ -574,7 +602,7 @@ export default function Investment() {
                             onClick={() => setDetailTab('transaksi')}
                             className={`flex-1 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                                 detailTab === 'transaksi' 
-                                    ? 'bg-sky-500 text-white shadow-xs' 
+                                    ? 'bg-sky-600 text-white shadow-xs' 
                                     : 'text-slate-500 hover:text-slate-800'
                             }`}
                         >
@@ -598,7 +626,7 @@ export default function Investment() {
                                     : 'text-slate-500 hover:text-slate-800'
                             }`}
                         >
-                            <Sparkles className="w-4 h-4 text-sky-400"/> ANALISA AI
+                            <Brain className="w-4 h-4 text-sky-400"/> ANALISA AI
                         </button>
                     </div>
 
@@ -613,7 +641,7 @@ export default function Investment() {
                     {detailTab === 'analisa' && activeCategory && (
                         <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] rounded-3xl p-6 shadow-sm border-l-[6px] border-l-sky-400 text-center relative overflow-hidden space-y-4">
                             <div className="w-16 h-16 bg-sky-400 text-brand-navy rounded-2xl flex items-center justify-center mx-auto shadow-md border-2 border-white/20">
-                                <Sparkles className="w-8 h-8 fill-current" />
+                                <Brain className="w-8 h-8" />
                             </div>
 
                             <div>
@@ -638,7 +666,7 @@ export default function Investment() {
                             <button 
                                 type="button"
                                 onClick={() => setLocation('/paywall')} 
-                                className="w-full h-13 bg-sky-400 hover:bg-sky-300 text-brand-navy font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                className="w-full h-14 bg-sky-400 hover:bg-sky-300 text-brand-navy font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 <Lock className="w-4 h-4"/> AMANKAN PAKET SAYA SEKARANG
                             </button>
@@ -649,144 +677,69 @@ export default function Investment() {
                     <div className="space-y-3 pt-1">
                         <h3 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider px-1 flex items-center gap-1.5">
                             <Layers className="w-4 h-4 text-sky-600" />
-                            Daftar Kepemilikan Aset {activeCategory ? assetConfig[activeCategory].label : ''}
+                            Daftar Kepemilikan Aset ({filteredItems.length})
                         </h3>
 
                         {filteredItems.length === 0 ? (
-                            <div className="text-center py-10 bg-white rounded-3xl border border-dashed border-sky-200 shadow-xs p-5">
-                                <p className="text-slate-400 text-xs font-medium">Belum ada catatan kepemilikan aset {activeCategory}.</p>
+                            <div className="bg-white rounded-3xl p-8 border border-dashed border-sky-200 text-center shadow-xs">
+                                <div className="w-12 h-12 bg-sky-50 text-sky-600 rounded-2xl flex items-center justify-center mx-auto mb-2 border border-sky-100">
+                                    <Info className="w-6 h-6" />
+                                </div>
+                                <p className="font-bold text-slate-800 text-xs">Belum ada aset di kategori ini</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">Catat transaksi pembelian pertama Anda melalui form di atas.</p>
                             </div>
                         ) : (
-                            <div className="space-y-2.5">
-                                {filteredItems.map((p: any) => {
-                                    const parts = (p.symbol||"").split('|');
-                                    const displaySymbol = parts[0] || "";
-                                    const curr = parts[1];
-                                    const actualCurr = curr || 'IDR';
-                                    const liveVal = calculateLiveValue(p);
-                                    const isForeign = actualCurr !== 'IDR';
-                                    const keyId = p.id || p.symbol;
-                                    
-                                    return (
-                                        <div 
-                                            key={keyId} 
-                                            className="bg-white p-4 rounded-2xl border border-slate-200/80 flex justify-between items-center shadow-xs hover:border-sky-300 transition-all"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-11 h-11 rounded-2xl bg-sky-100 border border-sky-300 flex items-center justify-center font-black text-xs text-sky-800 shrink-0">
-                                                    {displaySymbol.substring(0, 3)}
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-0.5">
-                                                        <h4 className="font-extrabold text-slate-900 text-sm">{displaySymbol}</h4>
-                                                        {isForeign && (
-                                                            <span className="text-[9px] bg-sky-100 text-sky-800 border border-sky-200 px-1.5 py-0.5 rounded font-black">
-                                                                {actualCurr}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-[11px] text-slate-500 font-medium">
-                                                        {p.quantity} Unit <span className="mx-1 text-slate-300">•</span> Avg: {isForeign ? actualCurr : 'Rp'} {(p.avgPrice || 0).toLocaleString('id-ID')}
-                                                    </p>
-                                                </div>
+                            filteredItems.map((item: any) => {
+                                const parts = (item.symbol||"").split('|');
+                                const sym = parts[0] || "";
+                                const curr = parts[1] || 'IDR';
+                                const isStock = activeCategory === 'saham';
+                                const totalVal = calculateLiveValue(item);
+
+                                return (
+                                    <div 
+                                        key={item.symbol} 
+                                        className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs hover:shadow-sm transition-all flex items-center justify-between gap-3"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-11 h-11 rounded-2xl bg-sky-50 border border-sky-200 text-sky-700 font-black text-xs flex items-center justify-center shrink-0">
+                                                {curr !== 'IDR' ? curr : sym.slice(0, 3)}
                                             </div>
-                                            <div className="text-right">
-                                                <p className="font-black text-slate-900 text-sm tabular-nums">{formatRp(liveVal)}</p>
-                                                <p className="text-[9px] font-black uppercase tracking-wider text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded mt-0.5 inline-block">
-                                                    Estimasi Live
+                                            <div className="min-w-0">
+                                                <h4 className="font-black text-slate-900 text-xs sm:text-sm truncate">{sym}</h4>
+                                                <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                                                    {item.quantity.toLocaleString()} {isStock ? 'Lot' : 'Unit'} @ {curr} {Math.round(item.avgPrice).toLocaleString("id-ID")}
                                                 </p>
                                             </div>
                                         </div>
-                                    );
-                                })}
-                            </div>
+
+                                        <div className="text-right shrink-0">
+                                            <p className="font-black text-slate-900 text-xs sm:text-sm tabular-nums">
+                                                {formatRp(totalVal)}
+                                            </p>
+                                            <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200/60 inline-block mt-0.5">
+                                                Live Asset
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })
                         )}
                     </div>
-
                 </div>
             )}
 
         </div>
-
-        {/* PRO FEATURE MODAL */}
-        {proFeatureModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
-                <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-sky-500/30">
-                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-sky-500/20 rounded-full blur-3xl pointer-events-none"></div>
-                    
-                    <button 
-                        type="button"
-                        onClick={() => setProFeatureModal(null)} 
-                        className="absolute top-4 right-4 p-1.5 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-colors z-10 cursor-pointer"
-                    >
-                        <X className="w-5 h-5"/>
-                    </button>
-                    
-                    <div className="w-16 h-16 bg-sky-400 text-brand-navy rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg border-2 border-white/20">
-                        <Crown className="w-8 h-8 fill-current" />
-                    </div>
-                    
-                    <h2 className="text-xl font-black text-white mb-1 tracking-tight">Akses VIP Terjamin! 👑</h2>
-                    <p className="text-xs text-sky-200 mb-6 leading-relaxed px-2 font-medium">
-                        Fitur <strong className="text-sky-300">{proFeatureModal.title}</strong> saat ini sedang dalam tahap akhir pengembangan oleh tim kami. <br/><br/>
-                        Sebagai pengguna <strong>PRO</strong>, Anda otomatis dapat menikmati fitur ini segera saat dirilis tanpa biaya tambahan!
-                    </p>
-                    
-                    <button 
-                        type="button"
-                        onClick={() => setProFeatureModal(null)} 
-                        className="w-full h-12 bg-white hover:bg-slate-100 text-brand-navy rounded-2xl font-bold text-xs uppercase tracking-wider shadow-sm active:scale-95 transition-transform flex items-center justify-center gap-2 relative z-10 cursor-pointer"
-                    >
-                        <CheckCircle2 className="w-4 h-4"/> SAYA MENGERTI
-                    </button>
-                </div>
-            </div>
-        )}
-
-        {/* SETUP SALDO PROMPT */}
-        {showSetupPrompt && (
-            <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-                <div className="bg-white rounded-[32px] p-6 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
-                    <div className="w-16 h-16 bg-sky-100 text-sky-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <AlertCircle className="w-8 h-8" />
-                    </div>
-                    <h2 className="text-lg font-black text-slate-900 mb-1">Aksi Tertahan</h2>
-                    <p className="text-xs text-slate-500 mb-6 leading-relaxed font-semibold">
-                        Untuk memastikan laporan portofolio akurat, selesaikan Setup Saldo Awal sebelum mencatat transaksi.
-                    </p>
-                    <div className="space-y-2">
-                        <Link href="/target">
-                            <button className="w-full h-12 bg-brand-navy text-sky-300 font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer">
-                                LAKUKAN SETUP SEKARANG
-                            </button>
-                        </Link>
-                        <button 
-                            type="button"
-                            onClick={() => setShowSetupPrompt(false)} 
-                            className="w-full h-10 font-bold text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
-                        >
-                            Tutup
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* SOURCE SELECTION POPUP */}
-        {showSourcePopup && (
-            <SourceSelectionPopup 
-                type={txType === 'BUY' ? 'expense' : 'income'}
-                title={txType === 'BUY' ? 'Pilih RDN / Sumber Pembelian' : 'Pilih RDN / Tujuan Penjualan'}
-                description={txType === 'BUY' ? 'Pilih dompet yang akan digunakan (saldo dipotong).' : 'Pilih dompet untuk menampung hasil jual (saldo ditambah).'}
-                onCancel={() => setShowSourcePopup(false)}
-                onSelect={(src) => {
-                    setShowSourcePopup(false);
-                    handleTransaction(src);
-                }}
-            />
-        )}
-
       </div>
+
+      {/* POPUP SUMBER DANA KETIKA MENJUAL ASET */}
+      <SourceSelectionPopup
+          isOpen={showSourcePopup}
+          onClose={() => setShowSourcePopup(false)}
+          onSelect={(source) => executeTransaction(source)}
+          title="Tujuan Masuk Saldo Penjualan"
+          description="Pilih akun atau dompet yang menerima dana hasil penjualan aset ini:"
+      />
     </MobileLayout>
   );
 }

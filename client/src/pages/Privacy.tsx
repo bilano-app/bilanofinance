@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { 
     ShieldCheck, Lock, EyeOff, Server, UserCheck, 
-    ArrowLeft, Shield, Mail, Sparkles, CheckCircle2 
+    ArrowLeft, Shield, Mail, CheckCircle2 
 } from "lucide-react";
 
 export default function Privacy() {

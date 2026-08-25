@@ -137,7 +137,7 @@ export default function SourceSelectionPopup({ type, title, description, onSelec
                         <div className="bg-white p-4 rounded-2xl border border-amber-300 shadow-xs space-y-3 animate-in fade-in">
                             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                                 <div className="flex items-center gap-1.5">
-                                    <Sparkles className="w-4 h-4 text-amber-600 fill-current" />
+                                    <Wallet className="w-4 h-4 text-amber-600" />
                                     <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">Tambah Dompet Baru</h4>
                                 </div>
                                 <button 

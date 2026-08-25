@@ -5,7 +5,7 @@ import { useUser } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
 import { 
   ArrowRightLeft, Loader2, Plus, ArrowDown, ArrowUp, 
-  Wallet, Check, ChevronDown, Sparkles, X, ArrowLeft,
+  Wallet, Check, ChevronDown, Zap, X, ArrowLeft,
   Landmark, CheckCircle2, Coins
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -500,7 +500,7 @@ export default function Transfer() {
                                         onClick={handleMaxAmount}
                                         className="text-[11px] font-bold text-brand-navy hover:underline flex items-center gap-1 cursor-pointer"
                                     >
-                                        <Sparkles className="w-3 h-3 text-amber-500 fill-current" /> Transfer Semua Saldo
+                                        <Zap className="w-3 h-3 text-amber-500 fill-current" /> Transfer Semua Saldo
                                     </button>
                                 )}
                             </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { 
-  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw, AlertCircle, ShieldCheck, Sparkles, LockKeyhole, ChevronDown
+  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw, AlertCircle, ShieldCheck, LockKeyhole, ChevronDown, Compass
 } from "lucide-react";
 import { trackEvent } from "@/lib/tracking";
 
@@ -160,14 +160,14 @@ export default function Onboarding() {
         return {
           title: "☁️ Manifestor Ambisius (Ego Tinggi)",
           desc: `Jawabanmu menunjukkan kontradiksi kuat. Kamu mendambakan angka kekayaan besar, tapi menolak teratur dan enggan membangun kebiasaan. Skor ${score}/10 menunjukkan ego ekspektasi tinggi. Hati-hati, tanpa sistem manajemen, mimpimu berisiko runtuh akibat kebocoran halus.`,
-          icon: <Sparkles className="w-10 h-10 animate-pulse text-purple-400" />,
+          icon: <Target className="w-10 h-10 text-purple-400" />,
           highlight: "Waktunya membumikan mimpimu menjadi angka riil."
         };
       } else {
         return {
           title: "🔮 Sang Pemimpi Finansial",
           desc: `Kamu ingin kaya tapi saat ini hidup mengalir saja tanpa rencana maupun usaha ekstra (Tingkat dorongan: ${score}/10). Tidak apa-apa, BILANO tidak akan memaksa kamu berubah drastis. Kami akan bantu secara pasif memantau kemana perginya uangmu terlebih dahulu.`,
-          icon: <Sparkles className="w-10 h-10 text-purple-500" />,
+          icon: <Compass className="w-10 h-10 text-purple-500" />,
           highlight: "Mulai sadari arus kasmu sebelum membangun mimpi."
         };
       }

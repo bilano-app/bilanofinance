@@ -395,7 +395,7 @@ export default function Debts() {
                 <div className="relative z-10 flex flex-col">
                     <div className="flex justify-between items-center mb-3">
                         <span className="bg-white/20 text-white text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-white/20 backdrop-blur-xs flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-amber-200 fill-current" />
+                            <Wallet className="w-3 h-3 text-amber-200" />
                             {activeTab === 'hutang' ? 'KEWAJIBAN PINJAMAN KAS' : 'HAK TAGIH PINJAMAN KAS'}
                         </span>
 

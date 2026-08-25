@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, useRoute } from "wouter";
 import { 
     ChevronLeft, BookOpen, Loader2, Bookmark, Crown, 
-    Check, X, Sparkles, RefreshCw, AlertTriangle, ArrowLeft
+    Check, X, RefreshCw, AlertTriangle, ArrowLeft
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 

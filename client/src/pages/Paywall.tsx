@@ -5,7 +5,7 @@ import { Button } from "@/components/UIComponents";
 import { useUser } from "@/hooks/use-finance";
 import { 
   CheckCircle2, Crown, ArrowRight, Loader2, X, AlertCircle,
-  ChevronDown, Copy, RefreshCw, Sparkles, BookOpen
+  ChevronDown, Copy, RefreshCw, BookOpen, Crown
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -246,7 +246,7 @@ export default function Paywall() {
                   <BenefitItem dark active text="Akses fitur pilihan" />
                   <BenefitItem dark active text="AI Assistant" />
                   <BenefitItem dark active text="Analisa Performa lengkap" />
-                  <BenefitItem dark active highlight icon={<Sparkles className="w-4 h-4"/>} text="Fitur Panduan Penghasilan (Premium)" />
+                  <BenefitItem dark active highlight icon={<Crown className="w-4 h-4 text-brand-gold"/>} text="Fitur Panduan Penghasilan (Premium)" />
                   <BenefitItem dark active highlight icon={<BookOpen className="w-4 h-4"/>} text="Fitur Bilano Academy (Premium)" />
                 </div>
               </div>
