@@ -154,7 +154,7 @@ export default function Profile() {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
               <img src="/BILANO-ICON-NEW.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-brand-navy font-black text-sm bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-full shadow-sm">
+              <div className="flex items-center gap-2 text-brand-navy font-bold text-sm bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-full shadow-sm">
                   <Loader2 className="w-4 h-4 animate-spin text-brand-gold"/>
                   <span>Memuat Profil Pengguna...</span>
               </div>
@@ -171,36 +171,36 @@ export default function Profile() {
         {/* ========================================================================= */}
         {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO NAVY & GOLD */}
         {/* ========================================================================= */}
-        <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b-2 border-amber-400">
+        <div className="px-5 pt-5 pb-8 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b border-amber-300/60">
             
             {/* Top Navigation Bar */}
-            <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.08)] flex items-center justify-between relative z-30 border-b border-amber-100">
+            <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">
                 <div className="flex items-center gap-3">
                     <Link href="/">
                         <button 
                             type="button"
-                            className="w-10 h-10 rounded-full bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                            className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
                             title="Kembali ke Beranda"
                         >
-                            <ArrowLeft className="w-5 h-5 text-brand-gold" strokeWidth={2.5} />
+                            <ArrowLeft className="w-5 h-5 text-slate-800" strokeWidth={2.5} />
                         </button>
                     </Link>
 
                     <div className="flex flex-col">
                         <div className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                            <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                            <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest">
                                 Akun & Keamanan
                             </p>
                         </div>
-                        <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                        <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
                             Pengaturan Profil
                         </h1>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <span className="bg-brand-navy text-brand-gold text-[10px] font-black px-3 py-1.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-900 border border-brand-gold/30">
+                    <span className="bg-brand-navy text-brand-gold text-[10px] font-bold px-3 py-1.5 rounded-full border border-brand-gold/30 shadow-xs">
                         {isUserPro ? "👑 BILANO PRO" : "STANDARD"}
                     </span>
                 </div>
@@ -212,31 +212,31 @@ export default function Profile() {
                     onClick={() => fileInputRef.current?.click()} 
                     className="relative group cursor-pointer active:scale-95 transition-transform"
                 >
-                    <div className="w-28 h-28 rounded-full border-4 border-white bg-slate-100 shadow-[5px_5px_0px_0px] shadow-slate-900 overflow-hidden flex items-center justify-center">
+                    <div className="w-28 h-28 rounded-full border-4 border-white bg-slate-100 shadow-md overflow-hidden flex items-center justify-center">
                         {photoUrl ? (
                             <img src={photoUrl} alt="Profile" className="w-full h-full object-cover" />
                         ) : (
                             <User className="w-14 h-14 text-slate-400" />
                         )}
                     </div>
-                    <div className="absolute bottom-0 right-0 bg-brand-navy p-2.5 rounded-full text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-900 border-2 border-white group-hover:bg-[#152e55] transition-colors">
+                    <div className="absolute bottom-0 right-0 bg-brand-navy p-2.5 rounded-full text-brand-gold shadow-sm border-2 border-white group-hover:bg-[#152e55] transition-colors">
                         <Camera className="w-4 h-4" />
                     </div>
                 </div>
 
-                <p className="text-xs font-black text-slate-800 mt-2.5">
+                <p className="text-xs font-bold text-slate-900 mt-2.5">
                     {firstName ? `${firstName} ${lastName}`.trim() : "Pengguna BILANO"}
                 </p>
-                <p className="text-[11px] font-bold text-slate-500">
+                <p className="text-[11px] font-medium text-slate-500">
                     {user?.email || localStorage.getItem("bilano_email")}
                 </p>
             </div>
         </div>
 
         {/* ========================================================================= */}
-        {/* 2. BODY CONTENT SECTION */}
+        {/* 2. BODY CONTENT SECTION - CLEAN, CRISP & MODERN ELEVATION */}
         {/* ========================================================================= */}
-        <div className="px-5 pt-4 pb-24 bg-slate-50 flex flex-col gap-4">
+        <div className="px-5 pt-5 pb-28 bg-slate-50 flex flex-col gap-4">
             
             {/* CROPPER MODAL */}
             {isCropping && imageSrc && (
@@ -278,7 +278,7 @@ export default function Profile() {
                             <button 
                                 type="button"
                                 onClick={showCroppedImage} 
-                                className="flex-1 h-12 rounded-2xl bg-brand-gold text-brand-navy font-black text-xs uppercase tracking-wider shadow-md active:scale-95 transition-all cursor-pointer"
+                                className="flex-1 h-12 rounded-2xl bg-brand-gold text-brand-navy font-bold text-xs uppercase tracking-wider shadow-sm active:scale-95 transition-all cursor-pointer"
                             >
                                 <Check className="w-4 h-4 inline mr-1"/> Terapkan Foto
                             </button>
@@ -290,16 +290,16 @@ export default function Profile() {
             <input type="file" ref={fileInputRef} onChange={onFileChange} accept="image/*" className="hidden" />
 
             {/* CARD 1: INFORMASI BIODATA */}
-            <div className="bg-white rounded-[28px] p-5 border-2 border-amber-200/90 shadow-[6px_6px_0px_0px] shadow-slate-900 space-y-4">
-                <div className="flex items-center gap-2 border-b-2 border-slate-100 pb-2.5">
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs hover:shadow-sm space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
                     <User className="w-4 h-4 text-amber-600" />
-                    <h3 className="font-black text-brand-navy text-xs uppercase tracking-wider">
+                    <h3 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider">
                         Informasi Biodata Diri
                     </h3>
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
                         Nama Depan
                     </label>
                     <input 
@@ -307,12 +307,12 @@ export default function Profile() {
                         placeholder="Nama Depan" 
                         value={firstName} 
                         onChange={(e) => setFirstName(e.target.value)} 
-                        className="w-full h-12 px-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-bold text-xs text-slate-900 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                        className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
                     />
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
                         Nama Belakang
                     </label>
                     <input 
@@ -320,29 +320,29 @@ export default function Profile() {
                         placeholder="Nama Belakang" 
                         value={lastName} 
                         onChange={(e) => setLastName(e.target.value)} 
-                        className="w-full h-12 px-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-bold text-xs text-slate-900 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                        className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
                     />
                 </div>
             </div>
 
             {/* CARD 2: PENGATURAN PASSWORD PERMANEN */}
-            <div className="bg-white rounded-[28px] p-5 border-2 border-amber-200/90 shadow-[6px_6px_0px_0px] shadow-slate-900 space-y-3.5">
-                <div className="flex items-center gap-2 border-b-2 border-slate-100 pb-2.5">
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs hover:shadow-sm space-y-3.5">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
                     <KeyRound className="w-4 h-4 text-amber-600" />
-                    <h3 className="font-black text-brand-navy text-xs uppercase tracking-wider">
+                    <h3 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider">
                         Keamanan & Password Akun
                     </h3>
                 </div>
 
                 {user?.isCustomPasswordSet === false && (
-                    <div className="bg-amber-50 border border-amber-200 text-amber-900 text-[11px] p-3 rounded-2xl leading-relaxed flex items-start gap-2">
+                    <div className="bg-amber-50/70 border border-amber-200 text-amber-900 text-[11px] p-3 rounded-2xl leading-relaxed flex items-start gap-2">
                         <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                         <span>Saat ini Anda masuk menggunakan kode 6 digit. Buat password permanen agar lebih mudah masuk di berbagai perangkat.</span>
                     </div>
                 )}
 
                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
                         Password Baru (Opsional)
                     </label>
                     <input 
@@ -350,7 +350,7 @@ export default function Profile() {
                         placeholder="Masukkan minimal 6 karakter..." 
                         value={newPassword} 
                         onChange={(e) => setNewPassword(e.target.value)} 
-                        className="w-full h-12 px-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-bold text-xs text-slate-900 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                        className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
                     />
                 </div>
             </div>
@@ -360,7 +360,7 @@ export default function Profile() {
                 type="button"
                 onClick={handleSave} 
                 disabled={isSaving} 
-                className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:shadow-[1px_1px_0px_0px] active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-1"
+                className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-1"
             >
                 {isSaving ? (
                     <>

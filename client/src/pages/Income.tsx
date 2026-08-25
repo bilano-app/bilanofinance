@@ -1,154 +1,175 @@
 import { useState } from "react";
-import { Link } from "wouter";
-import { useAddTransaction, useUser } from "@/hooks/use-finance";
+import { Link, useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
-    Loader2, Wallet, HandCoins, AlertCircle, ArrowLeft, 
-    ArrowDownLeft, CheckCircle2, Sparkles, Plus, Calendar, Check, TrendingUp
+    TrendingUp, ArrowLeft, Plus, Check, Loader2, Sparkles, 
+    Wallet, HandCoins, AlertCircle, ArrowDownLeft
 } from "lucide-react";
-import { queryClient } from "@/lib/queryClient";
-import { trackEvent } from "@/lib/tracking";
+import { useToast } from "@/hooks/use-toast";
+import { useUser, useTransactions } from "@/hooks/use-finance";
+import { useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { formatCurrency } from "@/lib/utils";
 
-const QUICK_AMOUNTS = [50000, 100000, 500000, 1000000, 5000000];
-
 const INCOME_CATEGORIES = [
-    { label: "Gaji", icon: "💼" },
-    { label: "Bonus", icon: "🎉" },
-    { label: "Bisnis", icon: "🏢" },
-    { label: "Investasi", icon: "📈" },
-    { label: "Hadiah", icon: "🎁" },
-    { label: "Freelance", icon: "⚡" },
+    { label: "Gaji Pokok", icon: "💼" },
+    { label: "Bonus / THR", icon: "🎁" },
+    { label: "Freelance", icon: "💻" },
+    { label: "Hasil Usaha", icon: "🏪" },
+    { label: "Dividen / Investasi", icon: "📈" },
+    { label: "Penjualan Barang", icon: "📦" },
+    { label: "Hadiah / Hibah", icon: "✨" },
+    { label: "Pengembalian Dana", icon: "🔄" },
+    { label: "Lainnya", icon: "💵" },
 ];
+
+const QUICK_AMOUNTS = [50000, 100000, 250000, 500000, 1000000, 2500000, 5000000];
 
 export default function Income() {
   const { data: user, isLoading: isUserLoading } = useUser();
-  const addTransaction = useAddTransaction();
-  
-  const [amountStr, setAmountStr] = useState("");
-  const [category, setCategory] = useState("Gaji");
-  const [description, setDescription] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  
+  const { createTransaction } = useTransactions();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
+
   const [paymentMode, setPaymentMode] = useState<'cash' | 'piutang'>('cash');
+  const [amountStr, setAmountStr] = useState("");
+  const [category, setCategory] = useState("Gaji Pokok");
+  const [description, setDescription] = useState("");
   const [debtName, setDebtName] = useState("");
   const [dueDate, setDueDate] = useState("");
-
-  const formatRp = (val: number) => "Rp " + val.toLocaleString("id-ID");
-  const currentCash = user?.cashBalance || 0;
-  
-  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [showSourcePopup, setShowSourcePopup] = useState(false);
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setErrorMsg("");
-    const rawValue = e.target.value.replace(/\D/g, "");
-    if (rawValue === "") {
-        setAmountStr("");
-    } else {
-        const numberValue = parseInt(rawValue, 10);
-        setAmountStr(new Intl.NumberFormat("id-ID").format(numberValue));
+  const formatNumber = (val: string) => {
+    let clean = val.replace(/\D/g, '');
+    if (clean.length > 1) {
+        clean = clean.replace(/^0+/, ''); 
     }
+    return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
+  const parseNumber = (val: string) => parseFloat(val.replace(/\./g, '')) || 0;
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAmountStr(formatNumber(e.target.value));
+    setErrorMsg("");
   };
 
   const handleQuickAdd = (amt: number) => {
+    const current = parseNumber(amountStr);
+    setAmountStr(formatNumber((current + amt).toString()));
     setErrorMsg("");
-    setAmountStr(new Intl.NumberFormat("id-ID").format(amt));
   };
 
-  const handleInitiateSubmit = () => {
-      setErrorMsg("");
-      const cleanAmount = parseInt(amountStr.replace(/\./g, ""), 10);
-      if (!cleanAmount || cleanAmount <= 0) {
-          setErrorMsg("Masukkan jumlah pemasukan yang valid.");
-          return;
-      }
-      if (paymentMode === 'piutang' && (!debtName.trim() || !dueDate)) { 
-          setErrorMsg("Lengkapi nama pihak penanggung dan tanggal jatuh tempo piutang.");
-          return; 
-      }
+  const handleSubmitInit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedAmount = parseNumber(amountStr);
 
-      if (user?.walletSources && (user.walletSources as any[]).length > 0 && paymentMode === 'cash') {
-          setShowSourcePopup(true);
-      } else {
-          handleSubmit();
-      }
-  };
-
-  const handleSubmit = async (selectedSource?: string) => {
-    const cleanAmount = parseInt(amountStr.replace(/\./g, ""), 10);
-
-    if (!cleanAmount || cleanAmount <= 0) {
-        setErrorMsg("Masukkan jumlah nominal yang valid");
+    if (!parsedAmount || parsedAmount <= 0) {
+        setErrorMsg("Masukkan nominal pemasukan yang valid.");
         return;
     }
-    
-    if (paymentMode === 'piutang' && (!debtName.trim() || !dueDate)) { 
-        setErrorMsg("Masukkan nama pihak dan tenggat waktu piutang");
-        return; 
+    if (!category.trim()) {
+        setErrorMsg("Pilih atau masukkan kategori pemasukan.");
+        return;
+    }
+    if (paymentMode === 'piutang') {
+        if (!debtName.trim()) {
+            setErrorMsg("Masukkan nama pihak/klien yang berhutang (Piutang).");
+            return;
+        }
+        if (!dueDate) {
+            setErrorMsg("Pilih tanggal jatuh tempo piutang.");
+            return;
+        }
     }
 
-    setIsSubmitting(true);
-    try {
-      if (paymentMode === 'cash') {
-          await addTransaction.mutateAsync({ 
-              amount: cleanAmount, 
-              type: "income", 
-              category, 
-              description: description.trim() || "Pemasukan Rutin", 
-              date: new Date(),
-              source: selectedSource
-          } as any);
-      } else {
-          await fetch("/api/debts", {
-              method: "POST", 
-              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
-              body: JSON.stringify({ 
-                  type: 'piutang', 
-                  name: `${debtName.trim()}|IDR`, 
-                  amount: cleanAmount, 
-                  dueDate: dueDate,
-                  description: `[PIUTANG_PENDAPATAN] ${description.trim() || category}`,
-                  isFromTransaction: true
-              })
-          });
-          
-          await addTransaction.mutateAsync({ 
-              amount: cleanAmount, 
-              type: "piutang_record", 
-              category: `Piutang: ${category}`, 
-              description: `[PIUTANG_PENDAPATAN] Belum Dibayar - ${debtName.trim()}`, 
-              date: new Date(),
-              source: selectedSource
-          } as any);
-      }
-
-      trackEvent("manual_tx_added", { 
-          type: "income", 
-          category: category,
-          paymentMode: paymentMode 
-      });
-      
-      await queryClient.invalidateQueries();
-      window.location.href = "/";
-    } catch (error) { 
-        setErrorMsg("Gagal menyimpan data pemasukan.");
-    } finally { 
-        setIsSubmitting(false); 
+    if (paymentMode === 'cash') {
+        setShowSourcePopup(true);
+    } else {
+        handleFinalSubmit("");
     }
   };
 
-  const displayBalance = formatRp(currentCash);
+  const handleFinalSubmit = async (selectedSource: string) => {
+    setIsSubmitting(true);
+    const parsedAmount = parseNumber(amountStr);
+    const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+
+    try {
+        if (paymentMode === 'cash') {
+            await createTransaction.mutateAsync({
+                type: 'income',
+                amount: parsedAmount,
+                category: category.trim(),
+                description: description.trim() || `Pemasukan: ${category}`,
+                source: selectedSource || "Cash (Uang Kertas)",
+                date: new Date().toISOString()
+            });
+
+            toast({
+                title: "Pemasukan Tercatat! 💰",
+                description: `Berhasil menambahkan ${formatCurrency(parsedAmount)} ke ${selectedSource || 'Kas'}.`
+            });
+        } else {
+            // Mode Piutang
+            const res = await fetch("/api/debts", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "x-user-email": userEmail
+                },
+                body: JSON.stringify({
+                    type: "piutang",
+                    name: `${debtName.trim()}|IDR`,
+                    amount: parsedAmount,
+                    description: `[Piutang Pemasukan: ${category}] ${description.trim()}`,
+                    dueDate: dueDate,
+                    isPaid: false
+                })
+            });
+
+            if (!res.ok) throw new Error("Gagal mencatat piutang.");
+
+            await createTransaction.mutateAsync({
+                type: 'income',
+                amount: parsedAmount,
+                category: `Piutang: ${category}`,
+                description: `[Belum Cair - ${debtName.trim()}] ${description.trim()}`,
+                date: new Date().toISOString()
+            });
+
+            toast({
+                title: "Piutang Berhasil Dicatat! 📋",
+                description: `Tagihan ke ${debtName} sebesar ${formatCurrency(parsedAmount)} telah masuk daftar piutang.`
+            });
+        }
+
+        queryClient.invalidateQueries();
+        setTimeout(() => {
+            setLocation("/");
+        }, 500);
+
+    } catch (err: any) {
+        toast({
+            title: "Gagal Menyimpan",
+            description: err.message || "Terjadi kesalahan sistem.",
+            variant: "destructive"
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const displayBalance = user ? formatCurrency(user.cashBalance || 0) : "Rp 0";
 
   if (isUserLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
               <Loader2 className="animate-spin text-emerald-600 w-8 h-8 mb-3"/>
-              <p className="text-xs font-bold text-slate-500">Memuat Data Keuangan...</p>
+              <p className="text-xs font-medium text-slate-500">Memuat Data Keuangan...</p>
           </div>
       );
   }
@@ -160,42 +181,42 @@ export default function Income() {
         {/* ========================================================================= */}
         {/* 1. TOP HEADER BANNER DENGAN TEMA EMERALD GREEN (#059669) & GOLD ACCENT */}
         {/* ========================================================================= */}
-        <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#ECFDF5] via-[#D1FAE5] to-[#A7F3D0] flex flex-col relative z-10 border-b-2 border-emerald-500">
+        <div className="px-5 pt-5 pb-8 bg-gradient-to-b from-[#ECFDF5] via-[#D1FAE5] to-[#A7F3D0] flex flex-col relative z-10 border-b border-emerald-300/60">
             
             {/* Top Navigation Bar */}
-            <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(5,150,105,0.08)] flex items-center justify-between relative z-30 border-b border-emerald-100">
+            <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(5,150,105,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">
                 <div className="flex items-center gap-3">
                     <Link href="/">
                         <button 
-                            className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-[2px_2px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                            className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
                             title="Kembali ke Beranda"
                         >
-                            <ArrowLeft className="w-5 h-5" strokeWidth={2.5} />
+                            <ArrowLeft className="w-5 h-5 text-slate-800" strokeWidth={2.5} />
                         </button>
                     </Link>
 
                     <div className="flex flex-col">
                         <div className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">
+                            <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-widest">
                                 Arus Kas Masuk
                             </p>
                         </div>
-                        <h1 className="text-lg font-black text-slate-900 leading-tight">
+                        <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
                             Catat Pemasukan
                         </h1>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 bg-white border-2 border-emerald-200 text-emerald-900 px-3 py-1.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-900 text-[11px] font-black">
+                    <div className="flex items-center gap-1.5 bg-white border border-emerald-200 text-emerald-900 px-3 py-1.5 rounded-full text-[11px] font-extrabold shadow-xs">
                         <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
                         <span>INCOME</span>
                     </div>
                 </div>
             </div>
 
-            {/* 2. HERO CARD SALDO KAS HIJAU ZAMRUD (FORMAT KARTU HOME) */}
+            {/* 2. HERO CARD SALDO KAS HIJAU ZAMRUD (FORMAT KARTU HOME DENGAN SOLID SHADOW SATU-SATUNYA) */}
             <div className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 text-white p-5 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
                 <ArrowDownLeft className="absolute -right-4 -bottom-4 w-36 h-36 text-white/10 -rotate-12 pointer-events-none" strokeWidth={1} />
                 <div className="absolute right-0 top-0 w-32 h-32 bg-white/15 rounded-full blur-xl pointer-events-none" />
@@ -230,18 +251,18 @@ export default function Income() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 2. BODY FORM SECTION */}
+        {/* 2. BODY FORM SECTION - CLEAN, CRISP & MODERN */}
         {/* ========================================================================= */}
-        <div className="px-5 pt-4 pb-20 bg-slate-50 flex flex-col gap-4">
+        <div className="px-5 pt-5 pb-24 bg-slate-50 flex flex-col gap-4">
             
-            {/* SWITCHER METODE PEMASUKAN NEO-BRUTALIST */}
-            <div className="bg-white p-1.5 rounded-[22px] border-2 border-emerald-200 shadow-[4px_4px_0px_0px] shadow-slate-900 flex gap-1.5">
+            {/* SWITCHER METODE PEMASUKAN */}
+            <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-xs flex gap-1.5">
                 <button 
                     type="button"
                     onClick={() => setPaymentMode('cash')} 
-                    className={`flex-1 py-3 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                         paymentMode === 'cash' 
-                            ? 'bg-emerald-600 text-white shadow-[2px_2px_0px_0px] shadow-slate-950 translate-x-[-1px] translate-y-[-1px]' 
+                            ? 'bg-emerald-600 text-white shadow-xs' 
                             : 'text-slate-600 hover:text-emerald-700'
                     }`}
                 >
@@ -252,9 +273,9 @@ export default function Income() {
                 <button 
                     type="button"
                     onClick={() => setPaymentMode('piutang')} 
-                    className={`flex-1 py-3 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                         paymentMode === 'piutang' 
-                            ? 'bg-amber-500 text-white shadow-[2px_2px_0px_0px] shadow-slate-950 translate-x-[-1px] translate-y-[-1px]' 
+                            ? 'bg-amber-500 text-slate-950 shadow-xs font-extrabold' 
                             : 'text-slate-600 hover:text-amber-600'
                     }`}
                 >
@@ -264,11 +285,11 @@ export default function Income() {
             </div>
 
             {/* CARD FORM CATAT PEMASUKAN */}
-            <div className="bg-white p-5 rounded-[28px] shadow-[6px_6px_0px_0px] shadow-slate-900 border-2 border-emerald-200 space-y-4">
+            <form onSubmit={handleSubmitInit} className="bg-white p-5 rounded-3xl shadow-xs border border-slate-200/80 space-y-4">
                 
                 {/* Input Nominal */}
                 <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">
                         Nominal Pemasukan (Rp)
                     </label>
                     <div className="relative">
@@ -279,7 +300,7 @@ export default function Income() {
                             placeholder="0" 
                             value={amountStr} 
                             onChange={handleAmountChange} 
-                            className="pl-14 h-16 text-2xl font-black text-slate-900 bg-slate-50 border-2 border-slate-200 focus:border-emerald-600 rounded-2xl focus:bg-white transition-all"
+                            className="pl-14 h-15 text-2xl font-black text-slate-900 bg-slate-50 border border-slate-200 focus:border-emerald-600 rounded-2xl focus:bg-white transition-all tabular-nums"
                         />
                     </div>
 
@@ -290,7 +311,7 @@ export default function Income() {
                                 key={amt}
                                 type="button"
                                 onClick={() => handleQuickAdd(amt)}
-                                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-100 border border-slate-200 text-[11px] font-black text-slate-700 hover:text-emerald-800 shrink-0 transition-all active:scale-95 cursor-pointer"
+                                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-100 border border-slate-200 text-[11px] font-bold text-slate-700 hover:text-emerald-800 shrink-0 transition-all active:scale-95 cursor-pointer"
                             >
                                 +{amt >= 1000000 ? `${amt / 1000000}jt` : `${amt / 1000}rb`}
                             </button>
@@ -300,31 +321,31 @@ export default function Income() {
 
                 {/* Form Khusus Piutang */}
                 {paymentMode === 'piutang' && (
-                    <div className="bg-amber-50/70 border-2 border-amber-200 p-4 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-2">
-                        <div className="flex items-center gap-1.5 text-amber-800 text-xs font-black">
+                    <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-2">
+                        <div className="flex items-center gap-1.5 text-amber-800 text-xs font-bold">
                             <HandCoins className="w-4 h-4" />
                             <span>Detail Tagihan Piutang</span>
                         </div>
                         <div>
-                            <label className="text-[10px] font-black text-amber-800 uppercase tracking-widest block mb-1">
+                            <label className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block mb-1">
                                 Ditagih Ke Siapa? (Nama Pihak / Klien)
                             </label>
                             <Input 
                                 placeholder="Contoh: Klien Budi, PT Sukses..." 
                                 value={debtName} 
                                 onChange={e => setDebtName(e.target.value)} 
-                                className="h-12 bg-white border-2 border-amber-200 rounded-xl text-xs font-bold text-slate-800 focus:border-amber-500"
+                                className="h-12 bg-white border border-amber-200 rounded-xl text-xs font-semibold text-slate-800 focus:border-amber-500"
                             />
                         </div>
                         <div>
-                            <label className="text-[10px] font-black text-amber-800 uppercase tracking-widest block mb-1">
+                            <label className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block mb-1">
                                 Tenggat Waktu Jatuh Tempo (Wajib)
                             </label>
                             <Input 
                                 type="date" 
                                 value={dueDate} 
                                 onChange={e => setDueDate(e.target.value)} 
-                                className="h-12 bg-white border-2 border-amber-200 rounded-xl text-xs font-bold text-slate-800 focus:border-amber-500 w-full"
+                                className="h-12 bg-white border border-amber-200 rounded-xl text-xs font-semibold text-slate-800 focus:border-amber-500 w-full"
                             />
                         </div>
                     </div>
@@ -332,7 +353,7 @@ export default function Income() {
 
                 {/* Pilihan Kategori */}
                 <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">
                         Pilih Kategori Pemasukan
                     </label>
                     <div className="grid grid-cols-3 gap-2 mb-2.5">
@@ -343,14 +364,14 @@ export default function Income() {
                                     key={cat.label}
                                     type="button"
                                     onClick={() => setCategory(cat.label)}
-                                    className={`py-2.5 px-2 rounded-2xl text-xs font-black border-2 transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                                    className={`py-2.5 px-2 rounded-2xl text-xs font-bold border transition-all flex flex-col items-center gap-1 cursor-pointer ${
                                         isSelected
-                                            ? "bg-emerald-50 text-emerald-800 border-emerald-600 shadow-[2px_2px_0px_0px] shadow-emerald-900 translate-x-[-1px] translate-y-[-1px]"
+                                            ? "bg-emerald-50 text-emerald-800 border-emerald-600 shadow-xs"
                                             : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300"
                                     }`}
                                 >
                                     <span className="text-base">{cat.icon}</span>
-                                    <span className="truncate">{cat.label}</span>
+                                    <span className="truncate text-[11px]">{cat.label}</span>
                                 </button>
                             );
                         })}
@@ -359,17 +380,17 @@ export default function Income() {
                         placeholder="Ketik kategori kustom lainnya..." 
                         value={category} 
                         onChange={(e) => setCategory(e.target.value)} 
-                        className="text-xs font-bold h-12 rounded-xl bg-slate-50 border-2 border-slate-200 focus:border-emerald-600 mb-3"
+                        className="text-xs font-semibold h-12 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-600 mb-3"
                     />
                     
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">
                         Catatan Tambahan (Opsional)
                     </label>
                     <textarea
                         placeholder="Contoh: Gaji bulanan, penjualan proyek A, dll..."
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl p-3.5 outline-none focus:border-emerald-600 focus:bg-white transition-all text-xs font-medium text-slate-800 min-h-[90px] resize-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 outline-none focus:border-emerald-600 focus:bg-white transition-all text-xs font-medium text-slate-800 min-h-[90px] resize-none"
                     />
                 </div>
 
@@ -380,45 +401,36 @@ export default function Income() {
                     </p>
                 )}
 
-                {/* Tombol Eksekusi Submit */}
                 <button 
-                    type="button"
-                    onClick={handleInitiateSubmit} 
-                    disabled={isSubmitting}
-                    className={`w-full h-14 rounded-2xl font-black text-sm uppercase tracking-wider text-white shadow-[4px_4px_0px_0px] shadow-slate-900 active:shadow-[1px_1px_0px_0px] active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
-                        paymentMode === 'piutang' 
-                            ? 'bg-amber-500 hover:bg-amber-600' 
-                            : 'bg-emerald-600 hover:bg-emerald-700'
-                    }`}
+                    type="submit"
+                    disabled={isSubmitting} 
+                    className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
                 >
                     {isSubmitting ? (
-                        <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            <span>MENYIMPAN PEMASUKAN...</span>
-                        </>
+                        <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
                         <>
-                            <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
-                            <span>{paymentMode === 'piutang' ? "SIMPAN PIUTANG PENDAPATAN" : "SIMPAN PEMASUKAN KAS"}</span>
+                            <Check className="w-5 h-5 stroke-[2.5]" />
+                            <span>SIMPAN PEMASUKAN SEKARANG</span>
                         </>
                     )}
                 </button>
-            </div>
+            </form>
         </div>
-      </div>
 
-      {showSourcePopup && (
+        {showSourcePopup && (
           <SourceSelectionPopup 
-              type="income"
-              title="Pilih Dompet Penerima Pemasukan"
-              description="Pilih rekening atau dompet tujuan masuknya dana ini."
-              onCancel={() => setShowSourcePopup(false)}
-              onSelect={(src) => {
-                  setShowSourcePopup(false);
-                  handleSubmit(src);
-              }}
+            type="income" 
+            title="Pilih Dompet Penerima" 
+            description="Pemasukan ini masuk ke rekening atau dompet mana?" 
+            onCancel={() => setShowSourcePopup(false)} 
+            onSelect={(src) => { 
+                setShowSourcePopup(false); 
+                handleFinalSubmit(src); 
+            }} 
           />
-      )}
+        )}
+      </div>
     </MobileLayout>
   );
 }

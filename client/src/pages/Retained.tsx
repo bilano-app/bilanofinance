@@ -1,20 +1,20 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { MobileLayout } from "@/components/Layout";
+import { Button, Input } from "@/components/UIComponents";
 import { 
-    Hourglass, Plus, Trash2, Edit2, ArrowDownToLine, Loader2, 
-    X, AlertTriangle, Crown, ShieldCheck, AlertCircle, ArrowLeft,
-    Sparkles, CheckCircle2, Wallet, RefreshCcw, Landmark, DollarSign
+    Hourglass, Plus, Edit2, Trash2, ArrowDownToLine, 
+    X, Check, AlertCircle, Loader2, ArrowLeft, Landmark, 
+    DollarSign, Sparkles, Crown, ShieldCheck, CheckCircle2,
+    RefreshCcw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-finance";
-import { trackEvent } from "@/lib/tracking";
+import { useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
+import { trackEvent } from "@/lib/tracking";
 
-const FALLBACK_CURRENCIES = ["USD", "EUR", "SGD", "JPY", "AUD", "GBP", "CNY", "MYR", "SAR", "KRW", "THB"];
-
-interface RetainedBalance {
+interface RetainedItem {
     id: number;
     source: string;
     amount: number;
@@ -23,59 +23,50 @@ interface RetainedBalance {
 }
 
 export default function Retained() {
-    const { toast } = useToast();
+    const { data: user, isLoading: isUserLoading, refetch: refetchUser } = useUser();
     const queryClient = useQueryClient();
-    const [, setLocation] = useLocation();
-    const { data: user, isLoading: isUserLoading } = useUser();
-    
-    const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-    const isPro = user?.isPro || (typeof window !== 'undefined' && localStorage.getItem("bilano_pro") === "true");
-    
-    const startTime = new Date(user?.createdAt || Date.now()).getTime();
-    const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
-    const isTrialExpired = daysPassed >= 3;
+    const { toast } = useToast();
 
-    // KUNCI LOCKOUT: Hanya pengguna aktif (Trial & Pro) yang bisa masuk
-    const isLocked = !isUserLoading && !isPro && isTrialExpired;
-
-    const [items, setItems] = useState<RetainedBalance[]>([]);
+    const [items, setItems] = useState<RetainedItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isCharging, setIsCharging] = useState(false);
-    const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
 
     const [showAddModal, setShowAddModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState<RetainedBalance | null>(null);
-    const [showWithdrawModal, setShowWithdrawModal] = useState<RetainedBalance | null>(null);
+    const [showEditModal, setShowEditModal] = useState<RetainedItem | null>(null);
+    const [showWithdrawModal, setShowWithdrawModal] = useState<RetainedItem | null>(null);
     const [showSourcePopup, setShowSourcePopup] = useState(false);
 
     const [tempSource, setTempSource] = useState("");
     const [tempAmount, setTempAmount] = useState("");
     const [tempCurrency, setTempCurrency] = useState("IDR");
-    
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [showSetupPrompt, setShowSetupPrompt] = useState(false);
 
-    const { data: forexRates = {} } = useQuery({
-        queryKey: ['forexRates', userEmail],
-        queryFn: async () => {
-            const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": userEmail }});
-            if (!res.ok) return {};
-            return res.json();
-        },
-        enabled: !!userEmail && !isLocked
-    });
+    const [selectedPlan, setSelectedPlan] = useState<'yearly' | 'monthly'>('yearly');
+    const [isCharging, setIsCharging] = useState(false);
 
-    const safeForexRates = typeof forexRates === 'object' && forexRates !== null ? forexRates : {};
-    const availableCurrencies = Object.keys(safeForexRates).length > 0 ? Object.keys(safeForexRates) : FALLBACK_CURRENCIES;
+    const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+    const isPro = user?.isPro || (typeof window !== 'undefined' && localStorage.getItem("bilano_pro") === "true");
+
+    const [safeForexRates, setSafeForexRates] = useState<Record<string, number>>({});
+    const [availableCurrencies, setAvailableCurrencies] = useState<string[]>(["IDR", "USD", "EUR", "SGD", "GBP", "JPY", "AUD", "MYR"]);
 
     const fetchRetained = async () => {
-        if (isLocked || !userEmail) return;
         setIsLoading(true);
         try {
-            const res = await fetch("/api/retained", { headers: { "x-user-email": userEmail } });
-            if (res.ok) {
-                const data = await res.json();
+            const [resRetained, resForex] = await Promise.all([
+                fetch("/api/retained", { headers: { "x-user-email": userEmail } }),
+                fetch("/api/forex/rates", { headers: { "x-user-email": userEmail } })
+            ]);
+
+            if (resRetained.ok) {
+                const data = await resRetained.json();
                 setItems(Array.isArray(data) ? data : []);
+            }
+            if (resForex.ok) {
+                const rates = await resForex.json();
+                setSafeForexRates(rates);
+                if (rates && Object.keys(rates).length > 0) {
+                    setAvailableCurrencies(["IDR", ...Object.keys(rates).filter(c => c !== "IDR")]);
+                }
             }
         } catch (e) {
             console.error(e);
@@ -85,17 +76,22 @@ export default function Retained() {
     };
 
     useEffect(() => {
-        if (!isLocked) fetchRetained();
-    }, [isLocked]);
+        if (userEmail) fetchRetained();
+        else setIsLoading(false);
+    }, [userEmail]);
 
     const handleLanjutBayar = async () => {
-      if (!userEmail) { toast({ title: "Email diperlukan", variant: "destructive" }); return; }
       setIsCharging(true);
       try {
-          const res = await fetch("/api/payment/mayar/charge", { 
-              method: "POST", 
-              headers: { "Content-Type": "application/json", "x-user-email": userEmail },
-              body: JSON.stringify({ plan: selectedPlan }) 
+          const email = userEmail || "customer@bilano.id";
+          const res = await fetch("/api/pay/mayar", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                  email, 
+                  plan: selectedPlan,
+                  feature: "retained_access"
+              })
           });
           const data = await res.json();
           if (res.ok && data.redirectUrl) {
@@ -155,8 +151,8 @@ export default function Retained() {
             }
         } catch (e) { 
             toast({ title: "Kendala Jaringan", variant: "destructive" }); 
-        } finally {
-            setIsSubmitting(false);
+        } finally { 
+            setIsSubmitting(false); 
         }
     };
 
@@ -178,19 +174,22 @@ export default function Retained() {
             } else {
                 toast({ title: "Gagal Update", variant: "destructive" });
             }
-        } catch (e) { 
-            toast({ title: "Error", variant: "destructive" }); 
+        } catch (e) {
+            toast({ title: "Kendala Jaringan", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm("Yakin ingin menghapus catatan saldo tertahan ini?")) return;
+        if (!confirm("Hapus catatan saldo tertahan ini?")) return;
         try {
-            const res = await fetch(`/api/retained/${id}`, { method: "DELETE", headers: { "x-user-email": userEmail } });
+            const res = await fetch(`/api/retained/${id}`, {
+                method: "DELETE",
+                headers: { "x-user-email": userEmail }
+            });
             if (res.ok) {
-                toast({ title: "Dihapus 🗑️", description: "Catatan saldo tertahan berhasil dihapus." });
+                toast({ title: "Dihapus", description: "Catatan saldo tertahan telah dibersihkan." });
                 queryClient.invalidateQueries();
                 fetchRetained();
             }
@@ -201,72 +200,69 @@ export default function Retained() {
 
     const handleWithdrawInit = () => {
         if (!showWithdrawModal || !tempAmount) return;
-        const wAmount = parseNumber(tempAmount);
-        if (wAmount > showWithdrawModal.amount) {
-            return toast({ title: "Melebihi Batas Saldo", description: "Jumlah penarikan melebihi saldo tertahan yang ada!", variant: "destructive" });
+        const numVal = parseNumber(tempAmount);
+        if (numVal <= 0 || numVal > showWithdrawModal.amount) {
+            return toast({ title: "Nominal Tidak Valid", description: "Nominal pencairan melebihi saldo tertahan yang tersedia.", variant: "destructive" });
         }
-        if (wAmount <= 0) return;
-
-        if (user?.walletSources && (user.walletSources as any[]).length > 0) {
-            setShowSourcePopup(true);
-        } else {
-            handleWithdraw();
-        }
+        setShowSourcePopup(true);
     };
 
-    const handleWithdraw = async (selectedSource?: string) => {
+    const handleWithdraw = async (destWallet: string) => {
         if (!showWithdrawModal || !tempAmount) return;
-        const wAmount = parseNumber(tempAmount);
-        if (wAmount > showWithdrawModal.amount) return;
-        if (wAmount <= 0) return;
-
+        const withdrawAmt = parseNumber(tempAmount);
         setIsSubmitting(true);
+
         try {
             const res = await fetch(`/api/retained/${showWithdrawModal.id}/withdraw`, {
-                method: "POST", 
+                method: "POST",
                 headers: { "Content-Type": "application/json", "x-user-email": userEmail },
-                body: JSON.stringify({ amount: wAmount, source: selectedSource })
+                body: JSON.stringify({ 
+                    amount: withdrawAmt,
+                    destinationSource: destWallet
+                })
             });
+
             if (res.ok) {
-                trackEvent("retained_balance_withdrawn", {});
-                toast({ title: "Pencairan Sukses! 💰", description: "Dana telah dicairkan dan masuk ke Saldo Kas Utama." });
-                setShowWithdrawModal(null); 
+                trackEvent("retained_withdrawn", { amount: withdrawAmt, currency: showWithdrawModal.currency });
+                toast({ title: "Berhasil Dicairkan! 💸", description: `Dana masuk ke kas ${destWallet}.` });
+                setShowWithdrawModal(null);
                 setTempAmount("");
+                await refetchUser();
                 queryClient.invalidateQueries();
                 fetchRetained();
             } else {
-                toast({ title: "Gagal Mencairkan", description: "Terjadi kendala pada server.", variant: "destructive" });
+                const errData = await res.json().catch(() => ({}));
+                toast({ title: "Pencairan Gagal", description: errData.error || "Terjadi kesalahan.", variant: "destructive" });
             }
-        } catch (e) { 
-            toast({ title: "Error Koneksi", variant: "destructive" }); 
+        } catch (e) {
+            toast({ title: "Kendala Jaringan", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    // LOCKOUT VIEW FOR TRIAL-EXPIRED USERS
-    if (isLocked) {
+    if (!isPro && !isUserLoading) {
         return (
             <MobileLayout title="Saldo Tertahan" showBack>
                 <div className="flex flex-col items-center justify-center min-h-[75vh] px-6 text-center -mx-5 -mt-5 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] p-6">
-                    <div className="w-20 h-20 bg-brand-gold text-brand-navy rounded-3xl flex items-center justify-center mb-4 shadow-[4px_4px_0px_0px] shadow-slate-900 border-2 border-brand-navy animate-bounce">
+                    <div className="w-20 h-20 bg-brand-gold text-brand-navy rounded-3xl flex items-center justify-center mb-4 shadow-md border border-brand-navy animate-bounce">
                         <Crown className="w-10 h-10" />
                     </div>
-                    <span className="bg-brand-navy text-brand-gold text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider mb-2 shadow-xs">
+                    <span className="bg-brand-navy text-brand-gold text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2 shadow-xs">
                         FITUR PREMIUM PRO
                     </span>
                     <h2 className="text-2xl font-black text-brand-navy mb-2 tracking-tight">
                         Pelacakan Saldo Tertahan
                     </h2>
-                    <p className="text-xs text-amber-950 font-bold mb-6 max-w-xs leading-relaxed">
+                    <p className="text-xs text-amber-950 font-medium mb-6 max-w-xs leading-relaxed">
                         Pantau saldo yang belum dicairkan dari platform eksternal (Google AdSense, AdMob, Upwork, Fiverr, dll) sebelum masuk ke rekening utama Anda.
                     </p>
 
                     <div className="w-full max-w-sm space-y-3 mb-6">
                         <div 
                             onClick={() => setSelectedPlan('yearly')} 
-                            className={`relative p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                                selectedPlan === 'yearly' ? 'border-brand-navy bg-white shadow-[4px_4px_0px_0px] shadow-slate-900' : 'border-slate-300 bg-white/70'
+                            className={`relative p-4 rounded-2xl border cursor-pointer transition-all ${
+                                selectedPlan === 'yearly' ? 'border-brand-navy bg-white shadow-sm' : 'border-slate-300 bg-white/70'
                             }`}
                         >
                             {selectedPlan === 'yearly' && (
@@ -275,13 +271,13 @@ export default function Retained() {
                                 </span>
                             )}
                             <div className="flex justify-between items-center mb-1 text-left">
-                                <h4 className="font-black text-sm text-brand-navy">Paket 1 Tahun</h4>
-                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'yearly' ? 'border-brand-navy bg-brand-gold' : 'border-slate-300'}`}>
+                                <h4 className="font-bold text-sm text-brand-navy">Paket 1 Tahun</h4>
+                                <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${selectedPlan === 'yearly' ? 'border-brand-navy bg-brand-gold' : 'border-slate-300'}`}>
                                     {selectedPlan === 'yearly' && <div className="w-2 h-2 bg-brand-navy rounded-full"></div>}
                                 </div>
                             </div>
                             <p className="text-xl font-black text-slate-900 text-left">
-                                Rp 8.250 <span className="text-xs font-bold text-slate-500">/ bulan</span>
+                                Rp 8.250 <span className="text-xs font-medium text-slate-500">/ bulan</span>
                             </p>
                             <p className="text-[10px] text-emerald-700 font-bold text-left mt-0.5">Ditagih Rp 99.000 / tahun</p>
                         </div>
@@ -290,11 +286,11 @@ export default function Retained() {
                     <button 
                         onClick={handleLanjutBayar} 
                         disabled={isCharging} 
-                        className="w-full max-w-sm h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        className="w-full max-w-sm h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                         {isCharging ? <Loader2 className="w-5 h-5 animate-spin"/> : "BUKA AKSES PRO SEKARANG"}
                     </button>
-                    <p className="mt-4 text-[10px] text-amber-950 font-bold flex items-center gap-1">
+                    <p className="mt-4 text-[10px] text-amber-950 font-medium flex items-center gap-1">
                         <ShieldCheck className="w-4 h-4 text-emerald-600"/> Pembayaran Terverifikasi & Otomatis oleh Mayar
                     </p>
                 </div>
@@ -306,7 +302,7 @@ export default function Retained() {
         return (
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
                 <img src="/BILANO-ICON-NEW.png" alt="Loading" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-                <div className="flex items-center gap-2 text-brand-navy font-black text-sm bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-full shadow-sm">
+                <div className="flex items-center gap-2 text-brand-navy font-bold text-sm bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-full shadow-sm">
                     <Loader2 className="w-4 h-4 animate-spin text-brand-gold"/>
                     <span>Memuat Saldo Tertahan...</span>
                 </div>
@@ -321,29 +317,29 @@ export default function Retained() {
                 {/* ========================================================================= */}
                 {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO NAVY & GOLD */}
                 {/* ========================================================================= */}
-                <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b-2 border-amber-400">
+                <div className="px-5 pt-5 pb-8 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b border-amber-300/60">
                     
                     {/* Top Navigation Bar */}
-                    <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.08)] flex items-center justify-between relative z-30 border-b border-amber-100">
+                    <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">
                         <div className="flex items-center gap-3">
                             <Link href="/">
                                 <button 
                                     type="button"
-                                    className="w-10 h-10 rounded-full bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                                    className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
                                     title="Kembali ke Beranda"
                                 >
-                                    <ArrowLeft className="w-5 h-5 text-brand-gold" strokeWidth={2.5} />
+                                    <ArrowLeft className="w-5 h-5 text-slate-800" strokeWidth={2.5} />
                                 </button>
                             </Link>
 
                             <div className="flex flex-col">
                                 <div className="flex items-center gap-1.5">
                                     <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                                    <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                                    <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest">
                                         Platform & Eksternal
                                     </p>
                                 </div>
-                                <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                                <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
                                     Saldo Tertahan
                                 </h1>
                             </div>
@@ -353,15 +349,15 @@ export default function Retained() {
                             <button 
                                 type="button"
                                 onClick={() => setShowAddModal(true)}
-                                className="flex items-center gap-1 bg-brand-navy text-brand-gold px-3.5 py-1.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-900 text-[10px] font-black border border-brand-gold/30 active:scale-95 transition-all cursor-pointer"
+                                className="flex items-center gap-1 bg-brand-navy text-brand-gold px-3.5 py-1.5 rounded-full text-[10px] font-bold border border-brand-gold/30 shadow-xs active:scale-95 transition-all cursor-pointer"
                             >
-                                <Plus className="w-3.5 h-3.5 text-brand-gold stroke-[3]" />
+                                <Plus className="w-3.5 h-3.5 text-brand-gold stroke-[2.5]" />
                                 <span>TAMBAH</span>
                             </button>
                         </div>
                     </div>
 
-                    {/* FLAGSHIP HERO CARD: TOTAL SALDO TERTAHAN (FORMAT HOME LIST TEBAL GOLD) */}
+                    {/* FLAGSHIP HERO CARD - SATU-SATUNYA YANG MEMAKAI SOLID SHADOW KHAS BILANO */}
                     <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-6 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
                         <Hourglass className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
                         <div className="absolute right-0 top-0 w-32 h-32 bg-brand-gold/15 rounded-full blur-xl pointer-events-none" />
@@ -392,12 +388,12 @@ export default function Retained() {
                 </div>
 
                 {/* ========================================================================= */}
-                {/* 2. BODY CONTENT SECTION: DAFTAR SUMBER DANA NEO-BRUTALIST */}
+                {/* 2. BODY CONTENT SECTION - CLEAN, CRISP & MODERN ELEVATION */}
                 {/* ========================================================================= */}
-                <div className="px-5 pt-4 pb-24 bg-slate-50 flex flex-col gap-3.5">
+                <div className="px-5 pt-5 pb-28 bg-slate-50 flex flex-col gap-3.5">
                     
                     <div className="flex justify-between items-center px-1">
-                        <h3 className="text-xs font-black text-brand-navy uppercase tracking-wider flex items-center gap-1.5">
+                        <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                             <Landmark className="w-4 h-4 text-amber-600" />
                             Daftar Sumber Dana Platform
                         </h3>
@@ -408,18 +404,18 @@ export default function Retained() {
 
                     <div className="space-y-3">
                         {items.length === 0 ? (
-                            <div className="text-center py-10 bg-white rounded-[28px] border-2 border-dashed border-slate-200 p-6 shadow-xs">
+                            <div className="text-center py-10 bg-white rounded-3xl border border-dashed border-slate-200 p-6 shadow-xs">
                                 <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3 border border-amber-200">
                                     <Hourglass className="w-8 h-8 opacity-60" />
                                 </div>
-                                <h4 className="font-black text-slate-800 text-sm mb-1">Belum Ada Saldo Tertahan</h4>
+                                <h4 className="font-extrabold text-slate-800 text-sm mb-1">Belum Ada Saldo Tertahan</h4>
                                 <p className="text-xs text-slate-500 font-medium mb-4 max-w-xs mx-auto">
                                     Catat saldo yang ada di platform freelance, royalti, atau jaringan iklan Anda di sini.
                                 </p>
                                 <button 
                                     type="button"
                                     onClick={() => setShowAddModal(true)}
-                                    className="bg-brand-navy text-brand-gold px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider shadow-[2px_2px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+                                    className="bg-brand-navy text-brand-gold px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider shadow-xs active:scale-95 transition-all cursor-pointer"
                                 >
                                     + CATAT SALDO PERTAMA
                                 </button>
@@ -432,16 +428,16 @@ export default function Retained() {
                                 return (
                                     <div 
                                         key={item.id} 
-                                        className="bg-white p-4.5 rounded-[24px] border-2 border-amber-200/90 shadow-[4px_4px_0px_0px] shadow-slate-900 transition-all space-y-3"
+                                        className="bg-white p-4.5 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-sm transition-all space-y-3"
                                     >
                                         <div className="flex justify-between items-start">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-11 h-11 rounded-2xl bg-amber-100 text-brand-navy font-black flex items-center justify-center border-2 border-amber-300 text-xs shrink-0 shadow-xs">
+                                                <div className="w-11 h-11 rounded-2xl bg-amber-50 text-brand-navy font-black flex items-center justify-center border border-amber-200 text-xs shrink-0 shadow-xs">
                                                     {item.currency}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <h4 className="font-black text-slate-900 text-sm truncate">{item.source}</h4>
-                                                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">Update: {lastUpdate}</p>
+                                                    <h4 className="font-extrabold text-slate-900 text-sm truncate">{item.source}</h4>
+                                                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">Update: {lastUpdate}</p>
                                                 </div>
                                             </div>
                                             
@@ -456,11 +452,11 @@ export default function Retained() {
                                         </div>
 
                                         {/* ACTION BUTTONS: UPDATE, TARIK, HAPUS */}
-                                        <div className="flex gap-2 pt-2.5 border-t-2 border-slate-100">
+                                        <div className="flex gap-2 pt-2.5 border-t border-slate-100">
                                             <button 
                                                 type="button"
                                                 onClick={() => { setShowEditModal(item); setTempAmount(item.amount.toString().replace('.', ',')); }} 
-                                                className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 border border-slate-200 active:scale-95 transition-all cursor-pointer"
+                                                className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
                                             >
                                                 <Edit2 className="w-3 h-3 text-slate-500" /> UPDATE
                                             </button>
@@ -468,7 +464,7 @@ export default function Retained() {
                                             <button 
                                                 type="button"
                                                 onClick={() => { setShowWithdrawModal(item); setTempAmount(""); }} 
-                                                className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 shadow-[2px_2px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+                                                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer"
                                             >
                                                 <ArrowDownToLine className="w-3.5 h-3.5" /> CAIRKAN
                                             </button>
@@ -492,7 +488,7 @@ export default function Retained() {
                 {/* MODAL 1: TAMBAH SALDO TERTAHAN */}
                 {showAddModal && (
                     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
-                        <div className="bg-white rounded-[28px] p-6 w-full max-w-sm shadow-[8px_8px_0px_0px] shadow-slate-900 border-2 border-slate-900 relative animate-in zoom-in-95 space-y-4">
+                        <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl border border-slate-100 relative animate-in zoom-in-95 space-y-4">
                             <button 
                                 type="button"
                                 onClick={() => setShowAddModal(false)} 
@@ -502,29 +498,29 @@ export default function Retained() {
                             </button>
                             
                             <div>
-                                <h3 className="text-base font-black text-brand-navy">Tambah Saldo Tertahan</h3>
-                                <p className="text-[11px] text-slate-500 font-bold">Catat simpanan dana di platform eksternal.</p>
+                                <h3 className="text-base font-extrabold text-slate-900">Tambah Saldo Tertahan</h3>
+                                <p className="text-[11px] text-slate-500 font-medium">Catat simpanan dana di platform eksternal.</p>
                             </div>
 
                             <div className="space-y-3">
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Sumber / Platform</label>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Nama Sumber / Platform</label>
                                     <input 
                                         type="text"
                                         placeholder="Contoh: Google AdSense, Upwork, dll" 
                                         value={tempSource} 
                                         onChange={e => setTempSource(e.target.value)} 
-                                        className="w-full h-12 px-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-bold text-xs text-slate-900 outline-none focus:border-amber-500 focus:bg-white transition-all mt-1"
+                                        className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all mt-1"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Mata Uang & Nominal</label>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Mata Uang & Nominal</label>
                                     <div className="flex gap-2 mt-1">
                                         <select 
                                             value={tempCurrency} 
                                             onChange={e => setTempCurrency(e.target.value)} 
-                                            className="w-24 h-12 px-3 text-xs font-black rounded-2xl bg-amber-50 text-amber-900 outline-none border-2 border-amber-300 shrink-0"
+                                            className="w-24 h-12 px-3 text-xs font-bold rounded-2xl bg-amber-50 text-amber-900 outline-none border border-amber-300 shrink-0"
                                         >
                                             <option value="IDR">IDR</option>
                                             {availableCurrencies.filter(c => c !== "IDR").map(c => <option key={c} value={c}>{c}</option>)}
@@ -535,7 +531,7 @@ export default function Retained() {
                                             placeholder="0" 
                                             value={tempAmount} 
                                             onChange={e => setTempAmount(formatNumber(e.target.value))} 
-                                            className="flex-1 h-12 px-4 font-black text-sm bg-slate-50 border-2 border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                                            className="flex-1 h-12 px-4 font-black text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
                                         />
                                     </div>
                                 </div>
@@ -544,7 +540,7 @@ export default function Retained() {
                                     type="button"
                                     disabled={isSubmitting} 
                                     onClick={handleAdd} 
-                                    className="w-full h-13 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+                                    className="w-full h-13 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
                                 >
                                     {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <CheckCircle2 className="w-4 h-4 stroke-[2.5]"/>}
                                     <span>SIMPAN SALDO TERTAHAN</span>
@@ -557,7 +553,7 @@ export default function Retained() {
                 {/* MODAL 2: EDIT / UPDATE SALDO TERTAHAN */}
                 {showEditModal && (
                     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
-                        <div className="bg-white rounded-[28px] p-6 w-full max-w-sm shadow-[8px_8px_0px_0px] shadow-slate-900 border-2 border-slate-900 relative animate-in zoom-in-95 space-y-4">
+                        <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl border border-slate-100 relative animate-in zoom-in-95 space-y-4">
                             <button 
                                 type="button"
                                 onClick={() => setShowEditModal(null)} 
@@ -567,25 +563,25 @@ export default function Retained() {
                             </button>
                             
                             <div>
-                                <h3 className="text-base font-black text-brand-navy">Update Saldo Platform</h3>
-                                <p className="text-[11px] text-slate-500 font-bold">
+                                <h3 className="text-base font-extrabold text-slate-900">Update Saldo Platform</h3>
+                                <p className="text-[11px] text-slate-500 font-medium">
                                     Sesuaikan nilai terbaru dari <strong className="text-slate-900">{showEditModal.source}</strong>
                                 </p>
                             </div>
 
                             <div className="space-y-3">
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
                                         Nominal Saldo Baru ({showEditModal.currency})
                                     </label>
                                     <div className="relative mt-1">
-                                        <span className="absolute left-4 top-3.5 font-black text-xs text-slate-400">{showEditModal.currency}</span>
+                                        <span className="absolute left-4 top-3.5 font-bold text-xs text-slate-400">{showEditModal.currency}</span>
                                         <input 
                                             type="text" 
                                             inputMode="decimal" 
                                             value={tempAmount} 
                                             onChange={e => setTempAmount(formatNumber(e.target.value))} 
-                                            className="w-full pl-14 pr-4 h-12 font-black text-sm bg-slate-50 border-2 border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                                            className="w-full pl-14 pr-4 h-12 font-black text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
                                         />
                                     </div>
                                 </div>
@@ -594,7 +590,7 @@ export default function Retained() {
                                     type="button"
                                     disabled={isSubmitting} 
                                     onClick={handleEdit} 
-                                    className="w-full h-13 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+                                    className="w-full h-13 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
                                 >
                                     {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <RefreshCcw className="w-4 h-4 stroke-[2.5]"/>}
                                     <span>SIMPAN PERUBAHAN SALDO</span>
@@ -607,7 +603,7 @@ export default function Retained() {
                 {/* MODAL 3: TARIK / CAIRKAN SALDO TERTAHAN KE KAS UTAMA */}
                 {showWithdrawModal && (
                     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
-                        <div className="bg-white rounded-[28px] p-6 w-full max-w-sm shadow-[8px_8px_0px_0px] shadow-slate-900 border-2 border-slate-900 relative animate-in zoom-in-95 space-y-4">
+                        <div className="bg-white rounded-[32px] p-6 w-full max-w-sm shadow-2xl border border-slate-100 relative animate-in zoom-in-95 space-y-4">
                             <button 
                                 type="button"
                                 onClick={() => setShowWithdrawModal(null)} 
@@ -617,26 +613,26 @@ export default function Retained() {
                             </button>
                             
                             <div>
-                                <h3 className="text-base font-black text-brand-navy">Cairkan Saldo ke Kas</h3>
-                                <p className="text-[11px] text-slate-500 font-bold">
+                                <h3 className="text-base font-extrabold text-slate-900">Cairkan Saldo ke Kas</h3>
+                                <p className="text-[11px] text-slate-500 font-medium">
                                     Tarik dana dari <strong className="text-slate-900">{showWithdrawModal.source}</strong> (Maks: {showWithdrawModal.amount.toLocaleString('id-ID')} {showWithdrawModal.currency}).
                                 </p>
                             </div>
 
                             <div className="space-y-3">
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
                                         Nominal Penarikan
                                     </label>
                                     <div className="relative mt-1">
-                                        <span className="absolute left-4 top-3.5 font-black text-xs text-slate-400">{showWithdrawModal.currency}</span>
+                                        <span className="absolute left-4 top-3.5 font-bold text-xs text-slate-400">{showWithdrawModal.currency}</span>
                                         <input 
                                             type="text" 
                                             inputMode="decimal" 
                                             placeholder="Masukkan nominal pencairan..." 
                                             value={tempAmount} 
                                             onChange={e => setTempAmount(formatNumber(e.target.value))} 
-                                            className="w-full pl-14 pr-4 h-12 font-black text-sm bg-slate-50 border-2 border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                                            className="w-full pl-14 pr-4 h-12 font-black text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
                                         />
                                     </div>
                                 </div>
@@ -645,7 +641,7 @@ export default function Retained() {
                                     type="button"
                                     disabled={isSubmitting} 
                                     onClick={handleWithdrawInit} 
-                                    className="w-full h-13 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+                                    className="w-full h-13 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
                                 >
                                     {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <ArrowDownToLine className="w-4 h-4 stroke-[2.5]"/>}
                                     <span>KONFIRMASI PENCAIRAN KAS</span>

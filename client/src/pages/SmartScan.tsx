@@ -397,42 +397,42 @@ export default function SmartScan() {
                 {/* ========================================================================= */}
                 {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO NAVY & GOLD */}
                 {/* ========================================================================= */}
-                <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b-2 border-amber-400">
+                <div className="px-5 pt-5 pb-8 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b border-amber-300/60">
                     
                     {/* Top Navigation Bar */}
-                    <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.08)] flex items-center justify-between relative z-30 border-b border-amber-100">
+                    <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">
                         <div className="flex items-center gap-3">
                             <Link href="/">
                                 <button 
                                     type="button"
-                                    className="w-10 h-10 rounded-full bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                                    className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
                                     title="Kembali ke Beranda"
                                 >
-                                    <ArrowLeft className="w-5 h-5 text-brand-gold" strokeWidth={2.5} />
+                                    <ArrowLeft className="w-5 h-5 text-slate-800" strokeWidth={2.5} />
                                 </button>
                             </Link>
 
                             <div className="flex flex-col">
                                 <div className="flex items-center gap-1.5">
                                     <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                                    <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                                    <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest">
                                         Vision & Voice Engine
                                     </p>
                                 </div>
-                                <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                                <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
                                     Smart Scan & Suara
                                 </h1>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-2">
-                            <span className="bg-brand-navy text-brand-gold text-[10px] font-black px-3 py-1.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-900 border border-brand-gold/30">
+                            <span className="bg-brand-navy text-brand-gold text-[10px] font-extrabold px-3 py-1.5 rounded-full border border-brand-gold/30 shadow-xs">
                                 AI 2.0
                             </span>
                         </div>
                     </div>
 
-                    {/* FLAGSHIP HERO CARD: SMART SCAN INFO */}
+                    {/* FLAGSHIP HERO CARD - SATU-SATUNYA YANG MEMAKAI SOLID SHADOW KHAS BILANO */}
                     <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-6 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
                         <ScanLine className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
                         <div className="absolute right-0 top-0 w-32 h-32 bg-brand-gold/15 rounded-full blur-xl pointer-events-none" />
@@ -447,7 +447,7 @@ export default function SmartScan() {
                                 </span>
                             </div>
 
-                            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-2 leading-tight">
+                            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-1.5 leading-tight">
                                 Pemindaian Struk & Dikte AI
                             </h2>
                             <p className="text-xs text-blue-100 font-medium leading-relaxed">
@@ -458,14 +458,14 @@ export default function SmartScan() {
                 </div>
 
                 {/* ========================================================================= */}
-                {/* 2. BODY CONTENT SECTION */}
+                {/* 2. BODY CONTENT SECTION - CLEAN, CRISP & MODERN ELEVATION */}
                 {/* ========================================================================= */}
-                <div className="px-5 pt-4 pb-24 bg-slate-50 flex flex-col gap-4">
+                <div className="px-5 pt-5 pb-28 bg-slate-50 flex flex-col gap-4">
                     
                     {/* MODAL EMERGENCY DEFISIT BUDGET */}
                     {showEmergencyModal && (
                         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
-                            <div className="bg-white w-full max-w-sm rounded-[28px] p-6 shadow-[8px_8px_0px_0px] shadow-slate-900 border-2 border-slate-900 relative animate-in zoom-in-95 space-y-4">
+                            <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl border border-slate-100 relative animate-in zoom-in-95 space-y-4">
                                 <button 
                                     type="button"
                                     onClick={() => setShowEmergencyModal(false)} 
@@ -475,24 +475,24 @@ export default function SmartScan() {
                                 </button>
                                 
                                 <div className="text-center space-y-2">
-                                    <div className="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto border-2 border-rose-300 shadow-xs">
+                                    <div className="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto">
                                         <AlertTriangle className="w-7 h-7"/>
                                     </div>
-                                    <h3 className="text-lg font-black text-slate-900">Batas Anggaran Terlewati!</h3>
-                                    <p className="text-xs text-slate-500 font-bold">
+                                    <h3 className="text-lg font-extrabold text-slate-900">Batas Anggaran Terlewati!</h3>
+                                    <p className="text-xs text-slate-500 font-medium">
                                         Sisa limit budget saat ini: <strong className="text-slate-900">{formatRp(remainingBudget < 0 ? 0 : remainingBudget)}</strong>
                                     </p>
                                 </div>
 
-                                <div className="bg-rose-50 border-2 border-rose-200 p-4 rounded-2xl text-left space-y-2 text-xs">
-                                    <div className="flex justify-between font-black">
+                                <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl text-left space-y-2 text-xs">
+                                    <div className="flex justify-between font-bold">
                                         <span className="text-slate-600">Defisit Kelebihan:</span>
                                         <span className="text-rose-700">{formatRp(emergencyDetails.deficit)}</span>
                                     </div>
                                     <p className="text-[11px] text-rose-800 font-medium leading-relaxed">
                                         Jika dilanjutkan, sistem akan mengaktifkan <strong>Dana Cadangan</strong> dan memotong batas budget bulan depan.
                                     </p>
-                                    <div className="flex justify-between font-black bg-white p-2.5 rounded-xl border border-rose-200 mt-1">
+                                    <div className="flex justify-between font-bold bg-white p-2.5 rounded-xl border border-rose-200 mt-1">
                                         <span className="text-slate-600">Limit Bulan Depan:</span>
                                         <span className="text-brand-navy">{formatRp(emergencyDetails.nextMonthLimit)}</span>
                                     </div>
@@ -502,7 +502,7 @@ export default function SmartScan() {
                                     <button 
                                         type="button"
                                         onClick={() => setShowEmergencyModal(false)} 
-                                        className="flex-1 h-12 bg-slate-100 text-slate-700 font-black text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all cursor-pointer"
+                                        className="flex-1 h-12 bg-slate-100 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all cursor-pointer"
                                     >
                                         BATALKAN
                                     </button>
@@ -510,7 +510,7 @@ export default function SmartScan() {
                                         type="button"
                                         onClick={() => handleSave(true)} 
                                         disabled={isSubmitting}
-                                        className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-[2px_2px_0px_0px] shadow-slate-900 active:scale-95 transition-all cursor-pointer"
+                                        className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer"
                                     >
                                         {isSubmitting ? "MEMPROSES..." : "PAKAI DARURAT"}
                                     </button>
@@ -521,18 +521,18 @@ export default function SmartScan() {
 
                     <input type="file" multiple ref={fileInputRef} accept="image/*" className="hidden" onChange={handleFileChange}/>
 
-                    {/* METHOD SELECTION CARDS (JIKA HASIL FORM BELUM MUNCUL) */}
+                    {/* METHOD SELECTION CARDS */}
                     {!showResultForm && (
                         <div className="space-y-4 animate-in fade-in">
                             
                             {/* CARD 1: DIKTE SUARA MULTI-TRANSAKSI */}
-                            <div className="bg-white rounded-[28px] p-6 border-2 border-amber-200/90 shadow-[6px_6px_0px_0px] shadow-slate-900 text-center space-y-4">
+                            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs text-center space-y-4">
                                 <div>
                                     <span className="bg-amber-100 text-amber-900 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                                         METODE 1
                                     </span>
-                                    <h3 className="text-base font-black text-brand-navy mt-1.5">Dikte Suara Percakapan</h3>
-                                    <p className="text-xs text-slate-500 font-bold px-2 mt-0.5">
+                                    <h3 className="text-base font-extrabold text-slate-900 mt-1.5">Dikte Suara Percakapan</h3>
+                                    <p className="text-xs text-slate-500 font-medium px-2 mt-0.5">
                                         "Tadi pagi beli bensin 30 ribu, terus makan siang sama teman 45 ribu, beli kopi 20 ribu."
                                     </p>
                                 </div>
@@ -544,7 +544,7 @@ export default function SmartScan() {
                                     <button 
                                         type="button"
                                         onClick={isListening ? stopListening : startListening} 
-                                        className={`w-20 h-20 rounded-full flex items-center justify-center shadow-[4px_4px_0px_0px] shadow-slate-900 border-2 border-slate-900 transition-all active:translate-x-[2px] active:translate-y-[2px] cursor-pointer ${
+                                        className={`w-20 h-20 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer ${
                                             isListening 
                                                 ? 'bg-rose-500 text-white scale-105' 
                                                 : 'bg-brand-gold hover:bg-[#e5a825] text-brand-navy'
@@ -560,15 +560,15 @@ export default function SmartScan() {
 
                                 <div className="min-h-7 flex items-center justify-center">
                                     {isListening ? (
-                                        <span className="text-xs font-black text-rose-600 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 animate-pulse">
+                                        <span className="text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 animate-pulse">
                                             Mendengarkan suara Anda... (Bicara santai)
                                         </span>
                                     ) : transcript ? (
-                                        <p className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-2xl max-w-xs truncate border border-slate-200">
+                                        <p className="text-xs font-semibold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-2xl max-w-xs truncate border border-slate-200">
                                             "{transcript}"
                                         </p>
                                     ) : (
-                                        <span className="text-[11px] text-slate-400 font-bold">
+                                        <span className="text-[11px] text-slate-400 font-medium">
                                             Tekan tombol mikrofon untuk mulai berbicara
                                         </span>
                                     )}
@@ -577,25 +577,25 @@ export default function SmartScan() {
 
                             {/* SEPARATOR */}
                             <div className="flex items-center gap-3 px-6">
-                                <div className="h-0.5 bg-slate-200 flex-1"></div>
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ATAU</span>
-                                <div className="h-0.5 bg-slate-200 flex-1"></div>
+                                <div className="h-px bg-slate-200 flex-1"></div>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ATAU</span>
+                                <div className="h-px bg-slate-200 flex-1"></div>
                             </div>
 
                             {/* CARD 2: SCAN BANYAK STRUK / FOTO KAMERA */}
                             <div 
                                 onClick={() => fileInputRef.current?.click()} 
-                                className="bg-white rounded-[28px] p-6 border-2 border-dashed border-amber-300 hover:border-amber-500 shadow-[5px_5px_0px_0px] shadow-slate-900 flex flex-col items-center justify-center gap-3 text-center cursor-pointer active:translate-x-[2px] active:translate-y-[2px] transition-all group"
+                                className="bg-white rounded-3xl p-6 border border-dashed border-amber-300 hover:border-amber-400 shadow-xs flex flex-col items-center justify-center gap-3 text-center cursor-pointer active:scale-[0.99] transition-all group"
                             >
-                                <div className="w-16 h-16 rounded-2xl bg-amber-50 group-hover:bg-amber-100 text-brand-navy flex items-center justify-center border-2 border-amber-200 shadow-xs group-hover:scale-105 transition-transform">
+                                <div className="w-16 h-16 rounded-2xl bg-amber-50 group-hover:bg-amber-100 text-brand-navy flex items-center justify-center border border-amber-200 shadow-xs group-hover:scale-105 transition-transform">
                                     <ImagePlus className="w-8 h-8 text-brand-navy stroke-[2.5]" />
                                 </div>
                                 <div>
                                     <span className="bg-amber-100 text-amber-900 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                                         METODE 2
                                     </span>
-                                    <h4 className="font-black text-brand-navy text-base mt-1">Scan Struk Kamera / Galeri</h4>
-                                    <p className="text-xs text-slate-500 font-bold max-w-xs mt-0.5">
+                                    <h4 className="font-extrabold text-slate-900 text-base mt-1">Scan Struk Kamera / Galeri</h4>
+                                    <p className="text-xs text-slate-500 font-medium max-w-xs mt-0.5">
                                         Pilih satu atau beberapa foto struk sekaligus. AI akan memindai barang & menghitung totalnya.
                                     </p>
                                 </div>
@@ -606,7 +606,7 @@ export default function SmartScan() {
                                 <div className="fixed inset-0 z-[120] bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center text-white p-6 text-center animate-in fade-in">
                                     <img src="/BILANO-ICON-NEW.png" alt="Scanning" className="w-20 h-20 mb-4 animate-bounce object-contain drop-shadow-xl" />
                                     <Loader2 className="w-8 h-8 text-brand-gold animate-spin mb-3"/>
-                                    <h3 className="font-black text-xl text-white mb-1">{scanStatus}</h3>
+                                    <h3 className="font-extrabold text-xl text-white mb-1">{scanStatus}</h3>
                                     <p className="text-xs text-slate-300 font-medium max-w-xs mb-5">
                                         AI sedang mengekstrak nama toko, pos kategori, dan total nominal tagihan...
                                     </p>
@@ -625,17 +625,17 @@ export default function SmartScan() {
 
                     {/* FORM HASIL REKAPITULASI AI */}
                     {showResultForm && (
-                        <div className="bg-white rounded-[28px] p-5 border-2 border-amber-200/90 shadow-[6px_6px_0px_0px] shadow-slate-900 space-y-4 animate-in slide-in-from-bottom-6">
+                        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4 animate-in slide-in-from-bottom-6">
                             
-                            <div className="flex justify-between items-start border-b-2 border-slate-100 pb-3">
+                            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
                                 <div>
                                     <div className="flex items-center gap-1.5">
                                         <Sparkles className="w-4 h-4 text-amber-500 fill-current" />
-                                        <h3 className="font-black text-brand-navy text-sm uppercase tracking-wider">
+                                        <h3 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider">
                                             Hasil Rekapitulasi AI
                                         </h3>
                                     </div>
-                                    <p className="text-[10px] text-slate-500 font-bold mt-0.5">
+                                    <p className="text-[10px] text-slate-500 font-medium mt-0.5">
                                         Periksa kembali data sebelum dicatat ke buku kas.
                                     </p>
                                 </div>
@@ -660,9 +660,9 @@ export default function SmartScan() {
                                         key={tab.id} 
                                         type="button"
                                         onClick={() => { setDetectedType(tab.id as any); setPaymentMode('cash'); }} 
-                                        className={`py-2 text-[10px] rounded-xl font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                        className={`py-2 text-[10px] rounded-xl font-bold uppercase tracking-wider transition-all cursor-pointer ${
                                             detectedType === tab.id 
-                                                ? 'bg-brand-navy text-brand-gold shadow-sm' 
+                                                ? 'bg-brand-navy text-brand-gold shadow-xs' 
                                                 : 'text-slate-600 hover:text-slate-900'
                                         }`}
                                     >
@@ -677,7 +677,7 @@ export default function SmartScan() {
                                     <button 
                                         type="button"
                                         onClick={() => setPaymentMode('cash')} 
-                                        className={`flex-1 py-2 flex justify-center items-center gap-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                        className={`flex-1 py-2 flex justify-center items-center gap-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
                                             paymentMode === 'cash' 
                                                 ? (detectedType === 'income' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-rose-600 text-white shadow-xs') 
                                                 : 'text-slate-500 hover:text-slate-800'
@@ -688,7 +688,7 @@ export default function SmartScan() {
                                     <button 
                                         type="button"
                                         onClick={() => setPaymentMode('pending')} 
-                                        className={`flex-1 py-2 flex justify-center items-center gap-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                        className={`flex-1 py-2 flex justify-center items-center gap-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
                                             paymentMode === 'pending' 
                                                 ? 'bg-amber-500 text-slate-950 shadow-xs' 
                                                 : 'text-slate-500 hover:text-slate-800'
@@ -700,10 +700,10 @@ export default function SmartScan() {
                             )}
 
                             {/* VALAS TOGGLE */}
-                            <div className="flex items-center justify-between p-3 bg-amber-50 rounded-2xl border border-amber-200">
+                            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
                                 <div className="flex items-center gap-2">
-                                    <Globe className="w-4 h-4 text-amber-700"/>
-                                    <span className="text-xs font-black text-brand-navy">Mata Uang Asing (Valas)</span>
+                                    <Globe className="w-4 h-4 text-slate-600"/>
+                                    <span className="text-xs font-bold text-slate-800">Mata Uang Asing (Valas)</span>
                                 </div>
                                 <input 
                                     type="checkbox" 
@@ -717,23 +717,23 @@ export default function SmartScan() {
                             {isForex && (
                                 <div className="grid grid-cols-2 gap-2.5 p-3 bg-sky-50 rounded-2xl border border-sky-200 animate-in fade-in">
                                     <div>
-                                        <label className="text-[10px] font-black text-sky-900 uppercase tracking-wider block mb-1">Mata Uang</label>
+                                        <label className="text-[10px] font-bold text-sky-900 uppercase tracking-wider block mb-1">Mata Uang</label>
                                         <select 
                                             value={currency} 
                                             onChange={e => setCurrency(e.target.value)} 
-                                            className="w-full text-xs font-black bg-white rounded-xl border border-sky-300 p-2.5 h-11"
+                                            className="w-full text-xs font-bold bg-white rounded-xl border border-sky-300 p-2.5 h-11"
                                         >
                                             {Object.keys(liveRates).length > 0 ? Object.keys(liveRates).map(c => <option key={c} value={c}>{c}</option>) : <option>USD</option>}
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-black text-sky-900 uppercase tracking-wider block mb-1">Kurs Saat Ini</label>
+                                        <label className="text-[10px] font-bold text-sky-900 uppercase tracking-wider block mb-1">Kurs Saat Ini</label>
                                         <input 
                                             type="text" 
                                             inputMode="decimal" 
                                             value={rate} 
                                             onChange={e => setRate(formatNum(e.target.value))} 
-                                            className="w-full text-xs font-black bg-white rounded-xl border border-sky-300 p-2.5 h-11"
+                                            className="w-full text-xs font-bold bg-white rounded-xl border border-sky-300 p-2.5 h-11"
                                         />
                                     </div>
                                 </div>
@@ -741,23 +741,23 @@ export default function SmartScan() {
 
                             {/* TOTAL NOMINAL INPUT */}
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
                                     Total Nominal Keseluruhan {isForex ? currency : '(IDR)'}
                                 </label>
                                 <input 
                                     type="text" 
                                     inputMode="decimal" 
                                     value={amount} 
-                                    onChange={e => setAmount(formatNum(e.target.value))} 
+                                    onChange={(e) => setAmount(formatNum(e.target.value))} 
                                     placeholder="0" 
-                                    className="w-full h-14 px-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-xl text-slate-900 outline-none focus:border-amber-500 focus:bg-white transition-all tabular-nums"
+                                    className="w-full h-14 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-xl text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all tabular-nums"
                                 />
                             </div>
 
                             {/* NAMA PIHAK JIKA HUTANG / PIUTANG */}
                             {(detectedType === 'debt' || detectedType === 'receivable' || paymentMode === 'pending') && (
                                 <div className="space-y-1.5 animate-in fade-in">
-                                    <label className="text-[10px] font-black text-amber-800 uppercase tracking-widest ml-1">
+                                    <label className="text-[10px] font-bold text-amber-800 uppercase tracking-widest ml-1">
                                         {paymentMode === 'pending' ? (detectedType === 'income' ? 'Ditagihkan Kepada Siapa?' : 'Berhutang Kepada Siapa?') : 'Nama Pihak'}
                                     </label>
                                     <input 
@@ -765,7 +765,7 @@ export default function SmartScan() {
                                         value={debtName} 
                                         onChange={e => setDebtName(e.target.value)} 
                                         placeholder="Contoh: Klien A / Toko Sumber Makmur" 
-                                        className="w-full h-12 px-4 bg-amber-50 border-2 border-amber-300 rounded-2xl font-bold text-xs text-slate-900 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                                        className="w-full h-12 px-4 bg-amber-50/50 border border-amber-200 rounded-2xl font-semibold text-xs text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
                                     />
                                 </div>
                             )}
@@ -773,28 +773,28 @@ export default function SmartScan() {
                             {/* KATEGORI */}
                             {(detectedType === 'income' || detectedType === 'expense') && (
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
                                         Kategori / Pos Anggaran
                                     </label>
                                     <input 
                                         type="text"
                                         value={category} 
                                         onChange={e => setCategory(e.target.value)} 
-                                        className="w-full h-12 px-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-bold text-xs text-slate-900 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                                        className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-semibold text-xs text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
                                     />
                                 </div>
                             )}
                             
                             {/* RINCIAN PER ITEM / CATATAN */}
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
                                     Rincian Lengkap per Item
                                 </label>
                                 <textarea 
                                     value={desc} 
                                     onChange={e => setDesc(e.target.value)} 
                                     rows={4}
-                                    className="w-full border-2 border-slate-200 rounded-2xl p-3.5 text-xs font-medium text-slate-800 bg-slate-50 focus:bg-white outline-none focus:border-amber-500 transition-all resize-none"
+                                    className="w-full border border-slate-200 rounded-2xl p-3.5 text-xs font-medium text-slate-800 bg-slate-50 focus:bg-white outline-none focus:border-brand-navy transition-all resize-none"
                                 />
                             </div>
 
@@ -803,7 +803,7 @@ export default function SmartScan() {
                                 type="button"
                                 onClick={() => handleSave(false)} 
                                 disabled={!isDataLoaded || isSubmitting}
-                                className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
+                                className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-1"
                             >
                                 {isSubmitting ? (
                                     <>

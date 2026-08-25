@@ -329,3 +329,17 @@ export function useSaveSnapshot() {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: ["portfolioSnapshots", currentUserEmail] }),
   });
 }
+
+export function useForexRates() {
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+  return useQuery<Record<string, number>>({
+    queryKey: ["forex-rates", currentUserEmail],
+    queryFn: async () => {
+      const res = await fetch("/api/forex/rates", { headers: getHeaders() });
+      if (!res.ok) return {};
+      return res.json();
+    },
+    staleTime: CACHE_TIME,
+    refetchInterval: 60000,
+  });
+}

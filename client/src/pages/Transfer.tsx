@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
-import { Button, Input } from "@/components/UIComponents";
 import { useUser } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
 import { 
   ArrowRightLeft, Loader2, Plus, ArrowDown, ArrowUp, 
   Wallet, Check, ChevronDown, Sparkles, X, ArrowLeft,
-  Landmark, CheckCircle2, ShieldCheck, HelpCircle, Coins
+  Landmark, CheckCircle2, Coins
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import WalletSourceSelect from "@/components/WalletSourceSelect";
@@ -264,42 +263,42 @@ export default function Transfer() {
             {/* ========================================================================= */}
             {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO NAVY & GOLD */}
             {/* ========================================================================= */}
-            <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b-2 border-amber-400">
+            <div className="px-5 pt-5 pb-8 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b border-amber-300/60">
                 
                 {/* Top Navigation Bar */}
-                <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.08)] flex items-center justify-between relative z-30 border-b border-amber-100">
+                <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">
                     <div className="flex items-center gap-3">
                         <Link href="/">
                             <button 
                                 type="button"
-                                className="w-10 h-10 rounded-full bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                                className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
                                 title="Kembali ke Beranda"
                             >
-                                <ArrowLeft className="w-5 h-5 text-brand-gold" strokeWidth={2.5} />
+                                <ArrowLeft className="w-5 h-5 text-slate-800" strokeWidth={2.5} />
                             </button>
                         </Link>
 
                         <div className="flex flex-col">
                             <div className="flex items-center gap-1.5">
                                 <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                                <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                                <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest">
                                     Mutasi Kas Internal
                                 </p>
                             </div>
-                            <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                            <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
                                 Pindah Saldo & Akun
                             </h1>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <span className="bg-brand-navy text-brand-gold text-[10px] font-black px-3 py-1.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-900 border border-brand-gold/30">
+                        <span className="bg-brand-navy text-brand-gold text-[10px] font-extrabold px-3 py-1.5 rounded-full border border-brand-gold/30 shadow-xs">
                             WALLET HUB
                         </span>
                     </div>
                 </div>
 
-                {/* FLAGSHIP HERO CARD */}
+                {/* FLAGSHIP HERO CARD - SATU-SATUNYA YANG MEMAKAI SOLID SHADOW KHAS BILANO */}
                 <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-6 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
                     <ArrowRightLeft className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
                     <div className="absolute right-0 top-0 w-32 h-32 bg-brand-gold/15 rounded-full blur-xl pointer-events-none" />
@@ -323,12 +322,12 @@ export default function Transfer() {
                     </div>
                 </div>
 
-                {/* DUA TAB SWITCHER NEO-BRUTALIST */}
-                <div className="grid grid-cols-2 gap-2 mt-4 bg-white/90 p-1.5 rounded-2xl border-2 border-amber-300 shadow-[3px_3px_0px_0px] shadow-slate-900/40">
+                {/* DUA TAB SWITCHER REFINED & SLEEK */}
+                <div className="grid grid-cols-2 gap-1.5 mt-4 bg-white/90 p-1.5 rounded-2xl border border-amber-200/80 shadow-xs">
                     <button
                         type="button"
                         onClick={() => setActiveTab('transfer')}
-                        className={`py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        className={`py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                             activeTab === 'transfer'
                                 ? 'bg-brand-navy text-brand-gold shadow-sm'
                                 : 'text-slate-600 hover:text-slate-900'
@@ -339,31 +338,31 @@ export default function Transfer() {
                     <button
                         type="button"
                         onClick={() => setActiveTab('create_account')}
-                        className={`py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        className={`py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                             activeTab === 'create_account'
                                 ? 'bg-brand-navy text-brand-gold shadow-sm'
                                 : 'text-slate-600 hover:text-slate-900'
                         }`}
                     >
-                        <Plus className="w-3.5 h-3.5 stroke-[3]" /> + Buat Akun Baru
+                        <Plus className="w-3.5 h-3.5 stroke-[2.5]" /> + Buat Akun Baru
                     </button>
                 </div>
             </div>
 
             {/* ========================================================================= */}
-            {/* 2. BODY CONTENT SECTION */}
+            {/* 2. BODY CONTENT SECTION - CLEAN, CRISP & MODERN ELEVATION */}
             {/* ========================================================================= */}
-            <div className="px-5 pt-4 pb-28 bg-slate-50 flex flex-col gap-4">
+            <div className="px-5 pt-5 pb-28 bg-slate-50 flex flex-col gap-4">
                 
                 {/* TAB 1: PINDAH SALDO (TRANSFER) */}
                 {activeTab === 'transfer' && (
                     <div className="space-y-4 animate-in fade-in">
                         
                         {/* 1. DARI SUMBER ASAL */}
-                        <div className="bg-white p-5 rounded-[28px] border-2 border-amber-200/90 shadow-[5px_5px_0px_0px] shadow-slate-900 space-y-3">
+                        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
                             <div className="flex items-center justify-between">
-                                <label className="text-xs font-black text-brand-navy uppercase tracking-wider flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center border border-rose-300">
+                                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center">
                                         <ArrowUp className="w-4 h-4 stroke-[2.5]" />
                                     </div>
                                     Dari Dompet Asal (Tarik Dana)
@@ -378,10 +377,10 @@ export default function Transfer() {
                             <button
                                 type="button"
                                 onClick={() => setIsFromModalOpen(true)}
-                                className="w-full h-15 bg-slate-50 hover:bg-white border-2 border-slate-200 rounded-2xl px-4 flex items-center justify-between transition-all text-left shadow-xs group active:scale-[0.99] cursor-pointer"
+                                className="w-full h-15 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-2xl px-4 flex items-center justify-between transition-all text-left group active:scale-[0.99] cursor-pointer"
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                    <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
                                         {fromLogo ? (
                                             <img src={fromLogo} alt="Logo" className="w-full h-full object-contain" />
                                         ) : (
@@ -391,13 +390,13 @@ export default function Transfer() {
                                     <div>
                                         {fromSource ? (
                                             <div className="flex flex-col">
-                                                <span className="font-black text-sm text-slate-900 leading-tight">{fromSource}</span>
+                                                <span className="font-extrabold text-sm text-slate-900 leading-tight">{fromSource}</span>
                                                 {selectedFromWallet && (
                                                     <span className="text-[11px] font-bold text-emerald-700">{formatRp(selectedFromWallet.balance)}</span>
                                                 )}
                                             </div>
                                         ) : (
-                                            <span className="text-xs font-bold text-slate-400">Sentuh untuk pilih dompet asal...</span>
+                                            <span className="text-xs font-bold text-slate-400">Pilih dompet asal...</span>
                                         )}
                                     </div>
                                 </div>
@@ -406,10 +405,10 @@ export default function Transfer() {
                         </div>
 
                         {/* 2. KE TUJUAN */}
-                        <div className="bg-white p-5 rounded-[28px] border-2 border-amber-200/90 shadow-[5px_5px_0px_0px] shadow-slate-900 space-y-3">
+                        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
                             <div className="flex items-center justify-between">
-                                <label className="text-xs font-black text-brand-navy uppercase tracking-wider flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center border border-emerald-300">
+                                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
                                         <ArrowDown className="w-4 h-4 stroke-[2.5]" />
                                     </div>
                                     Ke Dompet Tujuan (Terima Dana)
@@ -421,7 +420,7 @@ export default function Transfer() {
                                 <button
                                     type="button"
                                     onClick={() => setDestinationMode('existing')}
-                                    className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                                    className={`py-2 px-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                                         destinationMode === 'existing'
                                             ? 'bg-brand-navy text-brand-gold shadow-xs'
                                             : 'text-slate-600 hover:text-slate-900'
@@ -432,13 +431,13 @@ export default function Transfer() {
                                 <button
                                     type="button"
                                     onClick={() => setDestinationMode('new')}
-                                    className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                                    className={`py-2 px-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                                         destinationMode === 'new'
                                             ? 'bg-brand-navy text-brand-gold shadow-xs'
                                             : 'text-slate-600 hover:text-slate-900'
                                     }`}
                                 >
-                                    <Plus className="w-3.5 h-3.5 stroke-[3]" /> + Sumber Baru
+                                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" /> + Sumber Baru
                                 </button>
                             </div>
 
@@ -447,10 +446,10 @@ export default function Transfer() {
                                     <button
                                         type="button"
                                         onClick={() => setIsToModalOpen(true)}
-                                        className="w-full h-15 bg-slate-50 hover:bg-white border-2 border-slate-200 rounded-2xl px-4 flex items-center justify-between transition-all text-left shadow-xs group active:scale-[0.99] cursor-pointer"
+                                        className="w-full h-15 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-2xl px-4 flex items-center justify-between transition-all text-left group active:scale-[0.99] cursor-pointer"
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                            <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
                                                 {toLogo ? (
                                                     <img src={toLogo} alt="Logo" className="w-full h-full object-contain" />
                                                 ) : (
@@ -460,13 +459,13 @@ export default function Transfer() {
                                             <div>
                                                 {toSource ? (
                                                     <div className="flex flex-col">
-                                                        <span className="font-black text-sm text-slate-900 leading-tight">{toSource}</span>
+                                                        <span className="font-extrabold text-sm text-slate-900 leading-tight">{toSource}</span>
                                                         {selectedToWallet && (
                                                             <span className="text-[11px] font-bold text-slate-500">{formatRp(selectedToWallet.balance)}</span>
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <span className="text-xs font-bold text-slate-400">Sentuh untuk pilih dompet tujuan...</span>
+                                                    <span className="text-xs font-bold text-slate-400">Pilih dompet tujuan...</span>
                                                 )}
                                             </div>
                                         </div>
@@ -475,7 +474,7 @@ export default function Transfer() {
                                 </div>
                             ) : (
                                 <div className="space-y-2 pt-1">
-                                    <p className="text-[10px] text-brand-navy font-black uppercase tracking-wider">
+                                    <p className="text-[10px] text-slate-600 font-bold uppercase tracking-wider">
                                         Pilih Bank / E-Wallet / Sekuritas Tujuan Baru:
                                     </p>
                                     <WalletSourceSelect
@@ -492,14 +491,14 @@ export default function Transfer() {
                         </div>
 
                         {/* 3. NOMINAL TRANSFER */}
-                        <div className="bg-white p-5 rounded-[28px] border-2 border-amber-200/90 shadow-[5px_5px_0px_0px] shadow-slate-900 space-y-3">
+                        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
                             <div className="flex items-center justify-between">
-                                <label className="text-xs font-black text-brand-navy uppercase tracking-wider">Nominal Pindah Dana (Rp)</label>
+                                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">Nominal Pindah Dana (Rp)</label>
                                 {selectedFromWallet && (
                                     <button
                                         type="button"
                                         onClick={handleMaxAmount}
-                                        className="text-[11px] font-black text-brand-navy hover:underline flex items-center gap-1 cursor-pointer"
+                                        className="text-[11px] font-bold text-brand-navy hover:underline flex items-center gap-1 cursor-pointer"
                                     >
                                         <Sparkles className="w-3 h-3 text-amber-500 fill-current" /> Transfer Semua Saldo
                                     </button>
@@ -511,7 +510,7 @@ export default function Transfer() {
                                 placeholder="0" 
                                 value={amount} 
                                 onChange={(e) => setAmount(formatNumber(e.target.value))}
-                                className="w-full h-15 px-4 font-black text-xl bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-amber-500 focus:bg-white text-slate-900 tabular-nums transition-all"
+                                className="w-full h-14 px-4 font-black text-xl bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-brand-navy focus:bg-white text-slate-900 tabular-nums transition-all"
                             />
 
                             {/* Quick Preset Nominal Chips */}
@@ -521,7 +520,7 @@ export default function Transfer() {
                                         key={preset}
                                         type="button"
                                         onClick={() => setPresetAmount(preset)}
-                                        className="px-3 py-1.5 rounded-xl text-[11px] font-black bg-slate-100 hover:bg-amber-100 text-slate-800 border border-slate-200 active:scale-95 transition-all cursor-pointer"
+                                        className="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-95 transition-all cursor-pointer"
                                     >
                                         +{preset >= 1000000 ? `${preset / 1000000} Jt` : `${preset / 1000} rb`}
                                     </button>
@@ -530,13 +529,13 @@ export default function Transfer() {
                         </div>
 
                         {/* 4. CATATAN */}
-                        <div className="bg-white p-5 rounded-[28px] border-2 border-amber-200/90 shadow-[5px_5px_0px_0px] shadow-slate-900 space-y-2">
-                            <label className="text-xs font-black text-brand-navy uppercase tracking-wider block">Catatan Transfer (Opsional)</label>
+                        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-2">
+                            <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Catatan Transfer (Opsional)</label>
                             <input 
                                 placeholder="Cth: Pindah dana ke RDN untuk beli saham / top-up saldo" 
                                 value={notes} 
                                 onChange={(e) => setNotes(e.target.value)}
-                                className="w-full h-12 px-4 font-bold text-xs bg-slate-50 border-2 border-slate-200 rounded-2xl text-slate-800 outline-none focus:border-amber-500 focus:bg-white transition-all"
+                                className="w-full h-12 px-4 font-semibold text-xs bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 outline-none focus:border-brand-navy focus:bg-white transition-all"
                             />
                         </div>
 
@@ -545,7 +544,7 @@ export default function Transfer() {
                             type="button"
                             onClick={handleTransferSubmit} 
                             disabled={isSubmitting || !fromSource || (!toSource && destinationMode === 'existing') || (destinationMode === 'new' && !newSourceName.trim()) || !amount} 
-                            className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
+                            className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-1"
                         >
                             {isSubmitting ? (
                                 <>
@@ -563,27 +562,27 @@ export default function Transfer() {
                     </div>
                 )}
 
-                {/* TAB 2: BUAT AKUN / DOMPET BARU (LANGSUNG DENGAN SALDO AWAL OPSIONAL) */}
+                {/* TAB 2: BUAT AKUN / DOMPET BARU */}
                 {activeTab === 'create_account' && (
                     <div className="space-y-4 animate-in fade-in">
                         
-                        <div className="bg-white p-6 rounded-[28px] border-2 border-amber-200/90 shadow-[6px_6px_0px_0px] shadow-slate-900 space-y-4">
-                            <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-3">
-                                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-brand-navy flex items-center justify-center border-2 border-amber-200">
-                                    <Landmark className="w-6 h-6 stroke-[2.5]" />
+                        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+                            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                                <div className="w-11 h-11 rounded-2xl bg-amber-50 text-brand-navy flex items-center justify-center border border-amber-200">
+                                    <Landmark className="w-5 h-5 stroke-[2.5]" />
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-brand-navy text-sm uppercase tracking-wider">
+                                    <h3 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider">
                                         Pendaftaran Akun Dompet
                                     </h3>
-                                    <p className="text-[11px] text-slate-500 font-bold">
-                                        Buat akun bank/e-wallet baru langsung tanpa transfer.
+                                    <p className="text-[11px] text-slate-500 font-medium">
+                                        Buat akun bank / e-wallet baru langsung tanpa transfer.
                                     </p>
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 block">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 block">
                                     Pilih Bank / E-Wallet / Sekuritas
                                 </label>
                                 <WalletSourceSelect
@@ -599,19 +598,19 @@ export default function Transfer() {
 
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 block">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 block">
                                         Saldo Awal Saat Ini (Rp)
                                     </label>
-                                    <span className="text-[10px] text-slate-400 font-bold">Bisa diisi 0</span>
+                                    <span className="text-[10px] text-slate-400 font-medium">Bisa diisi 0</span>
                                 </div>
                                 <input 
                                     type="tel"
                                     placeholder="0 (Atau isi saldo awal yang sudah ada)" 
                                     value={createInitialBalance} 
                                     onChange={(e) => setCreateInitialBalance(formatNumber(e.target.value))}
-                                    className="w-full h-14 px-4 font-black text-lg bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-amber-500 focus:bg-white text-slate-900 tabular-nums transition-all"
+                                    className="w-full h-13 px-4 font-black text-base bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-brand-navy focus:bg-white text-slate-900 tabular-nums transition-all"
                                 />
-                                <p className="text-[10px] text-slate-500 font-bold leading-relaxed px-1">
+                                <p className="text-[10px] text-slate-500 font-medium leading-relaxed px-1">
                                     💡 <em>Jika diisi &gt; 0, saldo awal ini akan langsung menambah Total Saldo Kas dan Kekayaan Bersih Anda tanpa dicatat sebagai pemasukan bulanan.</em>
                                 </p>
                             </div>
@@ -620,7 +619,7 @@ export default function Transfer() {
                                 type="button"
                                 onClick={handleCreateDirectAccount} 
                                 disabled={isCreatingAccount || !createAccountName.trim()} 
-                                className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-3"
+                                className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
                             >
                                 {isCreatingAccount ? (
                                     <>
@@ -643,16 +642,16 @@ export default function Transfer() {
 
             {/* MODAL POPUP: PILIH SUMBER ASAL DENGAN LOGO */}
             {isFromModalOpen && (
-                <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-t-[32px] sm:rounded-[32px] w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden shadow-[8px_8px_0px_0px] shadow-slate-900 border-2 border-slate-900 animate-in slide-in-from-bottom-5">
-                        <div className="p-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-t-[32px] sm:rounded-[32px] w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden shadow-2xl border border-slate-100 animate-in slide-in-from-bottom-5">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
                             <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center border border-rose-300">
+                                <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center">
                                     <ArrowUp className="w-4 h-4 stroke-[2.5]" />
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-slate-900 text-sm">Pilih Dompet Asal</h3>
-                                    <p className="text-[10px] text-slate-500 font-bold">Sumber dana yang akan ditarik</p>
+                                    <h3 className="font-extrabold text-slate-900 text-sm">Pilih Dompet Asal</h3>
+                                    <p className="text-[10px] text-slate-500 font-medium">Sumber dana yang akan ditarik</p>
                                 </div>
                             </div>
                             <button onClick={() => setIsFromModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-500 cursor-pointer">
@@ -660,7 +659,7 @@ export default function Transfer() {
                             </button>
                         </div>
 
-                        <div className="p-4 overflow-y-auto space-y-2.5 flex-1 bg-slate-50">
+                        <div className="p-4 overflow-y-auto space-y-2 flex-1 bg-slate-50/50">
                             {walletSources.map((wallet) => {
                                 const logo = getWalletLogo(wallet.name);
                                 const isSelected = fromSource === wallet.name;
@@ -672,14 +671,14 @@ export default function Transfer() {
                                             setFromSource(wallet.name);
                                             setIsFromModalOpen(false);
                                         }}
-                                        className={`w-full flex items-center justify-between p-3.5 rounded-2xl border-2 transition-all text-left bg-white cursor-pointer ${
+                                        className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all text-left bg-white cursor-pointer ${
                                             isSelected 
-                                                ? 'border-brand-navy shadow-[2px_2px_0px_0px] shadow-slate-900 ring-1 ring-brand-navy' 
-                                                : 'border-slate-200 hover:border-slate-300'
+                                                ? 'border-brand-navy shadow-xs ring-1 ring-brand-navy' 
+                                                : 'border-slate-200/80 hover:border-slate-300'
                                         }`}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
                                                 {logo ? (
                                                     <img src={logo} alt={wallet.name} className="w-full h-full object-contain" />
                                                 ) : (
@@ -687,8 +686,8 @@ export default function Transfer() {
                                                 )}
                                             </div>
                                             <div>
-                                                <div className="font-black text-slate-900 text-sm leading-tight">{wallet.name}</div>
-                                                <div className="text-xs font-bold text-slate-500 mt-0.5">Saldo: {formatRp(wallet.balance)}</div>
+                                                <div className="font-extrabold text-slate-900 text-sm leading-tight">{wallet.name}</div>
+                                                <div className="text-xs font-medium text-slate-500 mt-0.5">Saldo: {formatRp(wallet.balance)}</div>
                                             </div>
                                         </div>
                                         {isSelected && (
@@ -706,16 +705,16 @@ export default function Transfer() {
 
             {/* MODAL POPUP: PILIH DOMPET TUJUAN DENGAN LOGO */}
             {isToModalOpen && (
-                <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-t-[32px] sm:rounded-[32px] w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden shadow-[8px_8px_0px_0px] shadow-slate-900 border-2 border-slate-900 animate-in slide-in-from-bottom-5">
-                        <div className="p-4 border-b-2 border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-t-[32px] sm:rounded-[32px] w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden shadow-2xl border border-slate-100 animate-in slide-in-from-bottom-5">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
                             <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center border border-emerald-300">
+                                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
                                     <ArrowDown className="w-4 h-4 stroke-[2.5]" />
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-slate-900 text-sm">Pilih Dompet Tujuan</h3>
-                                    <p className="text-[10px] text-slate-500 font-bold">Dompet penerima saldo</p>
+                                    <h3 className="font-extrabold text-slate-900 text-sm">Pilih Dompet Tujuan</h3>
+                                    <p className="text-[10px] text-slate-500 font-medium">Dompet penerima saldo</p>
                                 </div>
                             </div>
                             <button onClick={() => setIsToModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-500 cursor-pointer">
@@ -723,7 +722,7 @@ export default function Transfer() {
                             </button>
                         </div>
 
-                        <div className="p-4 overflow-y-auto space-y-2.5 flex-1 bg-slate-50">
+                        <div className="p-4 overflow-y-auto space-y-2 flex-1 bg-slate-50/50">
                             {walletSources.filter(w => w.name !== fromSource).map((wallet) => {
                                 const logo = getWalletLogo(wallet.name);
                                 const isSelected = toSource === wallet.name;
@@ -735,14 +734,14 @@ export default function Transfer() {
                                             setToSource(wallet.name);
                                             setIsToModalOpen(false);
                                         }}
-                                        className={`w-full flex items-center justify-between p-3.5 rounded-2xl border-2 transition-all text-left bg-white cursor-pointer ${
+                                        className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all text-left bg-white cursor-pointer ${
                                             isSelected 
-                                                ? 'border-brand-navy shadow-[2px_2px_0px_0px] shadow-slate-900 ring-1 ring-brand-navy' 
-                                                : 'border-slate-200 hover:border-slate-300'
+                                                ? 'border-brand-navy shadow-xs ring-1 ring-brand-navy' 
+                                                : 'border-slate-200/80 hover:border-slate-300'
                                         }`}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
                                                 {logo ? (
                                                     <img src={logo} alt={wallet.name} className="w-full h-full object-contain" />
                                                 ) : (
@@ -750,8 +749,8 @@ export default function Transfer() {
                                                 )}
                                             </div>
                                             <div>
-                                                <div className="font-black text-slate-900 text-sm leading-tight">{wallet.name}</div>
-                                                <div className="text-xs font-bold text-slate-500 mt-0.5">Saldo: {formatRp(wallet.balance)}</div>
+                                                <div className="font-extrabold text-slate-900 text-sm leading-tight">{wallet.name}</div>
+                                                <div className="text-xs font-medium text-slate-500 mt-0.5">Saldo: {formatRp(wallet.balance)}</div>
                                             </div>
                                         </div>
                                         {isSelected && (

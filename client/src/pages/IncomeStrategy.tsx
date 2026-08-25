@@ -35,9 +35,9 @@ const formatRp = (val: number) => {
 };
 
 const CAPITAL_BADGE: Record<string, string> = {
-  TANPA_MODAL: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  MODAL_KECIL: "bg-amber-100 text-amber-800 border-amber-300",
-  MODAL_SEDANG: "bg-rose-100 text-rose-800 border-rose-300",
+  TANPA_MODAL: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  MODAL_KECIL: "bg-amber-50 text-amber-800 border-amber-200",
+  MODAL_SEDANG: "bg-rose-50 text-rose-800 border-rose-200",
 };
 
 const CAPITAL_LABEL: Record<string, string> = { 
@@ -47,16 +47,16 @@ const CAPITAL_LABEL: Record<string, string> = {
 };
 
 const DIFFICULTY_BADGE: Record<string, string> = {
-  MUDAH: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  SEDANG: "bg-amber-100 text-amber-800 border-amber-300",
-  MENANTANG: "bg-rose-100 text-rose-800 border-rose-300",
+  MUDAH: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  SEDANG: "bg-amber-50 text-amber-800 border-amber-200",
+  MENANTANG: "bg-rose-50 text-rose-800 border-rose-200",
 };
 
 const STATE_BADGE: Record<string, { label: string; className: string }> = {
-  MATERIALS: { label: "1. Rencana Bahan", className: "bg-slate-100 text-slate-700 border-slate-300" },
-  CAPITAL: { label: "2. Kumpul Modal", className: "bg-amber-100 text-amber-800 border-amber-300" },
-  SELLING: { label: "3. Strategi Jual", className: "bg-blue-100 text-blue-800 border-blue-300" },
-  TRACKING: { label: "4. Pantau Omset", className: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+  MATERIALS: { label: "1. Rencana Bahan", className: "bg-slate-100 text-slate-700 border-slate-200" },
+  CAPITAL: { label: "2. Kumpul Modal", className: "bg-amber-50 text-amber-800 border-amber-200" },
+  SELLING: { label: "3. Strategi Jual", className: "bg-blue-50 text-blue-800 border-blue-200" },
+  TRACKING: { label: "4. Pantau Omset", className: "bg-emerald-50 text-emerald-800 border-emerald-200" },
 };
 
 // =========================================================================
@@ -65,12 +65,12 @@ const STATE_BADGE: Record<string, { label: string; className: string }> = {
 function ProgressBar({ step, total }: { step: number; total: number }) {
   const pct = Math.min(100, Math.round((step / total) * 100));
   return (
-    <div className="mb-5 bg-white p-3.5 rounded-2xl border-2 border-slate-200 shadow-[3px_3px_0px_0px] shadow-slate-900">
-      <div className="flex justify-between text-[10px] font-black text-brand-navy uppercase tracking-widest mb-1.5">
+    <div className="mb-5 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
+      <div className="flex justify-between text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-1.5">
         <span>Langkah {Math.min(step, total)} dari {total}</span>
-        <span className="text-amber-600">{pct}% Selesai</span>
+        <span className="text-amber-600 font-extrabold">{pct}% Selesai</span>
       </div>
-      <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
         <div 
           className="h-full bg-gradient-to-r from-brand-gold to-amber-500 rounded-full transition-all duration-500" 
           style={{ width: `${pct}%` }} 
@@ -85,23 +85,23 @@ function OptionButton({ label, selected, onClick, checkbox }: { label: string; s
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left px-4 py-3.5 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 active:translate-x-[1px] active:translate-y-[1px] cursor-pointer ${
+      className={`w-full text-left px-4 py-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 active:scale-[0.98] cursor-pointer ${
         selected 
-          ? "border-brand-navy bg-amber-50 shadow-[3px_3px_0px_0px] shadow-slate-900 translate-x-[-1px] translate-y-[-1px]" 
-          : "border-slate-200 bg-white hover:border-amber-400 shadow-[2px_2px_0px_0px] shadow-slate-900/40"
+          ? "border-brand-navy bg-amber-50/80 shadow-xs" 
+          : "border-slate-200/80 bg-white hover:border-slate-300 shadow-xs"
       }`}
     >
-      <span className={`text-xs sm:text-sm font-black ${selected ? "text-brand-navy" : "text-slate-800"}`}>
+      <span className={`text-xs sm:text-sm font-bold ${selected ? "text-brand-navy font-extrabold" : "text-slate-800"}`}>
         {label}
       </span>
       {checkbox ? (
-        <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center shrink-0 transition-colors ${
+        <div className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 transition-colors ${
           selected ? "border-brand-navy bg-brand-gold text-brand-navy" : "border-slate-300 bg-slate-50"
         }`}>
           {selected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
         </div>
       ) : (
-        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+        <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
           selected ? "border-brand-navy bg-brand-gold text-brand-navy" : "border-slate-300 bg-slate-50"
         }`}>
           {selected && <div className="w-2 h-2 bg-brand-navy rounded-full" />}
@@ -113,9 +113,9 @@ function OptionButton({ label, selected, onClick, checkbox }: { label: string; s
 
 function DisclaimerBanner() {
   return (
-    <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-3.5 flex gap-2.5 items-start mb-4 shadow-[2px_2px_0px_0px] shadow-slate-900">
+    <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3.5 flex gap-2.5 items-start mb-4 shadow-xs">
       <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-      <p className="text-[11px] text-amber-950 font-bold leading-relaxed">
+      <p className="text-[11px] text-amber-950 font-medium leading-relaxed">
         Ini adalah simulasi strategi bisnis taktis. Pertimbangkan kesiapan waktu & risiko sebelum mengeluarkan modal riil.
       </p>
     </div>
@@ -126,20 +126,20 @@ function LockedScreen() {
   return (
     <MobileLayout title="Ide & Pembimbing Penghasilan" showBack>
       <div className="flex flex-col items-center justify-center min-h-[75vh] px-6 text-center -mx-5 -mt-5 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] p-6">
-        <div className="w-20 h-20 bg-brand-gold text-brand-navy rounded-3xl flex items-center justify-center mb-5 shadow-[4px_4px_0px_0px] shadow-slate-900 border-2 border-brand-navy">
+        <div className="w-20 h-20 bg-brand-gold text-brand-navy rounded-3xl flex items-center justify-center mb-5 shadow-sm border border-brand-navy">
           <Crown className="w-10 h-10" />
         </div>
-        <span className="bg-brand-navy text-brand-gold text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider mb-2 shadow-xs">
+        <span className="bg-brand-navy text-brand-gold text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2 shadow-xs">
           FITUR EKSKLUSIF BILANO PRO
         </span>
         <h2 className="text-2xl font-black text-brand-navy mb-2 tracking-tight">
           Buka Akses Peta Cuan AI
         </h2>
-        <p className="text-xs text-amber-950 font-bold mb-6 max-w-xs leading-relaxed">
+        <p className="text-xs text-amber-950 font-medium mb-6 max-w-xs leading-relaxed">
           Dapatkan bimbingan langkah demi langkah dari AI untuk membedah modal, keahlian, dan mengeksekusi bisnis nyata.
         </p>
         <Link href="/paywall">
-          <button className="w-full max-w-xs h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all cursor-pointer">
+          <button className="w-full max-w-xs h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer">
             UPGRADE KE BILANO PRO
           </button>
         </Link>
@@ -153,15 +153,15 @@ function CooldownScreen({ dateStr }: { dateStr: string }) {
   return (
     <MobileLayout title="Masa Jeda Evaluasi" showBack>
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6 -mx-5 -mt-5 p-6">
-        <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mb-4 border-2 border-amber-300 shadow-[3px_3px_0px_0px] shadow-slate-900">
+        <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mb-4 border border-amber-300 shadow-xs">
           <Lock className="w-8 h-8" />
         </div>
         <h2 className="text-lg font-black text-slate-900 mb-1 tracking-tight">Masa Jeda Evaluasi Berjalan</h2>
-        <p className="text-xs text-slate-500 mb-6 leading-relaxed font-bold max-w-xs">
+        <p className="text-xs text-slate-500 mb-6 leading-relaxed font-medium max-w-xs">
           Anda baru saja menghentikan operasional bisnis sebelumnya. Sistem menahan pembuatan ide baru agar Anda fokus mengevaluasi catatan keuangan. Fitur terbuka kembali pada <strong>{formatted}</strong>.
         </p>
         <Link href="/">
-          <button className="w-full max-w-xs h-12 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[3px_3px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer">
+          <button className="w-full max-w-xs h-12 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer">
             Kembali ke Beranda
           </button>
         </Link>
@@ -253,7 +253,7 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
           <button 
             type="button"
             onClick={onBackToIntro}
-            className="flex items-center gap-1 text-xs font-black text-brand-navy hover:text-amber-600 transition-colors"
+            className="flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-amber-600 transition-colors cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4" /> Kembali
           </button>
@@ -261,11 +261,11 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
 
         <ProgressBar step={0} total={totalSteps} />
 
-        <div className="bg-white p-5 rounded-[28px] border-2 border-amber-200 shadow-[6px_6px_0px_0px] shadow-slate-900">
-          <h2 className="text-base sm:text-lg font-black text-slate-900 mb-1">
+        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
+          <h2 className="text-base sm:text-lg font-extrabold text-slate-900 mb-1">
             Status Aktivitas Utama Saat Ini?
           </h2>
-          <p className="text-xs text-slate-500 font-bold mb-4">
+          <p className="text-xs text-slate-500 font-medium mb-4">
             BILANO akan menyesuaikan seluruh rekomendasi dan pertanyaan taktis sesuai kapasitas harian Anda.
           </p>
           
@@ -278,14 +278,14 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
                   type="button"
                   onClick={() => handlePickStatus(opt.value)}
                   disabled={isFetchingQuestions}
-                  className="bg-white border-2 border-slate-200 hover:border-amber-400 rounded-2xl p-4 shadow-[3px_3px_0px_0px] shadow-slate-900/60 hover:shadow-[4px_4px_0px_0px] hover:shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] flex flex-col items-center text-center gap-2.5 transition-all disabled:opacity-50 cursor-pointer group"
+                  className="bg-white border border-slate-200/80 hover:border-amber-400 rounded-2xl p-4 shadow-xs hover:shadow-sm active:scale-[0.98] flex flex-col items-center text-center gap-2.5 transition-all disabled:opacity-50 cursor-pointer group"
                 >
-                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${opt.color} flex items-center justify-center shadow-md text-white group-hover:scale-105 transition-transform`}>
+                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${opt.color} flex items-center justify-center shadow-xs text-white group-hover:scale-105 transition-transform`}>
                     {isFetchingQuestions && status === opt.value ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-6 h-6" />}
                   </div>
                   <div>
-                    <p className="font-black text-slate-900 text-xs">{opt.label}</p>
-                    <p className="text-[10px] text-slate-400 font-semibold">{opt.sub}</p>
+                    <p className="font-bold text-slate-900 text-xs">{opt.label}</p>
+                    <p className="text-[10px] text-slate-400 font-medium">{opt.sub}</p>
                   </div>
                 </button>
               );
@@ -300,7 +300,7 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
     return (
       <div className="pt-24 flex flex-col items-center justify-center text-slate-400">
         <Loader2 className="w-8 h-8 animate-spin mb-3 text-brand-gold" />
-        <p className="text-xs font-black text-brand-navy">Menyiapkan pertanyaan strategis...</p>
+        <p className="text-xs font-bold text-brand-navy">Menyiapkan pertanyaan strategis...</p>
       </div>
     );
   }
@@ -313,7 +313,7 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
         <button 
           type="button"
           onClick={handleStepBack}
-          className="flex items-center gap-1 text-xs font-black text-brand-navy hover:text-amber-600 transition-colors cursor-pointer"
+          className="flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-amber-600 transition-colors cursor-pointer"
         >
           <ChevronLeft className="w-4 h-4" /> Langkah Sebelumnya
         </button>
@@ -321,8 +321,8 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
 
       <ProgressBar step={stepIndex} total={totalSteps} />
 
-      <div className="bg-white p-5 rounded-[28px] border-2 border-amber-200 shadow-[6px_6px_0px_0px] shadow-slate-900 space-y-4">
-        <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+      <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+        <h2 className="text-base sm:text-lg font-extrabold text-slate-900 leading-snug">
           {currentQuestion.question_text}
         </h2>
 
@@ -356,7 +356,7 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
                 onChange={(e) => setKeahlianLainnya(e.target.value)}
                 placeholder="Tulis keahlian lain (opsional)..."
                 disabled={isSubmitting}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 text-xs font-bold focus:border-amber-500 outline-none"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs font-medium focus:border-amber-500 outline-none"
               />
             )}
             {currentQuestion.field_key === "aset" && (
@@ -365,7 +365,7 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
                 onChange={(e) => setAsetLainnya(e.target.value)}
                 placeholder="Tulis alat/aset pendukung lain (opsional)..."
                 disabled={isSubmitting}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 text-xs font-bold focus:border-amber-500 outline-none"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs font-medium focus:border-amber-500 outline-none"
               />
             )}
             <button
@@ -393,7 +393,7 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
                 }
               }}
               disabled={multiSelected.length === 0 || isSubmitting}
-              className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:bg-slate-200 disabled:text-slate-400 text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+              className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:bg-slate-200 disabled:text-slate-400 text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
             >
               {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "LANJUTKAN PERTANYAAN"}
             </button>
@@ -408,13 +408,13 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
               placeholder={currentQuestion.placeholder || "Tuliskan jawaban Anda secara singkat..."}
               rows={3}
               disabled={isSubmitting}
-              className="w-full p-4 rounded-2xl border-2 border-slate-200 text-xs font-bold focus:border-amber-500 outline-none resize-none"
+              className="w-full p-4 rounded-xl border border-slate-200 text-xs font-medium focus:border-amber-500 outline-none resize-none"
             />
             <button
               type="button"
               onClick={() => advance(camelKey, textValue.trim())}
               disabled={!textValue.trim() || isSubmitting}
-              className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:bg-slate-200 disabled:text-slate-400 text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:bg-slate-200 disabled:text-slate-400 text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "LANJUTKAN PERTANYAAN"}
             </button>
@@ -431,30 +431,30 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
 function RecommendationCard({ rec, onSelect, isSelecting }: { rec: any; onSelect: () => void; isSelecting: boolean }) {
   const [expanded, setExpanded] = useState(false);
   return (
-    <div className="bg-white border-2 border-amber-200/90 rounded-[28px] p-5 shadow-[5px_5px_0px_0px] shadow-slate-900 space-y-3">
+    <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs hover:shadow-sm space-y-3">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-300 text-brand-navy flex items-center justify-center shrink-0 shadow-sm">
+        <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 text-brand-navy flex items-center justify-center shrink-0 shadow-xs">
           <Lightbulb className="w-5 h-5 text-amber-700" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="font-black text-brand-navy text-base leading-snug">{rec.title}</h3>
-          <p className="text-xs text-slate-600 font-bold leading-relaxed mt-1">{rec.pitch}</p>
+          <h3 className="font-extrabold text-slate-900 text-base leading-snug">{rec.title}</h3>
+          <p className="text-xs text-slate-600 font-medium leading-relaxed mt-1">{rec.pitch}</p>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-1.5 pt-1">
         {rec.capital_level && (
-          <span className={`text-[9px] font-black uppercase tracking-wide px-2.5 py-1 rounded-md border ${CAPITAL_BADGE[rec.capital_level] || "bg-slate-100 text-slate-700 border-slate-300"}`}>
+          <span className={`text-[9px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-md border ${CAPITAL_BADGE[rec.capital_level] || "bg-slate-100 text-slate-700 border-slate-200"}`}>
             {CAPITAL_LABEL[rec.capital_level] || rec.capital_level}
           </span>
         )}
         {rec.difficulty && (
-          <span className={`text-[9px] font-black uppercase tracking-wide px-2.5 py-1 rounded-md border ${DIFFICULTY_BADGE[rec.difficulty] || "bg-slate-100 text-slate-700 border-slate-300"}`}>
+          <span className={`text-[9px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-md border ${DIFFICULTY_BADGE[rec.difficulty] || "bg-slate-100 text-slate-700 border-slate-200"}`}>
             {rec.difficulty}
           </span>
         )}
         {rec.estimated_time_to_first_income && (
-          <span className="text-[9px] font-black uppercase tracking-wide px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-300 flex items-center gap-1">
+          <span className="text-[9px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
             <Clock className="w-3 h-3" /> {rec.estimated_time_to_first_income}
           </span>
         )}
@@ -463,23 +463,23 @@ function RecommendationCard({ rec, onSelect, isSelecting }: { rec: any; onSelect
       <button 
         type="button"
         onClick={() => setExpanded((v) => !v)} 
-        className="text-xs font-black text-brand-navy hover:text-amber-600 flex items-center gap-1 cursor-pointer"
+        className="text-xs font-bold text-slate-700 hover:text-amber-600 flex items-center gap-1 cursor-pointer"
       >
         {expanded ? "▲ Sembunyikan analisis lapangan" : "▼ Lihat Analisis Kelayakan & Taktik"}
       </button>
 
       {expanded && (
-        <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-3.5 space-y-2 animate-in fade-in">
-          <p className="text-xs text-slate-800 leading-relaxed font-bold">
-            <strong className="text-brand-navy">Kesesuaian Profil:</strong> {rec.why_it_fits}
+        <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 space-y-2 animate-in fade-in">
+          <p className="text-xs text-slate-800 leading-relaxed font-medium">
+            <strong className="text-slate-900">Kesesuaian Profil:</strong> {rec.why_it_fits}
           </p>
           {rec.needs_upskilling && rec.upskilling_note && (
-            <p className="text-xs text-slate-800 leading-relaxed font-bold">
+            <p className="text-xs text-slate-800 leading-relaxed font-medium">
               <strong className="text-amber-800">Langkah Belajar Cepat:</strong> {rec.upskilling_note}
             </p>
           )}
           {rec.risk_note && (
-            <p className="text-xs text-slate-800 leading-relaxed font-bold">
+            <p className="text-xs text-slate-800 leading-relaxed font-medium">
               <strong className="text-rose-700">Risiko Utama Pasar:</strong> {rec.risk_note}
             </p>
           )}
@@ -490,7 +490,7 @@ function RecommendationCard({ rec, onSelect, isSelecting }: { rec: any; onSelect
         type="button"
         onClick={onSelect}
         disabled={isSelecting}
-        className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:opacity-60 text-brand-gold font-black rounded-2xl text-xs uppercase tracking-wider shadow-[3px_3px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+        className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:opacity-60 text-brand-gold font-bold rounded-2xl text-xs uppercase tracking-wider shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
       >
         {isSelecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Eksekusi Taktik Ini <ArrowRight className="w-4 h-4" /></>}
       </button>
@@ -508,7 +508,7 @@ function RecommendView({ profile, attempts, onResume, onSelect, selectingId, loc
       {/* OPERASIONAL AKTIF JIKA ADA */}
       {activeAttempts.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
             <Flame className="w-4 h-4 text-amber-600" /> Operasional Sedang Berjalan
           </h3>
           <div className="space-y-2.5">
@@ -519,11 +519,11 @@ function RecommendView({ profile, attempts, onResume, onSelect, selectingId, loc
                   key={att.id} 
                   type="button"
                   onClick={() => onResume(att)} 
-                  className="w-full bg-brand-navy text-white rounded-[24px] p-4.5 border-l-[6px] border-l-brand-gold shadow-[5px_5px_0px_0px] shadow-slate-900 flex items-center justify-between gap-3 active:translate-x-[1px] active:translate-y-[1px] transition-transform text-left cursor-pointer"
+                  className="w-full bg-brand-navy text-white rounded-3xl p-4.5 border-l-[6px] border-l-brand-gold shadow-sm flex items-center justify-between gap-3 active:scale-[0.98] transition-transform text-left cursor-pointer"
                 >
                   <div className="min-w-0">
-                    <p className="font-black text-white text-sm truncate">{att.recommendation?.title || "Percobaan Usaha"}</p>
-                    <span className={`inline-block mt-1 text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-md border ${badge.className}`}>
+                    <p className="font-extrabold text-white text-sm truncate">{att.recommendation?.title || "Percobaan Usaha"}</p>
+                    <span className={`inline-block mt-1 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md border ${badge.className}`}>
                       {badge.label}
                     </span>
                   </div>
@@ -538,15 +538,15 @@ function RecommendView({ profile, attempts, onResume, onSelect, selectingId, loc
       {/* ARSIP RIWAYAT USAHA */}
       {stoppedAttempts.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-black text-slate-500 uppercase tracking-wider">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
             Arsip Riwayat Bisnis
           </h3>
           <div className="space-y-2 opacity-75">
             {stoppedAttempts.map((att: any) => (
-              <div key={att.id} className="w-full bg-white border-2 border-slate-200 rounded-2xl p-3.5 flex items-center justify-between text-left shadow-sm">
+              <div key={att.id} className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 flex items-center justify-between text-left shadow-xs">
                 <div className="min-w-0">
-                  <p className="font-bold text-slate-800 text-xs truncate">{att.recommendation?.title}</p>
-                  <span className="inline-block mt-0.5 text-[8px] font-black uppercase tracking-wide px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200">Dihentikan</span>
+                  <p className="font-medium text-slate-800 text-xs truncate">{att.recommendation?.title}</p>
+                  <span className="inline-block mt-0.5 text-[8px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200">Dihentikan</span>
                 </div>
               </div>
             ))}
@@ -557,33 +557,33 @@ function RecommendView({ profile, attempts, onResume, onSelect, selectingId, loc
       {/* DAFTAR REKOMENDASI TAKTIK */}
       <div className="space-y-3">
         <div className="flex justify-between items-center px-1">
-          <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
             <Compass className="w-4 h-4 text-amber-600" />
             Peta Rekomendasi Taktis
           </h3>
           <button 
             type="button"
             onClick={onReIdentify}
-            className="text-[10px] font-black text-brand-navy hover:text-amber-600 transition-colors"
+            className="text-[10px] font-bold text-slate-600 hover:text-amber-600 transition-colors cursor-pointer"
           >
             Audit Ulang Profil
           </button>
         </div>
 
         {localRecs.length === 0 ? (
-          <div className="bg-white border-2 border-amber-200 rounded-[28px] p-6 text-center shadow-[6px_6px_0px_0px] shadow-slate-900 space-y-3">
-            <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto text-brand-navy shadow-sm">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 text-center shadow-xs space-y-3">
+            <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto text-brand-navy shadow-xs">
               <RefreshCcw className="w-7 h-7 text-amber-700" />
             </div>
-            <h4 className="font-black text-slate-900 text-sm">Pindai Radar Ide Baru</h4>
-            <p className="text-xs text-slate-500 font-bold leading-relaxed">
+            <h4 className="font-extrabold text-slate-900 text-sm">Pindai Radar Ide Baru</h4>
+            <p className="text-xs text-slate-500 font-medium leading-relaxed">
               Sistem BILANO siap memindai dan merumuskan taktik penghasilan baru untuk Anda.
             </p>
             <button 
               type="button"
               onClick={handleGenerate} 
               disabled={isGenerating} 
-              className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:opacity-70 text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 flex items-center justify-center gap-2 active:translate-x-[2px] active:translate-y-[2px] transition-all cursor-pointer"
+              className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:opacity-70 text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
             >
               {isGenerating ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyusun Peta...</> : <><RefreshCcw className="w-4 h-4" /> Jalankan Pemindaian Radar</>}
             </button>
@@ -602,7 +602,7 @@ function RecommendView({ profile, attempts, onResume, onSelect, selectingId, loc
               type="button"
               onClick={handleGenerate} 
               disabled={isGenerating} 
-              className="w-full h-12 bg-white border-2 border-amber-300 hover:bg-amber-50 text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[3px_3px_0px_0px] shadow-slate-900 flex items-center justify-center gap-2 active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+              className="w-full h-12 bg-white border border-amber-300 hover:bg-amber-50 text-brand-navy font-bold text-xs uppercase tracking-wider rounded-2xl shadow-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
             >
               {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />} Pindai Alternatif Lain
             </button>
@@ -656,29 +656,29 @@ function MaterialsStep({ attempt, onUpdated }: { attempt: any; onUpdated: (parti
 
   return (
     <div className="pt-2 pb-24 space-y-4">
-      <div className="bg-white p-5 rounded-[28px] border-2 border-amber-200 shadow-[6px_6px_0px_0px] shadow-slate-900 space-y-3">
-        <h3 className="text-xs font-black text-brand-navy uppercase tracking-wider flex items-center gap-1.5">
+      <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
+        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
           <Layers className="w-4 h-4 text-amber-600" />
           Rencana Anggaran Biaya Awal (RAB)
         </h3>
         
         <div className="space-y-2">
           {materials.map((m, idx) => (
-            <div key={m.id || idx} className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-3 flex items-center gap-2">
+            <div key={m.id || idx} className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex items-center gap-2">
               <input 
                 value={m.name} 
                 onChange={(e) => updateRow(idx, "name", e.target.value)} 
                 placeholder="Nama bahan / kebutuhan..." 
-                className="flex-1 min-w-0 text-xs font-bold bg-transparent outline-none text-slate-800" 
+                className="flex-1 min-w-0 text-xs font-medium bg-transparent outline-none text-slate-800" 
               />
               <div className="flex items-center gap-1 shrink-0">
-                <span className="text-xs text-slate-400 font-bold">Rp</span>
+                <span className="text-xs text-slate-400 font-medium">Rp</span>
                 <input 
                   type="number" 
                   value={m.price || ""} 
                   onChange={(e) => updateRow(idx, "price", Number(e.target.value))} 
                   placeholder="0" 
-                  className="w-24 text-xs font-black text-right bg-transparent outline-none text-slate-900" 
+                  className="w-24 text-xs font-bold text-right bg-transparent outline-none text-slate-900" 
                 />
               </div>
               <button 
@@ -694,20 +694,20 @@ function MaterialsStep({ attempt, onUpdated }: { attempt: any; onUpdated: (parti
           <button 
             type="button"
             onClick={addRow} 
-            className="w-full h-12 border-2 border-dashed border-amber-300 bg-amber-50/50 hover:bg-amber-50 rounded-2xl text-brand-navy font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+            className="w-full h-12 border border-dashed border-amber-300 bg-amber-50/50 hover:bg-amber-50 rounded-2xl text-brand-navy font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4 text-amber-700" /> Tambah Kebutuhan Bahan
           </button>
         </div>
 
         <div className="bg-brand-navy rounded-2xl p-3.5 flex items-center justify-between border border-brand-gold/30">
-          <span className="text-[10px] font-black uppercase tracking-wider text-amber-200">Total Proyeksi Anggaran</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200">Total Proyeksi Anggaran</span>
           <span className="text-base font-black text-brand-gold tabular-nums">{formatRp(total)}</span>
         </div>
 
         {clarification && (
-          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 space-y-3 animate-in fade-in">
-            <p className="text-xs font-black text-amber-900">Audit Batas Aman Finansial:</p>
+          <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 space-y-3 animate-in fade-in">
+            <p className="text-xs font-bold text-amber-900">Audit Batas Aman Finansial:</p>
             {clarification.map((q: any) =>
               q.type === "text" ? (
                 <input 
@@ -715,11 +715,11 @@ function MaterialsStep({ attempt, onUpdated }: { attempt: any; onUpdated: (parti
                   value={manualExpense} 
                   onChange={(e) => setManualExpense(e.target.value)} 
                   placeholder={q.placeholder} 
-                  className="w-full px-4 py-3 rounded-xl border-2 border-amber-200 text-xs font-bold outline-none focus:border-amber-500 bg-white" 
+                  className="w-full px-4 py-3 rounded-xl border border-amber-200 text-xs font-medium outline-none focus:border-amber-500 bg-white" 
                 />
               ) : (
                 <div key={q.field_key} className="space-y-2">
-                  <p className="text-xs text-slate-700 font-bold">{q.question_text}</p>
+                  <p className="text-xs text-slate-700 font-medium">{q.question_text}</p>
                   {q.options.map((opt: any) => (
                     <OptionButton key={opt.value} label={opt.label} selected={dependents === opt.value} onClick={() => setDependents(opt.value)} />
                   ))}
@@ -730,7 +730,7 @@ function MaterialsStep({ attempt, onUpdated }: { attempt: any; onUpdated: (parti
               type="button"
               onClick={() => runFeasibility({ manualMonthlyExpense: manualExpense, hasDependents: dependents })}
               disabled={!manualExpense || !dependents || isChecking}
-              className="w-full h-12 bg-brand-navy text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[3px_3px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+              className="w-full h-12 bg-brand-navy text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm active:scale-[0.98] transition-all cursor-pointer"
             >
               {isChecking ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "KONFIRMASI INTEGRASI KAS"}
             </button>
@@ -738,14 +738,14 @@ function MaterialsStep({ attempt, onUpdated }: { attempt: any; onUpdated: (parti
         )}
 
         {verdictResult && !clarification && (
-          <div className={`rounded-2xl p-4 border-2 ${verdictResult.verdict === "CUKUP_AMAN" ? "bg-emerald-50 border-emerald-300" : verdictResult.verdict === "CUKUP_TAPI_RISIKO" ? "bg-amber-50 border-amber-300" : "bg-rose-50 border-rose-300"}`}>
+          <div className={`rounded-2xl p-4 border ${verdictResult.verdict === "CUKUP_AMAN" ? "bg-emerald-50 border-emerald-300" : verdictResult.verdict === "CUKUP_TAPI_RISIKO" ? "bg-amber-50 border-amber-300" : "bg-rose-50 border-rose-300"}`}>
             <div className="flex items-center gap-2 mb-1">
               {verdictResult.verdict === "CUKUP_AMAN" ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <ShieldAlert className={`w-5 h-5 ${verdictResult.verdict === "KURANG" ? "text-rose-600" : "text-amber-600"}`} />}
-              <h4 className={`font-black text-xs uppercase tracking-wider ${verdictResult.verdict === "CUKUP_AMAN" ? "text-emerald-800" : verdictResult.verdict === "CUKUP_TAPI_RISIKO" ? "text-amber-800" : "text-rose-800"}`}>
+              <h4 className={`font-bold text-xs uppercase tracking-wider ${verdictResult.verdict === "CUKUP_AMAN" ? "text-emerald-800" : verdictResult.verdict === "CUKUP_TAPI_RISIKO" ? "text-amber-800" : "text-rose-800"}`}>
                 {verdictResult.verdict === "CUKUP_AMAN" ? "Skala Anggaran Aman" : verdictResult.verdict === "CUKUP_TAPI_RISIKO" ? "Beresiko Mengganggu Dana Cadangan" : "Defisit Sisa Saldo"}
               </h4>
             </div>
-            <p className="text-xs text-slate-700 font-semibold leading-relaxed">
+            <p className="text-xs text-slate-700 font-medium leading-relaxed">
               Saldo kas aktif: {formatRp(verdictResult.saldo_saat_ini)} · Batas proteksi: {formatRp(verdictResult.sisa_dana_aman)}
               {verdictResult.verdict === "KURANG" && <> · Selisih kurang: {formatRp(verdictResult.selisih)}</>}
             </p>
@@ -757,7 +757,7 @@ function MaterialsStep({ attempt, onUpdated }: { attempt: any; onUpdated: (parti
             type="button"
             onClick={() => runFeasibility()} 
             disabled={isChecking}
-            className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:bg-slate-200 disabled:text-slate-400 text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:bg-slate-200 disabled:text-slate-400 text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             {isChecking ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Wallet className="w-4 h-4" /> KALIBRASI STRATEGI MODAL</>}
           </button>
@@ -803,41 +803,41 @@ function CapitalStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
 
   return (
     <div className="pt-2 pb-24 space-y-4">
-      <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Solusi Pendanaan & Modal Awal</h3>
+      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Solusi Pendanaan & Modal Awal</h3>
       <DisclaimerBanner />
 
       {isLoadingPlan ? (
         <div className="flex flex-col items-center py-10 text-slate-400">
           <Loader2 className="w-7 h-7 animate-spin mb-2 text-brand-gold" />
-          <p className="text-xs font-black text-brand-navy">Merakit alternatif bootstrapping...</p>
+          <p className="text-xs font-bold text-brand-navy">Merakit alternatif bootstrapping...</p>
         </div>
       ) : (
         <div className="space-y-3">
           {(plan?.options || []).map((opt: any, idx: number) => (
-            <div key={idx} className="bg-white border-2 border-amber-200 rounded-[24px] p-4 shadow-[4px_4px_0px_0px] shadow-slate-900">
+            <div key={idx} className="bg-white border border-slate-200/80 rounded-3xl p-4 shadow-xs">
               <div className="flex items-center gap-2 mb-1">
                 <PiggyBank className="w-4 h-4 text-amber-600" />
-                <h4 className="font-black text-brand-navy text-sm">{opt.title}</h4>
+                <h4 className="font-extrabold text-slate-900 text-sm">{opt.title}</h4>
               </div>
-              <p className="text-xs text-slate-600 font-semibold leading-relaxed mb-1">{opt.description}</p>
+              <p className="text-xs text-slate-600 font-medium leading-relaxed mb-1">{opt.description}</p>
               {opt.estimated_time_or_effort && <p className="text-[10px] text-amber-700 font-bold">Kapasitas: {opt.estimated_time_or_effort}</p>}
             </div>
           ))}
         </div>
       )}
 
-      <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 space-y-2.5 shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2.5 shadow-xs">
         <input 
           value={context} 
           onChange={(e) => setContext(e.target.value)} 
           placeholder="Ajukan alternatif aset pendukung lain..." 
-          className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-xs font-bold outline-none focus:border-amber-500" 
+          className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs font-medium outline-none focus:border-amber-500" 
         />
         <button 
           type="button"
           onClick={handleRegenerate} 
           disabled={isLoadingPlan} 
-          className="w-full h-11 bg-white border-2 border-amber-300 text-brand-navy font-black rounded-xl text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+          className="w-full h-11 bg-white border border-amber-300 text-brand-navy font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
         >
           <RefreshCcw className="w-3.5 h-3.5 text-amber-600" /> Kalkulasi Ulang Bootstrapping
         </button>
@@ -847,7 +847,7 @@ function CapitalStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
         type="button"
         onClick={handleReady} 
         disabled={isRechecking} 
-        className="w-full h-14 bg-brand-navy hover:bg-[#152e55] disabled:opacity-70 text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 flex items-center justify-center gap-2 active:translate-x-[2px] active:translate-y-[2px] transition-all cursor-pointer"
+        className="w-full h-14 bg-brand-navy hover:bg-[#152e55] disabled:opacity-70 text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
       >
         {isRechecking ? <Loader2 className="w-5 h-5 animate-spin" /> : "SAYA SIAP EKSEKUSI OPERASIONAL"}
       </button>
@@ -928,7 +928,7 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
 
   return (
     <div className="pt-2 pb-24 flex flex-col space-y-4" style={{ minHeight: "65vh" }}>
-      <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Taktik Pemasaran Lapangan</h3>
+      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Taktik Pemasaran Lapangan</h3>
       
       <div className="flex-1 space-y-4 mb-2">
         {notes.map((n, idx) => {
@@ -936,16 +936,16 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
 
           if (isLastAi && !isSending) {
             return (
-              <div key={idx} className="bg-amber-50 border-2 border-amber-300 rounded-[28px] p-5 shadow-[5px_5px_0px_0px] shadow-slate-900 relative mt-4 transition-all">
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-brand-navy text-brand-gold text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md flex items-center gap-1.5 whitespace-nowrap border border-brand-gold/30">
+              <div key={idx} className="bg-amber-50/70 border border-amber-300 rounded-3xl p-5 shadow-xs relative mt-4 transition-all">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-navy text-brand-gold text-[9px] font-bold uppercase tracking-widest px-3.5 py-0.5 rounded-full shadow-sm flex items-center gap-1.5 whitespace-nowrap border border-brand-gold/30">
                   <Target className="w-3.5 h-3.5" /> MISI HARI INI
                 </div>
                 
                 <div className="flex items-start gap-3 mt-2 mb-4">
-                  <div className="w-9 h-9 rounded-2xl bg-brand-navy text-brand-gold flex items-center justify-center shrink-0 shadow-md">
+                  <div className="w-9 h-9 rounded-2xl bg-brand-navy text-brand-gold flex items-center justify-center shrink-0 shadow-xs">
                     <Bot className="w-5 h-5" />
                   </div>
-                  <div className="text-xs sm:text-sm font-bold text-slate-800 leading-relaxed whitespace-pre-wrap">
+                  <div className="text-xs sm:text-sm font-medium text-slate-800 leading-relaxed whitespace-pre-wrap">
                     {n.text}
                   </div>
                 </div>
@@ -953,13 +953,13 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
                 <button
                   type="button"
                   onClick={toggleMission}
-                  className={`w-full py-3.5 rounded-2xl border-2 font-black text-xs flex items-center justify-center gap-2.5 transition-all active:scale-95 cursor-pointer ${
+                  className={`w-full py-3 rounded-2xl border font-bold text-xs flex items-center justify-center gap-2.5 transition-all active:scale-95 cursor-pointer ${
                     missionDone 
-                      ? "bg-emerald-100 border-emerald-500 text-emerald-800 shadow-inner" 
-                      : "bg-white border-amber-300 text-brand-navy hover:bg-amber-100 shadow-[2px_2px_0px_0px] shadow-slate-900"
+                      ? "bg-emerald-100 border-emerald-400 text-emerald-800" 
+                      : "bg-white border-amber-300 text-brand-navy hover:bg-amber-50 shadow-xs"
                   }`}
                 >
-                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border-2 transition-colors ${
+                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-colors ${
                     missionDone ? "border-emerald-500 bg-emerald-500" : "border-slate-300 bg-slate-50"
                   }`}>
                     {missionDone && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
@@ -972,13 +972,13 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
 
           return (
             <div key={idx} className={`flex gap-2.5 ${n.sender === "user" ? "flex-row-reverse" : ""}`}>
-              <div className={`w-8 h-8 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${n.sender === "user" ? "bg-brand-gold text-brand-navy font-black text-xs" : "bg-brand-navy text-brand-gold"}`}>
+              <div className={`w-8 h-8 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${n.sender === "user" ? "bg-brand-gold text-brand-navy font-bold text-xs" : "bg-brand-navy text-brand-gold"}`}>
                 {n.sender === "user" ? <UserIcon className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
               </div>
-              <div className={`max-w-[80%] px-4 py-3 rounded-[22px] text-xs font-bold leading-relaxed shadow-sm ${
+              <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-xs font-medium leading-relaxed shadow-xs ${
                 n.sender === "user" 
-                  ? "bg-brand-navy text-white rounded-tr-none shadow-[2px_2px_0px_0px] shadow-slate-900 border border-brand-gold/30" 
-                  : "bg-white border-2 border-slate-200 text-slate-800 rounded-tl-none shadow-[3px_3px_0px_0px] shadow-slate-900"
+                  ? "bg-brand-navy text-white rounded-tr-none border border-brand-gold/30" 
+                  : "bg-white border border-slate-200 text-slate-800 rounded-tl-none"
               }`}>
                 {n.text}
               </div>
@@ -988,31 +988,31 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
 
         {isSending && (
           <div className="flex gap-2 mt-2 animate-in fade-in">
-            <div className="w-8 h-8 rounded-2xl bg-brand-navy flex items-center justify-center shrink-0 shadow-md">
+            <div className="w-8 h-8 rounded-2xl bg-brand-navy flex items-center justify-center shrink-0 shadow-xs">
               <Bot className="w-4 h-4 text-brand-gold" />
             </div>
-            <div className="bg-white border-2 border-slate-200 px-4 py-2.5 rounded-2xl rounded-tl-none flex items-center gap-2 shadow-sm">
+            <div className="bg-white border border-slate-200 px-4 py-2.5 rounded-2xl rounded-tl-none flex items-center gap-2 shadow-xs">
               <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
-              <span className="text-xs font-bold text-slate-400">Merumuskan evaluasi lapangan...</span>
+              <span className="text-xs font-medium text-slate-400">Merumuskan evaluasi lapangan...</span>
             </div>
           </div>
         )}
       </div>
 
       {/* INPUT CHAT MISI */}
-      <div className="flex items-center gap-2 sticky bottom-20 bg-white/95 backdrop-blur-md p-2 rounded-2xl border-2 border-amber-200 shadow-[4px_4px_0px_0px] shadow-slate-900 z-10">
+      <div className="flex items-center gap-2 sticky bottom-20 bg-white/95 backdrop-blur-md p-2 rounded-2xl border border-slate-200/80 shadow-sm z-10">
         <input 
           value={message} 
           onChange={(e) => setMessage(e.target.value)} 
           onKeyDown={(e) => e.key === "Enter" && handleSend()} 
           placeholder={missionDone ? "Ketikkan hasil lapanganmu di sini..." : "Tuntaskan misi di atas sebelum melapor..."} 
-          className="flex-1 px-3 py-2 text-xs font-bold outline-none bg-transparent text-slate-800 placeholder:text-slate-400" 
+          className="flex-1 px-3 py-2 text-xs font-medium outline-none bg-transparent text-slate-800 placeholder:text-slate-400" 
         />
         <button 
           type="button"
           onClick={handleSend} 
           disabled={isSending || !message.trim()} 
-          className="w-10 h-10 rounded-xl bg-brand-navy text-brand-gold flex items-center justify-center shrink-0 active:scale-95 transition-all shadow-sm disabled:opacity-40 cursor-pointer"
+          className="w-10 h-10 rounded-xl bg-brand-navy text-brand-gold flex items-center justify-center shrink-0 active:scale-95 transition-all shadow-xs disabled:opacity-40 cursor-pointer"
         >
           <Send className="w-4 h-4 stroke-[2.5]" />
         </button>
@@ -1022,7 +1022,7 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
         type="button"
         onClick={handleAdvance} 
         disabled={isAdvancing} 
-        className="w-full h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 flex items-center justify-center gap-2 active:translate-x-[2px] active:translate-y-[2px] transition-all cursor-pointer"
+        className="w-full h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
       >
         {isAdvancing ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ShoppingCart className="w-4 h-4" /> BUKA DASBOR ARUS KAS</>}
       </button>
@@ -1071,10 +1071,10 @@ function TrackingStep({ attempt, onStop }: { attempt: any; onStop: () => void })
 
   return (
     <div className="pt-2 pb-24 space-y-4">
-      {/* HERO CARD LABA BERSIH */}
-      <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] rounded-[28px] p-5 text-white shadow-[6px_6px_0px_0px] shadow-slate-900 border-l-[6px] border-l-brand-gold relative overflow-hidden">
+      {/* HERO CARD LABA BERSIH (SATU-SATUNYA SOLID SHADOW) */}
+      <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] rounded-3xl p-5 text-white shadow-[6px_6px_0px_0px] shadow-slate-900 border-l-[6px] border-l-brand-gold relative overflow-hidden">
         <Coins className="absolute -right-4 -bottom-4 w-32 h-32 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
-        <p className="text-[10px] uppercase tracking-widest font-black text-amber-200 mb-1">
+        <p className="text-[10px] uppercase tracking-widest font-bold text-amber-200 mb-1">
           Laba Bersih Operasional
         </p>
         <p className={`text-3xl font-black tabular-nums ${netProfit < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -1093,19 +1093,19 @@ function TrackingStep({ attempt, onStop }: { attempt: any; onStop: () => void })
       </div>
 
       {/* FORM PENCATATAN OPERASIONAL */}
-      <div className="bg-white border-2 border-amber-200 rounded-[28px] p-5 shadow-[6px_6px_0px_0px] shadow-slate-900 space-y-3">
-        <div className="flex bg-slate-100 rounded-2xl p-1 text-xs font-black">
+      <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs space-y-3">
+        <div className="flex bg-slate-100 rounded-2xl p-1 text-xs font-bold">
           <button 
             type="button"
             onClick={() => setActiveTab('income')} 
-            className={`flex-1 py-2.5 rounded-xl transition-all cursor-pointer ${activeTab === 'income' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'}`}
+            className={`flex-1 py-2.5 rounded-xl transition-all cursor-pointer ${activeTab === 'income' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-500'}`}
           >
             + Omset Masuk
           </button>
           <button 
             type="button"
             onClick={() => setActiveTab('expense')} 
-            className={`flex-1 py-2.5 rounded-xl transition-all cursor-pointer ${activeTab === 'expense' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500'}`}
+            className={`flex-1 py-2.5 rounded-xl transition-all cursor-pointer ${activeTab === 'expense' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-500'}`}
           >
             - HPP / Pengeluaran
           </button>
@@ -1113,20 +1113,20 @@ function TrackingStep({ attempt, onStop }: { attempt: any; onStop: () => void })
         
         <div className="space-y-2">
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">Rp</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">Rp</span>
             <input 
               type="number" 
               value={amount} 
               onChange={(e) => setAmount(e.target.value)} 
               placeholder="0" 
-              className="w-full pl-12 pr-4 h-12 text-base font-black bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-amber-500 outline-none text-slate-800" 
+              className="w-full pl-12 pr-4 h-12 text-base font-bold bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-500 outline-none text-slate-800" 
             />
           </div>
           <input 
             value={note} 
             onChange={(e) => setNote(e.target.value)} 
             placeholder="Catatan transaksi (cth: jual 2 porsi, beli packaging)..." 
-            className="w-full px-4 h-11 text-xs font-bold bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-amber-500 outline-none text-slate-800" 
+            className="w-full px-4 h-11 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-500 outline-none text-slate-800" 
           />
         </div>
 
@@ -1134,7 +1134,7 @@ function TrackingStep({ attempt, onStop }: { attempt: any; onStop: () => void })
           type="button"
           onClick={handleAdd} 
           disabled={isSaving || !amount} 
-          className={`w-full h-12 disabled:opacity-40 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-[3px_3px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer ${
+          className={`w-full h-12 disabled:opacity-40 text-white font-bold text-xs uppercase tracking-wider rounded-2xl shadow-xs active:scale-[0.98] transition-all cursor-pointer ${
             activeTab === 'income' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
           }`}
         >
@@ -1143,9 +1143,9 @@ function TrackingStep({ attempt, onStop }: { attempt: any; onStop: () => void })
       </div>
 
       {evaluation && (
-        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex gap-3 shadow-sm">
+        <div className="bg-amber-50/80 border border-amber-300 rounded-2xl p-4 flex gap-3 shadow-xs">
           <PieChart className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-          <p className="text-xs text-slate-800 leading-relaxed font-bold">{evaluation}</p>
+          <p className="text-xs text-slate-800 leading-relaxed font-medium">{evaluation}</p>
         </div>
       )}
 
@@ -1154,14 +1154,14 @@ function TrackingStep({ attempt, onStop }: { attempt: any; onStop: () => void })
           type="button"
           onClick={handleEvaluate} 
           disabled={isEvaluating || log.length === 0} 
-          className="flex-1 h-12 bg-brand-navy hover:bg-[#152e55] disabled:opacity-50 text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[3px_3px_0px_0px] shadow-slate-900 flex items-center justify-center gap-1.5 active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+          className="flex-1 h-12 bg-brand-navy hover:bg-[#152e55] disabled:opacity-50 text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-xs flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer"
         >
           {isEvaluating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PieChart className="w-4 h-4" />} Audit Finansial AI
         </button>
         <button 
           type="button"
           onClick={onStop} 
-          className="flex-1 h-12 bg-white border-2 border-rose-200 text-rose-700 hover:bg-rose-50 font-black text-xs uppercase tracking-wider rounded-2xl shadow-[3px_3px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          className="flex-1 h-12 bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 font-bold text-xs uppercase tracking-wider rounded-2xl shadow-xs active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
         >
           Tutup Usaha Ini
         </button>
@@ -1169,19 +1169,19 @@ function TrackingStep({ attempt, onStop }: { attempt: any; onStop: () => void })
 
       {log.length > 0 && (
         <div className="pt-2 space-y-2">
-          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 flex items-center gap-1">
+          <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 flex items-center gap-1">
             <History className="w-3.5 h-3.5 text-amber-600"/> Buku Jurnal Kas Operasional
           </h4>
           <div className="space-y-2">
             {[...log].reverse().map((entry, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-white border-2 border-slate-200 rounded-2xl px-4 py-3 shadow-[2px_2px_0px_0px] shadow-slate-900/40">
+              <div key={idx} className="flex items-center justify-between bg-white border border-slate-200/80 rounded-2xl px-4 py-3 shadow-xs">
                 <div className="min-w-0">
-                  <p className={`text-xs sm:text-sm font-black tabular-nums ${entry.type === 'expense' ? 'text-rose-600' : 'text-slate-900'}`}>
+                  <p className={`text-xs sm:text-sm font-bold tabular-nums ${entry.type === 'expense' ? 'text-rose-600' : 'text-slate-900'}`}>
                     {entry.type === 'expense' ? '-' : '+'}{formatRp(entry.amount)}
                   </p>
-                  {entry.note && <p className="text-[10px] text-slate-500 font-bold truncate mt-0.5">{entry.note}</p>}
+                  {entry.note && <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">{entry.note}</p>}
                 </div>
-                <p className="text-[10px] text-slate-400 font-bold shrink-0">{new Date(entry.date).toLocaleDateString("id-ID", { day: "2-digit", month: "short" })}</p>
+                <p className="text-[10px] text-slate-400 font-medium shrink-0">{new Date(entry.date).toLocaleDateString("id-ID", { day: "2-digit", month: "short" })}</p>
               </div>
             ))}
           </div>
@@ -1198,21 +1198,21 @@ function ExecuteView({ attempt, onBack, onUpdated, onStop }: { attempt: any; onB
         <button 
           type="button"
           onClick={onBack} 
-          className="text-xs font-black text-brand-navy hover:text-amber-600 flex items-center gap-1 cursor-pointer"
+          className="text-xs font-bold text-slate-600 hover:text-amber-600 flex items-center gap-1 cursor-pointer"
         >
           <ChevronLeft className="w-4 h-4" /> Kembali ke Radar Pilihan
         </button>
       )}
 
-      {/* HEADER CARD OPERASIONAL AKTIF */}
-      <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] rounded-[28px] p-5 text-white shadow-[6px_6px_0px_0px] shadow-slate-900 border-l-[6px] border-l-brand-gold relative overflow-hidden">
+      {/* HEADER CARD OPERASIONAL AKTIF (SATU-SATUNYA SOLID SHADOW KHAS BILANO) */}
+      <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] rounded-3xl p-5 text-white shadow-[6px_6px_0px_0px] shadow-slate-900 border-l-[6px] border-l-brand-gold relative overflow-hidden">
         <Coins className="absolute -right-4 -bottom-4 w-32 h-32 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
         <div className="relative z-10 flex flex-col">
           <div className="flex justify-between items-center mb-2">
             <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
               <Coins className="w-3 h-3 fill-current" /> OPERASIONAL AKTIF
             </span>
-            <span className="text-[9px] font-black text-amber-200 uppercase bg-black/40 px-2 py-0.5 rounded-md border border-white/20">
+            <span className="text-[9px] font-bold text-amber-200 uppercase bg-black/40 px-2 py-0.5 rounded-md border border-white/20">
               {STATE_BADGE[attempt.state]?.label || "Eksekusi"}
             </span>
           </div>
@@ -1236,7 +1236,7 @@ function ExecuteView({ attempt, onBack, onUpdated, onStop }: { attempt: any; onB
 function IntroView({ onStart }: { onStart: () => void }) {
   return (
     <div className="pt-2 pb-24 space-y-4">
-      {/* FLAGSHIP HERO CARD NAVY & GOLD */}
+      {/* FLAGSHIP HERO CARD NAVY & GOLD (SATU-SATUNYA SOLID SHADOW KHAS BILANO) */}
       <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-6 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden">
         <Banknote className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
         <div className="absolute right-0 top-0 w-32 h-32 bg-brand-gold/15 rounded-full blur-xl pointer-events-none" />
@@ -1283,13 +1283,13 @@ function IntroView({ onStart }: { onStart: () => void }) {
           { icon: RefreshCcw, title: "Peta Taktik Hiper-Lokal", desc: "Rekomendasi taktis berbasis ekosistem pasar terdekat di Indonesia." },
           { icon: Layers, title: "Dasbor Laba Bersih Absolut", desc: "Hitung HPP berjalan secara transparan agar tidak terjebak ilusi omset." },
         ].map((item, idx) => (
-          <div key={idx} className="bg-white border-2 border-amber-200/80 rounded-2xl p-4 flex items-center gap-3.5 shadow-[4px_4px_0px_0px] shadow-slate-900">
-            <div className="w-11 h-11 bg-amber-100 text-brand-navy rounded-2xl flex items-center justify-center shrink-0 border border-amber-300">
+          <div key={idx} className="bg-white border border-slate-200/80 rounded-2xl p-4 flex items-center gap-3.5 shadow-xs">
+            <div className="w-11 h-11 bg-amber-50 text-brand-navy rounded-2xl flex items-center justify-center shrink-0 border border-amber-200">
               <item.icon className="w-5 h-5 text-amber-800" />
             </div>
             <div className="min-w-0">
-              <p className="font-black text-slate-900 text-xs sm:text-sm">{item.title}</p>
-              <p className="text-[11px] text-slate-500 font-semibold leading-snug">{item.desc}</p>
+              <p className="font-extrabold text-slate-900 text-xs sm:text-sm">{item.title}</p>
+              <p className="text-[11px] text-slate-500 font-medium leading-snug">{item.desc}</p>
             </div>
           </div>
         ))}
@@ -1298,7 +1298,7 @@ function IntroView({ onStart }: { onStart: () => void }) {
       <button 
         type="button"
         onClick={onStart} 
-        className="w-full h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+        className="w-full h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
       >
         MULAI AUDIT STRATEGI PENGHASILAN <ArrowRight className="w-4 h-4" />
       </button>
@@ -1353,7 +1353,7 @@ export default function IncomeStrategy() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
         <img src="/BILANO-ICON-NEW.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-        <div className="flex items-center gap-2 text-brand-navy font-black text-sm bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-full shadow-sm">
+        <div className="flex items-center gap-2 text-brand-navy font-bold text-sm bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-full shadow-sm">
           <Loader2 className="w-4 h-4 animate-spin text-brand-gold" />
           <span>Sinkronisasi Pembimbing...</span>
         </div>
@@ -1443,35 +1443,35 @@ export default function IncomeStrategy() {
         {/* ========================================================================= */}
         {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO NAVY & GOLD */}
         {/* ========================================================================= */}
-        <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b-2 border-amber-400">
+        <div className="px-5 pt-5 pb-8 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b border-amber-300/60">
           
-          <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.08)] flex items-center justify-between relative z-30 border-b border-amber-100">
+          <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <Link href="/">
                 <button 
                   type="button"
-                  className="w-10 h-10 rounded-full bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                  className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
                   title="Kembali ke Beranda"
                 >
-                  <ArrowLeft className="w-5 h-5 text-brand-gold" strokeWidth={2.5} />
+                  <ArrowLeft className="w-5 h-5 text-slate-800" strokeWidth={2.5} />
                 </button>
               </Link>
 
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                  <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                  <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest">
                     Strategi & Jalur Cuan
                   </p>
                 </div>
-                <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
                   {view === "execute" ? "Pusat Operasional" : "Ide & Pembimbing"}
                 </h1>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-brand-navy text-brand-gold px-3 py-1.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-900 text-[10px] font-black border border-brand-gold/30">
+              <div className="flex items-center gap-1 bg-brand-navy text-brand-gold px-3 py-1.5 rounded-full border border-brand-gold/30 shadow-xs text-[10px] font-bold">
                 <Sparkles className="w-3.5 h-3.5 text-brand-gold fill-current" />
                 <span>AI BLUEPRINT</span>
               </div>
@@ -1482,7 +1482,7 @@ export default function IncomeStrategy() {
         {/* ========================================================================= */}
         {/* 2. BODY CONTENT ROUTER */}
         {/* ========================================================================= */}
-        <div className="px-5 pt-4 pb-20 bg-slate-50 flex flex-col">
+        <div className="px-5 pt-5 pb-28 bg-slate-50 flex flex-col">
           {view === "intro" && <IntroView onStart={() => setView("identify")} />}
           {view === "identify" && (
             <IdentifyFlow 

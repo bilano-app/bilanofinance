@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button, Input } from "@/components/UIComponents";
 import { 
     Wallet, X, ArrowDown, ArrowUp, Plus, Check, Loader2, 
-    Building2, Sparkles, CheckCircle2, ChevronDown 
+    Sparkles, CheckCircle2 
 } from "lucide-react";
 import { useUser } from "@/hooks/use-finance";
 import { getWalletLogo } from "@/lib/wallet-sources";
@@ -94,25 +94,25 @@ export default function SourceSelectionPopup({ type, title, description, onSelec
 
     return (
         <div className="fixed inset-0 z-[99999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-            <div className="bg-white rounded-[32px] w-full max-w-sm shadow-[8px_8px_0px_0px] shadow-slate-900 border-2 border-slate-900 flex flex-col overflow-hidden relative animate-in zoom-in-95">
+            <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl border border-slate-150 flex flex-col overflow-hidden relative animate-in zoom-in-95">
                 
                 {/* Tombol Tutup */}
                 <button 
                     onClick={onCancel} 
-                    className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-slate-100 rounded-full transition-colors z-10 text-slate-500 cursor-pointer"
+                    className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors z-10 text-white cursor-pointer"
                 >
                     <X className="w-5 h-5" />
                 </button>
 
                 {/* Header Banner */}
-                <div className={`p-6 text-white text-center border-b-2 border-slate-900 relative ${
+                <div className={`p-6 text-white text-center relative ${
                     isIncome ? 'bg-gradient-to-br from-emerald-600 to-teal-700' : 'bg-gradient-to-br from-rose-600 to-red-700'
                 }`}>
                     <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-white/30 shadow-inner">
                         {isIncome ? <ArrowDown className="w-7 h-7 stroke-[2.5]" /> : <ArrowUp className="w-7 h-7 stroke-[2.5]" />}
                     </div>
                     <h2 className="text-xl font-black mb-0.5 tracking-tight">{title || defaultTitle}</h2>
-                    <p className="text-xs text-white/90 font-bold max-w-[240px] mx-auto leading-relaxed">
+                    <p className="text-xs text-white/90 font-medium max-w-[240px] mx-auto leading-relaxed">
                         {description || defaultDesc}
                     </p>
                 </div>
@@ -125,25 +125,25 @@ export default function SourceSelectionPopup({ type, title, description, onSelec
                         <button
                             type="button"
                             onClick={() => setIsCreatingNew(true)}
-                            className="w-full flex items-center justify-center gap-2 p-3 bg-amber-50 hover:bg-amber-100/80 border-2 border-dashed border-amber-300 rounded-[20px] text-amber-900 font-black text-xs uppercase tracking-wider transition-all active:scale-95 shadow-xs cursor-pointer mb-2"
+                            className="w-full flex items-center justify-center gap-2 p-3 bg-amber-50 hover:bg-amber-100/80 border border-dashed border-amber-300 rounded-2xl text-amber-900 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 shadow-xs cursor-pointer mb-2"
                         >
-                            <Plus className="w-4 h-4 stroke-[3] text-amber-700" />
+                            <Plus className="w-4 h-4 stroke-[2.5] text-amber-700" />
                             <span>+ BUAT AKUN / DOMPET BARU</span>
                         </button>
                     )}
 
                     {/* BOX FORM BUAT AKUN BARU SECARA INLINE */}
                     {isIncome && isCreatingNew && (
-                        <div className="bg-white p-4 rounded-[24px] border-2 border-amber-300 shadow-sm space-y-3 animate-in fade-in">
+                        <div className="bg-white p-4 rounded-2xl border border-amber-300 shadow-xs space-y-3 animate-in fade-in">
                             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                                 <div className="flex items-center gap-1.5">
                                     <Sparkles className="w-4 h-4 text-amber-600 fill-current" />
-                                    <h4 className="font-black text-xs text-brand-navy uppercase tracking-wider">Tambah Dompet Baru</h4>
+                                    <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">Tambah Dompet Baru</h4>
                                 </div>
                                 <button 
                                     type="button"
                                     onClick={() => setIsCreatingNew(false)}
-                                    className="text-[10px] font-black text-slate-400 hover:text-slate-600"
+                                    className="text-[10px] font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
                                 >
                                     Batal
                                 </button>
@@ -163,12 +163,12 @@ export default function SourceSelectionPopup({ type, title, description, onSelec
                                 type="button"
                                 onClick={handleCreateAndSelectNew}
                                 disabled={isSavingNew || !newSourceName.trim()}
-                                className="w-full h-11 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-xl shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                className="w-full h-11 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-bold text-xs uppercase tracking-wider rounded-xl shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                             >
                                 {isSavingNew ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                 ) : (
-                                    <Check className="w-4 h-4 stroke-[3]" />
+                                    <Check className="w-4 h-4 stroke-[2.5]" />
                                 )}
                                 <span>SIMPAN & PILIH DOMPET INI</span>
                             </button>
@@ -185,14 +185,14 @@ export default function SourceSelectionPopup({ type, title, description, onSelec
                                     key={wallet.name}
                                     type="button"
                                     onClick={() => setSelected(wallet.name)}
-                                    className={`w-full flex items-center justify-between p-3.5 rounded-[20px] border-2 transition-all text-left cursor-pointer ${
+                                    className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all text-left cursor-pointer ${
                                         isSelected 
-                                            ? 'border-brand-navy bg-white shadow-[2px_2px_0px_0px] shadow-slate-900 ring-1 ring-brand-navy' 
-                                            : 'border-slate-200 bg-white hover:border-slate-300'
+                                            ? 'border-brand-navy bg-white shadow-xs ring-1 ring-brand-navy' 
+                                            : 'border-slate-200/80 bg-white hover:border-slate-300'
                                     }`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center p-1.5 shadow-2xs border ${
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center p-1.5 shadow-xs border ${
                                             isSelected ? 'bg-white border-brand-navy' : 'bg-slate-50 border-slate-200'
                                         }`}>
                                             {logo ? (
@@ -202,8 +202,8 @@ export default function SourceSelectionPopup({ type, title, description, onSelec
                                             )}
                                         </div>
                                         <div>
-                                            <div className="font-black text-slate-900 text-xs sm:text-sm">{wallet.name}</div>
-                                            <div className="text-[11px] text-slate-500 font-bold">
+                                            <div className="font-extrabold text-slate-900 text-xs sm:text-sm">{wallet.name}</div>
+                                            <div className="text-[11px] text-slate-500 font-medium">
                                                 Saldo: Rp {Number(wallet.balance || 0).toLocaleString('id-ID')}
                                             </div>
                                         </div>
@@ -217,19 +217,19 @@ export default function SourceSelectionPopup({ type, title, description, onSelec
                             );
                         })
                     ) : (
-                        <div className="text-center p-5 bg-white rounded-2xl border-2 border-dashed border-slate-200 text-xs text-slate-500 font-bold">
+                        <div className="text-center p-5 bg-white rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500 font-medium">
                             Belum ada dompet terdaftar. Klik tombol di atas untuk membuat akun dompet baru.
                         </div>
                     )}
                 </div>
 
                 {/* Footer Action Button */}
-                <div className="p-4 bg-white border-t-2 border-slate-100">
+                <div className="p-4 bg-white border-t border-slate-100">
                     <button 
                         type="button"
                         onClick={() => selected && onSelect(selected)} 
                         disabled={!selected} 
-                        className={`w-full h-13 font-black rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all text-xs uppercase tracking-wider cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                        className={`w-full h-13 font-bold rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all text-xs uppercase tracking-wider cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                             isIncome ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-brand-navy hover:bg-[#152e55] text-brand-gold'
                         }`}
                     >
