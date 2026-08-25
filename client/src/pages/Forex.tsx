@@ -874,13 +874,18 @@ export default function Forex() {
       )}
 
       {/* MODAL PILIH SUMBER DANA KETIKA MENJUAL VALAS */}
-      <SourceSelectionPopup
-          isOpen={showSourcePopup}
-          onClose={() => setShowSourcePopup(false)}
-          onSelect={(source) => executeExchangeDirect(source)}
-          title="Tujuan Masuk Saldo Penjualan"
-          description="Pilih akun atau dompet yang menerima dana hasil penukaran valas ini:"
-      />
+      {showSourcePopup && (
+          <SourceSelectionPopup
+              type="income"
+              onCancel={() => setShowSourcePopup(false)}
+              onSelect={(source) => {
+                  setShowSourcePopup(false);
+                  executeExchangeDirect(source);
+              }}
+              title="Tujuan Masuk Saldo Penjualan"
+              description="Pilih akun atau dompet yang menerima dana hasil penukaran valas ini:"
+          />
+      )}
     </MobileLayout>
   );
 }

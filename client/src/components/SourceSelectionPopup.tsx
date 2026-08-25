@@ -11,14 +11,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import WalletSourceSelect from "@/components/WalletSourceSelect";
 
 interface SourceSelectionPopupProps {
-    type: 'income' | 'expense' | 'piutang' | 'hutang';
+    type?: 'income' | 'expense' | 'piutang' | 'hutang';
     title?: string;
     description?: string;
     onSelect: (sourceName: string) => void;
-    onCancel: () => void;
+    onCancel?: () => void;
+    isOpen?: boolean;
+    onClose?: () => void;
 }
 
-export default function SourceSelectionPopup({ type, title, description, onSelect, onCancel }: SourceSelectionPopupProps) {
+export default function SourceSelectionPopup({ type = 'income', title, description, onSelect, onCancel, isOpen, onClose }: SourceSelectionPopupProps) {
+    if (isOpen !== undefined && !isOpen) return null;
+    const handleClose = onCancel || onClose || (() => {});
+
     const { data: user, refetch: refetchUser } = useUser();
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -98,7 +103,7 @@ export default function SourceSelectionPopup({ type, title, description, onSelec
                 
                 {/* Tombol Tutup */}
                 <button 
-                    onClick={onCancel} 
+                    onClick={handleClose} 
                     className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors z-10 text-white cursor-pointer"
                 >
                     <X className="w-5 h-5" />

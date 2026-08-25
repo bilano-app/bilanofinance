@@ -733,13 +733,18 @@ export default function Investment() {
       </div>
 
       {/* POPUP SUMBER DANA KETIKA MENJUAL ASET */}
-      <SourceSelectionPopup
-          isOpen={showSourcePopup}
-          onClose={() => setShowSourcePopup(false)}
-          onSelect={(source) => executeTransaction(source)}
-          title="Tujuan Masuk Saldo Penjualan"
-          description="Pilih akun atau dompet yang menerima dana hasil penjualan aset ini:"
-      />
+      {showSourcePopup && (
+          <SourceSelectionPopup
+              type="income"
+              onCancel={() => setShowSourcePopup(false)}
+              onSelect={(source) => {
+                  setShowSourcePopup(false);
+                  executeTransaction(source);
+              }}
+              title="Tujuan Masuk Saldo Penjualan"
+              description="Pilih akun atau dompet yang menerima dana hasil penjualan aset ini:"
+          />
+      )}
     </MobileLayout>
   );
 }
