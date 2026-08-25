@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
-import { Card, Button } from "@/components/UIComponents";
 import { useUser, useTransactions, useTarget, useInvestments } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { 
   Target, AlertCircle, CalendarClock, ArrowDownCircle, ArrowUpCircle, 
   ChevronDown, ChevronUp, Trophy, RefreshCcw, Loader2, Crown, 
   ShieldCheck, ChevronRight, X, CreditCard, Briefcase, TrendingUp, Trash2, 
-  HeartHandshake, Activity, Zap, ShieldAlert, PieChart, HelpCircle
+  HeartHandshake, Activity, Zap, ShieldAlert, PieChart, HelpCircle,
+  ArrowLeft, Sparkles, Flame, CheckCircle2, DollarSign, Wallet, Shield
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/tracking";
 
@@ -23,6 +23,7 @@ export default function Performance() {
   const { data: user, isLoading: isUserLoading } = useUser();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const [isCharging, setIsCharging] = useState(false);
   const [isDeletingTx, setIsDeletingTx] = useState(false);
@@ -71,14 +72,14 @@ export default function Performance() {
       enabled: !!currentUserEmail
   });
 
-  const isPro = user?.isPro || localStorage.getItem("bilano_pro") === "true";
+  const isPro = user?.isPro || (typeof window !== "undefined" && localStorage.getItem("bilano_pro") === "true");
   const startTime = new Date(user?.createdAt || Date.now()).getTime();
   const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
   const isTrialExpired = daysPassed >= 3;
   const locked = !isUserLoading && !isPro && isTrialExpired;
 
   const handleLanjutBayar = async () => {
-      if (!currentUserEmail) { toast({ title: "Email required", variant: "destructive" }); return; }
+      if (!currentUserEmail) { toast({ title: "Email diperlukan", variant: "destructive" }); return; }
       setIsCharging(true);
       try {
           const res = await fetch("/api/payment/mayar/charge", { 
@@ -93,7 +94,7 @@ export default function Performance() {
               toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); 
           }
       } catch (error) { 
-          toast({ title: "Error koneksi", variant: "destructive" }); 
+          toast({ title: "Kendala koneksi", variant: "destructive" }); 
       } finally { 
           setIsCharging(false); 
       }
@@ -112,20 +113,25 @@ export default function Performance() {
       try {
           const res = await fetch(`/api/transactions/${id}`, { method: "DELETE", headers: { "x-user-email": currentUserEmail } });
           if (res.ok) {
-              toast({ title: "Terhapus!", description: "Transaksi hilang, saldo kas dinormalkan." });
-              setTimeout(() => window.location.reload(), 800); 
-          } else { toast({ title: "Gagal menghapus", variant: "destructive" }); }
-      } catch (e) { toast({ title: "Error server", variant: "destructive" }); } 
-      finally { setIsDeletingTx(false); }
+              toast({ title: "Terhapus! 🗑️", description: "Transaksi berhasil dihapus & saldo disinkronkan." });
+              queryClient.invalidateQueries();
+          } else { 
+              toast({ title: "Gagal menghapus", variant: "destructive" }); 
+          }
+      } catch (e) { 
+          toast({ title: "Error server", variant: "destructive" }); 
+      } finally { 
+          setIsDeletingTx(false); 
+      }
   };
 
   if (isUserLoading || isTxLoading || isTargetLoading || isInvLoading || isRatesLoading || isForexLoading || isDebtsLoading || isRetainedLoading) {
       return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
               <img src="/BILANO-ICON-NEW.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
-                  <Loader2 className="w-4 h-4 animate-spin"/>
-                  <span>Memuat Data Analitik...</span>
+              <div className="flex items-center gap-2 text-brand-navy font-black text-sm bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin text-brand-gold"/>
+                  <span>Menyusun Diagnosa Performa...</span>
               </div>
           </div>
       );
@@ -134,50 +140,80 @@ export default function Performance() {
   if (locked) {
       return (
           <MobileLayout title="Analisa Performa" showBack>
-              <div className="relative min-h-screen bg-slate-50 overflow-hidden pb-24 overflow-y-auto">
-                  <div className="p-4 space-y-6 blur-md opacity-40 select-none pointer-events-none mt-2">
-                      <div className="bg-gradient-to-br from-blue-600 to-violet-800 h-48 rounded-[32px] w-full shadow-lg"></div>
-                      <div className="bg-emerald-100 h-28 rounded-[32px] w-full"></div>
-                      <div className="bg-white h-72 rounded-[32px] shadow-sm border border-slate-200 w-full"></div>
+              <div className="flex flex-col items-center justify-center min-h-[75vh] px-6 text-center -mx-5 -mt-5 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] p-6">
+                  <div className="w-20 h-20 bg-brand-gold text-brand-navy rounded-3xl flex items-center justify-center mb-4 shadow-[4px_4px_0px_0px] shadow-slate-900 border-2 border-brand-navy animate-bounce">
+                      <Crown className="w-10 h-10" />
                   </div>
-                  <div className="absolute inset-0 z-50 flex flex-col items-center justify-center px-4 text-center">
-                      <div className="w-20 h-20 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(251,191,36,0.4)] animate-bounce-slow mt-8">
-                          <Crown className="w-10 h-10 text-amber-950" />
-                      </div>
-                      <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Masa Coba Habis</h2>
-                      <p className="text-sm text-slate-600 mb-6 max-w-xs leading-relaxed font-medium">
-                          Masa coba gratis 3 hari telah berakhir. Berlangganan <b className="text-slate-800">BILANO PRO</b> sekarang untuk membuka kembali Analisis Cashflow, ROI Aset, dan Diagnosa Target Finansial.
-                      </p>
-                      <div className="w-full max-w-sm space-y-3 mb-6 animate-in zoom-in-95">
-                          <div onClick={() => setSelectedPlan('yearly')} className={`relative p-5 rounded-[20px] border-2 cursor-pointer transition-all overflow-hidden ${selectedPlan === 'yearly' ? 'border-amber-400 bg-gradient-to-br from-slate-900 to-indigo-950 shadow-xl' : 'border-slate-200 bg-white'}`}>
-                              {selectedPlan === 'yearly' && <div className="absolute top-0 right-0 bg-amber-400 text-amber-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl z-10 shadow-sm">PALING HEMAT</div>}
-                              <div className="flex justify-between items-center mb-1 relative z-10">
-                                  <h4 className={`font-black text-lg ${selectedPlan === 'yearly' ? 'text-amber-400' : 'text-slate-800'}`}>Paket 1 Tahun</h4>
-                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'yearly' ? 'border-amber-400 bg-amber-400' : 'border-slate-300'}`}>{selectedPlan === 'yearly' && <div className="w-2 h-2 bg-amber-900 rounded-full"></div>}</div>
-                              </div>
-                              <div className="relative z-10 text-left">
-                                  <p className={`text-3xl font-black tracking-tight ${selectedPlan === 'yearly' ? 'text-white' : 'text-slate-800'}`}>Rp 8.250 <span className="text-xs font-bold opacity-60">/ bulan</span></p>
-                                  {selectedPlan === 'yearly' && <p className="text-[10px] text-emerald-400 mt-1 font-bold">Total tagihan Rp 99.000/tahun</p>}
+                  <span className="bg-brand-navy text-brand-gold text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider mb-2 shadow-xs">
+                      MASA COBA 3 HARI HABIS
+                  </span>
+                  <h2 className="text-2xl font-black text-brand-navy mb-2 tracking-tight">
+                      Buka Akses Analisa Finansial PRO
+                  </h2>
+                  <p className="text-xs text-amber-950 font-bold mb-6 max-w-xs leading-relaxed">
+                      Dapatkan diagnosis mendalam perihal Cashflow Runway, Rasio Tabungan, ROI Multi-Aset, dan Proyeksi Target Kekayaan Bersih.
+                  </p>
+
+                  <div className="w-full max-w-sm space-y-3 mb-6">
+                      <div 
+                        onClick={() => setSelectedPlan('yearly')} 
+                        className={`relative p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                            selectedPlan === 'yearly' ? 'border-brand-navy bg-white shadow-[4px_4px_0px_0px] shadow-slate-900' : 'border-slate-300 bg-white/70'
+                        }`}
+                      >
+                          {selectedPlan === 'yearly' && (
+                              <span className="absolute top-0 right-0 bg-brand-gold text-brand-navy text-[9px] font-black uppercase tracking-widest px-3 py-0.5 rounded-bl-xl border-l border-b border-brand-navy">
+                                  PALING HEMAT
+                              </span>
+                          )}
+                          <div className="flex justify-between items-center mb-1 text-left">
+                              <h4 className="font-black text-sm text-brand-navy">Paket 1 Tahun</h4>
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'yearly' ? 'border-brand-navy bg-brand-gold' : 'border-slate-300'}`}>
+                                  {selectedPlan === 'yearly' && <div className="w-2 h-2 bg-brand-navy rounded-full"></div>}
                               </div>
                           </div>
-                          <div onClick={() => setSelectedPlan('monthly')} className={`p-4 rounded-[20px] border-2 cursor-pointer transition-all text-left ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-indigo-50/50 shadow-md' : 'border-slate-200 bg-white'}`}>
-                              <div className="flex justify-between items-center mb-1">
-                                  <h4 className="font-extrabold text-slate-800 text-base">Paket 1 Bulan</h4>
-                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'monthly' ? 'border-indigo-500 bg-indigo-500' : 'border-slate-300'}`}>{selectedPlan === 'monthly' && <div className="w-2 h-2 bg-white rounded-full"></div>}</div>
-                              </div>
-                              <p className="text-2xl font-black text-slate-800">Rp 14.900 <span className="text-xs font-bold text-slate-400">/ bulan</span></p>
-                          </div>
+                          <p className="text-xl font-black text-slate-900 text-left">
+                              Rp 8.250 <span className="text-xs font-bold text-slate-500">/ bulan</span>
+                          </p>
+                          <p className="text-[10px] text-emerald-700 font-bold text-left mt-0.5">Ditagih Rp 99.000 / tahun</p>
                       </div>
-                      <Button onClick={handleLanjutBayar} disabled={isCharging} className="w-full max-w-sm h-14 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-full shadow-2xl flex items-center justify-center gap-2 transition-transform active:scale-95">
-                          {isCharging ? <Loader2 className="w-5 h-5 animate-spin"/> : "LANJUTKAN PEMBAYARAN"}
-                      </Button>
-                      <p className="mt-4 text-[10px] text-slate-400 font-medium flex items-center gap-1.5 pb-8"><ShieldCheck className="w-4 h-4 text-emerald-500"/> Pembayaran Aman & Otomatis oleh Mayar</p>
+
+                      <div 
+                        onClick={() => setSelectedPlan('monthly')} 
+                        className={`p-4 rounded-2xl border-2 cursor-pointer transition-all text-left ${
+                            selectedPlan === 'monthly' ? 'border-brand-navy bg-white shadow-[4px_4px_0px_0px] shadow-slate-900' : 'border-slate-300 bg-white/70'
+                        }`}
+                      >
+                          <div className="flex justify-between items-center mb-1">
+                              <h4 className="font-black text-sm text-slate-800">Paket 1 Bulan</h4>
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedPlan === 'monthly' ? 'border-brand-navy bg-brand-gold' : 'border-slate-300'}`}>
+                                  {selectedPlan === 'monthly' && <div className="w-2 h-2 bg-brand-navy rounded-full"></div>}
+                              </div>
+                          </div>
+                          <p className="text-xl font-black text-slate-900">
+                              Rp 14.900 <span className="text-xs font-bold text-slate-500">/ bulan</span>
+                          </p>
+                      </div>
                   </div>
+
+                  <button 
+                    onClick={handleLanjutBayar} 
+                    disabled={isCharging} 
+                    className="w-full max-w-sm h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                      {isCharging ? <Loader2 className="w-5 h-5 animate-spin"/> : "LANJUTKAN PEMBAYARAN PRO"}
+                  </button>
+                  <p className="mt-4 text-[10px] text-amber-950 font-bold flex items-center gap-1">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600"/> Pembayaran Terverifikasi & Otomatis oleh Mayar
+                  </p>
               </div>
           </MobileLayout>
       );
   }
 
+  // =========================================================================
+  // 📐 FORMULASI & KALKULASI ANALITIK FINANSIAL MENDALAM
+  // =========================================================================
   const now = new Date();
   const currentMonthIdx = now.getMonth();
   const currentYear = now.getFullYear();
@@ -193,7 +229,7 @@ export default function Performance() {
       return acc + (asset.amount * rate);
   }, 0) : 0;
 
-  const investmentReal = Array.isArray(investments) ? investments.reduce((acc, inv) => {
+  const investmentReal = Array.isArray(investments) ? investments.reduce((acc: number, inv: any) => {
       const parts = (inv.symbol || "").split('|');
       const sym = parts[0] || "";
       const curr = parts[1];
@@ -230,7 +266,7 @@ export default function Performance() {
   let totalCuanJual = 0;
   let totalModalTerpakai = 0;
 
-  allTimeTx.filter(t => t.type === 'invest_sell' || t.type === 'forex_sell').forEach(t => {
+  allTimeTx.filter((t: any) => t.type === 'invest_sell' || t.type === 'forex_sell').forEach((t: any) => {
       if (t.description && t.description.includes('P/L:')) {
           const plString = t.description.split('P/L:')[1];
           if (plString) {
@@ -302,14 +338,14 @@ export default function Performance() {
       }
   }
 
-  const thisMonthTx = allTimeTx.filter(t => {
+  const thisMonthTx = allTimeTx.filter((t: any) => {
       const d = new Date(t.date);
       return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
   });
 
-  const totalAmal = thisMonthTx.filter(t => t.category === 'Amal').reduce((acc, t) => acc + t.amount, 0);
+  const totalAmal = thisMonthTx.filter((t: any) => t.category === 'Amal').reduce((acc: number, t: any) => acc + t.amount, 0);
 
-  const baseIncomeTxs = thisMonthTx.filter(t => 
+  const baseIncomeTxs = thisMonthTx.filter((t: any) => 
       (t.type === 'income' || t.type === 'piutang_record') && 
       !t.description?.includes('[Offset') && 
       !t.description?.includes('[WRITE_OFF]') && 
@@ -325,7 +361,7 @@ export default function Performance() {
       !(t.category || '').includes('Dapat Pinjaman')
   );
   
-  const baseExpenseTxs = thisMonthTx.filter(t => 
+  const baseExpenseTxs = thisMonthTx.filter((t: any) => 
       (t.type === 'expense' || t.type === 'hutang_record') && 
       !(t.category || '').toLowerCase().includes('invest') && 
       !t.description?.includes('[Offset') && 
@@ -344,7 +380,7 @@ export default function Performance() {
   );
 
   const virtualPLTxs: any[] = [];
-  thisMonthTx.filter(t => t.type === 'invest_sell' || t.type === 'forex_sell').forEach(t => {
+  thisMonthTx.filter((t: any) => t.type === 'invest_sell' || t.type === 'forex_sell').forEach((t: any) => {
       if (t.description && t.description.includes('P/L:')) {
           const plString = t.description.split('P/L:')[1];
           if (plString) {
@@ -388,10 +424,10 @@ export default function Performance() {
   const allIncomeTxs = [...baseIncomeTxs, ...virtualPLTxs.filter(v => v.type === 'income')];
   const allExpenseTxs = [...baseExpenseTxs, ...virtualPLTxs.filter(v => v.type === 'expense')];
 
-  const monthlyIncome = allIncomeTxs.reduce((acc, t) => acc + t.amount, 0); 
-  const monthlyExpense = allExpenseTxs.reduce((acc, t) => acc + t.amount, 0); 
+  const monthlyIncome = allIncomeTxs.reduce((acc: number, t: any) => acc + t.amount, 0); 
+  const monthlyExpense = allExpenseTxs.reduce((acc: number, t: any) => acc + t.amount, 0); 
   
-  const pureExpenses = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0);
+  const pureExpenses = baseExpenseTxs.reduce((acc: number, t: any) => acc + t.amount, 0);
   const monthlyBudget = target?.monthlyBudget || 0;
   const isOverBudgetStrict = monthlyBudget > 0 && pureExpenses > monthlyBudget;
   const remainingBudget = Math.max(0, monthlyBudget - pureExpenses);
@@ -402,76 +438,97 @@ export default function Performance() {
   const isOverBudget = expenseLimit > 0 && monthlyExpense > expenseLimit;
 
   // =========================================================================
-  // 📈 LOGIKA BARU: CASHFLOW DIAGNOSTICS & KATEGORI PENGELUARAN
+  // 🔬 4 METRIK ANALISIS PERSONAL TINGGI (BARU & BERGUNA NYATA)
   // =========================================================================
+  // 1. Savings Rate & Cashflow Margin
   const savingsRate = monthlyIncome > 0 ? ((monthlyIncome - monthlyExpense) / monthlyIncome) * 100 : 0;
+  
+  // 2. Daily Burn Rate & Projected Monthly Expense
   const dailyBurnRate = currentDay > 0 ? pureExpenses / currentDay : 0;
   const projectedExpense = dailyBurnRate * daysInMonth;
   const budgetVelocityAlert = monthlyBudget > 0 && budgetPercentage > monthProgressPercent;
 
-  // 1. Hitung Top Kategori Pengeluaran
-  const categoryTotals = baseExpenseTxs.reduce((acc, t) => {
+  // 3. Financial Runway (Berapa bulan kas tunai & tertahan bertahan tanpa pemasukan sama sekali)
+  const monthlyBurnBaseline = (dailyBurnRate * 30) > 0 ? (dailyBurnRate * 30) : (monthlyBudget > 0 ? monthlyBudget : 1);
+  const liquidCash = cashReal + retainedReal;
+  const financialRunwayMonths = monthlyBurnBaseline > 0 ? (liquidCash / monthlyBurnBaseline) : 0;
+
+  // 4. Debt-to-Wealth Ratio (Rasio Beban Liabilitas terhadap Kekayaan)
+  const debtToWealthRatio = currentWealth > 0 ? (hutangReal / (currentWealth + hutangReal)) * 100 : (hutangReal > 0 ? 100 : 0);
+
+  // 5. Amal & Social Return Ratio
+  const amalRatio = monthlyIncome > 0 ? (totalAmal / monthlyIncome) * 100 : 0;
+
+  // 6. Kategori Pengeluaran & Lifestyle Discretionary Ratio
+  const categoryTotals = baseExpenseTxs.reduce((acc: Record<string, number>, t: any) => {
       const cat = t.category || "Lainnya";
       acc[cat] = (acc[cat] || 0) + t.amount;
       return acc;
   }, {} as Record<string, number>);
-  const topCategory = Object.keys(categoryTotals).sort((a, b) => categoryTotals[b] - categoryTotals[a])[0] || "Belum ada";
+  const topCategory = Object.keys(categoryTotals).sort((a, b) => categoryTotals[b] - categoryTotals[a])[0] || "Belum Ada";
 
-  // 2. Hitung Rasio Gaya Hidup (Konsumtif vs Rutin)
   let konsumtifTotal = 0;
-  baseExpenseTxs.forEach(t => {
+  baseExpenseTxs.forEach((t: any) => {
       const c = (t.category || '').toLowerCase();
-      // Kata kunci untuk mengidentifikasi pengeluaran konsumtif/discretionary
       if (c.includes('makan') || c.includes('jajan') || c.includes('hiburan') || c.includes('belanja') || c.includes('hobi') || c.includes('rokok') || c.includes('kopi') || c.includes('lifestyle') || c.includes('main')) {
           konsumtifTotal += t.amount;
       }
   });
   const konsumtifRatio = pureExpenses > 0 ? (konsumtifTotal / pureExpenses) * 100 : 0;
+  const kebutuhanPokokTotal = Math.max(0, pureExpenses - konsumtifTotal);
 
   const generateDynamicInsight = () => {
       if (monthlyIncome === 0 && monthlyExpense === 0) {
           return {
-              title: "Sistem Menunggu Data",
-              desc: "Belum ada pergerakan kas bulan ini. Mulai catat transaksi Anda untuk mengaktifkan mesin diagnosis finansial otomatis secara real-time.",
-              color: "text-slate-600 bg-slate-50 border-slate-200",
+              title: "Sistem Menunggu Data Transaksi",
+              desc: "Belum ada transaksi bulan ini. Catat transaksi harian untuk mengaktifkan audit kecerdasan finansial otomatis.",
+              color: "text-slate-700 bg-white border-2 border-slate-200",
               icon: <HelpCircle className="w-5 h-5 text-slate-500" />
           };
       }
       if (monthlyNet < 0) {
           return {
-              title: "Peringatan Defisit Kas (Mati Keras)",
-              desc: `Arus kas berstatus minus Rp ${Math.abs(monthlyNet).toLocaleString('id-ID')}. Anda membiayai pengeluaran dari tabungan lama atau instrumen hutang. Tekan rem belanja sekarang.`,
-              color: "text-rose-700 bg-rose-50 border-rose-100",
+              title: "Peringatan Defisit Arus Kas (Cash Burn)",
+              desc: `Arus kas minus Rp ${Math.abs(monthlyNet).toLocaleString('id-ID')}. Anda membiayai operasional dari tabungan lama atau hutang. Tekan pengeluaran gaya hidup segera.`,
+              color: "text-rose-900 bg-rose-50 border-2 border-rose-200",
               icon: <ShieldAlert className="w-5 h-5 text-rose-600" />
+          };
+      }
+      if (financialRunwayMonths < 1 && liquidCash > 0) {
+          return {
+              title: "Runway Kas Darurat Tipis (< 1 Bulan)",
+              desc: `Kas tunai Anda hanya cukup membiayai ${financialRunwayMonths.toFixed(1)} bulan hidup. Prioritaskan pembentukan Dana Darurat minimal 3 bulan sebelum ekspansi aset.`,
+              color: "text-amber-900 bg-amber-50 border-2 border-amber-300",
+              icon: <Zap className="w-5 h-5 text-amber-700" />
           };
       }
       if (budgetVelocityAlert) {
           return {
-              title: "Akselerasi Anggaran Agresif",
-              desc: `Pengeluaran Anda telah terpakai ${budgetPercentage.toFixed(1)}% padahal waktu bulan baru berjalan ${monthProgressPercent.toFixed(1)}%. Anda diproyeksikan kehabisan anggaran sebelum akhir bulan.`,
-              color: "text-amber-700 bg-amber-50 border-amber-100",
-              icon: <Zap className="w-5 h-5 text-amber-600" />
+              title: "Akselerasi Pengeluaran Terlalu Cepat",
+              desc: `Anggaran terpakai ${budgetPercentage.toFixed(1)}% padahal waktu bulan baru ${monthProgressPercent.toFixed(1)}%. Anda berisiko kehabisan budget sebelum akhir bulan.`,
+              color: "text-amber-900 bg-amber-50 border-2 border-amber-300",
+              icon: <Zap className="w-5 h-5 text-amber-700" />
           };
       }
       if (savingsRate >= 30) {
           return {
-              title: "Kapasitas Alokasi Sangat Sehat",
-              desc: `Rasio tabungan Anda mencapai ${savingsRate.toFixed(1)}% (di atas batas ideal 20%). Margin keamanan ini sangat bagus untuk segera didiversifikasikan ke instrumen investasi.`,
-              color: "text-emerald-700 bg-emerald-50 border-emerald-100",
-              icon: <Trophy className="w-5 h-5 text-emerald-600" />
+              title: "Kapasitas Tabungan Sangat Prima (Fortress)",
+              desc: `Tingkat tabungan bersih Anda ${savingsRate.toFixed(1)}% (jauh di atas standar 20%). Surplus ini sangat ideal untuk dialokasikan ke instrumen investasi.`,
+              color: "text-emerald-950 bg-emerald-50 border-2 border-emerald-300",
+              icon: <Trophy className="w-5 h-5 text-emerald-700" />
           };
       }
       return {
-          title: "Stabilitas Arus Kas Normatif",
-          desc: `Arus kas surplus, namun rasio tabungan berada di angka ${savingsRate.toFixed(1)}%. Lakukan optimasi pada pos pengeluaran minor agar target jangka panjang terakselerasi.`,
-          color: "text-indigo-700 bg-indigo-50 border-indigo-100",
-          icon: <Activity className="w-5 h-5 text-indigo-600" />
+          title: "Arus Kas Berjalan Sehat & Terkendali",
+          desc: `Arus kas surplus dengan tingkat tabungan ${savingsRate.toFixed(1)}%. Jaga konsistensi belanja agar akumulasi kekayaan bersih tetap optimal.`,
+          color: "text-brand-navy bg-amber-50 border-2 border-amber-200",
+          icon: <Activity className="w-5 h-5 text-amber-600" />
       };
   };
 
   const activeInsight = generateDynamicInsight();
   const detailList = (expandedDetail === 'income' ? allIncomeTxs : (expandedDetail === 'expense' ? allExpenseTxs : []))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const formatRp = (val: number) => {
       if (isNaN(val)) return "Rp 0";
@@ -479,444 +536,495 @@ export default function Performance() {
   };
 
   const displayWealth = formatRp(currentWealth);
-  const getBalanceTextSize = (text: string) => {
-      if (text.length >= 20) return "text-2xl"; 
-      if (text.length >= 15) return "text-3xl"; 
-      return "text-4xl"; 
-  };
 
   return (
-    <MobileLayout title="Analisa Performa" showBack>
-      <div className="space-y-6 pt-4 px-1 pb-24">
+    <MobileLayout>
+      <div className="flex flex-col -mx-5 -mt-5">
+        
+        {/* ========================================================================= */}
+        {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO NAVY & GOLD */}
+        {/* ========================================================================= */}
+        <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b-2 border-amber-400">
+            
+            {/* Top Navigation Bar */}
+            <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.08)] flex items-center justify-between relative z-30 border-b border-amber-100">
+                <div className="flex items-center gap-3">
+                    <Link href="/">
+                        <button 
+                            type="button"
+                            className="w-10 h-10 rounded-full bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                            title="Kembali ke Beranda"
+                        >
+                            <ArrowLeft className="w-5 h-5 text-brand-gold" strokeWidth={2.5} />
+                        </button>
+                    </Link>
 
-        {/* 1. NOTIFIKASI WAKTU HABIS TARGET */}
-        {isPeriodEnded && (
-            <div className={`p-5 rounded-[24px] text-white shadow-lg animate-in slide-in-from-top-4 ${isTargetAchieved ? 'bg-gradient-to-br from-yellow-400 to-amber-600' : 'bg-gradient-to-br from-rose-500 to-red-600'}`}>
-                {isTargetAchieved ? (
-                    <div className="flex items-center gap-4">
-                        <div className="bg-white/20 p-3 rounded-full"><Trophy className="w-8 h-8 text-white"/></div>
-                        <div>
-                            <h3 className="font-extrabold text-xl">Luar Biasa! 🎉</h3>
-                            <p className="text-xs text-white/90">Target finansialmu tercapai tepat waktu.</p>
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                            <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                                Evaluasi & Analitik
+                            </p>
                         </div>
+                        <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                            Analisa Performa
+                        </h1>
                     </div>
-                ) : (
-                    <div>
-                        <h3 className="font-extrabold text-xl flex items-center gap-2"><AlertCircle className="w-6 h-6"/> Waktu Habis</h3>
-                        <p className="text-xs text-white/90 mt-1 mb-4 leading-relaxed">Target belum sepenuhnya tercapai. Jangan menyerah, atur ulang strategi untuk melanjutkan sisa target.</p>
-                        <Link href="/target">
-                            <button className="bg-white text-rose-600 px-5 py-3 rounded-full text-xs font-extrabold shadow flex items-center justify-center gap-2 w-full active:scale-95 transition-transform">
-                                <RefreshCcw className="w-4 h-4"/> PERPANJANG DURASI STRATEGI
-                            </button>
-                        </Link>
-                    </div>
-                )}
-            </div>
-        )}
+                </div>
 
-        {/* 2. KARTU UTAMA: TOTAL KEKAYAAN BERSIH */}
-        <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-800 text-white p-7 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden">
-            <div className="relative z-10 mb-6">
-                <div className="flex justify-between items-center mb-1">
-                    <p className="text-[11px] text-blue-200 uppercase tracking-widest font-bold flex items-center gap-2">
-                        Total Kekayaan Bersih
-                    </p>
+                <div className="flex items-center gap-2">
                     <Link href="/target">
-                        <button className="bg-yellow-400 hover:bg-yellow-500 text-indigo-950 px-3 py-1.5 rounded-full text-[9px] font-extrabold shadow-md transition-all active:scale-95 uppercase tracking-wider whitespace-nowrap">
-                            EDIT SETUP
+                        <button 
+                            type="button"
+                            className="flex items-center gap-1 bg-brand-navy text-brand-gold px-3 py-1.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-900 text-[10px] font-black border border-brand-gold/30 active:scale-95 transition-all cursor-pointer"
+                        >
+                            <Target className="w-3.5 h-3.5 text-brand-gold" />
+                            <span>SETUP TARGET</span>
                         </button>
                     </Link>
                 </div>
-
-                <h2 className={`${getBalanceTextSize(displayWealth)} font-extrabold font-display text-white block w-full whitespace-nowrap transition-all duration-300`}>
-                    {displayWealth}
-                </h2>
-                
-                <div className="flex flex-wrap gap-2 mt-4 text-[10px] font-bold">
-                    <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Tunai: {formatRp(cashReal)}</span>
-                    <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">Aset: {formatRp(investmentReal + forexValue)}</span>
-                    {retainedReal > 0 && <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-amber-200">Tertahan: {formatRp(retainedReal)}</span>}
-                    {piutangReal > 0 && <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-emerald-200">Piutang: {formatRp(piutangReal)}</span>}
-                    {hutangReal > 0 && <span className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5 text-rose-200">Hutang: {formatRp(hutangReal)}</span>}
-                </div>
             </div>
 
-            {hasTargetAmount && (
-                <div className="relative z-10 bg-black/20 p-4 rounded-[20px] backdrop-blur-sm border border-white/10 mt-6">
-                    <div className="flex justify-between text-[11px] text-blue-100 mb-2 font-bold uppercase tracking-wider">
-                        <span>Target Impian</span>
-                        <span className="text-emerald-300">{progressPercent.toFixed(1)}%</span>
+            {/* 2. FLAGSHIP HERO CARD: TOTAL KEKAYAAN BERSIH (FORMAT HOME LIST TEBAL GOLD) */}
+            <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-5 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
+                <TrendingUp className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
+                <div className="absolute right-0 top-0 w-32 h-32 bg-brand-gold/15 rounded-full blur-xl pointer-events-none" />
+
+                <div className="relative z-10 flex flex-col">
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
+                            <Trophy className="w-3 h-3 fill-current" /> TOTAL NET WORTH
+                        </span>
+                        <span className="text-[10px] text-amber-200 font-bold bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
+                            Realtime Multi-Asset
+                        </span>
                     </div>
-                    <div className="w-full bg-black/30 h-3 rounded-full overflow-hidden mb-3">
-                        <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-300 transition-all duration-1000 rounded-full" style={{ width: `${progressPercent}%` }}></div>
-                    </div>
-                    <div className="flex justify-between text-xs font-bold text-white">
-                        <span>{formatRp(target.targetAmount)}</span>
-                        <span className="flex items-center gap-1 opacity-80"><CalendarClock className="w-4 h-4"/> Sisa {monthsRemaining} Bln</span>
-                    </div>
-                </div>
-            )}
-            <div className="absolute right-0 top-0 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
-            <div className="absolute left-0 bottom-0 w-32 h-32 bg-emerald-400/20 rounded-tr-full blur-2xl pointer-events-none"></div>
-        </div>
 
-        {/* 3. DYNAMIC INSIGHT ENGINE (TAMPIL TERUS) */}
-        <div className={`p-5 rounded-[28px] border transition-all duration-300 shadow-sm flex gap-3 items-start ${activeInsight.color}`}>
-            <div className="mt-0.5 shrink-0 bg-white/50 p-2 rounded-xl border border-current/10">
-                {activeInsight.icon}
-            </div>
-            <div>
-                <h4 className="font-black text-sm mb-1 uppercase tracking-tight">{activeInsight.title}</h4>
-                <p className="text-xs leading-relaxed font-medium opacity-90">{activeInsight.desc}</p>
-            </div>
-        </div>
-
-        {/* 4. CASHFLOW DIAGNOSTICS: 4 METRIK MENDALAM */}
-        <div className="bg-white border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.02)] rounded-[32px] p-6 relative overflow-hidden">
-            <div className="flex items-center gap-2 mb-4">
-                <PieChart className="w-5 h-5 text-indigo-600"/>
-                <h3 className="font-extrabold text-slate-800 text-sm">Diagnosis Struktur Arus Kas</h3>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100">
-                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Savings Rate</p>
-                    <p className={`text-lg font-black ${savingsRate >= 20 ? 'text-emerald-600' : savingsRate > 0 ? 'text-amber-600' : 'text-rose-600'}`}>
-                        {savingsRate.toFixed(1)}%
+                    <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mt-1">
+                        Total Kekayaan Bersih Saat Ini
                     </p>
-                    <p className="text-[9px] text-slate-400 mt-0.5 font-medium leading-tight">Kapasitas nabung dari pemasukan</p>
-                </div>
 
-                <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100">
-                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Beban Harian</p>
-                    <p className="text-lg font-black text-slate-800">{formatRp(dailyBurnRate)}</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5 font-medium leading-tight">Rata-rata keluar per hari</p>
-                </div>
+                    <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-3 leading-tight tabular-nums">
+                        {displayWealth}
+                    </h2>
 
-                <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100">
-                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Top Pengeluaran</p>
-                    <p className="text-sm font-black text-slate-800 truncate" title={topCategory}>{topCategory}</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5 font-medium leading-tight">Pos paling menyedot kas</p>
-                </div>
+                    {/* Breakdown Portofolio Pills */}
+                    <div className="flex flex-wrap gap-1.5 pt-2 border-t border-white/15 text-[10px] font-bold">
+                        <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/10 text-white">Tunai: {formatRp(cashReal)}</span>
+                        <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/10 text-sky-200">Aset: {formatRp(investmentReal + forexValue)}</span>
+                        {retainedReal > 0 && <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/10 text-amber-300">Tertahan: {formatRp(retainedReal)}</span>}
+                        {piutangReal > 0 && <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/10 text-emerald-300">Piutang: {formatRp(piutangReal)}</span>}
+                        {hutangReal > 0 && <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/10 text-rose-300">Hutang: -{formatRp(hutangReal)}</span>}
+                    </div>
 
-                <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100">
-                    <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Gaya Hidup</p>
-                    <p className={`text-lg font-black ${konsumtifRatio > 50 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                        {konsumtifRatio.toFixed(1)}%
-                    </p>
-                    <p className="text-[9px] text-slate-400 mt-0.5 font-medium leading-tight">Porsi konsumtif diskresioner</p>
-                </div>
-            </div>
-
-            {monthlyBudget > 0 && (
-                <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-xs">
-                    <span className="font-medium text-slate-500">Proyeksi Pengeluaran Bulanan:</span>
-                    <span className={`font-black ${projectedExpense > monthlyBudget ? 'text-rose-600' : 'text-emerald-600'}`}>
-                        {formatRp(projectedExpense)}
-                    </span>
-                </div>
-            )}
-        </div>
-
-        {/* 5. GRAFIK KAS MASUK DAN KELUAR */}
-        <div className="p-0 border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] bg-white overflow-hidden rounded-[32px] relative">
-            <div>
-                <div className="p-6 border-b border-slate-100">
-                    <div className="flex justify-between items-center mb-6">
-                        <div>
-                            <h3 className="font-extrabold text-slate-800 text-base">Realisasi & Cashflow</h3>
-                            <p className="text-[11px] text-slate-400 font-medium">Klik grafik untuk rincian riwayat</p>
+                    {/* Target Progress Bar Jika Ada */}
+                    {hasTargetAmount && (
+                        <div className="bg-black/30 p-3.5 rounded-2xl border border-white/10 mt-3.5 space-y-2">
+                            <div className="flex justify-between text-[10px] text-amber-200 font-black uppercase tracking-wider">
+                                <span>Progres Target Impian</span>
+                                <span className="text-emerald-400">{progressPercent.toFixed(1)}%</span>
+                            </div>
+                            <div className="w-full bg-black/40 h-2.5 rounded-full overflow-hidden border border-white/10">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-brand-gold to-emerald-400 transition-all duration-1000 rounded-full" 
+                                    style={{ width: `${progressPercent}%` }}
+                                />
+                            </div>
+                            <div className="flex justify-between text-[11px] font-black text-white pt-0.5">
+                                <span>Goal: {formatRp(target.targetAmount)}</span>
+                                <span className="flex items-center gap-1 text-slate-300 text-[10px]">
+                                    <CalendarClock className="w-3.5 h-3.5 text-amber-300"/> Sisa {monthsRemaining} Bulan
+                                </span>
+                            </div>
                         </div>
-                        <span className={`text-[11px] font-extrabold px-3 py-1.5 rounded-full border ${monthlyNet >= 0 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                    )}
+                </div>
+            </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* 2. BODY CONTENT SECTION: METRIK ANALITIK MENDALAM */}
+        {/* ========================================================================= */}
+        <div className="px-5 pt-4 pb-24 bg-slate-50 flex flex-col gap-4">
+            
+            {/* NOTIFIKASI TARGET JIKA WAKTU HABIS */}
+            {isPeriodEnded && (
+                <div className={`p-5 rounded-[28px] text-white shadow-[5px_5px_0px_0px] shadow-slate-900 border-2 ${isTargetAchieved ? 'bg-gradient-to-br from-amber-500 to-yellow-600 border-amber-300' : 'bg-gradient-to-br from-rose-600 to-red-700 border-rose-400'}`}>
+                    {isTargetAchieved ? (
+                        <div className="flex items-center gap-3.5">
+                            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0 shadow-sm"><Trophy className="w-7 h-7 text-white"/></div>
+                            <div>
+                                <h3 className="font-black text-base">Target Finansial Tercapai! 🎉</h3>
+                                <p className="text-xs text-white/90 font-bold">Kekayaan bersih Anda berhasil melampaui batas target tepat waktu.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <AlertCircle className="w-5 h-5 text-white"/>
+                                <h3 className="font-black text-base">Periode Target Selesai</h3>
+                            </div>
+                            <p className="text-xs text-white/90 font-semibold leading-relaxed">Target belum terpenuhi 100%. Lanjutkan evaluasi dan perpanjang durasi strategi untuk mengejar sisa target.</p>
+                            <Link href="/target">
+                                <button className="w-full h-11 bg-white text-rose-700 rounded-xl text-xs font-black uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 active:scale-95 transition-transform cursor-pointer">
+                                    <RefreshCcw className="w-4 h-4"/> Atur Ulang Periode Target
+                                </button>
+                            </Link>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* DYNAMIC INSIGHT AI BOX */}
+            <div className={`p-4.5 rounded-[24px] shadow-[4px_4px_0px_0px] shadow-slate-900 flex gap-3 items-start ${activeInsight.color}`}>
+                <div className="p-2 rounded-xl bg-white/80 border border-current/20 shrink-0 shadow-xs">
+                    {activeInsight.icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <h4 className="font-black text-xs uppercase tracking-wider mb-1">{activeInsight.title}</h4>
+                    <p className="text-xs leading-relaxed font-bold opacity-90">{activeInsight.desc}</p>
+                </div>
+            </div>
+
+            {/* 4 CARD ANALISIS KESEHATAN FINANSIAL PERSONAL (METRIK BARU BERKUALITAS) */}
+            <div className="bg-white border-2 border-amber-200/90 shadow-[6px_6px_0px_0px] shadow-slate-900 rounded-[28px] p-5 space-y-3">
+                <div className="flex justify-between items-center">
+                    <h3 className="font-black text-brand-navy text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <Activity className="w-4 h-4 text-amber-600"/> Diagnosis Ketahanan Finansial
+                    </h3>
+                    <span className="text-[9px] font-black text-brand-navy bg-brand-gold px-2 py-0.5 rounded-md">LIVE RATIOS</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                    
+                    {/* 1. FINANCIAL RUNWAY (DANA DARURAT BERTAHAN BERAPA BULAN) */}
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-wider">Financial Runway</p>
+                            <p className={`text-base font-black tabular-nums mt-0.5 ${
+                                financialRunwayMonths >= 6 ? 'text-emerald-700' : financialRunwayMonths >= 3 ? 'text-sky-700' : financialRunwayMonths >= 1 ? 'text-amber-700' : 'text-rose-700'
+                            }`}>
+                                {financialRunwayMonths.toFixed(1)} Bulan
+                            </p>
+                        </div>
+                        <p className="text-[9px] text-slate-500 font-bold mt-1.5 leading-tight">
+                            {financialRunwayMonths >= 6 ? '🛡️ Sangat Kuat (Fortress)' : financialRunwayMonths >= 3 ? '✅ Kuat (Ideal)' : '⚠️ Kas darurat tipis'}
+                        </p>
+                    </div>
+
+                    {/* 2. SAVINGS RATE (RASIO TABUNGAN) */}
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-wider">Savings Rate</p>
+                            <p className={`text-base font-black tabular-nums mt-0.5 ${savingsRate >= 20 ? 'text-emerald-700' : savingsRate > 0 ? 'text-amber-700' : 'text-rose-700'}`}>
+                                {savingsRate.toFixed(1)}%
+                            </p>
+                        </div>
+                        <p className="text-[9px] text-slate-500 font-bold mt-1.5 leading-tight">
+                            {savingsRate >= 20 ? '🔥 Sangat Disiplin' : savingsRate > 0 ? '👍 Surplus positif' : '🚨 Arus kas minus'}
+                        </p>
+                    </div>
+
+                    {/* 3. BEBAN HARIAN (DAILY BURN RATE) */}
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-wider">Burn Rate Harian</p>
+                            <p className="text-sm font-black text-slate-900 tabular-nums mt-0.5">{formatRp(dailyBurnRate)}</p>
+                        </div>
+                        <p className="text-[9px] text-slate-500 font-bold mt-1.5 leading-tight">
+                            Rata-rata keluar per hari
+                        </p>
+                    </div>
+
+                    {/* 4. DEBT-TO-WEALTH RATIO (RASIO BEBAN HUTANG) */}
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border-2 border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-wider">Beban Hutang (DSR)</p>
+                            <p className={`text-base font-black tabular-nums mt-0.5 ${debtToWealthRatio === 0 ? 'text-emerald-700' : debtToWealthRatio <= 20 ? 'text-amber-700' : 'text-rose-700'}`}>
+                                {debtToWealthRatio.toFixed(1)}%
+                            </p>
+                        </div>
+                        <p className="text-[9px] text-slate-500 font-bold mt-1.5 leading-tight">
+                            {debtToWealthRatio === 0 ? ' Bebas Hutang' : 'Porsi hutang vs aset'}
+                        </p>
+                    </div>
+                </div>
+
+                {/* STRUKTUR 50/30/20 (NEEDS VS WANTS VS SAVINGS) */}
+                <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-3.5 space-y-2 mt-1">
+                    <div className="flex justify-between items-center text-[10px] font-black text-brand-navy uppercase tracking-wider">
+                        <span>Porsi Belanja Gaya Hidup (Konsumtif)</span>
+                        <span className={konsumtifRatio > 50 ? 'text-rose-700' : 'text-emerald-800'}>{konsumtifRatio.toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden flex">
+                        <div className="bg-emerald-500 h-full transition-all" style={{ width: `${100 - konsumtifRatio}%` }} title="Kebutuhan Rutin & Pokok" />
+                        <div className="bg-rose-500 h-full transition-all" style={{ width: `${konsumtifRatio}%` }} title="Gaya Hidup & Konsumtif" />
+                    </div>
+                    <div className="flex justify-between text-[9px] font-bold text-slate-500 pt-0.5">
+                        <span>Pokok: {formatRp(kebutuhanPokokTotal)}</span>
+                        <span>Gaya Hidup: {formatRp(konsumtifTotal)}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* REALISASI & CASHFLOW GRAPH BOX (KLIK UNTUK LIHAT DETAIL TRANSAKSI) */}
+            <div className="bg-white border-2 border-amber-200 shadow-[6px_6px_0px_0px] shadow-slate-900 rounded-[28px] overflow-hidden">
+                <div className="p-5 border-b-2 border-slate-100">
+                    <div className="flex justify-between items-center mb-4">
+                        <div>
+                            <h3 className="font-black text-brand-navy text-sm uppercase tracking-wider">Realisasi Kas Bulanan</h3>
+                            <p className="text-[10px] text-slate-500 font-bold">Sentuh diagram bar untuk melihat mutasi</p>
+                        </div>
+                        <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${
+                            monthlyNet >= 0 ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-rose-50 text-rose-800 border-rose-300'
+                        }`}>
                             Net: {monthlyNet > 0 ? '+' : ''}{formatRp(monthlyNet)}
                         </span>
                     </div>
 
-                    <div className="flex items-end justify-around h-40 gap-4">
+                    <div className="flex items-end justify-around h-36 gap-4 pt-2">
+                        {/* BAR PEMASUKAN */}
                         <div 
                             onClick={() => setExpandedDetail(expandedDetail === 'income' ? null : 'income')}
-                            className={`flex flex-col items-center gap-2 w-full h-full justify-end group cursor-pointer p-2 rounded-[20px] transition-all ${expandedDetail === 'income' ? 'bg-emerald-50 ring-2 ring-emerald-400 ring-offset-2' : 'hover:bg-slate-50'}`}
+                            className={`flex flex-col items-center gap-1.5 w-full h-full justify-end group cursor-pointer p-2 rounded-2xl transition-all ${
+                                expandedDetail === 'income' ? 'bg-emerald-50 border-2 border-emerald-400 shadow-sm' : 'hover:bg-slate-50'
+                            }`}
                         >
-                            <span className="text-[11px] font-extrabold text-emerald-600 truncate max-w-full px-1">{formatRp(monthlyIncome)}</span>
-                            <div className="w-full bg-emerald-400 rounded-t-xl transition-all duration-1000 shadow-sm" style={{ height: `${Math.max(monthlyIncome/Math.max(monthlyIncome, monthlyExpense, 1)*100, 10)}%` }}></div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mt-1">
-                                <ArrowDownCircle className="w-3.5 h-3.5"/> Masuk
-                                {expandedDetail === 'income' ? <ChevronUp className="w-3 h-3 text-emerald-500"/> : <ChevronDown className="w-3 h-3 opacity-30"/>}
+                            <span className="text-[10px] font-black text-emerald-700 truncate max-w-full">{formatRp(monthlyIncome)}</span>
+                            <div 
+                                className="w-full bg-emerald-500 rounded-t-xl transition-all duration-700 shadow-sm" 
+                                style={{ height: `${Math.max(monthlyIncome / Math.max(monthlyIncome, monthlyExpense, 1) * 100, 12)}%` }}
+                            />
+                            <span className="text-[10px] font-black text-slate-700 uppercase flex items-center gap-1 mt-1">
+                                <ArrowDownCircle className="w-3.5 h-3.5 text-emerald-600"/> Masuk
+                                {expandedDetail === 'income' ? <ChevronUp className="w-3 h-3 text-emerald-600"/> : <ChevronDown className="w-3 h-3 text-slate-400"/>}
                             </span>
                         </div>
 
+                        {/* BAR PENGELUARAN */}
                         <div 
                             onClick={() => setExpandedDetail(expandedDetail === 'expense' ? null : 'expense')}
-                            className={`flex flex-col items-center gap-2 w-full h-full justify-end group cursor-pointer p-2 rounded-[20px] transition-all ${expandedDetail === 'expense' ? 'bg-rose-50 ring-2 ring-rose-400 ring-offset-2' : 'hover:bg-slate-50'}`}
+                            className={`flex flex-col items-center gap-1.5 w-full h-full justify-end group cursor-pointer p-2 rounded-2xl transition-all ${
+                                expandedDetail === 'expense' ? 'bg-rose-50 border-2 border-rose-400 shadow-sm' : 'hover:bg-slate-50'
+                            }`}
                         >
-                            <span className="text-[11px] font-extrabold text-rose-600 truncate max-w-full px-1">{formatRp(monthlyExpense)}</span>
-                            <div className="w-full bg-rose-400 rounded-t-xl transition-all duration-1000 shadow-sm" style={{ height: `${Math.max(monthlyExpense/Math.max(monthlyIncome, monthlyExpense, 1)*100, 10)}%` }}></div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1 mt-1">
-                                <ArrowUpCircle className="w-3.5 h-3.5"/> Keluar
-                                {expandedDetail === 'expense' ? <ChevronUp className="w-3 h-3 text-rose-500"/> : <ChevronDown className="w-3 h-3 opacity-30"/>}
+                            <span className="text-[10px] font-black text-rose-700 truncate max-w-full">{formatRp(monthlyExpense)}</span>
+                            <div 
+                                className="w-full bg-rose-500 rounded-t-xl transition-all duration-700 shadow-sm" 
+                                style={{ height: `${Math.max(monthlyExpense / Math.max(monthlyIncome, monthlyExpense, 1) * 100, 12)}%` }}
+                            />
+                            <span className="text-[10px] font-black text-slate-700 uppercase flex items-center gap-1 mt-1">
+                                <ArrowUpCircle className="w-3.5 h-3.5 text-rose-600"/> Keluar
+                                {expandedDetail === 'expense' ? <ChevronUp className="w-3 h-3 text-rose-600"/> : <ChevronDown className="w-3 h-3 text-slate-400"/>}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                <div className={`transition-all duration-500 ease-in-out overflow-hidden bg-slate-50/50 ${expandedDetail ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                    <div className="p-5">
-                        <div className="flex justify-between items-center mb-4">
-                            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest">
-                                Riwayat {expandedDetail === 'income' ? 'Pemasukan' : 'Pengeluaran'}
+                {/* EXPANDED TRANSACTION LIST */}
+                {expandedDetail && (
+                    <div className="p-4 bg-slate-50 space-y-3 animate-in fade-in">
+                        <div className="flex justify-between items-center px-1">
+                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
+                                Riwayat {expandedDetail === 'income' ? 'Pemasukan' : 'Pengeluaran'} Bulan Ini
                             </span>
-                            <button onClick={() => setExpandedDetail(null)} className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Tutup</button>
+                            <button 
+                                type="button"
+                                onClick={() => setExpandedDetail(null)} 
+                                className="text-[10px] font-black text-brand-navy bg-white border border-slate-200 px-2.5 py-0.5 rounded-full"
+                            >
+                                Tutup
+                            </button>
                         </div>
                         
-                        <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1 pb-4">
-                            {detailList.length > 0 ? detailList.map((t, idx) => (
-                                <div key={t.id || idx} className="bg-white p-4 rounded-[20px] border border-slate-100 shadow-sm flex justify-between items-center group transition-all">
-                                    <div className="flex-1 mr-2">
-                                        <p className="text-sm font-extrabold text-slate-800">{t.category}</p>
-                                        <p className="text-[11px] text-slate-500 line-clamp-1">{t.description || "Tanpa keterangan"}</p>
+                        <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                            {detailList.length > 0 ? detailList.map((t: any, idx: number) => (
+                                <div key={t.id || idx} className="bg-white p-3 rounded-2xl border-2 border-slate-200 flex justify-between items-center shadow-xs">
+                                    <div className="flex-1 min-w-0 mr-2">
+                                        <p className="text-xs font-black text-slate-900 truncate">{t.category}</p>
+                                        <p className="text-[10px] text-slate-500 font-medium truncate">{t.description || "Tanpa keterangan"}</p>
                                     </div>
-                                    <div className="text-right mr-3">
-                                        <p className={`text-sm font-extrabold ${t.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                    <div className="text-right mr-2 shrink-0">
+                                        <p className={`text-xs font-black tabular-nums ${t.type === 'income' ? 'text-emerald-700' : 'text-rose-700'}`}>
                                             {t.type === 'income' ? '+' : '-'}{formatRp(t.amount)}
                                         </p>
-                                        <p className="text-[10px] text-slate-400 font-medium">{new Date(t.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</p>
+                                        <p className="text-[9px] text-slate-400 font-bold">{new Date(t.date).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}</p>
                                     </div>
                                     {t.id && (
                                         <button 
+                                            type="button"
                                             onClick={() => handleDeleteTransaction(t.id)} 
                                             disabled={isDeletingTx}
-                                            className="p-2.5 bg-rose-50 text-rose-500 rounded-[14px] hover:bg-rose-100 transition-colors shrink-0"
+                                            className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 transition-colors shrink-0"
                                             title="Hapus Transaksi"
                                         >
-                                            {isDeletingTx ? <Loader2 className="w-4 h-4 animate-spin"/> : <Trash2 className="w-4 h-4"/>}
+                                            {isDeletingTx ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Trash2 className="w-3.5 h-3.5"/>}
                                         </button>
                                     )}
                                 </div>
                             )) : (
-                                <p className="text-center text-xs text-slate-400 italic py-6 bg-white rounded-[20px] border border-dashed border-slate-200">Belum ada transaksi bulan ini.</p>
+                                <p className="text-center text-xs text-slate-400 font-bold py-6 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+                                    Belum ada transaksi {expandedDetail} tercatat.
+                                </p>
                             )}
                         </div>
                     </div>
-                </div>
+                )}
             </div>
-        </div>
 
-        {/* 6. PERFORMA ASET & DIVERSIFIKASI */}
-        {isPro && (
-            (totalCuanJual !== 0 || investmentReal > 0 || forexValue > 0) ? (
-                <div className="p-6 rounded-[32px] bg-slate-900 text-white shadow-xl border border-slate-700 relative overflow-hidden">
-                    <div className="flex justify-between items-start mb-6">
-                        <div>
-                            <h3 className="font-black text-lg flex items-center gap-2"><Briefcase className="w-5 h-5 text-amber-400"/> Performa Aset</h3>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">ROI & Portfolio Insight</p>
-                        </div>
-                        <div className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-1 rounded-md">PRO</div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                        <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                            <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">Total ROI (Realisasi)</p>
-                            <p className={`text-xl font-black ${totalCuanJual >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {totalCuanJual >= 0 ? '+' : ''}{roiPercentage.toFixed(2)}%
-                            </p>
-                            <p className="text-[10px] text-slate-500 font-medium">{formatRp(totalCuanJual)} dari modal {formatRp(totalModalTerpakai)}</p>
-                        </div>
-                        <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                            <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">Porsi Aset & Valas</p>
-                            <p className="text-xl font-black text-blue-400">{assetAlocationRatio.toFixed(1)}%</p>
-                            <p className="text-[10px] text-slate-500 font-medium">dari Kekayaan Bersih</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-amber-400/10 border border-amber-400/20 p-4 rounded-2xl">
-                        <div className="flex items-center gap-2 mb-1.5 text-amber-400">
-                            <TrendingUp className="w-4 h-4"/>
-                            <span className="text-[11px] font-black uppercase">Analisa Strategi Aset:</span>
-                        </div>
-                        <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
-                            {roiPercentage > 5 ? "Gaya ekspansi modal Anda efektif. Lanjutkan konsistensi manajemen risiko untuk mempercepat kebebasan finansial." : 
-                                roiPercentage < 0 ? "Realisasi pertumbuhan modal negatif. Lakukan evaluasi mendalam pada siklus masuk/keluar instrumen pasar Anda." :
-                                "Struktur penempatan dana stabil. Pertahankan diversifikasi berkala untuk menghadapi volatilitas makro."}
+            {/* PERFORMA INVESTASI & ROI REALISASI */}
+            <div className="p-5 rounded-[28px] bg-brand-navy text-white shadow-[6px_6px_0px_0px] shadow-slate-900 border-l-[6px] border-l-brand-gold relative overflow-hidden space-y-4">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <h3 className="font-black text-base flex items-center gap-1.5 text-white">
+                            <Briefcase className="w-4 h-4 text-brand-gold"/> Evaluasi Portofolio Multi-Aset
+                        </h3>
+                        <p className="text-[10px] text-slate-300 font-bold uppercase tracking-wider mt-0.5">
+                            Kinerja Pertumbuhan & Alokasi Modal
                         </p>
                     </div>
+                    <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2 py-0.5 rounded-md">
+                        PORTFOLIO
+                    </span>
                 </div>
-            ) : (
-                <div className="p-6 rounded-[32px] bg-slate-900 text-white/40 shadow-xl border border-slate-800 relative overflow-hidden text-center">
-                    <Briefcase className="w-8 h-8 mx-auto mb-2 text-slate-600 animate-pulse" />
-                    <h4 className="font-extrabold text-sm text-slate-300 mb-1">Portofolio Multi-Aset Belum Aktif</h4>
-                    <p className="text-[11px] max-w-xs mx-auto text-slate-400 leading-relaxed font-medium">
-                        Evaluasi ROI otomatis dan analisis diversifikasi akan terisi di sini setelah Anda mencatat pembelian instrumen investasi atau valas.
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white/10 p-3.5 rounded-2xl border border-white/15">
+                        <p className="text-[9px] text-slate-300 font-bold uppercase">ROI Realisasi Jual</p>
+                        <p className={`text-lg font-black tabular-nums mt-0.5 ${totalCuanJual >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {totalCuanJual >= 0 ? '+' : ''}{roiPercentage.toFixed(2)}%
+                        </p>
+                        <p className="text-[9px] text-slate-300 font-medium mt-0.5">Profit {formatRp(totalCuanJual)}</p>
+                    </div>
+
+                    <div className="bg-white/10 p-3.5 rounded-2xl border border-white/15">
+                        <p className="text-[9px] text-slate-300 font-bold uppercase">Porsi Aset & Valas</p>
+                        <p className="text-lg font-black text-brand-gold tabular-nums mt-0.5">{assetAlocationRatio.toFixed(1)}%</p>
+                        <p className="text-[9px] text-slate-300 font-medium mt-0.5">dari total kekayaan</p>
+                    </div>
+                </div>
+
+                <div className="bg-brand-gold/15 border border-brand-gold/30 p-3.5 rounded-2xl">
+                    <div className="flex items-center gap-1.5 text-amber-300 mb-1">
+                        <TrendingUp className="w-3.5 h-3.5"/>
+                        <span className="text-[10px] font-black uppercase tracking-wider">Kesimpulan Strategi Modal:</span>
+                    </div>
+                    <p className="text-[11px] text-slate-200 leading-relaxed font-semibold">
+                        {roiPercentage > 5 ? "Pertumbuhan modal positif dan efektif. Pertahankan diversifikasi instrumen Anda." : 
+                         roiPercentage < 0 ? "Realisasi pertumbuhan modal minus. Evaluasi kembali waktu beli/jual instrumen Anda." :
+                         "Struktur aset stabil. Alokasi dana terkelola secara bertahap tanpa over-exposure risiko."}
                     </p>
                 </div>
-            )
-        )}
-
-        {/* 7. AMAL & SEDEKAH (TAMPIL TERUS, WARNA HIJAU) */}
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] relative overflow-hidden group">
-            <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-200/50 rounded-full blur-2xl pointer-events-none"></div>
-            <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-1">
-                    <HeartHandshake className="w-5 h-5 text-emerald-600"/>
-                    <h3 className="font-extrabold text-emerald-900 text-sm">Amal & Sedekah (Bulan Ini)</h3>
-                </div>
-                {totalAmal > 0 ? (
-                    <>
-                        <p className="text-[10px] font-medium text-emerald-700 mb-2">Pahala alokasi sosial murni di luar budget operasional bulanan</p>
-                        <p className="text-2xl font-black text-emerald-600 tracking-tight">{formatRp(totalAmal)}</p>
-                    </>
-                ) : (
-                    <>
-                        <p className="text-[10px] font-medium text-emerald-700 mb-2">Belum ada alokasi amal bulan ini. Berapapun nominalnya, jadikan keuanganmu lebih berkah.</p>
-                        <p className="text-2xl font-black text-emerald-600/40 tracking-tight">Rp 0</p>
-                    </>
-                )}
             </div>
-        </div>
 
-        {/* 8. KONTROL ANGGARAN & GOAL BULANAN (TAMPIL TERUS WALAUPUN NOL) */}
-        <div className="grid grid-cols-1 gap-5">
-            {/* LIMIT PENGELUARAN */}
-            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[32px] p-6 text-white shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
-                
-                <div className="flex items-center justify-between mb-6 relative z-10">
+            {/* ALOKASI AMAL & SOSIAL */}
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 rounded-[28px] p-5 shadow-[5px_5px_0px_0px] shadow-slate-900 relative overflow-hidden space-y-2">
+                <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Target className="w-5 h-5 text-indigo-300"/>
-                        <h3 className="font-bold text-sm">Limit Pengeluaran Bulan Ini</h3>
+                        <HeartHandshake className="w-5 h-5 text-emerald-700"/>
+                        <h3 className="font-black text-emerald-950 text-xs uppercase tracking-wider">Amal & Sedekah (Bulan Ini)</h3>
                     </div>
-                    {isOverBudgetStrict && monthlyBudget > 0 && <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-md animate-pulse shadow-md">OVERBUDGET</span>}
+                    <span className="text-[9px] font-black text-emerald-900 bg-emerald-200/80 px-2 py-0.5 rounded-md">
+                        {amalRatio.toFixed(1)}% Pemasukan
+                    </span>
                 </div>
-
-                <div className="mb-6 relative z-10">
-                    <p className="text-[11px] text-indigo-200 mb-1 font-medium">Pengeluaran Tercatat (Non-Amal)</p>
-                    <div className="flex items-end gap-2">
-                        <h2 className="text-3xl font-black tracking-tight">{formatCurrency(pureExpenses).split(',')[0]}</h2>
-                        <span className="text-sm text-indigo-300 mb-1 font-bold">/ {monthlyBudget > 0 ? formatCurrency(monthlyBudget).split(',')[0] : "Tanpa Batas"}</span>
-                    </div>
-                </div>
-
-                {monthlyBudget > 0 ? (
-                    <div className="relative z-10">
-                        <div className="flex justify-between text-[10px] font-bold mb-2 text-indigo-200">
-                            <span>Terpakai: {budgetPercentage.toFixed(1)}%</span>
-                            <span>Sisa: {formatCurrency(remainingBudget).split(',')[0]}</span>
-                        </div>
-                        <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700 shadow-inner">
-                            <div 
-                                className={`h-full rounded-full transition-all duration-1000 ${isOverBudgetStrict ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-[0_0_10px_rgba(52,211,153,0.5)]'}`}
-                                style={{ width: `${budgetPercentage}%` }}
-                            ></div>
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-400">
-                            <span className="flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5"/> Laju Waktu Bulan:</span>
-                            <span className="font-bold text-slate-300">{monthProgressPercent.toFixed(1)}% Hari Terlewati</span>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="relative z-10 bg-white/10 p-4 rounded-[20px] border border-white/10 flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-white mb-0.5">Batas Belum Diatur</p>
-                            <p className="text-[10px] text-indigo-200">Aktifkan limit untuk cegah kebocoran kas.</p>
-                        </div>
-                        <Link href="/target">
-                            <button className="bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2 rounded-full text-[10px] font-black shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 whitespace-nowrap">
-                                PASANG LIMIT
-                            </button>
-                        </Link>
-                    </div>
-                )}
-            </div>
-
-            {/* GOAL BULANAN / TABUNGAN */}
-            <div className="p-6 rounded-[32px] bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 relative overflow-hidden">
-                <h3 className="font-extrabold text-slate-800 flex items-center gap-2 mb-5">
-                    <Target className="w-5 h-5 text-indigo-500"/> Goal Bulan Ini
-                </h3>
                 
-                {hasTargetAmount ? (
-                    <div>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="bg-indigo-50/50 p-4 rounded-[20px] border border-indigo-100/50 min-w-0">
-                                <p className="text-[10px] text-indigo-500 uppercase font-extrabold tracking-widest mb-1 truncate">Wajib Nabung</p>
-                                <p className="font-extrabold text-indigo-700 text-base truncate" title={formatRp(savingRequired)}>{formatRp(savingRequired)}</p>
+                <p className="text-2xl font-black text-emerald-700 tracking-tight tabular-nums">
+                    {formatRp(totalAmal)}
+                </p>
+                <p className="text-[10px] font-bold text-emerald-900/80 leading-relaxed">
+                    {totalAmal > 0 ? "Alokasi keberkahan sosial murni di luar batas anggaran operasional harian Anda." : "Belum ada alokasi amal tercatat bulan ini. Berapapun nominalnya, jadikan keuangan Anda lebih berkah."}
+                </p>
+            </div>
+
+            {/* KONTROL BUDGET & GOAL BULANAN */}
+            <div className="bg-white border-2 border-amber-200/90 shadow-[6px_6px_0px_0px] shadow-slate-900 rounded-[28px] p-5 space-y-4">
+                <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <Target className="w-4 h-4 text-amber-600"/>
+                        <h3 className="font-black text-brand-navy text-xs uppercase tracking-wider">Limit Pengeluaran Bulanan</h3>
+                    </div>
+                    {isOverBudgetStrict && monthlyBudget > 0 && (
+                        <span className="bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-md animate-pulse">
+                            OVERBUDGET
+                        </span>
+                    )}
+                </div>
+
+                <div>
+                    <div className="flex items-baseline gap-2 mb-1.5">
+                        <h4 className="text-2xl font-black text-slate-900 tabular-nums">{formatCurrency(pureExpenses).split(',')[0]}</h4>
+                        <span className="text-xs text-slate-500 font-bold">/ {monthlyBudget > 0 ? formatCurrency(monthlyBudget).split(',')[0] : "Tanpa Batas"}</span>
+                    </div>
+
+                    {monthlyBudget > 0 ? (
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                                <span>Terpakai: {budgetPercentage.toFixed(1)}%</span>
+                                <span>Sisa: {formatCurrency(remainingBudget).split(',')[0]}</span>
                             </div>
-                            {expenseLimit > 0 ? (
-                                <div className="bg-rose-50/50 p-4 rounded-[20px] border border-rose-100/50 min-w-0">
-                                    <p className="text-[10px] text-rose-500 uppercase font-extrabold tracking-widest mb-1 truncate">Batas Keluar</p>
-                                    <p className="font-extrabold text-rose-700 text-base truncate" title={formatRp(expenseLimit)}>{formatRp(expenseLimit)}</p>
-                                </div>
-                            ) : (
-                                <div className="bg-slate-50 p-4 rounded-[20px] border border-slate-100 min-w-0">
-                                    <p className="text-[10px] text-slate-500 uppercase font-extrabold tracking-widest mb-1 truncate">Batas Keluar</p>
-                                    <p className="font-extrabold text-slate-400 text-sm mt-1 truncate">Tanpa Batas</p>
-                                </div>
-                            )}
+                            <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                                <div 
+                                    className={`h-full rounded-full transition-all duration-1000 ${
+                                        isOverBudgetStrict ? 'bg-rose-500' : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                                    }`}
+                                    style={{ width: `${budgetPercentage}%` }}
+                                />
+                            </div>
+                            <div className="flex justify-between items-center text-[9px] font-bold text-slate-400 pt-1 border-t border-slate-100">
+                                <span className="flex items-center gap-1"><CalendarClock className="w-3 h-3"/> Laju Waktu Bulan Ini:</span>
+                                <span className="font-black text-slate-700">{monthProgressPercent.toFixed(1)}% Hari Terlewati</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-black text-brand-navy">Batas Belum Diatur</p>
+                                <p className="text-[10px] text-slate-500 font-bold">Pasang limit untuk membatasi kebocoran kas.</p>
+                            </div>
+                            <Link href="/target">
+                                <button className="bg-brand-navy text-brand-gold px-3.5 py-2 rounded-xl text-[10px] font-black shadow-sm uppercase tracking-wider cursor-pointer">
+                                    PASANG LIMIT
+                                </button>
+                            </Link>
+                        </div>
+                    )}
+                </div>
+
+                {/* TABUNGAN WAJIB & DIAGNOSA AKHIR */}
+                {hasTargetAmount && (
+                    <div className="border-t-2 border-slate-100 pt-3.5 space-y-3">
+                        <div className="grid grid-cols-2 gap-2.5">
+                            <div className="bg-slate-50 p-3 rounded-2xl border-2 border-slate-200">
+                                <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">Wajib Nabung</p>
+                                <p className="text-sm font-black text-brand-navy mt-0.5">{formatRp(savingRequired)}</p>
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-2xl border-2 border-slate-200">
+                                <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">Target Pemasukan</p>
+                                <p className="text-sm font-black text-emerald-700 mt-0.5">{formatRp(targetIncomeMonth)}</p>
+                            </div>
                         </div>
 
-                        {expenseLimit > 0 && (
-                            <div className="mt-4 p-4 bg-slate-800 rounded-[20px] flex justify-between items-center text-white shadow-md gap-2">
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300 min-w-0 flex-shrink">Harus Dapat Pemasukan:</span>
-                                <span className="text-base font-extrabold text-emerald-400 truncate flex-shrink-0 max-w-[50%] text-right" title={formatRp(targetIncomeMonth)}>{formatRp(targetIncomeMonth)}</span>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="bg-slate-50 border border-dashed border-slate-200 rounded-[20px] p-5 text-center flex flex-col items-center justify-center">
-                        <p className="text-[11px] text-slate-500 font-medium mb-3">Tidak ada target tabungan bulan ini. Pasang target untuk memotivasi laju finansial Anda.</p>
-                        <Link href="/target">
-                            <button className="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-full transition-colors">
-                                SET TARGET TABUNGAN
-                            </button>
-                        </Link>
+                        <div className={`p-4 rounded-2xl border-2 text-center ${
+                            isSafe ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"
+                        }`}>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">Diagnosa Laju Tabungan</p>
+                            <h4 className={`text-base font-black mb-1 ${isSafe ? "text-emerald-800" : "text-amber-800"}`}>
+                                {isSafe ? "AMAN (ON TRACK) 🎉" : "KURANG (OFF TRACK) ⚠️"}
+                            </h4>
+                            <p className="text-xs font-bold leading-relaxed text-slate-700">
+                                {isSafe ? (
+                                    <>Sisa surplus kas bersih Anda <strong>{formatRp(monthlyNet)}</strong> mencukupi syarat minimal tabungan bulanan.</>
+                                ) : (
+                                    <>Surplus kas hanya <strong>{formatRp(monthlyNet)}</strong>. Masih kurang <strong>{formatRp(savingRequired - monthlyNet)}</strong> untuk memenuhi target tabungan bulan ini.</>
+                                )}
+                            </p>
+                        </div>
                     </div>
                 )}
             </div>
 
-            {/* DIAGNOSA KONTROL */}
-            <div className="space-y-4">
-                {hasTargetAmount && (
-                    <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${isSafe ? "border-emerald-100 bg-emerald-50" : "border-orange-100 bg-orange-50"}`}>
-                        <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Diagnosa Laju Tabungan</p>
-                        {isSafe ? (
-                            <>
-                                <h3 className="text-xl font-extrabold text-emerald-600 mb-2">AMAN (ON TRACK) 🎉</h3>
-                                <p className="text-xs text-emerald-700 leading-relaxed font-medium">
-                                    Sisa uang bulan ini {formatRp(monthlyNet)}.<br/>
-                                    Memenuhi syarat minimal nabung ({formatRp(savingRequired)}).
-                                </p>
-                            </>
-                        ) : (
-                            <>
-                                <h3 className="text-xl font-extrabold text-orange-600 mb-2">KURANG (OFF TRACK) ⚠️</h3>
-                                <p className="text-xs text-orange-700 leading-relaxed font-medium">
-                                    Sisa uang hanya {formatRp(monthlyNet)}.<br/>
-                                    Masih kurang <b>{formatRp(savingRequired - monthlyNet)}</b> untuk penuhi target tabungan.
-                                </p>
-                            </>
-                        )}
-                    </div>
-                )}
-
-                {/* Tampilkan Diagnosa Pengeluaran Jika Target Tabungan Kosong, TAPI Punya Limit Pengeluaran */}
-                {!hasTargetAmount && monthlyBudget > 0 && (
-                    <div className={`p-6 text-center rounded-[32px] border-2 shadow-sm relative overflow-hidden ${!isOverBudget ? "border-emerald-100 bg-emerald-50" : "border-rose-100 bg-rose-50"}`}>
-                        <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-500">Kontrol Pengeluaran</p>
-                        {!isOverBudget ? (
-                            <>
-                                <h3 className="text-xl font-extrabold text-emerald-600 mb-2">PENGELUARAN AMAN 🛡️</h3>
-                                <p className="text-xs text-emerald-700 font-medium">Kamu masih punya sisa budget {formatRp(expenseLimit - monthlyExpense)} bulan ini.</p>
-                            </>
-                        ) : (
-                            <>
-                                <h3 className="text-xl font-extrabold text-rose-600 mb-2">AWAS OVERBUDGET 🚨</h3>
-                                <p className="text-xs text-rose-700 font-medium">Pengeluaran menembus batas! Kelebihan {formatRp(monthlyExpense - expenseLimit)}.</p>
-                            </>
-                        )}
-                    </div>
-                )}
-            </div>
         </div>
-
       </div>
     </MobileLayout>
   );

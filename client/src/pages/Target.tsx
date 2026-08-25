@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
-import { Button, Input } from "@/components/UIComponents";
 import { 
-    Target as TargetIcon, ShieldCheck, PiggyBank, Calculator, 
-    Plus, Trash2, X, ListPlus, ShieldAlert, Loader2, Wallet
+    Target as TargetIcon, ShieldCheck, Calculator, Plus, Trash2, 
+    X, ListPlus, ShieldAlert, Loader2, ArrowLeft, Compass, 
+    Gauge, Scale, Layers, CheckCircle2, ArrowRight, Milestone,
+    Coins, Receipt, HelpCircle, Sparkles
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { trackEvent } from "@/lib/tracking";
 
 interface TargetData {
@@ -28,10 +29,11 @@ const formatNumber = (val: string) => {
     return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 };
 const parseNumber = (val: string) => parseFloat(val.toString().replace(/\./g, '')) || 0;
-const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
+const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
 
 export default function Target() {
     const [, setLocation] = useLocation(); 
+    const queryClient = useQueryClient();
     const { data: userData, isLoading: isUserLoading, refetch: refetchUser } = useUser();
     const [target, setTarget] = useState<TargetData | null>(null);
     
@@ -72,15 +74,12 @@ export default function Target() {
             setRawTargetAmount(fetchedTarget.targetAmount.toString());
             setInputDuration(fetchedTarget.durationMonths.toString());
             setRawBudgetAmount(fetchedTarget.monthlyBudget.toString());
-            setBudgetType(fetchedTarget.budgetType);
+            setBudgetType(fetchedTarget.budgetType || 'static');
         }
     }, [fetchedTarget]);
 
-    // Saldo awal kini di-handle di SetupBalance.tsx
-
     const isEditMode = target && target.targetAmount !== undefined;
 
-    // 🔥 FIX: Menghapus bug angka nol di depan secara otomatis (Mencegah format '030.000.000')
     const handleNumberChange = (setter: (val: string) => void, value: string) => {
         let clean = value.replace(/\D/g, '');
         if (clean.length > 1) {
@@ -92,7 +91,8 @@ export default function Target() {
     const addBreakdownItem = () => {
         if (!newItemName || !newItemAmount) return;
         setBreakdownItems([...breakdownItems, { id: Date.now(), name: newItemName, amount: parseNumber(newItemAmount) }]);
-        setNewItemName(""); setNewItemAmount("");
+        setNewItemName(""); 
+        setNewItemAmount("");
     };
 
     const removeBreakdownItem = (id: number) => { 
@@ -103,7 +103,7 @@ export default function Target() {
         const total = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
         setRawBudgetAmount(total.toString()); 
         setIsBreakdownOpen(false);
-        toast({ title: "Terhitung!", description: `Budget diset ke ${formatRp(total)}` });
+        toast({ title: "Terhitung!", description: `Batas pengeluaran diset ke ${formatRp(total)}` });
     };
 
     const breakdownTotal = breakdownItems.reduce((acc, item) => acc + item.amount, 0);
@@ -126,7 +126,7 @@ export default function Target() {
     
     const nextToBudgetAsk = () => { 
         if (!parseNumber(rawTargetAmount) || !Number(inputDuration)) { 
-            toast({title: "Data Kurang", description: "Nominal Target & Durasi wajib diisi.", variant: "destructive"}); 
+            toast({title: "Data Belum Lengkap", description: "Nominal target & durasi bulan wajib diisi.", variant: "destructive"}); 
             return; 
         } 
         setStep('budget-ask'); 
@@ -140,7 +140,7 @@ export default function Target() {
     const handleSubmitFinal = async (withBudget: boolean) => {
         const budgetVal = parseNumber(rawBudgetAmount);
         if (withBudget && !budgetVal) { 
-            toast({title: "Error", description: "Nominal batas harus diisi!", variant: "destructive"}); 
+            toast({title: "Nominal Kosong", description: "Nominal batas pengeluaran harus diisi!", variant: "destructive"}); 
             return; 
         }
 
@@ -169,16 +169,18 @@ export default function Target() {
                 });
                 
                 await refetchUser();
-                toast({ title: isEditMode ? "Target Diupdate!" : "Strategi Dibuat!", description: "Sistem telah menyesuaikan saldo kas dan target Anda." });
+                queryClient.invalidateQueries();
+                toast({ title: isEditMode ? "Target Diperbarui! ✨" : "Arsitektur Finansial Dibuat! 🎉", description: "Sistem telah menyelaraskan kalkulasi performa Anda." });
                 
-                // 🚀 Transaksi super cepat dan instan menuju Home menggunakan hard reload ringan
-                window.location.href = "/"; 
+                setTimeout(() => {
+                    window.location.href = "/"; 
+                }, 600);
             } else { 
                 const errText = await res.text();
                 toast({ title: "Gagal Menyimpan", description: errText || "Kesalahan server.", variant: "destructive" }); 
             }
         } catch (e) { 
-            toast({ title: "Error Koneksi", description: "Periksa jaringan internet Anda.", variant: "destructive" }); 
+            toast({ title: "Kendala Koneksi", description: "Periksa jaringan internet Anda.", variant: "destructive" }); 
         } finally {
             setIsSubmitting(false);
         }
@@ -186,167 +188,425 @@ export default function Target() {
     
     if (isUserLoading) {
         return (
-            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-500"/>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Menyiapkan Lembar Strategi...</p>
+            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
+                <img src="/BILANO-ICON-NEW.png" alt="Loading" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
+                <div className="flex items-center gap-2 text-brand-navy font-black text-sm bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-full shadow-sm">
+                    <Loader2 className="w-4 h-4 animate-spin text-brand-gold"/>
+                    <span>Menyiapkan Lembar Strategi...</span>
+                </div>
             </div>
         );
     }
 
     return (
-        <MobileLayout title={isEditMode ? "Edit Strategi & Target" : "Atur Strategi Baru"} showBack>
-            <div className="space-y-6 pt-4 px-2 pb-20">
+        <MobileLayout>
+            <div className="flex flex-col -mx-5 -mt-5">
                 
-                {/* MODAL RINCIAN ESTIMASI PENGELUARAN */}
-                {isBreakdownOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in p-4">
-                        <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 border border-slate-100">
-                            <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><ListPlus className="w-5 h-5 text-indigo-600"/> Rincian Pengeluaran</h3>
-                                <button onClick={() => setIsBreakdownOpen(false)} className="p-1.5 bg-slate-100 rounded-full hover:bg-rose-100 hover:text-rose-600"><X className="w-5 h-5"/></button>
-                            </div>
-                            <div className="space-y-3 mb-4">
-                                <div className="flex gap-2">
-                                    <Input placeholder="Nama (Cth: Makan)" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} className="flex-1 text-sm h-12 rounded-[16px]"/>
-                                    <Input placeholder="Rp" value={newItemAmount} onChange={(e) => handleNumberChange(setNewItemAmount, e.target.value)} className="w-24 text-sm h-12 font-bold rounded-[16px]"/>
-                                    <button onClick={addBreakdownItem} className="bg-indigo-600 text-white w-12 h-12 flex items-center justify-center rounded-[16px] hover:bg-indigo-700 shadow-md"><Plus className="w-5 h-5"/></button>
-                                </div>
-                                <div className="max-h-60 overflow-y-auto space-y-2 custom-scrollbar pr-1">
-                                    {breakdownItems.length === 0 && (<div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200"><p className="text-xs text-slate-400">Belum ada item rincian.</p></div>)}
-                                    {breakdownItems.map((item) => (
-                                        <div key={item.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-[16px] border border-slate-100 group"><span className="text-sm font-medium text-slate-700 pl-1">{item.name}</span><div className="flex items-center gap-3"><span className="text-sm font-bold text-slate-900">{formatRp(item.amount)}</span><button onClick={() => removeBreakdownItem(item.id)} className="text-slate-300 hover:text-rose-500 transition-colors"><Trash2 className="w-4 h-4"/></button></div></div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="bg-slate-900 text-white p-4 rounded-[20px] flex justify-between items-center mb-4 shadow-lg"><span className="text-xs text-slate-300 font-medium">Total Estimasi</span><span className="font-bold text-lg text-emerald-400">{formatRp(breakdownTotal)}</span></div>
-                            <Button onClick={saveBreakdownTotal} className="w-full bg-emerald-500 hover:bg-emerald-600 h-14 font-extrabold shadow-md rounded-full">GUNAKAN TOTAL INI</Button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Step Saldo Awal telah dipindahkan ke SetupBalance.tsx */}
-
-                {/* STEP 2: PILIHAN METODE / INTRO */}
-                {step === 'intro' && (
-                    <div className="space-y-5 animate-in slide-in-from-right">
-                        <div className="bg-brand-navy p-6 rounded-[24px] shadow-[8px_8px_0px_0px] shadow-slate-900 border-l-[6px] border-brand-gold text-white text-center relative overflow-hidden">
-                            <div className="absolute right-0 top-0 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
-                            <div className="relative z-10">
-                                <h2 className="text-2xl font-black mb-2">Pilih Arsitektur Keuangan</h2>
-                                <p className="text-sm text-blue-100 max-w-[250px] mx-auto leading-relaxed font-medium">Tentukan metode pemantauan visi aset jangka panjangmu.</p>
-                            </div>
-                        </div>
-                        
-                        <div className="space-y-4 pt-2">
-                            <button onClick={() => startSetup('target')} className="relative w-full text-left p-5 border-2 border-indigo-200 rounded-[24px] hover:border-indigo-400 hover:bg-indigo-50/50 bg-indigo-50/30 transition-all shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-start gap-4 group">
-                                <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md border border-yellow-300">
-                                    Direkomendasikan
-                                </div>
-                                <div className="bg-indigo-100 p-3 rounded-full group-hover:scale-110 transition-transform flex-shrink-0"><TargetIcon className="w-6 h-6 text-indigo-600"/></div>
-                                <div>
-                                    <h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Kejar Target / Menabung</h3>
-                                    <p className="text-xs text-slate-500">Saya punya impian angka nominal spesifik yang ingin dicapai.</p>
-                                </div>
-                            </button>
-
-                            <button onClick={() => startSetup('saving')} className="w-full text-left p-5 border border-slate-100 rounded-[24px] hover:border-emerald-400 hover:bg-emerald-50/50 transition-all bg-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group mt-2">
-                                <div className="bg-emerald-100 p-3 rounded-full group-hover:scale-110 transition-transform flex-shrink-0"><PiggyBank className="w-6 h-6 text-emerald-600"/></div>
-                                <div><h3 className="font-extrabold text-slate-800 text-lg mb-0.5">Hanya Pantau Cashflow</h3><p className="text-xs text-slate-500">Saya ingin melihat keluar masuk uang harian secara bebas.</p></div>
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* STEP 3: INPUT DETAIL TARGET */}
-                {step === 'target-input' && (
-                    <div className="space-y-6 animate-in slide-in-from-right pt-2">
-                        <div className="bg-white p-6 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6 text-center">
-                            <div className="w-14 h-14 bg-brand-navy/5 rounded-full flex items-center justify-center mx-auto">
-                                <Calculator className="w-7 h-7 text-brand-navy"/> 
-                            </div>
-                            <div>
-                                <h3 className="font-extrabold text-slate-800 text-xl">Kalkulator Target</h3>
-                                <p className="text-[13px] text-slate-500 mt-1 font-medium">Berapa besar nominal impian besarmu?</p>
-                            </div>
-                            <div className="space-y-4 text-left">
-                                <div>
-                                    <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1 block mb-2">Target Nominal (Rp)</label>
-                                    <Input type="tel" placeholder="100.000.000" value={rawTargetAmount} onChange={(e) => handleNumberChange(setRawTargetAmount, e.target.value)} className="h-16 text-2xl font-extrabold text-indigo-600 bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-[20px] text-center"/>
-                                </div>
-                                <div>
-                                    <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1 block mb-2">Dicapai Dalam (Bulan)</label>
-                                    <Input type="number" placeholder="12" value={inputDuration} onChange={e => setInputDuration(e.target.value)} className="h-14 font-bold text-lg bg-slate-50 border-transparent focus:bg-white focus:border-indigo-500 rounded-[20px] text-center"/>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="pt-2 space-y-3">
-                            <Button onClick={nextToBudgetAsk} className="w-full h-14 bg-brand-gold hover:bg-brand-gold/90 text-brand-navy text-base font-black rounded-full shadow-[5px_5px_0px_0px] shadow-brand-navy active:shadow-[2px_2px_0px_0px] active:translate-x-[3px] active:translate-y-[3px] transition-all">LANJUTKAN</Button>
-                            <Button variant="ghost" onClick={() => setStep('intro')} className="w-full h-12 text-slate-400 font-bold hover:bg-slate-50 rounded-full">KEMBALI</Button>
-                        </div>
-                    </div>
-                )}
-
-                {/* STEP 4: PERTANYAAN PEMBATASAN BUDGET */}
-                {step === 'budget-ask' && (
-                    <div className="space-y-6 animate-in slide-in-from-right pt-6">
-                        <div className="bg-white p-8 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 text-center">
-                            <div className="bg-brand-navy/5 p-5 rounded-full w-24 h-24 mx-auto flex items-center justify-center mb-6">
-                                <ShieldCheck className="w-10 h-10 text-brand-navy"/>
-                            </div>
-                            <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">Batasi Pengeluaran Bulanan?</h2>
-                            <p className="text-slate-500 text-[13px] font-medium mt-3 leading-relaxed">Aktifkan batas darurat otomatis agar arus kasmu tidak bocor halus.</p>
-                            
-                            <div className="space-y-4 pt-8">
-                                <Button onClick={() => handleBudgetAnswer(true)} className="w-full h-14 bg-brand-navy text-white text-[15px] font-black rounded-full shadow-[5px_5px_0px_0px] shadow-slate-900 active:shadow-[2px_2px_0px_0px] active:translate-x-[3px] active:translate-y-[3px] transition-all">YA, PASANG BATAS</Button>
-                                <Button onClick={() => handleBudgetAnswer(false)} variant="outline" className="w-full h-14 bg-white border-2 border-slate-200 text-slate-500 font-black text-[13px] rounded-full hover:bg-slate-50 transition-all shadow-[3px_3px_0px_0px] shadow-slate-200 active:shadow-[1px_1px_0px_0px] active:translate-x-[2px] active:translate-y-[2px]">TIDAK, SAYA BEBAS</Button>
-                            </div>
-                        </div>
-                        <Button variant="ghost" onClick={() => isTargetMode ? setStep('target-input') : setStep('intro')} className="w-full h-12 text-slate-400 font-bold hover:bg-slate-50 rounded-full mt-2">KEMBALI</Button>
-                    </div>
-                )}
-
-                {/* STEP 5: PENGATURAN LIMIT BUDGET & ROLLOVER */}
-                {step === 'budget-setup' && (
-                    <div className="space-y-6 animate-in slide-in-from-right pt-2">
-                        <div className="bg-white p-6 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-6">
-                            <div className="text-center pb-2 border-b border-slate-100">
-                                <div className="w-14 h-14 bg-brand-navy/5 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <ShieldAlert className="w-7 h-7 text-brand-navy"/>
-                                </div>
-                                <h3 className="font-extrabold text-slate-800 text-xl tracking-tight">Atur Batasan Jatah</h3>
-                                <p className="text-[13px] font-medium text-slate-500 mt-1">Maksimal uang keluar per bulan.</p>
-                            </div>
-                            
-                            <div>
-                                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1 block mb-2">Nominal Batas (Rp)</label>
-                                <Input type="tel" placeholder="1.500.000" value={rawBudgetAmount} onChange={(e) => handleNumberChange(setRawBudgetAmount, e.target.value)} className="h-16 text-2xl font-black text-center bg-slate-50 border-transparent focus:bg-white focus:border-rose-500 rounded-[20px]"/>
-                                <button onClick={() => setIsBreakdownOpen(true)} className="mt-4 text-xs font-bold text-indigo-500 bg-indigo-50 p-3 rounded-[16px] w-full flex items-center justify-center gap-2 hover:bg-indigo-100 transition-colors"><Calculator className="w-4 h-4"/> BANTU SAYA HITUNG RINCIAN</button>
-                            </div>
-
-                            <div className="space-y-3 pt-2">
-                                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1 block mb-2">Metode Sisa Budget</label>
-                                <button onClick={() => setBudgetType('static')} className={`w-full text-left p-4 rounded-[20px] border-2 transition-all flex gap-4 items-start ${budgetType === 'static' ? 'border-brand-navy bg-brand-navy/5' : 'border-slate-100 bg-white hover:bg-slate-50'}`}>
-                                    <div className={`w-5 h-5 rounded-full border-4 mt-0.5 flex-shrink-0 ${budgetType === 'static' ? 'border-brand-navy bg-white' : 'border-slate-200'}`}></div>
-                                    <div><div className="font-extrabold text-sm text-slate-800 mb-0.5">Hangus / Ditabung (Statis)</div><div className="text-[12px] font-medium text-slate-500 leading-relaxed">Sisa budget bulan ini tidak ditambahkan ke bulan depan.</div></div>
+                {/* ========================================================================= */}
+                {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO NAVY & GOLD */}
+                {/* ========================================================================= */}
+                <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b-2 border-amber-400">
+                    
+                    {/* Top Navigation Bar */}
+                    <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.08)] flex items-center justify-between relative z-30 border-b border-amber-100">
+                        <div className="flex items-center gap-3">
+                            <Link href="/">
+                                <button 
+                                    type="button"
+                                    className="w-10 h-10 rounded-full bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                                    title="Kembali ke Beranda"
+                                >
+                                    <ArrowLeft className="w-5 h-5 text-brand-gold" strokeWidth={2.5} />
                                 </button>
-                                <button onClick={() => setBudgetType('rollover')} className={`w-full text-left p-4 rounded-[20px] border-2 transition-all flex gap-4 items-start ${budgetType === 'rollover' ? 'border-brand-navy bg-brand-navy/5' : 'border-slate-100 bg-white hover:bg-slate-50'}`}>
-                                    <div className={`w-5 h-5 rounded-full border-4 mt-0.5 flex-shrink-0 ${budgetType === 'rollover' ? 'border-brand-navy bg-white' : 'border-slate-200'}`}></div>
-                                    <div><div className="font-extrabold text-sm text-slate-800 mb-0.5">Akumulasi (Rollover)</div><div className="text-[12px] font-medium text-slate-500 leading-relaxed">Sisa budget bulan ini akan ditambahkan otomatis ke jatah bulan depan.</div></div>
+                            </Link>
+
+                            <div className="flex flex-col">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                                    <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                                        Perencanaan & Disiplin
+                                    </p>
+                                </div>
+                                <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                                    {isEditMode ? "Ubah Target & Budget" : "Atur Target Baru"}
+                                </h1>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <span className="bg-brand-navy text-brand-gold text-[10px] font-black px-3 py-1.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-900 border border-brand-gold/30">
+                                STRATEGY ARCHITECT
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* FLAGSHIP HERO CARD: TARGET FINANSIAL */}
+                    <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-6 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
+                        <Compass className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
+                        <div className="absolute right-0 top-0 w-32 h-32 bg-brand-gold/15 rounded-full blur-xl pointer-events-none" />
+
+                        <div className="relative z-10 flex flex-col">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
+                                    <Milestone className="w-3 h-3 fill-current" /> KOMPAS VISI
+                                </span>
+                                <span className="text-[10px] text-amber-200 font-bold bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
+                                    {isEditMode ? "Mode Edit" : "Setup Awal"}
+                                </span>
+                            </div>
+
+                            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-2 leading-tight">
+                                Arsitektur Visi Keuangan
+                            </h2>
+                            <p className="text-xs text-blue-100 font-medium leading-relaxed">
+                                Tentukan batas toleransi pengeluaran dan target kekayaan impian agar setiap rupiah yang Anda kumpulkan bekerja secara terarah.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ========================================================================= */}
+                {/* 2. BODY CONTENT SECTION */}
+                {/* ========================================================================= */}
+                <div className="px-5 pt-4 pb-24 bg-slate-50 flex flex-col gap-4">
+                    
+                    {/* MODAL RINCIAN ESTIMASI PENGELUARAN */}
+                    {isBreakdownOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm animate-in fade-in p-4">
+                            <div className="bg-white w-full max-w-sm rounded-[28px] p-6 shadow-[8px_8px_0px_0px] shadow-slate-900 border-2 border-slate-900 animate-in zoom-in-95 space-y-4">
+                                <div className="flex justify-between items-center border-b-2 border-slate-100 pb-3">
+                                    <div className="flex items-center gap-2">
+                                        <ListPlus className="w-5 h-5 text-amber-600"/>
+                                        <h3 className="font-black text-base text-brand-navy">Kalkulator Pos Beban</h3>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setIsBreakdownOpen(false)} 
+                                        className="p-1.5 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 cursor-pointer"
+                                    >
+                                        <X className="w-4 h-4"/>
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div className="flex gap-2">
+                                        <input 
+                                            placeholder="Nama Pos (Cth: Makan)" 
+                                            value={newItemName} 
+                                            onChange={(e) => setNewItemName(e.target.value)} 
+                                            className="flex-1 text-xs font-bold px-3 h-12 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-amber-500 focus:bg-white"
+                                        />
+                                        <input 
+                                            placeholder="Nominal" 
+                                            value={newItemAmount} 
+                                            onChange={(e) => handleNumberChange(setNewItemAmount, e.target.value)} 
+                                            className="w-28 text-xs font-black px-3 h-12 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-amber-500 focus:bg-white tabular-nums"
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={addBreakdownItem} 
+                                            className="bg-brand-navy text-brand-gold w-12 h-12 flex items-center justify-center rounded-2xl shadow-sm hover:bg-[#152e55] shrink-0 active:scale-95 cursor-pointer"
+                                        >
+                                            <Plus className="w-5 h-5 stroke-[3]"/>
+                                        </button>
+                                    </div>
+
+                                    <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
+                                        {breakdownItems.length === 0 && (
+                                            <div className="text-center py-6 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                                                <p className="text-xs text-slate-400 font-bold">Belum ada pos rincian ditambahkan.</p>
+                                            </div>
+                                        )}
+                                        {breakdownItems.map((item) => (
+                                            <div key={item.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border-2 border-slate-200">
+                                                <span className="text-xs font-black text-slate-800 truncate pr-2">{item.name}</span>
+                                                <div className="flex items-center gap-2.5 shrink-0">
+                                                    <span className="text-xs font-black text-brand-navy tabular-nums">{formatRp(item.amount)}</span>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => removeBreakdownItem(item.id)} 
+                                                        className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                                                    >
+                                                        <Trash2 className="w-4 h-4"/>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="bg-brand-navy text-white p-4 rounded-2xl flex justify-between items-center border border-white/10 shadow-sm">
+                                    <span className="text-xs text-slate-300 font-bold">Total Estimasi Beban:</span>
+                                    <span className="font-black text-base text-brand-gold tabular-nums">{formatRp(breakdownTotal)}</span>
+                                </div>
+
+                                <button 
+                                    type="button"
+                                    onClick={saveBreakdownTotal} 
+                                    className="w-full h-13 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+                                >
+                                    TERAPKAN SEBAGAI BUDGET BULANAN
                                 </button>
                             </div>
                         </div>
-                        <div className="pt-2 space-y-3">
-                            <Button 
-                                onClick={() => handleSubmitFinal(true)} 
-                                disabled={isSubmitting}
-                                className="w-full h-14 bg-brand-gold hover:bg-brand-gold/90 text-brand-navy text-base font-black rounded-full shadow-[5px_5px_0px_0px] shadow-brand-navy active:shadow-[2px_2px_0px_0px] active:translate-x-[3px] active:translate-y-[3px] transition-all"
+                    )}
+
+                    {/* STEP 1: PILIHAN INTRO / STRATEGI METODE */}
+                    {step === 'intro' && (
+                        <div className="space-y-3.5 animate-in fade-in">
+                            
+                            {/* OPTION 1: KEJAR TARGET NOMINAL */}
+                            <div 
+                                onClick={() => startSetup('target')} 
+                                className="relative bg-white rounded-[28px] p-5 border-2 border-amber-300 shadow-[5px_5px_0px_0px] shadow-slate-900 hover:border-amber-500 cursor-pointer active:translate-x-[2px] active:translate-y-[2px] transition-all group flex items-start gap-3.5"
                             >
-                                {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : (isEditMode ? "SIMPAN PERUBAHAN" : "SIMPAN STRATEGI")}
-                            </Button>
-                            <Button variant="ghost" onClick={() => setStep('budget-ask')} className="w-full h-12 text-slate-400 font-bold hover:bg-slate-50 rounded-full">KEMBALI</Button>
+                                <div className="absolute -top-3 right-4 bg-brand-gold text-brand-navy text-[9px] font-black px-3 py-0.5 rounded-full uppercase tracking-wider shadow-sm border border-brand-navy">
+                                    DIREKOMENDASIKAN
+                                </div>
+                                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-brand-navy flex items-center justify-center border-2 border-amber-200 shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                                    <TargetIcon className="w-6 h-6 text-brand-navy stroke-[2.5]" />
+                                </div>
+                                <div className="min-w-0 pr-1">
+                                    <h3 className="font-black text-brand-navy text-sm mb-0.5">Kejar Target Impian (Akumulasi)</h3>
+                                    <p className="text-xs text-slate-500 font-bold leading-relaxed">
+                                        Saya memiliki target nominal spesifik yang ingin dicapai dalam kurun waktu tertentu.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* OPTION 2: HANYA PANTAU CASHFLOW */}
+                            <div 
+                                onClick={() => startSetup('saving')} 
+                                className="bg-white rounded-[28px] p-5 border-2 border-slate-200 hover:border-amber-300 shadow-[5px_5px_0px_0px] shadow-slate-900 cursor-pointer active:translate-x-[2px] active:translate-y-[2px] transition-all group flex items-start gap-3.5"
+                            >
+                                <div className="w-12 h-12 rounded-2xl bg-slate-100 text-brand-navy flex items-center justify-center border-2 border-slate-200 shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                                    <Gauge className="w-6 h-6 text-brand-navy stroke-[2.5]" />
+                                </div>
+                                <div className="min-w-0">
+                                    <h3 className="font-black text-slate-900 text-sm mb-0.5">Disiplin Batas Pengeluaran</h3>
+                                    <p className="text-xs text-slate-500 font-bold leading-relaxed">
+                                        Saya ingin fokus menjaga arus kas bulanan agar tidak bocor tanpa memasang nominal target.
+                                    </p>
+                                </div>
+                            </div>
+
                         </div>
-                    </div>
-                )}
+                    )}
+
+                    {/* STEP 2: INPUT NOMINAL TARGET & DURASI BULAN */}
+                    {step === 'target-input' && (
+                        <div className="space-y-4 animate-in fade-in">
+                            <div className="bg-white rounded-[28px] p-6 border-2 border-amber-200/90 shadow-[6px_6px_0px_0px] shadow-slate-900 space-y-5 text-center">
+                                <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto border-2 border-amber-200 text-brand-navy">
+                                    <Calculator className="w-7 h-7 stroke-[2.5]"/> 
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-brand-navy text-lg">Kalkulator Target Impian</h3>
+                                    <p className="text-xs text-slate-500 font-bold mt-0.5">Berapa besar nominal aset yang ingin Anda capai?</p>
+                                </div>
+
+                                <div className="space-y-4 text-left">
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1.5">
+                                            Nominal Target (Rp)
+                                        </label>
+                                        <input 
+                                            type="tel" 
+                                            placeholder="100.000.000" 
+                                            value={rawTargetAmount} 
+                                            onChange={(e) => handleNumberChange(setRawTargetAmount, e.target.value)} 
+                                            className="w-full h-16 text-2xl font-black text-brand-navy bg-slate-50 border-2 border-slate-200 rounded-2xl text-center outline-none focus:border-amber-500 focus:bg-white transition-all tabular-nums"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1.5">
+                                            Dicapai Dalam Berapa Bulan?
+                                        </label>
+                                        <input 
+                                            type="number" 
+                                            placeholder="12" 
+                                            value={inputDuration} 
+                                            onChange={e => setInputDuration(e.target.value)} 
+                                            className="w-full h-14 text-lg font-black text-brand-navy bg-slate-50 border-2 border-slate-200 rounded-2xl text-center outline-none focus:border-amber-500 focus:bg-white transition-all tabular-nums"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2.5">
+                                <button 
+                                    type="button"
+                                    onClick={nextToBudgetAsk} 
+                                    className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                >
+                                    <span>LANJUTKAN KE BATAS PENGELUARAN</span>
+                                    <ArrowRight className="w-4 h-4 stroke-[3]" />
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => setStep('intro')} 
+                                    className="w-full h-11 text-slate-500 font-black text-xs uppercase tracking-wider hover:text-slate-800 transition-colors cursor-pointer"
+                                >
+                                    KEMBALI KE PILIHAN METODE
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* STEP 3: PERTANYAAN PEMASANGAN BATAS BUDGET */}
+                    {step === 'budget-ask' && (
+                        <div className="space-y-4 animate-in fade-in">
+                            <div className="bg-white rounded-[28px] p-7 border-2 border-amber-200/90 shadow-[6px_6px_0px_0px] shadow-slate-900 text-center space-y-4">
+                                <div className="w-16 h-16 rounded-2xl bg-amber-50 text-brand-navy border-2 border-amber-200 mx-auto flex items-center justify-center shadow-xs">
+                                    <ShieldCheck className="w-8 h-8 stroke-[2.5]"/>
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-black text-brand-navy tracking-tight">Batasi Pengeluaran Bulanan?</h2>
+                                    <p className="text-slate-500 text-xs font-bold mt-1.5 leading-relaxed max-w-xs mx-auto">
+                                        Aktifkan batas darurat otomatis agar arus kas Anda terkendali dan tidak mengalami kebocoran halus.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-3 pt-4">
+                                    <button 
+                                        type="button"
+                                        onClick={() => handleBudgetAnswer(true)} 
+                                        className="w-full h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                    >
+                                        <CheckCircle2 className="w-4 h-4 stroke-[2.5]"/>
+                                        <span>YA, PASANG BATAS ANGGARAN</span>
+                                    </button>
+                                    
+                                    <button 
+                                        type="button"
+                                        onClick={() => handleBudgetAnswer(false)} 
+                                        className="w-full h-13 bg-white border-2 border-slate-200 text-slate-700 font-black text-xs uppercase tracking-wider rounded-2xl hover:bg-slate-50 shadow-[3px_3px_0px_0px] shadow-slate-300 active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+                                    >
+                                        TIDAK PERLU, BIARKAN BEBAS
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button 
+                                type="button"
+                                onClick={() => isTargetMode ? setStep('target-input') : setStep('intro')} 
+                                className="w-full h-11 text-slate-500 font-black text-xs uppercase tracking-wider hover:text-slate-800 transition-colors cursor-pointer text-center"
+                            >
+                                KEMBALI
+                            </button>
+                        </div>
+                    )}
+
+                    {/* STEP 4: FORM ATUR LIMIT BUDGET BULANAN & ROLLOVER */}
+                    {step === 'budget-setup' && (
+                        <div className="space-y-4 animate-in fade-in">
+                            <div className="bg-white rounded-[28px] p-6 border-2 border-amber-200/90 shadow-[6px_6px_0px_0px] shadow-slate-900 space-y-5">
+                                <div className="text-center pb-3 border-b-2 border-slate-100">
+                                    <div className="w-12 h-12 bg-amber-50 rounded-2xl border-2 border-amber-200 text-brand-navy flex items-center justify-center mx-auto mb-2">
+                                        <ShieldAlert className="w-6 h-6 stroke-[2.5]"/>
+                                    </div>
+                                    <h3 className="font-black text-brand-navy text-lg">Batas Pengeluaran Bulanan</h3>
+                                    <p className="text-xs font-bold text-slate-500 mt-0.5">Maksimal kas keluar per bulan</p>
+                                </div>
+                                
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block mb-1.5">
+                                        Nominal Batas Maksimal (Rp)
+                                    </label>
+                                    <input 
+                                        type="tel" 
+                                        placeholder="1.500.000" 
+                                        value={rawBudgetAmount} 
+                                        onChange={(e) => handleNumberChange(setRawBudgetAmount, e.target.value)} 
+                                        className="w-full h-16 text-2xl font-black text-center bg-slate-50 border-2 border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-amber-500 focus:bg-white transition-all tabular-nums"
+                                    />
+                                    
+                                    <button 
+                                        type="button"
+                                        onClick={() => setIsBreakdownOpen(true)} 
+                                        className="mt-3 text-xs font-black text-brand-navy bg-amber-50 border border-amber-200 p-3 rounded-2xl w-full flex items-center justify-center gap-2 hover:bg-amber-100 transition-colors cursor-pointer"
+                                    >
+                                        <Calculator className="w-4 h-4 text-amber-700"/> 
+                                        <span>BANTU SAYA HITUNG RINCIAN POS BELANJA</span>
+                                    </button>
+                                </div>
+
+                                <div className="space-y-2.5 pt-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block">
+                                        Perlakuan Sisa Budget Akhir Bulan
+                                    </label>
+                                    
+                                    {/* OPSI 1: STATIS / HANGUS */}
+                                    <div 
+                                        onClick={() => setBudgetType('static')} 
+                                        className={`w-full text-left p-4 rounded-2xl border-2 transition-all flex gap-3.5 items-start cursor-pointer ${
+                                            budgetType === 'static' 
+                                                ? 'border-brand-navy bg-amber-50/50 shadow-xs' 
+                                                : 'border-slate-200 bg-white hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <div className={`w-5 h-5 rounded-full border-4 mt-0.5 flex-shrink-0 ${
+                                            budgetType === 'static' ? 'border-brand-navy bg-brand-gold' : 'border-slate-300'
+                                        }`} />
+                                        <div className="min-w-0">
+                                            <div className="font-black text-xs text-brand-navy mb-0.5">Statis (Reset Normal)</div>
+                                            <div className="text-[11px] font-bold text-slate-500 leading-snug">Sisa uang tidak diakumulasikan ke limit bulan depan.</div>
+                                        </div>
+                                    </div>
+
+                                    {/* OPSI 2: ROLLOVER / AKUMULASI */}
+                                    <div 
+                                        onClick={() => setBudgetType('rollover')} 
+                                        className={`w-full text-left p-4 rounded-2xl border-2 transition-all flex gap-3.5 items-start cursor-pointer ${
+                                            budgetType === 'rollover' 
+                                                ? 'border-brand-navy bg-amber-50/50 shadow-xs' 
+                                                : 'border-slate-200 bg-white hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <div className={`w-5 h-5 rounded-full border-4 mt-0.5 flex-shrink-0 ${
+                                            budgetType === 'rollover' ? 'border-brand-navy bg-brand-gold' : 'border-slate-300'
+                                        }`} />
+                                        <div className="min-w-0">
+                                            <div className="font-black text-xs text-brand-navy mb-0.5">Akumulasi (Rollover)</div>
+                                            <div className="text-[11px] font-bold text-slate-500 leading-snug">Sisa hemat bulan ini otomatis menambah jatah jajan bulan berikutnya.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2.5">
+                                <button 
+                                    type="button"
+                                    onClick={() => handleSubmitFinal(true)} 
+                                    disabled={isSubmitting}
+                                    className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin"/>
+                                            <span>MENYIMPAN STRATEGI...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle2 className="w-4 h-4 stroke-[2.5]"/>
+                                            <span>{isEditMode ? "SIMPAN PERUBAHAN TARGET" : "AKTIFKAN STRATEGI SEKARANG"}</span>
+                                        </>
+                                    )}
+                                </button>
+                                
+                                <button 
+                                    type="button"
+                                    onClick={() => setStep('budget-ask')} 
+                                    className="w-full h-11 text-slate-500 font-black text-xs uppercase tracking-wider hover:text-slate-800 transition-colors cursor-pointer text-center"
+                                >
+                                    KEMBALI
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+
             </div>
         </MobileLayout>
     );

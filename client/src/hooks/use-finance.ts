@@ -111,8 +111,12 @@ export function useAddTransaction() {
       return res.json();
     },
     onSuccess: () => {
+      globalFetchPromise = null;
+      globalFetchTime = 0;
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["user"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries();
     },
   });
 }

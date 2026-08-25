@@ -1,79 +1,169 @@
+import { Link } from "wouter";
 import { MobileLayout } from "@/components/Layout";
-import { ShieldCheck, Lock, EyeOff, Server, UserCheck } from "lucide-react";
+import { 
+    ShieldCheck, Lock, EyeOff, Server, UserCheck, 
+    ArrowLeft, Shield, Mail, Sparkles, CheckCircle2 
+} from "lucide-react";
 
 export default function Privacy() {
     return (
-        <MobileLayout title="Kebijakan Privasi" showBack>
-            <div className="pt-4 pb-24 px-4 space-y-6 animate-in fade-in slide-in-from-bottom-4">
+        <MobileLayout>
+            <div className="flex flex-col -mx-5 -mt-5">
                 
-                {/* Header Elegan */}
-                <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 rounded-[32px] text-white text-center shadow-xl relative overflow-hidden">
-                    <div className="relative z-10">
-                        <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm border border-white/20">
-                            <ShieldCheck className="w-8 h-8 text-white"/>
+                {/* ========================================================================= */}
+                {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO NAVY & GOLD */}
+                {/* ========================================================================= */}
+                <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b-2 border-amber-400">
+                    
+                    {/* Top Navigation Bar */}
+                    <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.08)] flex items-center justify-between relative z-30 border-b border-amber-100">
+                        <div className="flex items-center gap-3">
+                            <Link href="/">
+                                <button 
+                                    type="button"
+                                    className="w-10 h-10 rounded-full bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                                    title="Kembali ke Beranda"
+                                >
+                                    <ArrowLeft className="w-5 h-5 text-brand-gold" strokeWidth={2.5} />
+                                </button>
+                            </Link>
+
+                            <div className="flex flex-col">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                                    <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                                        Keamanan & Transparansi
+                                    </p>
+                                </div>
+                                <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                                    Kebijakan Privasi
+                                </h1>
+                            </div>
                         </div>
-                        <h2 className="text-2xl font-extrabold mb-1">Kebijakan Privasi</h2>
-                        <p className="text-indigo-100 text-xs">Pembaruan Terakhir: 20 Maret 2026</p>
+
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 bg-brand-navy text-brand-gold px-3 py-1.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-900 text-[10px] font-black border border-brand-gold/30">
+                                <ShieldCheck className="w-3.5 h-3.5 text-brand-gold fill-current" />
+                                <span>SSL 256-BIT</span>
+                            </div>
+                        </div>
                     </div>
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+
+                    {/* 2. FLAGSHIP HERO CARD: KEBIJAKAN PRIVASI (FORMAT HOME LIST TEBAL GOLD) */}
+                    <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-6 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
+                        <ShieldCheck className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
+                        <div className="absolute right-0 top-0 w-32 h-32 bg-brand-gold/15 rounded-full blur-xl pointer-events-none" />
+
+                        <div className="relative z-10 flex flex-col">
+                            <div className="flex justify-between items-center mb-3">
+                                <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
+                                    <Shield className="w-3 h-3 fill-current" /> PROTEKSI DATA
+                                </span>
+                                <span className="text-[10px] text-amber-200 font-bold bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
+                                    Edisi 2026
+                                </span>
+                            </div>
+
+                            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-2 leading-tight">
+                                Komitmen Privasi Finansial
+                            </h2>
+                            <p className="text-xs text-blue-100 font-medium leading-relaxed">
+                                <strong>BILANO Finance</strong> menjamin seluruh data keuangan, saldo, transaksi, dan aset Anda diperlakukan dengan standar kerahasiaan tertinggi.
+                            </p>
+
+                            <div className="flex items-center justify-between pt-3 mt-3 border-t border-white/15 text-[10px] text-slate-300 font-bold">
+                                <span>🔐 Enkripsi End-to-End</span>
+                                <span className="text-brand-gold">Tanpa Penjualan Data Iklan</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Konten Privasi */}
-                <div className="bg-white p-6 rounded-[32px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 space-y-8">
+                {/* ========================================================================= */}
+                {/* 2. BODY CONTENT: 4 POIN KEBIJAKAN PRIVASI DALAM KARTU NEO-BRUTALIST */}
+                {/* ========================================================================= */}
+                <div className="px-5 pt-4 pb-24 bg-slate-50 flex flex-col gap-3.5">
                     
-                    <div className="text-sm text-slate-500 leading-relaxed text-center">
-                        BILANO Finance ("kami", "milik kami") sangat menghargai privasi Anda. Halaman ini menjelaskan bagaimana kami mengumpulkan, menggunakan, dan melindungi data Anda saat menggunakan aplikasi kami.
-                    </div>
-
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="bg-blue-50 p-2 rounded-full"><EyeOff className="w-5 h-5 text-blue-600"/></div>
-                            <h3 className="font-extrabold text-slate-800">1. Data yang Kami Kumpulkan</h3>
+                    {/* POINT 1: DATA YANG KAMI KUMPULKAN */}
+                    <div className="bg-white rounded-[24px] p-5 border-2 border-amber-200/80 shadow-[4px_4px_0px_0px] shadow-slate-900 space-y-2.5">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-800 border border-sky-300 flex items-center justify-center shrink-0 shadow-xs">
+                                <EyeOff className="w-5 h-5" />
+                            </div>
+                            <h3 className="font-black text-slate-900 text-sm">
+                                1. Data yang Kami Kumpulkan
+                            </h3>
                         </div>
-                        <ul className="list-disc pl-12 text-sm text-slate-600 space-y-2">
-                            <li><strong>Informasi Akun:</strong> Alamat email Anda saat melakukan pendaftaran untuk keperluan autentikasi dan sinkronisasi data lintas perangkat.</li>
-                            <li><strong>Data Finansial:</strong> Catatan transaksi, saldo, target, investasi, dan hutang/piutang yang Anda inputkan secara sukarela ke dalam aplikasi.</li>
-                            <li><strong>Input AI & Gambar:</strong> Teks pertanyaan ke BILANO Intelligence dan gambar struk yang Anda unggah untuk keperluan pemindaian (Smart Scan).</li>
+                        <ul className="text-xs text-slate-600 font-medium leading-relaxed space-y-1.5 pl-2 list-disc list-inside">
+                            <li><strong className="text-slate-900">Informasi Akun:</strong> Alamat email Anda untuk autentikasi dan sinkronisasi lintas perangkat.</li>
+                            <li><strong className="text-slate-900">Data Finansial:</strong> Catatan transaksi, saldo, target, investasi, dan hutang/piutang yang Anda masukkan.</li>
+                            <li><strong className="text-slate-900">Smart Scan & AI:</strong> Gambar struk dan prompt AI hanya diproses saat Anda meminta pemindaian.</li>
                         </ul>
                     </div>
 
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="bg-emerald-50 p-2 rounded-full"><Lock className="w-5 h-5 text-emerald-600"/></div>
-                            <h3 className="font-extrabold text-slate-800">2. Penggunaan Data</h3>
+                    {/* POINT 2: PENGGUNAAN DATA */}
+                    <div className="bg-white rounded-[24px] p-5 border-2 border-amber-200/80 shadow-[4px_4px_0px_0px] shadow-slate-900 space-y-2.5">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center justify-center shrink-0 shadow-xs">
+                                <Lock className="w-5 h-5" />
+                            </div>
+                            <h3 className="font-black text-slate-900 text-sm">
+                                2. Penggunaan Data Finansial
+                            </h3>
                         </div>
-                        <p className="text-sm text-slate-600 leading-relaxed pl-12">
-                            Data finansial Anda mutlak digunakan hanya untuk keperluan kalkulasi, pembuatan grafik, dan analisis cerdas AI di layar Anda sendiri. Kami <strong>tidak pernah</strong> menjual, menyewakan, atau mendistribusikan data keuangan pribadi Anda kepada pihak ketiga mana pun untuk tujuan iklan.
+                        <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                            Data Anda 100% digunakan hanya untuk keperluan kalkulasi, pembuatan grafik analitik, dan rekomendasi cerdas di layar Anda sendiri. Kami <strong>TIDAK PERNAH</strong> menjual, menyewakan, atau membagikan data keuangan Anda kepada pihak ketiga mana pun untuk tujuan periklanan.
                         </p>
                     </div>
 
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="bg-orange-50 p-2 rounded-full"><Server className="w-5 h-5 text-orange-600"/></div>
-                            <h3 className="font-extrabold text-slate-800">3. Keamanan Penyimpanan</h3>
+                    {/* POINT 3: KEAMANAN PENYIMPANAN & TRANSAKSI */}
+                    <div className="bg-white rounded-[24px] p-5 border-2 border-amber-200/80 shadow-[4px_4px_0px_0px] shadow-slate-900 space-y-2.5">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center shrink-0 shadow-xs">
+                                <Server className="w-5 h-5" />
+                            </div>
+                            <h3 className="font-black text-slate-900 text-sm">
+                                3. Keamanan Penyimpanan & Cloud
+                            </h3>
                         </div>
-                        <p className="text-sm text-slate-600 leading-relaxed pl-12">
-                            Data Anda dikirim menggunakan enkripsi SSL standar industri dan disimpan di infrastruktur <i>cloud</i> tersertifikasi (Vercel). Transaksi pembayaran diproses secara aman melalui <i>payment gateway</i> resmi yang memiliki standar keamanan PCI-DSS, dan kami tidak menyimpan nomor kartu kredit/PIN Anda.
+                        <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                            Seluruh transmisi data dilindungi oleh enkripsi SSL/TLS 256-bit standar perbankan. Transaksi pembayaran PRO diproses melalui payment gateway resmi tersertifikasi <strong>PCI-DSS</strong>, dan kami tidak pernah menyimpan data nomor kartu kredit atau PIN rahasia Anda.
                         </p>
                     </div>
 
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="bg-rose-50 p-2 rounded-full"><UserCheck className="w-5 h-5 text-rose-600"/></div>
-                            <h3 className="font-extrabold text-slate-800">4. Hak Pengguna (Hapus Data)</h3>
+                    {/* POINT 4: HAK PENGGUNA (HAPUS DATA) */}
+                    <div className="bg-white rounded-[24px] p-5 border-2 border-amber-200/80 shadow-[4px_4px_0px_0px] shadow-slate-900 space-y-2.5">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-800 border border-rose-300 flex items-center justify-center shrink-0 shadow-xs">
+                                <UserCheck className="w-5 h-5" />
+                            </div>
+                            <h3 className="font-black text-slate-900 text-sm">
+                                4. Hak Pengguna & Hapus Data
+                            </h3>
                         </div>
-                        <p className="text-sm text-slate-600 leading-relaxed pl-12">
-                            Anda memiliki kendali penuh atas data Anda. Anda dapat meminta penghapusan akun dan seluruh riwayat data finansial Anda kapan saja dengan menghubungi kami atau menggunakan fitur Hapus Akun di dalam aplikasi.
+                        <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                            Anda memiliki kendali kedaulatan penuh atas data pribadi Anda. Anda berhak meminta penghapusan akun serta seluruh riwayat catatan finansial Anda secara permanen kapan saja melalui kontak tim support kami.
                         </p>
+                    </div>
+
+                    {/* FOOTER CONTACT BOX */}
+                    <div className="bg-amber-50 border-2 border-amber-300 rounded-[24px] p-4.5 text-center shadow-[3px_3px_0px_0px] shadow-slate-900 space-y-2 mt-2">
+                        <div className="flex items-center justify-center gap-1.5 text-amber-900 font-black text-xs">
+                            <Mail className="w-4 h-4 text-amber-700" />
+                            <span>Punya Pertanyaan Soal Keamanan Data?</span>
+                        </div>
+                        <p className="text-[11px] text-amber-950 font-bold">
+                            Tim data protection officer kami siap membantu Anda:
+                        </p>
+                        <a 
+                            href="mailto:support@bilanofinance.com" 
+                            className="inline-block bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs px-4 py-2 rounded-xl shadow-sm transition-all"
+                        >
+                            support@bilanofinance.com
+                        </a>
                     </div>
 
                 </div>
-
-                <div className="text-center mt-8">
-                    <p className="text-xs text-slate-400">Punya pertanyaan soal keamanan data?</p>
-                    <a href="mailto:support@bilanofinance.com" className="text-sm font-bold text-indigo-600 hover:underline">Hubungi support@bilanofinance.com</a>
-                </div>
-
             </div>
         </MobileLayout>
     );

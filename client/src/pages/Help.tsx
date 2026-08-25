@@ -1,9 +1,21 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { MobileLayout } from "@/components/Layout";
-import { Card, Button } from "@/components/UIComponents";
+import { Button, Input } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
-import { LifeBuoy, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react"; 
+import { 
+    LifeBuoy, Send, Loader2, CheckCircle2, AlertCircle, 
+    ArrowLeft, Sparkles, MessageSquare, HelpCircle, Mail,
+    ChevronDown, Check, ShieldCheck, HeartHandshake
+} from "lucide-react"; 
 import { trackEvent } from "@/lib/tracking";
+
+const QUICK_TOPICS = [
+    { label: "Kendala Saldo", subject: "Kendala Transaksi / Saldo" },
+    { label: "Pembayaran PRO", subject: "Kendala Pembayaran PRO" },
+    { label: "Pertanyaan Fitur", subject: "Pertanyaan Fitur" },
+    { label: "Saran & Masukan", subject: "Saran & Masukan" },
+];
 
 export default function Help() {
   const [subject, setSubject] = useState("");
@@ -16,99 +28,256 @@ export default function Help() {
 
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!subject || !message) return toast({ title: "Gagal", description: "Subjek dan Pesan harus diisi.", variant: "destructive" });
+      if (!subject || !message.trim()) {
+          toast({ 
+              title: "Form Belum Lengkap", 
+              description: "Silakan pilih subjek dan tuliskan detail pesan kendala Anda.", 
+              variant: "destructive" 
+          });
+          return;
+      }
 
       setIsSubmitting(true);
       try {
           const res = await fetch("/api/help/submit", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-email": userEmail },
-              body: JSON.stringify({ subject, message })
+              body: JSON.stringify({ subject, message: message.trim() })
           });
 
-          if (!res.ok) throw new Error("Gagal mengirim laporan");
+          if (!res.ok) throw new Error("Gagal mengirim laporan tiket bantuan");
+          
           trackEvent("help_ticket_submitted", { 
               issueSubject: subject 
           });
           
           setIsSuccess(true);
+          toast({
+              title: "Laporan Terkirim! 🎉",
+              description: "Tim BILANO akan segera menindaklanjuti pesan Anda."
+          });
       } catch (error: any) {
-          toast({ title: "Error", description: error.message, variant: "destructive" });
+          toast({ title: "Terjadi Kendala", description: error.message || "Gagal mengirim pesan.", variant: "destructive" });
       } finally {
           setIsSubmitting(false);
       }
   };
 
   return (
-    <MobileLayout title="Pusat Bantuan" showBack={true}>
-      <div className="p-1 pb-20 space-y-6 animate-in fade-in slide-in-from-bottom-4 mt-4">
-          
-          <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-[32px] p-6 text-white shadow-xl relative overflow-hidden">
-              <div className="relative z-10">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-4 backdrop-blur-md border border-white/30">
-                      <LifeBuoy className="w-6 h-6 text-white" />
-                  </div>
-                  <h2 className="text-2xl font-black mb-1">Ada Kendala?</h2>
-                  <p className="text-sm text-blue-100 font-medium leading-relaxed">
-                      Tim dukungan BILANO siap membantu Anda. Silakan tuliskan keluhan atau pertanyaan Anda di bawah ini.
-                  </p>
-              </div>
-              <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
-          </div>
+    <MobileLayout>
+      <div className="flex flex-col -mx-5 -mt-5">
+        
+        {/* ========================================================================= */}
+        {/* 1. TOP HEADER BANNER DENGAN TEMA DOMINAN KUNING / EMAS (#F6B93B) */}
+        {/* ========================================================================= */}
+        <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b-2 border-amber-400">
+            
+            {/* Top Navigation Bar */}
+            <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(245,158,11,0.08)] flex items-center justify-between relative z-30 border-b border-amber-100">
+                <div className="flex items-center gap-3">
+                    <Link href="/">
+                        <button 
+                            className="w-10 h-10 rounded-full bg-brand-gold hover:bg-[#e5a825] text-brand-navy shadow-[2px_2px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                            title="Kembali ke Beranda"
+                        >
+                            <ArrowLeft className="w-5 h-5 text-brand-navy" strokeWidth={2.5} />
+                        </button>
+                    </Link>
 
-          {isSuccess ? (
-              <Card className="p-8 text-center rounded-[32px] shadow-lg border-2 border-blue-100 animate-in zoom-in-95">
-                  <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle2 className="w-10 h-10" />
-                  </div>
-                  <h3 className="text-xl font-extrabold text-slate-800 mb-2">Laporan Terkirim!</h3>
-                  <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                      Terima kasih telah menghubungi kami. Tim kami sedang meninjau laporan Anda dan akan <b>membalasnya langsung via Email</b> yang terdaftar pada akun Anda.
-                  </p>
-                  <Button onClick={() => {setIsSuccess(false); setSubject(""); setMessage("");}} variant="outline" className="w-full rounded-full font-bold h-12">
-                      Kirim Pesan Lain
-                  </Button>
-              </Card>
-          ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Subjek Bantuan</label>
-                      <select 
-                          value={subject} 
-                          onChange={(e) => setSubject(e.target.value)}
-                          className="w-full h-14 px-4 bg-white border border-slate-200 rounded-[20px] font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all appearance-none"
-                      >
-                          <option value="" disabled>-- Pilih Kategori --</option>
-                          <option value="Kendala Transaksi / Saldo">Kendala Transaksi / Saldo</option>
-                          <option value="Kendala Pembayaran PRO">Kendala Pembayaran PRO</option>
-                          <option value="Pertanyaan Fitur">Pertanyaan Fitur Aplikasi</option>
-                          <option value="Saran & Masukan">Saran & Masukan</option>
-                          <option value="Lainnya">Lainnya</option>
-                      </select>
-                  </div>
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                            <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                                Layanan & Bantuan
+                            </p>
+                        </div>
+                        <h1 className="text-lg font-black text-slate-900 leading-tight">
+                            Pusat Bantuan
+                        </h1>
+                    </div>
+                </div>
 
-                  <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Jelaskan Detailnya</label>
-                      <textarea 
-                          value={message}
-                          onChange={(e) => setMessage(e.target.value)}
-                          placeholder="Ceritakan detail kendala yang Anda alami..."
-                          className="w-full min-h-[150px] p-4 bg-white border border-slate-200 rounded-[24px] text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all resize-none"
-                      />
-                  </div>
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 bg-white border-2 border-amber-300 text-brand-navy px-3 py-1.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-900 text-[11px] font-black">
+                        <LifeBuoy className="w-3.5 h-3.5 text-amber-600" />
+                        <span>SUPPORT 24/7</span>
+                    </div>
+                </div>
+            </div>
 
-                  <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl flex gap-3 items-start mt-2">
-                      <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                      <p className="text-[11px] text-blue-700 font-medium leading-relaxed">
-                          Balasan dari tim kami akan dikirimkan ke email <b>{userEmail}</b>. Pastikan untuk mengecek kotak masuk (Inbox/Spam) Anda secara berkala.
-                      </p>
-                  </div>
+            {/* 2. HERO CARD KUNING/EMAS (FORMAT HOME DENGAN LIST TEBAL NAVY) */}
+            <div className="bg-gradient-to-br from-[#F6B93B] via-[#E5A825] to-[#D97706] text-brand-navy p-5 rounded-[28px] border-l-[6px] border-l-brand-navy shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
+                <HelpCircle className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-navy/10 -rotate-12 pointer-events-none" strokeWidth={1} />
+                <div className="absolute right-0 top-0 w-32 h-32 bg-white/20 rounded-full blur-xl pointer-events-none" />
 
-                  <Button disabled={isSubmitting} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-base shadow-lg shadow-indigo-200 rounded-[20px] mt-4">
-                      {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : <><Send className="w-5 h-5 mr-2"/> KIRIM LAPORAN</>}
-                  </Button>
-              </form>
-          )}
+                <div className="relative z-10 flex flex-col">
+                    <div className="flex justify-between items-center mb-3">
+                        <span className="bg-brand-navy text-brand-gold text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-brand-gold fill-current" />
+                            KONSULTASI & KELUHAN
+                        </span>
+
+                        <span className="text-[10px] text-amber-950 font-bold bg-white/30 px-2.5 py-0.5 rounded-full border border-amber-900/10">
+                            Respon Cepat
+                        </span>
+                    </div>
+
+                    <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-brand-navy mb-1 leading-tight">
+                        Ada Kendala Akun?
+                    </h2>
+                    <p className="text-xs text-amber-950/80 font-bold leading-relaxed mb-3">
+                        Tim dukungan BILANO siap membantu Anda. Sampaikan kendala transaksi, langganan PRO, maupun saran pengembangan.
+                    </p>
+
+                    <div className="flex items-center justify-between pt-2.5 border-t border-brand-navy/15 text-[10px] text-brand-navy font-bold">
+                        <span className="flex items-center gap-1">
+                            <Mail className="w-3.5 h-3.5" /> Balasan via Email Terdaftar
+                        </span>
+                        <span className="bg-brand-navy text-brand-gold px-2 py-0.5 rounded-md font-black">
+                            BILANO Care
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* 2. BODY CONTENT SECTION */}
+        {/* ========================================================================= */}
+        <div className="px-5 pt-4 pb-24 bg-slate-50 flex flex-col gap-4">
+            
+            {/* QUICK TOPIC CHIPS */}
+            <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 mb-2">
+                    Pilihan Topik Cepat
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                    {QUICK_TOPICS.map((topic, idx) => {
+                        const isSelected = subject === topic.subject;
+                        return (
+                            <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setSubject(topic.subject)}
+                                className={`p-3 rounded-2xl border-2 text-xs font-black transition-all flex items-center justify-between cursor-pointer ${
+                                    isSelected
+                                        ? "bg-amber-100 text-brand-navy border-amber-500 shadow-[2px_2px_0px_0px] shadow-slate-900 translate-x-[-1px] translate-y-[-1px]"
+                                        : "bg-white text-slate-700 border-amber-200/80 hover:border-amber-400 shadow-[2px_2px_0px_0px] shadow-slate-900/40"
+                                }`}
+                            >
+                                <span className="truncate">{topic.label}</span>
+                                {isSelected && <Check className="w-4 h-4 text-amber-700 shrink-0" strokeWidth={3} />}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* CARD FORM LAPORAN ATAU STATE SUKSES */}
+            {isSuccess ? (
+                <div className="bg-white p-6 rounded-[28px] shadow-[6px_6px_0px_0px] shadow-slate-900 border-2 border-amber-300 text-center animate-in zoom-in-95 space-y-4">
+                    <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto shadow-md">
+                        <CheckCircle2 className="w-8 h-8" />
+                    </div>
+
+                    <div>
+                        <h3 className="text-lg font-black text-slate-900 mb-1">
+                            Laporan Berhasil Terkirim!
+                        </h3>
+                        <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+                            Terima kasih telah menghubungi kami. Tim BILANO sedang meninjau tiket Anda dan akan membalas langsung ke alamat email:
+                        </p>
+                        <p className="text-xs font-black text-brand-navy bg-amber-50 border border-amber-200 py-1.5 px-3 rounded-xl inline-block mt-2">
+                            {userEmail || "Email Terdaftar"}
+                        </p>
+                    </div>
+
+                    <div className="pt-2 space-y-2">
+                        <button 
+                            type="button"
+                            onClick={() => { setIsSuccess(false); setSubject(""); setMessage(""); }}
+                            className="w-full h-12 rounded-2xl bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider shadow-[3px_3px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+                        >
+                            Kirim Pesan Lain
+                        </button>
+                        <Link href="/">
+                            <button 
+                                type="button"
+                                className="w-full h-10 text-xs font-bold text-slate-400 hover:text-slate-700 transition-colors"
+                            >
+                                Kembali ke Beranda
+                            </button>
+                        </Link>
+                    </div>
+                </div>
+            ) : (
+                <form onSubmit={handleSubmit} className="bg-white p-5 rounded-[28px] shadow-[6px_6px_0px_0px] shadow-slate-900 border-2 border-amber-200 space-y-4">
+                    
+                    {/* Subjek Dropdown */}
+                    <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
+                            Subjek Kendala / Kategori
+                        </label>
+                        <div className="relative">
+                            <select 
+                                value={subject} 
+                                onChange={(e) => setSubject(e.target.value)}
+                                className="w-full h-13 px-4 bg-slate-50 border-2 border-slate-200 rounded-2xl font-bold text-xs text-slate-800 outline-none focus:border-amber-500 focus:bg-white transition-all appearance-none cursor-pointer"
+                            >
+                                <option value="" disabled>-- Pilih Kategori Kendala --</option>
+                                <option value="Kendala Transaksi / Saldo">Kendala Transaksi / Saldo</option>
+                                <option value="Kendala Pembayaran PRO">Kendala Pembayaran PRO</option>
+                                <option value="Pertanyaan Fitur">Pertanyaan Fitur Aplikasi</option>
+                                <option value="Saran & Masukan">Saran & Masukan Fitur</option>
+                                <option value="Lainnya">Kendala Lainnya</option>
+                            </select>
+                            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                    </div>
+
+                    {/* Detail Pesan */}
+                    <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
+                            Ceritakan Detail Kendala
+                        </label>
+                        <textarea 
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            placeholder="Ceritakan detail kendala atau saran Anda secara jelas..."
+                            className="w-full min-h-[140px] p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xs font-medium text-slate-800 outline-none focus:border-amber-500 focus:bg-white transition-all resize-none"
+                        />
+                    </div>
+
+                    {/* Info Notice Box */}
+                    <div className="bg-amber-50 border-2 border-amber-200 p-3.5 rounded-2xl flex gap-2.5 items-start">
+                        <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-amber-900 font-medium leading-relaxed">
+                            Balasan dari tim support akan dikirimkan ke email <strong>{userEmail || "akun Anda"}</strong>. Pastikan untuk memeriksa Inbox / Spam secara berkala.
+                        </p>
+                    </div>
+
+                    {/* Tombol Kirim Laporan */}
+                    <button 
+                        type="submit"
+                        disabled={isSubmitting} 
+                        className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:shadow-[1px_1px_0px_0px] active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
+                    >
+                        {isSubmitting ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span>MENGIRIM LAPORAN...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Send className="w-4 h-4 stroke-[2.5]" />
+                                <span>KIRIM TIKET BANTUAN</span>
+                            </>
+                        )}
+                    </button>
+                </form>
+            )}
+
+        </div>
       </div>
     </MobileLayout>
   );

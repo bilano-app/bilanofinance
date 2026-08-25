@@ -1,12 +1,16 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/Layout";
-import { Button } from "@/components/UIComponents";
-import { Download, FileText, Globe, Wallet, FileBarChart, Loader2, Briefcase, HandCoins, Archive, HeartHandshake, AlertCircle } from "lucide-react";
+import { 
+    Download, FileText, Globe, Wallet, FileBarChart, Loader2, 
+    Briefcase, HandCoins, Archive, HeartHandshake, AlertCircle,
+    ArrowLeft, Sparkles, CheckCircle2, ShieldCheck, TrendingUp,
+    Calendar, Lock, Layers
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useUser } from "@/hooks/use-finance"; 
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { trackEvent } from "@/lib/tracking";
 
 const DEFAULT_RATES: Record<string, number> = {
@@ -30,8 +34,9 @@ export default function Reports() {
   const formatRpPendek = (val: number) => {
       const num = Math.abs(Number(val) || 0);
       const sign = val < 0 ? "-" : "";
-      if (num >= 1000000) return sign + (num / 1000000).toFixed(1) + 'M';
-      if (num >= 1000) return sign + (num / 1000).toFixed(0) + 'k';
+      if (num >= 1000000000) return sign + (num / 1000000000).toFixed(1) + 'M';
+      if (num >= 1000000) return sign + (num / 1000000).toFixed(1) + 'Jt';
+      if (num >= 1000) return sign + (num / 1000).toFixed(0) + 'Rb';
       return sign + num.toString();
   };
 
@@ -68,8 +73,11 @@ export default function Reports() {
         }
         if (resRates.ok) setForexRates(await resRates.json());
         if (resTarget.ok) setTargetData(await resTarget.json());
-      } catch (e) { console.error(e); } 
-      finally { setLoading(false); }
+      } catch (e) { 
+        console.error(e); 
+      } finally { 
+        setLoading(false); 
+      }
     };
     fetchData();
   }, []);
@@ -80,6 +88,9 @@ export default function Reports() {
       }
   }, [isUserLoading]);
 
+  // =========================================================================
+  // ❄️ PERMANENT DATA FREEZING & RETROSPECTIVE AUDITING ROUTINE
+  // =========================================================================
   const generateFrozenData = (targetMonth: number, targetYear: number, isYearly: boolean, dbData: any) => {
       const user = dbData.user || {};
       const allTxs = dbData.transactions || [];
@@ -89,7 +100,9 @@ export default function Reports() {
       const allRetained = dbData.retained || []; 
 
       const now = new Date();
-      const isCurrentPeriod = isYearly ? targetYear === now.getFullYear() : (targetMonth === now.getMonth() && targetYear === now.getFullYear());
+      const isCurrentPeriod = isYearly 
+          ? targetYear === now.getFullYear() 
+          : (targetMonth === now.getMonth() && targetYear === now.getFullYear());
 
       let appStartDate = new Date();
       if (user.createdAt) appStartDate = new Date(user.createdAt);
@@ -492,65 +505,89 @@ export default function Reports() {
       return archives.reverse(); 
   };
 
-  const drawLollipopChart = (doc: jsPDF, title: string, chartData: any[], startY: number, color: number[]) => {
-      const chartHeight = 35; const chartWidth = 170; const startX = 20;
-      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold"); doc.text(title, startX, startY - 3);
+  // =========================================================================
+  // 📈 HIGH-END CORPORATE FINANCIAL CHART DRAWING (PDF)
+  // =========================================================================
+  const drawCorporateChart = (doc: jsPDF, title: string, subtitle: string, chartData: any[], startY: number, colorType: 'gold' | 'navy') => {
+      const chartHeight = 36; 
+      const chartWidth = 182; 
+      const startX = 14;
+
+      doc.setFontSize(10); 
+      doc.setTextColor(29, 62, 114); 
+      doc.setFont("helvetica", "bold"); 
+      doc.text(title, startX, startY - 2);
+
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.setFont("helvetica", "normal");
+      doc.text(subtitle, startX, startY + 2.5);
 
       let maxVal = Math.max(...chartData.map(d => d.value), 0);
       let minVal = Math.min(...chartData.map(d => d.value), 0);
-      if (maxVal > 0) maxVal = maxVal * 1.3; 
+      if (maxVal > 0) maxVal = maxVal * 1.25; 
       if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
       let range = maxVal - minVal; if (range === 0) range = 1;
 
-      const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
-      const pointGap = chartWidth / Math.max(1, chartData.length - 1); 
+      const plotStartY = startY + 7;
+      const zeroY = plotStartY + chartHeight - ((0 - minVal) / range) * chartHeight;
 
-      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY);
+      // Base Background Grid Box
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(startX, plotStartY, chartWidth, chartHeight, 2, 2, 'F');
+      
+      doc.setDrawColor(226, 232, 240); 
+      doc.setLineWidth(0.3); 
+      doc.line(startX, zeroY, startX + chartWidth, zeroY); 
 
-      chartData.forEach((item, i) => {
-          const x = startX + (i * pointGap); const valH = ((item.value - minVal) / range) * chartHeight; const y = startY + chartHeight - valH;
-          doc.setDrawColor(color[0], color[1], color[2]); doc.setLineWidth(1.2); doc.line(x, zeroY, x, y); 
-          doc.setFillColor(color[0], color[1], color[2]); doc.circle(x, y, 1.8, 'FD'); 
-          doc.setFontSize(5); doc.setTextColor(color[0], color[1], color[2]); doc.setFont("helvetica", "bold"); doc.text(formatRpPendek(item.value), x, item.value >= 0 ? y - 3 : y + 4, { align: 'center' });
-          doc.setFontSize(6); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal"); doc.text(item.label, x, startY + chartHeight + 6, { align: 'center' });
-      });
-      return startY + chartHeight + 15;
-  };
-
-  const drawBarChart = (doc: jsPDF, title: string, chartData: any[], startY: number, barColor: number[]) => {
-      const chartHeight = 35; const chartWidth = 170; const startX = 20;
-      doc.setFontSize(10); doc.setTextColor(40, 40, 40); doc.setFont("helvetica", "bold"); doc.text(title, startX, startY - 3);
-
-      let maxVal = Math.max(...chartData.map(d => d.value), 0);
-      let minVal = Math.min(...chartData.map(d => d.value), 0);
-      if (maxVal > 0) maxVal = maxVal * 1.3; 
-      if (maxVal === minVal) { maxVal = maxVal === 0 ? 100 : maxVal * 1.5; minVal = minVal > 0 ? 0 : minVal; }
-      let range = maxVal - minVal; if (range === 0) range = 1;
-
-      const zeroY = startY + chartHeight - ((0 - minVal) / range) * chartHeight;
-      doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2); doc.line(startX, zeroY, startX + chartWidth, zeroY); 
-
-      const barGap = 3; const barWidth = (chartWidth / Math.max(1, chartData.length)) - barGap;
+      const numPoints = Math.max(1, chartData.length);
+      const barGap = 4;
+      const colWidth = (chartWidth - (barGap * (numPoints + 1))) / numPoints;
 
       chartData.forEach((item, i) => {
-          const x = startX + (i * (barWidth + barGap)) + barGap / 2; const valH = (Math.abs(item.value) / range) * chartHeight; const barY = item.value >= 0 ? zeroY - valH : zeroY;
-          if (title.includes("Arus Kas")) doc.setFillColor(item.value >= 0 ? 16 : 244, item.value >= 0 ? 185 : 63, item.value >= 0 ? 129 : 94);
-          else doc.setFillColor(barColor[0], barColor[1], barColor[2]);
-          doc.rect(x, barY, barWidth, valH, 'F');
-          doc.setFontSize(5); doc.setTextColor(80, 80, 80); doc.setFont("helvetica", "bold"); doc.text(formatRpPendek(item.value), x + (barWidth / 2), item.value >= 0 ? barY - 2 : barY + valH + 3, { align: 'center' });
-          doc.setFontSize(6); doc.setFont("helvetica", "normal"); doc.setTextColor(100, 100, 100); doc.text(item.label, x + (barWidth / 2), startY + chartHeight + 6, { align: 'center' });
+          const x = startX + barGap + (i * (colWidth + barGap));
+          const valH = (Math.abs(item.value) / range) * (chartHeight - 8);
+          const barY = item.value >= 0 ? zeroY - valH : zeroY;
+
+          if (colorType === 'gold') {
+              doc.setFillColor(246, 185, 59); // Bilano Gold
+          } else {
+              doc.setFillColor(item.value >= 0 ? 29 : 225, item.value >= 0 ? 62 : 29, item.value >= 0 ? 114 : 72);
+          }
+
+          if (valH > 0) {
+              doc.roundedRect(x, barY, colWidth, Math.max(valH, 1.5), 1, 1, 'F');
+          }
+
+          // Label Angka
+          doc.setFontSize(5.5);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(30, 41, 59);
+          doc.text(formatRpPendek(item.value), x + (colWidth / 2), item.value >= 0 ? barY - 2 : barY + valH + 3.5, { align: 'center' });
+
+          // Label Bulan / Periode
+          doc.setFontSize(6);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(100, 116, 139);
+          doc.text(item.label, x + (colWidth / 2), plotStartY + chartHeight + 4.5, { align: 'center' });
       });
-      return startY + chartHeight + 15;
+
+      return plotStartY + chartHeight + 14;
   };
 
+  // =========================================================================
+  // 📑 GENERATE PREMIUM WEALTH MANAGEMENT AUDIT PDF
+  // =========================================================================
   const generatePDF = async (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
     if (!userProfile?.isPro && localStorage.getItem("bilano_pro") !== "true") {
         toast({ title: "Fitur Premium 👑", description: "Cetak laporan PDF eksklusif untuk pengguna BILANO PRO.", variant: "destructive" });
-        setTimeout(() => { setLocation('/paywall'); }, 1000); return;
+        setTimeout(() => { setLocation('/paywall'); }, 1000); 
+        return;
     }
 
     if (!data || !data.user) {
-        toast({ title: "Data Belum Siap ⏳", description: "Sistem masih memuat data.", variant: "default" }); return;
+        toast({ title: "Data Belum Siap ⏳", description: "Sistem masih memuat data keuangan.", variant: "default" }); 
+        return;
     }
     
     const processId = targetMonth !== undefined ? `archive_${targetMonth}_${targetYear}_${isYearly}` : 'current';
@@ -572,9 +609,12 @@ export default function Reports() {
 
             if (isPastPeriod && localStorage.getItem(archiveKey)) {
                 snapData = JSON.parse(localStorage.getItem(archiveKey) as string);
-                toast({ title: "Membuka Arsip Terkunci", description: "Menampilkan Laporan Offline Permanen..." });
+                toast({ title: "Membuka Arsip Terkunci 🔒", description: "Menampilkan Laporan Permanen Historis..." });
             } else {
                 snapData = generateFrozenData(nowForReport.getMonth(), safeTargetYear, isYearly, data);
+                if (isPastPeriod) {
+                    localStorage.setItem(archiveKey, JSON.stringify(snapData));
+                }
             }
 
             let appStartDate = new Date();
@@ -615,185 +655,337 @@ export default function Reports() {
 
             const periodName = isYearly ? `Tahun ${safeTargetYear}` : `Bulan ${nowForReport.toLocaleDateString('id-ID', { month: 'long' })} ${safeTargetYear}`;
 
-            // --- RENDER DOKUMEN ---
+            // =========================================================================
+            // 📑 EXECUTIVE CORPORATE PDF HEADER (GOLDMAN / MCKINSEY FINANCIAL STATEMENT STYLE)
+            // =========================================================================
+            
+            // Top Navy Accent Bar
+            doc.setFillColor(29, 62, 114); // Bilano Navy
+            doc.rect(0, 0, 210, 8, 'F');
+            
+            // Top Gold Sub-accent
+            doc.setFillColor(246, 185, 59); // Bilano Gold
+            doc.rect(0, 8, 210, 1.5, 'F');
+
+            // Logo & Brand Header
             try {
-                if (logoBase64) doc.addImage(logoBase64, 'PNG', 14, 10, 35, 12);
-                else { doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold"); doc.setFontSize(24); doc.text("BILANO", 14, 20); }
+                if (logoBase64) doc.addImage(logoBase64, 'PNG', 14, 14, 38, 12);
+                else { 
+                    doc.setTextColor(29, 62, 114); 
+                    doc.setFont("helvetica", "bold"); 
+                    doc.setFontSize(22); 
+                    doc.text("BILANO", 14, 24); 
+                }
             } catch (e) {
-                doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "bold"); doc.setFontSize(24); doc.text("BILANO", 14, 20);
+                doc.setTextColor(29, 62, 114); 
+                doc.setFont("helvetica", "bold"); 
+                doc.setFontSize(22); 
+                doc.text("BILANO", 14, 24);
             }
 
-            doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "normal"); doc.setFontSize(11);
-            doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}`, 196, 14, { align: 'right' });
-            doc.text(`Dicetak Oleh: ${user.firstName || 'Pengguna'} ${user.lastName || ''}`, 196, 20, { align: 'right' });
+            // Right Header: Metadata
+            doc.setTextColor(100, 116, 139); 
+            doc.setFont("helvetica", "normal"); 
+            doc.setFontSize(8.5);
+            doc.text(`TANGGAL CETAK: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 196, 17, { align: 'right' });
+            doc.text(`DIKELUARKAN UNTUK: ${user.firstName || 'Pengguna'} ${user.lastName || ''} (${user.email || 'Akun Terverifikasi'})`, 196, 22, { align: 'right' });
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(217, 119, 6);
+            doc.text("STATUS: DOKUMEN RESMI & TERENKRIPSI", 196, 27, { align: 'right' });
 
-            doc.setDrawColor(0, 0, 0); doc.setLineWidth(1.2); doc.line(14, 26, 196, 26);
+            // Horizontal Separator
+            doc.setDrawColor(226, 232, 240); 
+            doc.setLineWidth(0.4); 
+            doc.line(14, 31, 196, 31);
             
-            doc.setFillColor(0, 0, 0); doc.rect(14, 32, 182, 14, 'F');
-            doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(16);
-            doc.text(isYearly ? "ANNUAL WEALTH MANAGEMENT REPORT" : "WEALTH MANAGEMENT REPORT", 20, 41);
+            // Big Statement Title Bar
+            doc.setFillColor(29, 62, 114); 
+            doc.roundedRect(14, 35, 182, 16, 2, 2, 'F');
+            doc.setTextColor(246, 185, 59); 
+            doc.setFont("helvetica", "bold"); 
+            doc.setFontSize(13);
+            doc.text(isYearly ? "ANNUAL WEALTH MANAGEMENT & FINANCIAL AUDIT" : "MONTHLY WEALTH MANAGEMENT & CASHFLOW AUDIT", 20, 43);
+            doc.setTextColor(241, 245, 249);
+            doc.setFontSize(8.5);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Periode Pemeriksaan: ${periodName} | Standar Pencatatan Akuntansi Finansial Pribadi BILANO`, 20, 48);
 
-            let currentY = 112;
-            const checkPageBreak = (neededSpace: number) => { if (currentY + neededSpace > 275) { doc.addPage(); currentY = 25; } };
+            // =========================================================================
+            // 💼 EXECUTIVE SUMMARY CARD (TOTAL NET WORTH & CORE METRICS)
+            // =========================================================================
+            doc.setFillColor(248, 250, 252);
+            doc.roundedRect(14, 55, 182, 38, 3, 3, 'F');
+            doc.setDrawColor(226, 232, 240);
+            doc.roundedRect(14, 55, 182, 38, 3, 3, 'D');
 
-            doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text("TOTAL KEKAYAAN BERSIH (NET WORTH)", 14, 60);
-            doc.setTextColor(0, 0, 0); doc.setFontSize(32); doc.text(formatRp(snapData.archiveNetWorth), 14, 74);
+            // List aksen emas di sebelah kiri box
+            doc.setFillColor(246, 185, 59);
+            doc.roundedRect(14, 55, 3.5, 38, 1, 1, 'F');
+
+            doc.setTextColor(100, 116, 139); 
+            doc.setFontSize(8.5); 
+            doc.setFont("helvetica", "bold"); 
+            doc.text("TOTAL KEKAYAAN BERSIH (NET WORTH VALUE)", 22, 63);
             
-            doc.setDrawColor(0, 0, 0); doc.setLineWidth(0.8); doc.line(14, 82, 196, 82);
-            
-            doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold");
-            doc.text(`Ringkasan Arus Kas Murni (${periodName})`, 14, 92);
-            doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(0, 100, 0); doc.text(`Pemasukan: + ${formatRp(snapData.totalIncome)}`, 14, 102);
-            doc.setTextColor(150, 0, 0); doc.text(`Pengeluaran: - ${formatRp(snapData.totalExpense)}`, 90, 102);
+            doc.setTextColor(29, 62, 114); 
+            doc.setFontSize(22); 
+            doc.text(formatRp(snapData.archiveNetWorth), 22, 73);
 
+            // Arus Kas Murni Summary Pills
+            const netCashflow = (snapData.totalIncome || 0) - (snapData.totalExpense || 0);
+            doc.setFontSize(8.5);
+            doc.setTextColor(5, 150, 105);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Pemasukan: + ${formatRp(snapData.totalIncome)}`, 22, 83);
+            
+            doc.setTextColor(225, 29, 72);
+            doc.text(`Pengeluaran: - ${formatRp(snapData.totalExpense)}`, 85, 83);
+
+            doc.setTextColor(netCashflow >= 0 ? 5 : 225, netCashflow >= 0 ? 150 : 29, netCashflow >= 0 ? 105 : 72);
+            doc.text(`Net Surplus: ${netCashflow >= 0 ? '+' : ''}${formatRp(netCashflow)}`, 145, 83);
+
+            let currentY = 100;
+            const checkPageBreak = (neededSpace: number) => { 
+                if (currentY + neededSpace > 275) { 
+                    doc.addPage(); 
+                    // Header kecil di page baru
+                    doc.setFillColor(29, 62, 114);
+                    doc.rect(0, 0, 210, 4, 'F');
+                    doc.setFillColor(246, 185, 59);
+                    doc.rect(0, 4, 210, 1, 'F');
+                    currentY = 18; 
+                } 
+            };
+
+            // Target Progress Section jika ada
             if (!isYearly && targetData && targetData.targetAmount > 0) {
-                checkPageBreak(45); doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text("Performa Pencapaian Target", 14, currentY);
+                checkPageBreak(32);
+                doc.setTextColor(29, 62, 114); 
+                doc.setFontSize(10.5); 
+                doc.setFont("helvetica", "bold"); 
+                doc.text("Performa Pencapaian Target Keuangan", 14, currentY);
+                
                 const progress = Math.min(100, Math.max(0, (snapData.archiveNetWorth / targetData.targetAmount) * 100)) || 0;
                 const sisa = targetData.targetAmount - snapData.archiveNetWorth;
-                doc.setFontSize(12); doc.setFont("helvetica", "normal"); doc.setTextColor(0, 0, 0);
-                doc.text(`Target Impian: ${formatRp(targetData.targetAmount)}`, 14, currentY + 8);
-                doc.text(`Terkumpul saat ini: ${formatRp(snapData.archiveNetWorth)} (${progress.toFixed(1)}%)`, 14, currentY + 15);
                 
-                if (sisa > 0) { doc.setTextColor(150, 0, 0); doc.setFont("helvetica", "bold"); doc.text(`Kekurangan: ${formatRp(sisa)}`, 14, currentY + 22); } 
-                else { doc.setTextColor(0, 100, 0); doc.setFont("helvetica", "bold"); doc.text(`Tercapai! Anda berhasil mencapai target.`, 14, currentY + 22); }
+                doc.setFontSize(9); 
+                doc.setFont("helvetica", "normal"); 
+                doc.setTextColor(71, 85, 105);
+                doc.text(`Goal Target: ${formatRp(targetData.targetAmount)} | Terkumpul: ${formatRp(snapData.archiveNetWorth)} (${progress.toFixed(1)}%)`, 14, currentY + 6);
+                
+                if (sisa > 0) { 
+                    doc.setTextColor(225, 29, 72); 
+                    doc.setFont("helvetica", "bold"); 
+                    doc.text(`Kekurangan Akumulasi: ${formatRp(sisa)}`, 14, currentY + 11); 
+                } else { 
+                    doc.setTextColor(5, 150, 105); 
+                    doc.setFont("helvetica", "bold"); 
+                    doc.text(`Target Sukses Tercapai! (Melampaui Target)`, 14, currentY + 11); 
+                }
 
-                doc.setFillColor(220, 220, 220); doc.roundedRect(14, currentY + 28, 182, 6, 2, 2, 'F');
-                if (progress > 0) { doc.setFillColor(0, 0, 0); doc.roundedRect(14, currentY + 28, (progress / 100) * 182, 6, 2, 2, 'F'); }
-                currentY += 44; 
+                // Progress Bar
+                doc.setFillColor(226, 232, 240); 
+                doc.roundedRect(14, currentY + 14, 182, 4.5, 1.5, 1.5, 'F');
+                if (progress > 0) { 
+                    doc.setFillColor(29, 62, 114); 
+                    doc.roundedRect(14, currentY + 14, (progress / 100) * 182, 4.5, 1.5, 1.5, 'F'); 
+                }
+                currentY += 27; 
             }
 
-            // 🚀 DESAIN BARU: Corporate Financial Report Style (Profesional & Modern)
-            // 🚀 PERBAIKAN DESAIN: Warna Biru Korporat Resmi & Lolos Compile Vercel
-            const tableStyleOptions = {
+            // =========================================================================
+            // 📊 CORPORATE TABLE STYLING OPTIONS (PROFESSIONAL & CLEAN)
+            // =========================================================================
+            const corporateTableStyles = {
                 theme: 'grid' as const,
                 styles: {
                     font: 'helvetica',
-                    fontSize: 11,           
-                    textColor: 20,          
-                    lineColor: [210, 214, 219] as [number, number, number], // 👈 Garis abu-abu soft border
-                    lineWidth: 0.15,        
-                    cellPadding: { top: 5, bottom: 5, left: 6, right: 6 }
+                    fontSize: 8.5,           
+                    textColor: [30, 41, 59] as [number, number, number],          
+                    lineColor: [226, 232, 240] as [number, number, number],
+                    lineWidth: 0.2,        
+                    cellPadding: { top: 3.5, bottom: 3.5, left: 4, right: 4 }
                 },
                 headStyles: {
                     fontStyle: 'bold' as const,
-                    fontSize: 12,           
-                    textColor: 255,         // 👈 Tulisan header Putih Bersih
-                    fillColor: [30, 58, 138] as [number, number, number],   // 👈 Background Header BIRU GELAP ELEGAN
-                    lineColor: [30, 58, 138] as [number, number, number],
-                    lineWidth: 0.15          
+                    fontSize: 9,           
+                    textColor: [255, 255, 255] as [number, number, number],         
+                    fillColor: [29, 62, 114] as [number, number, number],   // Deep Bilano Navy
+                    lineColor: [29, 62, 114] as [number, number, number],
+                    lineWidth: 0.2          
                 },
                 alternateRowStyles: {
-                    fillColor: [245, 247, 250] as [number, number, number]  // 👈 Efek zebra-striping biru pudar sangat halus
+                    fillColor: [248, 250, 252] as [number, number, number]
                 }
             };
             
-            checkPageBreak(75);
+            // 1. NERACA TERPADU (BALANCE SHEET)
+            checkPageBreak(50);
+            doc.setTextColor(29, 62, 114); 
+            doc.setFontSize(10.5); 
+            doc.setFont("helvetica", "bold"); 
+            doc.text("1. Neraca Terpadu Aset & Liabilitas (Balance Sheet)", 14, currentY);
+            
             autoTable(doc, {
-            startY: currentY,
-            head: [['Rincian Aset & Kewajiban (Neraca Akhir)', 'Estimasi Nominal (IDR)']],
-            body: [
-                ["Saldo Tunai Kas", formatRp(snapData.archiveCash)],
-                ["Aset Investasi (Saham, Crypto, Emas, dll)", formatRp(snapData.archiveInvest)],
-                ["Aset Mata Uang Asing (Valas)", formatRp(snapData.archiveForex)],
-                ["Saldo Tertahan (Platform Eksternal)", formatRp(snapData.archiveRetained)],
-                ["Piutang Aktif (Uang di Pihak Lain)", formatRp(snapData.archivePiutang)],
-                ["Hutang (Kewajiban)", `(${formatRp(snapData.archiveDebt)})`]
-            ],
-            columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
-            ...tableStyleOptions
+                startY: currentY + 4,
+                head: [['Pos Posisi Keuangan (Neraca Akhir)', 'Estimasi Nilai Baku (IDR)']],
+                body: [
+                    ["Saldo Kas Likuid (Tunai & Rekening)", formatRp(snapData.archiveCash)],
+                    ["Portofolio Investasi (Saham, Reksadana, Crypto, dll)", formatRp(snapData.archiveInvest)],
+                    ["Aset Valuta Asing (Valas)", formatRp(snapData.archiveForex)],
+                    ["Dana Tertahan di Platform Eksternal", formatRp(snapData.archiveRetained)],
+                    ["Piutang Aktif Berjalan (Hak Tagih)", formatRp(snapData.archivePiutang)],
+                    ["Liabilitas & Beban Hutang", `(${formatRp(snapData.archiveDebt)})`]
+                ],
+                columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+                ...corporateTableStyles
             });
-            currentY = (doc as any).lastAutoTable.finalY + 15;
+            currentY = (doc as any).lastAutoTable.finalY + 10;
 
+            // 2. DETAIL KEPEMILIKAN VALAS
             if (snapData.forexRows && snapData.forexRows.length > 0) {
-                checkPageBreak(50); 
-                doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); 
-                doc.text("Detail Kepemilikan Valas (Berdasarkan Kurs Live)", 14, currentY);
+                checkPageBreak(45); 
+                doc.setTextColor(29, 62, 114); doc.setFontSize(10.5); doc.setFont("helvetica", "bold"); 
+                doc.text("2. Detail Kepemilikan Valas (Berdasarkan Kurs Penutupan)", 14, currentY);
                 const formattedForex = snapData.forexRows.map((r:any) => [r[0], r[1], formatRp(r[2]), formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 6, head: [['Mata Uang', 'Jumlah Kepemilikan', 'Kurs Saat Ini', 'Estimasi Nilai IDR']], body: formattedForex, columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' } }, ...tableStyleOptions });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
+                autoTable(doc, { 
+                    startY: currentY + 4, 
+                    head: [['Mata Uang', 'Jumlah Saldo', 'Kurs Satuan IDR', 'Estimasi Total Nilai (IDR)']], 
+                    body: formattedForex, 
+                    columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' } }, 
+                    ...corporateTableStyles 
+                });
+                currentY = (doc as any).lastAutoTable.finalY + 10;
             }
 
+            // 3. DETAIL KEPEMILIKAN INVESTASI
             if (snapData.invRows && snapData.invRows.length > 0) {
-                checkPageBreak(50); doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text(`Detail Kepemilikan Investasi`, 14, currentY);
+                checkPageBreak(45); 
+                doc.setTextColor(29, 62, 114); doc.setFontSize(10.5); doc.setFont("helvetica", "bold"); 
+                doc.text("3. Portofolio & Jadwal Instrumen Investasi", 14, currentY);
                 const formattedInv = snapData.invRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 6, head: [['Tanggal Masuk', 'Tindakan', 'Detail Aset', 'Total Nilai (IDR)']], body: formattedInv, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } }, ...tableStyleOptions });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
+                autoTable(doc, { 
+                    startY: currentY + 4, 
+                    head: [['Tanggal Masuk', 'Tindakan', 'Detail Instrumen Aset', 'Valuasi Berjalan (IDR)']], 
+                    body: formattedInv, 
+                    columnStyles: { 0: { halign: 'center' }, 3: { halign: 'right', fontStyle: 'bold' } }, 
+                    ...corporateTableStyles 
+                });
+                currentY = (doc as any).lastAutoTable.finalY + 10;
             }
 
-            if (snapData.invTxRows && snapData.invTxRows.length > 0) {
-                checkPageBreak(50); doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text(`Riwayat Transaksi Investasi (${periodName})`, 14, currentY);
-                const formattedInvTx = snapData.invTxRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 6, head: [['Tanggal', 'Tindakan', 'Detail Aset', 'Total Nilai (IDR)']], body: formattedInvTx, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } }, ...tableStyleOptions });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
-            }
-
+            // 4. DAFTAR HUTANG & PIUTANG
             if (snapData.debtRows && snapData.debtRows.length > 0) {
-                checkPageBreak(50); doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text("Daftar Rincian Hutang & Piutang Berjalan", 14, currentY);
-                const formattedDebt = snapData.debtRows.map((r:any) => [r[0], r[1], r[2] !== 'IDR' ? `${r[2]} (Sisa: ${formatRp(r[3])})` : formatRp(r[3]), r[4] ? new Date(r[4]).toLocaleDateString('id-ID') : 'Tanpa Tenggat', 'Belum Lunas']);
-                autoTable(doc, { startY: currentY + 6, head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']], body: formattedDebt, columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } }, ...tableStyleOptions });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
+                checkPageBreak(45); 
+                doc.setTextColor(29, 62, 114); doc.setFontSize(10.5); doc.setFont("helvetica", "bold"); 
+                doc.text("4. Daftar Rincian Hutang & Piutang Berjalan", 14, currentY);
+                const formattedDebt = snapData.debtRows.map((r:any) => [
+                    r[0], 
+                    r[1], 
+                    r[2] !== 'IDR' ? `${r[2]} (${formatRp(r[3])})` : formatRp(r[3]), 
+                    r[4] ? new Date(r[4]).toLocaleDateString('id-ID') : 'Tanpa Tenggat', 
+                    'Belum Lunas'
+                ]);
+                autoTable(doc, { 
+                    startY: currentY + 4, 
+                    head: [['Kategori', 'Nama Pihak', 'Total Nominal', 'Tenggat Waktu', 'Status']], 
+                    body: formattedDebt, 
+                    columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'center' } }, 
+                    ...corporateTableStyles 
+                });
+                currentY = (doc as any).lastAutoTable.finalY + 10;
             }
 
+            // 5. ALOKASI AMAL & SEDEKAH
             if (snapData.amalRows && snapData.amalRows.length > 0) {
-                checkPageBreak(50); doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text(`Catatan Amal & Sedekah (${periodName})`, 14, currentY);
+                checkPageBreak(40); 
+                doc.setTextColor(29, 62, 114); doc.setFontSize(10.5); doc.setFont("helvetica", "bold"); 
+                doc.text(`5. Catatan Alokasi Sosial & Amal (${periodName})`, 14, currentY);
                 const formattedAmal = snapData.amalRows.map((r:any) => [r[0], r[1], r[2], formatRp(r[3])]);
-                autoTable(doc, { startY: currentY + 6, head: [['Tanggal', 'Tipe', 'Tujuan / Catatan', 'Nominal']], body: formattedAmal, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } }, ...tableStyleOptions });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
+                autoTable(doc, { 
+                    startY: currentY + 4, 
+                    head: [['Tanggal', 'Tipe', 'Tujuan / Catatan Kebaikan', 'Nominal']], 
+                    body: formattedAmal, 
+                    columnStyles: { 0: { halign: 'center' }, 3: { halign: 'right', fontStyle: 'bold' } }, 
+                    ...corporateTableStyles 
+                });
+                currentY = (doc as any).lastAutoTable.finalY + 10;
             }
 
-            checkPageBreak(50); doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text(`Riwayat Transaksi Arus Kas Murni (${periodName})`, 14, currentY);
+            // 6. RIWAYAT ARUS KAS MURNI
+            checkPageBreak(45); 
+            doc.setTextColor(29, 62, 114); doc.setFontSize(10.5); doc.setFont("helvetica", "bold"); 
+            doc.text(`6. Jurnal Transaksi Arus Kas (${periodName})`, 14, currentY);
             const formattedTx = (snapData.txRows || []).map((r:any) => [r[0], r[1], r[2], r[3], formatRp(r[4])]);
 
             if (formattedTx.length === 0) {
-                doc.setFont("helvetica", "normal"); doc.setFontSize(12); doc.setTextColor(80, 80, 80); doc.text("Tidak ada catatan pengeluaran/pemasukan murni di periode ini.", 14, currentY + 10); currentY += 20;
+                doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(100, 116, 139); 
+                doc.text("Tidak ada catatan pengeluaran/pemasukan operasional pada periode ini.", 14, currentY + 8); 
+                currentY += 15;
             } else {
-                autoTable(doc, { startY: currentY + 6, head: [['Tanggal', 'Arus', 'Kategori', 'Catatan', 'Nominal']], body: formattedTx, columnStyles: { 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } }, ...tableStyleOptions });
-                currentY = (doc as any).lastAutoTable.finalY + 15;
+                autoTable(doc, { 
+                    startY: currentY + 4, 
+                    head: [['Tanggal', 'Arus', 'Kategori', 'Catatan Transaksi', 'Nominal (IDR)']], 
+                    body: formattedTx, 
+                    columnStyles: { 0: { halign: 'center' }, 1: { halign: 'center', fontStyle: 'bold' }, 4: { halign: 'right', fontStyle: 'bold' } }, 
+                    ...corporateTableStyles 
+                });
+                currentY = (doc as any).lastAutoTable.finalY + 10;
             }
 
-            // --- PAGE 2 ---
-            doc.addPage(); let graphY = 25;
-            doc.setDrawColor(0, 0, 0); doc.setLineWidth(1.0); doc.line(14, 15, 196, 15);
-            doc.setTextColor(0, 0, 0); doc.setFontSize(15); doc.setFont("helvetica", "bold"); doc.text(isYearly ? `Analisis Grafik Performa Keuangan (${safeTargetYear})` : "Analisis Grafik Performa Keuangan (12 Bulan)", 14, graphY);
-            graphY += 15;
+            // =========================================================================
+            // 📈 PAGE 2: EXECUTIVE ANALYTICAL CHARTS & PERFORMANCE SCHEDULE
+            // =========================================================================
+            doc.addPage(); 
+            let graphY = 18;
+
+            doc.setFillColor(29, 62, 114);
+            doc.rect(0, 0, 210, 4, 'F');
+            doc.setFillColor(246, 185, 59);
+            doc.rect(0, 4, 210, 1, 'F');
+
+            doc.setTextColor(29, 62, 114); 
+            doc.setFontSize(13); 
+            doc.setFont("helvetica", "bold"); 
+            doc.text(isYearly ? `Analisis Visual Kinerja Keuangan (${safeTargetYear})` : "Analisis Visual Kinerja Keuangan (Tren 12 Bulan)", 14, graphY + 6);
+            
+            graphY += 14;
 
             if (snapData.totalWriteOffLoss > 0) {
-                doc.setDrawColor(0, 0, 0); doc.setLineWidth(1.2); doc.rect(14, graphY, 182, 24);
-                doc.setFillColor(0, 0, 0); doc.rect(14.5, graphY + 0.5, 4, 23, 'F');
-                doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text("Beban Finansial: Penghapusan Piutang Tak Tertagih (Loss)", 22, graphY + 7);
-                doc.setFontSize(12); doc.setFont("helvetica", "normal"); doc.text(`Total Piutang Diikhlaskan (Kerugian Bersih): ${formatRp(snapData.totalWriteOffLoss)}`, 22, graphY + 14);
-                graphY += 36;
+                doc.setFillColor(254, 242, 242);
+                doc.roundedRect(14, graphY, 182, 16, 2, 2, 'F');
+                doc.setDrawColor(244, 63, 94);
+                doc.roundedRect(14, graphY, 182, 16, 2, 2, 'D');
+                doc.setTextColor(159, 18, 57); 
+                doc.setFontSize(9); 
+                doc.setFont("helvetica", "bold"); 
+                doc.text("Catatan Khusus Kerugian Piutang Diikhlaskan (Write-Off Loss):", 20, graphY + 6);
+                doc.setFontSize(8.5); 
+                doc.setFont("helvetica", "normal"); 
+                doc.text(`Total Piutang Diikhlaskan periode ini: ${formatRp(snapData.totalWriteOffLoss)} (Penyesuaian Buku)`, 20, graphY + 11);
+                graphY += 22;
             }
 
-            if (snapData.totalPemutihanGain > 0) {
-                doc.setDrawColor(0, 0, 0); doc.setLineWidth(1.2); doc.rect(14, graphY, 182, 24);
-                doc.setFillColor(0, 0, 0); doc.rect(14.5, graphY + 0.5, 4, 23, 'F');
-                doc.setTextColor(0, 0, 0); doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text("Keuntungan Non-Kas: Pemutihan Hutang Finansial", 22, graphY + 7);
-                doc.setFontSize(12); doc.setFont("helvetica", "normal"); doc.text(`Total Hutang Dibebaskan: ${formatRp(snapData.totalPemutihanGain)}`, 22, graphY + 14);
-                graphY += 36;
-            }
-
-            const pdfUserEmail = data.user?.email || localStorage.getItem("bilano_email") || "";
-            const chartCash = paddedData.map((d:any) => {
-                const cleanLabel = d.label.replace(/[^a-zA-Z0-9]/g, '');
-                let override = localStorage.getItem(`override_cash_${cleanLabel}`);
-                if ((pdfUserEmail === 'adrienfandra14@gmail.com' || pdfUserEmail === 'adrienahza@gmail.com') && (cleanLabel === 'Mar26' || cleanLabel === 'Mar2026')) override = '15100000'; 
-                return { label: d.label, value: override ? parseFloat(override) : d.cash };
-            });
+            const chartCash = paddedData.map((d:any) => ({ label: d.label, value: d.cash }));
             const chartNetFlow = paddedData.map((d:any) => ({ label: d.label, value: d.netFlow || 0 }));
 
-            graphY = drawLollipopChart(doc, "1. Grafik Kas Tunai (Lollipop Chart) - Akumulasi", chartCash, graphY, [0, 0, 0]); graphY += 15;
-            drawBarChart(doc, isYearly ? `2. Arus Kas Bersih Tahunan (Bar Chart)` : "2. Arus Kas Bersih Bulanan (Bar Chart)", chartNetFlow, graphY, [0, 0, 0]);
+            graphY = drawCorporateChart(doc, "1. Grafik Saldo Kas Likuid Bulanan", "Perkembangan ketersediaan dana kas tunai dan tabungan rekening berjalan.", chartCash, graphY, 'gold');
+            graphY = drawCorporateChart(doc, isYearly ? "2. Grafik Arus Kas Bersih (Net Cashflow Tahunan)" : "2. Grafik Arus Kas Bersih (Net Surplus/Defisit Bulanan)", "Pemasukan bersih dikurangi total pengeluaran operasional per bulan.", chartNetFlow, graphY, 'navy');
 
-            for (let i = 1; i <= (doc as any).internal.getNumberOfPages(); i++) {
-                doc.setPage(i); doc.setFontSize(10); doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "italic");
-                doc.text("Dokumen ini di-generate secara otomatis oleh Sistem Aplikasi BILANO.", 14, 285);
-                doc.text(`Halaman ${i} dari ${(doc as any).internal.getNumberOfPages()}`, 196, 285, { align: 'right' });
+            // Footer & Page Numbers pada seluruh halaman
+            const totalPages = (doc as any).internal.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i); 
+                doc.setFontSize(7.5); 
+                doc.setTextColor(148, 163, 184); 
+                doc.setFont("helvetica", "normal");
+                doc.text("Laporan Resmi BILANO Intelligence Wealth Engine — Kerahasiaan Dokumen Terjamin.", 14, 287);
+                doc.text(`Halaman ${i} dari ${totalPages}`, 196, 287, { align: 'right' });
             }
 
             const fileName = isYearly ? `Laporan_Tahunan_BILANO_${safeTargetYear}.pdf` : `Laporan_Keuangan_BILANO_${nowForReport.toLocaleDateString('id-ID', { month: 'long' })}_${safeTargetYear}.pdf`;
             doc.save(fileName);
-            toast({ title: "Berhasil Mengunduh!", description: "Laporan PDF Premium siap dilihat." });
+            toast({ title: "Laporan Terunduh! 📄", description: "Laporan PDF Standar Korporat siap ditinjau." });
 
         } catch (error: any) {
             console.error("PDF Engine Error:", error);
@@ -808,9 +1000,9 @@ export default function Reports() {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
               <img src="/BILANO-ICON-NEW.png" alt="Loading" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm">
-                  <Loader2 className="w-4 h-4 animate-spin"/>
-                  <span>Memuat Data...</span>
+              <div className="flex items-center gap-2 text-brand-navy font-black text-sm bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin text-brand-gold"/>
+                  <span>Memuat Pusat Laporan...</span>
               </div>
           </div>
       );
@@ -819,74 +1011,180 @@ export default function Reports() {
   const archiveList = getArchiveMonths();
 
   return (
-    <MobileLayout title="Pusat Laporan" showBack>
-      <div className="space-y-6 pt-4 pb-20 px-2 animate-in fade-in">
-        <div className="bg-gradient-to-br from-violet-600 to-indigo-600 p-8 rounded-[32px] text-white shadow-xl shadow-indigo-200 text-center relative overflow-hidden">
-            <div className="relative z-10">
-                <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 backdrop-blur-sm border border-white/20"><FileBarChart className="w-8 h-8 text-white"/></div>
-                <h2 className="text-2xl font-extrabold mb-2">Cetak Laporan Bulan Ini</h2>
-                <p className="text-indigo-100 text-xs mb-8 px-4 leading-relaxed font-medium">Download laporan PDF profesional lengkap dengan neraca, arus kas, hutang, dan riwayat investasi terkini.</p>
-                <Button onClick={() => generatePDF()} disabled={generatingId !== null} className="w-full bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold shadow-xl border-none h-14 rounded-full text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                    {generatingId === 'current' ? <Loader2 className="w-5 h-5 animate-spin"/> : <Download className="w-5 h-5"/>} {generatingId === 'current' ? "MEMPROSES PDF..." : "DOWNLOAD PDF SEKARANG"}
-                </Button>
-            </div>
-            <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/20 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
-        </div>
-
-        <div className="bg-white rounded-[32px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100">
-            <div className="flex items-center gap-2 mb-6"><Archive className="w-5 h-5 text-indigo-500"/><h3 className="font-extrabold text-slate-800 text-lg">Arsip & Laporan Tahunan</h3></div>
-            <div className="space-y-0">
-                {archiveList.map((arc, i) => (
-                    <div key={i} className={`flex flex-col sm:flex-row sm:items-center justify-between py-5 border-b border-slate-100 last:border-0 gap-4 ${arc.isYearly ? 'bg-indigo-50/50 -mx-6 px-6 border-indigo-100' : ''}`}>
-                        <div>
-                            <h4 className={`font-bold text-sm ${arc.isYearly ? 'text-indigo-700' : 'text-slate-800'}`}>Laporan Keuangan {arc.label}</h4>
-                            <p className="text-[11px] text-slate-400 mt-1 font-medium">PDF Document - {arc.year}</p>
-                        </div>
-                        <button onClick={() => generatePDF(arc.month, arc.year, arc.isYearly)} disabled={generatingId !== null} className={`flex items-center justify-center gap-2 font-bold text-xs px-5 py-2.5 rounded-full transition-colors ${generatingId === `archive_${arc.month}_${arc.year}_${arc.isYearly}` ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : (arc.isYearly ? 'bg-indigo-600 text-white shadow-md hover:bg-indigo-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white')}`}>
-                            {generatingId === `archive_${arc.month}_${arc.year}_${arc.isYearly}` ? <Loader2 className="w-4 h-4 animate-spin"/> : <Download className="w-4 h-4"/>} Download
+    <MobileLayout>
+      <div className="flex flex-col -mx-5 -mt-5">
+        
+        {/* ========================================================================= */}
+        {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO NAVY & GOLD */}
+        {/* ========================================================================= */}
+        <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b-2 border-amber-400">
+            
+            {/* Top Navigation Bar */}
+            <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.08)] flex items-center justify-between relative z-30 border-b border-amber-100">
+                <div className="flex items-center gap-3">
+                    <Link href="/">
+                        <button 
+                            type="button"
+                            className="w-10 h-10 rounded-full bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                            title="Kembali ke Beranda"
+                        >
+                            <ArrowLeft className="w-5 h-5 text-brand-gold" strokeWidth={2.5} />
                         </button>
+                    </Link>
+
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                            <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                                Pembukuan & Arsip
+                            </p>
+                        </div>
+                        <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                            Pusat Laporan & PDF
+                        </h1>
                     </div>
-                ))}
-                {archiveList.length === 0 && (
-                    <div className="text-center py-8"><div className="bg-slate-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"><Archive className="w-5 h-5 text-slate-300"/></div><p className="text-sm text-slate-400 font-medium">Belum ada arsip laporan bulan lalu.</p></div>
-                )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="bg-brand-navy text-brand-gold text-[10px] font-black px-3 py-1.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-900 border border-brand-gold/30">
+                        AUDIT ENGINE
+                    </span>
+                </div>
+            </div>
+
+            {/* FLAGSHIP HERO CARD: CETAK LAPORAN BULAN INI */}
+            <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-6 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
+                <FileBarChart className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
+                <div className="absolute right-0 top-0 w-32 h-32 bg-brand-gold/15 rounded-full blur-xl pointer-events-none" />
+
+                <div className="relative z-10 flex flex-col">
+                    <div className="flex justify-between items-center mb-3">
+                        <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 fill-current" /> STANDAR KORPORAT
+                        </span>
+                        <span className="text-[10px] text-amber-200 font-bold bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
+                            Bulan Berjalan
+                        </span>
+                    </div>
+
+                    <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-2 leading-tight">
+                        Cetak Laporan Bulan Ini
+                    </h2>
+                    <p className="text-xs text-blue-100 font-medium leading-relaxed mb-4">
+                        Download dokumen PDF resmi lengkap dengan Neraca Terpadu, Arus Kas Murni, Portofolio Valas, dan Rincian Hutang/Piutang.
+                    </p>
+
+                    <button 
+                        type="button"
+                        onClick={() => generatePDF()} 
+                        disabled={generatingId !== null} 
+                        className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                        {generatingId === 'current' ? <Loader2 className="w-5 h-5 animate-spin"/> : <Download className="w-4 h-4 stroke-[2.5]"/>} 
+                        <span>{generatingId === 'current' ? "MEMPROSES DOKUMEN PDF..." : "DOWNLOAD PDF SEKARANG"}</span>
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div>
-            <h3 className="font-extrabold text-slate-800 mb-4 text-sm flex items-center gap-2 px-2"><FileText className="w-5 h-5 text-indigo-500"/> Apa saja yang ada di dalam PDF?</h3>
-            <div className="space-y-3">
-                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform"><Wallet className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Neraca Kekayaan Terpadu</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Rekap total Kas, Investasi, Valas, Saldo Tertahan dan Hutang/Piutang.</p></div>
+        {/* ========================================================================= */}
+        {/* 2. BODY CONTENT SECTION */}
+        {/* ========================================================================= */}
+        <div className="px-5 pt-4 pb-24 bg-slate-50 flex flex-col gap-4">
+            
+            {/* ARSIP LAPORAN HISTORIS (TERKUNCI / FROZEN REPORT) */}
+            <div className="bg-white rounded-[28px] p-5 border-2 border-amber-200/90 shadow-[6px_6px_0px_0px] shadow-slate-900 space-y-3">
+                <div className="flex justify-between items-center border-b-2 border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                        <Archive className="w-4 h-4 text-amber-600"/>
+                        <h3 className="font-black text-brand-navy text-xs uppercase tracking-wider">
+                            Arsip Laporan Historis (Terkunci)
+                        </h3>
+                    </div>
+                    <span className="text-[9px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md">
+                        PERMANENT
+                    </span>
                 </div>
 
-                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform"><HeartHandshake className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Riwayat Amal & Kebaikan</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Data sedekah yang terpisah dari budget pengeluaran rutin.</p></div>
-                </div>
+                <div className="space-y-2">
+                    {archiveList.map((arc, i) => (
+                        <div 
+                            key={i} 
+                            className={`p-3.5 rounded-2xl border-2 flex items-center justify-between gap-3 transition-all ${
+                                arc.isYearly 
+                                    ? 'bg-amber-50/80 border-amber-300 shadow-[2px_2px_0px_0px] shadow-slate-900/40' 
+                                    : 'bg-white border-slate-200 hover:border-amber-300 shadow-xs'
+                            }`}
+                        >
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                    <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                                    <h4 className="font-black text-slate-900 text-xs sm:text-sm truncate">
+                                        Laporan {arc.label}
+                                    </h4>
+                                </div>
+                                <p className="text-[10px] text-slate-500 font-bold mt-0.5">
+                                    {arc.isYearly ? "Rekap Tahunan Lengkap" : `Arsip Bulanan Baku • ${arc.year}`}
+                                </p>
+                            </div>
 
-                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform"><FileText className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Arus Kas Murni (Bulan/Tahun Laporan)</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Khusus mendata uang masuk/keluar operasional pada periode terkait.</p></div>
-                </div>
+                            <button 
+                                type="button"
+                                onClick={() => generatePDF(arc.month, arc.year, arc.isYearly)} 
+                                disabled={generatingId !== null} 
+                                className={`px-4 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shrink-0 shadow-[2px_2px_0px_0px] shadow-slate-900 active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer ${
+                                    generatingId === `archive_${arc.month}_${arc.year}_${arc.isYearly}` 
+                                        ? 'bg-slate-200 text-slate-500' 
+                                        : (arc.isYearly ? 'bg-brand-navy text-brand-gold' : 'bg-brand-gold text-brand-navy')
+                                }`}
+                            >
+                                {generatingId === `archive_${arc.month}_${arc.year}_${arc.isYearly}` ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin"/>
+                                ) : (
+                                    <Download className="w-3.5 h-3.5 stroke-[2.5]"/>
+                                )}
+                                <span>PDF</span>
+                            </button>
+                        </div>
+                    ))}
 
-                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform"><Briefcase className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Riwayat Mutasi Investasi</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Data harga beli aset, total nominal, serta kalkulasi P/L.</p></div>
-                </div>
-
-                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center text-pink-600 group-hover:scale-110 transition-transform"><HandCoins className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Detail Hutang & Piutang</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Daftar pihak terkait, total nominal, dan jatuh temponya.</p></div>
-                </div>
-
-                <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex items-center gap-4 group hover:shadow-md transition-shadow">
-                    <div className="w-12 h-12 rounded-full bg-cyan-50 flex items-center justify-center text-cyan-600 group-hover:scale-110 transition-transform"><Globe className="w-5 h-5"/></div>
-                    <div className="flex-1"><h4 className="font-extrabold text-slate-800 text-sm">Estimasi Valas Live</h4><p className="text-[11px] text-slate-500 mt-0.5 font-medium">Tabel aset mata uang asing dikali kurs pertukaran hari ini.</p></div>
+                    {archiveList.length === 0 && (
+                        <div className="text-center py-6 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 p-4">
+                            <Archive className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                            <p className="text-xs text-slate-500 font-bold">Belum ada arsip bulan lalu yang terkunci.</p>
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {/* 6 BENTO CARDS: APA SAJA YANG ADA DI DALAM PDF */}
+            <div className="space-y-2.5 pt-1">
+                <h3 className="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 px-1">
+                    <FileText className="w-4 h-4 text-amber-600"/> Komposisi Standar Dokumen PDF
+                </h3>
+
+                <div className="grid grid-cols-1 gap-2.5">
+                    {[
+                        { icon: Wallet, title: "Neraca Terpadu (Balance Sheet)", desc: "Rekap total Kas Likuid, Investasi, Valas, Saldo Tertahan, dan Hutang/Piutang.", color: "bg-sky-100 text-sky-800 border-sky-300" },
+                        { icon: FileText, title: "Jurnal Arus Kas Murni (Cashflow)", desc: "Khusus mendata uang masuk dan keluar operasional murni periode laporan.", color: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+                        { icon: Briefcase, title: "Jadwal Portofolio Multi-Aset", desc: "Daftar instrumen saham, reksadana, crypto beserta harga rata-rata dan valuasi.", color: "bg-purple-100 text-purple-800 border-purple-300" },
+                        { icon: Globe, title: "Detail Kepemilikan Valas Live", desc: "Tabel aset mata uang asing dikonversikan dengan kurs pasar penutupan.", color: "bg-cyan-100 text-cyan-800 border-cyan-300" },
+                        { icon: HandCoins, title: "Jadwal Hutang & Piutang Aktif", desc: "Daftar pihak terkait, total nominal pokok, dan tanggal jatuh tempo.", color: "bg-rose-100 text-rose-800 border-rose-300" },
+                        { icon: HeartHandshake, title: "Alokasi Amal & Sedekah", desc: "Pencatatan keberkahan sosial yang terpisah murni dari pos belanja rutin.", color: "bg-amber-100 text-amber-800 border-amber-300" },
+                    ].map((item, idx) => (
+                        <div key={idx} className="bg-white p-4 rounded-[22px] border-2 border-amber-200/80 shadow-[3px_3px_0px_0px] shadow-slate-900/60 flex items-center gap-3.5">
+                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${item.color}`}>
+                                <item.icon className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                                <h4 className="font-black text-slate-900 text-xs sm:text-sm">{item.title}</h4>
+                                <p className="text-[11px] text-slate-500 font-bold leading-snug">{item.desc}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
         </div>
       </div>
     </MobileLayout>

@@ -125,10 +125,13 @@ export function useDeleteAttempt() {
 }
 
 // FITUR BARU: Membekukan bisnis & memicu cooldown 1 bulan
-export function useStopAttempt(attemptId: number | string) {
+export function useStopAttempt(attemptId?: number | string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => apiSend(`/api/income-strategy/attempts/${attemptId}/stop`, "POST", {}),
+    mutationFn: (overrideId?: number | string) => {
+      const id = overrideId || attemptId;
+      return apiSend(`/api/income-strategy/attempts/${id}/stop`, "POST", {});
+    },
     onSuccess: () => {
         qc.invalidateQueries({ queryKey: ["income-attempts"] });
         qc.invalidateQueries({ queryKey: ["income-profile"] });

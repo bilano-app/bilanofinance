@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "wouter";
 import { MobileLayout } from "@/components/Layout";
-import { Card, Button, Input } from "@/components/UIComponents";
+import { Button, Input } from "@/components/UIComponents";
 import { 
     RefreshCw, Search, ArrowDownCircle, ArrowUpCircle, 
     Globe, ChevronDown, ArrowRightLeft, FileText, Wallet,
-    Activity, HandCoins, StickyNote, AlertCircle, Loader2, X
+    Activity, HandCoins, StickyNote, AlertCircle, Loader2, X,
+    ArrowLeft, Sparkles, TrendingUp, DollarSign, ChevronRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
@@ -13,21 +15,22 @@ import {
 } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { trackEvent } from "@/lib/tracking";
+import { formatCurrency } from "@/lib/utils";
 
 const CURRENCY_LIST = [
-    { code: "USD", name: "US Dollar", country: "United States" },
-    { code: "EUR", name: "Euro", country: "European Union" },
-    { code: "GBP", name: "British Pound", country: "United Kingdom" },
-    { code: "JPY", name: "Japanese Yen", country: "Japan" },
-    { code: "SGD", name: "Singapore Dollar", country: "Singapore" },
-    { code: "AUD", name: "Australian Dollar", country: "Australia" },
-    { code: "MYR", name: "Malaysian Ringgit", country: "Malaysia" },
-    { code: "CNY", name: "Chinese Yuan", country: "China" },
-    { code: "SAR", name: "Saudi Riyal", country: "Saudi Arabia" },
-    { code: "HKD", name: "Hong Kong Dollar", country: "Hong Kong" },
-    { code: "KRW", name: "South Korean Won", country: "South Korea" },
-    { code: "THB", name: "Thai Baht", country: "Thailand" },
-    { code: "IDR", name: "Indonesian Rupiah", country: "Indonesia" },
+    { code: "USD", name: "US Dollar", country: "Amerika Serikat", flag: "🇺🇸" },
+    { code: "SGD", name: "Singapore Dollar", country: "Singapura", flag: "🇸🇬" },
+    { code: "EUR", name: "Euro", country: "Uni Eropa", flag: "🇪🇺" },
+    { code: "JPY", name: "Japanese Yen", country: "Jepang", flag: "🇯🇵" },
+    { code: "GBP", name: "British Pound", country: "Inggris", flag: "🇬🇧" },
+    { code: "AUD", name: "Australian Dollar", country: "Australia", flag: "🇦🇺" },
+    { code: "MYR", name: "Malaysian Ringgit", country: "Malaysia", flag: "🇲🇾" },
+    { code: "CNY", name: "Chinese Yuan", country: "China", flag: "🇨🇳" },
+    { code: "SAR", name: "Saudi Riyal", country: "Arab Saudi", flag: "🇸🇦" },
+    { code: "HKD", name: "Hong Kong Dollar", country: "Hong Kong", flag: "🇭🇰" },
+    { code: "KRW", name: "South Korean Won", country: "Korea Selatan", flag: "🇰🇷" },
+    { code: "THB", name: "Thai Baht", country: "Thailand", flag: "🇹🇭" },
+    { code: "IDR", name: "Indonesian Rupiah", country: "Indonesia", flag: "🇮🇩" },
 ];
 
 const POPULAR_RATES = ["USD", "SGD", "EUR", "JPY", "GBP", "AUD"];
@@ -45,7 +48,7 @@ interface ForexAsset {
 }
 
 export default function Forex() {
-  const [activeTab, setActiveTab] = useState<'exchange' | 'mutation'>('mutation');
+  const [activeTab, setActiveTab] = useState<'mutation' | 'exchange'>('mutation');
 
   const [exchangeMode, setExchangeMode] = useState<'buy' | 'sell'>('buy');
   const [amountExchange, setAmountExchange] = useState("");
@@ -74,9 +77,6 @@ export default function Forex() {
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
-  // Cek Status Setup & State Modal Pop-up
-  
-  const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const [showSourcePopup, setShowSourcePopup] = useState(false);
   const [pendingForexSubmit, setPendingForexSubmit] = useState<{ action: 'exchange' | 'mutation' } | null>(null);
 
@@ -88,7 +88,6 @@ export default function Forex() {
       return parts.slice(0, 2).join(",");
   };
   const parseIdr = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
-  
   const parseValas = (val: string) => parseFloat(val.replace(/,/g, ".")) || 0;
 
   const { data: user } = useQuery({
@@ -171,7 +170,7 @@ export default function Forex() {
 
       const baseRate = getSafeRate(currencyCode);
       
-      const safeMockData = Array.from({length: 30}).map((_, i) => {
+      const safeMockData = Array.from({ length: 30 }).map((_, i) => {
           const d = new Date();
           d.setDate(d.getDate() - (29 - i));
           return {
@@ -209,7 +208,6 @@ export default function Forex() {
   };
 
   const handleExchange = async () => {
-
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));
           return;
@@ -217,7 +215,10 @@ export default function Forex() {
 
       const qty = parseValas(amountExchange);
       const rate = parseIdr(rateExchange);
-      if (!qty || !rate) { toast({ title: "Error", description: "Isi jumlah dan kurs.", variant: "destructive" }); return; }
+      if (!qty || !rate) { 
+          toast({ title: "Form Belum Lengkap", description: "Masukkan jumlah valas dan kurs kesepakatan.", variant: "destructive" }); 
+          return; 
+      }
 
       if (user?.walletSources && (user.walletSources as any[]).length > 0) {
           setPendingForexSubmit({ action: 'exchange' });
@@ -235,7 +236,7 @@ export default function Forex() {
           const totalCost = qty * rate;
           if ((user?.cashBalance || 0) < totalCost) {
               toast({ 
-                  title: "⚠️ Saldo Rupiah Tidak Cukup", 
+                  title: "Saldo Kas Tidak Cukup", 
                   description: `Butuh Rp ${totalCost.toLocaleString('id-ID')} tapi Kas Tunai Anda hanya Rp ${(user?.cashBalance || 0).toLocaleString('id-ID')}.`, 
                   variant: "destructive" 
               });
@@ -245,7 +246,7 @@ export default function Forex() {
           const existingAsset = assets.find((a: any) => a.currency === selectedCurr.code);
           if (!existingAsset || existingAsset.amount < qty) {
               toast({ 
-                  title: "⚠️ Saldo Valas Tidak Cukup", 
+                  title: "Saldo Valas Tidak Cukup", 
                   description: `Anda hanya memiliki ${existingAsset?.amount || 0} ${selectedCurr.code}. Tidak cukup untuk dijual.`, 
                   variant: "destructive" 
               });
@@ -258,7 +259,8 @@ export default function Forex() {
           const forexType = exchangeMode === 'buy' ? 'forex_buy' : 'forex_sell';
           
           const resForex = await fetch("/api/forex/transaction", {
-              method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+              method: "POST", 
+              headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
               body: JSON.stringify({ 
                   currency: selectedCurr.code, 
                   amount: qty, 
@@ -274,36 +276,38 @@ export default function Forex() {
           }
 
           trackEvent("forex_exchange_tx", { 
-              exchangeMode: exchangeMode, // 'buy' atau 'sell'
+              exchangeMode: exchangeMode,
               currency: selectedCurr.code
           });
 
-          toast({ title: "Sukses", description: "Transaksi pertukaran valas berhasil." });
+          toast({ title: "Transaksi Berhasil! ✨", description: `Pertukaran ${selectedCurr.code} telah dibukukan.` });
           setAmountExchange(""); setRateExchange(""); 
           fetchData(); 
       } catch (e) { 
-          toast({ title: "Error", description: "Gangguan koneksi.", variant: "destructive" }); 
+          toast({ title: "Terjadi Kendala", description: "Gangguan koneksi server.", variant: "destructive" }); 
       } finally {
           setIsSubmitting(false);
       }
   };
 
   const handleMutation = async () => {
-
       if (isTrialExpired) {
           window.dispatchEvent(new Event('trigger-paywall-lock'));
           return;
       }
 
       const qty = parseValas(amountMutation);
-      if (!qty) { toast({ title: "Error", description: "Isi nominal.", variant: "destructive" }); return; }
+      if (!qty || qty <= 0) { 
+          toast({ title: "Nominal Belum Diisi", description: "Masukkan jumlah nominal valas yang valid.", variant: "destructive" }); 
+          return; 
+      }
       
-      if (paymentMode === 'debt' && (!debtName || !dueDate)) {
-          toast({ title: "Error", description: "Isi nama pihak dan tenggat waktu!", variant: "destructive" });
+      if (paymentMode === 'debt' && (!debtName.trim() || !dueDate)) {
+          toast({ title: "Form Tagihan Belum Lengkap", description: "Isi nama pihak dan tanggal tenggat tempo.", variant: "destructive" });
           return;
       }
 
-      if (user?.walletSources && (user.walletSources as any[]).length > 0) {
+      if (user?.walletSources && (user.walletSources as any[]).length > 0 && paymentMode === 'cash') {
           setPendingForexSubmit({ action: 'mutation' });
           setShowSourcePopup(true);
       } else {
@@ -318,8 +322,8 @@ export default function Forex() {
           const existingAsset = assets.find((a: any) => a.currency === selectedCurr.code);
           if (!existingAsset || existingAsset.amount < qty) {
               toast({ 
-                  title: "⚠️ Saldo Valas Tidak Cukup", 
-                  description: `Anda hanya memiliki ${existingAsset?.amount || 0} ${selectedCurr.code}. Tidak bisa dikeluarkan.`, 
+                  title: "Saldo Valas Tidak Cukup", 
+                  description: `Anda hanya memiliki ${existingAsset?.amount || 0} ${selectedCurr.code}.`, 
                   variant: "destructive" 
               });
               return; 
@@ -332,7 +336,8 @@ export default function Forex() {
       try {
           if (paymentMode === 'cash') {
               const res = await fetch("/api/forex/transaction", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  method: "POST", 
+                  headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
                   body: JSON.stringify({ 
                       currency: selectedCurr.code, 
                       amount: qty, 
@@ -344,20 +349,21 @@ export default function Forex() {
 
               if (res.ok) {
                   trackEvent("forex_mutation_tx", { type: mutationMode, paymentMode: "cash", currency: selectedCurr.code });
-                  toast({ title: "Tercatat!", description: `Saldo Valas Tunai Diperbarui.` });
+                  toast({ title: "Berhasil Tercatat! 💵", description: `Saldo ${selectedCurr.code} berhasil diperbarui.` });
                   setAmountMutation(""); setNoteMutation(""); setDebtName(""); setDueDate("");
                   fetchData();
               } else {
-                  toast({ title: "Gagal", description: "Gagal memproses transaksi.", variant: "destructive" });
+                  toast({ title: "Gagal", description: "Gagal memproses transaksi valas.", variant: "destructive" });
               }
           } else {
               const debtType = mutationMode === 'in' ? 'piutang' : 'hutang';
 
               await fetch("/api/debts", {
-                  method: "POST", headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                  method: "POST", 
+                  headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
                   body: JSON.stringify({
                       type: debtType,
-                      name: `${debtName}|${selectedCurr.code}`,
+                      name: `${debtName.trim()}|${selectedCurr.code}`,
                       amount: qty,
                       dueDate: dueDate,
                       description: `[${debtType.toUpperCase()} VALAS] ${note}`,
@@ -366,7 +372,7 @@ export default function Forex() {
                   })
               });
               trackEvent("forex_mutation_tx", { type: mutationMode, paymentMode: "debt", currency: selectedCurr.code });
-              toast({ title: "Tercatat!", description: `${debtType === 'piutang' ? 'Piutang' : 'Hutang'} Valas berhasil disimpan ke daftar Tagihan.` });
+              toast({ title: "Tercatat ke Tagihan! 📝", description: `${debtType === 'piutang' ? 'Piutang' : 'Hutang'} ${selectedCurr.code} berhasil disimpan.` });
               setAmountMutation(""); setNoteMutation(""); setDebtName(""); setDueDate("");
               fetchData();
           }
@@ -382,162 +388,222 @@ export default function Forex() {
       return acc + (asset.amount * rate);
   }, 0);
 
-  const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
-
+  const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
   const displayTotalValas = isTrialExpired ? "✨ Premium" : formatRp(totalValasInRupiah);
-  const getBalanceTextSize = (text: string) => {
-      if (text.length >= 20) return "text-xl"; 
-      if (text.length >= 15) return "text-2xl"; 
-      return "text-3xl"; 
-  };
 
   if (isLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
               <img src="/BILANO-ICON-NEW.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-indigo-600 font-extrabold text-sm bg-indigo-50 px-4 py-2 rounded-full shadow-sm mb-2">
-                  <Loader2 className="w-4 h-4 animate-spin"/>
-                  <span>Memuat Valas...</span>
+              <div className="flex items-center gap-2 text-brand-navy font-black text-sm bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-full shadow-sm">
+                  <Loader2 className="w-4 h-4 animate-spin text-brand-gold"/>
+                  <span>Memuat Portofolio Valas...</span>
               </div>
           </div>
       );
   }
 
   return (
-    <MobileLayout title="Dompet Valas" showBack>
-      <div className="space-y-6 pt-4 pb-20">
+    <MobileLayout>
+      <div className="flex flex-col -mx-5 -mt-5">
+        
+        {/* ========================================================================= */}
+        {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO GOLD & NAVY */}
+        {/* ========================================================================= */}
+        <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b-2 border-amber-400">
+            
+            {/* Top Navigation Bar */}
+            <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(245,158,11,0.08)] flex items-center justify-between relative z-30 border-b border-amber-100">
+                <div className="flex items-center gap-3">
+                    <Link href="/">
+                        <button 
+                            className="w-10 h-10 rounded-full bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
+                            title="Kembali ke Beranda"
+                        >
+                            <ArrowLeft className="w-5 h-5 text-brand-gold" strokeWidth={2.5} />
+                        </button>
+                    </Link>
 
-        <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl relative overflow-hidden">
-            <div className="relative z-10 flex justify-between items-start">
-                <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
-                        <Globe className="w-3 h-3"/> Total Aset Asing (Estimasi)
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                            <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                                Valuta Asing (Forex)
+                            </p>
+                        </div>
+                        <h1 className="text-lg font-black text-slate-900 leading-tight">
+                            Dompet Valas
+                        </h1>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={fetchData} 
+                        className={`w-10 h-10 rounded-full bg-white border-2 border-amber-200 text-brand-navy shadow-[2px_2px_0px_0px] shadow-slate-900 flex items-center justify-center transition-all cursor-pointer active:scale-95 ${refreshing ? "animate-spin" : ""}`}
+                        title="Segarkan Kurs Pasar"
+                    >
+                        <RefreshCw className="w-4 h-4 text-amber-600" />
+                    </button>
+                </div>
+            </div>
+
+            {/* 2. HERO CARD TOTAL ASET VALAS (FORMAT FLAGSHIP HOME NAVY & GOLD) */}
+            <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-5 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
+                <Globe className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
+                <div className="absolute right-0 top-0 w-32 h-32 bg-brand-gold/15 rounded-full blur-xl pointer-events-none" />
+
+                <div className="relative z-10 flex flex-col">
+                    <div className="flex justify-between items-center mb-3">
+                        <span className="bg-brand-gold/20 text-brand-gold text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-brand-gold/30 backdrop-blur-xs flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-brand-gold fill-current" />
+                            ESTIMASI TOTAL NILAI VALAS
+                        </span>
+
+                        <span className="text-[10px] text-amber-200 font-bold bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
+                            {assets.length} Mata Uang Aktif
+                        </span>
+                    </div>
+
+                    <p className="text-[10px] font-bold text-amber-200 uppercase tracking-widest mb-0.5">
+                        Kekayaan Valuta Asing (IDR)
                     </p>
-                    <h2 className={`${getBalanceTextSize(displayTotalValas)} font-bold text-emerald-400 whitespace-nowrap transition-all duration-300`}>
+                    <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-brand-gold mb-2 tabular-nums">
                         {displayTotalValas}
                     </h2>
-                </div>
-                <button onClick={fetchData} className={`p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all ${refreshing ? "animate-spin" : ""}`}>
-                    <RefreshCw className="w-5 h-5 text-white"/>
-                </button>
-            </div>
-            <div className="absolute right-0 bottom-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl"></div>
-        </div>
 
-        <div>
-            <div className="flex justify-between items-end mb-2 px-1">
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Live Market Rates</h3>
-                <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-1 rounded">Klik untuk Grafik 📈</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-                {POPULAR_RATES.map(curr => (
-                    <button key={curr} onClick={() => handleCurrencyClick(curr)} className="bg-white border border-slate-200 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-all active:scale-95">
-                        <div className="text-xs font-bold text-slate-400 mb-1">{curr}</div>
-                        <div className={`text-xs font-bold ${isTrialExpired ? 'text-rose-500' : 'text-slate-700'}`}>
-                             {isTrialExpired ? "✨ Premium" : `Rp ${Math.round(getSafeRate(curr)).toLocaleString("id-ID")}`}
-                        </div>
-                    </button>
-                ))}
+                    <div className="flex items-center justify-between pt-2 border-t border-white/15 text-[10px] text-amber-100/80 font-semibold">
+                        <span>*Mengikuti kurs live pasar global</span>
+                        <span className="bg-brand-gold/20 text-amber-200 px-2 py-0.5 rounded-md font-bold">
+                            Live Rate
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
 
-        {chartCurr && !isTrialExpired && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                <div className="bg-white w-full max-w-md rounded-3xl p-5 shadow-2xl animate-in zoom-in-95 relative">
-                    <div className="flex justify-between items-center mb-5">
-                        <div>
-                            <h3 className="font-bold text-xl text-slate-800 flex items-center gap-2">{chartCurr} / IDR</h3>
-                            <p className="text-xs text-slate-500">Tren Nilai Tukar 30 Hari Terakhir</p>
-                        </div>
-                        <button onClick={() => setChartCurr(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X className="w-5 h-5 text-slate-500"/></button>
-                    </div>
-                    
-                    <div className="w-full bg-white rounded-xl border border-slate-200 p-3 mb-5 shadow-inner" style={{ height: '260px' }}>
-                        {loadingChart ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 animate-pulse">
-                                <Activity className="w-8 h-8 mx-auto mb-2 animate-spin"/>
-                                <p className="text-xs font-bold">Mengambil data pasar...</p>
-                            </div>
-                        ) : chartData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
-                                    <XAxis 
-                                        dataKey="date" 
-                                        axisLine={false} 
-                                        tickLine={false} 
-                                        tick={{ fontSize: 9, fill: '#94a3b8' }} 
-                                        minTickGap={20}
-                                    />
-                                    <YAxis 
-                                        domain={['auto', 'auto']} 
-                                        axisLine={false} 
-                                        tickLine={false} 
-                                        tick={{ fontSize: 9, fill: '#94a3b8' }}
-                                        tickFormatter={(val) => `Rp ${(val/1000).toFixed(1)}k`}
-                                        orientation="right"
-                                    />
-                                    <Tooltip 
-                                        contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '12px', fontWeight: 'bold' }} 
-                                        formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Kurs']}
-                                        labelStyle={{ color: '#64748b', marginBottom: '4px', fontSize: '10px' }}
-                                    />
-                                    <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={3} fill="#10b981" fillOpacity={0.15} activeDot={{ r: 6, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-400">
-                                <p className="text-xs font-bold">Gagal memuat grafik.</p>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex items-center justify-between bg-indigo-50 p-3 rounded-xl mb-4 border border-indigo-100">
-                        <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-widest">Harga Saat Ini</span>
-                        <span className="font-extrabold text-indigo-600 text-lg">Rp {Math.round(getSafeRate(chartCurr)).toLocaleString('id-ID')}</span>
-                    </div>
-
-                    <Button onClick={() => { setChartCurr(null); setSelectedCurr(CURRENCY_LIST.find(c => c.code === chartCurr) || CURRENCY_LIST[0]); setActiveTab('exchange'); }} className="w-full bg-slate-900 hover:bg-slate-800 h-14 text-sm font-extrabold rounded-full shadow-lg">
-                        TRANSAKSI {chartCurr} SEKARANG
-                    </Button>
+        {/* ========================================================================= */}
+        {/* 2. BODY CONTENT SECTION */}
+        {/* ========================================================================= */}
+        <div className="px-5 pt-4 pb-24 bg-slate-50 flex flex-col gap-5">
+            
+            {/* LIVE MARKET RATES GRID */}
+            <div>
+                <div className="flex justify-between items-center mb-2 px-1">
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-amber-600" />
+                        Kurs Live Pasar Global
+                    </h3>
+                    <span className="text-[10px] font-black text-brand-navy bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
+                        Klik untuk Grafik 📈
+                    </span>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-2">
+                    {POPULAR_RATES.map(curr => {
+                        const currInfo = CURRENCY_LIST.find(c => c.code === curr);
+                        return (
+                            <button 
+                                key={curr} 
+                                onClick={() => handleCurrencyClick(curr)} 
+                                className="bg-white border-2 border-amber-200/90 p-3 rounded-2xl shadow-[3px_3px_0px_0px] shadow-slate-900 hover:shadow-[4px_4px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] transition-all flex flex-col items-center justify-center cursor-pointer group"
+                            >
+                                <div className="flex items-center gap-1 mb-1">
+                                    <span className="text-xs">{currInfo?.flag}</span>
+                                    <span className="text-xs font-black text-brand-navy group-hover:text-amber-600 transition-colors">
+                                        {curr}
+                                    </span>
+                                </div>
+                                <div className={`text-xs font-black tabular-nums ${isTrialExpired ? 'text-rose-500' : 'text-slate-800'}`}>
+                                    {isTrialExpired ? "✨ Pro" : `Rp ${Math.round(getSafeRate(curr)).toLocaleString("id-ID")}`}
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
-        )}
 
-        <Card className="p-0 overflow-hidden shadow-lg border border-slate-200">
-            <div className="flex border-b border-slate-200">
-                <button onClick={() => setActiveTab('mutation')} className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'mutation' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'bg-slate-50 text-slate-400'}`}>
-                    <FileText className="w-4 h-4"/> CATAT MUTASI
+            {/* TAB SWITCHER DENGAN GAYA NEO-BRUTALIST */}
+            <div className="bg-white p-1.5 rounded-[22px] border-2 border-amber-200 shadow-[4px_4px_0px_0px] shadow-slate-900 flex gap-1.5">
+                <button 
+                    onClick={() => setActiveTab('mutation')} 
+                    className={`flex-1 py-3 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        activeTab === 'mutation' 
+                            ? 'bg-brand-navy text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-950 translate-x-[-1px] translate-y-[-1px]' 
+                            : 'text-slate-600 hover:text-brand-navy'
+                    }`}
+                >
+                    <FileText className="w-4 h-4 stroke-[2.5]" />
+                    <span>CATAT MUTASI VALAS</span>
                 </button>
-                <button onClick={() => setActiveTab('exchange')} className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'exchange' ? 'bg-white text-purple-600 border-b-2 border-purple-600' : 'bg-slate-50 text-slate-400'}`}>
-                    <ArrowRightLeft className="w-4 h-4"/> TUKAR VALAS
+
+                <button 
+                    onClick={() => setActiveTab('exchange')} 
+                    className={`flex-1 py-3 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        activeTab === 'exchange' 
+                            ? 'bg-brand-gold text-brand-navy shadow-[2px_2px_0px_0px] shadow-slate-950 translate-x-[-1px] translate-y-[-1px]' 
+                            : 'text-slate-600 hover:text-amber-700'
+                    }`}
+                >
+                    <ArrowRightLeft className="w-4 h-4 stroke-[2.5]" />
+                    <span>TUKAR VALAS (JUAL/BELI)</span>
                 </button>
             </div>
 
-            <div className="p-5 space-y-5 bg-white">
+            {/* CARD FORM TRANSAKSI VALAS */}
+            <div className="bg-white p-5 rounded-[28px] shadow-[6px_6px_0px_0px] shadow-slate-900 border-2 border-amber-200 space-y-4">
+                
+                {/* SELECTOR MATA UANG CUSTOM DROPDOWN */}
                 <div className="relative" ref={dropdownRef}>
-                    <label className="text-xs font-bold text-slate-500 mb-1 block">Mata Uang Asing</label>
-                    <div onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="w-full h-12 border border-slate-300 rounded-xl flex items-center px-4 justify-between cursor-pointer bg-white hover:border-blue-400 transition-colors">
-                        <div>
-                            <span className="font-bold text-slate-800 mr-2">{selectedCurr.code}</span>
-                            <span className="text-xs text-slate-500 truncate max-w-[150px] inline-block align-bottom pb-0.5">{selectedCurr.name}</span>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
+                        Pilih Mata Uang Asing
+                    </label>
+                    <div 
+                        onClick={() => setIsDropdownOpen(!isDropdownOpen)} 
+                        className="w-full h-13 border-2 border-amber-200 rounded-2xl flex items-center px-4 justify-between cursor-pointer bg-slate-50 hover:border-amber-400 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <span className="text-lg">{selectedCurr.flag}</span>
+                            <span className="font-black text-brand-navy text-sm">{selectedCurr.code}</span>
+                            <span className="text-xs text-slate-500 font-semibold truncate max-w-[140px]">
+                                • {selectedCurr.name}
+                            </span>
                         </div>
-                        <ChevronDown className="w-4 h-4 text-slate-400"/>
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                     </div>
                     
                     {isDropdownOpen && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-60 overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
-                            <div className="p-2 border-b border-slate-100 bg-slate-50">
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-amber-300 rounded-2xl shadow-2xl z-50 max-h-64 overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+                            <div className="p-2 border-b border-slate-100 bg-amber-50/50">
                                 <div className="relative">
-                                    <Search className="w-3 h-3 absolute left-3 top-2.5 text-slate-400"/>
-                                    <input type="text" placeholder="Cari mata uang..." className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-blue-400" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} autoFocus />
+                                    <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400"/>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Cari negara / kode mata uang..." 
+                                        className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none focus:border-amber-500 bg-white" 
+                                        value={searchQuery} 
+                                        onChange={(e) => setSearchQuery(e.target.value)} 
+                                        autoFocus 
+                                    />
                                 </div>
                             </div>
                             <div className="overflow-y-auto flex-1">
                                 {filteredCurrencies.map((c) => (
-                                    <div key={c.code} onClick={() => { setSelectedCurr(c); setIsDropdownOpen(false); setSearchQuery(""); }} className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer flex justify-between items-center border-b border-slate-50 last:border-0">
-                                        <div><div className="font-bold text-slate-700 text-sm">{c.code}</div><div className="text-[10px] text-slate-400">{c.name}</div></div>
-                                        <div className="text-[9px] font-bold text-slate-300 bg-slate-100 px-2 py-0.5 rounded">{c.country}</div>
+                                    <div 
+                                        key={c.code} 
+                                        onClick={() => { setSelectedCurr(c); setIsDropdownOpen(false); setSearchQuery(""); }} 
+                                        className="px-4 py-3 hover:bg-amber-50 cursor-pointer flex justify-between items-center border-b border-slate-50 last:border-0 transition-colors"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-base">{c.flag}</span>
+                                            <div>
+                                                <div className="font-black text-slate-800 text-xs">{c.code}</div>
+                                                <div className="text-[10px] text-slate-500 font-medium">{c.name}</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-[10px] font-black text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                                            {c.country}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -545,126 +611,383 @@ export default function Forex() {
                     )}
                 </div>
 
+                {/* FORM TAB 1: CATAT MUTASI */}
                 {activeTab === 'mutation' && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-left-2">
-                        <div className="flex bg-slate-100 p-1 rounded-xl">
-                            <button onClick={() => setMutationMode('in')} className={`flex-1 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 ${mutationMode === 'in' ? 'bg-emerald-500 text-white shadow' : 'text-slate-500'}`}><ArrowDownCircle className="w-4 h-4"/> PEMASUKAN</button>
-                            <button onClick={() => setMutationMode('out')} className={`flex-1 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 ${mutationMode === 'out' ? 'bg-rose-500 text-white shadow' : 'text-slate-500'}`}><ArrowUpCircle className="w-4 h-4"/> PENGELUARAN</button>
+                    <div className="space-y-3.5 animate-in fade-in slide-in-from-left-2">
+                        <div className="grid grid-cols-2 gap-2">
+                            <button 
+                                type="button"
+                                onClick={() => setMutationMode('in')} 
+                                className={`py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                    mutationMode === 'in' 
+                                        ? 'bg-emerald-600 text-white shadow-[2px_2px_0px_0px] shadow-emerald-950' 
+                                        : 'bg-slate-100 text-slate-600 hover:bg-emerald-50'
+                                }`}
+                            >
+                                <ArrowDownCircle className="w-4 h-4" /> PEMASUKAN
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => setMutationMode('out')} 
+                                className={`py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                    mutationMode === 'out' 
+                                        ? 'bg-rose-600 text-white shadow-[2px_2px_0px_0px] shadow-rose-950' 
+                                        : 'bg-slate-100 text-slate-600 hover:bg-rose-50'
+                                }`}
+                            >
+                                <ArrowUpCircle className="w-4 h-4" /> PENGELUARAN
+                            </button>
                         </div>
                         
-                        <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
-                            <button onClick={() => setPaymentMode('cash')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${paymentMode === 'cash' ? (mutationMode === 'in' ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'bg-rose-100 text-rose-700 shadow-sm') : 'text-slate-400'}`}>
-                                <Wallet className="w-3.5 h-3.5"/> TUNAI (Cash)
+                        <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200">
+                            <button 
+                                type="button"
+                                onClick={() => setPaymentMode('cash')} 
+                                className={`flex-1 py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                                    paymentMode === 'cash' 
+                                        ? (mutationMode === 'in' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800') 
+                                        : 'text-slate-400'
+                                }`}
+                            >
+                                <Wallet className="w-3.5 h-3.5"/> TUNAI (Cash Valas)
                             </button>
-                            <button onClick={() => setPaymentMode('debt')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${paymentMode === 'debt' ? 'bg-amber-100 text-amber-700 shadow-sm' : 'text-slate-400'}`}>
-                                <HandCoins className="w-3.5 h-3.5"/> {mutationMode === 'in' ? 'PIUTANG' : 'HUTANG'}
+                            <button 
+                                type="button"
+                                onClick={() => setPaymentMode('debt')} 
+                                className={`flex-1 py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                                    paymentMode === 'debt' ? 'bg-amber-100 text-amber-800' : 'text-slate-400'
+                                }`}
+                            >
+                                <HandCoins className="w-3.5 h-3.5"/> {mutationMode === 'in' ? 'PIUTANG VALAS' : 'HUTANG VALAS'}
                             </button>
                         </div>
 
                         {paymentMode === 'debt' && (
-                            <div className="animate-in fade-in slide-in-from-top-2 bg-amber-50 p-4 rounded-2xl border border-amber-100 space-y-4 shadow-inner">
+                            <div className="bg-amber-50/80 p-3.5 rounded-2xl border-2 border-amber-200 space-y-2.5 animate-in fade-in slide-in-from-top-2">
                                 <div>
-                                    <label className="text-[10px] uppercase tracking-widest font-bold text-amber-600 block mb-1.5">
+                                    <label className="text-[10px] font-black text-amber-800 uppercase tracking-widest block mb-1">
                                         {mutationMode === 'in' ? 'Ditagih Ke Siapa?' : 'Ngutang Ke Siapa?'}
                                     </label>
-                                    <Input placeholder="Nama Teman / Klien" value={debtName} onChange={e => setDebtName(e.target.value)} className="h-12 text-sm bg-white border-amber-200 focus:border-amber-400 rounded-xl"/>
+                                    <Input 
+                                        placeholder="Nama Pihak / Teman / Klien..." 
+                                        value={debtName} 
+                                        onChange={e => setDebtName(e.target.value)} 
+                                        className="h-11 text-xs bg-white border-2 border-amber-200 focus:border-amber-500 rounded-xl font-bold"
+                                    />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] uppercase tracking-widest font-bold text-amber-600 block mb-1.5">Tenggat Waktu Pelunasan</label>
-                                    <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="h-12 text-sm bg-white border-amber-200 focus:border-amber-400 rounded-xl"/>
+                                    <label className="text-[10px] font-black text-amber-800 uppercase tracking-widest block mb-1">
+                                        Tenggat Waktu Pelunasan
+                                    </label>
+                                    <Input 
+                                        type="date" 
+                                        value={dueDate} 
+                                        onChange={e => setDueDate(e.target.value)} 
+                                        className="h-11 text-xs bg-white border-2 border-amber-200 focus:border-amber-500 rounded-xl font-bold w-full"
+                                    />
                                 </div>
                             </div>
                         )}
 
                         <div>
-                            <label className="text-xs font-bold text-slate-500 mb-1 block">Nominal ({selectedCurr.code})</label>
-                            <Input type="text" inputMode="decimal" placeholder="Contoh: 10.5" className="h-14 text-xl font-bold rounded-xl" value={amountMutation} onChange={(e) => setAmountMutation(e.target.value.replace(/[^0-9.,]/g, ''))}/>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
+                                Nominal ({selectedCurr.code})
+                            </label>
+                            <Input 
+                                type="text" 
+                                inputMode="decimal" 
+                                placeholder="Contoh: 100" 
+                                className="h-13 text-xl font-black rounded-2xl bg-slate-50 border-2 border-slate-200 focus:border-amber-500" 
+                                value={amountMutation} 
+                                onChange={(e) => setAmountMutation(e.target.value.replace(/[^0-9.,]/g, ''))}
+                            />
                         </div>
                         
                         <div>
-                            <label className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1"><StickyNote className="w-3 h-3"/> Keterangan</label>
-                            <textarea placeholder="Contoh: Bayaran Freelance, Beli Aset..." className="w-full bg-white border border-slate-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" value={noteMutation} onChange={(e) => setNoteMutation(e.target.value)}/>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1 flex items-center gap-1">
+                                <StickyNote className="w-3 h-3 text-amber-600"/> Catatan / Keperluan
+                            </label>
+                            <textarea 
+                                placeholder="Contoh: Honor freelance luar negeri, beli souvenir..." 
+                                className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl p-3 text-xs font-medium focus:border-amber-500 focus:bg-white transition-all min-h-[75px] resize-none" 
+                                value={noteMutation} 
+                                onChange={(e) => setNoteMutation(e.target.value)}
+                            />
                         </div>
 
-                        <Button disabled={isSubmitting} onClick={handleMutation} className={`w-full h-14 font-extrabold text-base shadow-md rounded-xl transition-all active:scale-95 ${paymentMode === 'debt' ? 'bg-amber-500 hover:bg-amber-600 text-white' : (mutationMode === 'in' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700')}`}>
-                            {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : "SIMPAN DATA VALAS"}
-                        </Button>
+                        <button 
+                            disabled={isSubmitting} 
+                            onClick={handleMutation} 
+                            className={`w-full h-13 font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer text-white ${
+                                paymentMode === 'debt' 
+                                    ? 'bg-amber-600 hover:bg-amber-700' 
+                                    : (mutationMode === 'in' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700')
+                            }`}
+                        >
+                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : "SIMPAN MUTASI VALAS"}
+                        </button>
                     </div>
                 )}
 
+                {/* FORM TAB 2: TUKAR VALAS (JUAL / BELI) */}
                 {activeTab === 'exchange' && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-right-2">
-                        <div className="flex bg-slate-100 p-1 rounded-xl">
-                            <button onClick={() => setExchangeMode('buy')} className={`flex-1 py-2 rounded-lg text-sm font-bold ${exchangeMode === 'buy' ? 'bg-purple-600 text-white shadow' : 'text-slate-500'}`}>BELI (Rupiah Keluar)</button>
-                            <button onClick={() => setExchangeMode('sell')} className={`flex-1 py-2 rounded-lg text-sm font-bold ${exchangeMode === 'sell' ? 'bg-orange-500 text-white shadow' : 'text-slate-500'}`}>JUAL (Rupiah Masuk)</button>
+                    <div className="space-y-3.5 animate-in fade-in slide-in-from-right-2">
+                        <div className="grid grid-cols-2 gap-2">
+                            <button 
+                                type="button"
+                                onClick={() => setExchangeMode('buy')} 
+                                className={`py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                                    exchangeMode === 'buy' 
+                                        ? 'bg-brand-navy text-brand-gold shadow-[2px_2px_0px_0px] shadow-slate-950' 
+                                        : 'bg-slate-100 text-slate-600 hover:bg-blue-50'
+                                }`}
+                            >
+                                BELI ({selectedCurr.code})
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => setExchangeMode('sell')} 
+                                className={`py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                                    exchangeMode === 'sell' 
+                                        ? 'bg-amber-500 text-white shadow-[2px_2px_0px_0px] shadow-slate-950' 
+                                        : 'bg-slate-100 text-slate-600 hover:bg-amber-50'
+                                }`}
+                            >
+                                JUAL ({selectedCurr.code})
+                            </button>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-2.5">
                             <div>
-                                <label className="text-xs font-bold text-slate-500 mb-1 block">Jml ({selectedCurr.code})</label>
-                                <Input type="text" inputMode="decimal" placeholder="10.5" className="h-12 text-lg font-bold" value={amountExchange} onChange={(e) => setAmountExchange(e.target.value.replace(/[^0-9.,]/g, ''))}/>
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
+                                    Jumlah ({selectedCurr.code})
+                                </label>
+                                <Input 
+                                    type="text" 
+                                    inputMode="decimal" 
+                                    placeholder="0" 
+                                    className="h-12 text-base font-black rounded-xl bg-slate-50 border-2 border-slate-200 focus:border-amber-500" 
+                                    value={amountExchange} 
+                                    onChange={(e) => setAmountExchange(e.target.value.replace(/[^0-9.,]/g, ''))}
+                                />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-slate-500 mb-1 block">Kurs Deal (Rp)</label>
-                                <Input type="text" inputMode="decimal" placeholder={isTrialExpired ? "✨" : formatIdr(Math.round(getSafeRate(selectedCurr.code)).toString())} className="h-12 text-lg font-bold" value={rateExchange} onChange={(e) => setRateExchange(formatIdr(e.target.value))}/>
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
+                                    Kurs Deal (Rp)
+                                </label>
+                                <Input 
+                                    type="text" 
+                                    inputMode="decimal" 
+                                    placeholder={isTrialExpired ? "✨" : formatIdr(Math.round(getSafeRate(selectedCurr.code)).toString())} 
+                                    className="h-12 text-base font-black rounded-xl bg-slate-50 border-2 border-slate-200 focus:border-amber-500" 
+                                    value={rateExchange} 
+                                    onChange={(e) => setRateExchange(formatIdr(e.target.value))}
+                                />
                             </div>
                         </div>
                         
-                        <div className={`p-3 rounded-xl border text-center ${exchangeMode === 'buy' ? 'bg-purple-50 border-purple-100' : 'bg-orange-50 border-orange-100'}`}>
-                            <p className={`text-xs mb-1 ${exchangeMode === 'buy' ? 'text-purple-600' : 'text-orange-600'}`}>Total Rupiah</p>
-                            <p className="text-xl font-extrabold text-slate-800">{amountExchange && rateExchange ? formatRp(parseValas(amountExchange) * parseIdr(rateExchange)) : "Rp 0"}</p>
+                        {/* Kalkulasi Total Rupiah */}
+                        <div className="p-3.5 rounded-2xl border-2 border-amber-200 bg-amber-50 text-center">
+                            <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest mb-0.5">
+                                Total Rupiah ({exchangeMode === 'buy' ? 'Dipotong Kas' : 'Masuk Kas'})
+                            </p>
+                            <p className="text-xl font-black text-slate-900 tabular-nums">
+                                {amountExchange && rateExchange ? formatRp(parseValas(amountExchange) * parseIdr(rateExchange)) : "Rp 0"}
+                            </p>
                         </div>
                         
-                        <Button disabled={isSubmitting} onClick={handleExchange} className={`w-full h-12 font-bold ${exchangeMode === 'buy' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-orange-500 hover:bg-orange-600'}`}>
-                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : "KONFIRMASI TRANSAKSI"}
-                        </Button>
+                        <button 
+                            disabled={isSubmitting} 
+                            onClick={handleExchange} 
+                            className="w-full h-13 font-black text-xs uppercase tracking-wider rounded-2xl bg-brand-navy hover:bg-[#152e55] text-brand-gold shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : "KONFIRMASI TRANSAKSI PERTUKARAN"}
+                        </button>
                     </div>
                 )}
             </div>
-        </Card>
 
-        <div>
-            <h3 className="text-xs font-bold text-slate-500 mb-3 px-1 uppercase tracking-wider">Portofolio Saya</h3>
+            {/* DAFTAR PORTOFOLIO VALAS SAYA */}
             <div className="space-y-3">
+                <div className="flex justify-between items-center px-1">
+                    <h3 className="font-black text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <Wallet className="w-3.5 h-3.5 text-amber-600" />
+                        Portofolio Valas Saya ({assets.length})
+                    </h3>
+                </div>
+
                 {assets.length === 0 ? (
-                    <div className="text-center py-8 text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200"><Wallet className="w-8 h-8 mx-auto mb-2 opacity-30"/><p className="text-sm">Belum ada aset asing.</p></div>
+                    <div className="text-center py-10 bg-white rounded-[28px] border-2 border-dashed border-amber-200 shadow-sm p-6">
+                        <div className="w-14 h-14 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Globe className="w-7 h-7" />
+                        </div>
+                        <h4 className="font-black text-slate-800 text-sm">Belum Ada Aset Asing</h4>
+                        <p className="text-slate-400 text-xs font-medium mt-1">
+                            Gunakan form di atas untuk mencatat kepemilikan valuta asing pertama Anda.
+                        </p>
+                    </div>
                 ) : (
                     assets.map((asset: ForexAsset) => {
-                        const currInfo = CURRENCY_LIST.find(c => c.code === asset.currency) || { country: "", name: asset.currency };
+                        const currInfo = CURRENCY_LIST.find(c => c.code === asset.currency) || { country: "", name: asset.currency, flag: "🌐" };
                         const liveRate = getSafeRate(asset.currency);
                         const idrVal = asset.amount * liveRate;
                         return (
-                            <div key={asset.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center transition-all hover:shadow-md">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-blue-50 text-blue-600 font-bold w-10 h-10 rounded-full flex items-center justify-center border border-blue-100 text-xs shadow-sm">{asset.currency}</div>
-                                    <div>
-                                        <div className="font-bold text-slate-800 text-md">{asset.amount.toLocaleString()} <span className="text-xs text-slate-400 font-normal">{currInfo.name}</span></div>
-                                        <div className="text-[10px] text-slate-400">{currInfo.country}</div>
+                            <div 
+                                key={asset.id} 
+                                className="bg-white p-4 sm:p-5 rounded-[24px] border-2 border-amber-200/90 shadow-[4px_4px_0px_0px] shadow-slate-900 flex justify-between items-center gap-3 transition-all hover:shadow-[5px_5px_0px_0px]"
+                            >
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="bg-brand-navy text-brand-gold font-black w-11 h-11 rounded-2xl flex items-center justify-center text-xs shadow-md shrink-0 border border-brand-gold/30">
+                                        {asset.currency}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="font-black text-slate-900 text-sm truncate">
+                                            {asset.amount.toLocaleString()} <span className="text-xs text-slate-500 font-semibold">{asset.currency}</span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 font-bold flex items-center gap-1 mt-0.5">
+                                            <span>{currInfo.flag}</span>
+                                            <span className="truncate">{currInfo.name}</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <div className={`font-bold ${isTrialExpired ? 'text-rose-500' : 'text-emerald-600'} text-sm`}>
+
+                                <div className="text-right shrink-0">
+                                    <div className={`font-black ${isTrialExpired ? 'text-rose-500' : 'text-emerald-700'} text-sm sm:text-base tabular-nums`}>
                                         {isTrialExpired ? "✨ Premium" : formatRp(idrVal)}
                                     </div>
-                                    <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1">
-                                        <Activity className="w-3 h-3"/> 
-                                        {isTrialExpired ? "***" : formatRp(liveRate)}
+                                    <div className="text-[10px] text-slate-500 font-bold flex items-center justify-end gap-1 mt-0.5">
+                                        <Activity className="w-3 h-3 text-amber-600"/> 
+                                        <span>@ {isTrialExpired ? "***" : formatRp(liveRate)}</span>
                                     </div>
                                 </div>
                             </div>
-                        )
+                        );
                     })
                 )}
             </div>
-        </div>
 
+        </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* 📈 MODAL GRAFIK PASAR VALAS (LUXURIOUS GOLD & NAVY) */}
+      {/* ========================================================================= */}
+      {chartCurr && !isTrialExpired && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white w-full max-w-md rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 relative border-4 border-brand-gold">
+                  <div className="flex justify-between items-center mb-4">
+                      <div>
+                          <div className="flex items-center gap-2">
+                              <span className="text-lg">{CURRENCY_LIST.find(c => c.code === chartCurr)?.flag}</span>
+                              <h3 className="font-black text-xl text-brand-navy">
+                                  {chartCurr} / IDR
+                              </h3>
+                          </div>
+                          <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                              Tren Nilai Tukar 30 Hari Terakhir
+                          </p>
+                      </div>
+                      <button 
+                          onClick={() => setChartCurr(null)} 
+                          className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 text-slate-500 transition-colors"
+                      >
+                          <X className="w-5 h-5" />
+                      </button>
+                  </div>
+                  
+                  {/* Container Grafik */}
+                  <div className="w-full bg-slate-50 rounded-2xl border-2 border-slate-200 p-3 mb-4" style={{ height: '240px' }}>
+                      {loadingChart ? (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 animate-pulse">
+                              <Activity className="w-8 h-8 mx-auto mb-2 text-brand-gold animate-spin"/>
+                              <p className="text-xs font-black text-brand-navy">Mengambil data pasar...</p>
+                          </div>
+                      ) : chartData.length > 0 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                                  <defs>
+                                      <linearGradient id="forexGoldGrad" x1="0" y1="0" x2="0" y2="1">
+                                          <stop offset="5%" stopColor="#F6B93B" stopOpacity={0.4}/>
+                                          <stop offset="95%" stopColor="#F6B93B" stopOpacity={0.0}/>
+                                      </linearGradient>
+                                  </defs>
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
+                                  <XAxis 
+                                      dataKey="date" 
+                                      axisLine={false} 
+                                      tickLine={false} 
+                                      tick={{ fontSize: 9, fill: '#64748b', fontWeight: 600 }} 
+                                      minTickGap={20}
+                                  />
+                                  <YAxis 
+                                      domain={['auto', 'auto']} 
+                                      axisLine={false} 
+                                      tickLine={false} 
+                                      tick={{ fontSize: 9, fill: '#64748b', fontWeight: 600 }}
+                                      tickFormatter={(val) => `Rp ${(val/1000).toFixed(1)}k`}
+                                      orientation="right"
+                                  />
+                                  <Tooltip 
+                                      contentStyle={{ 
+                                          borderRadius: '16px', 
+                                          border: '2px solid #F6B93B', 
+                                          backgroundColor: '#1D3E72',
+                                          color: '#ffffff',
+                                          boxShadow: '0 8px 24px rgba(0,0,0,0.15)', 
+                                          fontSize: '12px', 
+                                          fontWeight: 'bold' 
+                                      }} 
+                                      formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Kurs']}
+                                      labelStyle={{ color: '#F6B93B', marginBottom: '4px', fontSize: '10px', fontWeight: 800 }}
+                                  />
+                                  <Area 
+                                      type="monotone" 
+                                      dataKey="value" 
+                                      stroke="#F6B93B" 
+                                      strokeWidth={3} 
+                                      fill="url(#forexGoldGrad)" 
+                                      activeDot={{ r: 6, fill: '#F6B93B', stroke: '#1D3E72', strokeWidth: 3 }} 
+                                  />
+                              </AreaChart>
+                          </ResponsiveContainer>
+                      ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-400">
+                              <p className="text-xs font-bold">Gagal memuat grafik pasar.</p>
+                          </div>
+                      )}
+                  </div>
+
+                  {/* Harga Saat Ini Highlight */}
+                  <div className="flex items-center justify-between bg-amber-50 border-2 border-amber-200 p-3.5 rounded-2xl mb-4">
+                      <span className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                          Harga Kurs Saat Ini
+                      </span>
+                      <span className="font-black text-brand-navy text-lg tabular-nums">
+                          Rp {Math.round(getSafeRate(chartCurr)).toLocaleString('id-ID')}
+                      </span>
+                  </div>
+
+                  <button 
+                      onClick={() => { 
+                          setChartCurr(null); 
+                          setSelectedCurr(CURRENCY_LIST.find(c => c.code === chartCurr) || CURRENCY_LIST[0]); 
+                          setActiveTab('exchange'); 
+                      }} 
+                      className="w-full bg-brand-navy hover:bg-[#152e55] text-brand-gold h-13 text-xs font-black uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all cursor-pointer"
+                  >
+                      TRANSAKSI {chartCurr} SEKARANG
+                  </button>
+              </div>
+          </div>
+      )}
+
+      {/* POPUP PEMILIHAN SUMBER DANA */}
       {showSourcePopup && (
           <SourceSelectionPopup 
               type={
                   pendingForexSubmit?.action === 'exchange' 
                       ? (exchangeMode === 'buy' ? 'expense' : 'income') 
-                      : (mutationMode === 'in' ? 'expense' : 'income') // Note: if mutationMode in, we use cash to buy it? No, mutationMode in means we GET valas. Did we pay? If we paid, it's expense. Wait!
+                      : (mutationMode === 'in' ? 'expense' : 'income')
               }
               title={pendingForexSubmit?.action === 'exchange' ? (exchangeMode === 'buy' ? "Sumber Dana Beli Valas" : "Tujuan Dana Jual Valas") : "Pilih Sumber Dana"}
               onCancel={() => {
@@ -681,23 +1004,6 @@ export default function Forex() {
                   setPendingForexSubmit(null);
               }}
           />
-      )}
-      {showSetupPrompt && (
-          <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 border border-slate-100">
-                  <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5">
-                      <AlertCircle className="w-10 h-10" />
-                  </div>
-                  <h2 className="text-2xl font-extrabold text-slate-800 mb-2">Aksi Tertahan</h2>
-                  <p className="text-[13px] text-slate-500 mb-6 leading-relaxed">
-                      Untuk memastikan laporan tetap akurat, Anda harus menyelesaikan Setup Saldo Awal sebelum mencatat transaksi.
-                  </p>
-                  <div className="space-y-3">
-                      <Button onClick={() => window.location.href = '/target'} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-full shadow-lg">LAKUKAN SETUP SEKARANG</Button>
-                      <Button variant="ghost" onClick={() => setShowSetupPrompt(false)} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 rounded-full">Tutup</Button>
-                  </div>
-              </div>
-          </div>
       )}
     </MobileLayout>
   );
