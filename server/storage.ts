@@ -64,7 +64,7 @@ export interface IStorage {
   getAllActiveSubscriptions(): Promise<Subscription[]>;
   processAllDueSubscriptions(): Promise<void>;
 
-  updateUserProStatus(userId: number, isPro: boolean, validUntil: Date | null): Promise<User>;
+  updateUserProStatus(userId: number, isPro: boolean, validUntil: Date | null, proSince?: Date | null): Promise<User>;
 
   // 🚀 EXPERT TERMINAL
   getPortfolioSnapshots(userId: number): Promise<PortfolioSnapshot[]>;
@@ -118,9 +118,10 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserProStatus(userId: number, isPro: boolean, validUntil: Date | null): Promise<User> {
+  async updateUserProStatus(userId: number, isPro: boolean, validUntil: Date | null, proSince?: Date | null): Promise<User> {
+    const calculatedProSince = isPro ? (proSince || new Date()) : null;
     const [updatedUser] = await db.update(users)
-        .set({ isPro, proValidUntil: validUntil })
+        .set({ isPro, proValidUntil: validUntil, proSince: calculatedProSince })
         .where(eq(users.id, userId))
         .returning();
     return updatedUser;

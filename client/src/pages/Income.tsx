@@ -7,7 +7,7 @@ import {
     Wallet, HandCoins, AlertCircle, ArrowDownLeft
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, useTransactions } from "@/hooks/use-finance";
+import { useUser, useAddTransaction } from "@/hooks/use-finance";
 import { useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { formatCurrency } from "@/lib/utils";
@@ -28,7 +28,7 @@ const QUICK_AMOUNTS = [50000, 100000, 250000, 500000, 1000000, 2500000, 5000000]
 
 export default function Income() {
   const { data: user, isLoading: isUserLoading } = useUser();
-  const { createTransaction } = useTransactions();
+  const createTransaction = useAddTransaction();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -106,8 +106,8 @@ export default function Income() {
                 category: category.trim(),
                 description: description.trim() || `Pemasukan: ${category}`,
                 source: selectedSource || "Cash (Uang Kertas)",
-                date: new Date().toISOString()
-            });
+                date: new Date()
+            } as any);
 
             toast({
                 title: "Pemasukan Tercatat! 💰",
@@ -138,8 +138,8 @@ export default function Income() {
                 amount: parsedAmount,
                 category: `Piutang: ${category}`,
                 description: `[Belum Cair - ${debtName.trim()}] ${description.trim()}`,
-                date: new Date().toISOString()
-            });
+                date: new Date()
+            } as any);
 
             toast({
                 title: "Piutang Berhasil Dicatat! 📋",

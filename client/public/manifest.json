@@ -9,9 +9,9 @@
   "description": "Pengelola Keuangan Cerdas dengan Asisten AI.",
   "icons": [
     {
-      "src": "/BILANO-LOGO.jpg",
+      "src": "/BILANO-ICON-NEW.png",
       "sizes": "192x192",
-      "type": "image/jpeg"
+      "type": "image/png"
     },
     {
       "src": "/BILANO-ICON-NEW.png",

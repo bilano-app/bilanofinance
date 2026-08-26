@@ -250,7 +250,7 @@ export default function Performance() {
   const monthsPassed = Math.max(0, (currentYear - startYear) * 12 + (currentMonthIdx + 1 - startMonth));
   const monthsRemaining = Math.max(0, targetDuration - monthsPassed);
   
-  const initialWealth = target?.initialWealth || 0;
+  const initialWealth = (target as any)?.initialWealth || 0;
   const wealthGained = Math.max(0, currentWealth - initialWealth);
   const targetGoal = (target?.targetAmount || 1) - initialWealth;
   

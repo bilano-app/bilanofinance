@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   profilePicture: text("profile_picture"),
   cashBalance: bigint("cash_balance", { mode: "number" }).default(0).notNull(),
   isPro: boolean("is_pro").default(false),
+  proSince: timestamp("pro_since"),
   proValidUntil: timestamp("pro_valid_until"), 
   onesignalId: text("onesignal_id"), 
   createdAt: timestamp("created_at").defaultNow(), 

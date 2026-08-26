@@ -5,7 +5,7 @@ import { Button } from "@/components/UIComponents";
 import { useUser } from "@/hooks/use-finance";
 import { 
   CheckCircle2, Crown, ArrowRight, Loader2, X, AlertCircle,
-  ChevronDown, Copy, RefreshCw, BookOpen, Crown
+  ChevronDown, Copy, RefreshCw, BookOpen
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 

@@ -7,6 +7,10 @@
 
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/png" href="/BILANO-ICON-NEW.png" />
+    <link rel="shortcut icon" type="image/png" href="/BILANO-ICON-NEW.png" />
+    <link rel="apple-touch-icon" href="/BILANO-ICON-NEW.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/BILANO-ICON-NEW.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/BILANO-ICON-NEW.png" />
 
     <meta name="theme-color" content="#ffffff" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -54,12 +58,49 @@
         -webkit-user-select: none;
         user-select: none;
       }
+
+      /* 🛡️ PERLINDUNGAN GAMBAR & ELEMEN NATIVE: Matikan popup long-press browser (copy/download image) */
+      img, svg, picture, video, canvas, [role="img"], a img, button img {
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        -khtml-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+        user-select: none !important;
+        -webkit-user-drag: none !important;
+        user-drag: none !important;
+      }
+
+      a, button, [role="button"] {
+        -webkit-touch-callout: none !important;
+      }
       
       input, textarea {
         -webkit-user-select: auto;
         user-select: auto;
       }
     </style>
+
+    <script>
+      // 🛡️ Blokir popup long-press bawaan Google/Browser untuk seluruh gambar, ikon, dan tautan
+      window.addEventListener('contextmenu', function(e) {
+        var target = e.target;
+        if (!target) return;
+        var isTextInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+        if (!isTextInput) {
+          e.preventDefault();
+          return false;
+        }
+      }, { capture: true, passive: false });
+
+      window.addEventListener('dragstart', function(e) {
+        var target = e.target;
+        if (target && (target.tagName === 'IMG' || target.tagName === 'SVG' || target.closest('img, svg'))) {
+          e.preventDefault();
+          return false;
+        }
+      }, { capture: true, passive: false });
+    </script>
 
     <script>
       window.addEventListener('vite:preloadError', function(event) {

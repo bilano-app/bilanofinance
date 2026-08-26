@@ -7,7 +7,7 @@ import {
     Wallet, HandCoins, AlertCircle, ArrowUpRight, AlertTriangle, X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, useTransactions, useTarget } from "@/hooks/use-finance";
+import { useUser, useTransactions, useTarget, useAddTransaction } from "@/hooks/use-finance";
 import { useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { formatCurrency } from "@/lib/utils";
@@ -32,7 +32,8 @@ const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("i
 export default function Expense() {
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: target, isLoading: isTargetLoading } = useTarget();
-  const { data: transactions, isLoading: isTxLoading, addTransactionMutation } = useTransactions();
+  const { data: transactions, isLoading: isTxLoading } = useTransactions();
+  const addTransactionMutation = useAddTransaction();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();

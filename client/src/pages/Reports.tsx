@@ -4,7 +4,7 @@ import {
     Download, FileText, Globe, Wallet, FileBarChart, Loader2, 
     Briefcase, HandCoins, Archive, HeartHandshake, AlertCircle,
     ArrowLeft, CheckCircle2, ShieldCheck, TrendingUp,
-    Calendar, Lock, Layers
+    Calendar, Lock, Layers, FileCheck
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
@@ -105,8 +105,18 @@ export default function Reports() {
           : (targetMonth === now.getMonth() && targetYear === now.getFullYear());
 
       let appStartDate = new Date();
-      if (user.createdAt) appStartDate = new Date(user.createdAt);
-      else if (allTxs && allTxs.length > 0) appStartDate = new Date(Math.min(...allTxs.map((t:any) => new Date(t.date).getTime())));
+      if (user.createdAt) {
+          const parsed = new Date(user.createdAt);
+          if (!isNaN(parsed.getTime())) appStartDate = parsed;
+      } else if (allTxs && allTxs.length > 0) {
+          const validTimestamps = allTxs
+              .map((t: any) => new Date(t.date).getTime())
+              .filter((ts: number) => !isNaN(ts) && ts > 0);
+          if (validTimestamps.length > 0) {
+              appStartDate = new Date(Math.min(...validTimestamps));
+          }
+      }
+      if (isNaN(appStartDate.getTime())) appStartDate = new Date();
 
       const allUniqueSymbols = new Set<string>();
       allInvestments.forEach((i:any) => allUniqueSymbols.add(`${i.symbol}`));
@@ -447,62 +457,107 @@ export default function Reports() {
   };
 
   const runAutoArchiver = (dbData: any, email: string) => {
-      let firstDate = new Date();
-      if (dbData.user && dbData.user.createdAt) firstDate = new Date(dbData.user.createdAt);
-      else if (dbData.transactions && dbData.transactions.length > 0) firstDate = new Date(Math.min(...dbData.transactions.map((t:any) => new Date(t.date).getTime())));
+      try {
+          if (!dbData || !email) return;
+          let firstDate = new Date();
+          if (dbData.user && dbData.user.createdAt) {
+              const parsed = new Date(dbData.user.createdAt);
+              if (!isNaN(parsed.getTime())) firstDate = parsed;
+          } else if (dbData.transactions && dbData.transactions.length > 0) {
+              const validTimestamps = dbData.transactions
+                  .map((t: any) => new Date(t.date).getTime())
+                  .filter((ts: number) => !isNaN(ts) && ts > 0);
+              if (validTimestamps.length > 0) {
+                  firstDate = new Date(Math.min(...validTimestamps));
+              }
+          }
 
-      const now = new Date();
-      let iterDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
-      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          if (isNaN(firstDate.getTime())) firstDate = new Date();
 
-      while (iterDate < currentMonthStart) {
-          const m = iterDate.getMonth();
-          const y = iterDate.getFullYear();
-          const archiveKey = `bilano_frozen_report_${email}_M_${m}_${y}`;
+          const now = new Date();
+          let iterDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+          const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+          let safety = 0;
+          while (iterDate < currentMonthStart && safety < 36) {
+              safety++;
+              const m = iterDate.getMonth();
+              const y = iterDate.getFullYear();
+              const archiveKey = `bilano_frozen_report_${email}_M_${m}_${y}`;
+              
+              if (!localStorage.getItem(archiveKey)) {
+                  try {
+                      const frozenData = generateFrozenData(m, y, false, dbData);
+                      localStorage.setItem(archiveKey, JSON.stringify(frozenData));
+                  } catch(e) {}
+              }
+              iterDate.setMonth(iterDate.getMonth() + 1);
+          }
           
-          if (!localStorage.getItem(archiveKey)) {
-              const frozenData = generateFrozenData(m, y, false, dbData);
-              localStorage.setItem(archiveKey, JSON.stringify(frozenData));
+          for (let y = firstDate.getFullYear(); y < now.getFullYear(); y++) {
+              const archiveKey = `bilano_frozen_report_${email}_Y_${11}_${y}`;
+              if (!localStorage.getItem(archiveKey)) {
+                  try {
+                      const frozenData = generateFrozenData(11, y, true, dbData);
+                      localStorage.setItem(archiveKey, JSON.stringify(frozenData));
+                  } catch(e) {}
+              }
           }
-          iterDate.setMonth(iterDate.getMonth() + 1);
-      }
-      
-      for (let y = firstDate.getFullYear(); y < now.getFullYear(); y++) {
-          const archiveKey = `bilano_frozen_report_${email}_Y_${11}_${y}`;
-          if (!localStorage.getItem(archiveKey)) {
-              const frozenData = generateFrozenData(11, y, true, dbData);
-              localStorage.setItem(archiveKey, JSON.stringify(frozenData));
-          }
+      } catch(err) {
+          console.error("Auto archiver error:", err);
       }
   };
 
   const getArchiveMonths = () => {
-      if (!data) return [];
-      let firstDate = new Date();
-      if (userProfile && userProfile.createdAt) firstDate = new Date(userProfile.createdAt);
-      else if (data.transactions && data.transactions.length > 0) firstDate = new Date(Math.min(...data.transactions.map((t:any) => new Date(t.date).getTime())));
+      try {
+          if (!data) return [];
+          let firstDate = new Date();
+          if (userProfile && userProfile.createdAt) {
+              const parsed = new Date(userProfile.createdAt);
+              if (!isNaN(parsed.getTime())) firstDate = parsed;
+          } else if (data.transactions && data.transactions.length > 0) {
+              const validTimestamps = data.transactions
+                  .map((t: any) => new Date(t.date).getTime())
+                  .filter((ts: number) => !isNaN(ts) && ts > 0);
+              if (validTimestamps.length > 0) {
+                  firstDate = new Date(Math.min(...validTimestamps));
+              }
+          }
 
-      const archives = [];
-      const now = new Date();
-      let iterDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
-      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          if (isNaN(firstDate.getTime())) firstDate = new Date();
 
-      while (iterDate < currentMonthStart) {
-          archives.push({
-              isYearly: false, month: iterDate.getMonth(), year: iterDate.getFullYear(),
-              label: iterDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+          const archives: { isYearly: boolean; month: number; year: number; label: string }[] = [];
+          const now = new Date();
+          let iterDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+          const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+          let safety = 0;
+          while (iterDate < currentMonthStart && safety < 36) {
+              safety++;
+              archives.push({
+                  isYearly: false, 
+                  month: iterDate.getMonth(), 
+                  year: iterDate.getFullYear(),
+                  label: iterDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+              });
+              iterDate.setMonth(iterDate.getMonth() + 1);
+          }
+          
+          for (let y = firstDate.getFullYear(); y < now.getFullYear(); y++) {
+              archives.push({ isYearly: true, month: 11, year: y, label: `Tahunan ${y}` });
+          }
+
+          archives.sort((a, b) => {
+              if (a.year !== b.year) return a.year - b.year;
+              if (a.isYearly && !b.isYearly) return 1; 
+              if (!a.isYearly && b.isYearly) return -1;
+              return a.month - b.month;
           });
-          iterDate.setMonth(iterDate.getMonth() + 1);
+          return archives.reverse(); 
+      } catch(err) {
+          console.error("getArchiveMonths error:", err);
+          return [];
       }
-      
-      for (let y = firstDate.getFullYear(); y < now.getFullYear(); y++) archives.push({ isYearly: true, month: 11, year: y, label: `Tahunan ${y}` });
-      archives.sort((a, b) => {
-          if (a.year !== b.year) return a.year - b.year;
-          if (a.isYearly && !b.isYearly) return 1; 
-          if (!a.isYearly && b.isYearly) return -1;
-          return a.month - b.month;
-      });
-      return archives.reverse(); 
   };
 
   // =========================================================================
