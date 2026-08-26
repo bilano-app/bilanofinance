@@ -122,6 +122,164 @@ function DisclaimerBanner() {
   );
 }
 
+function renderBoldText(text: string) {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} className="font-extrabold text-slate-900">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return part;
+  });
+}
+
+function FormattedStrategyMessage({ content, isUser }: { content: string; isUser?: boolean }) {
+  if (!content) return null;
+  if (isUser) {
+    return <span className="whitespace-pre-wrap">{content}</span>;
+  }
+
+  const clean = content.replace(/\*\*\*/g, '**').replace(/\+\+/g, '').trim();
+  const lines = clean.split('\n');
+
+  return (
+    <div className="space-y-2.5 text-xs sm:text-sm text-slate-800 leading-relaxed">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={idx} className="h-1" />;
+
+        // Header / Tag Section
+        if (trimmed.startsWith('📌') || trimmed.startsWith('🎯') || trimmed.startsWith('📝') || trimmed.startsWith('💡') || trimmed.startsWith('🚀') || trimmed.startsWith('⚖️')) {
+          return (
+            <div key={idx} className="font-black text-brand-navy pt-2 pb-1 border-b border-amber-200/60 flex items-center gap-1.5 text-xs sm:text-sm">
+              <span>{trimmed}</span>
+            </div>
+          );
+        }
+
+        // List item formatting
+        const isNumList = /^\d+\.\s/.test(trimmed);
+        const isBullet = /^[-*•]\s/.test(trimmed);
+
+        if (isNumList || isBullet) {
+          const cleanLine = isNumList ? trimmed.replace(/^\d+\.\s*/, '') : trimmed.replace(/^[-*•]\s*/, '');
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-1.5 py-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-navy shrink-0 mt-1.5" />
+              <span className="flex-1 leading-relaxed">{renderBoldText(cleanLine)}</span>
+            </div>
+          );
+        }
+
+        return (
+          <p key={idx} className="leading-relaxed">
+            {renderBoldText(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function SynthesisLoadingScreen() {
+  const [progress, setProgress] = useState(12);
+  const [phaseIndex, setPhaseIndex] = useState(0);
+
+  const PHASES = [
+    { title: "Membedah Profil Kognitif & Kapasitas Harian", desc: "Menganalisis latar belakang pendidikan dan jam produktif..." },
+    { title: "Menghubungkan Keahlian dengan Solusi B2B/B2C", desc: "Menyaring proposisi nilai tinggi berdasarkan aset tersedia..." },
+    { title: "Mengaudit Toleransi Arus Kas & Estimasi Modal", desc: "Mengkalkulasi modal aman dan mitigasi risiko operasional..." },
+    { title: "Merumuskan 3 Peta Jalan Bisnis Tervalidasi 48 Jam", desc: "Memfinalisasi instruksi eksekusi taktis untuk Anda..." }
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 96) return 96;
+        const jump = Math.floor(Math.random() * 8) + 4;
+        return Math.min(prev + jump, 96);
+      });
+    }, 500);
+
+    const phaseTimer = setInterval(() => {
+      setPhaseIndex((prev) => (prev < PHASES.length - 1 ? prev + 1 : prev));
+    }, 2000);
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(phaseTimer);
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-white animate-in fade-in duration-300">
+      <div className="w-full max-w-sm bg-gradient-to-b from-[#1D3E72] via-[#16386D] to-[#0A162B] p-7 rounded-[36px] border-2 border-brand-gold/70 shadow-2xl relative overflow-hidden text-center space-y-6">
+        
+        {/* Glow & Animated Icon */}
+        <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
+          <div className="absolute inset-0 bg-brand-gold/25 rounded-full blur-xl animate-pulse" />
+          <div className="relative w-20 h-20 rounded-3xl bg-brand-gold text-brand-navy flex items-center justify-center shadow-lg border-2 border-white/20">
+            <Compass className="w-10 h-10 animate-spin" style={{ animationDuration: '6s' }} />
+          </div>
+        </div>
+
+        {/* Header Text */}
+        <div>
+          <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-xs">
+            BILANO AI STRATEGY ENGINE
+          </span>
+          <h2 className="text-xl font-black tracking-tight text-white mt-2.5 mb-1">
+            Merancang Peta Jalan Bisnis
+          </h2>
+          <p className="text-xs text-amber-200/90 font-medium leading-relaxed">
+            Harap tunggu sebentar, AI sedang meracik 3 strategi bisnis terstruktur yang paling cocok untuk Anda.
+          </p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-[10px] font-bold text-amber-200 px-1">
+            <span>Sintesis Algoritma Kognitif</span>
+            <span className="text-brand-gold font-black tabular-nums">{progress}%</span>
+          </div>
+          <div className="h-2.5 w-full bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/15">
+            <div 
+              className="h-full bg-gradient-to-r from-amber-400 to-brand-gold rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Active Checklist Tracker */}
+        <div className="bg-black/30 rounded-2xl p-4 border border-white/10 text-left space-y-2.5">
+          {PHASES.map((p, idx) => {
+            const isDone = idx < phaseIndex;
+            const isCurrent = idx === phaseIndex;
+            return (
+              <div key={idx} className={`flex items-start gap-2.5 text-xs transition-all ${isDone ? 'text-emerald-300 opacity-90' : isCurrent ? 'text-amber-300 font-bold' : 'text-slate-400 opacity-50'}`}>
+                {isDone ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                ) : isCurrent ? (
+                  <Loader2 className="w-4 h-4 text-brand-gold animate-spin shrink-0 mt-0.5" />
+                ) : (
+                  <div className="w-4 h-4 rounded-full border border-slate-500 shrink-0 mt-0.5" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-[11px] leading-snug">{p.title}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 function LockedScreen() {
   return (
     <MobileLayout title="Ide & Pembimbing Penghasilan" showBack>
@@ -309,6 +467,7 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
 
   return (
     <div className="pt-2 pb-24 space-y-4">
+      {isSubmitting && <SynthesisLoadingScreen />}
       <div className="flex items-center justify-between mb-2">
         <button 
           type="button"
@@ -945,8 +1104,8 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
                   <div className="w-9 h-9 rounded-2xl bg-brand-navy text-brand-gold flex items-center justify-center shrink-0 shadow-xs">
                     <Bot className="w-5 h-5" />
                   </div>
-                  <div className="text-xs sm:text-sm font-medium text-slate-800 leading-relaxed whitespace-pre-wrap">
-                    {n.text}
+                  <div className="flex-1 min-w-0">
+                    <FormattedStrategyMessage content={n.text} isUser={false} />
                   </div>
                 </div>
 
@@ -975,12 +1134,12 @@ function SellingStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial
               <div className={`w-8 h-8 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${n.sender === "user" ? "bg-brand-gold text-brand-navy font-bold text-xs" : "bg-brand-navy text-brand-gold"}`}>
                 {n.sender === "user" ? <UserIcon className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
               </div>
-              <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-xs font-medium leading-relaxed shadow-xs ${
+              <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-xs font-medium leading-relaxed shadow-xs ${
                 n.sender === "user" 
                   ? "bg-brand-navy text-white rounded-tr-none border border-brand-gold/30" 
                   : "bg-white border border-slate-200 text-slate-800 rounded-tl-none"
               }`}>
-                {n.text}
+                <FormattedStrategyMessage content={n.text} isUser={n.sender === "user"} />
               </div>
             </div>
           );
@@ -1325,6 +1484,7 @@ export default function IncomeStrategy() {
   const [profileOverride, setProfileOverride] = useState<any | null>(null);
   const [localRecs, setLocalRecs] = useState<any[]>(profile?.recommendations || []);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
 
   const isPro = user?.isPro || (typeof window !== "undefined" && localStorage.getItem("bilano_pro") === "true");
   const startTime = new Date(user?.createdAt || Date.now()).getTime();
@@ -1377,12 +1537,8 @@ export default function IncomeStrategy() {
       asetLainnya: answers.asetLainnya || null,
       konstrainWaktu: { text: answers.konstrainWaktu },
     };
+    setIsSynthesizing(true);
     try {
-      toast({ 
-        title: "Sedang Merumuskan Taktik...", 
-        description: "BILANO Intelligence sedang memetakan strategi terbaik..." 
-      });
-      
       await saveProfile.mutateAsync(payload);
       setProfileOverride(payload);
       
@@ -1392,7 +1548,9 @@ export default function IncomeStrategy() {
       setView("recommend");
       await refetchProfile();
     } catch (e: any) {
-      toast({ title: "Gagal menyimpan identifikasi", description: e.message, variant: "destructive" });
+      toast({ title: "Gagal menyusun strategi", description: e.message, variant: "destructive" });
+    } finally {
+      setIsSynthesizing(false);
     }
   };
 
@@ -1438,6 +1596,7 @@ export default function IncomeStrategy() {
 
   return (
     <MobileLayout>
+      {(isSynthesizing || isGenerating) && <SynthesisLoadingScreen />}
       <div className="flex flex-col -mx-5 -mt-5">
         
         {/* ========================================================================= */}

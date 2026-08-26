@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button, Input } from "@/components/UIComponents";
-import { Send, Bot, ArrowRight, Loader2, Rocket } from "lucide-react";
+import { Send, Bot, ArrowRight, Loader2, Rocket, CheckCircle2 } from "lucide-react";
 
 interface ChatMessage {
   sender: 'user' | 'ai';
@@ -13,6 +13,66 @@ interface BoundedChatMarketingProps {
   isProcessing: boolean;
   onSendMessage: (message: string) => void;
   onCompleteDiscussion: () => void;
+}
+
+function renderBoldText(text: string) {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} className="font-extrabold text-slate-900">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return part;
+  });
+}
+
+function FormattedMarketingText({ content, isUser }: { content: string; isUser?: boolean }) {
+  if (!content) return null;
+  if (isUser) {
+    return <span className="whitespace-pre-wrap">{content}</span>;
+  }
+
+  const clean = content.replace(/\*\*\*/g, '**').replace(/\+\+/g, '').trim();
+  const lines = clean.split('\n');
+
+  return (
+    <div className="space-y-2 text-xs text-slate-800 leading-relaxed">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={idx} className="h-1" />;
+
+        if (trimmed.startsWith('📌') || trimmed.startsWith('🎯') || trimmed.startsWith('📝') || trimmed.startsWith('💡') || trimmed.startsWith('🚀')) {
+          return (
+            <div key={idx} className="font-extrabold text-brand-navy pt-1.5 pb-0.5 border-b border-slate-100 flex items-center gap-1.5">
+              <span>{trimmed}</span>
+            </div>
+          );
+        }
+
+        const isNumList = /^\d+\.\s/.test(trimmed);
+        const isBullet = /^[-*•]\s/.test(trimmed);
+
+        if (isNumList || isBullet) {
+          const cleanLine = isNumList ? trimmed.replace(/^\d+\.\s*/, '') : trimmed.replace(/^[-*•]\s*/, '');
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-1 py-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-navy shrink-0 mt-1.5" />
+              <span className="flex-1 leading-relaxed">{renderBoldText(cleanLine)}</span>
+            </div>
+          );
+        }
+
+        return (
+          <p key={idx} className="leading-relaxed">
+            {renderBoldText(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function BoundedChatMarketing({
@@ -79,13 +139,13 @@ export default function BoundedChatMarketing({
                 </div>
               )}
               <div 
-                className={`max-w-[80%] p-4 rounded-2xl text-xs leading-relaxed font-medium ${
+                className={`max-w-[85%] p-4 rounded-2xl text-xs leading-relaxed font-medium ${
                   msg.sender === 'user' 
                     ? 'bg-indigo-600 text-white rounded-br-none shadow-md shadow-indigo-100' 
-                    : 'bg-slate-50 text-slate-700 rounded-bl-none border border-slate-100'
+                    : 'bg-slate-50 text-slate-800 rounded-bl-none border border-slate-100'
                 }`}
               >
-                {msg.text}
+                <FormattedMarketingText content={msg.text} isUser={msg.sender === 'user'} />
               </div>
             </div>
           ))}
