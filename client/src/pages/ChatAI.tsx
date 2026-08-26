@@ -532,7 +532,7 @@ export default function ChatAI() {
                             onKeyDown={e => e.key === 'Enter' && handleSend()}
                             placeholder={placeholderText}
                             disabled={isLocked || isTyping}
-                            className={`flex-1 h-13 rounded-2xl px-4 text-xs sm:text-sm font-bold text-slate-800 placeholder:text-slate-400 border-2 transition-all ${
+                            className={`flex-1 h-14 rounded-2xl px-4 text-xs sm:text-sm font-bold text-slate-800 placeholder:text-slate-400 border-2 transition-all ${
                                 isLocked 
                                     ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' 
                                     : 'bg-slate-50 border-blue-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-400/20'
@@ -541,7 +541,7 @@ export default function ChatAI() {
                         <button 
                             onClick={() => handleSend()} 
                             disabled={!inputText.trim() || isLocked || isTyping} 
-                            className={`w-13 h-13 rounded-2xl flex items-center justify-center shadow-[3px_3px_0px_0px] shadow-[#0A162B] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px] transition-all cursor-pointer shrink-0 ${
+                            className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-[3px_3px_0px_0px] shadow-[#0A162B] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px] transition-all cursor-pointer shrink-0 ${
                                 isLocked || !inputText.trim() || isTyping
                                     ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' 
                                     : 'bg-gradient-to-r from-blue-600 to-[#1D3E72] hover:from-blue-700 hover:to-[#152e55] text-white'

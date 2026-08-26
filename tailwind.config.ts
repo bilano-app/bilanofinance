@@ -5,6 +5,10 @@ export default {
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
+      spacing: {
+        '13': '3.25rem', /* 52px */
+        '15': '3.75rem', /* 60px */
+      },
       borderRadius: {
         lg: "0.75rem", /* 12px */
         md: "0.625rem", /* 10px */

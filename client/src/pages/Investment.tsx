@@ -578,7 +578,7 @@ export default function Investment() {
                                     }}
                                     className="bg-white rounded-3xl p-4 border border-slate-200/80 hover:border-sky-300 shadow-xs hover:shadow-sm active:scale-[0.98] transition-all flex flex-col items-center text-center gap-2.5 cursor-pointer group relative overflow-hidden"
                                 >
-                                    <div className={`w-13 h-13 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-105 shadow-xs border ${cfg.bg}`}>
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center p-3 transition-transform group-hover:scale-105 shadow-xs border ${cfg.bg}`}>
                                         <Icon className={`w-6 h-6 ${cfg.iconColor}`} strokeWidth={2.2} />
                                     </div>
                                     <div className="w-full">

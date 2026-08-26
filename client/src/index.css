@@ -73,6 +73,11 @@
   }
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 /* --- TEKNIK "APP SHELL" UNTUK MEMBUAT TAMPILAN STATIC/DIAM --- */
 
 /* 1. Kunci Scroll Browser Utama */
@@ -81,6 +86,7 @@ html, body {
   width: 100%;
   overflow: hidden;   /* MATIKAN scroll di body (menghilangkan scrollbar browser) */
   overscroll-behavior: none; /* MATIKAN efek membal (rubber banding) di iOS/Mac */
+  background-color: #0b101b; /* Background elegan di sisi luar desktop */
 }
 
 /* 2. Pindahkan Scroll ke dalam Aplikasi (#root) */

@@ -582,7 +582,7 @@ export default function Debts() {
                             type="button"
                             onClick={handleAdd} 
                             disabled={isSubmitting} 
-                            className={`w-full h-13 rounded-2xl font-bold text-xs uppercase tracking-wider text-white shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-2 ${
+                            className={`w-full h-14 rounded-2xl font-black text-xs uppercase tracking-wider text-white shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-2 ${
                                 activeTab === 'hutang' 
                                     ? 'bg-orange-600 hover:bg-orange-700' 
                                     : 'bg-brand-navy hover:bg-[#152e55] text-brand-gold'
@@ -774,7 +774,7 @@ export default function Debts() {
                       type="button"
                       onClick={handlePay} 
                       disabled={isPaying} 
-                      className="w-full h-13 rounded-2xl bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full h-14 rounded-2xl bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                       {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : "KONFIRMASI PEMBAYARAN"}
                   </button>

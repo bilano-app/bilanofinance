@@ -540,7 +540,7 @@ export default function Retained() {
                                     type="button"
                                     disabled={isSubmitting} 
                                     onClick={handleAdd} 
-                                    className="w-full h-13 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
+                                    className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
                                 >
                                     {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <CheckCircle2 className="w-4 h-4 stroke-[2.5]"/>}
                                     <span>SIMPAN SALDO TERTAHAN</span>
@@ -590,7 +590,7 @@ export default function Retained() {
                                     type="button"
                                     disabled={isSubmitting} 
                                     onClick={handleEdit} 
-                                    className="w-full h-13 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
+                                    className="w-full h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
                                 >
                                     {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <RefreshCcw className="w-4 h-4 stroke-[2.5]"/>}
                                     <span>SIMPAN PERUBAHAN SALDO</span>
@@ -641,7 +641,7 @@ export default function Retained() {
                                     type="button"
                                     disabled={isSubmitting} 
                                     onClick={handleWithdrawInit} 
-                                    className="w-full h-13 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
+                                    className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
                                 >
                                     {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <ArrowDownToLine className="w-4 h-4 stroke-[2.5]"/>}
                                     <span>KONFIRMASI PENCAIRAN KAS</span>

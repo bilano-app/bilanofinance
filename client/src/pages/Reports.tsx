@@ -1220,20 +1220,20 @@ export default function Reports() {
 
                 <div className="grid grid-cols-1 gap-2.5">
                     {[
-                        { icon: Wallet, title: "Neraca Terpadu (Balance Sheet)", desc: "Rekap total Kas Likuid, Investasi, Valas, Saldo Tertahan, dan Hutang/Piutang.", color: "bg-sky-50 text-sky-800 border-sky-200" },
-                        { icon: FileText, title: "Jurnal Arus Kas Murni (Cashflow)", desc: "Khusus mendata uang masuk dan keluar operasional murni periode laporan.", color: "bg-emerald-50 text-emerald-800 border-emerald-200" },
-                        { icon: Briefcase, title: "Jadwal Portofolio Multi-Aset", desc: "Daftar instrumen saham, reksadana, crypto beserta harga rata-rata dan valuasi.", color: "bg-purple-50 text-purple-800 border-purple-200" },
-                        { icon: Globe, title: "Detail Kepemilikan Valas Live", desc: "Tabel aset mata uang asing dikonversikan dengan kurs pasar penutupan.", color: "bg-cyan-50 text-cyan-800 border-cyan-200" },
-                        { icon: HandCoins, title: "Jadwal Hutang & Piutang Aktif", desc: "Daftar pihak terkait, total nominal pokok, dan tanggal jatuh tempo.", color: "bg-rose-50 text-rose-800 border-rose-200" },
-                        { icon: HeartHandshake, title: "Alokasi Amal & Sedekah", desc: "Pencatatan keberkahan sosial yang terpisah murni dari pos belanja rutin.", color: "bg-amber-50 text-amber-800 border-amber-200" },
+                        { img: "/CASH.svg", title: "Neraca Terpadu (Balance Sheet)", desc: "Rekap total Kas Likuid, Investasi, Valas, Saldo Tertahan, dan Hutang/Piutang." },
+                        { img: "/INCOME.png", title: "Jurnal Arus Kas Murni (Cashflow)", desc: "Khusus mendata uang masuk dan keluar operasional murni periode laporan." },
+                        { img: "/Investasi.png", title: "Jadwal Portofolio Multi-Aset", desc: "Daftar instrumen saham, reksadana, crypto beserta harga rata-rata dan valuasi." },
+                        { img: "/Valas.png", title: "Detail Kepemilikan Valas Live", desc: "Tabel aset mata uang asing dikonversikan dengan kurs pasar penutupan." },
+                        { img: "/Hutang.png", title: "Jadwal Hutang & Piutang Aktif", desc: "Daftar pihak terkait, total nominal pokok, dan tanggal jatuh tempo." },
+                        { img: "/Amal.png", title: "Alokasi Amal & Sedekah", desc: "Pencatatan keberkahan sosial yang terpisah murni dari pos belanja rutin." },
                     ].map((item, idx) => (
-                        <div key={idx} className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
-                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${item.color}`}>
-                                <item.icon className="w-5 h-5" />
+                        <div key={idx} className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3.5 hover:border-slate-300 transition-all">
+                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-[#eef3f8] border border-[#d6e2ef] p-2.5 shadow-xs">
+                                <img src={item.img} alt={item.title} className="w-full h-full object-contain filter saturate-[0.45] opacity-80" />
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                                 <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm">{item.title}</h4>
-                                <p className="text-[11px] text-slate-500 font-medium leading-snug">{item.desc}</p>
+                                <p className="text-[11px] text-slate-500 font-medium leading-snug mt-0.5">{item.desc}</p>
                             </div>
                         </div>
                     ))}

@@ -377,10 +377,10 @@ export default function Transfer() {
                             <button
                                 type="button"
                                 onClick={() => setIsFromModalOpen(true)}
-                                className="w-full h-15 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-2xl px-4 flex items-center justify-between transition-all text-left group active:scale-[0.99] cursor-pointer"
+                                className="w-full min-h-[60px] py-3 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-2xl px-4 flex items-center justify-between transition-all text-left group active:scale-[0.99] cursor-pointer"
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                                <div className="flex items-center gap-3.5">
+                                    <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200 p-2 flex items-center justify-center shrink-0 shadow-xs">
                                         {fromLogo ? (
                                             <img src={fromLogo} alt="Logo" className="w-full h-full object-contain" />
                                         ) : (
@@ -392,7 +392,7 @@ export default function Transfer() {
                                             <div className="flex flex-col">
                                                 <span className="font-extrabold text-sm text-slate-900 leading-tight">{fromSource}</span>
                                                 {selectedFromWallet && (
-                                                    <span className="text-[11px] font-bold text-emerald-700">{formatRp(selectedFromWallet.balance)}</span>
+                                                    <span className="text-[11px] font-bold text-emerald-700 mt-0.5">{formatRp(selectedFromWallet.balance)}</span>
                                                 )}
                                             </div>
                                         ) : (
@@ -408,7 +408,7 @@ export default function Transfer() {
                         <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                    <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
                                         <ArrowDown className="w-4 h-4 stroke-[2.5]" />
                                     </div>
                                     Ke Dompet Tujuan (Terima Dana)
@@ -416,11 +416,11 @@ export default function Transfer() {
                             </div>
 
                             {/* Mode Toggle: Dompet Terdaftar vs Tambah Baru */}
-                            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-2xl">
+                            <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-slate-100 rounded-2xl">
                                 <button
                                     type="button"
                                     onClick={() => setDestinationMode('existing')}
-                                    className={`py-2 px-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                                    className={`py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                                         destinationMode === 'existing'
                                             ? 'bg-brand-navy text-brand-gold shadow-xs'
                                             : 'text-slate-600 hover:text-slate-900'
@@ -431,7 +431,7 @@ export default function Transfer() {
                                 <button
                                     type="button"
                                     onClick={() => setDestinationMode('new')}
-                                    className={`py-2 px-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                                    className={`py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                                         destinationMode === 'new'
                                             ? 'bg-brand-navy text-brand-gold shadow-xs'
                                             : 'text-slate-600 hover:text-slate-900'
@@ -446,10 +446,10 @@ export default function Transfer() {
                                     <button
                                         type="button"
                                         onClick={() => setIsToModalOpen(true)}
-                                        className="w-full h-15 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-2xl px-4 flex items-center justify-between transition-all text-left group active:scale-[0.99] cursor-pointer"
+                                        className="w-full min-h-[60px] py-3 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-2xl px-4 flex items-center justify-between transition-all text-left group active:scale-[0.99] cursor-pointer"
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                                        <div className="flex items-center gap-3.5">
+                                            <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200 p-2 flex items-center justify-center shrink-0 shadow-xs">
                                                 {toLogo ? (
                                                     <img src={toLogo} alt="Logo" className="w-full h-full object-contain" />
                                                 ) : (
@@ -608,7 +608,7 @@ export default function Transfer() {
                                     placeholder="0 (Atau isi saldo awal yang sudah ada)" 
                                     value={createInitialBalance} 
                                     onChange={(e) => setCreateInitialBalance(formatNumber(e.target.value))}
-                                    className="w-full h-13 px-4 font-black text-base bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-brand-navy focus:bg-white text-slate-900 tabular-nums transition-all"
+                                    className="w-full h-14 px-4 font-black text-base bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-brand-navy focus:bg-white text-slate-900 tabular-nums transition-all"
                                 />
                                 <p className="text-[10px] text-slate-500 font-medium leading-relaxed px-1">
                                     💡 <em>Jika diisi &gt; 0, saldo awal ini akan langsung menambah Total Saldo Kas dan Kekayaan Bersih Anda tanpa dicatat sebagai pemasukan bulanan.</em>

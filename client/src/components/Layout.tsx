@@ -9,8 +9,8 @@ interface LayoutProps {
 
 export function MobileLayout({ children, title, showBack = false }: LayoutProps) {
   return (
-    // WRAPPER UTAMA: Kunci tinggi layar (h-screen) tapi konten boleh scroll
-    <div className="h-screen bg-slate-50 text-foreground font-sans flex flex-col mx-auto max-w-md shadow-2xl border-x border-slate-200 overflow-hidden relative">
+    // WRAPPER UTAMA: Kunci tinggi layar (h-[100dvh]) & lebar standar mobile phone (max-w-[430px])
+    <div className="h-[100dvh] bg-slate-50 text-foreground font-sans flex flex-col mx-auto w-full max-w-[430px] shadow-2xl border-x border-slate-200/80 overflow-hidden relative">
       
       {/* --- HEADER (LOGO TENGAH) --- */}
       <header className="shrink-0 h-16 bg-white/95 backdrop-blur-md border-b border-slate-100 flex items-center justify-center relative z-40 px-4">

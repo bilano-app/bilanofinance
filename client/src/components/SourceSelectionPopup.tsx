@@ -168,7 +168,7 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
                                 type="button"
                                 onClick={handleCreateAndSelectNew}
                                 disabled={isSavingNew || !newSourceName.trim()}
-                                className="w-full h-11 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-bold text-xs uppercase tracking-wider rounded-xl shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                className="w-full h-12 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                             >
                                 {isSavingNew ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -190,14 +190,14 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
                                     key={wallet.name}
                                     type="button"
                                     onClick={() => setSelected(wallet.name)}
-                                    className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all text-left cursor-pointer ${
+                                    className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all text-left cursor-pointer ${
                                         isSelected 
-                                            ? 'border-brand-navy bg-white shadow-xs ring-1 ring-brand-navy' 
+                                            ? 'border-brand-navy bg-white shadow-xs ring-2 ring-brand-navy/20' 
                                             : 'border-slate-200/80 bg-white hover:border-slate-300'
                                     }`}
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center p-1.5 shadow-xs border ${
+                                    <div className="flex items-center gap-3.5">
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center p-2 shadow-xs border shrink-0 ${
                                             isSelected ? 'bg-white border-brand-navy' : 'bg-slate-50 border-slate-200'
                                         }`}>
                                             {logo ? (
@@ -208,7 +208,7 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
                                         </div>
                                         <div>
                                             <div className="font-extrabold text-slate-900 text-xs sm:text-sm">{wallet.name}</div>
-                                            <div className="text-[11px] text-slate-500 font-medium">
+                                            <div className="text-[11px] text-slate-500 font-medium mt-0.5">
                                                 Saldo: Rp {Number(wallet.balance || 0).toLocaleString('id-ID')}
                                             </div>
                                         </div>
@@ -234,7 +234,7 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
                         type="button"
                         onClick={() => selected && onSelect(selected)} 
                         disabled={!selected} 
-                        className={`w-full h-13 font-bold rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all text-xs uppercase tracking-wider cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                        className={`w-full h-14 font-black rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all text-xs uppercase tracking-wider cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center ${
                             isIncome ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-brand-navy hover:bg-[#152e55] text-brand-gold'
                         }`}
                     >

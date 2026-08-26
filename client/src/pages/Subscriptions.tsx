@@ -673,14 +673,14 @@ export default function Subscriptions() {
                           <button
                               type="button"
                               onClick={handleSaveSub}
-                              className="flex-1 h-13 bg-brand-navy hover:bg-slate-800 text-brand-gold font-black rounded-2xl text-xs uppercase tracking-wider shadow-[3px_3px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+                              className="flex-1 h-14 bg-brand-navy hover:bg-slate-800 text-brand-gold font-black rounded-2xl text-xs uppercase tracking-wider shadow-[3px_3px_0px_0px] shadow-slate-900 active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer flex items-center justify-center"
                           >
                               {editingSub ? "SIMPAN PERUBAHAN" : "SIMPAN LANGGANAN"}
                           </button>
                           <button
                               type="button"
                               onClick={() => setIsFormOpen(false)}
-                              className="px-5 h-13 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                              className="px-5 h-14 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center"
                           >
                               BATAL
                           </button>

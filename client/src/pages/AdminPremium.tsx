@@ -197,11 +197,11 @@ export default function AdminPremium() {
 
                                 <div className="pt-2 border-t border-slate-50 flex gap-2">
                                     {!u.isPro ? (
-                                        <Button onClick={() => handleUpdatePro(u.id, u.email, true)} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-extrabold rounded-[16px] h-12 shadow-sm shadow-amber-200 flex items-center gap-2">
+                                        <Button onClick={() => handleUpdatePro(u.id, u.email, true)} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-2xl h-14 shadow-sm shadow-amber-200 flex items-center justify-center gap-2 cursor-pointer">
                                             <CheckCircle2 className="w-4 h-4"/> BERI PREMIUM
                                         </Button>
                                     ) : (
-                                        <Button variant="outline" onClick={() => handleUpdatePro(u.id, u.email, false)} className="flex-1 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-extrabold rounded-[16px] h-12 flex items-center gap-2">
+                                        <Button variant="outline" onClick={() => handleUpdatePro(u.id, u.email, false)} className="flex-1 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-black rounded-2xl h-14 flex items-center justify-center gap-2 cursor-pointer">
                                             <XCircle className="w-4 h-4"/> CABUT AKSES
                                         </Button>
                                     )}

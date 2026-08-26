@@ -204,7 +204,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative">
+    <div className="min-h-screen w-full max-w-[430px] mx-auto bg-slate-50 flex flex-col items-center justify-center p-4 relative shadow-2xl border-x border-slate-200/80">
       <div className="mb-8 text-center animate-in fade-in slide-in-from-top-4 duration-700">
           <img src="/Bilano_horiz_rbg.png" alt="BILANO" className="h-16 w-auto mx-auto mb-2 object-contain" />
       </div>

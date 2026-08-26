@@ -74,7 +74,18 @@ export function useCreateAttempt() {
 
 export function useUpdateMaterials(attemptId: number | string) {
   return useMutation({
-    mutationFn: (materials: any[]) => apiSend(`/api/income-strategy/attempts/${attemptId}/materials`, "PATCH", { materials }),
+    mutationFn: (payload: { materials: any[]; statement?: string } | any[]) => {
+      const body = Array.isArray(payload) ? { materials: payload } : payload;
+      return apiSend(`/api/income-strategy/attempts/${attemptId}/materials`, "PATCH", body);
+    },
+  });
+}
+
+export function useGenerateMaterials(attemptId: number | string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiSend(`/api/income-strategy/attempts/${attemptId}/generate-materials`, "POST", {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["income-attempts"] }),
   });
 }
 

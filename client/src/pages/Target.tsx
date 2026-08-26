@@ -343,7 +343,7 @@ export default function Target() {
                                 <button 
                                     type="button"
                                     onClick={saveBreakdownTotal} 
-                                    className="w-full h-13 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer"
+                                    className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center"
                                 >
                                     TERAPKAN SEBAGAI BUDGET BULANAN
                                 </button>
@@ -415,7 +415,7 @@ export default function Target() {
                                             placeholder="100.000.000" 
                                             value={rawTargetAmount} 
                                             onChange={(e) => handleNumberChange(setRawTargetAmount, e.target.value)} 
-                                            className="w-full h-15 text-2xl font-black text-brand-navy bg-slate-50 border border-slate-200 rounded-2xl text-center outline-none focus:border-brand-navy focus:bg-white transition-all tabular-nums"
+                                            className="w-full h-16 text-2xl font-black text-brand-navy bg-slate-50 border border-slate-200 rounded-2xl text-center outline-none focus:border-brand-navy focus:bg-white transition-all tabular-nums"
                                         />
                                     </div>
                                     <div>
@@ -427,7 +427,7 @@ export default function Target() {
                                             placeholder="12" 
                                             value={inputDuration} 
                                             onChange={e => setInputDuration(e.target.value)} 
-                                            className="w-full h-13 text-lg font-extrabold text-slate-800 bg-slate-50 border border-slate-200 rounded-2xl text-center outline-none focus:border-brand-navy focus:bg-white transition-all tabular-nums"
+                                            className="w-full h-14 text-lg font-extrabold text-slate-800 bg-slate-50 border border-slate-200 rounded-2xl text-center outline-none focus:border-brand-navy focus:bg-white transition-all tabular-nums"
                                         />
                                     </div>
                                 </div>
@@ -439,15 +439,15 @@ export default function Target() {
                                     onClick={nextToBudgetAsk} 
                                     className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
                                 >
-                                    <span>LANJUTKAN KE BATAS PENGELUARAN</span>
+                                    <span>LANJUT KE PENGATURAN ANGGARAN</span>
                                     <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                                 </button>
                                 <button 
                                     type="button"
                                     onClick={() => setStep('intro')} 
-                                    className="w-full h-11 text-slate-500 font-bold text-xs uppercase tracking-wider hover:text-slate-800 transition-colors cursor-pointer"
+                                    className="w-full h-11 text-slate-500 font-bold text-xs uppercase tracking-wider hover:text-slate-800 transition-colors cursor-pointer text-center"
                                 >
-                                    KEMBALI KE PILIHAN METODE
+                                    KEMBALI
                                 </button>
                             </div>
                         </div>
@@ -456,14 +456,14 @@ export default function Target() {
                     {/* STEP 3: PERTANYAAN PEMASANGAN BATAS BUDGET */}
                     {step === 'budget-ask' && (
                         <div className="space-y-4 animate-in fade-in">
-                            <div className="bg-white rounded-3xl p-7 border border-slate-200/80 shadow-xs text-center space-y-4">
-                                <div className="w-16 h-16 rounded-2xl bg-amber-50 text-brand-navy border border-amber-200 mx-auto flex items-center justify-center">
-                                    <ShieldCheck className="w-8 h-8 stroke-[2.5]"/>
+                            <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4 text-center">
+                                <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto border border-amber-200 text-brand-navy">
+                                    <ShieldAlert className="w-7 h-7 stroke-[2.5]"/> 
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Batasi Pengeluaran Bulanan?</h2>
-                                    <p className="text-slate-500 text-xs font-medium mt-1.5 leading-relaxed max-w-xs mx-auto">
-                                        Aktifkan batas darurat otomatis agar arus kas Anda terkendali dan tidak mengalami kebocoran halus.
+                                    <h3 className="font-extrabold text-slate-900 text-lg">Pasang Batas Pengeluaran?</h3>
+                                    <p className="text-xs text-slate-500 font-medium mt-0.5 leading-relaxed">
+                                        Memasang batas anggaran bulanan akan mengunci pengeluaran agar rencana akumulasi target Anda tidak terganggu.
                                     </p>
                                 </div>
 
@@ -480,7 +480,7 @@ export default function Target() {
                                     <button 
                                         type="button"
                                         onClick={() => handleBudgetAnswer(false)} 
-                                        className="w-full h-13 bg-white border border-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-2xl hover:bg-slate-50 active:scale-[0.98] transition-all cursor-pointer"
+                                        className="w-full h-14 bg-white border border-slate-200 text-slate-700 font-extrabold text-xs uppercase tracking-wider rounded-2xl hover:bg-slate-50 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center"
                                     >
                                         TIDAK PERLU, BIARKAN BEBAS
                                     </button>
@@ -518,7 +518,7 @@ export default function Target() {
                                         placeholder="1.500.000" 
                                         value={rawBudgetAmount} 
                                         onChange={(e) => handleNumberChange(setRawBudgetAmount, e.target.value)} 
-                                        className="w-full h-15 text-2xl font-black text-center bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all tabular-nums"
+                                        className="w-full h-16 text-2xl font-black text-center bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all tabular-nums"
                                     />
                                     
                                     <button 

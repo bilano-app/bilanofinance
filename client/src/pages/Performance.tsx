@@ -557,8 +557,8 @@ export default function Performance() {
                             </div>
                             <p className="text-xs text-white/90 font-medium leading-relaxed">Target belum terpenuhi 100%. Lanjutkan evaluasi dan perpanjang durasi strategi untuk mengejar sisa target.</p>
                             <Link href="/target">
-                                <button className="w-full h-11 bg-white text-rose-700 rounded-xl text-xs font-bold uppercase tracking-wider shadow-xs flex items-center justify-center gap-2 active:scale-95 transition-transform cursor-pointer">
-                                    <RefreshCcw className="w-4 h-4"/> Atur Ulang Periode Target
+                                <button className="w-full h-12 bg-white text-rose-700 rounded-2xl text-xs font-black uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 active:scale-95 transition-transform cursor-pointer">
+                                    <RefreshCcw className="w-4 h-4 stroke-[2.5]"/> Atur Ulang Periode Target
                                 </button>
                             </Link>
                         </div>

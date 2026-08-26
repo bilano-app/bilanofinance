@@ -26,6 +26,19 @@ function safeParse(val: any, fallback: any) {
 }
 
 function formatAttempt(row: any) {
+  const parsedMaterials = safeParse(row.materials, []);
+  let materialsList = [];
+  let materialsStatement = "";
+  let noMaterialsNeeded = false;
+
+  if (Array.isArray(parsedMaterials)) {
+    materialsList = parsedMaterials;
+  } else if (parsedMaterials && typeof parsedMaterials === "object") {
+    materialsList = parsedMaterials.items || [];
+    materialsStatement = parsedMaterials.statement || "";
+    noMaterialsNeeded = !!parsedMaterials.no_materials_needed;
+  }
+
   return {
     id: row.id,
     userId: row.user_id,
@@ -33,9 +46,12 @@ function formatAttempt(row: any) {
     recommendation: safeParse(row.recommendation, {}),
     state: row.state,
     status: row.status,
-    materials: safeParse(row.materials, []),
+    materials: materialsList,
+    materialsStatement: materialsStatement || (row.materials_statement || ""),
+    noMaterialsNeeded: noMaterialsNeeded || (materialsList.length === 0 && row.state === "MATERIALS" && safeParse(row.recommendation, {}).capital_level === "TANPA_MODAL"),
     totalCost: Number(row.total_cost) || 0,
     feasibilityVerdict: row.feasibility_verdict,
+    feasibilityAnalysis: safeParse(row.feasibility_analysis, null),
     capitalPlan: safeParse(row.capital_plan, null),
     sellingNotes: safeParse(row.selling_notes, []),
     revenueLog: safeParse(row.revenue_log, []),
@@ -87,6 +103,8 @@ const ensureIncomeStrategyTables = async () => {
     try { await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS preferensi_kerja TEXT;`); } catch (e) {}
     try { await db.execute(sql`ALTER TABLE income_profiles ADD COLUMN IF NOT EXISTS cooldown_until TIMESTAMP;`); } catch (e) {}
     try { await db.execute(sql`ALTER TABLE income_attempts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ACTIVE';`); } catch (e) {}
+    try { await db.execute(sql`ALTER TABLE income_attempts ADD COLUMN IF NOT EXISTS materials_statement TEXT;`); } catch (e) {}
+    try { await db.execute(sql`ALTER TABLE income_attempts ADD COLUMN IF NOT EXISTS feasibility_analysis TEXT;`); } catch (e) {}
   } catch (e) {}
 };
 
@@ -296,6 +314,98 @@ PRINSIP STRATEGIS:
 
 OUTPUT WAJIB JSON MURNI TANPA MARKDOWN DENGAN SKEMA:
 {"recommendations":[{"id":"rec_1","title":"[Judul Strategi Bisnis Profesional]","pitch":"[Penjelasan ringkas langkah eksekusi taktis yang dapat dimulai hari ini]","why_it_fits":"[Alasan logis mengapa kombinasi keahlian dan aset pengguna sangat selaras dengan peluang ini]","capital_level":"[TANPA_MODAL/MODAL_KECIL/MODAL_SEDANG]","needs_upskilling":false,"upskilling_note":"[Opsional: 1 wawasan pelengkap untuk dipelajari kilat]","difficulty":"[MUDAH/SEDANG/MENANTANG]","estimated_time_to_first_income":"[Misal: 1-7 Hari]","risk_note":"[Mitigasi risiko yang realistis dan bijak]"}]}`;
+}
+
+function buildMaterialsPrompt(recommendation: any, profile: any) {
+  return `Kamu adalah "BILANO Business Operations & Cost Estimator", penasihat kalkulasi modal dan kebutuhan operasional usaha taktis.
+
+IDE BISNIS / PEKERJAAN TERPILIH:
+- Judul: "${recommendation?.title || "-"}"
+- Ringkasan / Pitch: "${recommendation?.pitch || "-"}"
+- Tingkat Modal: ${recommendation?.capital_level || "-"}
+- Profil Pengguna: Status ${profile?.status || "-"}, Latar Belakang ${profile?.latarBelakang || "-"}
+- Keahlian Pengguna: ${(profile?.keahlian || []).join(", ")}
+- Aset yang Sudah Dimiliki: ${(profile?.aset || []).join(", ") || "-"}
+
+TUGAS:
+Analisis kebutuhan bahan baku, alat bantu, kemasan, atau peralatan awal yang mutlak dibutuhkan pengguna untuk memulai bisnis ini dalam 48 jam pertama.
+
+ATURAN KHUSUS:
+1. JIKA BISNIS JASA MURNI / DIGITAL / FREELANCE (misal: jasa desain, copywriting, konsultasi, coding, penerjemah, ngajar les online, dll) di mana pengguna sudah punya laptop/HP:
+   - "no_materials_needed": true
+   - "statement": "Pekerjaan ini berbasis keahlian murni & aset digital yang sudah Anda miliki. Anda tidak memerlukan modal barang fisik atau pembelian alat baru untuk memulainya."
+   - "items": []
+2. JIKA MEMERLUKAN BARANG FISIK / PRODUK / BAHAN BAKU / PERALATAN (misal: jualan buku, kuliner, kerajinan, sablon, fotografi, dsb):
+   - "no_materials_needed": false
+   - "statement": "Berikut adalah daftar kebutuhan bahan & peralatan awal yang disarankan untuk Anda survei harganya di pasaran/toko/e-commerce:"
+   - "items": Berikan 3 sampai 6 item paling esensial. Setiap item berisi:
+     - "id": "mat_1", "mat_2", dst.
+     - "name": Nama barang/bahan/kebutuhan yang jelas (Contoh: "Plastik Kemasan / Bubble Wrap", "Kertas & Tinta Cetak", "Stiker Label Pengiriman")
+     - "reason": Alasan singkat mengapa barang ini diperlukan
+     - "suggested_price": 0
+     - "is_ai_suggested": true
+
+OUTPUT WAJIB JSON MURNI TANPA MARKDOWN DENGAN SKEMA:
+{
+  "no_materials_needed": boolean,
+  "statement": string,
+  "items": [
+    {
+      "id": string,
+      "name": string,
+      "reason": string,
+      "suggested_price": 0,
+      "is_ai_suggested": true
+    }
+  ]
+}`;
+}
+
+async function generateMaterialsAI(recommendation: any, profile: any) {
+  try {
+    const prompt = buildMaterialsPrompt(recommendation, profile);
+    let result: any;
+    try {
+      result = await askDeepSeekR1(prompt, "Hasilkan daftar kebutuhan bahan & alat sekarang.");
+    } catch (e) {
+      result = await askGeminiJSON(prompt, "Hasilkan daftar kebutuhan bahan & alat sekarang.");
+    }
+    
+    if (result && typeof result === "object") {
+      return {
+        no_materials_needed: !!result.no_materials_needed,
+        statement: result.statement || (result.no_materials_needed ? "Pekerjaan ini tidak memerlukan modal barang fisik." : "Berikut estimasi bahan yang disarankan:"),
+        items: Array.isArray(result.items) ? result.items.map((it: any, idx: number) => ({
+          id: it.id || `mat_${idx + 1}`,
+          name: it.name || `Kebutuhan ${idx + 1}`,
+          reason: it.reason || "Kebutuhan operasional dasar",
+          price: Number(it.suggested_price) || 0,
+          isAiSuggested: true
+        })) : []
+      };
+    }
+  } catch (err: any) {
+    console.error("Gagal generate materials via AI, gunakan default fallback:", err.message);
+  }
+
+  // Fallback jika AI offline
+  if (recommendation?.capital_level === "TANPA_MODAL") {
+    return {
+      no_materials_needed: true,
+      statement: "Pekerjaan ini berbasis keahlian murni & aset yang sudah Anda miliki. Tidak memerlukan modal barang fisik atau peralatan baru.",
+      items: []
+    };
+  }
+
+  return {
+    no_materials_needed: false,
+    statement: "Berikut adalah daftar kebutuhan bahan awal yang disarankan untuk Anda survei harganya:",
+    items: [
+      { id: "mat_1", name: "Bahan Baku / Produk Awal", reason: "Persediaan sampel atau stok pertama", price: 0, isAiSuggested: true },
+      { id: "mat_2", name: "Kemasan / Packaging & Label", reason: "Untuk pengemasan produk yang rapi ke pembeli", price: 0, isAiSuggested: true },
+      { id: "mat_3", name: "Biaya Operasional / Ongkir Sampel", reason: "Cadangan logistik atau pengantaran awal", price: 0, isAiSuggested: true },
+    ]
+  };
 }
 
 function buildSellingSystemPrompt(recommendation: any, profile: any, totalCost: number) {
@@ -518,64 +628,187 @@ export function registerIncomeStrategyRoutes(app: Express) {
       const { recommendation } = req.body;
       if (!recommendation || !recommendation.title) return res.status(400).json({ error: "Ide usaha tidak valid." });
 
-      const profileResult = await db.execute(sql`SELECT id FROM income_profiles WHERE user_id = ${user.id} ORDER BY updated_at DESC LIMIT 1`);
+      const profileResult = await db.execute(sql`SELECT * FROM income_profiles WHERE user_id = ${user.id} ORDER BY updated_at DESC LIMIT 1`);
       const profileRows = Array.isArray(profileResult) ? profileResult : (profileResult as any).rows || [];
-      const profileId = profileRows[0]?.id || null;
+      const profileRow = profileRows[0] || null;
+      const profileId = profileRow?.id || null;
+
+      const profile = profileRow ? {
+        status: profileRow.status,
+        latarBelakang: profileRow.latar_belakang,
+        keahlian: safeParse(profileRow.keahlian, []),
+        aset: safeParse(profileRow.aset, [])
+      } : {};
+
+      // 🧠 Generate kebutuhan bahan/alat awal otomatis via AI
+      const materialsData = await generateMaterialsAI(recommendation, profile);
 
       const inserted = await db.execute(sql`
-        INSERT INTO income_attempts (user_id, profile_id, recommendation, state, status, materials)
-        VALUES (${user.id}, ${profileId}, ${JSON.stringify(recommendation)}, 'MATERIALS', 'ACTIVE', '[]')
+        INSERT INTO income_attempts (
+          user_id, profile_id, recommendation, state, status, materials, materials_statement
+        )
+        VALUES (
+          ${user.id}, ${profileId}, ${JSON.stringify(recommendation)}, 'MATERIALS', 'ACTIVE', 
+          ${JSON.stringify(materialsData.items)}, ${materialsData.statement}
+        )
         RETURNING *
       `);
       const insertedRows = Array.isArray(inserted) ? inserted : (inserted as any).rows || [];
-      res.json(formatAttempt(insertedRows[0]));
+      const formatted = formatAttempt(insertedRows[0]);
+      formatted.materials = materialsData.items;
+      formatted.materialsStatement = materialsData.statement;
+      formatted.noMaterialsNeeded = materialsData.no_materials_needed;
+
+      res.json(formatted);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/income-strategy/attempts/:id/generate-materials", async (req: any, res: any) => {
+    try {
+      const user = await getUser(req);
+      const result = await db.execute(sql`SELECT * FROM income_attempts WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
+      const rows = Array.isArray(result) ? result : (result as any).rows || [];
+      if (rows.length === 0) return res.status(404).json({ error: "Percobaan usaha tidak ditemukan." });
+      const attempt = rows[0];
+      const recommendation = safeParse(attempt.recommendation, {});
+
+      const profileResult = await db.execute(sql`SELECT * FROM income_profiles WHERE id = ${attempt.profile_id}`);
+      const profileRows = Array.isArray(profileResult) ? profileResult : (profileResult as any).rows || [];
+      const profileRow = profileRows[0] || {};
+      const profile = {
+        status: profileRow.status,
+        latarBelakang: profileRow.latar_belakang,
+        keahlian: safeParse(profileRow.keahlian, []),
+        aset: safeParse(profileRow.aset, [])
+      };
+
+      const materialsData = await generateMaterialsAI(recommendation, profile);
+      const totalCost = materialsData.items.reduce((a: number, m: any) => a + (Number(m.price) || 0), 0);
+
+      await db.execute(sql`
+        UPDATE income_attempts SET 
+          materials = ${JSON.stringify(materialsData.items)}, 
+          materials_statement = ${materialsData.statement},
+          total_cost = ${totalCost},
+          updated_at = NOW()
+        WHERE id = ${req.params.id} AND user_id = ${user!.id}
+      `);
+
+      res.json({
+        success: true,
+        materials: materialsData.items,
+        materialsStatement: materialsData.statement,
+        noMaterialsNeeded: materialsData.no_materials_needed,
+        totalCost
+      });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.patch("/api/income-strategy/attempts/:id/materials", async (req: any, res: any) => {
     try {
       const user = await getUser(req);
-      const { materials } = req.body;
+      const { materials, statement } = req.body;
       if (!Array.isArray(materials)) return res.status(400).json({ error: "Format bahan tidak valid." });
       const totalCost = materials.reduce((a: number, m: any) => a + (Number(m.price) || 0), 0);
-      await db.execute(sql`
-        UPDATE income_attempts SET materials = ${JSON.stringify(materials)}, total_cost = ${totalCost}, updated_at = NOW()
-        WHERE id = ${req.params.id} AND user_id = ${user!.id}
-      `);
-      res.json({ success: true, totalCost });
+      
+      if (statement !== undefined) {
+        await db.execute(sql`
+          UPDATE income_attempts SET materials = ${JSON.stringify(materials)}, materials_statement = ${statement}, total_cost = ${totalCost}, updated_at = NOW()
+          WHERE id = ${req.params.id} AND user_id = ${user!.id}
+        `);
+      } else {
+        await db.execute(sql`
+          UPDATE income_attempts SET materials = ${JSON.stringify(materials)}, total_cost = ${totalCost}, updated_at = NOW()
+          WHERE id = ${req.params.id} AND user_id = ${user!.id}
+        `);
+      }
+      res.json({ success: true, totalCost, materials });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.post("/api/income-strategy/attempts/:id/feasibility", async (req: any, res: any) => {
     try {
       const user = await getUser(req);
-      const { manualMonthlyExpense } = req.body || {};
+      const { manualMonthlyExpense, materials } = req.body || {};
 
       const result = await db.execute(sql`SELECT * FROM income_attempts WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
       const rows = Array.isArray(result) ? result : (result as any).rows || [];
       if (rows.length === 0) return res.status(404).json({ error: "Percobaan usaha tidak ditemukan." });
       const attempt = rows[0];
 
+      // Update materials jika dikirimkan bersama payload
+      let currentMaterials = safeParse(attempt.materials, []);
+      if (Array.isArray(materials)) {
+        currentMaterials = materials;
+        const calcCost = currentMaterials.reduce((a: number, m: any) => a + (Number(m.price) || 0), 0);
+        await db.execute(sql`
+          UPDATE income_attempts SET materials = ${JSON.stringify(currentMaterials)}, total_cost = ${calcCost}, updated_at = NOW()
+          WHERE id = ${req.params.id} AND user_id = ${user!.id}
+        `);
+      }
+
+      const totalCost = currentMaterials.reduce((a: number, m: any) => a + (Number(m.price) || 0), 0);
       const snapshot = await getFinancialSnapshot(user!.id, user!.cashBalance);
       const hasManualInput = manualMonthlyExpense !== undefined && manualMonthlyExpense !== null && manualMonthlyExpense !== "";
 
       const effectiveExpense = hasManualInput ? Number(manualMonthlyExpense) : snapshot.rata2_pengeluaran_bulanan;
       const bufferBulan = 1;
-      const sisaDanaAman = snapshot.saldo_saat_ini - effectiveExpense * bufferBulan;
-      const totalCost = Number(attempt.total_cost) || 0;
+      const sisaDanaAman = Math.max(0, snapshot.saldo_saat_ini - effectiveExpense * bufferBulan);
 
       let verdict: string;
-      if (totalCost <= sisaDanaAman) verdict = "CUKUP_AMAN";
-      else if (totalCost <= snapshot.saldo_saat_ini) verdict = "CUKUP_TAPI_RISIKO";
-      else verdict = "KURANG";
+      let verdictTitle: string;
+      let analysis: string;
+
+      if (totalCost === 0) {
+        verdict = "CUKUP_AMAN";
+        verdictTitle = "Sangat Layak (Bebas Modal)";
+        analysis = `Pekerjaan ini tidak membutuhkan modal awal barang. Kondisi saldo kas aktif Anda (Rp${snapshot.saldo_saat_ini.toLocaleString("id-ID")}) sepenuhnya aman. Anda bisa langsung menjalankan instruksi strategi penjualan!`;
+      } else if (totalCost <= sisaDanaAman) {
+        verdict = "CUKUP_AMAN";
+        verdictTitle = "Sangat Layak & Aman";
+        analysis = `Kondisi keuangan Anda SANGAT LAYAK. Total proyeksi kebutuhan modal sebesar Rp${totalCost.toLocaleString("id-ID")} dapat dipenuhi tanpa mengorbankan dana cadangan kebutuhan bulanan Anda.`;
+      } else if (totalCost <= snapshot.saldo_saat_ini) {
+        verdict = "CUKUP_TAPI_RISIKO";
+        verdictTitle = "Layak dengan Catatan Risiko";
+        analysis = `Saldo kas Anda mencukupi (Rp${snapshot.saldo_saat_ini.toLocaleString("id-ID")}), namun pengeluaran modal sebesar Rp${totalCost.toLocaleString("id-ID")} berpotensi memotong dana cadangan kebutuhan pokok Anda. Disarankan berhati-hati atau terapkan sistem Pre-Order (PO).`;
+      } else {
+        verdict = "KURANG";
+        verdictTitle = "Defisit Modal (Perlu Kumpul Modal)";
+        const defisit = totalCost - snapshot.saldo_saat_ini;
+        analysis = `Saldo kas aktif Anda (Rp${snapshot.saldo_saat_ini.toLocaleString("id-ID")}) belum mencukupi kebutuhan modal awal Rp${totalCost.toLocaleString("id-ID")} (Defisit Rp${defisit.toLocaleString("id-ID")}). Hindari berhutang konsumtif! Ikuti sistem kumpul modal cerdas dan strategi Pre-Order (PO) yang telah disiapkan.`;
+      }
 
       const nextState = verdict === "KURANG" ? "CAPITAL" : "SELLING";
-      await db.execute(sql`UPDATE income_attempts SET feasibility_verdict = ${verdict}, state = ${nextState}, updated_at = NOW() WHERE id = ${req.params.id}`);
+      const feasibilityAnalysis = {
+        verdict,
+        verdictTitle,
+        analysis,
+        totalCost,
+        saldoSaatIni: snapshot.saldo_saat_ini,
+        sisaDanaAman,
+        selisih: Math.max(0, totalCost - (verdict === "KURANG" ? snapshot.saldo_saat_ini : sisaDanaAman)),
+      };
+
+      await db.execute(sql`
+        UPDATE income_attempts SET 
+          feasibility_verdict = ${verdict}, 
+          feasibility_analysis = ${JSON.stringify(feasibilityAnalysis)},
+          total_cost = ${totalCost},
+          state = ${nextState}, 
+          updated_at = NOW() 
+        WHERE id = ${req.params.id}
+      `);
 
       res.json({
-        needs_clarification: false, verdict, state: nextState, total_cost: totalCost,
-        saldo_saat_ini: snapshot.saldo_saat_ini, sisa_dana_aman: Math.max(0, sisaDanaAman),
-        selisih: Math.max(0, totalCost - Math.max(0, sisaDanaAman)),
+        needs_clarification: false,
+        verdict,
+        verdictTitle,
+        analysis,
+        state: nextState,
+        total_cost: totalCost,
+        saldo_saat_ini: snapshot.saldo_saat_ini,
+        sisa_dana_aman: sisaDanaAman,
+        selisih: feasibilityAnalysis.selisih,
       });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });

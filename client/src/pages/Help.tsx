@@ -193,18 +193,18 @@ export default function Help() {
                         </p>
                     </div>
 
-                    <div className="pt-2 space-y-2">
+                    <div className="pt-2 space-y-2.5">
                         <button 
                             type="button"
                             onClick={() => { setIsSuccess(false); setSubject(""); setMessage(""); }}
-                            className="w-full h-12 rounded-2xl bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-bold text-xs uppercase tracking-wider shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer"
+                            className="w-full h-14 rounded-2xl bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center"
                         >
                             Kirim Pesan Lain
                         </button>
                         <Link href="/">
                             <button 
                                 type="button"
-                                className="w-full h-10 text-xs font-medium text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                                className="w-full h-12 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer flex items-center justify-center rounded-2xl hover:bg-slate-100"
                             >
                                 Kembali ke Beranda
                             </button>
@@ -223,7 +223,7 @@ export default function Help() {
                             <select 
                                 value={subject} 
                                 onChange={(e) => setSubject(e.target.value)}
-                                className="w-full h-13 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs text-slate-800 outline-none focus:border-brand-navy focus:bg-white transition-all appearance-none cursor-pointer"
+                                className="w-full h-14 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs text-slate-800 outline-none focus:border-brand-navy focus:bg-white transition-all appearance-none cursor-pointer shadow-xs"
                             >
                                 <option value="" disabled>-- Pilih Kategori Kendala --</option>
                                 <option value="Kendala Transaksi / Saldo">Kendala Transaksi / Saldo</option>

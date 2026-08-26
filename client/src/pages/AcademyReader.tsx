@@ -193,7 +193,7 @@ export default function AcademyReader() {
                         <div className="space-y-2.5">
                             <button
                                 onClick={() => handleExitAction(true)}
-                                className="w-full h-12 bg-brand-gold hover:bg-brand-goldDark text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-brand-navy active:shadow-[1px_1px_0px_0px] active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                className="w-full h-14 bg-brand-gold hover:bg-brand-goldDark text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-[4px_4px_0px_0px] shadow-brand-navy active:shadow-[1px_1px_0px_0px] active:translate-x-[2px] active:translate-y-[2px] transition-all flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 <Check className="w-4 h-4 stroke-[3]" />
                                 <span>Simpan & Keluar</span>
@@ -201,7 +201,7 @@ export default function AcademyReader() {
 
                             <button
                                 onClick={() => handleExitAction(false)}
-                                className="w-full h-11 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black text-xs uppercase tracking-wider rounded-2xl active:scale-95 transition-all cursor-pointer"
+                                className="w-full h-12 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs uppercase tracking-wider rounded-2xl active:scale-95 transition-all cursor-pointer flex items-center justify-center"
                             >
                                 Keluar Tanpa Menyimpan
                             </button>

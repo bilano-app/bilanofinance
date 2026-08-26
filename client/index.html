@@ -2,7 +2,7 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>BILANO - Smart Finance App</title>
 
     <link rel="manifest" href="/manifest.json" />
@@ -26,11 +26,12 @@
     <meta http-equiv="Expires" content="0" />
 
     <style>
-      /* 🚀 DIET VISUAL: Mengecilkan skala dasar agar UI lebih padat/ideal */
-      @media (max-width: 768px) {
-        html {
-          font-size: 14px !important; 
-        }
+      /* 🚀 STANDARISASI UKURAN: Kunci skala dasar 14px universal agar tidak berubah saat 'Situs Desktop' aktif */
+      html {
+        font-size: 14px !important;
+        -webkit-text-size-adjust: 100% !important;
+        text-size-adjust: 100% !important;
+        -webkit-font-smoothing: antialiased;
       }
 
       /* Kunci ukuran agar tidak goyang atau membal (rubber-band effect) */
@@ -39,16 +40,17 @@
         overflow: hidden;
         width: 100%;
         height: 100%;
-        background-color: #ffffff; /* Warna dasar bersih */
+        background-color: #0b101b; /* Background elegan di sisi desktop */
         /* Mencegah tarikan refresh di Chrome/Safari */
         overscroll-behavior-y: none; 
-        /* Mencegah zoom saat double tap (bikin goyang) */
+        /* Mencegah zoom saat double tap */
         touch-action: manipulation; 
       }
 
       /* Buat container utama yang menangani scroll secara internal */
       #root {
         height: 100%;
+        width: 100%;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch; /* Scroll halus di iPhone */
       }
@@ -82,6 +84,25 @@
     </style>
 
     <script>
+      // 🛡️ KUNCI ANTI PINCH-TO-ZOOM & GESTURE SCALING (Chrome & Safari)
+      document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('gesturechange', function(e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { passive: false });
+
+      // Mencegah multi-touch pinch to zoom di mobile
+      document.addEventListener('touchmove', function(e) {
+        if (e.touches && e.touches.length > 1) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      // Mencegah Ctrl + Mouse Wheel zoom di Desktop
+      window.addEventListener('wheel', function(e) {
+        if (e.ctrlKey) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+
       // 🛡️ Blokir popup long-press bawaan Google/Browser untuk seluruh gambar, ikon, dan tautan
       window.addEventListener('contextmenu', function(e) {
         var target = e.target;

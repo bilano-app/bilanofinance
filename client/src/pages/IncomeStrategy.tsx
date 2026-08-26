@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import {
   useIncomeProfile, useGenerateQuestions, useSaveIncomeProfile, useGenerateRecommendations,
-  useIncomeAttempts, useCreateAttempt, useUpdateMaterials, useCheckFeasibility,
+  useIncomeAttempts, useCreateAttempt, useUpdateMaterials, useGenerateMaterials, useCheckFeasibility,
   useCapitalStrategy, useUpdateAttemptState, useSellingChat, useAddFinanceLog, useEvaluateAttempt, useStopAttempt
 } from "@/hooks/use-income-strategy";
 
@@ -319,7 +319,7 @@ function CooldownScreen({ dateStr }: { dateStr: string }) {
           Anda baru saja menghentikan operasional bisnis sebelumnya. Sistem menahan pembuatan ide baru agar Anda fokus mengevaluasi catatan keuangan. Fitur terbuka kembali pada <strong>{formatted}</strong>.
         </p>
         <Link href="/">
-          <button className="w-full max-w-xs h-12 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer">
+          <button className="w-full max-w-xs h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center">
             Kembali ke Beranda
           </button>
         </Link>
@@ -552,7 +552,7 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
                 }
               }}
               disabled={multiSelected.length === 0 || isSubmitting}
-              className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:bg-slate-200 disabled:text-slate-400 text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+              className="w-full h-14 bg-brand-navy hover:bg-[#152e55] disabled:bg-slate-200 disabled:text-slate-400 text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
             >
               {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "LANJUTKAN PERTANYAAN"}
             </button>
@@ -573,7 +573,7 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
               type="button"
               onClick={() => advance(camelKey, textValue.trim())}
               disabled={!textValue.trim() || isSubmitting}
-              className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:bg-slate-200 disabled:text-slate-400 text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full h-14 bg-brand-navy hover:bg-[#152e55] disabled:bg-slate-200 disabled:text-slate-400 text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "LANJUTKAN PERTANYAAN"}
             </button>
@@ -649,7 +649,7 @@ function RecommendationCard({ rec, onSelect, isSelecting }: { rec: any; onSelect
         type="button"
         onClick={onSelect}
         disabled={isSelecting}
-        className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:opacity-60 text-brand-gold font-bold rounded-2xl text-xs uppercase tracking-wider shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+        className="w-full h-14 bg-brand-navy hover:bg-[#152e55] disabled:opacity-60 text-brand-gold font-black rounded-2xl text-xs uppercase tracking-wider shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
       >
         {isSelecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Eksekusi Taktik Ini <ArrowRight className="w-4 h-4" /></>}
       </button>
@@ -742,7 +742,7 @@ function RecommendView({ profile, attempts, onResume, onSelect, selectingId, loc
               type="button"
               onClick={handleGenerate} 
               disabled={isGenerating} 
-              className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:opacity-70 text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
+              className="w-full h-14 bg-brand-navy hover:bg-[#152e55] disabled:opacity-70 text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
             >
               {isGenerating ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyusun Peta...</> : <><RefreshCcw className="w-4 h-4" /> Jalankan Pemindaian Radar</>}
             </button>
@@ -761,7 +761,7 @@ function RecommendView({ profile, attempts, onResume, onSelect, selectingId, loc
               type="button"
               onClick={handleGenerate} 
               disabled={isGenerating} 
-              className="w-full h-12 bg-white border border-amber-300 hover:bg-amber-50 text-brand-navy font-bold text-xs uppercase tracking-wider rounded-2xl shadow-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
+              className="w-full h-14 bg-white border border-amber-300 hover:bg-amber-50 text-brand-navy font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
             >
               {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />} Pindai Alternatif Lain
             </button>
@@ -778,34 +778,84 @@ function RecommendView({ profile, attempts, onResume, onSelect, selectingId, loc
 function MaterialsStep({ attempt, onUpdated }: { attempt: any; onUpdated: (partial: any) => void }) {
   const { toast } = useToast();
   const updateMaterials = useUpdateMaterials(attempt.id);
+  const generateMaterials = useGenerateMaterials(attempt.id);
   const checkFeasibility = useCheckFeasibility(attempt.id);
+
   const [materials, setMaterials] = useState<any[]>(attempt.materials || []);
+  const [statement, setStatement] = useState<string>(attempt.materialsStatement || "");
+  const [noMaterialsNeeded, setNoMaterialsNeeded] = useState<boolean>(!!attempt.noMaterialsNeeded);
+  
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
-  const [clarification, setClarification] = useState<any[] | null>(null);
-  const [manualExpense, setManualExpense] = useState("");
-  const [dependents, setDependents] = useState("");
-  const [verdictResult, setVerdictResult] = useState<any>(null);
+  const [verdictResult, setVerdictResult] = useState<any>(attempt.feasibilityAnalysis || null);
 
   const total = materials.reduce((a, m) => a + (Number(m.price) || 0), 0);
+
+  // Jika materials masih kosong dan belum ada statement saat awal dibuka, panggil AI otomatis
+  useEffect(() => {
+    if (materials.length === 0 && !statement && attempt.state === "MATERIALS") {
+      setIsGenerating(true);
+      generateMaterials.mutateAsync()
+        .then((res: any) => {
+          if (res) {
+            setMaterials(res.materials || []);
+            setStatement(res.materialsStatement || "");
+            setNoMaterialsNeeded(!!res.noMaterialsNeeded);
+            onUpdated({ materials: res.materials, materialsStatement: res.materialsStatement, noMaterialsNeeded: res.noMaterialsNeeded });
+          }
+        })
+        .catch((e: any) => {
+          console.warn("Gagal auto-generate materials:", e.message);
+        })
+        .finally(() => setIsGenerating(false));
+    }
+  }, [attempt.id]);
 
   const updateRow = (idx: number, field: string, value: any) => {
     setMaterials((prev) => prev.map((m, i) => (i === idx ? { ...m, [field]: value } : m)));
   };
-  const addRow = () => setMaterials((prev) => [...prev, { id: String(prev.length + 1).padStart(4, "0"), name: "", price: 0, note: null }]);
-  const removeRow = (idx: number) => setMaterials((prev) => prev.filter((_, i) => i !== idx));
 
-  const runFeasibility = async (extra?: any) => {
+  const addCustomRow = () => {
+    setMaterials((prev) => [
+      ...prev,
+      {
+        id: `custom_${Date.now()}`,
+        name: "",
+        reason: "Kebutuhan tambahan",
+        price: 0,
+        isAiSuggested: false,
+      },
+    ]);
+  };
+
+  const removeRow = (idx: number) => {
+    setMaterials((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleRegenerateMaterials = async () => {
+    setIsGenerating(true);
+    try {
+      const res: any = await generateMaterials.mutateAsync();
+      setMaterials(res.materials || []);
+      setStatement(res.materialsStatement || "");
+      setNoMaterialsNeeded(!!res.noMaterialsNeeded);
+      setVerdictResult(null);
+      onUpdated({ materials: res.materials, materialsStatement: res.materialsStatement, noMaterialsNeeded: res.noMaterialsNeeded });
+      toast({ title: "Kebutuhan Diperbarui", description: "Daftar rekomendasi AI telah dimuat ulang." });
+    } catch (e: any) {
+      toast({ title: "Gagal memuat rekomendasi", description: e.message, variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const runFeasibility = async () => {
     setIsChecking(true);
     try {
-      await updateMaterials.mutateAsync(materials);
-      const result = await checkFeasibility.mutateAsync(extra);
-      if (result.needs_clarification) {
-        setClarification(result.clarification_questions);
-      } else {
-        setClarification(null);
-        setVerdictResult(result);
-        onUpdated({ state: result.state, feasibilityVerdict: result.verdict, totalCost: result.total_cost });
-      }
+      await updateMaterials.mutateAsync({ materials, statement });
+      const result = await checkFeasibility.mutateAsync({ materials });
+      setVerdictResult(result);
+      toast({ title: "Uji Kelayakan Selesai", description: result.verdictTitle || "Analisis kelayakan berhasil diproses." });
     } catch (e: any) {
       toast({ title: "Gagal cek kelayakan", description: e.message, variant: "destructive" });
     } finally {
@@ -813,112 +863,268 @@ function MaterialsStep({ attempt, onUpdated }: { attempt: any; onUpdated: (parti
     }
   };
 
+  const handleProceedToNextStep = () => {
+    if (!verdictResult) return;
+    onUpdated({ 
+      state: verdictResult.state, 
+      feasibilityVerdict: verdictResult.verdict, 
+      totalCost: verdictResult.total_cost,
+      feasibilityAnalysis: verdictResult 
+    });
+  };
+
   return (
     <div className="pt-2 pb-24 space-y-4">
-      <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
-        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-          <Layers className="w-4 h-4 text-amber-600" />
-          Rencana Anggaran Biaya Awal (RAB)
-        </h3>
-        
-        <div className="space-y-2">
-          {materials.map((m, idx) => (
-            <div key={m.id || idx} className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex items-center gap-2">
-              <input 
-                value={m.name} 
-                onChange={(e) => updateRow(idx, "name", e.target.value)} 
-                placeholder="Nama bahan / kebutuhan..." 
-                className="flex-1 min-w-0 text-xs font-medium bg-transparent outline-none text-slate-800" 
-              />
-              <div className="flex items-center gap-1 shrink-0">
-                <span className="text-xs text-slate-400 font-medium">Rp</span>
-                <input 
-                  type="number" 
-                  value={m.price || ""} 
-                  onChange={(e) => updateRow(idx, "price", Number(e.target.value))} 
-                  placeholder="0" 
-                  className="w-24 text-xs font-bold text-right bg-transparent outline-none text-slate-900" 
-                />
-              </div>
-              <button 
-                type="button"
-                onClick={() => removeRow(idx)} 
-                className="p-1 text-slate-300 hover:text-rose-500 transition-colors shrink-0"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-          
-          <button 
+      {/* 1. KARTU IDENTITAS USAHA TERPILIH */}
+      <div className="bg-gradient-to-br from-brand-navy via-[#16386D] to-[#0D1F3D] text-white p-5 rounded-3xl border border-brand-gold/30 shadow-md relative overflow-hidden">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-300 bg-white/10 px-2.5 py-0.5 rounded-full">
+            Rencana Eksekusi Bisnis
+          </span>
+          <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${CAPITAL_BADGE[attempt.recommendation?.capital_level] || "bg-amber-100 text-amber-900 border-amber-300"}`}>
+            {CAPITAL_LABEL[attempt.recommendation?.capital_level] || "Modal Fleksibel"}
+          </span>
+        </div>
+        <h2 className="text-base sm:text-lg font-black text-brand-gold tracking-tight mb-1">
+          {attempt.recommendation?.title || "Ide Bisnis Pilihan Anda"}
+        </h2>
+        <p className="text-xs text-slate-200 leading-relaxed">
+          {attempt.recommendation?.pitch || "Rencana langkah awal memulai usaha mandiri."}
+        </p>
+      </div>
+
+      {/* 2. AREA REKOMENDASI KEBUTUHAN MODAL AI */}
+      <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+            <Layers className="w-4 h-4 text-amber-600" />
+            Rincian Kebutuhan & Modal Awal
+          </h3>
+          <button
             type="button"
-            onClick={addRow} 
-            className="w-full h-12 border border-dashed border-amber-300 bg-amber-50/50 hover:bg-amber-50 rounded-2xl text-brand-navy font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+            onClick={handleRegenerateMaterials}
+            disabled={isGenerating}
+            className="text-[11px] font-bold text-slate-500 hover:text-brand-navy flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+            title="Muat ulang saran AI"
           >
-            <Plus className="w-4 h-4 text-amber-700" /> Tambah Kebutuhan Bahan
+            <RefreshCcw className={`w-3.5 h-3.5 ${isGenerating ? "animate-spin" : ""}`} />
+            <span>AI Refresh</span>
           </button>
         </div>
 
-        <div className="bg-brand-navy rounded-2xl p-3.5 flex items-center justify-between border border-brand-gold/30">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200">Total Proyeksi Anggaran</span>
-          <span className="text-base font-black text-brand-gold tabular-nums">{formatRp(total)}</span>
-        </div>
-
-        {clarification && (
-          <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 space-y-3 animate-in fade-in">
-            <p className="text-xs font-bold text-amber-900">Audit Batas Aman Finansial:</p>
-            {clarification.map((q: any) =>
-              q.type === "text" ? (
-                <input 
-                  key={q.field_key} 
-                  value={manualExpense} 
-                  onChange={(e) => setManualExpense(e.target.value)} 
-                  placeholder={q.placeholder} 
-                  className="w-full px-4 py-3 rounded-xl border border-amber-200 text-xs font-medium outline-none focus:border-amber-500 bg-white" 
-                />
-              ) : (
-                <div key={q.field_key} className="space-y-2">
-                  <p className="text-xs text-slate-700 font-medium">{q.question_text}</p>
-                  {q.options.map((opt: any) => (
-                    <OptionButton key={opt.value} label={opt.label} selected={dependents === opt.value} onClick={() => setDependents(opt.value)} />
-                  ))}
-                </div>
-              )
-            )}
-            <button
-              type="button"
-              onClick={() => runFeasibility({ manualMonthlyExpense: manualExpense, hasDependents: dependents })}
-              disabled={!manualExpense || !dependents || isChecking}
-              className="w-full h-12 bg-brand-navy text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm active:scale-[0.98] transition-all cursor-pointer"
-            >
-              {isChecking ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "KONFIRMASI INTEGRASI KAS"}
-            </button>
-          </div>
-        )}
-
-        {verdictResult && !clarification && (
-          <div className={`rounded-2xl p-4 border ${verdictResult.verdict === "CUKUP_AMAN" ? "bg-emerald-50 border-emerald-300" : verdictResult.verdict === "CUKUP_TAPI_RISIKO" ? "bg-amber-50 border-amber-300" : "bg-rose-50 border-rose-300"}`}>
-            <div className="flex items-center gap-2 mb-1">
-              {verdictResult.verdict === "CUKUP_AMAN" ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <ShieldAlert className={`w-5 h-5 ${verdictResult.verdict === "KURANG" ? "text-rose-600" : "text-amber-600"}`} />}
-              <h4 className={`font-bold text-xs uppercase tracking-wider ${verdictResult.verdict === "CUKUP_AMAN" ? "text-emerald-800" : verdictResult.verdict === "CUKUP_TAPI_RISIKO" ? "text-amber-800" : "text-rose-800"}`}>
-                {verdictResult.verdict === "CUKUP_AMAN" ? "Skala Anggaran Aman" : verdictResult.verdict === "CUKUP_TAPI_RISIKO" ? "Beresiko Mengganggu Dana Cadangan" : "Defisit Sisa Saldo"}
-              </h4>
-            </div>
-            <p className="text-xs text-slate-700 font-medium leading-relaxed">
-              Saldo kas aktif: {formatRp(verdictResult.saldo_saat_ini)} · Batas proteksi: {formatRp(verdictResult.sisa_dana_aman)}
-              {verdictResult.verdict === "KURANG" && <> · Selisih kurang: {formatRp(verdictResult.selisih)}</>}
+        {/* LOADING SCREEN KECIL JIKA SEDANG GENERATE */}
+        {isGenerating && (
+          <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 flex items-center gap-3 animate-pulse">
+            <Loader2 className="w-5 h-5 text-amber-600 animate-spin shrink-0" />
+            <p className="text-xs text-amber-900 font-medium">
+              AI sedang menganalisis kebutuhan alat & bahan baku operasional untuk usaha ini...
             </p>
           </div>
         )}
 
-        {!clarification && !verdictResult && (
+        {/* PERNYATAAN RESMI AI */}
+        {!isGenerating && (
+          <div className={`p-4 rounded-2xl border flex gap-3 items-start ${noMaterialsNeeded && materials.length === 0 ? "bg-emerald-50 border-emerald-200 text-emerald-950" : "bg-blue-50/70 border-blue-200 text-slate-800"}`}>
+            {noMaterialsNeeded && materials.length === 0 ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            ) : (
+              <Bot className="w-5 h-5 text-brand-navy shrink-0 mt-0.5" />
+            )}
+            <div className="space-y-1">
+              <span className={`text-[10px] font-extrabold uppercase tracking-wider ${noMaterialsNeeded && materials.length === 0 ? "text-emerald-700" : "text-brand-navy"}`}>
+                {noMaterialsNeeded && materials.length === 0 ? "Bebas Modal Fisik (Jasa / Digital)" : "Panduan Riset Harga Pasar"}
+              </span>
+              <p className="text-xs leading-relaxed font-medium">
+                {statement || (noMaterialsNeeded && materials.length === 0 
+                  ? "Pekerjaan ini berbasis keahlian murni & aset digital yang sudah Anda miliki. Tidak memerlukan pembelian barang fisik untuk memulai."
+                  : "Berikut daftar kebutuhan awal yang disarankan oleh AI. Silakan survei harga pasaran (di toko fisik/online) dan masukkan estimasi harganya pada kolom di bawah:")}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* LIST KEBUTUHAN BARANG / BAHAN */}
+        <div className="space-y-2.5">
+          {materials.map((m, idx) => (
+            <div 
+              key={m.id || idx} 
+              className="bg-slate-50 hover:bg-slate-100/70 transition-colors border border-slate-200/90 rounded-2xl p-3.5 space-y-2.5"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  {m.isAiSuggested !== false ? (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-[9px] font-extrabold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                          Saran AI
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-900 truncate">
+                          {m.name}
+                        </h4>
+                      </div>
+                      {m.reason && (
+                        <p className="text-[11px] text-slate-500 line-clamp-2">
+                          {m.reason}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-extrabold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                        Kebutuhan Tambahan
+                      </span>
+                      <input 
+                        value={m.name} 
+                        onChange={(e) => updateRow(idx, "name", e.target.value)} 
+                        placeholder="Tulis nama barang/kebutuhan..." 
+                        className="w-full text-xs font-bold text-slate-900 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none focus:border-brand-navy" 
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <button 
+                  type="button"
+                  onClick={() => removeRow(idx)} 
+                  className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0 cursor-pointer"
+                  title="Hapus barang ini"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* BARIS INPUT HARGA PASAR */}
+              <div className="flex items-center justify-between gap-3 pt-1 border-t border-slate-200/60">
+                <span className="text-[11px] font-bold text-slate-600">
+                  Harga Survei Pasaran:
+                </span>
+                <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-xl px-3 py-1.5 shadow-xs focus-within:border-brand-navy">
+                  <span className="text-xs font-bold text-slate-400">Rp</span>
+                  <input 
+                    type="number" 
+                    value={m.price === 0 ? "" : m.price} 
+                    onChange={(e) => updateRow(idx, "price", Number(e.target.value) || 0)} 
+                    placeholder="0" 
+                    className="w-28 text-xs font-black text-right outline-none text-slate-900 placeholder:text-slate-300" 
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* TOMBOL TAMBAH BARANG KUSTOM */}
           <button 
             type="button"
-            onClick={() => runFeasibility()} 
-            disabled={isChecking}
-            className="w-full h-13 bg-brand-navy hover:bg-[#152e55] disabled:bg-slate-200 disabled:text-slate-400 text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+            onClick={addCustomRow} 
+            className="w-full h-12 border border-dashed border-amber-400 bg-amber-50/50 hover:bg-amber-50 rounded-2xl text-brand-navy font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-2xs"
           >
-            {isChecking ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Wallet className="w-4 h-4" /> KALIBRASI STRATEGI MODAL</>}
+            <Plus className="w-4 h-4 text-amber-700 stroke-[2.5]" /> 
+            <span>Tambah Kebutuhan Lain</span>
+          </button>
+        </div>
+
+        {/* 3. BAR TOTAL PROYEKSI ANGGARAN MODAL */}
+        <div className="bg-brand-navy rounded-2xl p-4 flex items-center justify-between border border-brand-gold/30 shadow-md">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200">
+              Total Proyeksi Modal Awal
+            </span>
+            <span className="text-[11px] text-slate-300">
+              {materials.length} Kebutuhan Terdaftar
+            </span>
+          </div>
+          <span className="text-lg font-black text-brand-gold tabular-nums tracking-tight">
+            {formatRp(total)}
+          </span>
+        </div>
+
+        {/* 4. HASIL UJI KELAYAKAN FINANSIAL (JIKA SUDAH DIPROSES) */}
+        {verdictResult && (
+          <div className={`rounded-3xl p-5 border shadow-sm space-y-4 animate-in fade-in zoom-in-95 duration-300 ${
+            verdictResult.verdict === "CUKUP_AMAN" 
+              ? "bg-emerald-50/90 border-emerald-300 text-emerald-950" 
+              : verdictResult.verdict === "CUKUP_TAPI_RISIKO" 
+              ? "bg-amber-50/90 border-amber-300 text-amber-950" 
+              : "bg-rose-50/90 border-rose-300 text-rose-950"
+          }`}>
+            <div className="flex items-center gap-2.5">
+              {verdictResult.verdict === "CUKUP_AMAN" ? (
+                <div className="w-9 h-9 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-300 shadow-2xs">
+                  <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+                </div>
+              ) : (
+                <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 border shadow-2xs ${verdictResult.verdict === "KURANG" ? "bg-rose-100 text-rose-600 border-rose-300" : "bg-amber-100 text-amber-600 border-amber-300"}`}>
+                  <ShieldAlert className="w-5 h-5 stroke-[2.5]" />
+                </div>
+              )}
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
+                  Status Uji Kelayakan Finansial:
+                </span>
+                <h4 className={`font-black text-sm uppercase tracking-tight ${
+                  verdictResult.verdict === "CUKUP_AMAN" ? "text-emerald-800" : verdictResult.verdict === "CUKUP_TAPI_RISIKO" ? "text-amber-800" : "text-rose-800"
+                }`}>
+                  {verdictResult.verdictTitle || (verdictResult.verdict === "CUKUP_AMAN" ? "Sangat Layak & Aman" : verdictResult.verdict === "CUKUP_TAPI_RISIKO" ? "Layak dengan Catatan Risiko" : "Defisit Modal (Perlu Kumpul Modal)")}
+                </h4>
+              </div>
+            </div>
+
+            {/* KARTU KOMPARASI KEUANGAN */}
+            <div className="bg-white/80 backdrop-blur-xs rounded-2xl p-3.5 border border-slate-200/80 space-y-2 text-xs">
+              <div className="flex justify-between items-center text-slate-700">
+                <span>Saldo Kas Aktif Anda:</span>
+                <span className="font-extrabold text-slate-900">{formatRp(verdictResult.saldo_saat_ini)}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-700">
+                <span>Total Modal Dibutuhkan:</span>
+                <span className="font-extrabold text-brand-navy">{formatRp(verdictResult.total_cost)}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-700 border-t border-slate-100 pt-1.5">
+                <span>Batas Aman Dana Cadangan:</span>
+                <span className="font-extrabold text-slate-900">{formatRp(verdictResult.sisa_dana_aman)}</span>
+              </div>
+            </div>
+
+            {/* ANALISIS MENTOR AI */}
+            <p className="text-xs font-medium leading-relaxed">
+              {verdictResult.analysis}
+            </p>
+
+            {/* TOMBOL LANJUT KE LANGKAH BERIKUTNYA */}
+            <button
+              type="button"
+              onClick={handleProceedToNextStep}
+              className={`w-full h-14 font-black text-xs uppercase tracking-wider rounded-2xl shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                verdictResult.state === "SELLING" 
+                  ? "bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-emerald-200" 
+                  : "bg-gradient-to-r from-brand-navy to-[#16386D] text-brand-gold shadow-slate-300"
+              }`}
+            >
+              {verdictResult.state === "SELLING" ? (
+                <>LANJUT KE STRATEGI PENJUALAN (48 JAM) <ArrowRight className="w-4 h-4" /></>
+              ) : (
+                <>BUKA PANDUAN KUMPUL MODAL (PRE-ORDER) <ArrowRight className="w-4 h-4" /></>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* 5. TOMBOL PROSES UJI KELAYAKAN (JIKA BELUM DISUBMIT) */}
+        {!verdictResult && (
+          <button 
+            type="button"
+            onClick={runFeasibility} 
+            disabled={isChecking || isGenerating}
+            className="w-full h-14 bg-brand-navy hover:bg-[#152e55] disabled:bg-slate-200 disabled:text-slate-400 text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {isChecking ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                <Wallet className="w-4 h-4 text-brand-gold" /> 
+                <span>PROSES UJI KELAYAKAN FINANSIAL</span>
+              </>
+            )}
           </button>
         )}
       </div>
