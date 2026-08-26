@@ -141,7 +141,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const isAdminValid = (email?: string) => { 
     if (!email) return false;
-    return ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(email.trim().toLowerCase()); 
+    const clean = String(email).trim().toLowerCase();
+    return clean === "adrienfandra14@gmail.com" || clean === "bilanotech@gmail.com"; 
   };
 
   // 🚀 AUTO RUN INITIAL DATABASE SCHEMA MIGRATIONS
@@ -1153,12 +1154,6 @@ function parseCleanJson(text: string): any {
       console.error("getUser error:", e);
       return { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 };
     }
-  };
-
-  const isAdminValid = (email: string) => { 
-    if (!email) return false;
-    const clean = String(email).trim().toLowerCase();
-    return clean === "adrienfandra14@gmail.com" || clean === "bilanotech@gmail.com"; 
   };
 
   app.post("/api/user/onesignal", async (req: any, res: any) => {
