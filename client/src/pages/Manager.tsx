@@ -181,29 +181,45 @@ export default function Manager() {
       if (activeTab === 'users') fetchUsersList();
       if (activeTab === 'tickets') fetchTicketsList();
     }
-  }, [activeTab]);
+  }, [activeTab, isAuthorized]);
+
+  const getAdminEmail = () => {
+    return localStorage.getItem("bilano_manager_email") || credentials.email.trim() || "bilanotech@gmail.com";
+  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthLoading(true);
     try {
+      const cleanEmail = credentials.email.trim();
+      const cleanPassword = credentials.password.trim();
+
       const res = await fetch("/api/admin/manager-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: credentials.email, password: credentials.password })
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
       });
-      const json = await res.json();
+      
+      let json: any = {};
+      try {
+        json = await res.json();
+      } catch (parseErr) {
+        const text = await res.text().catch(() => "");
+        json = { error: text || `Terjadi kesalahan server (${res.status})` };
+      }
+
       if (res.ok && json.success) {
         setIsAuthorized(true);
         localStorage.setItem("bilano_manager_auth", "true"); 
-        fetchDashboardStats(); 
-        fetchUsersList();
-        fetchTicketsList();
+        localStorage.setItem("bilano_manager_email", cleanEmail);
+        fetchDashboardStats(cleanEmail); 
+        fetchUsersList(cleanEmail);
+        fetchTicketsList(cleanEmail);
       } else {
-        alert(json.error || "Kredensial salah.");
+        alert(json.error || "Kredensial salah atau tidak dikenal.");
       }
-    } catch (e) {
-      alert("Terjadi kesalahan jaringan.");
+    } catch (e: any) {
+      alert("Terjadi kesalahan jaringan: " + (e.message || "Silakan periksa koneksi."));
     } finally {
       setAuthLoading(false);
     }
@@ -211,51 +227,60 @@ export default function Manager() {
 
   const handleLogout = () => {
     localStorage.removeItem("bilano_manager_auth");
+    localStorage.removeItem("bilano_manager_email");
     setIsAuthorized(false);
     setData(null);
   };
 
-  const fetchDashboardStats = async () => {
+  const fetchDashboardStats = async (overrideEmail?: string) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/tracking-stats", { headers: { "x-user-email": "bilanotech@gmail.com" } });
-      const json = await res.json();
-      if (res.ok) setData(json);
-      else { alert(json.error || "Gagal memuat data intelijen."); handleLogout(); }
-    } catch (e) {
-      alert("Terjadi kesalahan jaringan."); handleLogout(); 
+      const adminEmail = overrideEmail || getAdminEmail();
+      const res = await fetch("/api/admin/tracking-stats", { headers: { "x-user-email": adminEmail } });
+      let json: any = {};
+      try { json = await res.json(); } catch(e) { json = { error: "Gagal memproses respons server." }; }
+
+      if (res.ok) {
+        setData(json);
+      } else { 
+        alert(json.error || "Gagal memuat data intelijen."); 
+      }
+    } catch (e: any) {
+      console.error("Fetch tracking-stats error:", e);
     } finally {
       setLoading(false);
     }
   };
 
   // 👥 FETCH USER LIST
-  const fetchUsersList = async () => {
+  const fetchUsersList = async (overrideEmail?: string) => {
     setIsLoadingUsers(true);
     try {
-      const res = await fetch("/api/admin/users", { headers: { "x-user-email": "bilanotech@gmail.com" } });
+      const adminEmail = overrideEmail || getAdminEmail();
+      const res = await fetch("/api/admin/users", { headers: { "x-user-email": adminEmail } });
       if (res.ok) {
         const json = await res.json();
         setUsersList(json.users || json || []);
       }
     } catch (e) {
-      console.error("Gagal memuat daftar pengguna");
+      console.error("Gagal memuat daftar pengguna:", e);
     } finally {
       setIsLoadingUsers(false);
     }
   };
 
   // 💬 FETCH TICKETS
-  const fetchTicketsList = async () => {
+  const fetchTicketsList = async (overrideEmail?: string) => {
     setIsLoadingTickets(true);
     try {
-      const res = await fetch("/api/admin/tickets", { headers: { "x-user-email": "bilanotech@gmail.com" } });
+      const adminEmail = overrideEmail || getAdminEmail();
+      const res = await fetch("/api/admin/tickets", { headers: { "x-user-email": adminEmail } });
       if (res.ok) {
         const json = await res.json();
         setTickets(json.tickets || json || []);
       }
     } catch (e) {
-      console.error("Gagal memuat tiket bantuan");
+      console.error("Gagal memuat tiket bantuan:", e);
     } finally {
       setIsLoadingTickets(false);
     }
@@ -271,7 +296,7 @@ export default function Manager() {
     try {
       const res = await fetch("/api/admin/toggle-pro", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-email": "bilanotech@gmail.com" },
+        headers: { "Content-Type": "application/json", "x-user-email": getAdminEmail() },
         body: JSON.stringify({ 
           userId: user.id, 
           email: user.email, 
@@ -303,7 +328,7 @@ export default function Manager() {
     try {
       const res = await fetch("/api/admin/reset-analytics", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-email": "bilanotech@gmail.com" }
+        headers: { "Content-Type": "application/json", "x-user-email": getAdminEmail() }
       });
       const json = await res.json();
       if (res.ok && json.success) {
@@ -328,7 +353,7 @@ export default function Manager() {
     try {
       const res = await fetch("/api/admin/reply-ticket", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-email": "bilanotech@gmail.com" },
+        headers: { "Content-Type": "application/json", "x-user-email": getAdminEmail() },
         body: JSON.stringify({ 
           ticketId: replyingTo.id, 
           replyMessage, 

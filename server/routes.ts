@@ -472,11 +472,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/admin/manager-login", async (req: any, res: any) => {
-      const { email, password } = req.body;
-      if (email === "bilanotech@gmail.com" && password === "Bilano6676") {
-          return res.json({ success: true, token: "admin_authorized_session" });
+      try {
+          const { email, password } = req.body || {};
+          const cleanEmail = (email || "").trim().toLowerCase();
+          const cleanPass = (password || "").trim();
+          
+          if ((cleanEmail === "bilanotech@gmail.com" || cleanEmail === "adrienfandra14@gmail.com") && cleanPass === "Bilano6676") {
+              return res.json({ success: true, token: "admin_authorized_session", email: cleanEmail });
+          }
+          return res.status(401).json({ error: "Kredensial Admin Salah atau Tidak Dikenal!" });
+      } catch (e: any) {
+          console.error("Manager login error:", e);
+          return res.status(500).json({ error: "Gagal memproses login admin: " + e.message });
       }
-      return res.status(401).json({ error: "Kredensial Admin Salah atau Tidak Dikenal!" });
   });
 
   // =========================================================================
@@ -1130,7 +1138,11 @@ function parseCleanJson(text: string): any {
     return user;
   };
 
-  const isAdminValid = (email: string) => { return ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(email); };
+  const isAdminValid = (email: string) => { 
+    if (!email) return false;
+    const clean = String(email).trim().toLowerCase();
+    return clean === "adrienfandra14@gmail.com" || clean === "bilanotech@gmail.com"; 
+  };
 
   app.post("/api/user/onesignal", async (req: any, res: any) => {
       try {
