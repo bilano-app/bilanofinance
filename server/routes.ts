@@ -1113,29 +1113,46 @@ function parseCleanJson(text: string): any {
   });
 
   const getUser = async (req: any) => {
-    const email = req.headers["x-user-email"];
-    if (!email || email === "guest") {
-        let user = await storage.getUser(1);
-        if (!user) user = await storage.createUser({ username: "guest", password: "123", email: "guest@bilano.app" });
-        return user;
+    try {
+      const rawEmail = req?.headers?.["x-user-email"];
+      const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : "";
+      
+      if (!email || email === "guest") {
+          let user = await storage.getUser(1).catch(() => null);
+          if (!user) {
+              user = await storage.getUserByUsername("guest").catch(() => null);
+          }
+          if (!user) {
+              user = await storage.createUser({ username: "guest", password: "123", email: "guest@bilano.app" }).catch(() => null);
+          }
+          return user || { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 };
+      }
+      
+      let user = await storage.getUserByUsername(email).catch(() => null);
+      if (!user) {
+          try { 
+              user = await storage.createUser({ username: email, password: "123", email: email }); 
+          } catch (err) { 
+              user = await storage.getUserByUsername(email).catch(() => null); 
+          }
+      }
+      
+      const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"];
+      if (user && vipEmails.includes(user.email?.toLowerCase() || "")) {
+          user.isPro = true;
+          user.proValidUntil = new Date("2099-12-31").toISOString() as any; 
+          return user; 
+      }
+      if (user && user.isPro && user.proValidUntil) {
+          const now = new Date();
+          const validUntil = new Date(user.proValidUntil);
+          if (now > validUntil) user = await storage.updateUserProStatus(user.id, false, null);
+      }
+      return user || { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 };
+    } catch (e) {
+      console.error("getUser error:", e);
+      return { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 };
     }
-    let user = await storage.getUserByUsername(email as string);
-    if (!user) {
-        try { user = await storage.createUser({ username: email as string, password: "123", email: email as string }); } 
-        catch (err) { user = await storage.getUserByUsername(email as string); }
-    }
-    const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"];
-    if (user && vipEmails.includes(user.email || "")) {
-        user.isPro = true;
-        user.proValidUntil = new Date("2099-12-31").toISOString() as any; 
-        return user; 
-    }
-    if (user && user.isPro && user.proValidUntil) {
-        const now = new Date();
-        const validUntil = new Date(user.proValidUntil);
-        if (now > validUntil) user = await storage.updateUserProStatus(user.id, false, null);
-    }
-    return user;
   };
 
   const isAdminValid = (email: string) => { 
@@ -1827,7 +1844,16 @@ function parseCleanJson(text: string): any {
 
   app.delete("/api/debts/:id", async (req: any, res: any) => { await storage.deleteDebt(parseInt(req.params.id)); res.json({success:true}); });
 
-  app.get("/api/target", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getTarget(user!.id) || {}); });
+  app.get("/api/target", async (req: any, res: any) => { 
+    try {
+      const user = await getUser(req); 
+      const target = user ? await storage.getTarget(user.id) : null;
+      res.json(target || {}); 
+    } catch (e: any) {
+      console.error("GET /api/target error:", e);
+      res.json({});
+    }
+  });
   
   app.patch("/api/target/penalty", async (req: any, res: any) => { 
       const user = await getUser(req); 
@@ -2062,16 +2088,39 @@ function parseCleanJson(text: string): any {
       }
   });
   
-  app.get("/api/categories", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getCategories(user!.id)); });
+  app.get("/api/categories", async (req: any, res: any) => { 
+    try {
+      const user = await getUser(req); 
+      const cats = user ? await storage.getCategories(user.id) : [];
+      res.json(cats || []); 
+    } catch (e: any) {
+      res.json([]);
+    }
+  });
   app.post("/api/categories", async (req: any, res: any) => { const user = await getUser(req); await storage.createCategory({ ...req.body, userId: user!.id } as any); res.json({success:true}); });
   app.delete("/api/categories/:id", async (req: any, res: any) => { await storage.deleteCategory(parseInt(req.params.id)); res.json({success:true}); });
 
-  app.get("/api/subscriptions", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getSubscriptions(user!.id)); });
+  app.get("/api/subscriptions", async (req: any, res: any) => { 
+    try {
+      const user = await getUser(req); 
+      const subs = user ? await storage.getSubscriptions(user.id) : [];
+      res.json(subs || []); 
+    } catch (e: any) {
+      res.json([]);
+    }
+  });
   app.post("/api/subscriptions", async (req: any, res: any) => { const user = await getUser(req); const sub = await storage.createSubscription(user!.id, req.body as any); res.json(sub); });
   app.patch("/api/subscriptions/:id/status", async (req: any, res: any) => { const { isActive } = req.body; await storage.updateSubscriptionStatus(parseInt(req.params.id), isActive); res.json({ success: true }); });
   app.delete("/api/subscriptions/:id", async (req: any, res: any) => { await storage.deleteSubscription(parseInt(req.params.id)); res.json({ success: true }); });
 
-  app.get("/api/user", async (req: any, res: any) => { const user = await getUser(req); res.json(user); });
+  app.get("/api/user", async (req: any, res: any) => { 
+    try {
+      const user = await getUser(req); 
+      res.json(user || { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 }); 
+    } catch (e: any) {
+      res.json({ id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 });
+    }
+  });
   app.patch("/api/user/profile", async (req: any, res: any) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
   
   app.get("/api/admin/users", async (req: any, res: any) => {
