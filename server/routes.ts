@@ -1382,6 +1382,70 @@ function parseCleanJson(text: string): any {
       res.json(tx); 
   });
 
+  app.post("/api/transactions/batch", async (req: any, res: any) => {
+      const user = await getUser(req);
+      if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+      const { transactions: txList } = req.body;
+      if (!txList || !Array.isArray(txList) || txList.length === 0) {
+          return res.status(400).json({ error: "Tidak ada transaksi yang dikirim." });
+      }
+
+      let newBalance = Math.round(user.cashBalance);
+      let walletSources: any[] = user.walletSources ? [...(user.walletSources as any[])] : [];
+      const createdTxs = [];
+
+      for (const item of txList) {
+          const parsed = insertTransactionSchema.safeParse({
+              ...item,
+              date: item.date ? new Date(item.date) : new Date(),
+              amount: Math.round(parseFloat(item.amount) || 0)
+          });
+          if (!parsed.success) continue;
+
+          const tx = await storage.createTransaction(user.id, { ...parsed.data, userId: user.id } as any);
+          createdTxs.push(tx);
+
+          const isValas = parsed.data.category?.includes('Valas');
+          const amt = Math.round(parsed.data.amount);
+          const sourceName = parsed.data.source;
+
+          if (!isValas) {
+              if (parsed.data.type === 'income') {
+                  newBalance += amt;
+                  if (sourceName) {
+                      const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
+                      if (wsIdx >= 0) {
+                          walletSources[wsIdx].balance += amt;
+                      } else {
+                          walletSources.push({
+                              id: Date.now().toString() + Math.random(),
+                              name: sourceName,
+                              type: 'bank',
+                              balance: amt
+                          });
+                      }
+                  }
+              } else if (parsed.data.type === 'expense') {
+                  newBalance -= amt;
+                  if (sourceName) {
+                      const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
+                      if (wsIdx >= 0) walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+                  }
+              }
+          }
+      }
+
+      if (newBalance !== Math.round(user.cashBalance)) {
+          await storage.updateUserBalance(user.id, newBalance);
+      }
+      if (walletSources.length > 0) {
+          await storage.updateUserWalletSources(user.id, walletSources);
+      }
+
+      res.json({ success: true, count: createdTxs.length, transactions: createdTxs });
+  });
+
   app.delete("/api/user/account", async (req: any, res: any) => {
       const user = await getUser(req);
       if (!user || user.username === 'guest') return res.status(401).json({ error: "Sesi tidak valid." });
@@ -2379,7 +2443,7 @@ function parseCleanJson(text: string): any {
                   subject: `Re: [${ticketId || 'TCK'}] ${subject || 'Bantuan Akun Bilano'}`,
                   html: `
                     <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; max-width: 600px; margin: auto;">
-                      <img src="https://bilanofinance-dvbi.vercel.app/Bilano_horiz_rbg.png" width="120" style="margin-bottom: 20px;" />
+                      <img src="https://bilanofinance-dvbi.vercel.app/BILANO-LOGO-NEW.png" width="120" style="margin-bottom: 20px;" />
                       <h2 style="color: #4f46e5; margin-bottom: 5px;">Balasan Tim Bantuan BILANO</h2>
                       <p style="color: #6b7280; font-size: 12px; margin-top: 0;">Tiket: ${ticketId || '-'}</p>
                       <div style="font-size: 14px; color: #1f2937; line-height: 1.6; margin-top: 20px;">${(replyMessage || '').replace(/\n/g, '<br/>')}</div>
@@ -2617,13 +2681,46 @@ function parseCleanJson(text: string): any {
               return { inline_data: { mime_type: mimeType, data: base64Data } };
           });
 
-          const systemPrompt = `Kamu adalah Asisten Finansial BILANO yang cerdas. Tugasmu membaca struk belanja/dokumen keuangan dari SATU ATAU BANYAK GAMBAR.
-          Tugas:
-          1. Rekap TOTAL KESELURUHAN dari semua gambar yang diunggah.
-          2. Buat rincian detail gabungan dari semua struk (Pisahkan dengan baris baru \n).
-          3. Tentukan jenis transaksi (expense/income).
-          4. Tentukan mata uangnya (IDR, USD, dll).
-          Output WAJIB JSON MURNI: {"totalAmount": 150000, "currency": "IDR", "category": "Makan/Minum", "type": "expense", "description": "- Struk 1: Nasi Goreng Rp 25.000\\n- Struk 2: Bensin Rp 25.000\\n- Total gabungan: Rp 50.000"}`;
+          const systemPrompt = `Kamu adalah Asisten Finansial AI BILANO yang ahli dan teliti.
+Tugasmu membaca dan membedah dokumen keuangan / struk belanja / bukti transfer dari SATU ATAU BANYAK GAMBAR yang diunggah pengguna.
+
+ATURAN PARSING:
+1. Ekstraksi SEMUA transaksi yang ditemukan dari setiap gambar secara terpisah ke dalam daftar "items".
+2. Klasifikasikan setiap item dengan tepat:
+   - "type": "expense" (jika struk belanja, beli barang/jasa, pengeluaran kas) ATAU "income" (jika bukti transfer masuk, invoice pembayaran diterima, slip gaji, penjualan).
+   - "category": Kategori relevan (contoh: "Makan & Minum", "Belanja", "Transportasi", "Gaji", "Penjualan", "Tagihan Bulanan", "Kesehatan", "Lainnya").
+   - "title": Nama spesifik struk/barang/toko (contoh: "Indomaret - Belanja Bulanan", "Kopi Kenangan", "Transfer Masuk Klien").
+   - "amount": Nominal angka positif (integer).
+   - "currency": "IDR", "USD", dll.
+3. Hitung secara matematis:
+   - "totalIncome": Jumlah total seluruh item income.
+   - "totalExpense": Jumlah total seluruh item expense.
+   - "netTotal": totalIncome - totalExpense.
+   - "totalAmount": totalExpense > 0 ? totalExpense : totalIncome.
+   - "summary": Ringkasan singkat berbahasa Indonesia (contoh: "Ditemukan 2 struk pengeluaran total Rp 125.000").
+   - "description": Daftar rincian teks item dipisahkan baris baru (\\n).
+
+Output WAJIB JSON MURNI sesuai schema berikut:
+{
+  "items": [
+    {
+      "id": "1",
+      "title": "Nama Toko / Item",
+      "amount": 50000,
+      "type": "expense",
+      "category": "Makan & Minum",
+      "currency": "IDR"
+    }
+  ],
+  "totalIncome": 0,
+  "totalExpense": 50000,
+  "netTotal": -50000,
+  "totalAmount": 50000,
+  "type": "expense",
+  "category": "Makan & Minum",
+  "description": "- Nama Toko / Item: Rp 50.000",
+  "summary": "1 pengeluaran senilai Rp 50.000"
+}`;
 
           const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
               method: "POST", headers: { "Content-Type": "application/json" },
@@ -2638,6 +2735,18 @@ function parseCleanJson(text: string): any {
           let parsedResult;
           try { parsedResult = JSON.parse(resultText); } 
           catch (e) { parsedResult = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); }
+
+          if (!parsedResult.items || !Array.isArray(parsedResult.items)) {
+              parsedResult.items = [{
+                  id: "1",
+                  title: parsedResult.category || "Pindai Struk",
+                  amount: parsedResult.totalAmount || 0,
+                  type: parsedResult.type || 'expense',
+                  category: parsedResult.category || 'Belanja',
+                  currency: parsedResult.currency || 'IDR'
+              }];
+          }
+
           res.json({ success: true, data: parsedResult });
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses gambar." }); }
   });
@@ -2653,14 +2762,54 @@ function parseCleanJson(text: string): any {
           const apiKey = (process.env.GEMINI_API_KEY || "").replace(/['"]/g, "").trim();
           if (!apiKey) return res.status(500).json({ error: "Sistem AI belum dikonfigurasi di server." });
 
-          const systemPrompt = `Kamu adalah Asisten Finansial BILANO yang cerdas. Pengguna akan memberikan rekaman suara tentang catatan keuangannya. Bisa jadi ada LEBIH DARI SATU transaksi yang disebutkan.
-          Tugasmu:
-          1. Hitung TOTAL AKHIR KESELURUHAN secara matematis dari semua angka/transaksi yang disebutkan.
-          2. Buat daftar RINCIAN ITEM berserta harganya (Pisahkan dengan baris baru \\n).
-          3. Tentukan kategori umum (Misal: Makan/Minum, Transportasi, Belanja, dll).
-          4. Tentukan jenis transaksi (income / expense / debt / receivable). Jika ada pemasukan dan pengeluaran, gunakan arus utamanya (jika dominan pengeluaran, set expense).
-          5. Output HANYA dalam format JSON MURNI tanpa embel-embel markdown.
-          Format JSON: {"totalAmount": 150000, "currency": "IDR", "category": "Belanja", "type": "expense", "description": "- Makan Siang: Rp 50.000\\n- Beli Kuota: Rp 100.000"}`;
+          const systemPrompt = `Kamu adalah Asisten Finansial AI BILANO yang sangat cerdas dalam memahami bahasa Indonesia lisan/dikte.
+Pengguna akan mendiktekan catatan keuangannya melalui suara. Pengguna bisa menyebutkan BANYAK TRANSAKSI SEKALIGUS, yang bisa berupa PEMASUKAN, PENGELUARAN, atau KEDUANYA (contoh: "dapat bonus gaji 2 juta, terus jajan sate 50 ribu sama beli pulsa 100 ribu").
+
+ATURAN PARSING:
+1. Pisahkan setiap transaksi yang disebutkan ke dalam daftar "items".
+2. Identifikasi masing-masing item:
+   - "type": "income" (jika uang masuk, gaji, bonus, terima transfer, dividen, penjualan) ATAU "expense" (jika uang keluar, belanja, makan, beli pulsa, bayar tagihan, dll).
+   - "category": Kategori tepat (contoh: "Gaji", "Bonus", "Makan & Minum", "Belanja", "Transportasi", "Tagihan Bulanan", "Lainnya").
+   - "title": Nama transaksi/barang (contoh: "Bonus Gaji", "Makan Sate", "Beli Pulsa").
+   - "amount": Nominal angka positif (contoh jika disebut "50 ribu" maka 50000, jika "2 juta" maka 2000000).
+   - "currency": "IDR", "USD", dll.
+3. Hitung secara matematis:
+   - "totalIncome": Jumlah total seluruh item income.
+   - "totalExpense": Jumlah total seluruh item expense.
+   - "netTotal": totalIncome - totalExpense.
+   - "totalAmount": totalExpense > 0 ? totalExpense : totalIncome.
+   - "summary": Ringkasan singkat berbahasa Indonesia.
+   - "description": Rincian teks berbaris baru (\\n).
+
+Output WAJIB JSON MURNI sesuai schema berikut:
+{
+  "items": [
+    {
+      "id": "1",
+      "title": "Bonus Gaji",
+      "amount": 2000000,
+      "type": "income",
+      "category": "Gaji",
+      "currency": "IDR"
+    },
+    {
+      "id": "2",
+      "title": "Makan Sate",
+      "amount": 50000,
+      "type": "expense",
+      "category": "Makan & Minum",
+      "currency": "IDR"
+    }
+  ],
+  "totalIncome": 2000000,
+  "totalExpense": 50000,
+  "netTotal": 1950000,
+  "totalAmount": 2000000,
+  "type": "income",
+  "category": "Gaji",
+  "description": "- Bonus Gaji (+Rp 2.000.000)\\n- Makan Sate (-Rp 50.000)",
+  "summary": "1 pemasukan (Rp 2.000.000) dan 1 pengeluaran (Rp 50.000)"
+}`;
 
           const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
               method: "POST", headers: { "Content-Type": "application/json" },
@@ -2678,6 +2827,18 @@ function parseCleanJson(text: string): any {
           let parsedResult;
           try { parsedResult = JSON.parse(resultText); } 
           catch (e) { parsedResult = JSON.parse(resultText.replace(/```json/g, '').replace(/```/g, '').trim()); }
+
+          if (!parsedResult.items || !Array.isArray(parsedResult.items)) {
+              parsedResult.items = [{
+                  id: "1",
+                  title: parsedResult.category || "Catatan Suara",
+                  amount: parsedResult.totalAmount || 0,
+                  type: parsedResult.type || 'expense',
+                  category: parsedResult.category || 'Lainnya',
+                  currency: parsedResult.currency || 'IDR'
+              }];
+          }
+
           res.json({ success: true, data: parsedResult });
       } catch (error: any) { res.status(500).json({ error: error.message || "Gagal memproses suara." }); }
   });

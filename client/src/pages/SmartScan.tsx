@@ -5,12 +5,23 @@ import {
     Mic, ImagePlus, Check, X, Globe, AlertTriangle, RefreshCw, 
     Loader2, HandCoins, Wallet, AlertCircle, ArrowLeft, 
     Camera, ScanLine, CheckCircle2, ChevronRight, Info, ShieldAlert,
-    HelpCircle, Banknote
+    HelpCircle, Banknote, Plus, Trash2, ArrowUpRight, ArrowDownLeft,
+    Layers, Sparkles
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
 import { useQueryClient } from "@tanstack/react-query";
 import { trackEvent } from "@/lib/tracking";
+
+interface ScannedItem {
+    id: string;
+    title: string;
+    amount: number;
+    type: 'income' | 'expense';
+    category: string;
+    currency: string;
+    source?: string;
+}
 
 export default function SmartScan() {
     const { toast } = useToast();
@@ -18,31 +29,28 @@ export default function SmartScan() {
     const [, setLocation] = useLocation();
     const { data: user } = useUser();
     
+    // Voice State
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState("");
+    
+    // Scan Status
     const [isScanning, setIsScanning] = useState(false);
     const [scanStatus, setScanStatus] = useState("Menyiapkan Sistem AI...");
     
-    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-    const [liveRates, setLiveRates] = useState<Record<string, number>>({});
+    // Images State
+    const [imagePreviews, setImagePreviews] = useState<{ id: string; url: string; base64: string }[]>([]);
     
+    // Confirmation Dashboard State
+    const [showResultForm, setShowResultForm] = useState(false);
+    const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
+    const [selectedGlobalSource, setSelectedGlobalSource] = useState<string>("");
+    
+    // Rates & Budget Data
+    const [liveRates, setLiveRates] = useState<Record<string, number>>({});
     const [targetData, setTargetData] = useState<any>(null);
     const [currentExpense, setCurrentExpense] = useState(0);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     
-    const [showResultForm, setShowResultForm] = useState(false);
-    const [detectedType, setDetectedType] = useState<'income' | 'expense' | 'debt' | 'receivable'>('expense');
-    
-    const [paymentMode, setPaymentMode] = useState<'cash' | 'pending'>('cash');
-    
-    const [isForex, setIsForex] = useState(false);
-    const [amount, setAmount] = useState("");
-    const [category, setCategory] = useState("");
-    const [desc, setDesc] = useState("");
-    const [currency, setCurrency] = useState("USD");
-    const [rate, setRate] = useState("16.000");
-    const [debtName, setDebtName] = useState("");
-
     const [showEmergencyModal, setShowEmergencyModal] = useState(false);
     const [emergencyDetails, setEmergencyDetails] = useState({ deficit: 0, nextMonthLimit: 0 });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,21 +66,25 @@ export default function SmartScan() {
     
     const getAuthHeaders = () => ({ "x-user-email": currentUserEmail });
 
-    const formatNum = (val: string) => {
-        if (!val) return "";
-        let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
-        const parts = raw.split(",");
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-        return parts.slice(0, 2).join(",");
+    const formatNum = (val: string | number) => {
+        if (val === undefined || val === null || val === "") return "";
+        let raw = val.toString().replace(/\./g, "").replace(/[^0-9]/g, "");
+        if (raw.length > 1) {
+            raw = raw.replace(/^0+/, '');
+        }
+        return raw.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     };
-    const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
+    const parseNum = (val: string | number) => {
+        if (typeof val === 'number') return val;
+        return parseFloat(val.toString().replace(/\./g, "").replace(/,/g, ".")) || 0;
+    };
+    const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
 
     useEffect(() => {
         const loadData = async () => {
             try {
                 fetch("/api/forex/rates", { headers: getAuthHeaders() }).then(r => r.json()).then(d => {
                     setLiveRates(d);
-                    if(d['USD']) setRate(formatNum(Math.floor(d['USD']).toString()));
                 }).catch(() => {});
 
                 const [resTarget, resTx] = await Promise.all([
@@ -106,11 +118,27 @@ export default function SmartScan() {
         loadData();
     }, []);
 
-    const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
+    // Set default wallet source if available
+    useEffect(() => {
+        if (user?.walletSources && (user.walletSources as any[]).length > 0 && !selectedGlobalSource) {
+            setSelectedGlobalSource((user.walletSources as any[])[0].name);
+        }
+    }, [user, selectedGlobalSource]);
 
+    // Available wallet sources
+    const availableSources = user?.walletSources && Array.isArray(user.walletSources) && (user.walletSources as any[]).length > 0
+        ? (user.walletSources as any[]).map((w: any) => w.name)
+        : ["Cash (Uang Kertas)", "BCA", "Mandiri", "GoPay", "OVO"];
+
+    // Totals calculations
+    const totalIncome = scannedItems.filter(i => i.type === 'income').reduce((sum, i) => sum + (i.amount || 0), 0);
+    const totalExpense = scannedItems.filter(i => i.type === 'expense').reduce((sum, i) => sum + (i.amount || 0), 0);
+    const netTotal = totalIncome - totalExpense;
+
+    // VOICE PROCESSING
     const processAudioWithAI = async (text: string) => {
         setIsScanning(true);
-        setScanStatus("AI sedang menganalisa dikte suara...");
+        setScanStatus("AI sedang menganalisis rekaman suara & membedah transaksi...");
         try {
             const response = await fetch("/api/voice/scan", {
                 method: "POST",
@@ -122,28 +150,36 @@ export default function SmartScan() {
             if (!response.ok) throw new Error(resData.error || "Gagal memproses suara.");
             
             const aiData = resData.data;
+            const items: ScannedItem[] = (aiData.items || []).map((it: any, idx: number) => ({
+                id: it.id || `${Date.now()}_${idx}`,
+                title: it.title || (it.type === 'income' ? "Pemasukan Suara" : "Pengeluaran Suara"),
+                amount: Math.round(it.amount || 0),
+                type: it.type === 'income' ? 'income' : 'expense',
+                category: it.category || (it.type === 'income' ? "Pemasukan Lain" : "Belanja"),
+                currency: it.currency || "IDR",
+                source: selectedGlobalSource || availableSources[0]
+            }));
 
-            setDetectedType(aiData.type || 'expense');
-            setPaymentMode('cash');
-            
-            const currCode = (aiData.currency || "IDR").toUpperCase();
-            if (currCode !== "IDR") {
-                setIsForex(true); 
-                setCurrency(currCode);
-                if (liveRates[currCode]) setRate(formatNum(Math.floor(liveRates[currCode]).toString()));
-            } else {
-                setIsForex(false); 
-                setCurrency("IDR");
+            if (items.length === 0) {
+                items.push({
+                    id: Date.now().toString(),
+                    title: aiData.category || "Catatan Suara",
+                    amount: Math.round(aiData.totalAmount || 0),
+                    type: aiData.type === 'income' ? 'income' : 'expense',
+                    category: aiData.category || "Lainnya",
+                    currency: aiData.currency || "IDR",
+                    source: selectedGlobalSource || availableSources[0]
+                });
             }
-            
-            setAmount(aiData.totalAmount ? formatNum(aiData.totalAmount.toString()) : "");
-            setCategory(aiData.category || "Lainnya");
-            setDesc(aiData.description || text);
-            
-            toast({ title: "Analisa Suara Berhasil! 🎙️", description: "Rincian dan total tagihan telah direkap otomatis." });
+
+            setScannedItems(items);
+            toast({ 
+                title: "Dikte Suara Berhasil Dideteksi! 🎙️", 
+                description: `Ditemukan ${items.length} transaksi (${formatRp(totalIncome)} Masuk / ${formatRp(totalExpense)} Keluar).` 
+            });
             setShowResultForm(true);
         } catch (error: any) {
-            toast({ title: "Gagal Menganalisa", description: error.message, variant: "destructive" });
+            toast({ title: "Gagal Menganalisa Suara", description: error.message, variant: "destructive" });
         } finally {
             setIsScanning(false);
         }
@@ -155,11 +191,14 @@ export default function SmartScan() {
         try {
             const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
             if (!SpeechRecognition) { 
-                toast({ title: "Gunakan Browser Chrome", description: "Fitur mikrofon membutuhkan dukungan web Speech API.", variant: "destructive" }); 
+                toast({ title: "Gunakan Browser Chrome / Safari", description: "Fitur mikrofon membutuhkan dukungan web Speech API.", variant: "destructive" }); 
                 return; 
             }
             recognitionRef.current = new SpeechRecognition();
             recognitionRef.current.lang = 'id-ID'; 
+            recognitionRef.current.continuous = false;
+            recognitionRef.current.interimResults = false;
+
             recognitionRef.current.onstart = () => setIsListening(true);
             recognitionRef.current.onend = () => setIsListening(false);
             
@@ -170,6 +209,11 @@ export default function SmartScan() {
                 await processAudioWithAI(text);
             };
             
+            recognitionRef.current.onerror = (e: any) => {
+                setIsListening(false);
+                toast({ title: "Gagal Menangkap Suara", description: "Coba berbicara lebih jelas dan dekat ke mic.", variant: "destructive" });
+            };
+
             recognitionRef.current.start();
         } catch (e) { 
             toast({ title: "Izin Mic Diperlukan", description: "Izinkan akses mikrofon di peramban Anda.", variant: "destructive" }); 
@@ -178,6 +222,7 @@ export default function SmartScan() {
     
     const stopListening = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
 
+    // MULTI-PHOTO PROCESSING
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (isLocked) { setLocation('/paywall'); return; }
 
@@ -185,14 +230,13 @@ export default function SmartScan() {
         if (files.length === 0) return;
 
         setIsScanning(true);
-        setScanStatus("Menyiapkan dokumen struk...");
+        setScanStatus(`Menyiapkan ${files.length} foto struk...`);
 
         try {
-            const base64Images: string[] = [];
-            const previews: string[] = [];
+            const newPreviews: { id: string; url: string; base64: string }[] = [];
 
             for (const file of files) {
-                previews.push(URL.createObjectURL(file));
+                const blobUrl = URL.createObjectURL(file);
                 
                 const compressedBase64 = await new Promise<string>((resolve) => {
                     const img = new Image();
@@ -200,8 +244,8 @@ export default function SmartScan() {
                         const canvas = document.createElement("canvas");
                         let width = img.width;
                         let height = img.height;
-                        const MAX_WIDTH = 800;
-                        const MAX_HEIGHT = 800;
+                        const MAX_WIDTH = 900;
+                        const MAX_HEIGHT = 900;
 
                         if (width > height) {
                             if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
@@ -213,21 +257,41 @@ export default function SmartScan() {
                         canvas.height = height;
                         const ctx = canvas.getContext("2d");
                         ctx?.drawImage(img, 0, 0, width, height);
-                        resolve(canvas.toDataURL("image/jpeg", 0.5));
+                        resolve(canvas.toDataURL("image/jpeg", 0.6));
                     };
-                    img.src = URL.createObjectURL(file);
+                    img.src = blobUrl;
                 });
 
-                base64Images.push(compressedBase64);
+                newPreviews.push({
+                    id: `${Date.now()}_${Math.random()}`,
+                    url: blobUrl,
+                    base64: compressedBase64
+                });
             }
 
-            setImagePreviews(previews);
-            setScanStatus("AI sedang membaca dan menjumlahkan seluruh struk...");
+            const allPreviews = [...imagePreviews, ...newPreviews];
+            setImagePreviews(allPreviews);
+            
+            // Start scanning immediately with all selected photos
+            await executeImageScan(allPreviews.map(p => p.base64));
 
+        } catch (error: any) {
+            console.error(error);
+            toast({ title: "Scan Gagal", description: error.message, variant: "destructive" });
+            setIsScanning(false);
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = ""; 
+        }
+    };
+
+    const executeImageScan = async (base64Array: string[]) => {
+        setIsScanning(true);
+        setScanStatus(`AI sedang membaca & merekap ${base64Array.length} struk/dokumen...`);
+        try {
             const response = await fetch("/api/vision/scan", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-                body: JSON.stringify({ images: base64Images })
+                body: JSON.stringify({ images: base64Array })
             });
 
             const resData = await response.json().catch(() => ({}));
@@ -237,50 +301,104 @@ export default function SmartScan() {
             }
 
             const aiData = resData.data; 
+            const items: ScannedItem[] = (aiData.items || []).map((it: any, idx: number) => ({
+                id: it.id || `${Date.now()}_${idx}`,
+                title: it.title || (it.type === 'income' ? "Bukti Masuk" : `Struk Belanja ${idx + 1}`),
+                amount: Math.round(it.amount || 0),
+                type: it.type === 'income' ? 'income' : 'expense',
+                category: it.category || (it.type === 'income' ? "Pemasukan Lain" : "Belanja"),
+                currency: it.currency || "IDR",
+                source: selectedGlobalSource || availableSources[0]
+            }));
 
-            setDetectedType(aiData.type || 'expense'); 
-            setPaymentMode('cash');
-            
-            const currCode = (aiData.currency || "IDR").toUpperCase();
-            if (currCode !== "IDR") {
-                setIsForex(true);
-                setCurrency(currCode);
-                if (liveRates[currCode]) setRate(formatNum(Math.floor(liveRates[currCode]).toString()));
-            } else {
-                setIsForex(false);
-                setCurrency("IDR");
+            if (items.length === 0) {
+                items.push({
+                    id: Date.now().toString(),
+                    title: aiData.category || "Pindai Struk",
+                    amount: Math.round(aiData.totalAmount || 0),
+                    type: aiData.type === 'income' ? 'income' : 'expense',
+                    category: aiData.category || "Belanja",
+                    currency: aiData.currency || "IDR",
+                    source: selectedGlobalSource || availableSources[0]
+                });
             }
 
-            setAmount(aiData.totalAmount ? formatNum(aiData.totalAmount.toString()) : "");
-            setCategory(aiData.category || "Belanja");
-            setDesc(aiData.description || `Hasil pindai struk otomatis.`);
-
-            toast({ title: "Scan Struk Sukses! 📸", description: "Data angka dan pos pengeluaran telah diakumulasikan." });
+            setScannedItems(items);
+            toast({ 
+                title: "Scan Struk Berhasil! 📸", 
+                description: `Ditemukan ${items.length} transaksi (${formatRp(items.filter(i=>i.type==='income').reduce((s,i)=>s+i.amount,0))} Masuk / ${formatRp(items.filter(i=>i.type==='expense').reduce((s,i)=>s+i.amount,0))} Keluar).` 
+            });
             setShowResultForm(true);
-
         } catch (error: any) {
-            console.error(error);
-            toast({ title: "Scan Gagal", description: error.message, variant: "destructive" });
+            toast({ title: "Gagal Pindai Foto", description: error.message, variant: "destructive" });
         } finally {
             setIsScanning(false);
-            if (fileInputRef.current) fileInputRef.current.value = ""; 
         }
     };
 
-    const handleSave = async (isEmergencyOverride = false) => {
+    // ITEM MANIPULATION IN CONFIRMATION DASHBOARD
+    const updateItem = (id: string, field: keyof ScannedItem, val: any) => {
+        setScannedItems(scannedItems.map(item => {
+            if (item.id === id) {
+                return { ...item, [field]: val };
+            }
+            return item;
+        }));
+    };
+
+    const toggleItemType = (id: string) => {
+        setScannedItems(scannedItems.map(item => {
+            if (item.id === id) {
+                const nextType = item.type === 'income' ? 'expense' : 'income';
+                return { ...item, type: nextType };
+            }
+            return item;
+        }));
+    };
+
+    const removeItem = (id: string) => {
+        setScannedItems(scannedItems.filter(item => item.id !== id));
+    };
+
+    const addNewItem = () => {
+        const newItem: ScannedItem = {
+            id: Date.now().toString(),
+            title: "Pos Baru",
+            amount: 0,
+            type: 'expense',
+            category: "Lainnya",
+            currency: "IDR",
+            source: selectedGlobalSource || availableSources[0]
+        };
+        setScannedItems([...scannedItems, newItem]);
+    };
+
+    const applyGlobalSource = (sourceName: string) => {
+        setSelectedGlobalSource(sourceName);
+        setScannedItems(scannedItems.map(item => ({ ...item, source: sourceName })));
+    };
+
+    // SAVE ALL TRANSACTIONS
+    const handleConfirmAndSaveAll = async (isEmergencyOverride = false) => {
         if (isLocked) { setLocation('/paywall'); return; }
 
-        if (!amount) { 
-            toast({ title: "Nominal Kosong", description: "Masukkan nominal angka yang valid.", variant: "destructive" }); 
-            return; 
+        if (scannedItems.length === 0) {
+            toast({ title: "Daftar Kosong", description: "Tidak ada transaksi untuk disimpan.", variant: "destructive" });
+            return;
         }
-        
-        const finalAmount = parseNum(amount); 
 
-        if (!isEmergencyOverride && isDataLoaded && detectedType === 'expense' && !isForex && targetData?.monthlyBudget > 0) {
+        const validItems = scannedItems.filter(i => (i.amount || 0) > 0);
+        if (validItems.length === 0) {
+            toast({ title: "Nominal Masih 0", description: "Pastikan nominal transaksi telah terisi.", variant: "destructive" });
+            return;
+        }
+
+        // Check Budget Deficit Warning for total expenses
+        const totalExp = validItems.filter(i => i.type === 'expense').reduce((sum, i) => sum + i.amount, 0);
+        if (!isEmergencyOverride && isDataLoaded && totalExp > 0 && targetData?.monthlyBudget > 0) {
             const remainingBudget = targetData.monthlyBudget - currentExpense;
-            if (finalAmount > remainingBudget) {
-                const deficit = finalAmount - (remainingBudget > 0 ? remainingBudget : 0);
+            if (totalExp > remainingBudget) {
+                const deficit = totalExp - (remainingBudget > 0 ? remainingBudget : 0);
                 const nextMonthPred = targetData.monthlyBudget - deficit;
                 setEmergencyDetails({ deficit, nextMonthLimit: nextMonthPred });
                 setShowEmergencyModal(true); 
@@ -288,89 +406,68 @@ export default function SmartScan() {
             }
         }
 
-        if ((paymentMode === 'pending' || detectedType === 'debt' || detectedType === 'receivable') && !debtName.trim()) {
-            toast({ title: "Nama Pihak Wajib Diisi", description: "Sebutkan nama pihak yang berhutang / dihutangi.", variant: "destructive" });
-            return;
-        }
-
         setIsSubmitting(true);
-
-        const postHeaders = { 
-            "Content-Type": "application/json",
-            ...getAuthHeaders() 
-        };
-
         try {
-            if (isForex && paymentMode === 'cash' && (detectedType === 'income' || detectedType === 'expense')) {
-                await fetch("/api/forex/transaction", {
-                    method: "POST", headers: postHeaders,
-                    body: JSON.stringify({ type: detectedType, currency, amount: finalAmount, description: desc })
-                });
-                toast({ title: "Transaksi Valas Tersimpan!", description: `${currency} ${finalAmount.toLocaleString('id-ID')}` });
-            } 
-            else if (paymentMode === 'pending' && (detectedType === 'income' || detectedType === 'expense')) {
-                const debtType = detectedType === 'income' ? 'piutang' : 'hutang';
-                
-                await fetch("/api/debts", {
-                    method: "POST", headers: postHeaders,
-                    body: JSON.stringify({ 
-                        type: debtType, 
-                        name: `${debtName}|${isForex ? currency : 'IDR'}`, 
-                        amount: finalAmount, 
-                        description: `[${debtType === 'piutang' ? 'Piutang Pemasukan' : 'Hutang Pengeluaran'}: ${category || 'Lainnya'}] ${desc}`,
-                        isPaid: false
-                    })
-                });
+            const payloadTransactions = validItems.map(item => ({
+                type: item.type,
+                amount: Math.round(item.amount),
+                category: item.category || (item.type === 'income' ? 'Pemasukan Lain' : 'Pengeluaran Lain'),
+                description: item.title || (item.type === 'income' ? 'Pemasukan AI Scan' : 'Pengeluaran AI Scan'),
+                date: new Date(),
+                source: item.source || selectedGlobalSource || availableSources[0]
+            }));
 
-                await fetch("/api/transactions", {
-                    method: "POST", headers: postHeaders,
-                    body: JSON.stringify({ 
-                        type: detectedType, 
-                        amount: finalAmount, 
-                        category: `${debtType === 'piutang' ? 'Piutang' : 'Hutang'}: ${category || 'Lainnya'}`, 
-                        description: `Belum Dibayar - ${debtName}`, 
-                        date: new Date() 
-                    })
-                });
-                toast({ title: "Tersimpan!", description: `Dicatat sebagai ${debtType.toUpperCase()}.` });
-            }
-            else if (detectedType === 'debt' || detectedType === 'receivable') {
-                await fetch("/api/debts", {
-                    method: "POST", headers: postHeaders,
-                    body: JSON.stringify({ type: detectedType === 'debt' ? 'hutang' : 'piutang', name: `${debtName}|${isForex ? currency : 'IDR'}`, amount: finalAmount, description: desc, isPaid: false })
-                });
-                toast({ title: "Tercatat!", description: "Daftar hutang/piutang telah diperbarui." });
-            } 
-            else {
-                await fetch("/api/transactions", {
-                    method: "POST", headers: postHeaders,
-                    body: JSON.stringify({ type: detectedType, amount: finalAmount, category: category || "Lainnya", description: desc, date: new Date() })
-                });
-                toast({ title: "Berhasil Disimpan! ✨", description: "Transaksi masuk ke buku kas." });
+            const res = await fetch("/api/transactions/batch", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                body: JSON.stringify({ transactions: payloadTransactions })
+            });
+
+            if (!res.ok) {
+                // Fallback: post one by one if batch route fails
+                for (const tx of payloadTransactions) {
+                    await fetch("/api/transactions", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                        body: JSON.stringify(tx)
+                    });
+                }
             }
 
-            if (isEmergencyOverride) {
+            if (isEmergencyOverride && emergencyDetails.deficit > 0) {
                 try {
                     await fetch("/api/target/penalty", {
                         method: "PATCH",
-                        headers: postHeaders,
+                        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
                         body: JSON.stringify({ amount: emergencyDetails.deficit })
                     });
                 } catch (err) {}
             }
 
-            trackEvent("smart_scan_used", { 
-                type: detectedType, 
-                isForex: isForex,
-                paymentMode: paymentMode 
+            trackEvent("smart_scan_batch_saved", { 
+                itemCount: validItems.length,
+                totalIncome,
+                totalExpense
             });
 
-            queryClient.invalidateQueries();
+            await queryClient.invalidateQueries();
+            toast({ 
+                title: "Semua Transaksi Tercatat! 🎉", 
+                description: `${validItems.length} transaksi (${formatRp(totalIncome)} Masuk & ${formatRp(totalExpense)} Keluar) sukses disimpan ke kas.` 
+            });
+
             setShowEmergencyModal(false);
-            setLocation("/");
+            setShowResultForm(false);
+            setScannedItems([]);
+            setImagePreviews([]);
+            setTranscript("");
             
-        } catch (e) { 
-            toast({ title: "Gagal Menyimpan", description: "Cek koneksi server Anda.", variant: "destructive" }); 
+            setTimeout(() => {
+                setLocation("/");
+            }, 600);
+
+        } catch (e: any) {
+            toast({ title: "Gagal Menyimpan", description: e.message || "Periksa koneksi Anda.", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
@@ -432,7 +529,7 @@ export default function SmartScan() {
                         </div>
                     </div>
 
-                    {/* FLAGSHIP HERO CARD - SATU-SATUNYA YANG MEMAKAI SOLID SHADOW KHAS BILANO */}
+                    {/* FLAGSHIP HERO CARD */}
                     <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-6 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
                         <ScanLine className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
                         <div className="absolute right-0 top-0 w-32 h-32 bg-brand-gold/15 rounded-full blur-xl pointer-events-none" />
@@ -440,25 +537,25 @@ export default function SmartScan() {
                         <div className="relative z-10 flex flex-col">
                             <div className="flex justify-between items-center mb-2">
                                 <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
-                                    <ScanLine className="w-3 h-3 fill-current" /> AUTO REKAPITULASI
+                                    <Sparkles className="w-3 h-3 fill-current" /> AUTO DETEKSI MULTI-ARUS
                                 </span>
                                 <span className="text-[10px] text-amber-200 font-bold bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
-                                    Multi-Receipt & Voice
+                                    Pemasukan & Pengeluaran
                                 </span>
                             </div>
 
                             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-1.5 leading-tight">
-                                Pemindaian Struk & Dikte AI
+                                Dikte Suara & Multi-Foto Struk
                             </h2>
                             <p className="text-xs text-blue-100 font-medium leading-relaxed">
-                                Foto tumpukan struk belanja atau sebutkan transaksi secara lisan. AI akan membaca rincian barang dan menjumlahkan totalnya secara otomatis.
+                                Sebutkan banyak catatan masuk & keluar sekaligus atau upload tumpukan struk. AI memisahkan pos dan totalnya secara otomatis.
                             </p>
                         </div>
                     </div>
                 </div>
 
                 {/* ========================================================================= */}
-                {/* 2. BODY CONTENT SECTION - CLEAN, CRISP & MODERN ELEVATION */}
+                {/* 2. BODY CONTENT SECTION */}
                 {/* ========================================================================= */}
                 <div className="px-5 pt-5 pb-28 bg-slate-50 flex flex-col gap-4">
                     
@@ -486,7 +583,7 @@ export default function SmartScan() {
 
                                 <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl text-left space-y-2 text-xs">
                                     <div className="flex justify-between font-bold">
-                                        <span className="text-slate-600">Defisit Kelebihan:</span>
+                                        <span className="text-slate-600">Defisit Pengeluaran:</span>
                                         <span className="text-rose-700">{formatRp(emergencyDetails.deficit)}</span>
                                     </div>
                                     <p className="text-[11px] text-rose-800 font-medium leading-relaxed">
@@ -508,11 +605,11 @@ export default function SmartScan() {
                                     </button>
                                     <button 
                                         type="button"
-                                        onClick={() => handleSave(true)} 
+                                        onClick={() => handleConfirmAndSaveAll(true)} 
                                         disabled={isSubmitting}
-                                        className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer"
+                                        className="flex-1 h-12 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer flex items-center justify-center"
                                     >
-                                        {isSubmitting ? "MEMPROSES..." : "PAKAI DARURAT"}
+                                        {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : "PAKAI DARURAT"}
                                     </button>
                                 </div>
                             </div>
@@ -521,19 +618,20 @@ export default function SmartScan() {
 
                     <input type="file" multiple ref={fileInputRef} accept="image/*" className="hidden" onChange={handleFileChange}/>
 
-                    {/* METHOD SELECTION CARDS */}
+                    {/* METHOD SELECTION CARDS (WHEN NOT IN CONFIRMATION DASHBOARD) */}
                     {!showResultForm && (
                         <div className="space-y-4 animate-in fade-in">
                             
-                            {/* CARD 1: DIKTE SUARA MULTI-TRANSAKSI */}
+                            {/* CARD 1: DIKTE SUARA MULTI-ARUS */}
                             <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs text-center space-y-4">
                                 <div>
                                     <span className="bg-amber-100 text-amber-900 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                                        METODE 1
+                                        METODE 1 • SUARA BEBAS
                                     </span>
-                                    <h3 className="text-base font-extrabold text-slate-900 mt-1.5">Dikte Suara Percakapan</h3>
+                                    <h3 className="text-base font-extrabold text-slate-900 mt-1.5">Dikte Suara Masuk & Keluar</h3>
                                     <p className="text-xs text-slate-500 font-medium px-2 mt-0.5">
-                                        "Tadi pagi beli bensin 30 ribu, terus makan siang sama teman 45 ribu, beli kopi 20 ribu."
+                                        Sebutkan banyak transaksi sekaligus, contoh: <br/>
+                                        <i className="text-slate-600 font-bold">"Dapat transferan gaji 5 juta, terus beli bensin 100 ribu sama makan 50 ribu"</i>
                                     </p>
                                 </div>
 
@@ -560,7 +658,8 @@ export default function SmartScan() {
 
                                 <div className="min-h-7 flex items-center justify-center">
                                     {isListening ? (
-                                        <span className="text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 animate-pulse">
+                                        <span className="text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 animate-pulse flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
                                             Mendengarkan suara Anda... (Bicara santai)
                                         </span>
                                     ) : transcript ? (
@@ -592,11 +691,11 @@ export default function SmartScan() {
                                 </div>
                                 <div>
                                     <span className="bg-amber-100 text-amber-900 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                                        METODE 2
+                                        METODE 2 • MULTI-FOTO
                                     </span>
-                                    <h4 className="font-extrabold text-slate-900 text-base mt-1">Scan Struk Kamera / Galeri</h4>
+                                    <h4 className="font-extrabold text-slate-900 text-base mt-1">Scan Banyak Foto / Struk Sekaligus</h4>
                                     <p className="text-xs text-slate-500 font-medium max-w-xs mt-0.5">
-                                        Pilih satu atau beberapa foto struk sekaligus. AI akan memindai barang & menghitung totalnya.
+                                        Pilih 1 atau beberapa struk/dokumen sekaligus. AI akan membedah rincian pos dan menjumlahkan totalnya.
                                     </p>
                                 </div>
                             </div>
@@ -608,13 +707,13 @@ export default function SmartScan() {
                                     <Loader2 className="w-8 h-8 text-brand-gold animate-spin mb-3"/>
                                     <h3 className="font-extrabold text-xl text-white mb-1">{scanStatus}</h3>
                                     <p className="text-xs text-slate-300 font-medium max-w-xs mb-5">
-                                        AI sedang mengekstrak nama toko, pos kategori, dan total nominal tagihan...
+                                        AI sedang mengekstrak nama pos, nominal, dan jenis pemasukan/pengeluaran...
                                     </p>
                                     
                                     {imagePreviews.length > 0 && (
                                         <div className="flex gap-2 overflow-x-auto max-w-full pb-2">
-                                            {imagePreviews.map((src, i) => (
-                                                <img key={i} src={src} className="w-16 h-16 object-cover rounded-xl border-2 border-brand-gold/60 shrink-0 opacity-70 animate-pulse" />
+                                            {imagePreviews.map((p, i) => (
+                                                <img key={p.id} src={p.url} className="w-16 h-16 object-cover rounded-xl border-2 border-brand-gold/60 shrink-0 opacity-70 animate-pulse" />
                                             ))}
                                         </div>
                                     )}
@@ -623,200 +722,227 @@ export default function SmartScan() {
                         </div>
                     )}
 
-                    {/* FORM HASIL REKAPITULASI AI */}
+                    {/* ========================================================================= */}
+                    {/* DIRECT INLINE CONFIRMATION DASHBOARD (DI HALAMAN INI LANGSUNG) */}
+                    {/* ========================================================================= */}
                     {showResultForm && (
-                        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4 animate-in slide-in-from-bottom-6">
+                        <div className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-sm space-y-5 animate-in slide-in-from-bottom-6 duration-300">
                             
+                            {/* Header Panel */}
                             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
                                 <div>
-                                    <div className="flex items-center gap-1.5">
-                                        <ScanLine className="w-4 h-4 text-amber-600" />
-                                        <h3 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider">
-                                            Hasil Rekapitulasi AI
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        <h3 className="font-black text-slate-900 text-base uppercase tracking-wider">
+                                            Konfirmasi Rekapitulasi AI
                                         </h3>
                                     </div>
-                                    <p className="text-[10px] text-slate-500 font-medium mt-0.5">
-                                        Periksa kembali data sebelum dicatat ke buku kas.
+                                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                                        Periksa dan sesuaikan transaksi sebelum disimpan ke buku kas.
                                     </p>
                                 </div>
                                 <button 
                                     type="button"
-                                    onClick={() => { setShowResultForm(false); setImagePreviews([]); setTranscript(""); }} 
+                                    onClick={() => { setShowResultForm(false); setImagePreviews([]); setTranscript(""); setScannedItems([]); }} 
                                     className="p-1.5 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 cursor-pointer"
+                                    title="Tutup & Pindai Ulang"
                                 >
                                     <X className="w-4 h-4"/>
                                 </button>
                             </div>
 
-                            {/* TIPE TRANSAKSI PILLS */}
-                            <div className="grid grid-cols-4 gap-1.5 bg-slate-100 p-1.5 rounded-2xl">
-                                {[
-                                    { id: 'expense', label: 'Pengeluaran' },
-                                    { id: 'income', label: 'Pemasukan' },
-                                    { id: 'debt', label: 'Hutang' },
-                                    { id: 'receivable', label: 'Piutang' }
-                                ].map((tab) => (
+                            {/* REKAP TOTAL BANNER */}
+                            <div className="grid grid-cols-2 gap-2.5">
+                                <div className="bg-emerald-50/80 border border-emerald-200/80 p-3.5 rounded-2xl flex flex-col justify-between">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
+                                            <ArrowDownLeft className="w-3 h-3 text-emerald-600" /> Pemasukan
+                                        </span>
+                                        <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                            {scannedItems.filter(i => i.type === 'income').length} item
+                                        </span>
+                                    </div>
+                                    <p className="text-lg font-black text-emerald-700 tabular-nums leading-tight">
+                                        +{formatRp(totalIncome)}
+                                    </p>
+                                </div>
+
+                                <div className="bg-rose-50/80 border border-rose-200/80 p-3.5 rounded-2xl flex flex-col justify-between">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-800 flex items-center gap-1">
+                                            <ArrowUpRight className="w-3 h-3 text-rose-600" /> Pengeluaran
+                                        </span>
+                                        <span className="text-[10px] font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">
+                                            {scannedItems.filter(i => i.type === 'expense').length} item
+                                        </span>
+                                    </div>
+                                    <p className="text-lg font-black text-rose-700 tabular-nums leading-tight">
+                                        -{formatRp(totalExpense)}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* NET CASH IMPACT BOX */}
+                            <div className="bg-brand-navy text-white p-4 rounded-2xl flex items-center justify-between border border-white/10 shadow-xs">
+                                <div>
+                                    <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest">Dampak Arus Kas Bersih</p>
+                                    <p className="text-[11px] text-blue-100/80 font-medium mt-0.5">
+                                        Total {scannedItems.length} transaksi terdeteksi
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <span className={`text-base font-black tabular-nums ${netTotal >= 0 ? 'text-emerald-400' : 'text-rose-300'}`}>
+                                        {netTotal >= 0 ? `+${formatRp(netTotal)}` : `-${formatRp(Math.abs(netTotal))}`}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* GLOBAL WALLET SOURCE SELECTOR */}
+                            <div className="space-y-1.5 pt-1">
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1 block">
+                                    Sumber Dana Dompet / Rekening
+                                </label>
+                                <div className="relative">
+                                    <select
+                                        value={selectedGlobalSource}
+                                        onChange={(e) => applyGlobalSource(e.target.value)}
+                                        className="w-full h-12 bg-slate-50 border border-slate-200 rounded-2xl px-4 text-xs font-bold text-slate-800 outline-none focus:border-brand-navy"
+                                    >
+                                        {availableSources.map(s => (
+                                            <option key={s} value={s}>{s}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* LIST OF SCANNED ITEMS (EDITABLE CARD PER ITEM) */}
+                            <div className="space-y-3 pt-1">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
+                                        Rincian Pos Transaksi ({scannedItems.length})
+                                    </span>
                                     <button 
-                                        key={tab.id} 
-                                        type="button"
-                                        onClick={() => { setDetectedType(tab.id as any); setPaymentMode('cash'); }} 
-                                        className={`py-2 text-[10px] rounded-xl font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                                            detectedType === tab.id 
-                                                ? 'bg-brand-navy text-brand-gold shadow-xs' 
-                                                : 'text-slate-600 hover:text-slate-900'
+                                        type="button" 
+                                        onClick={addNewItem}
+                                        className="text-[11px] font-bold text-brand-navy hover:text-indigo-800 flex items-center gap-1 cursor-pointer bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-full transition-colors"
+                                    >
+                                        <Plus className="w-3 h-3" /> Tambah Pos
+                                    </button>
+                                </div>
+
+                                {scannedItems.map((item, idx) => (
+                                    <div 
+                                        key={item.id} 
+                                        className={`p-4 rounded-2xl border transition-all space-y-3 relative ${
+                                            item.type === 'income' 
+                                                ? 'bg-emerald-50/40 border-emerald-200/90' 
+                                                : 'bg-rose-50/30 border-rose-200/90'
                                         }`}
                                     >
-                                        {tab.label}
-                                    </button>
+                                        {/* Top Row: Type Pill Toggle + Delete */}
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleItemType(item.id)}
+                                                    className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-transform active:scale-95 shadow-xs ${
+                                                        item.type === 'income'
+                                                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                                            : 'bg-rose-600 text-white hover:bg-rose-700'
+                                                    }`}
+                                                    title="Klik untuk ubah jenis Pemasukan / Pengeluaran"
+                                                >
+                                                    {item.type === 'income' ? (
+                                                        <><ArrowDownLeft className="w-3 h-3" /> PEMASUKAN</>
+                                                    ) : (
+                                                        <><ArrowUpRight className="w-3 h-3" /> PENGELUARAN</>
+                                                    )}
+                                                </button>
+                                                <span className="text-[10px] text-slate-400 font-bold">
+                                                    #{idx + 1}
+                                                </span>
+                                            </div>
+
+                                            {scannedItems.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeItem(item.id)}
+                                                    className="text-slate-400 hover:text-rose-600 p-1 transition-colors cursor-pointer"
+                                                    title="Hapus pos ini"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Name & Amount Row */}
+                                        <div className="flex gap-2">
+                                            <div className="flex-1">
+                                                <input 
+                                                    type="text"
+                                                    value={item.title}
+                                                    onChange={(e) => updateItem(item.id, 'title', e.target.value)}
+                                                    placeholder="Nama Toko / Barang / Pos"
+                                                    className="w-full h-11 px-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-brand-navy"
+                                                />
+                                            </div>
+                                            <div className="w-36 relative">
+                                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">Rp</span>
+                                                <input 
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    value={formatNum(item.amount)}
+                                                    onChange={(e) => updateItem(item.id, 'amount', parseNum(e.target.value))}
+                                                    placeholder="0"
+                                                    className="w-full h-11 pl-8 pr-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-900 text-right outline-none focus:border-brand-navy tabular-nums"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Category & Source Row */}
+                                        <div className="flex gap-2 text-xs">
+                                            <input 
+                                                type="text"
+                                                value={item.category}
+                                                onChange={(e) => updateItem(item.id, 'category', e.target.value)}
+                                                placeholder="Kategori (Makan, Gaji, dll)"
+                                                className="flex-1 h-9 px-3 bg-white/80 border border-slate-200 rounded-xl text-[11px] font-semibold text-slate-700 outline-none focus:border-brand-navy"
+                                            />
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
 
-                            {/* MODE PEMBAYARAN: TUNAI VS BELUM BAYAR/CAIR */}
-                            {(detectedType === 'income' || detectedType === 'expense') && (
-                                <div className="flex bg-slate-100 p-1 rounded-2xl gap-1">
-                                    <button 
-                                        type="button"
-                                        onClick={() => setPaymentMode('cash')} 
-                                        className={`flex-1 py-2 flex justify-center items-center gap-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                                            paymentMode === 'cash' 
-                                                ? (detectedType === 'income' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-rose-600 text-white shadow-xs') 
-                                                : 'text-slate-500 hover:text-slate-800'
-                                        }`}
-                                    >
-                                        <Wallet className="w-3.5 h-3.5"/> TUNAI (LUNAS)
-                                    </button>
-                                    <button 
-                                        type="button"
-                                        onClick={() => setPaymentMode('pending')} 
-                                        className={`flex-1 py-2 flex justify-center items-center gap-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                                            paymentMode === 'pending' 
-                                                ? 'bg-amber-500 text-slate-950 shadow-xs' 
-                                                : 'text-slate-500 hover:text-slate-800'
-                                        }`}
-                                    >
-                                        <HandCoins className="w-3.5 h-3.5"/> {detectedType === 'income' ? 'PIUTANG (BELUM CAIR)' : 'HUTANG (BELUM BAYAR)'}
-                                    </button>
-                                </div>
-                            )}
+                            {/* ACTION BUTTONS */}
+                            <div className="space-y-2 pt-2">
+                                <button 
+                                    type="button"
+                                    onClick={() => handleConfirmAndSaveAll(false)} 
+                                    disabled={isSubmitting || scannedItems.length === 0}
+                                    className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin"/>
+                                            <span>MENYIMPAN SEMUA TRANSAKSI...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle2 className="w-4 h-4 stroke-[2.5]"/>
+                                            <span>KONFIRMASI & SIMPAN ({scannedItems.length} TRANSAKSI)</span>
+                                        </>
+                                    )}
+                                </button>
 
-                            {/* VALAS TOGGLE */}
-                            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
-                                <div className="flex items-center gap-2">
-                                    <Globe className="w-4 h-4 text-slate-600"/>
-                                    <span className="text-xs font-bold text-slate-800">Mata Uang Asing (Valas)</span>
-                                </div>
-                                <input 
-                                    type="checkbox" 
-                                    checked={isForex} 
-                                    onChange={e => setIsForex(e.target.checked)} 
-                                    className="w-5 h-5 accent-brand-navy rounded cursor-pointer"
-                                />
+                                <button 
+                                    type="button"
+                                    onClick={() => { setShowResultForm(false); setImagePreviews([]); setTranscript(""); }} 
+                                    className="w-full h-11 text-slate-500 font-bold text-xs uppercase tracking-wider hover:text-slate-800 transition-colors cursor-pointer text-center"
+                                >
+                                    PINDAI ULANG / BATAL
+                                </button>
                             </div>
 
-                            {/* VALAS CURRENCY & RATE INPUTS */}
-                            {isForex && (
-                                <div className="grid grid-cols-2 gap-2.5 p-3 bg-sky-50 rounded-2xl border border-sky-200 animate-in fade-in">
-                                    <div>
-                                        <label className="text-[10px] font-bold text-sky-900 uppercase tracking-wider block mb-1">Mata Uang</label>
-                                        <select 
-                                            value={currency} 
-                                            onChange={e => setCurrency(e.target.value)} 
-                                            className="w-full text-xs font-bold bg-white rounded-xl border border-sky-300 p-2.5 h-11"
-                                        >
-                                            {Object.keys(liveRates).length > 0 ? Object.keys(liveRates).map(c => <option key={c} value={c}>{c}</option>) : <option>USD</option>}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-sky-900 uppercase tracking-wider block mb-1">Kurs Saat Ini</label>
-                                        <input 
-                                            type="text" 
-                                            inputMode="decimal" 
-                                            value={rate} 
-                                            onChange={e => setRate(formatNum(e.target.value))} 
-                                            className="w-full text-xs font-bold bg-white rounded-xl border border-sky-300 p-2.5 h-11"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* TOTAL NOMINAL INPUT */}
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-                                    Total Nominal Keseluruhan {isForex ? currency : '(IDR)'}
-                                </label>
-                                <input 
-                                    type="text" 
-                                    inputMode="decimal" 
-                                    value={amount} 
-                                    onChange={(e) => setAmount(formatNum(e.target.value))} 
-                                    placeholder="0" 
-                                    className="w-full h-14 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-xl text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all tabular-nums"
-                                />
-                            </div>
-
-                            {/* NAMA PIHAK JIKA HUTANG / PIUTANG */}
-                            {(detectedType === 'debt' || detectedType === 'receivable' || paymentMode === 'pending') && (
-                                <div className="space-y-1.5 animate-in fade-in">
-                                    <label className="text-[10px] font-bold text-amber-800 uppercase tracking-widest ml-1">
-                                        {paymentMode === 'pending' ? (detectedType === 'income' ? 'Ditagihkan Kepada Siapa?' : 'Berhutang Kepada Siapa?') : 'Nama Pihak'}
-                                    </label>
-                                    <input 
-                                        type="text"
-                                        value={debtName} 
-                                        onChange={e => setDebtName(e.target.value)} 
-                                        placeholder="Contoh: Klien A / Toko Sumber Makmur" 
-                                        className="w-full h-12 px-4 bg-amber-50/50 border border-amber-200 rounded-2xl font-semibold text-xs text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
-                                    />
-                                </div>
-                            )}
-                            
-                            {/* KATEGORI */}
-                            {(detectedType === 'income' || detectedType === 'expense') && (
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-                                        Kategori / Pos Anggaran
-                                    </label>
-                                    <input 
-                                        type="text"
-                                        value={category} 
-                                        onChange={e => setCategory(e.target.value)} 
-                                        className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-semibold text-xs text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
-                                    />
-                                </div>
-                            )}
-                            
-                            {/* RINCIAN PER ITEM / CATATAN */}
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-                                    Rincian Lengkap per Item
-                                </label>
-                                <textarea 
-                                    value={desc} 
-                                    onChange={e => setDesc(e.target.value)} 
-                                    rows={4}
-                                    className="w-full border border-slate-200 rounded-2xl p-3.5 text-xs font-medium text-slate-800 bg-slate-50 focus:bg-white outline-none focus:border-brand-navy transition-all resize-none"
-                                />
-                            </div>
-
-                            {/* TOMBOL SIMPAN TRANSAKSI */}
-                            <button 
-                                type="button"
-                                onClick={() => handleSave(false)} 
-                                disabled={!isDataLoaded || isSubmitting}
-                                className="w-full h-14 bg-brand-gold hover:bg-[#e5a825] text-brand-navy font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-1"
-                            >
-                                {isSubmitting ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin"/>
-                                        <span>MEMPROSES PENYIMPANAN...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle2 className="w-4 h-4 stroke-[2.5]"/>
-                                        <span>SIMPAN TRANSAKSI KE BUKU KAS</span>
-                                    </>
-                                )}
-                            </button>
                         </div>
                     )}
                 </div>

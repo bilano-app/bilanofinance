@@ -239,20 +239,20 @@ export default function Home() {
 
             const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
             const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
-            const startTimeAcc = new Date(user.createdAt || Date.now()).getTime();
-            const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
+            const targetPromptSeen = localStorage.getItem(`bilano_target_prompt_seen_${rawEmail}`);
 
-            if (isNewUser) {
-                if (!guideSeen) {
-                    setShowGuideTooltip(true);
-                    return;
-                } else if (guideSeen && !profileSeen && !user.profilePicture) {
-                    const timer = setTimeout(() => setShowProfileTooltip(true), 1000);
-                    return () => clearTimeout(timer);
-                }
+            if (!guideSeen) {
+                const timer = setTimeout(() => setShowGuideTooltip(true), 600);
+                return () => clearTimeout(timer);
+            } else if (!profileSeen && !user.profilePicture) {
+                const timer = setTimeout(() => setShowProfileTooltip(true), 600);
+                return () => clearTimeout(timer);
+            } else if (!targetPromptSeen && (!target || !target.targetAmount)) {
+                const timer = setTimeout(() => setShowOnboardingTargetPopup(true), 600);
+                return () => clearTimeout(timer);
             }
         }
-    }, [rawEmail, isAnyDataLoading, user]);
+    }, [rawEmail, isAnyDataLoading, user, target]);
 
     const handleClosePremiumPrompt = () => {
         setShowPremiumPrompt(false);
@@ -261,6 +261,16 @@ export default function Home() {
         const guideSeen = localStorage.getItem(`bilano_guide_tooltip_seen_${rawEmail}`);
         if (!guideSeen) {
             setTimeout(() => setShowGuideTooltip(true), 400);
+        } else {
+            const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
+            if (!profileSeen) {
+                setTimeout(() => setShowProfileTooltip(true), 400);
+            } else {
+                const targetSeen = localStorage.getItem(`bilano_target_prompt_seen_${rawEmail}`);
+                if (!targetSeen) {
+                    setTimeout(() => setShowOnboardingTargetPopup(true), 400);
+                }
+            }
         }
     };
 
@@ -269,19 +279,28 @@ export default function Home() {
         localStorage.setItem(`bilano_guide_tooltip_seen_${rawEmail}`, "true");
 
         const profileSeen = localStorage.getItem(`bilano_profile_tooltip_seen_${rawEmail}`);
-        const startTimeAcc = new Date(user?.createdAt || Date.now()).getTime();
-        const isNewUser = (Date.now() - startTimeAcc) < (24 * 60 * 60 * 1000);
-
-        if (isNewUser && !profileSeen && !user?.profilePicture) {
+        if (!profileSeen) {
             setTimeout(() => {
                 setShowProfileTooltip(true);
-            }, 600);
+            }, 500);
+        } else {
+            const targetSeen = localStorage.getItem(`bilano_target_prompt_seen_${rawEmail}`);
+            if (!targetSeen) {
+                setTimeout(() => setShowOnboardingTargetPopup(true), 500);
+            }
         }
     };
 
     const dismissProfileTooltip = () => {
         setShowProfileTooltip(false);
         localStorage.setItem(`bilano_profile_tooltip_seen_${rawEmail}`, "true");
+
+        const targetSeen = localStorage.getItem(`bilano_target_prompt_seen_${rawEmail}`);
+        if (!targetSeen) {
+            setTimeout(() => {
+                setShowOnboardingTargetPopup(true);
+            }, 500);
+        }
     };
 
     const togglePrivacy = () => {
@@ -708,16 +727,34 @@ export default function Home() {
 
             <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
                 {showGuideTooltip && (
-                    <div className="absolute right-[60px] bottom-0 w-[260px] bg-white border-2 border-brand-navy p-4 rounded-[20px] shadow-[6px_6px_0px_0px] shadow-slate-900 animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
+                    <div className="absolute right-[60px] bottom-0 w-[270px] bg-white border-2 border-brand-navy p-4 rounded-[20px] shadow-[6px_6px_0px_0px] shadow-slate-900 animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
                         <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-full hover:bg-slate-100">
                             <X className="w-4 h-4" />
                         </button>
                         <p className="text-[13px] font-black mb-1.5 text-slate-900 flex items-center gap-1.5">
-                            👋 Bingung Mulai dari Mana?
+                            👋 Pelajari Cara Pakai BILANO
                         </p>
-                        <p className="text-[11px] text-slate-600 leading-relaxed font-bold pr-2">
-                            Baru pertama kali pakai BILANO? Klik buku pintar ini untuk melihat panduan lengkap cara memaksimalkan seluruh fitur canggih kami!
+                        <p className="text-[11px] text-slate-600 leading-relaxed font-bold pr-2 mb-3">
+                            Baru pertama kali pakai BILANO? Buka Buku Panduan untuk memahami cara memaksimalkan seluruh fitur canggih kami!
                         </p>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => {
+                                    dismissGuideTooltip();
+                                    setLocation('/guide');
+                                }}
+                                className="bg-brand-navy text-brand-gold text-[11px] font-black px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs hover:bg-[#152e55] active:scale-95 transition-all cursor-pointer"
+                            >
+                                <Notebook className="w-3.5 h-3.5" />
+                                <span>Buka Panduan</span>
+                            </button>
+                            <button
+                                onClick={dismissGuideTooltip}
+                                className="text-[11px] font-bold text-slate-400 hover:text-slate-600 px-2 py-1.5"
+                            >
+                                Nanti Saja
+                            </button>
+                        </div>
                         <div className="absolute bottom-[14px] -right-[10px] w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[10px] border-l-brand-navy"></div>
                         <div className="absolute bottom-[16px] -right-[7px] w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[8px] border-l-white"></div>
                     </div>
@@ -882,10 +919,10 @@ export default function Home() {
                         </p>
 
                         <div className="space-y-3">
-                            <Button onClick={() => { setShowOnboardingTargetPopup(false); setLocation('/target'); }} className="w-full h-14 bg-brand-navy text-white text-[13px] font-black rounded-full shadow-[5px_5px_0px_0px] shadow-slate-900 active:shadow-[2px_2px_0px_0px] active:translate-x-[3px] active:translate-y-[3px] transition-all flex items-center justify-center gap-2 relative z-10">
+                            <Button onClick={() => { localStorage.setItem(`bilano_target_prompt_seen_${rawEmail}`, "true"); setShowOnboardingTargetPopup(false); setLocation('/target'); }} className="w-full h-14 bg-brand-navy text-white text-[13px] font-black rounded-full shadow-[5px_5px_0px_0px] shadow-slate-900 active:shadow-[2px_2px_0px_0px] active:translate-x-[3px] active:translate-y-[3px] transition-all flex items-center justify-center gap-2 relative z-10">
                                 YA, BUAT TARGET SEKARANG
                             </Button>
-                            <Button variant="ghost" onClick={() => setShowOnboardingTargetPopup(false)} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full relative z-10">
+                            <Button variant="ghost" onClick={() => { localStorage.setItem(`bilano_target_prompt_seen_${rawEmail}`, "true"); setShowOnboardingTargetPopup(false); }} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full relative z-10">
                                 LEWATI (NANTI SAJA)
                             </Button>
                         </div>
@@ -913,7 +950,7 @@ export default function Home() {
                     
                     {/* 1. WELCOME HEADER SECTION: White background seamless at top, rounded bottom corners */}
                     <div className="-mx-5 -mt-5 px-5 pt-6 pb-5 bg-white rounded-b-[28px] shadow-[0_4px_16px_rgba(15,23,42,0.03)] flex items-center justify-between relative z-30">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 relative">
                             <div onClick={() => setIsProfileZoomed(true)} className="w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-slate-100 shrink-0">
                                 {user?.profilePicture ? (
                                     <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
@@ -923,6 +960,41 @@ export default function Home() {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Profile Bubble Tooltip */}
+                            {showProfileTooltip && (
+                                <div className="absolute top-14 left-0 w-[270px] bg-white border-2 border-brand-navy p-4 rounded-[20px] shadow-[6px_6px_0px_0px] shadow-slate-900 animate-in fade-in zoom-in slide-in-from-top-4 duration-500 z-50">
+                                    <button onClick={dismissProfileTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-full hover:bg-slate-100">
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                    <p className="text-[13px] font-black mb-1.5 text-slate-900 flex items-center gap-1.5">
+                                        📸 Pasang Foto Profilmu
+                                    </p>
+                                    <p className="text-[11px] text-slate-600 leading-relaxed font-bold pr-2 mb-3">
+                                        Yuk pasang foto profil agar akun BILANO Anda makin personal dan profesional!
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => {
+                                                dismissProfileTooltip();
+                                                setLocation('/profile');
+                                            }}
+                                            className="bg-brand-navy text-brand-gold text-[11px] font-black px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs hover:bg-[#152e55] active:scale-95 transition-all cursor-pointer"
+                                        >
+                                            <Camera className="w-3.5 h-3.5" />
+                                            <span>Pasang Foto</span>
+                                        </button>
+                                        <button
+                                            onClick={dismissProfileTooltip}
+                                            className="text-[11px] font-bold text-slate-400 hover:text-slate-600 px-2 py-1.5 cursor-pointer"
+                                        >
+                                            Nanti Saja
+                                        </button>
+                                    </div>
+                                    <div className="absolute -top-[9px] left-5 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[9px] border-b-brand-navy"></div>
+                                    <div className="absolute -top-[6px] left-[21px] w-0 h-0 border-l-[7px] border-l-transparent border-r-[7px] border-r-transparent border-b-[7px] border-b-white"></div>
+                                </div>
+                            )}
 
                             <div className="flex flex-col">
                                 <p className="text-xs font-medium text-slate-500 whitespace-nowrap">
@@ -991,7 +1063,7 @@ export default function Home() {
                     </div>
 
                     {/* 2. Kartu Saldo — flat navy + gold dengan shadow proporsional */}
-                    <div className="bg-brand-navy text-white p-5 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4 mb-2">
+                    <div className="bg-brand-navy text-white p-5 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[0px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4 mb-2">
                         {/* Efek buletan dan kilau */}
                         <div className="absolute right-0 bottom-0 w-48 h-48 bg-white/5 rounded-tl-full pointer-events-none"></div>
                         <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>

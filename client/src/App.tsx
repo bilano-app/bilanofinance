@@ -234,7 +234,7 @@ function Router() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <div className="bg-slate-50 py-4 text-center w-full flex justify-center items-center">
-            <img alt="BILANO" src="/Bilano_horiz_rbg.png" className="h-8 w-auto object-contain" />
+            <img alt="BILANO" src="/BILANO-LOGO-NEW.png" className="h-8 w-auto object-contain" />
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center -mt-16 animate-in fade-in zoom-in-95 duration-300">
           <div className="bg-rose-100 p-5 rounded-full mb-6 shadow-sm">

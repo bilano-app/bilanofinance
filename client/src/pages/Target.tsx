@@ -37,7 +37,7 @@ export default function Target() {
     const { data: userData, isLoading: isUserLoading, refetch: refetchUser } = useUser();
     const [target, setTarget] = useState<TargetData | null>(null);
     
-    const [step, setStep] = useState<'intro' | 'target-input' | 'budget-ask' | 'budget-setup'>('intro');
+    const [step, setStep] = useState<'target-input' | 'budget-ask' | 'budget-setup'>('target-input');
     const [isTargetMode, setIsTargetMode] = useState(false);
     const [rawTargetAmount, setRawTargetAmount] = useState("");
     const [inputDuration, setInputDuration] = useState(""); 
@@ -351,49 +351,7 @@ export default function Target() {
                         </div>
                     )}
 
-                    {/* STEP 1: PILIHAN INTRO / STRATEGI METODE */}
-                    {step === 'intro' && (
-                        <div className="space-y-3.5 animate-in fade-in">
-                            
-                            {/* OPTION 1: KEJAR TARGET NOMINAL */}
-                            <div 
-                                onClick={() => startSetup('target')} 
-                                className="relative bg-white rounded-3xl p-5 border border-slate-200/90 hover:border-amber-400 shadow-xs hover:shadow-sm cursor-pointer active:scale-[0.99] transition-all group flex items-start gap-3.5"
-                            >
-                                <div className="absolute -top-2.5 right-4 bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
-                                    DIREKOMENDASIKAN
-                                </div>
-                                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-brand-navy flex items-center justify-center border border-amber-200 shrink-0 group-hover:scale-105 transition-transform">
-                                    <TargetIcon className="w-6 h-6 text-brand-navy stroke-[2.5]" />
-                                </div>
-                                <div className="min-w-0 pr-1">
-                                    <h3 className="font-extrabold text-slate-900 text-sm mb-0.5">Kejar Target Impian (Akumulasi)</h3>
-                                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                                        Saya memiliki target nominal spesifik yang ingin dicapai dalam kurun waktu tertentu.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* OPTION 2: HANYA PANTAU CASHFLOW */}
-                            <div 
-                                onClick={() => startSetup('saving')} 
-                                className="bg-white rounded-3xl p-5 border border-slate-200/90 hover:border-amber-400 shadow-xs hover:shadow-sm cursor-pointer active:scale-[0.99] transition-all group flex items-start gap-3.5"
-                            >
-                                <div className="w-12 h-12 rounded-2xl bg-slate-100 text-brand-navy flex items-center justify-center border border-slate-200 shrink-0 group-hover:scale-105 transition-transform">
-                                    <Gauge className="w-6 h-6 text-brand-navy stroke-[2.5]" />
-                                </div>
-                                <div className="min-w-0">
-                                    <h3 className="font-extrabold text-slate-900 text-sm mb-0.5">Disiplin Batas Pengeluaran</h3>
-                                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                                        Saya ingin fokus menjaga arus kas bulanan agar tidak bocor tanpa memasang nominal target.
-                                    </p>
-                                </div>
-                            </div>
-
-                        </div>
-                    )}
-
-                    {/* STEP 2: INPUT NOMINAL TARGET & DURASI BULAN */}
+                    {/* STEP 1: INPUT NOMINAL TARGET & DURASI BULAN */}
                     {step === 'target-input' && (
                         <div className="space-y-4 animate-in fade-in">
                             <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-5 text-center">
@@ -444,16 +402,16 @@ export default function Target() {
                                 </button>
                                 <button 
                                     type="button"
-                                    onClick={() => setStep('intro')} 
+                                    onClick={() => setLocation('/')} 
                                     className="w-full h-11 text-slate-500 font-bold text-xs uppercase tracking-wider hover:text-slate-800 transition-colors cursor-pointer text-center"
                                 >
-                                    KEMBALI
+                                    KEMBALI KE BERANDA
                                 </button>
                             </div>
                         </div>
                     )}
 
-                    {/* STEP 3: PERTANYAAN PEMASANGAN BATAS BUDGET */}
+                    {/* STEP 2: PERTANYAAN PEMASANGAN BATAS BUDGET */}
                     {step === 'budget-ask' && (
                         <div className="space-y-4 animate-in fade-in">
                             <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4 text-center">
@@ -489,7 +447,7 @@ export default function Target() {
 
                             <button 
                                 type="button"
-                                onClick={() => isTargetMode ? setStep('target-input') : setStep('intro')} 
+                                onClick={() => setStep('target-input')} 
                                 className="w-full h-11 text-slate-500 font-bold text-xs uppercase tracking-wider hover:text-slate-800 transition-colors cursor-pointer text-center"
                             >
                                 KEMBALI

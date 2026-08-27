@@ -703,7 +703,7 @@ export default function Subscriptions() {
                       Untuk memastikan laporan tetap akurat, Anda harus menyelesaikan Setup Saldo Awal sebelum mencatat transaksi.
                   </p>
                   <div className="space-y-3">
-                      <Button onClick={() => window.location.href = '/target'} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-full shadow-lg">LAKUKAN SETUP SEKARANG</Button>
+                      <Button onClick={() => window.location.href = '/setup-balance'} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-full shadow-lg">LAKUKAN SETUP SEKARANG</Button>
                       <Button variant="ghost" onClick={() => setShowSetupPrompt(false)} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 rounded-full">Tutup</Button>
                   </div>
               </div>

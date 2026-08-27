@@ -66,8 +66,8 @@ export default function Auth() {
       setLoading(false);
 
       if (isNewUser) {
-          toast({ title: "Registrasi Berhasil!", description: "Mari atur strategi finansial pertamamu." });
-          setLocation("/target"); // Pindah sangat cepat via client-side routing
+          toast({ title: "Registrasi Berhasil!", description: "Mari atur saldo awal dan portofoliomu." });
+          setLocation("/setup-balance"); // Pindah langsung ke setup saldo awal
       } else {
           toast({ title: "Berhasil!", description: "Selamat datang kembali di BILANO." });
           window.location.href = "/"; 
@@ -206,7 +206,7 @@ export default function Auth() {
   return (
     <div className="min-h-screen w-full max-w-[430px] mx-auto bg-slate-50 flex flex-col items-center justify-center p-4 relative shadow-2xl border-x border-slate-200/80">
       <div className="mb-8 text-center animate-in fade-in slide-in-from-top-4 duration-700">
-          <img src="/Bilano_horiz_rbg.png" alt="BILANO" className="h-16 w-auto mx-auto mb-2 object-contain" />
+          <img src="/BILANO-LOGO-NEW.png" alt="BILANO" className="h-16 w-auto mx-auto mb-2 object-contain" />
       </div>
 
       <Card className="w-full max-w-sm p-6 shadow-xl border-none bg-white animate-in zoom-in-95">

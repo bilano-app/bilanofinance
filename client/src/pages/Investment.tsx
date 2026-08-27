@@ -594,84 +594,10 @@ export default function Investment() {
                 </div>
             ) : (
                 <div className="space-y-4 animate-in slide-in-from-right duration-300">
-                    
-                    {/* Switcher Transaksi vs Analisa Aset */}
-                    <div className="flex bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs">
-                        <button
-                            type="button"
-                            onClick={() => setDetailTab('transaksi')}
-                            className={`flex-1 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                                detailTab === 'transaksi' 
-                                    ? 'bg-sky-600 text-white shadow-xs' 
-                                    : 'text-slate-500 hover:text-slate-800'
-                            }`}
-                        >
-                            <PlusCircle className="w-4 h-4"/> CATAT TRANSAKSI
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (isUserPro && activeCategory) {
-                                    setProFeatureModal({ 
-                                        title: `Smart Screener ${assetConfig[activeCategory].label}`, 
-                                        desc: "Fitur screening cerdas dan analisa tren harga menggunakan AI." 
-                                    });
-                                } else {
-                                    setDetailTab('analisa');
-                                }
-                            }}
-                            className={`flex-1 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                                detailTab === 'analisa' 
-                                    ? 'bg-brand-navy text-sky-300 shadow-xs font-extrabold' 
-                                    : 'text-slate-500 hover:text-slate-800'
-                            }`}
-                        >
-                            <Brain className="w-4 h-4 text-sky-400"/> ANALISA AI
-                        </button>
-                    </div>
-
                     {/* TAB TRANSAKSI */}
-                    {detailTab === 'transaksi' && (
-                        <div className="bg-white rounded-3xl shadow-xs border border-slate-200/80 p-5 space-y-4">
-                            {renderDynamicForm()}
-                        </div>
-                    )}
-
-                    {/* TAB ANALISA ASET / SMART SCREENER */}
-                    {detailTab === 'analisa' && activeCategory && (
-                        <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] rounded-3xl p-6 shadow-sm border-l-[6px] border-l-sky-400 text-center relative overflow-hidden space-y-4">
-                            <div className="w-16 h-16 bg-sky-400 text-brand-navy rounded-2xl flex items-center justify-center mx-auto shadow-md border-2 border-white/20">
-                                <Brain className="w-8 h-8" />
-                            </div>
-
-                            <div>
-                                <h3 className="text-lg font-black text-white mb-1">
-                                    Smart Screener {assetConfig[activeCategory].label} 🚀
-                                </h3>
-                                <p className="text-xs text-sky-100/80 font-medium leading-relaxed">
-                                    Fitur screening cerdas dan kalkulasi tren harga menggunakan AI khusus untuk aset <b>{assetConfig[activeCategory].label}</b> Anda sedang dalam perakitan akhir kami!
-                                </p>
-                            </div>
-
-                            <div className="bg-sky-950/80 border border-sky-400/40 rounded-2xl p-4 text-left space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <AlertTriangle className="w-4 h-4 text-sky-300 shrink-0" />
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-sky-200">GARANSI HARGA PRO</span>
-                                </div>
-                                <p className="text-[11px] leading-relaxed font-medium text-sky-100">
-                                    Dapatkan akses instan ke seluruh fitur VIP AI tanpa kenaikan harga di masa depan dengan mengunci paket tahunan Anda hari ini.
-                                </p>
-                            </div>
-
-                            <button 
-                                type="button"
-                                onClick={() => setLocation('/paywall')} 
-                                className="w-full h-14 bg-sky-400 hover:bg-sky-300 text-brand-navy font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-                            >
-                                <Lock className="w-4 h-4"/> AMANKAN PAKET SAYA SEKARANG
-                            </button>
-                        </div>
-                    )}
+                    <div className="bg-white rounded-3xl shadow-xs border border-slate-200/80 p-5 space-y-4">
+                        {renderDynamicForm()}
+                    </div>
 
                     {/* DAFTAR ASET TERDAFTAR DI PORTOFOLIO */}
                     <div className="space-y-3 pt-1">
