@@ -199,7 +199,7 @@ export default function Investment() {
       try {
           const finalSymbol = inputCurrency !== 'IDR' ? `${inputName.trim().toUpperCase()}|${inputCurrency}` : inputName.trim().toUpperCase();
 
-          const res = await fetch("/api/investments", {
+          const res = await fetch(txType === 'BUY' ? "/api/investments/buy" : "/api/investments/sell", {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",

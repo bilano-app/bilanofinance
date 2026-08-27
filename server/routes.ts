@@ -1556,7 +1556,196 @@ function parseCleanJson(text: string): any {
       if (Object.keys(cachedRates).length === 0) cachedRates = { "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1 };
       res.json(cachedRates); 
   });
-  
+
+  app.post("/api/forex/mutation", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { currency, amount, type, paymentMode, debtName, dueDate, notes, rateSnapshot } = req.body;
+          const numAmount = Math.abs(amount);
+          
+          const now = Date.now();
+          const ONE_HOUR = 1000 * 60 * 60;
+          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > ONE_HOUR) await fetchLiveRates();
+          if (Object.keys(cachedRates).length === 0) cachedRates = { "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1 };
+
+          const rate = rateSnapshot || cachedRates[currency as keyof typeof cachedRates] || 15000;
+          const amountIDR = Math.round(numAmount * rate);
+
+          const existing = await storage.getForexByCurrency(user.id, currency);
+          let currentAmount = existing ? existing.amount : 0;
+
+          if (type === 'OUT' && currentAmount < numAmount) {
+              return res.status(400).json({ message: `Saldo ${currency} tidak mencukupi.` });
+          }
+
+          if (paymentMode === 'debt') {
+              const debtType = type === 'IN' ? 'piutang' : 'hutang';
+              await storage.createDebt(user.id, {
+                  userId: user.id,
+                  name: `${debtName} | ${currency}`,
+                  amount: numAmount,
+                  type: debtType,
+                  dueDate: dueDate ? new Date(dueDate) : null,
+                  source: null,
+                  isPaid: false
+              } as any);
+
+              await storage.createTransaction(user.id, {
+                  userId: user.id,
+                  type: debtType === 'piutang' ? 'piutang_record' : 'hutang_record',
+                  amount: amountIDR,
+                  category: debtType === 'piutang' ? 'Piutang Valas' : 'Hutang Valas',
+                  description: `[MUTASI DEBT] ${notes || ''}`,
+                  date: new Date(),
+                  source: null
+              } as any);
+          } else {
+              await storage.createTransaction(user.id, {
+                  userId: user.id,
+                  type: type === 'IN' ? 'income' : 'expense',
+                  amount: amountIDR,
+                  category: type === 'IN' ? 'Pemasukan Valas' : 'Pengeluaran Valas',
+                  description: notes || `Mutasi ${type} ${currency}`,
+                  date: new Date(),
+                  source: null
+              } as any);
+          }
+
+          if (type === 'IN') {
+              currentAmount += numAmount;
+          } else {
+              currentAmount -= numAmount;
+          }
+
+          if (existing) {
+              await storage.updateForexAsset(existing.id, currentAmount);
+          } else {
+              await storage.createForexAsset(user.id, { currency, amount: currentAmount } as any);
+          }
+
+          res.json({ success: true, newBalance: currentAmount });
+      } catch (error: any) {
+          res.status(500).json({ error: error.message || "Terjadi kesalahan pada server." });
+      }
+  });
+
+  app.post("/api/forex/exchange", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { action, currency, amount, rate, totalIDR, source } = req.body;
+          const numAmount = Math.abs(amount);
+          const numTotalIDR = Math.abs(totalIDR);
+
+          const existing = await storage.getForexByCurrency(user.id, currency);
+          let currentAmount = existing ? existing.amount : 0;
+
+          let newCashBalance = Math.round(user.cashBalance);
+          let walletSources = user.walletSources ? [...(user.walletSources as any[])] : [];
+
+          if (action === 'BUY') {
+              if (newCashBalance < numTotalIDR) {
+                  return res.status(400).json({ message: "Saldo Rupiah tidak cukup untuk beli Valas." });
+              }
+              newCashBalance -= numTotalIDR;
+              if (source) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                  if (wsIdx >= 0) {
+                      walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - numTotalIDR);
+                  }
+              }
+              currentAmount += numAmount;
+
+              await storage.createTransaction(user.id, {
+                  userId: user.id,
+                  type: 'forex_buy',
+                  amount: numTotalIDR,
+                  category: 'Tukar Valas',
+                  description: `Beli ${numAmount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`,
+                  date: new Date(),
+                  source: source || null
+              } as any);
+          } else {
+              if (currentAmount < numAmount) {
+                  return res.status(400).json({ message: `Saldo ${currency} tidak mencukupi untuk dijual.` });
+              }
+              newCashBalance += numTotalIDR;
+              if (source) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                  if (wsIdx >= 0) {
+                      walletSources[wsIdx].balance += numTotalIDR;
+                  } else {
+                      walletSources.push({
+                          id: Date.now().toString(),
+                          name: source,
+                          type: 'bank',
+                          balance: numTotalIDR
+                      });
+                  }
+              }
+              currentAmount -= numAmount;
+
+              await storage.createTransaction(user.id, {
+                  userId: user.id,
+                  type: 'forex_sell',
+                  amount: numTotalIDR,
+                  category: 'Cairkan Valas',
+                  description: `Jual ${numAmount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`,
+                  date: new Date(),
+                  source: source || null
+              } as any);
+          }
+
+          await storage.updateUserBalance(user.id, newCashBalance);
+          if (source) {
+              await storage.updateUserWalletSources(user.id, walletSources);
+          }
+
+          if (existing) {
+              await storage.updateForexAsset(existing.id, currentAmount);
+          } else {
+              await storage.createForexAsset(user.id, { currency, amount: currentAmount } as any);
+          }
+
+          res.json({ success: true, newBalance: currentAmount, newCashBalance });
+      } catch (error: any) {
+          res.status(500).json({ error: error.message || "Terjadi kesalahan pada server." });
+      }
+  });
+
+  app.get("/api/forex/history/:currency", async (req: any, res: any) => {
+      try {
+          const currency = req.params.currency.toUpperCase();
+          
+          const now = Date.now();
+          const ONE_HOUR = 1000 * 60 * 60;
+          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > ONE_HOUR) await fetchLiveRates();
+          if (Object.keys(cachedRates).length === 0) cachedRates = { "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1 };
+
+          const baseRate = cachedRates[currency as keyof typeof cachedRates] || 15000;
+          
+          const data = [];
+          const today = new Date();
+          for (let i = 29; i >= 0; i--) {
+              const date = new Date(today);
+              date.setDate(today.getDate() - i);
+              
+              const variation = 1 + (Math.sin(i * 0.5) * 0.015) + ((Math.random() - 0.5) * 0.01);
+              const rate = Math.round(baseRate * variation * 100) / 100;
+              
+              const dateStr = date.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+              data.push({ date: dateStr, rate });
+          }
+          
+          res.json({ success: true, data });
+      } catch (error: any) {
+          res.status(500).json({ error: error.message || "Gagal memuat grafik." });
+      }
+  });
+
   app.post("/api/forex/transaction", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
@@ -2169,7 +2358,7 @@ function parseCleanJson(text: string): any {
     }
   });
   app.post("/api/subscriptions", async (req: any, res: any) => { const user = await getUser(req); const sub = await storage.createSubscription(user!.id, req.body as any); res.json(sub); });
-  app.patch("/api/subscriptions/:id/status", async (req: any, res: any) => { const { isActive } = req.body; await storage.updateSubscriptionStatus(parseInt(req.params.id), isActive); res.json({ success: true }); });
+  app.patch("/api/subscriptions/:id/status", async (req: any, res: any) => { const { isActive } = req.body; await storage.toggleSubscriptionStatus(parseInt(req.params.id), isActive); res.json({ success: true }); });
   app.delete("/api/subscriptions/:id", async (req: any, res: any) => { await storage.deleteSubscription(parseInt(req.params.id)); res.json({ success: true }); });
 
   app.get("/api/user", async (req: any, res: any) => { 

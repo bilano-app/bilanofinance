@@ -341,7 +341,10 @@ export default function Home() {
         const due = subscriptions.find((sub: any) => {
             if (!sub.isActive) return false;
 
-            const nextDate = new Date(sub.nextPaymentDate);
+            const dateVal = sub.nextBilling || sub.nextPaymentDate;
+            if (!dateVal) return false;
+
+            const nextDate = new Date(dateVal);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             nextDate.setHours(0, 0, 0, 0);
@@ -380,12 +383,12 @@ export default function Home() {
                     amount: amountToPay,
                     category: "Tagihan Bulanan",
                     description: `Bayar Tagihan: ${dueSub.name}`,
-                    date: new Date(dueSub.nextPaymentDate),
+                    date: new Date(dueSub.nextBilling || dueSub.nextPaymentDate),
                     source: selectedSource
                 })
             });
 
-            const nextDate = new Date(dueSub.nextPaymentDate);
+            const nextDate = new Date(dueSub.nextBilling || dueSub.nextPaymentDate);
             if (dueSub.cycle === 'yearly') {
                 nextDate.setFullYear(nextDate.getFullYear() + 1);
             } else {
@@ -802,7 +805,7 @@ export default function Home() {
                             </>
                         ) : (
                             <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                                Tagihan <strong>{dueSub.name}</strong> sebesar <strong className="text-slate-800">{formatCurrency(dueSub.price)}</strong> telah jatuh tempo pada tanggal {new Date(dueSub.nextPaymentDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })}. Catat pengeluaran ini sekarang?
+                                Tagihan <strong>{dueSub.name}</strong> sebesar <strong className="text-slate-800">{formatCurrency(dueSub.price)}</strong> telah jatuh tempo pada tanggal {new Date(dueSub.nextBilling || dueSub.nextPaymentDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })}. Catat pengeluaran ini sekarang?
                             </p>
                         )}
 

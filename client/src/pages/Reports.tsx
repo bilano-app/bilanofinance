@@ -29,6 +29,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [logoAspectRatio, setLogoAspectRatio] = useState<number>(3.16);
 
   const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
   const formatRpPendek = (val: number) => {
@@ -50,7 +51,13 @@ export default function Reports() {
             const canvas = document.createElement("canvas");
             canvas.width = img.width; canvas.height = img.height;
             const ctx = canvas.getContext("2d");
-            if (ctx) { ctx.drawImage(img, 0, 0); setLogoBase64(canvas.toDataURL("image/png")); }
+            if (ctx) { 
+                ctx.drawImage(img, 0, 0); 
+                setLogoBase64(canvas.toDataURL("image/png")); 
+                if (img.width && img.height) {
+                    setLogoAspectRatio(img.width / img.height);
+                }
+            }
         };
         img.src = '/BILANO-LOGO-NEW.png';
     } catch (e) {}
@@ -722,10 +729,12 @@ export default function Reports() {
             doc.setFillColor(246, 185, 59); // Bilano Gold
             doc.rect(0, 8, 210, 1.5, 'F');
 
-            // Logo & Brand Header
             try {
-                if (logoBase64) doc.addImage(logoBase64, 'PNG', 14, 14, 38, 12);
-                else { 
+                if (logoBase64) {
+                    const logoWidth = 38;
+                    const logoHeight = logoWidth / logoAspectRatio;
+                    doc.addImage(logoBase64, 'PNG', 14, 14, logoWidth, logoHeight);
+                } else { 
                     doc.setTextColor(29, 62, 114); 
                     doc.setFont("helvetica", "bold"); 
                     doc.setFontSize(22); 
