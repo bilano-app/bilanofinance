@@ -1548,6 +1548,8 @@ function parseCleanJson(text: string): any {
   });
 
   app.get("/api/forex", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
+  // Alias for frontend compatibility
+  app.get("/api/forex/assets", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
   
   app.get("/api/forex/rates", async (req: any, res: any) => { 
       const now = Date.now();
@@ -2358,6 +2360,14 @@ function parseCleanJson(text: string): any {
     }
   });
   app.post("/api/subscriptions", async (req: any, res: any) => { const user = await getUser(req); const sub = await storage.createSubscription(user!.id, req.body as any); res.json(sub); });
+  app.patch("/api/subscriptions/:id", async (req: any, res: any) => { 
+      try {
+          const sub = await storage.updateSubscription(parseInt(req.params.id), req.body as any);
+          res.json(sub);
+      } catch(e: any) { 
+          res.status(500).json({ error: e.message }); 
+      }
+  });
   app.patch("/api/subscriptions/:id/status", async (req: any, res: any) => { const { isActive } = req.body; await storage.toggleSubscriptionStatus(parseInt(req.params.id), isActive); res.json({ success: true }); });
   app.delete("/api/subscriptions/:id", async (req: any, res: any) => { await storage.deleteSubscription(parseInt(req.params.id)); res.json({ success: true }); });
 

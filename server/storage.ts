@@ -57,6 +57,7 @@ export interface IStorage {
 
   getSubscriptions(userId: number): Promise<Subscription[]>;
   createSubscription(userId: number, sub: InsertSubscription): Promise<Subscription>;
+  updateSubscription(id: number, data: Partial<InsertSubscription>): Promise<Subscription>;
   toggleSubscriptionStatus(id: number, isActive: boolean): Promise<Subscription>;
   deleteSubscription(id: number): Promise<void>;
   
@@ -288,6 +289,14 @@ export class DatabaseStorage implements IStorage {
       return newSub;
   }
   
+  async updateSubscription(id: number, data: Partial<InsertSubscription>): Promise<Subscription> {
+      const updateData: any = { ...data };
+      if (updateData.nextBilling) updateData.nextBilling = new Date(updateData.nextBilling);
+      const [updated] = await db.update(subscriptions).set(updateData).where(eq(subscriptions.id, id)).returning();
+      if (!updated) throw new Error("Subscription not found");
+      return updated;
+  }
+
   async toggleSubscriptionStatus(id: number, isActive: boolean): Promise<Subscription> {
       const [updated] = await db.update(subscriptions).set({ isActive }).where(eq(subscriptions.id, id)).returning();
       if(!updated) throw new Error("Subscription not found");

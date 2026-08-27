@@ -143,45 +143,62 @@ export default function Subscriptions() {
       
       try {
           if (editingSub) {
-              // Edit mode: delete old and create new or update status
-              await fetch(`/api/subscriptions/${editingSub.id}`, { method: "DELETE", headers: getAuthHeaders() });
-          }
-
-          const res = await fetch("/api/subscriptions", {
-              method: "POST", 
-              headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-              body: JSON.stringify({ 
-                  name: name.trim(), 
-                  price: nominal, 
-                  cost: nominal, 
-                  cycle: cycle === 'tahunan' ? 'yearly' : 'bulanan', 
-                  nextBilling: new Date(nextDate),
-                  nextPaymentDate: nextDate, 
-                  category: billType, 
-                  isActive: editingSub ? editingSub.isActive : true 
-              })
-          });
-
-          if (res.ok) {
-              trackEvent("subscription_added", { 
-                  category: billType, 
-                  cycle: cycle 
+              // Edit mode: gunakan PATCH untuk update in-place (jaga history)
+              const res = await fetch(`/api/subscriptions/${editingSub.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                  body: JSON.stringify({
+                      name: name.trim(),
+                      price: nominal,
+                      cost: nominal,
+                      cycle: cycle === 'tahunan' ? 'yearly' : 'bulanan',
+                      nextBilling: new Date(nextDate),
+                      category: billType,
+                      isActive: editingSub.isActive
+                  })
               });
-              toast({ 
-                  title: editingSub ? "Perubahan Disimpan! 🔄" : "Tagihan Berhasil Ditambahkan! 📋", 
-                  description: `${name} telah masuk dalam daftar pengeluaran rutin.` 
-              });
-              setIsFormOpen(false);
-              queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
-              queryClient.invalidateQueries();
-              fetchSubs();
+
+              if (res.ok) {
+                  trackEvent("subscription_edited", { category: billType, cycle });
+                  toast({ title: "Perubahan Disimpan! 🔄", description: `${name} berhasil diperbarui.` });
+                  setIsFormOpen(false);
+                  queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+                  fetchSubs();
+              } else {
+                  toast({ title: "Gagal menyimpan perubahan", variant: "destructive" });
+              }
           } else {
-              toast({ title: "Gagal menyimpan tagihan", variant: "destructive" });
+              // Add mode: buat subscription baru
+              const res = await fetch("/api/subscriptions", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                  body: JSON.stringify({
+                      name: name.trim(),
+                      price: nominal,
+                      cost: nominal,
+                      cycle: cycle === 'tahunan' ? 'yearly' : 'bulanan',
+                      nextBilling: new Date(nextDate),
+                      nextPaymentDate: nextDate,
+                      category: billType,
+                      isActive: true
+                  })
+              });
+
+              if (res.ok) {
+                  trackEvent("subscription_added", { category: billType, cycle });
+                  toast({ title: "Tagihan Berhasil Ditambahkan! 📋", description: `${name} telah masuk dalam daftar pengeluaran rutin.` });
+                  setIsFormOpen(false);
+                  queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
+                  fetchSubs();
+              } else {
+                  toast({ title: "Gagal menyimpan tagihan", variant: "destructive" });
+              }
           }
-      } catch (e) { 
-          toast({ title: "Terjadi kesalahan jaringan", variant: "destructive" }); 
+      } catch (e) {
+          toast({ title: "Terjadi kesalahan jaringan", variant: "destructive" });
       }
   };
+
 
   const toggleStatus = async (id: number, currentStatus: boolean) => {
       if (isTrialExpired) {

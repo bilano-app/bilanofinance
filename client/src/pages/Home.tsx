@@ -373,9 +373,10 @@ export default function Home() {
         if (!dueSub) return;
         if (dueSub.category === 'dinamis' && !dynamicAmount) return;
 
-        const amountToPay = dueSub.category === 'dinamis' ? parseFloat(dynamicAmount) : dueSub.price;
+        const amountToPay = dueSub.category === 'dinamis' ? parseFloat(dynamicAmount) : (dueSub.price || dueSub.cost || 0);
 
         try {
+            // 1. Catat transaksi pengeluaran
             await fetch("/api/transactions", {
                 method: "POST", headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
                 body: JSON.stringify({
@@ -383,29 +384,25 @@ export default function Home() {
                     amount: amountToPay,
                     category: "Tagihan Bulanan",
                     description: `Bayar Tagihan: ${dueSub.name}`,
-                    date: new Date(dueSub.nextBilling || dueSub.nextPaymentDate),
+                    date: new Date(),
                     source: selectedSource
                 })
             });
 
+            // 2. Hitung tanggal billing berikutnya
             const nextDate = new Date(dueSub.nextBilling || dueSub.nextPaymentDate);
-            if (dueSub.cycle === 'yearly') {
+            if (dueSub.cycle === 'yearly' || dueSub.cycle === 'tahunan') {
                 nextDate.setFullYear(nextDate.getFullYear() + 1);
             } else {
                 nextDate.setMonth(nextDate.getMonth() + 1);
             }
 
-            await fetch(`/api/subscriptions/${dueSub.id}`, { method: "DELETE", headers: { "x-user-email": rawEmail } });
-            await fetch("/api/subscriptions", {
-                method: "POST", headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
+            // 3. Update subscription di tempat (bukan delete+recreate)
+            await fetch(`/api/subscriptions/${dueSub.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json", "x-user-email": rawEmail },
                 body: JSON.stringify({
-                    name: dueSub.name,
-                    price: dueSub.price,
-                    cost: dueSub.price,
-                    cycle: dueSub.cycle,
-                    nextPaymentDate: nextDate.toISOString(),
                     nextBilling: nextDate.toISOString(),
-                    category: dueSub.category,
                     isActive: true
                 })
             });
@@ -416,6 +413,7 @@ export default function Home() {
             toast({ title: "Gagal memproses", variant: "destructive" });
         }
     };
+
 
     const handleSkipSub = () => {
         const todayStr = new Date().toISOString().split('T')[0];
