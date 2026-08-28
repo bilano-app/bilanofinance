@@ -73,6 +73,12 @@ export default function Forex() {
 
   const [showSourcePopup, setShowSourcePopup] = useState(false);
   const [pendingForexSubmit, setPendingForexSubmit] = useState<{ action: 'exchange' | 'mutation' } | null>(null);
+  const [sourcePopupConfig, setSourcePopupConfig] = useState<{
+    type: 'income' | 'expense';
+    title: string;
+    description: string;
+    onSelect: (src: string) => void;
+  } | null>(null);
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isPro = user?.isPro || (typeof window !== 'undefined' && localStorage.getItem("bilano_pro") === "true");
@@ -144,7 +150,7 @@ export default function Forex() {
     }, 0);
   };
 
-  const handleMutation = async () => {
+  const handleMutation = () => {
     const num = parseValas(amountMutation);
     if (!num || num <= 0) {
         toast({ title: "Nominal Belum Diisi", description: "Masukkan nominal valas yang valid.", variant: "destructive" });
@@ -156,8 +162,36 @@ export default function Forex() {
         return;
     }
 
+    // Untuk mode debt tidak perlu pilih sumber, langsung eksekusi
+    if (paymentMode === 'debt') {
+        executeMutation("");
+        return;
+    }
+
+    // Tampilkan popup pilih sumber uang
+    if (mutationMode === 'in') {
+        setSourcePopupConfig({
+            type: 'income',
+            title: 'Pilih Dompet Penerima Valas',
+            description: `Valas ${selectedCurr.code} masuk ke rekening atau dompet mana?`,
+            onSelect: (src) => { setShowSourcePopup(false); executeMutation(src); }
+        });
+    } else {
+        setSourcePopupConfig({
+            type: 'expense',
+            title: 'Pilih Sumber Dana Valas Keluar',
+            description: `Valas ${selectedCurr.code} keluar dari rekening atau dompet mana?`,
+            onSelect: (src) => { setShowSourcePopup(false); executeMutation(src); }
+        });
+    }
+    setPendingForexSubmit({ action: 'mutation' });
+    setShowSourcePopup(true);
+  };
+
+  const executeMutation = async (selectedSource: string) => {
     setIsSubmitting(true);
     try {
+        const num = parseValas(amountMutation);
         const finalAmount = mutationMode === 'in' ? num : -num;
         
         const res = await fetch("/api/forex/mutation", {
@@ -171,7 +205,8 @@ export default function Forex() {
                 debtName: debtName.trim(),
                 dueDate: dueDate || null,
                 notes: noteMutation.trim() || undefined,
-                rateSnapshot: getSafeRate(selectedCurr.code)
+                rateSnapshot: getSafeRate(selectedCurr.code),
+                source: selectedSource || undefined
             })
         });
 
@@ -225,7 +260,15 @@ export default function Forex() {
             });
             return;
         }
-        await executeExchangeDirect();
+        // Tampilkan popup untuk memilih sumber dana pembelian valas
+        setSourcePopupConfig({
+            type: 'expense',
+            title: 'Pilih Sumber Dana Pembelian',
+            description: `Dana pembelian ${selectedCurr.code} diambil dari rekening atau dompet mana?`,
+            onSelect: (src) => { setShowSourcePopup(false); executeExchangeDirect(src); }
+        });
+        setPendingForexSubmit({ action: 'exchange' });
+        setShowSourcePopup(true);
     } else {
         const existingAsset = assets.find(a => a.currency === selectedCurr.code);
         const currentValasBal = existingAsset ? existingAsset.amount : 0;
@@ -237,6 +280,12 @@ export default function Forex() {
             });
             return;
         }
+        setSourcePopupConfig({
+            type: 'income',
+            title: 'Tujuan Masuk Saldo Penjualan',
+            description: `Pilih akun atau dompet yang menerima dana hasil penukaran valas ini:`,
+            onSelect: (src) => { setShowSourcePopup(false); executeExchangeDirect(src); }
+        });
         setPendingForexSubmit({ action: 'exchange' });
         setShowSourcePopup(true);
     }
@@ -873,17 +922,14 @@ export default function Forex() {
           </div>
       )}
 
-      {/* MODAL PILIH SUMBER DANA KETIKA MENJUAL VALAS */}
-      {showSourcePopup && (
+      {/* MODAL PILIH SUMBER / TUJUAN DANA */}
+      {showSourcePopup && sourcePopupConfig && (
           <SourceSelectionPopup
-              type="income"
-              onCancel={() => setShowSourcePopup(false)}
-              onSelect={(source) => {
-                  setShowSourcePopup(false);
-                  executeExchangeDirect(source);
-              }}
-              title="Tujuan Masuk Saldo Penjualan"
-              description="Pilih akun atau dompet yang menerima dana hasil penukaran valas ini:"
+              type={sourcePopupConfig.type}
+              onCancel={() => { setShowSourcePopup(false); setPendingForexSubmit(null); }}
+              onSelect={sourcePopupConfig.onSelect}
+              title={sourcePopupConfig.title}
+              description={sourcePopupConfig.description}
           />
       )}
     </MobileLayout>

@@ -65,7 +65,7 @@ export default function AcademyList() {
 
     const filteredEbooks = useMemo(() => {
         return ebooks.filter(book => {
-            const matchesSearch = 
+            const matchesSearch =
                 book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (book.author && book.author.toLowerCase().includes(searchQuery.toLowerCase())) ||
                 (book.description && book.description.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -73,7 +73,7 @@ export default function AcademyList() {
             if (!matchesSearch) return false;
 
             if (selectedCategory === "all") return true;
-            
+
             const titleLower = book.title.toLowerCase();
             const descLower = (book.description || "").toLowerCase();
 
@@ -97,15 +97,15 @@ export default function AcademyList() {
     return (
         <MobileLayout>
             <div className="flex flex-col -mx-5 -mt-5">
-                
+
                 {/* 1. TOP HEADER GRADIENT BANNER DENGAN NUANSA GOLD & NAVY */}
                 <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FEF6E4] via-[#FDECC8] to-[#FCE0A2] flex flex-col relative z-10 border-b-2 border-brand-gold">
-                    
+
                     {/* Header Nav Bar */}
                     <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.06)] flex items-center justify-between relative z-30 border-b border-amber-100">
                         <div className="flex items-center gap-3">
                             <Link href="/">
-                                <button 
+                                <button
                                     className="w-10 h-10 rounded-full bg-brand-gold hover:bg-brand-goldDark text-brand-navy shadow-[2px_2px_0px_0px] shadow-brand-navy active:shadow-[0px_0px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center transition-all shrink-0 cursor-pointer"
                                     title="Kembali ke Beranda"
                                 >
@@ -194,7 +194,7 @@ export default function AcademyList() {
 
                 {/* 3. SEARCH & CATEGORY FILTER SECTION */}
                 <div className="px-5 pt-5 pb-2 bg-slate-50 flex flex-col gap-3">
-                    
+
                     {/* Search Bar */}
                     <div className="relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-navy/60" />
@@ -223,11 +223,10 @@ export default function AcademyList() {
                                 <button
                                     key={cat.id}
                                     onClick={() => setSelectedCategory(cat.id)}
-                                    className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                                        isSelected
+                                    className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${isSelected
                                             ? "bg-brand-gold text-brand-navy shadow-[3px_3px_0px_0px] shadow-brand-navy border border-brand-navy translate-x-[-1px] translate-y-[-1px]"
                                             : "bg-white text-slate-600 border border-slate-200 hover:border-amber-300 active:scale-95 shadow-xs"
-                                    }`}
+                                        }`}
                                 >
                                     {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-brand-navy"></span>}
                                     {cat.label}

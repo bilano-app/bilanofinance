@@ -51,6 +51,11 @@ export default function Investment() {
   const [proFeatureModal, setProFeatureModal] = useState<{ title: string; desc: string } | null>(null);
   const [showSetupPrompt, setShowSetupPrompt] = useState(false);
   const [showSourcePopup, setShowSourcePopup] = useState(false);
+  const [sourcePopupConfig, setSourcePopupConfig] = useState<{
+    type: 'income' | 'expense';
+    title: string;
+    description: string;
+  } | null>(null);
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isUserPro = user?.isPro || (typeof window !== 'undefined' && localStorage.getItem("bilano_pro") === "true");
@@ -269,10 +274,19 @@ export default function Investment() {
       }
 
       if (txType === 'SELL') {
-          setShowSourcePopup(true);
+          setSourcePopupConfig({
+              type: 'income',
+              title: 'Tujuan Masuk Saldo Penjualan',
+              description: 'Pilih akun atau dompet yang menerima dana hasil penjualan aset ini:'
+          });
       } else {
-          executeTransaction();
+          setSourcePopupConfig({
+              type: 'expense',
+              title: 'Pilih Sumber Dana Pembelian',
+              description: 'Dana pembelian aset investasi diambil dari rekening atau dompet mana?'
+          });
       }
+      setShowSourcePopup(true);
   };
 
   const renderDynamicForm = () => {
@@ -658,17 +672,17 @@ export default function Investment() {
         </div>
       </div>
 
-      {/* POPUP SUMBER DANA KETIKA MENJUAL ASET */}
-      {showSourcePopup && (
+      {/* POPUP SUMBER DANA KETIKA MEMBELI / MENJUAL ASET */}
+      {showSourcePopup && sourcePopupConfig && (
           <SourceSelectionPopup
-              type="income"
+              type={sourcePopupConfig.type}
               onCancel={() => setShowSourcePopup(false)}
               onSelect={(source) => {
                   setShowSourcePopup(false);
                   executeTransaction(source);
               }}
-              title="Tujuan Masuk Saldo Penjualan"
-              description="Pilih akun atau dompet yang menerima dana hasil penjualan aset ini:"
+              title={sourcePopupConfig.title}
+              description={sourcePopupConfig.description}
           />
       )}
     </MobileLayout>
