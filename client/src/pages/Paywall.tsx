@@ -36,7 +36,7 @@ export default function Paywall() {
   const { data: user } = useUser();
 
   const [cycle, setCycle] = useState<'annual' | 'monthly'>('annual');
-  const [activeTier, setActiveTier] = useState<'free' | 'standard' | 'premium'>('premium');
+  const [activeTier, setActiveTier] = useState<'free' | 'standard' | 'premium'>('standard');
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("SQ");
@@ -78,7 +78,12 @@ export default function Paywall() {
   };
 
   const handleCheckout = async () => {
-    if (activeTier === 'free') return setLocation("/");
+    if (activeTier === 'free') {
+      localStorage.setItem('bilano_access_tier', 'free');
+      localStorage.removeItem('bilano_pro');
+      setLocation('/');
+      return;
+    }
     setIsProcessing(true);
     try {
       const response = await fetch("/api/payment/duitku-production", {
@@ -90,7 +95,8 @@ export default function Paywall() {
           productDetail: `Paket ${activeTier.toUpperCase()} BILANO (${cycle})`,
           customerName: `${user?.firstName || 'User'} ${user?.lastName || ''}`.trim(),
           email: userEmail,
-          paymentMethod: paymentMethod
+          paymentMethod: paymentMethod,
+          tier: activeTier
         })
       });
       const data = await response.json();
@@ -99,6 +105,17 @@ export default function Paywall() {
     } catch (err: any) {
       toast({ title: "Gagal Proses", description: err.message, variant: "destructive" });
     } finally { setIsProcessing(false); }
+  };
+
+  const handleActivateTier = () => {
+    localStorage.setItem('bilano_access_tier', activeTier);
+    localStorage.setItem('bilano_pro', 'true');
+    if (user) {
+      user.plan = activeTier;
+      user.isPro = true;
+    }
+    setLocation('/');
+    window.location.reload();
   };
 
   const handleRefreshStatus = async () => {
@@ -125,14 +142,14 @@ export default function Paywall() {
 
   return (
     <MobileLayout>
-      <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-10 flex flex-col items-center">
+      <div className="min-h-screen bg-gradient-to-b from-[#f1f5f9] via-[#e2eaf4] to-[#d6e3f2] text-slate-900 pb-10 flex flex-col items-center">
         
         {/* TOP BAR */}
         <div className="w-full flex items-center justify-between px-6 pt-6 mb-8">
-          <button onClick={() => setLocation("/")} className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-400 hover:text-slate-900 transition-colors">
+          <button onClick={() => setLocation("/")} className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-400 hover:text-slate-900 transition-colors border border-slate-100">
             <X className="w-5 h-5" />
           </button>
-          <div className="bg-blue-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full tracking-widest uppercase">
+          <div className="bg-brand-navy text-brand-gold text-[10px] font-black px-4 py-1.5 rounded-full tracking-widest uppercase shadow-[2px_2px_0px_0px] shadow-slate-900">
             Bilano Upgrade Hub
           </div>
         </div>
@@ -143,7 +160,7 @@ export default function Paywall() {
             {/* INTRO TEXT */}
             <div className="text-center mb-10">
               <h1 className="text-3xl font-black tracking-tight text-slate-900 mb-2">Pilih Paket Akses</h1>
-              <p className="text-sm text-slate-500 font-medium px-4">Maksimalkan asisten AI dan arsitektur finansial Anda hari ini.</p>
+              <p className="text-sm text-slate-500 font-medium px-4">Pilih level akses sesuai kebutuhan finansial Anda—mulai dari dasar hingga eksekutif.</p>
             </div>
 
             {/* TOGGLE SIKLUS */}
@@ -176,57 +193,56 @@ export default function Paywall() {
             <div className="space-y-6 mb-10">
               
               {/* TIER: GRATIS */}
-              <div onClick={() => setActiveTier('free')} className={`bg-white rounded-[32px] p-6 border-2 transition-all ${activeTier === 'free' ? 'border-emerald-400 shadow-xl scale-[1.02]' : 'border-slate-200 shadow-sm'}`}>
+              <div onClick={() => setActiveTier('free')} className={`bg-white rounded-[32px] p-6 border-2 transition-all ${activeTier === 'free' ? 'border-emerald-500 shadow-[0_8px_20px_rgba(16,185,129,0.20)] scale-[1.02]' : 'border-slate-200 shadow-sm'}`}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <span className="text-[10px] font-black text-emerald-500 bg-emerald-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Tanpa Biaya</span>
-                    <h3 className="text-xl font-black mt-2">Paket Gratis</h3>
+                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Tanpa Biaya</span>
+                    <h3 className="text-xl font-black mt-2 text-slate-900">Paket Free</h3>
                   </div>
-                  <p className="text-2xl font-black">Rp 0</p>
+                  <p className="text-2xl font-black text-slate-900">Rp 0</p>
                 </div>
                 <div className="space-y-4 pt-4 border-t border-slate-100">
-                  <BenefitItem active text="Pencatatan kas dan piutang masuk" />
-                  <BenefitItem active text="Pencatatan kas dan utang keluar" />
-                  <BenefitItem text="Akses fitur pilihan" />
-                  <BenefitItem text="AI Assistant" />
-                  <BenefitItem text="Analisa Performa lengkap" />
+                  <BenefitItem active text="Fitur pemasukan dan pengeluaran" />
+                  <BenefitItem active text="Transfer antar dompet" />
+                  <BenefitItem active text="ChatAI 3x gratis" />
+                  <BenefitItem text="Semua fitur pilihan" />
+                  <BenefitItem text="Performance full access" />
                 </div>
               </div>
 
               {/* TIER: STANDARD */}
-              <div onClick={() => setActiveTier('standard')} className={`bg-white rounded-[32px] p-6 border-2 transition-all relative ${activeTier === 'standard' ? 'border-blue-500 shadow-xl scale-[1.02]' : 'border-slate-200 shadow-sm'}`}>
+              <div onClick={() => setActiveTier('standard')} className={`bg-white rounded-[32px] p-6 border-2 transition-all relative ${activeTier === 'standard' ? 'border-brand-navy shadow-[0_8px_20px_rgba(29,62,114,0.20)] scale-[1.02]' : 'border-slate-200 shadow-sm'}`}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <span className="text-[10px] font-black text-blue-500 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Pilihan Dasar</span>
-                    <h3 className="text-xl font-black mt-2">Paket Standard</h3>
+                    <span className="text-[10px] font-black text-brand-navy bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Pilihan Dasar</span>
+                    <h3 className="text-xl font-black mt-2 text-slate-900">Paket Standard</h3>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-black text-blue-600">Rp {prices.standard.toLocaleString('id-ID')}</p>
+                    <p className="text-2xl font-black text-brand-navy">Rp {prices.standard.toLocaleString('id-ID')}</p>
                     <span className="text-[10px] text-slate-400 font-bold">/ bulan</span>
                   </div>
                 </div>
                 <div className="space-y-4 pt-4 border-t border-slate-100">
-                  <BenefitItem active text="Pencatatan kas dan piutang masuk" />
-                  <BenefitItem active text="Pencatatan kas dan utang keluar" />
-                  <BenefitItem active text="Akses fitur pilihan" />
-                  <BenefitItem active text="AI Assistant" />
-                  <BenefitItem active text="Analisa Performa lengkap" />
-                  <BenefitItem text="Fitur Panduan Penghasilan (Premium)" />
-                  <BenefitItem text="Fitur Bilano Academy (Premium)" />
+                  <BenefitItem active text="Semua yang ada di Free" />
+                  <BenefitItem active text="Semua akses fitur pilihan" />
+                  <BenefitItem active text="ChatAI tanpa batas" />
+                  <BenefitItem active text="Performance full access" />
+                  <BenefitItem text="Ide & Pembimbing Penghasilan" />
+                  <BenefitItem text="Akses semua E-Book premium" />
                 </div>
               </div>
 
-              {/* TIER: PREMIUM VIP - REF DITAMBAHKAN DI SINI */}
+              {/* TIER: PREMIUM VIP */}
               <div 
                 ref={premiumRef}
                 onClick={() => setActiveTier('premium')} 
-                className={`bg-slate-900 rounded-[32px] p-6 border-2 transition-all relative overflow-hidden ${activeTier === 'premium' ? 'border-amber-400 shadow-2xl scale-[1.03]' : 'border-slate-800 shadow-sm'}`}
+                className={`bg-[#0f2247] rounded-[32px] p-6 border-2 transition-all relative overflow-hidden ${activeTier === 'premium' ? 'border-brand-gold shadow-[0_10px_24px_rgba(246,185,59,0.26)] scale-[1.03]' : 'border-slate-800 shadow-sm'}`}
               >
-                <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-200 to-amber-500 text-amber-950 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-lg">Rekomendasi</div>
+                <div className="absolute top-0 right-0 bg-gradient-to-r from-brand-gold to-[#f5d77a] text-brand-navy text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-lg">Rekomendasi</div>
                 <div className="flex justify-between items-center mb-4 mt-2">
                   <div>
-                    <span className="text-[10px] font-black text-amber-950 bg-amber-400 px-2.5 py-1 rounded-lg uppercase tracking-wider">Akses Penuh</span>
-                    <h3 className="text-xl font-black mt-2 flex items-center gap-2 text-white">Premium VIP <Crown className="w-5 h-5 fill-amber-400 text-amber-400"/></h3>
+                    <span className="text-[10px] font-black text-brand-navy bg-brand-gold px-2.5 py-1 rounded-lg uppercase tracking-wider">Akses Penuh</span>
+                    <h3 className="text-xl font-black mt-2 flex items-center gap-2 text-white">Premium <Crown className="w-5 h-5 fill-brand-gold text-brand-gold"/></h3>
                   </div>
                   <div className="flex flex-col items-end justify-center min-h-[50px]">
                     {cycle === 'annual' && (
@@ -234,20 +250,18 @@ export default function Paywall() {
                         Rp 12.900
                       </p>
                     )}
-                    <p className="text-2xl font-black text-amber-400 leading-none">
+                    <p className="text-2xl font-black text-brand-gold leading-none">
                       Rp {prices.premium.toLocaleString('id-ID')}
                     </p>
                     <span className="text-[10px] text-slate-400 font-bold mt-1 leading-none">/ bulan</span>
                   </div>
                 </div>
                 <div className="space-y-4 pt-4 border-t border-slate-700/50">
-                  <BenefitItem dark active text="Pencatatan kas dan piutang masuk" />
-                  <BenefitItem dark active text="Pencatatan kas dan utang keluar" />
-                  <BenefitItem dark active text="Akses fitur pilihan" />
-                  <BenefitItem dark active text="AI Assistant" />
-                  <BenefitItem dark active text="Analisa Performa lengkap" />
-                  <BenefitItem dark active highlight icon={<Crown className="w-4 h-4 text-brand-gold"/>} text="Fitur Panduan Penghasilan (Premium)" />
-                  <BenefitItem dark active highlight icon={<BookOpen className="w-4 h-4"/>} text="Fitur Bilano Academy (Premium)" />
+                  <BenefitItem dark active text="Semua yang ada di Standard" />
+                  <BenefitItem dark active text="Bisa akses Ide & Pembimbing Penghasilan" />
+                  <BenefitItem dark active text="Semua E-Book premium terbuka full" />
+                  <BenefitItem dark active text="Konsultasi AI tanpa batas" />
+                  <BenefitItem dark active highlight icon={<Crown className="w-4 h-4 text-brand-gold"/>} text="Eksklusif untuk strategi keuangan kelas atas" />
                 </div>
               </div>
             </div>
@@ -293,12 +307,12 @@ export default function Paywall() {
 
             {/* CTA BUTTON */}
             <Button 
-              onClick={handleCheckout} 
+              onClick={activeTier === 'free' ? handleActivateTier : handleCheckout} 
               disabled={isProcessing}
-              className={`w-full h-16 rounded-[24px] text-sm font-black tracking-widest flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${activeTier === 'premium' ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-amber-950 hover:from-amber-300 hover:to-amber-400' : (activeTier === 'standard' ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-slate-900 text-white')}`}
+              className={`w-full h-16 rounded-[24px] text-sm font-black tracking-widest flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${activeTier === 'premium' ? 'bg-gradient-to-r from-brand-gold to-[#f5d77a] text-brand-navy hover:from-[#f2ce5d] hover:to-brand-gold' : (activeTier === 'standard' ? 'bg-brand-navy text-white shadow-blue-200' : 'bg-slate-900 text-white')}`}
             >
               {isProcessing ? <Loader2 className="w-6 h-6 animate-spin"/> : (
-                activeTier === 'free' ? "LANJUTKAN GRATIS" : <>AKTIFKAN VIP SEKARANG <ArrowRight className="w-5 h-5" /></>
+                activeTier === 'free' ? "LANJUTKAN GRATIS" : <>AKTIFKAN PAKET {activeTier.toUpperCase()} <ArrowRight className="w-5 h-5" /></>
               )}
             </Button>
             

@@ -9,7 +9,7 @@ import {
     HeartHandshake, ChevronDown, ChevronUp, ArrowDownCircle, ArrowUpCircle,
     Trash2
 } from "lucide-react";
-import { useUser, useTarget, useTransactions, useForexRates, useInvestments } from "@/hooks/use-finance";
+import { useUser, useTarget, useTransactions, useForexRates, useInvestments, getAccessTier } from "@/hooks/use-finance";
 import { formatCurrency } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -35,10 +35,11 @@ export default function Performance() {
   const [isDeletingTx, setIsDeletingTx] = useState(false);
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isPro = user?.isPro || (typeof window !== 'undefined' && localStorage.getItem("bilano_pro") === "true");
+  const accessTier = getAccessTier(user);
+  const isPro = accessTier !== "free";
 
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
-  const isLocked = !isPro && isTrialExpired;
+  const isLocked = accessTier === "free" && isTrialExpired;
 
   const { data: forexAssetsData = [] } = useQuery({
       queryKey: ['forex-assets', currentUserEmail],

@@ -11,7 +11,7 @@ import ReactMarkdown from "react-markdown";
 import { useQuery } from "@tanstack/react-query";
 import { 
     useUser, useTransactions, useForexAssets, 
-    useInvestments, useTarget 
+    useInvestments, useTarget, getAccessTier 
 } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { trackEvent } from "@/lib/tracking";
@@ -72,7 +72,8 @@ export default function ChatAI() {
         enabled: !!currentUserEmail
     });
 
-    const isPro = user?.isPro || false;
+    const accessTier = getAccessTier(user);
+    const isPro = accessTier !== "free";
     const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
     
     const MAX_FREE_CHATS = 3;
@@ -81,8 +82,8 @@ export default function ChatAI() {
         return count ? parseInt(count, 10) : 0;
     });
 
-    const isOutOfQuota = !isPro && chatCount >= MAX_FREE_CHATS;
-    const isLocked = !isPro && (isTrialExpired || isOutOfQuota);
+    const isOutOfQuota = accessTier === "free" && chatCount >= MAX_FREE_CHATS;
+    const isLocked = accessTier === "free" && (isTrialExpired || isOutOfQuota);
 
     const [messages, setMessages] = useState<Message[]>(() => {
         const savedChat = typeof window !== 'undefined' ? localStorage.getItem(`bilano_chat_history_${currentUserEmail}`) : null;

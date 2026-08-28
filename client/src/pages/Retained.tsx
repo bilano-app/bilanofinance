@@ -9,7 +9,7 @@ import {
     RefreshCcw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser } from "@/hooks/use-finance";
+import { useUser, getAccessTier } from "@/hooks/use-finance";
 import { useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
@@ -44,7 +44,8 @@ export default function Retained() {
     const [isCharging, setIsCharging] = useState(false);
 
     const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-    const isPro = user?.isPro || (typeof window !== 'undefined' && localStorage.getItem("bilano_pro") === "true");
+    const accessTier = getAccessTier(user);
+    const isPro = accessTier !== "free";
 
     const [safeForexRates, setSafeForexRates] = useState<Record<string, number>>({});
     const [availableCurrencies, setAvailableCurrencies] = useState<string[]>(["IDR", "USD", "EUR", "SGD", "GBP", "JPY", "AUD", "MYR"]);

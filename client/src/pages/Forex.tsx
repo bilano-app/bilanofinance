@@ -9,7 +9,7 @@ import {
     StickyNote, Loader2, HandCoins, Check, DollarSign
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, useTransactions } from "@/hooks/use-finance";
+import { useUser, useTransactions, getAccessTier } from "@/hooks/use-finance";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
@@ -81,7 +81,8 @@ export default function Forex() {
   } | null>(null);
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isPro = user?.isPro || (typeof window !== 'undefined' && localStorage.getItem("bilano_pro") === "true");
+  const accessTier = getAccessTier(user);
+  const isPro = accessTier !== "free";
 
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 

@@ -9,7 +9,7 @@ import {
     Layers, Sparkles
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser } from "@/hooks/use-finance";
+import { useUser, getAccessTier } from "@/hooks/use-finance";
 import { useQueryClient } from "@tanstack/react-query";
 import { trackEvent } from "@/lib/tracking";
 
@@ -56,13 +56,14 @@ export default function SmartScan() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-    const isPro = user?.isPro || (typeof window !== 'undefined' && localStorage.getItem("bilano_pro") === "true");
+    const accessTier = getAccessTier(user);
+    const isPro = accessTier !== "free";
 
     const recognitionRef = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
-    const isLocked = !isPro && isTrialExpired; 
+    const isLocked = accessTier === "free" && isTrialExpired; 
     
     const getAuthHeaders = () => ({ "x-user-email": currentUserEmail });
 

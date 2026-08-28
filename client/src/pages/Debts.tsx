@@ -8,7 +8,7 @@ import {
     ArrowLeft, Sparkles, HeartCrack, Wallet, Calendar, ArrowRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, useTransactions } from "@/hooks/use-finance";
+import { useUser, useTransactions, getAccessTier } from "@/hooks/use-finance";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
 
@@ -52,7 +52,8 @@ export default function Debts() {
   const [pendingAction, setPendingAction] = useState<'add' | 'pay' | null>(null);
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-  const isPro = user?.isPro || (typeof window !== 'undefined' && localStorage.getItem("bilano_pro") === "true");
+  const accessTier = getAccessTier(user);
+  const isPro = accessTier !== "free";
 
   const [txs, setTxs] = useState<any[]>([]);
 
@@ -110,7 +111,7 @@ export default function Debts() {
 
   const checkPaywall = () => {
       const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
-      if (!isPro && isTrialExpired) {
+      if (accessTier === "free" && isTrialExpired) {
           window.location.href = "/paywall";
           return true;
       }

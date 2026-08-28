@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents";
-import { useUser, useTransactions, useAddTransaction } from "@/hooks/use-finance"; 
+import { useUser, useTransactions, useAddTransaction, getAccessTier } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { 
     HeartHandshake, Loader2, CheckCircle2, History, Settings, Info, 
@@ -37,7 +37,8 @@ export default function Amal() {
   const [validationError, setValidationError] = useState("");
 
   const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "default" : "default";
-  const isLocked = !user?.isPro && localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true";
+  const accessTier = getAccessTier(user);
+  const isLocked = accessTier === "free" && localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true";
 
   const [amalPct, setAmalPct] = useState<number>(2.5);
   const [amalDict, setAmalDict] = useState<Record<string, number>>({});

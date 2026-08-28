@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser } from "@/hooks/use-finance"; // 🚀 FIX: Import ini
+import { useUser, getAccessTier } from "@/hooks/use-finance"; // 🚀 FIX: Import ini
 
 interface CategoryItem {
     id: number;
@@ -20,8 +20,9 @@ export default function Categories() {
     const [loading, setLoading] = useState(true);
 
     const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+    const accessTier = getAccessTier(user);
     const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
-    const isLocked = !user?.isPro && isTrialExpired;
+    const isLocked = accessTier === "free" && isTrialExpired;
 
     useEffect(() => { fetchCategories(); }, []);
 

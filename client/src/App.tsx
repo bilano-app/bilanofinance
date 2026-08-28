@@ -193,7 +193,7 @@ function Router() {
     const isAuth = localStorage.getItem("bilano_auth");
     
     // Daftar rute publik yang bebas diakses
-    const publicRoutes = ["/", "/auth", "/terminal", "/onboarding", "/preview", "/checkout", "/manager", "/wealth-blueprint"];
+    const publicRoutes = ["/", "/auth", "/terminal", "/onboarding", "/preview", "/checkout", "/manager", "/wealth-blueprint", "/paywall"];
     const normalizedLocation = location.endsWith('/') && location !== '/' ? location.slice(0, -1) : location;
 
     if (!isAuth) {
@@ -211,12 +211,15 @@ function Router() {
 
     // Event Listener dari respon Backend (402 Expired)
     const handleExpiredLock = () => setShowExpiredWarning(true);
+    const handlePaywallLock = () => setLocation('/paywall');
     window.addEventListener('trigger-expired-lock', handleExpiredLock);
+    window.addEventListener('trigger-paywall-lock', handlePaywallLock);
 
     return () => {
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('trigger-expired-lock', handleExpiredLock);
+      window.removeEventListener('trigger-paywall-lock', handlePaywallLock);
     };
   }, [location, setLocation, isStandalone]);
 

@@ -50,6 +50,29 @@ const fetchSuperData = async () => {
     return globalFetchPromise;
 };
 
+export type AccessTier = "free" | "standard" | "premium";
+
+export function getAccessTier(user?: any): AccessTier {
+  const savedTier = typeof window !== "undefined" ? localStorage.getItem("bilano_access_tier") : null;
+  const explicitTier = user?.plan || savedTier;
+
+  if (explicitTier === "premium") return "premium";
+  if (explicitTier === "standard") return "standard";
+  if (explicitTier === "free") return "free";
+  if (user?.isPro) return "premium";
+  return "free";
+}
+
+export function hasAccess(user: any, requiredTier: AccessTier): boolean {
+  const currentTier = getAccessTier(user);
+  const order: Record<AccessTier, number> = { free: 0, standard: 1, premium: 2 };
+  return order[currentTier] >= order[requiredTier];
+}
+
+export function isPremiumFeatureLocked(user: any): boolean {
+  return !hasAccess(user, "premium");
+}
+
 export function useUser() {
   const email = localStorage.getItem("bilano_email") || "";
   return useQuery({
@@ -60,6 +83,10 @@ export function useUser() {
       const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"]; 
       
       if (data) {
+          const savedTier = typeof window !== "undefined" ? localStorage.getItem("bilano_access_tier") : null;
+          const explicitTier = data.plan === "free" || data.plan === "standard" || data.plan === "premium" ? data.plan : savedTier;
+          const currentTier = explicitTier === "standard" || explicitTier === "premium" ? explicitTier : (vipEmails.includes(email) ? "premium" : "free");
+
           let isReallyPro = false;
           if (vipEmails.includes(email)) {
               isReallyPro = true;
@@ -74,12 +101,19 @@ export function useUser() {
 
           if (isReallyPro) {
               data.isPro = true;
-              data.plan = "pro";
-              localStorage.setItem("bilano_pro", "true"); 
+              data.plan = "premium";
+              localStorage.setItem("bilano_pro", "true");
+              localStorage.setItem("bilano_access_tier", "premium");
+          } else if (currentTier === "standard" || currentTier === "premium") {
+              data.isPro = true;
+              data.plan = currentTier;
+              localStorage.setItem("bilano_pro", "true");
+              localStorage.setItem("bilano_access_tier", currentTier);
           } else {
               data.isPro = false;
               data.plan = "free";
-              localStorage.removeItem("bilano_pro"); 
+              localStorage.removeItem("bilano_pro");
+              localStorage.setItem("bilano_access_tier", "free");
           }
       }
       return data;
