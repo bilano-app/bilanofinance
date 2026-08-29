@@ -2,10 +2,24 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
     useUser, useTransactions, useTarget,
-    useForexAssets, useSubscriptions, useUndoTransaction
+    useForexAssets, useForexRates, useSubscriptions, useUndoTransaction
 } from "@/hooks/use-finance";
 import { formatCurrency } from "@/lib/utils";
 import { MobileLayout } from "@/components/Layout";
+
+// Fallback rates jika live rates belum tersedia
+const FOREX_FALLBACK_RATES: Record<string, number> = {
+    USD: 16250, EUR: 17500, SGD: 12200, JPY: 108, GBP: 20500,
+    MYR: 3500, AUD: 10600, SAR: 4330, CNY: 2240, KRW: 12, THB: 450, AED: 4420
+};
+
+// Emoji flag per kode mata uang
+const FOREX_FLAGS: Record<string, string> = {
+    USD: "🇺🇸", SGD: "🇸🇬", MYR: "🇲🇾", EUR: "🇪🇺", JPY: "🇯🇵",
+    GBP: "🇬🇧", AUD: "🇦🇺", SAR: "🇸🇦", CNY: "🇨🇳", KRW: "🇰🇷",
+    THB: "🇹🇭", AED: "🇦🇪"
+};
+
 import { Button, Input } from "@/components/UIComponents";
 import {
     TrendingUp, DollarSign,
@@ -65,6 +79,7 @@ export default function Home() {
     const { data: user, isLoading: isUserLoading } = useUser();
     const { data: transactions, isLoading: isTxLoading } = useTransactions();
     const { data: forexAssets, isLoading: isFxLoading } = useForexAssets();
+    const { data: liveForexRates = {} } = useForexRates();
     const { data: target, isLoading: isTargetLoading } = useTarget();
     const { data: subscriptions, isLoading: isSubLoading, refetch: refetchSubs } = useSubscriptions();
     const undoTx = useUndoTransaction();
@@ -486,7 +501,19 @@ export default function Home() {
     };
 
     const cashRupiah = (user?.cashBalance || 0);
-    const totalBalance = cashRupiah;
+
+    // Hitung total nilai valas dalam IDR menggunakan rate live
+    const forexValueIDR = Array.isArray(forexAssets)
+        ? forexAssets.reduce((total: number, asset: any) => {
+            const rate = (liveForexRates as Record<string, number>)[asset.currency]
+                ?? FOREX_FALLBACK_RATES[asset.currency]
+                ?? 15000;
+            return total + (asset.amount * rate);
+        }, 0)
+        : 0;
+
+    // Total saldo kas = Rupiah + nilai valas yang dikonversi
+    const totalBalance = cashRupiah + forexValueIDR;
 
     const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
     const getBalanceTextSize = (text: string) => {
@@ -1115,6 +1142,32 @@ export default function Home() {
                                                     </div>
                                                 );
                                             })}
+                                            {/* Chip valas: tampil jika ada aset forex dengan saldo > 0 */}
+                                            {Array.isArray(forexAssets) && forexAssets.filter((a: any) => a.amount > 0).map((asset: any, idx: number) => {
+                                                const rate = (liveForexRates as Record<string, number>)[asset.currency]
+                                                    ?? FOREX_FALLBACK_RATES[asset.currency]
+                                                    ?? 15000;
+                                                const valueIDR = Math.round(asset.amount * rate);
+                                                const flag = FOREX_FLAGS[asset.currency] || "🌍";
+                                                const amountDisplay = asset.amount < 1
+                                                    ? asset.amount.toFixed(4)
+                                                    : asset.amount % 1 === 0
+                                                        ? asset.amount.toLocaleString("id-ID")
+                                                        : asset.amount.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+                                                return (
+                                                    <div
+                                                        key={`fx-${idx}`}
+                                                        className="flex items-center gap-1.5 text-[11px] text-amber-100 bg-amber-500/20 border border-amber-400/30 px-2.5 py-1.5 rounded-full shrink-0 shadow-xs backdrop-blur-xs"
+                                                        title={`${asset.currency}: ${amountDisplay} ≈ ${formatCurrency(valueIDR)}`}
+                                                    >
+                                                        <span className="text-sm leading-none">{flag}</span>
+                                                        <span className="font-bold text-amber-200 text-[10px]">{asset.currency}</span>
+                                                        <span className="font-bold text-white tabular-nums">
+                                                            {isPrivacyMode ? "•••" : formatCurrency(valueIDR).split(",")[0]}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
                                             <Link href="/transfer">
                                                 <button className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-gold text-brand-navy shrink-0 ml-1 hover:bg-brand-goldDark transition-colors active:scale-95 shadow-sm" title="Tambah / Pindah Dompet">
                                                     <Plus className="w-4 h-4" strokeWidth={3} />
@@ -1122,12 +1175,35 @@ export default function Home() {
                                             </Link>
                                         </>
                                     ) : (
-                                        <div className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0">
-                                            <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
-                                                <img src="/CASH.svg" alt="IDR" className="w-full h-full object-contain" />
+                                        <>
+                                            <div className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0">
+                                                <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
+                                                    <img src="/CASH.svg" alt="IDR" className="w-full h-full object-contain" />
+                                                </div>
+                                                <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                                             </div>
-                                            <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
-                                        </div>
+                                            {/* Chip valas bahkan jika tidak ada walletSources */}
+                                            {Array.isArray(forexAssets) && forexAssets.filter((a: any) => a.amount > 0).map((asset: any, idx: number) => {
+                                                const rate = (liveForexRates as Record<string, number>)[asset.currency]
+                                                    ?? FOREX_FALLBACK_RATES[asset.currency]
+                                                    ?? 15000;
+                                                const valueIDR = Math.round(asset.amount * rate);
+                                                const flag = FOREX_FLAGS[asset.currency] || "🌍";
+                                                return (
+                                                    <div
+                                                        key={`fx-${idx}`}
+                                                        className="flex items-center gap-1.5 text-[11px] text-amber-100 bg-amber-500/20 border border-amber-400/30 px-2.5 py-1.5 rounded-full shrink-0 shadow-xs"
+                                                        title={`${asset.currency} ≈ ${formatCurrency(valueIDR)}`}
+                                                    >
+                                                        <span className="text-sm leading-none">{flag}</span>
+                                                        <span className="font-bold text-amber-200 text-[10px]">{asset.currency}</span>
+                                                        <span className="font-bold text-white tabular-nums">
+                                                            {isPrivacyMode ? "•••" : formatCurrency(valueIDR).split(",")[0]}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </>
                                     )}
                                 </div>
                             </div>
