@@ -2,13 +2,36 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   ShieldCheck, ChevronDown, Star, LayoutDashboard, Download, Mail, Phone, MapPin,
-  Play, Volume2, VolumeX, X
+  Play, Volume2, VolumeX, X, ExternalLink, MoreVertical, Share2
 } from "lucide-react";
 import { trackEvent } from "@/lib/tracking";
+import { isInAppBrowser, isIOS, buildChromeIntentUrl } from "@/lib/browserDetect";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // =======================================================
+  // 🕵️ DETEKSI WEBVIEW INSTAGRAM/FACEBOOK & PLATFORM
+  // PWA tidak bisa diinstall sama sekali dari dalam webview IG/FB -
+  // ini batasan platform mereka, bukan sesuatu yang bisa ditambal
+  // dari sisi kode kita. Jadi kita deteksi dulu sebelum coba install.
+  // =======================================================
+  const [inAppBrowser] = useState(isInAppBrowser);
+  const [onIOS] = useState(isIOS);
+  const [showOpenExternal, setShowOpenExternal] = useState(false);
+  const [justEscapedWebview, setJustEscapedWebview] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("src") === "ig_redirect") {
+      setJustEscapedWebview(true);
+      trackEvent("escaped_ig_webview_success");
+      params.delete("src");
+      const cleanUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : "");
+      window.history.replaceState(null, "", cleanUrl);
+    }
+  }, []);
 
   // =======================================================
   // 🚀 MESIN TEKS DINAMIS (VERSI VISI KEKAYAAN)
@@ -60,6 +83,17 @@ export default function Landing() {
   }, []);
 
   const handlePwaInstall = async () => {
+    trackEvent("pwa_install_button_clicked", { inAppBrowser, onIOS });
+
+    // 🚧 Kalau masih di dalam webview Instagram/Facebook, instalasi PWA
+    // TIDAK MUNGKIN dilakukan dari sini - browser bawaan mereka tidak
+    // mendukungnya sama sekali. Arahkan keluar dulu sebelum lanjut install.
+    if (inAppBrowser) {
+      trackEvent("open_external_browser_prompted");
+      setShowOpenExternal(true);
+      return;
+    }
+
     trackEvent("pwa_install_prompted");
     setIsInstalling(true); // 1. Tampilkan Pop-up "Sedang menginstall..."
 
@@ -88,6 +122,13 @@ export default function Landing() {
       // sehingga user bisa secara sadar mengklik tulisan kendala
       trackEvent("pwa_manual_install_needed");
     }
+  };
+
+  // Khusus Android: paksa pindah dari webview IG/FB ke Chrome asli.
+  // Tidak ada equivalent-nya di iOS (lihat komentar di browserDetect.ts).
+  const handleOpenInChrome = () => {
+    trackEvent("open_in_chrome_tapped");
+    window.location.href = buildChromeIntentUrl(window.location.href);
   };
 
   // =======================================================
@@ -285,6 +326,16 @@ export default function Landing() {
             </div>
           </section>
 
+          {/* 🚀 BANNER: MUNCUL SETELAH USER BERHASIL PINDAH DARI WEBVIEW IG KE CHROME */}
+          {justEscapedWebview && (
+            <div className="w-full flex justify-center animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 px-4 py-2 rounded-full shadow-inner">
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span className="text-amber-400 text-[11px] md:text-xs font-bold tracking-wide">Sip, sudah di browser! Tinggal 1 tombol lagi di bawah.</span>
+              </div>
+            </div>
+          )}
+
           {/* 🔥 4. TOMBOL INSTALL PWA (Ditambahkan hidden lg:flex agar sembunyi di HP) */}
           {/* 🔥 4. TOMBOL INSTALL PWA (Muncul di semua device, letaknya tepat di atas FAQ) */}
           <div className="w-full flex justify-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both max-w-7xl px-4 lg:px-0 mb-8">
@@ -413,10 +464,22 @@ export default function Landing() {
 
             <h3 className="text-xl font-black mb-3 text-white">Langkah Alternatif</h3>
             <p className="text-sm text-slate-300 mb-6 leading-relaxed text-left">
-              Browser Anda mungkin membatasi instalasi otomatis (biasanya di iOS Safari atau Mode Incognito). Cara pasang manual:
-              <br /><br />
-              1. Ketuk ikon <strong>Titik Tiga (⋮)</strong> atau <strong>Share (Bagikan)</strong> di browser Anda.<br />
-              2. Pilih menu <strong>"Tambahkan ke Layar Utama"</strong> atau <strong>"Install App"</strong>.<br />
+              {onIOS ? (
+                <>
+                  Safari di iPhone/iPad memang tidak punya pop-up instal otomatis. Cara pasang manual:
+                  <br /><br />
+                  1. Ketuk ikon <strong>Share (kotak dengan panah ke atas)</strong> di bagian bawah Safari.<br />
+                  2. Geser ke bawah, pilih <strong>"Tambah ke Layar Utama"</strong>.<br />
+                  3. Ketuk <strong>"Tambah"</strong> di pojok kanan atas.
+                </>
+              ) : (
+                <>
+                  Browser Anda mungkin membatasi instalasi otomatis (biasanya Mode Incognito). Cara pasang manual:
+                  <br /><br />
+                  1. Ketuk ikon <strong>Titik Tiga (⋮)</strong> di pojok kanan atas browser.<br />
+                  2. Pilih menu <strong>"Tambahkan ke Layar Utama"</strong> atau <strong>"Install App"</strong>.
+                </>
+              )}
             </p>
 
             <button
@@ -424,6 +487,65 @@ export default function Landing() {
               className="w-full bg-gradient-to-r from-amber-400 to-yellow-500 text-[#0a1128] font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center"
             >
               SAYA MENGERTI
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🚧 MODAL 3: BUKA DI BROWSER DULU (Khusus webview Instagram/Facebook) */}
+      {showOpenExternal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200 text-center shadow-2xl">
+            <button
+              onClick={() => setShowOpenExternal(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            <div className="w-16 h-16 mx-auto bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mb-4">
+              <ExternalLink className="w-8 h-8" />
+            </div>
+
+            <h3 className="text-xl font-black mb-2 text-white">Buka di Browser Dulu, Yuk</h3>
+            <p className="text-sm text-slate-300 mb-6 leading-relaxed">
+              Instagram membatasi instalasi aplikasi langsung dari dalamnya. Tenang, cuma butuh satu langkah tambahan kok.
+            </p>
+
+            {onIOS ? (
+              <div className="text-left bg-white/5 rounded-2xl p-4 mb-6 space-y-3">
+                <div className="flex gap-3 items-start">
+                  <span className="shrink-0 w-6 h-6 rounded-full bg-amber-400/10 text-amber-400 flex items-center justify-center font-black text-[11px] border border-amber-400/20">1</span>
+                  <p className="text-slate-300 text-[13px] leading-relaxed pt-0.5">
+                    Ketuk ikon <MoreVertical className="w-3.5 h-3.5 inline -mt-0.5" /> <strong className="text-white">Titik Tiga</strong> di pojok kanan atas layar ini.
+                  </p>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="shrink-0 w-6 h-6 rounded-full bg-amber-400/10 text-amber-400 flex items-center justify-center font-black text-[11px] border border-amber-400/20">2</span>
+                  <p className="text-slate-300 text-[13px] leading-relaxed pt-0.5">
+                    Pilih <strong className="text-white">"Buka di Safari"</strong>.
+                  </p>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="shrink-0 w-6 h-6 rounded-full bg-amber-400/10 text-amber-400 flex items-center justify-center font-black text-[11px] border border-amber-400/20">3</span>
+                  <p className="text-slate-300 text-[13px] leading-relaxed pt-0.5">
+                    Di Safari, ketuk <Share2 className="w-3.5 h-3.5 inline -mt-0.5" /> <strong className="text-white">Share</strong>, lalu <strong className="text-white">"Tambah ke Layar Utama"</strong>.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 mb-6">
+                Tekan tombol di bawah, lalu tekan sekali lagi tombol kuning "INSTALL BILANO" begitu Chrome terbuka.
+              </p>
+            )}
+
+            <button
+              onClick={onIOS ? () => setShowOpenExternal(false) : handleOpenInChrome}
+              className="w-full bg-gradient-to-r from-amber-400 to-yellow-500 text-[#0a1128] font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2"
+            >
+              {onIOS ? "SAYA MENGERTI" : (
+                <>Buka di Chrome <ExternalLink className="w-4 h-4" /></>
+              )}
             </button>
           </div>
         </div>

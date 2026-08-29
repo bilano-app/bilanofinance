@@ -86,6 +86,33 @@ export default function Forex() {
 
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
+  // ──────────────────────────────────────────────────────────────────────
+  // SUMBER UANG VALAS: disimpan di localStorage per user
+  // Format: { "USD": "BCA Dollar", "SGD": "DBS Singapura" }
+  // ──────────────────────────────────────────────────────────────────────
+  const forexSourceKey = `bilano_forex_sources_${currentUserEmail}`;
+
+  const getForexSources = (): Record<string, string> => {
+    try {
+      const raw = localStorage.getItem(forexSourceKey);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  };
+
+  const saveForexSources = (sources: Record<string, string>) => {
+    localStorage.setItem(forexSourceKey, JSON.stringify(sources));
+    setForexSources({ ...sources });
+  };
+
+  const [forexSources, setForexSources] = useState<Record<string, string>>(getForexSources);
+
+  // State untuk popup pengisian sumber valas
+  const [showForexSourcePopup, setShowForexSourcePopup] = useState(false);
+  const [pendingSourceCurrencies, setPendingSourceCurrencies] = useState<{ currency: string; amount: number; flag: string }[]>([]);
+  const [sourceInputs, setSourceInputs] = useState<Record<string, string>>({});
+  const [editingSourceCurrency, setEditingSourceCurrency] = useState<string | null>(null);
+  const [editSourceValue, setEditSourceValue] = useState("");
+
   const fetchData = async () => {
     try {
       setRefreshing(true);
@@ -113,6 +140,26 @@ export default function Forex() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Cek apakah ada aset valas yang belum punya sumber uang → tampilkan popup
+  useEffect(() => {
+    if (assets.length === 0) return;
+    const sources = getForexSources();
+    const missing = assets
+      .filter(a => a.amount > 0 && !sources[a.currency])
+      .map(a => ({
+        currency: a.currency,
+        amount: a.amount,
+        flag: CURRENCY_LIST.find(c => c.code === a.currency)?.flag ?? "🌐"
+      }));
+    if (missing.length > 0) {
+      const initInputs: Record<string, string> = {};
+      missing.forEach(m => { initInputs[m.currency] = ""; });
+      setSourceInputs(initInputs);
+      setPendingSourceCurrencies(missing);
+      setShowForexSourcePopup(true);
+    }
+  }, [assets]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -814,34 +861,62 @@ export default function Forex() {
                         const currInfo = CURRENCY_LIST.find(c => c.code === asset.currency) || { country: "", name: asset.currency, flag: "🌐" };
                         const liveRate = getSafeRate(asset.currency);
                         const idrVal = asset.amount * liveRate;
+                        const walletSource = forexSources[asset.currency];
                         return (
-                            <div 
-                                key={asset.id} 
-                                className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-xs flex justify-between items-center gap-3 transition-all hover:shadow-sm"
+                            <div
+                                key={asset.id}
+                                className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-sm transition-all"
                             >
-                                <div className="flex items-center gap-3 min-w-0">
-                                    <div className="bg-brand-navy text-brand-gold font-black w-11 h-11 rounded-2xl flex items-center justify-center text-xs shadow-xs shrink-0 border border-brand-gold/30">
-                                        {asset.currency}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="font-extrabold text-slate-900 text-sm truncate">
-                                            {asset.amount.toLocaleString()} <span className="text-xs text-slate-500 font-semibold">{asset.currency}</span>
+                                <div className="flex justify-between items-center gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="bg-brand-navy text-brand-gold font-black w-11 h-11 rounded-2xl flex items-center justify-center text-xs shadow-xs shrink-0 border border-brand-gold/30">
+                                            {asset.currency}
                                         </div>
-                                        <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
-                                            <span>{currInfo.flag}</span>
-                                            <span className="truncate">{currInfo.name}</span>
+                                        <div className="min-w-0">
+                                            <div className="font-extrabold text-slate-900 text-sm truncate">
+                                                {asset.amount.toLocaleString()} <span className="text-xs text-slate-500 font-semibold">{asset.currency}</span>
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                                                <span>{currInfo.flag}</span>
+                                                <span className="truncate">{currInfo.name}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-right shrink-0">
+                                        <div className={`font-black ${isTrialExpired ? 'text-rose-500' : 'text-emerald-700'} text-sm sm:text-base tabular-nums`}>
+                                            {isTrialExpired ? "✨ Premium" : formatRp(idrVal)}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 font-medium flex items-center justify-end gap-1 mt-0.5">
+                                            <Activity className="w-3 h-3 text-amber-600"/>
+                                            <span>@ {isTrialExpired ? "***" : formatRp(liveRate)}</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="text-right shrink-0">
-                                    <div className={`font-black ${isTrialExpired ? 'text-rose-500' : 'text-emerald-700'} text-sm sm:text-base tabular-nums`}>
-                                        {isTrialExpired ? "✨ Premium" : formatRp(idrVal)}
-                                    </div>
-                                    <div className="text-[10px] text-slate-500 font-medium flex items-center justify-end gap-1 mt-0.5">
-                                        <Activity className="w-3 h-3 text-amber-600"/> 
-                                        <span>@ {isTrialExpired ? "***" : formatRp(liveRate)}</span>
-                                    </div>
+                                {/* Baris sumber uang */}
+                                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                                    {walletSource ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <Wallet className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                            <span className="text-[11px] font-bold text-slate-700 truncate max-w-[160px]">{walletSource}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[11px] text-slate-400 italic font-medium">Sumber belum diisi</span>
+                                        </div>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setEditingSourceCurrency(asset.currency);
+                                            setEditSourceValue(forexSources[asset.currency] || "");
+                                        }}
+                                        className="flex items-center gap-1 text-[10px] font-bold text-brand-navy bg-slate-100 hover:bg-amber-50 hover:text-amber-700 border border-slate-200 hover:border-amber-300 px-2.5 py-1 rounded-full transition-all active:scale-95 cursor-pointer shrink-0"
+                                    >
+                                        <Plus className="w-3 h-3" strokeWidth={2.5} />
+                                        {walletSource ? "Ubah" : "Tambah Sumber"}
+                                    </button>
                                 </div>
                             </div>
                         );
@@ -923,16 +998,171 @@ export default function Forex() {
           </div>
       )}
 
-      {/* MODAL PILIH SUMBER / TUJUAN DANA */}
-      {showSourcePopup && sourcePopupConfig && (
-          <SourceSelectionPopup
-              type={sourcePopupConfig.type}
-              onCancel={() => { setShowSourcePopup(false); setPendingForexSubmit(null); }}
-              onSelect={sourcePopupConfig.onSelect}
-              title={sourcePopupConfig.title}
-              description={sourcePopupConfig.description}
-          />
+      {/* ====================================================== */}
+      {/* POPUP: ISI SUMBER UANG VALAS (user lama / belum diisi) */}
+      {/* ====================================================== */}
+      {showForexSourcePopup && pendingSourceCurrencies.length > 0 && (
+          <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in p-4">
+              <div className="bg-white w-full max-w-sm rounded-[28px] shadow-2xl border border-slate-100 animate-in slide-in-from-bottom-4 sm:zoom-in-95">
+                  {/* Header */}
+                  <div className="p-5 border-b border-slate-100">
+                      <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0">
+                              <Wallet className="w-5 h-5 text-amber-700" />
+                          </div>
+                          <div>
+                              <h3 className="font-extrabold text-slate-900 text-sm">Lengkapi Sumber Valas</h3>
+                              <p className="text-[11px] text-slate-500 font-medium mt-0.5 leading-relaxed">
+                                  Di akun/dompet mana uang asing ini disimpan? Isi nama rekening, e-wallet, atau tempat penyimpanan.
+                              </p>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Body: satu input per mata uang */}
+                  <div className="p-5 space-y-4 max-h-[55vh] overflow-y-auto">
+                      {pendingSourceCurrencies.map(fc => (
+                          <div key={fc.currency} className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                  <span className="text-lg">{fc.flag}</span>
+                                  <div>
+                                      <p className="text-xs font-extrabold text-slate-800">{fc.currency}</p>
+                                      <p className="text-[10px] text-slate-400 font-medium">
+                                          Saldo: {fc.amount % 1 === 0
+                                              ? fc.amount.toLocaleString("id-ID")
+                                              : fc.amount.toLocaleString("id-ID", { maximumFractionDigits: 4 })}
+                                      </p>
+                                  </div>
+                              </div>
+                              <input
+                                  type="text"
+                                  placeholder={`Nama rekening / dompet ${fc.currency}...`}
+                                  className="w-full h-11 px-4 text-xs font-semibold border border-slate-200 rounded-2xl bg-slate-50 focus:border-brand-navy focus:bg-white outline-none transition-colors"
+                                  value={sourceInputs[fc.currency] ?? ""}
+                                  onChange={e => setSourceInputs(prev => ({ ...prev, [fc.currency]: e.target.value }))}
+                              />
+                          </div>
+                      ))}
+                  </div>
+
+                  {/* Footer actions */}
+                  <div className="p-5 pt-3 flex flex-col gap-2">
+                      <button
+                          type="button"
+                          onClick={() => {
+                              const current = getForexSources();
+                              const updated = { ...current };
+                              pendingSourceCurrencies.forEach(fc => {
+                                  const val = (sourceInputs[fc.currency] || "").trim();
+                                  if (val) updated[fc.currency] = val;
+                              });
+                              saveForexSources(updated);
+                              setShowForexSourcePopup(false);
+                              setPendingSourceCurrencies([]);
+                              toast({ title: "Tersimpan!", description: "Sumber uang valas telah diperbarui." });
+                          }}
+                          className="w-full h-12 bg-brand-navy text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm active:scale-95 transition-all cursor-pointer"
+                      >
+                          Simpan Sumber Uang
+                      </button>
+                      <button
+                          type="button"
+                          onClick={() => {
+                              setShowForexSourcePopup(false);
+                              setPendingSourceCurrencies([]);
+                          }}
+                          className="w-full h-10 text-slate-400 font-semibold text-xs rounded-2xl hover:bg-slate-50 transition-colors cursor-pointer active:scale-95"
+                      >
+                          Isi Nanti
+                      </button>
+                  </div>
+              </div>
+          </div>
       )}
+
+      {/* POPUP EDIT SUMBER SATU MATA UANG */}
+      {editingSourceCurrency && (() => {
+          const asset = assets.find(a => a.currency === editingSourceCurrency);
+          if (!asset) return null;
+          const currInfo = CURRENCY_LIST.find(c => c.code === editingSourceCurrency);
+          return (
+              <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in p-4">
+                  <div className="bg-white w-full max-w-sm rounded-[28px] shadow-2xl border border-slate-100 animate-in slide-in-from-bottom-4 sm:zoom-in-95">
+                      <div className="p-5 border-b border-slate-100">
+                          <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                  <span className="text-xl">{currInfo?.flag ?? "🌐"}</span>
+                                  <div>
+                                      <h3 className="font-extrabold text-slate-900 text-sm">Sumber Uang {editingSourceCurrency}</h3>
+                                      <p className="text-[10px] text-slate-500 font-medium">
+                                          Saldo: {asset.amount % 1 === 0 ? asset.amount.toLocaleString("id-ID") : asset.amount.toFixed(4)}
+                                      </p>
+                                  </div>
+                              </div>
+                              <button
+                                  type="button"
+                                  onClick={() => setEditingSourceCurrency(null)}
+                                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 cursor-pointer transition-colors"
+                              >
+                                  <X className="w-4 h-4" />
+                              </button>
+                          </div>
+                      </div>
+                      <div className="p-5 space-y-3">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+                              Nama Rekening / Akun / Dompet
+                          </label>
+                          <input
+                              type="text"
+                              autoFocus
+                              placeholder="Contoh: BCA Dollar, Jenius USD, Wise..."
+                              className="w-full h-12 px-4 text-sm font-semibold border border-slate-200 rounded-2xl bg-slate-50 focus:border-brand-navy focus:bg-white outline-none transition-colors"
+                              value={editSourceValue}
+                              onChange={e => setEditSourceValue(e.target.value)}
+                          />
+                          <p className="text-[10px] text-slate-400 font-medium">
+                              Nama rekening/dompet tempat menyimpan {editingSourceCurrency} kamu.
+                          </p>
+                      </div>
+                      <div className="p-5 pt-2 flex flex-col gap-2">
+                          <button
+                              type="button"
+                              onClick={() => {
+                                  const val = editSourceValue.trim();
+                                  if (!val) {
+                                      toast({ title: "Nama sumber tidak boleh kosong", variant: "destructive" });
+                                      return;
+                                  }
+                                  const current = getForexSources();
+                                  saveForexSources({ ...current, [editingSourceCurrency]: val });
+                                  setEditingSourceCurrency(null);
+                                  toast({ title: "Tersimpan!", description: `Sumber ${editingSourceCurrency} → ${val}` });
+                              }}
+                              className="w-full h-12 bg-brand-navy text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm active:scale-95 transition-all cursor-pointer"
+                          >
+                              Simpan
+                          </button>
+                          {forexSources[editingSourceCurrency] && (
+                              <button
+                                  type="button"
+                                  onClick={() => {
+                                      const current = getForexSources();
+                                      const updated = { ...current };
+                                      delete updated[editingSourceCurrency];
+                                      saveForexSources(updated);
+                                      setEditingSourceCurrency(null);
+                                      toast({ title: "Dihapus", description: `Sumber ${editingSourceCurrency} dihapus.` });
+                                  }}
+                                  className="w-full h-10 text-rose-500 font-semibold text-xs rounded-2xl hover:bg-rose-50 transition-colors cursor-pointer active:scale-95"
+                              >
+                                  Hapus Sumber
+                              </button>
+                          )}
+                      </div>
+                  </div>
+              </div>
+          );
+      })()}
     </MobileLayout>
   );
 }

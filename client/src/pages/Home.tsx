@@ -2,24 +2,10 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
     useUser, useTransactions, useTarget,
-    useForexAssets, useForexRates, useSubscriptions, useUndoTransaction
+    useForexAssets, useSubscriptions, useUndoTransaction
 } from "@/hooks/use-finance";
 import { formatCurrency } from "@/lib/utils";
 import { MobileLayout } from "@/components/Layout";
-
-// Fallback rates jika live rates belum tersedia
-const FOREX_FALLBACK_RATES: Record<string, number> = {
-    USD: 16250, EUR: 17500, SGD: 12200, JPY: 108, GBP: 20500,
-    MYR: 3500, AUD: 10600, SAR: 4330, CNY: 2240, KRW: 12, THB: 450, AED: 4420
-};
-
-// Emoji flag per kode mata uang
-const FOREX_FLAGS: Record<string, string> = {
-    USD: "🇺🇸", SGD: "🇸🇬", MYR: "🇲🇾", EUR: "🇪🇺", JPY: "🇯🇵",
-    GBP: "🇬🇧", AUD: "🇦🇺", SAR: "🇸🇦", CNY: "🇨🇳", KRW: "🇰🇷",
-    THB: "🇹🇭", AED: "🇦🇪"
-};
-
 import { Button, Input } from "@/components/UIComponents";
 import {
     TrendingUp, DollarSign,
@@ -79,7 +65,6 @@ export default function Home() {
     const { data: user, isLoading: isUserLoading } = useUser();
     const { data: transactions, isLoading: isTxLoading } = useTransactions();
     const { data: forexAssets, isLoading: isFxLoading } = useForexAssets();
-    const { data: liveForexRates = {} } = useForexRates();
     const { data: target, isLoading: isTargetLoading } = useTarget();
     const { data: subscriptions, isLoading: isSubLoading, refetch: refetchSubs } = useSubscriptions();
     const undoTx = useUndoTransaction();
@@ -127,7 +112,7 @@ export default function Home() {
     const formatNumInput = (val: string) => {
         let clean = val.replace(/\D/g, '');
         if (clean.length > 1) {
-            clean = clean.replace(/^0+/, ''); 
+            clean = clean.replace(/^0+/, '');
         }
         return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     };
@@ -153,7 +138,7 @@ export default function Home() {
         try {
             const walletSources = user.walletSources ? [...(user.walletSources as any[])] : [];
             const wsIdx = walletSources.findIndex((w: any) => (editingWallet.id && w.id === editingWallet.id) || w.name === editingWallet.name);
-            
+
             if (wsIdx >= 0) {
                 walletSources[wsIdx] = {
                     ...walletSources[wsIdx],
@@ -501,19 +486,7 @@ export default function Home() {
     };
 
     const cashRupiah = (user?.cashBalance || 0);
-
-    // Hitung total nilai valas dalam IDR menggunakan rate live
-    const forexValueIDR = Array.isArray(forexAssets)
-        ? forexAssets.reduce((total: number, asset: any) => {
-            const rate = (liveForexRates as Record<string, number>)[asset.currency]
-                ?? FOREX_FALLBACK_RATES[asset.currency]
-                ?? 15000;
-            return total + (asset.amount * rate);
-        }, 0)
-        : 0;
-
-    // Total saldo kas = Rupiah + nilai valas yang dikonversi
-    const totalBalance = cashRupiah + forexValueIDR;
+    const totalBalance = cashRupiah;
 
     const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
     const getBalanceTextSize = (text: string) => {
@@ -624,7 +597,7 @@ export default function Home() {
                                     <p className="text-xs text-slate-400 font-bold">{editingWallet.name}</p>
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 type="button"
                                 onClick={() => setEditingWallet(null)}
                                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
@@ -942,7 +915,7 @@ export default function Home() {
 
                         <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Buat Target Keuangan? 🎯</h2>
                         <p className="text-[13px] text-slate-500 mb-6 leading-relaxed px-2 font-medium">
-                            Keren! Semua aset, utang, dan tagihanmu sudah tercatat rapi. <br/><br/>
+                            Keren! Semua aset, utang, dan tagihanmu sudah tercatat rapi. <br /><br />
                             Mau sekalian pasang target tabungan atau batas pengeluaran biar keuanganmu makin terarah?
                         </p>
 
@@ -975,7 +948,7 @@ export default function Home() {
             <div className="flex flex-col">
                 {/* TOP BANNER CONTAINER: Gradient background covering welcome area and card area */}
                 <div className="-mx-5 -mt-5 px-5 pt-5 pb-8 bg-gradient-to-b from-[#f1f5f9] via-[#e2eaf4] to-[#d6e3f2] flex flex-col relative z-10">
-                    
+
                     {/* 1. WELCOME HEADER SECTION: White background seamless at top, rounded bottom corners */}
                     <div className="-mx-5 -mt-5 px-5 pt-6 pb-5 bg-white rounded-b-[28px] shadow-[0_4px_16px_rgba(15,23,42,0.03)] flex items-center justify-between relative z-30">
                         <div className="flex items-center gap-3 relative">
@@ -1118,9 +1091,9 @@ export default function Home() {
                                                     <div key={idx} className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0 shadow-xs backdrop-blur-xs">
                                                         {logo ? (
                                                             <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs" title={wallet.name}>
-                                                                <img 
-                                                                    src={logo} 
-                                                                    alt={wallet.name} 
+                                                                <img
+                                                                    src={logo}
+                                                                    alt={wallet.name}
                                                                     className="w-full h-full object-contain rounded-full"
                                                                 />
                                                             </div>
@@ -1128,43 +1101,17 @@ export default function Home() {
                                                             <span className="font-bold text-blue-200 text-[10px]">{wallet.name}:</span>
                                                         )}
                                                         <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(wallet.balance).split(",")[0]}</span>
-                                                        <button 
+                                                        <button
                                                             type="button"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 handleOpenEditWallet(wallet);
-                                                            }} 
+                                                            }}
                                                             className="ml-0.5 p-0.5 hover:bg-white/20 rounded-full text-blue-200 hover:text-white transition-colors active:scale-95"
                                                             title={`Edit Saldo ${wallet.name}`}
                                                         >
                                                             <Pencil className="w-2.5 h-2.5 text-brand-gold" />
                                                         </button>
-                                                    </div>
-                                                );
-                                            })}
-                                            {/* Chip valas: tampil jika ada aset forex dengan saldo > 0 */}
-                                            {Array.isArray(forexAssets) && forexAssets.filter((a: any) => a.amount > 0).map((asset: any, idx: number) => {
-                                                const rate = (liveForexRates as Record<string, number>)[asset.currency]
-                                                    ?? FOREX_FALLBACK_RATES[asset.currency]
-                                                    ?? 15000;
-                                                const valueIDR = Math.round(asset.amount * rate);
-                                                const flag = FOREX_FLAGS[asset.currency] || "🌍";
-                                                const amountDisplay = asset.amount < 1
-                                                    ? asset.amount.toFixed(4)
-                                                    : asset.amount % 1 === 0
-                                                        ? asset.amount.toLocaleString("id-ID")
-                                                        : asset.amount.toLocaleString("id-ID", { maximumFractionDigits: 2 });
-                                                return (
-                                                    <div
-                                                        key={`fx-${idx}`}
-                                                        className="flex items-center gap-1.5 text-[11px] text-amber-100 bg-amber-500/20 border border-amber-400/30 px-2.5 py-1.5 rounded-full shrink-0 shadow-xs backdrop-blur-xs"
-                                                        title={`${asset.currency}: ${amountDisplay} ≈ ${formatCurrency(valueIDR)}`}
-                                                    >
-                                                        <span className="text-sm leading-none">{flag}</span>
-                                                        <span className="font-bold text-amber-200 text-[10px]">{asset.currency}</span>
-                                                        <span className="font-bold text-white tabular-nums">
-                                                            {isPrivacyMode ? "•••" : formatCurrency(valueIDR).split(",")[0]}
-                                                        </span>
                                                     </div>
                                                 );
                                             })}
@@ -1175,35 +1122,12 @@ export default function Home() {
                                             </Link>
                                         </>
                                     ) : (
-                                        <>
-                                            <div className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0">
-                                                <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
-                                                    <img src="/CASH.svg" alt="IDR" className="w-full h-full object-contain" />
-                                                </div>
-                                                <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+                                        <div className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0">
+                                            <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
+                                                <img src="/CASH.svg" alt="IDR" className="w-full h-full object-contain" />
                                             </div>
-                                            {/* Chip valas bahkan jika tidak ada walletSources */}
-                                            {Array.isArray(forexAssets) && forexAssets.filter((a: any) => a.amount > 0).map((asset: any, idx: number) => {
-                                                const rate = (liveForexRates as Record<string, number>)[asset.currency]
-                                                    ?? FOREX_FALLBACK_RATES[asset.currency]
-                                                    ?? 15000;
-                                                const valueIDR = Math.round(asset.amount * rate);
-                                                const flag = FOREX_FLAGS[asset.currency] || "🌍";
-                                                return (
-                                                    <div
-                                                        key={`fx-${idx}`}
-                                                        className="flex items-center gap-1.5 text-[11px] text-amber-100 bg-amber-500/20 border border-amber-400/30 px-2.5 py-1.5 rounded-full shrink-0 shadow-xs"
-                                                        title={`${asset.currency} ≈ ${formatCurrency(valueIDR)}`}
-                                                    >
-                                                        <span className="text-sm leading-none">{flag}</span>
-                                                        <span className="font-bold text-amber-200 text-[10px]">{asset.currency}</span>
-                                                        <span className="font-bold text-white tabular-nums">
-                                                            {isPrivacyMode ? "•••" : formatCurrency(valueIDR).split(",")[0]}
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })}
-                                        </>
+                                            <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -1254,7 +1178,7 @@ export default function Home() {
                         </div>
 
                         <div className="grid grid-cols-4 gap-y-6 gap-x-2 py-1">
-                            <MenuIconBox href="/forex" imageSrc="/Valas.png" label="Valas" />
+                            <MenuIconBox href="/forex" imageSrc="/Valas-ICON.png" label="Valas" />
                             <MenuIconBox href="/debts" imageSrc="/Hutang.png" label="Hutang" />
                             <MenuIconBox href="/subscriptions" imageSrc="/Langganan.png" label="Langganan" />
                             <MenuIconBox href="/investment" imageSrc="/Investasi.png" label="Investasi" />
@@ -1327,13 +1251,13 @@ export default function Home() {
                         {/* Ide & Pembimbing Penghasilan (Kotak Besar) */}
                         <Link href="/wealth-blueprint">
                             <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#0d2146] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
-                                <img 
-                                    src="/IDEA.png" 
-                                    alt="Ide & Pembimbing Penghasilan" 
-                                    className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 group-hover:scale-105" 
+                                <img
+                                    src="/IDEA.png"
+                                    alt="Ide & Pembimbing Penghasilan"
+                                    className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 group-hover:scale-105"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-transparent to-black/60 pointer-events-none" />
-                                
+
                                 <div className="relative z-10">
                                     <span className="inline-flex items-center bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs mb-1">
                                         STRATEGI CUAN AI • LIVE
@@ -1357,13 +1281,13 @@ export default function Home() {
                         {/* BILANO Academy (Kotak Besar) */}
                         <Link href="/academy">
                             <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#5c4314] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
-                                <img 
-                                    src="/ACADEMY.png" 
-                                    alt="BILANO Academy" 
-                                    className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 group-hover:scale-105" 
+                                <img
+                                    src="/ACADEMY.png"
+                                    alt="BILANO Academy"
+                                    className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 group-hover:scale-105"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-b from-[#1e150b]/80 via-transparent to-black/60 pointer-events-none" />
-                                
+
                                 <div className="relative z-10">
                                     <span className="inline-flex items-center bg-brand-gold text-slate-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs mb-1">
                                         E-BOOK & PANDUAN VIP
@@ -1403,10 +1327,10 @@ function MenuIconBox({ href, imageSrc, label }: { href: string; imageSrc: string
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-1.5 cursor-pointer active:scale-95 transition-transform group">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center p-0.5 group-hover:scale-105 transition-all">
-                    <img 
-                        src={imageSrc} 
-                        alt={label} 
-                        className="w-full h-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform" 
+                    <img
+                        src={imageSrc}
+                        alt={label}
+                        className="w-full h-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform"
                     />
                 </div>
                 <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
