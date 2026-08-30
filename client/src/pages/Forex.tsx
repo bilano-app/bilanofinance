@@ -6,7 +6,7 @@ import {
     Globe, RefreshCw, TrendingUp, TrendingDown, ArrowRightLeft, 
     Wallet, Plus, Trash2, ArrowLeft, X, ChevronDown, 
     Search, Activity, FileText, ArrowDownCircle, ArrowUpCircle, 
-    StickyNote, Loader2, HandCoins, Check, DollarSign
+    StickyNote, Loader2, HandCoins, Check, DollarSign, ChevronRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useTransactions, getAccessTier } from "@/hooks/use-finance";
@@ -107,11 +107,11 @@ export default function Forex() {
   const [forexSources, setForexSources] = useState<Record<string, string>>(getForexSources);
 
   // State untuk popup pengisian sumber valas
+  // Sekarang menggunakan SourceSelectionPopup (sama seperti halaman Pemasukan)
   const [showForexSourcePopup, setShowForexSourcePopup] = useState(false);
   const [pendingSourceCurrencies, setPendingSourceCurrencies] = useState<{ currency: string; amount: number; flag: string }[]>([]);
-  const [sourceInputs, setSourceInputs] = useState<Record<string, string>>({});
+  const [currentPendingIndex, setCurrentPendingIndex] = useState(0);
   const [editingSourceCurrency, setEditingSourceCurrency] = useState<string | null>(null);
-  const [editSourceValue, setEditSourceValue] = useState("");
 
   const fetchData = async () => {
     try {
@@ -153,10 +153,8 @@ export default function Forex() {
         flag: CURRENCY_LIST.find(c => c.code === a.currency)?.flag ?? "🌐"
       }));
     if (missing.length > 0) {
-      const initInputs: Record<string, string> = {};
-      missing.forEach(m => { initInputs[m.currency] = ""; });
-      setSourceInputs(initInputs);
       setPendingSourceCurrencies(missing);
+      setCurrentPendingIndex(0);
       setShowForexSourcePopup(true);
     }
   }, [assets]);
@@ -999,168 +997,55 @@ export default function Forex() {
       )}
 
       {/* ====================================================== */}
-      {/* POPUP: ISI SUMBER UANG VALAS (user lama / belum diisi) */}
+      {/* POPUP: ISI SUMBER UANG VALAS (pakai SourceSelectionPopup) */}
       {/* ====================================================== */}
-      {showForexSourcePopup && pendingSourceCurrencies.length > 0 && (
-          <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in p-4">
-              <div className="bg-white w-full max-w-sm rounded-[28px] shadow-2xl border border-slate-100 animate-in slide-in-from-bottom-4 sm:zoom-in-95">
-                  {/* Header */}
-                  <div className="p-5 border-b border-slate-100">
-                      <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0">
-                              <Wallet className="w-5 h-5 text-amber-700" />
-                          </div>
-                          <div>
-                              <h3 className="font-extrabold text-slate-900 text-sm">Lengkapi Sumber Valas</h3>
-                              <p className="text-[11px] text-slate-500 font-medium mt-0.5 leading-relaxed">
-                                  Di akun/dompet mana uang asing ini disimpan? Isi nama rekening, e-wallet, atau tempat penyimpanan.
-                              </p>
-                          </div>
-                      </div>
-                  </div>
+      {showForexSourcePopup && pendingSourceCurrencies.length > 0 && currentPendingIndex < pendingSourceCurrencies.length && (() => {
+          const fc = pendingSourceCurrencies[currentPendingIndex];
+          const isLast = currentPendingIndex >= pendingSourceCurrencies.length - 1;
+          return (
+              <SourceSelectionPopup
+                  type="income"
+                  title={`Pilih Dompet untuk ${fc.flag} ${fc.currency}`}
+                  description={`Aset ${fc.currency} (${fc.amount % 1 === 0 ? fc.amount.toLocaleString("id-ID") : fc.amount.toFixed(4)} ${fc.currency}) disimpan di akun atau dompet mana?`}
+                  onCancel={() => {
+                      setShowForexSourcePopup(false);
+                      setPendingSourceCurrencies([]);
+                      setCurrentPendingIndex(0);
+                  }}
+                  onSelect={(src) => {
+                      const current = getForexSources();
+                      saveForexSources({ ...current, [fc.currency]: src });
+                      toast({ title: "Tersimpan!", description: `Sumber ${fc.currency} → ${src}` });
+                      if (isLast) {
+                          setShowForexSourcePopup(false);
+                          setPendingSourceCurrencies([]);
+                          setCurrentPendingIndex(0);
+                      } else {
+                          setCurrentPendingIndex(prev => prev + 1);
+                      }
+                  }}
+              />
+          );
+      })()}
 
-                  {/* Body: satu input per mata uang */}
-                  <div className="p-5 space-y-4 max-h-[55vh] overflow-y-auto">
-                      {pendingSourceCurrencies.map(fc => (
-                          <div key={fc.currency} className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                  <span className="text-lg">{fc.flag}</span>
-                                  <div>
-                                      <p className="text-xs font-extrabold text-slate-800">{fc.currency}</p>
-                                      <p className="text-[10px] text-slate-400 font-medium">
-                                          Saldo: {fc.amount % 1 === 0
-                                              ? fc.amount.toLocaleString("id-ID")
-                                              : fc.amount.toLocaleString("id-ID", { maximumFractionDigits: 4 })}
-                                      </p>
-                                  </div>
-                              </div>
-                              <input
-                                  type="text"
-                                  placeholder={`Nama rekening / dompet ${fc.currency}...`}
-                                  className="w-full h-11 px-4 text-xs font-semibold border border-slate-200 rounded-2xl bg-slate-50 focus:border-brand-navy focus:bg-white outline-none transition-colors"
-                                  value={sourceInputs[fc.currency] ?? ""}
-                                  onChange={e => setSourceInputs(prev => ({ ...prev, [fc.currency]: e.target.value }))}
-                              />
-                          </div>
-                      ))}
-                  </div>
-
-                  {/* Footer actions */}
-                  <div className="p-5 pt-3 flex flex-col gap-2">
-                      <button
-                          type="button"
-                          onClick={() => {
-                              const current = getForexSources();
-                              const updated = { ...current };
-                              pendingSourceCurrencies.forEach(fc => {
-                                  const val = (sourceInputs[fc.currency] || "").trim();
-                                  if (val) updated[fc.currency] = val;
-                              });
-                              saveForexSources(updated);
-                              setShowForexSourcePopup(false);
-                              setPendingSourceCurrencies([]);
-                              toast({ title: "Tersimpan!", description: "Sumber uang valas telah diperbarui." });
-                          }}
-                          className="w-full h-12 bg-brand-navy text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm active:scale-95 transition-all cursor-pointer"
-                      >
-                          Simpan Sumber Uang
-                      </button>
-                      <button
-                          type="button"
-                          onClick={() => {
-                              setShowForexSourcePopup(false);
-                              setPendingSourceCurrencies([]);
-                          }}
-                          className="w-full h-10 text-slate-400 font-semibold text-xs rounded-2xl hover:bg-slate-50 transition-colors cursor-pointer active:scale-95"
-                      >
-                          Isi Nanti
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* POPUP EDIT SUMBER SATU MATA UANG */}
+      {/* POPUP EDIT SUMBER SATU MATA UANG (pakai SourceSelectionPopup) */}
       {editingSourceCurrency && (() => {
           const asset = assets.find(a => a.currency === editingSourceCurrency);
           if (!asset) return null;
           const currInfo = CURRENCY_LIST.find(c => c.code === editingSourceCurrency);
           return (
-              <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in p-4">
-                  <div className="bg-white w-full max-w-sm rounded-[28px] shadow-2xl border border-slate-100 animate-in slide-in-from-bottom-4 sm:zoom-in-95">
-                      <div className="p-5 border-b border-slate-100">
-                          <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                  <span className="text-xl">{currInfo?.flag ?? "🌐"}</span>
-                                  <div>
-                                      <h3 className="font-extrabold text-slate-900 text-sm">Sumber Uang {editingSourceCurrency}</h3>
-                                      <p className="text-[10px] text-slate-500 font-medium">
-                                          Saldo: {asset.amount % 1 === 0 ? asset.amount.toLocaleString("id-ID") : asset.amount.toFixed(4)}
-                                      </p>
-                                  </div>
-                              </div>
-                              <button
-                                  type="button"
-                                  onClick={() => setEditingSourceCurrency(null)}
-                                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 cursor-pointer transition-colors"
-                              >
-                                  <X className="w-4 h-4" />
-                              </button>
-                          </div>
-                      </div>
-                      <div className="p-5 space-y-3">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
-                              Nama Rekening / Akun / Dompet
-                          </label>
-                          <input
-                              type="text"
-                              autoFocus
-                              placeholder="Contoh: BCA Dollar, Jenius USD, Wise..."
-                              className="w-full h-12 px-4 text-sm font-semibold border border-slate-200 rounded-2xl bg-slate-50 focus:border-brand-navy focus:bg-white outline-none transition-colors"
-                              value={editSourceValue}
-                              onChange={e => setEditSourceValue(e.target.value)}
-                          />
-                          <p className="text-[10px] text-slate-400 font-medium">
-                              Nama rekening/dompet tempat menyimpan {editingSourceCurrency} kamu.
-                          </p>
-                      </div>
-                      <div className="p-5 pt-2 flex flex-col gap-2">
-                          <button
-                              type="button"
-                              onClick={() => {
-                                  const val = editSourceValue.trim();
-                                  if (!val) {
-                                      toast({ title: "Nama sumber tidak boleh kosong", variant: "destructive" });
-                                      return;
-                                  }
-                                  const current = getForexSources();
-                                  saveForexSources({ ...current, [editingSourceCurrency]: val });
-                                  setEditingSourceCurrency(null);
-                                  toast({ title: "Tersimpan!", description: `Sumber ${editingSourceCurrency} → ${val}` });
-                              }}
-                              className="w-full h-12 bg-brand-navy text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm active:scale-95 transition-all cursor-pointer"
-                          >
-                              Simpan
-                          </button>
-                          {forexSources[editingSourceCurrency] && (
-                              <button
-                                  type="button"
-                                  onClick={() => {
-                                      const current = getForexSources();
-                                      const updated = { ...current };
-                                      delete updated[editingSourceCurrency];
-                                      saveForexSources(updated);
-                                      setEditingSourceCurrency(null);
-                                      toast({ title: "Dihapus", description: `Sumber ${editingSourceCurrency} dihapus.` });
-                                  }}
-                                  className="w-full h-10 text-rose-500 font-semibold text-xs rounded-2xl hover:bg-rose-50 transition-colors cursor-pointer active:scale-95"
-                              >
-                                  Hapus Sumber
-                              </button>
-                          )}
-                      </div>
-                  </div>
-              </div>
+              <SourceSelectionPopup
+                  type="income"
+                  title={`Pilih Dompet ${currInfo?.flag ?? "🌐"} ${editingSourceCurrency}`}
+                  description={`Pilih akun atau dompet tempat menyimpan ${editingSourceCurrency} (${asset.amount % 1 === 0 ? asset.amount.toLocaleString("id-ID") : asset.amount.toFixed(4)} ${editingSourceCurrency})`}
+                  onCancel={() => setEditingSourceCurrency(null)}
+                  onSelect={(src) => {
+                      const current = getForexSources();
+                      saveForexSources({ ...current, [editingSourceCurrency]: src });
+                      setEditingSourceCurrency(null);
+                      toast({ title: "Tersimpan!", description: `Sumber ${editingSourceCurrency} → ${src}` });
+                  }}
+              />
           );
       })()}
     </MobileLayout>
