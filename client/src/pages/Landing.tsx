@@ -112,6 +112,22 @@ export default function Landing() {
     return () => window.removeEventListener('appinstalled', handleAppInstalled);
   }, []);
 
+  // 🔥 Khusus skema perpindahan dari webview Instagram/Facebook ke Chrome:
+  // Otomatis scroll mulus ke tombol install di bagian bawah
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const isFromInApp = searchParams.get("from_inapp") === "true" || searchParams.get("from") === "inapp" || searchParams.get("from") === "instagram";
+    
+    if (isFromInApp) {
+      const scrollTimer = setTimeout(() => {
+        if (bottomInstallBtnRef.current) {
+          bottomInstallBtnRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 600);
+      return () => clearTimeout(scrollTimer);
+    }
+  }, []);
+
   const handlePwaInstall = async () => {
     trackEvent("pwa_install_button_clicked", { inAppBrowser, onIOS });
 
@@ -158,7 +174,9 @@ export default function Landing() {
   // Tidak ada equivalent-nya di iOS (lihat komentar di browserDetect.ts).
   const handleOpenInChrome = () => {
     trackEvent("open_in_chrome_tapped");
-    window.location.href = buildChromeIntentUrl(window.location.href);
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set("from_inapp", "true");
+    window.location.href = buildChromeIntentUrl(currentUrl.toString());
   };
 
   // =======================================================
@@ -244,17 +262,6 @@ export default function Landing() {
                   {headlines[headlineIdx].bottom}
                 </span>
               </h2>
-
-              {/* 🔥 TOMBOL INSTALL DI BAGIAN ATAS (HERO) */}
-              <div className="mt-3 lg:mt-4 w-full flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
-                <button
-                  onClick={handlePwaInstall}
-                  className="w-full sm:w-auto bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-base md:text-lg tracking-wide py-4 px-8 rounded-2xl shadow-[0_12px_30px_rgba(251,191,36,0.35)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 cursor-pointer"
-                >
-                  <Download strokeWidth={3} className="w-5 h-5 animate-bounce" />
-                  <span>INSTALL BILANO SEKARANG</span>
-                </button>
-              </div>
             </div>
 
             <div className="flex-1 relative w-full flex justify-center lg:justify-end z-10 -mt-6 md:-mt-8 lg:mt-0">
