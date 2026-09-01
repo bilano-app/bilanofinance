@@ -200,6 +200,17 @@ export default function Home() {
             setShowOnboardingTargetPopup(true);
             localStorage.removeItem("onboarding_just_finished");
         }
+
+        // Cek izin notifikasi untuk pengguna (lama maupun baru)
+        if (typeof window !== "undefined" && "Notification" in window) {
+            if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+                const dismissed = sessionStorage.getItem("bilano_notif_prompt_dismissed");
+                if (!dismissed) {
+                    const timer = setTimeout(() => setShowPermissionPrompt(true), 2000);
+                    return () => clearTimeout(timer);
+                }
+            }
+        }
     }, []);
 
     const isAnyDataLoading = isUserLoading || isTargetLoading || isTxLoading || isFxLoading || isSubLoading;
@@ -1349,6 +1360,52 @@ export default function Home() {
                     </div>
                 </div>
             </div>
+
+            {/* 🔔 MODAL KONFIRMASI IZIN NOTIFIKASI PENGGUNA (UNTUK PENGGUNA LAMA & BARU) */}
+            {showPermissionPrompt && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-[#0f172a] border-2 border-amber-400/40 rounded-[32px] w-full max-w-sm p-6 text-center shadow-2xl animate-in zoom-in-95 flex flex-col items-center">
+                        
+                        <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-amber-400 to-yellow-500 text-[#0a1128] flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(251,191,36,0.4)]">
+                            <BellRing className="w-8 h-8 stroke-[2.5] animate-bounce" />
+                        </div>
+
+                        <span className="bg-amber-400/10 text-amber-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-2 border border-amber-400/30">
+                            PENGINGAT FINANSIAL AKTIF
+                        </span>
+
+                        <h3 className="text-xl font-black text-white leading-tight mb-2">
+                            Aktifkan Notifikasi Cerdas?
+                        </h3>
+
+                        <p className="text-xs text-slate-300 leading-relaxed mb-6">
+                            Dapatkan pengingat rekap pengeluaran harian, jatuh tempo tagihan, dan evaluasi arus kas tepat waktu tanpa repot.
+                        </p>
+
+                        <div className="w-full space-y-2.5">
+                            <button
+                                type="button"
+                                disabled={isRequestingPerms}
+                                onClick={requestAllPermissions}
+                                className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-sm tracking-wide py-3.5 px-5 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 border-b-4 border-amber-600 cursor-pointer disabled:opacity-50"
+                            >
+                                {isRequestingPerms ? <Loader2 className="w-5 h-5 animate-spin" /> : "IZINKAN NOTIFIKASI SEKARANG"}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    sessionStorage.setItem("bilano_notif_prompt_dismissed", "true");
+                                    setShowPermissionPrompt(false);
+                                }}
+                                className="w-full py-2.5 text-xs text-slate-400 hover:text-white font-bold transition-colors cursor-pointer"
+                            >
+                                Nanti Saja
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </MobileLayout>
     );
 }

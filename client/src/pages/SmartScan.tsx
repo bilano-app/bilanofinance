@@ -62,8 +62,7 @@ export default function SmartScan() {
     const recognitionRef = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
-    const isLocked = accessTier === "free" && isTrialExpired; 
+    const isLocked = accessTier === "free"; 
     
     const getAuthHeaders = () => ({ "x-user-email": currentUserEmail });
 

@@ -68,6 +68,7 @@ export default function Landing() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalling, setIsInstalling] = useState(false); // State untuk Pop-up Proses Install
   const [showManualInstall, setShowManualInstall] = useState(false); // State untuk Pop-up Langkah Alternatif
+  const [isInstallSuccess, setIsInstallSuccess] = useState(false); // State untuk Pop-up Sukses Pemasangan PWA
   const [isBottomBtnVisible, setIsBottomBtnVisible] = useState(false);
   const bottomInstallBtnRef = useRef<HTMLDivElement>(null);
 
@@ -99,6 +100,18 @@ export default function Landing() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  useEffect(() => {
+    const handleAppInstalled = () => {
+      setIsInstalling(false);
+      setShowManualInstall(false);
+      setIsInstallSuccess(true);
+      trackEvent("pwa_app_installed_celebration");
+    };
+
+    window.addEventListener('appinstalled', handleAppInstalled);
+    return () => window.removeEventListener('appinstalled', handleAppInstalled);
+  }, []);
+
   const handlePwaInstall = async () => {
     trackEvent("pwa_install_button_clicked", { inAppBrowser, onIOS });
 
@@ -126,7 +139,7 @@ export default function Landing() {
           setDeferredPrompt(null);
           (window as any).deferredPwaPrompt = null;
           setIsInstalling(false);
-          setTimeout(() => setLocation('/auth'), 500);
+          setIsInstallSuccess(true);
         } else {
           trackEvent("pwa_install_dismissed");
           // Jika ditolak, pop-up "Sedang menginstall" dibiarkan agar user bisa klik opsi kendala
@@ -595,6 +608,72 @@ export default function Landing() {
               {onIOS ? "SAYA MENGERTI" : (
                 <>Buka di Chrome <ExternalLink className="w-4 h-4" /></>
               )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🎉 MODAL 4: SELAMAT APLIKASI BERHASIL TERPASANG (DI CHROME) */}
+      {isInstallSuccess && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-[#0f172a] border border-amber-400/30 rounded-[36px] w-full max-w-md p-7 relative animate-in zoom-in-95 duration-300 text-center shadow-2xl flex flex-col items-center">
+            
+            <button
+              onClick={() => setIsInstallSuccess(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Glowing Icon */}
+            <div className="relative mb-5 mt-2">
+              <div className="absolute inset-0 bg-amber-400/20 rounded-3xl blur-xl animate-pulse"></div>
+              <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-900 via-[#121c3a] to-black border-2 border-amber-400/40 p-2 flex items-center justify-center shadow-2xl">
+                <img src="/BILANO-ICON-NEW.png" alt="BILANO Icon" className="w-18 h-18 object-contain rounded-2xl drop-shadow-md" />
+              </div>
+              <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white rounded-full p-1.5 shadow-lg border-2 border-[#0f172a]">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+            </div>
+
+            <span className="bg-amber-400/10 border border-amber-400/30 text-amber-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-3 shadow-inner">
+              Pemasangan Berhasil! 🚀
+            </span>
+
+            <h3 className="text-2xl font-black text-white leading-tight mb-2 tracking-tight">
+              Aplikasi BILANO Telah Terpasang!
+            </h3>
+
+            <p className="text-xs text-slate-300 leading-relaxed mb-6">
+              Ikon <b className="text-amber-300">BILANO</b> kini sudah tersedia di Layar Utama (<i>Home Screen</i>) perangkat Anda layaknya aplikasi resmi.
+            </p>
+
+            {/* Langkah Selanjutnya Box */}
+            <div className="w-full bg-[#1e293b]/80 border border-slate-700/70 rounded-2xl p-4 text-left mb-6 space-y-2.5">
+              <p className="text-[11px] font-black text-amber-400 uppercase tracking-wider">
+                Langkah Selanjutnya:
+              </p>
+              <div className="flex items-start gap-2.5 text-xs text-slate-200">
+                <span className="w-5 h-5 rounded-full bg-amber-400 text-[#0a1128] font-black flex items-center justify-center text-[10px] shrink-0 mt-0.5">1</span>
+                <span>Tutup halaman browser Chrome ini.</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs text-slate-200">
+                <span className="w-5 h-5 rounded-full bg-amber-400 text-[#0a1128] font-black flex items-center justify-center text-[10px] shrink-0 mt-0.5">2</span>
+                <span>Cari & buka ikon <b className="text-white">BILANO</b> di Layar Utama HP Anda.</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs text-slate-200">
+                <span className="w-5 h-5 rounded-full bg-amber-400 text-[#0a1128] font-black flex items-center justify-center text-[10px] shrink-0 mt-0.5">3</span>
+                <span>Masuk/Daftar dan nikmati asisten keuangan cerdas Anda!</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setIsInstallSuccess(false);
+              }}
+              className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-sm tracking-wide py-4 px-6 rounded-2xl shadow-[0_10px_25px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2 border-b-4 border-amber-600 cursor-pointer"
+            >
+              <span>MENGERTI, BUKA DARI LAYAR UTAMA</span>
             </button>
           </div>
         </div>

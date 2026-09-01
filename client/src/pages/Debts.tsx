@@ -110,11 +110,6 @@ export default function Debts() {
   }, [currentUserEmail]);
 
   const checkPaywall = () => {
-      const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
-      if (accessTier === "free" && isTrialExpired) {
-          window.location.href = "/paywall";
-          return true;
-      }
       return false;
   };
 

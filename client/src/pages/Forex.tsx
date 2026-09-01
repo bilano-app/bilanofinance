@@ -84,15 +84,13 @@ export default function Forex() {
   } | null>(null);
 
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
-  const [editingWallet, setEditingWallet] = useState<{ id?: string; name: string; balance: number } | null>(null);
-  const [editWalletBalance, setEditWalletBalance] = useState("");
-  const [isSavingWallet, setIsSavingWallet] = useState(false);
+  const [editingForexAsset, setEditingForexAsset] = useState<{ id?: number; currency: string; amount: number } | null>(null);
+  const [editForexAmount, setEditForexAmount] = useState("");
+  const [isSavingForex, setIsSavingForex] = useState(false);
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const accessTier = getAccessTier(user);
   const isPro = accessTier !== "free";
-
-  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
   useEffect(() => {
     setIsPrivacyMode(localStorage.getItem("bilano_privacy") === "true");
@@ -104,50 +102,42 @@ export default function Forex() {
     localStorage.setItem("bilano_privacy", String(newVal));
   };
 
-  const handleOpenEditWallet = (wallet: any) => {
-    setEditingWallet(wallet);
-    setEditWalletBalance(wallet.balance.toString());
+  const handleOpenEditForexAsset = (asset: ForexAsset) => {
+    setEditingForexAsset(asset);
+    setEditForexAmount(asset.amount.toString());
   };
 
-  const handleSaveWalletBalance = async () => {
-    if (!editingWallet || !user) return;
-    setIsSavingWallet(true);
+  const handleSaveForexBalance = async () => {
+    if (!editingForexAsset) return;
+    setIsSavingForex(true);
     try {
-        const newBal = parseInt(editWalletBalance.replace(/\D/g, ""), 10) || 0;
-        const walletSources = user.walletSources ? [...(user.walletSources as any[])] : [];
-        const wsIdx = walletSources.findIndex((w: any) => (editingWallet.id && w.id === editingWallet.id) || w.name === editingWallet.name);
-        if (wsIdx >= 0) {
-            walletSources[wsIdx] = {
-                ...walletSources[wsIdx],
-                balance: newBal
-            };
-        } else {
-            walletSources.push({
-                name: editingWallet.name,
-                balance: newBal
-            });
-        }
-
-        const res = await fetch("/api/user/profile", {
-            method: "PUT",
+        const newBal = parseFloat(editForexAmount.replace(/,/g, ".")) || 0;
+        const res = await fetch("/api/forex/set-balance", {
+            method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "x-user-email": currentUserEmail
             },
-            body: JSON.stringify({ walletSources })
+            body: JSON.stringify({
+                currency: editingForexAsset.currency,
+                amount: newBal
+            })
         });
 
         if (res.ok) {
-            toast({ title: "Saldo Diperbarui!", description: `Saldo ${editingWallet.name} berhasil diubah.` });
-            setEditingWallet(null);
-            refetchUser();
+            toast({ 
+                title: "Saldo Valas Diperbarui! 🌍", 
+                description: `Saldo ${editingForexAsset.currency} berhasil diubah ke ${newBal.toLocaleString()} ${editingForexAsset.currency}.` 
+            });
+            setEditingForexAsset(null);
+            await fetchData();
         } else {
-            toast({ title: "Gagal Update", description: "Terjadi kesalahan saat menyimpan saldo.", variant: "destructive" });
+            toast({ title: "Gagal Update", description: "Terjadi kesalahan saat menyimpan saldo valas.", variant: "destructive" });
         }
     } catch (e) {
         toast({ title: "Gagal Update", description: "Terjadi kesalahan jaringan.", variant: "destructive" });
     } finally {
-        setIsSavingWallet(false);
+        setIsSavingForex(false);
     }
   };
 
@@ -442,7 +432,7 @@ export default function Forex() {
   }
 
   const totalValasIDR = calculateTotalValasIDR();
-  const displayTotalValas = isTrialExpired ? "✨ Rp ********" : formatRp(totalValasIDR);
+  const displayTotalValas = formatRp(totalValasIDR);
 
   return (
     <MobileLayout>
@@ -520,53 +510,51 @@ export default function Forex() {
                         {displayTotalValas}
                     </h2>
 
-                    {/* SUMBER DANA DOMPET (SEBAGAIMANA PADA KARTU DI HALAMAN HOME) */}
+                    {/* SUMBER DANA VALUTA ASING (MATA UANG ASING MILIK PENGGUNA) */}
                     <div className="flex justify-between items-center mb-2">
                         <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                            {user?.walletSources && (user.walletSources as any[]).length > 0 ? (
+                            {assets && assets.length > 0 ? (
                                 <>
-                                    {(user.walletSources as any[]).map((wallet: any, idx: number) => {
-                                        const logo = getWalletLogo(wallet.name);
+                                    {assets.map((asset: ForexAsset) => {
+                                        const currInfo = CURRENCY_LIST.find(c => c.code === asset.currency) || { flag: "🌐", name: asset.currency };
                                         return (
-                                            <div key={idx} className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0 shadow-xs backdrop-blur-xs">
-                                                {logo ? (
-                                                    <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs" title={wallet.name}>
-                                                        <img
-                                                            src={logo}
-                                                            alt={wallet.name}
-                                                            className="w-full h-full object-contain rounded-full"
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <span className="font-bold text-blue-200 text-[10px]">{wallet.name}:</span>
-                                                )}
-                                                <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(wallet.balance).split(",")[0]}</span>
+                                            <div key={asset.id} className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/15 px-3 py-1.5 rounded-full shrink-0 shadow-xs backdrop-blur-xs">
+                                                <span className="text-sm shrink-0">{currInfo.flag}</span>
+                                                <span className="font-extrabold text-amber-200 text-[11px]">{asset.currency}:</span>
+                                                <span className="font-bold text-white tabular-nums">
+                                                    {isPrivacyMode ? "•••" : asset.amount.toLocaleString("id-ID")}
+                                                </span>
                                                 <button
                                                     type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleOpenEditWallet(wallet);
+                                                        handleOpenEditForexAsset(asset);
                                                     }}
-                                                    className="ml-0.5 p-0.5 hover:bg-white/20 rounded-full text-blue-200 hover:text-white transition-colors active:scale-95 cursor-pointer"
-                                                    title={`Edit Saldo ${wallet.name}`}
+                                                    className="ml-0.5 p-0.5 hover:bg-white/20 rounded-full text-brand-gold hover:text-white transition-colors active:scale-95 cursor-pointer"
+                                                    title={`Edit Saldo ${asset.currency}`}
                                                 >
                                                     <Pencil className="w-2.5 h-2.5 text-brand-gold" />
                                                 </button>
                                             </div>
                                         );
                                     })}
-                                    <Link href="/transfer">
-                                        <button className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-gold text-brand-navy shrink-0 ml-1 hover:bg-brand-goldDark transition-colors active:scale-95 shadow-sm cursor-pointer" title="Tambah / Pindah Dompet">
-                                            <Plus className="w-4 h-4" strokeWidth={3} />
-                                        </button>
-                                    </Link>
+                                    <button 
+                                        type="button"
+                                        onClick={() => {
+                                            setActiveTab('mutation');
+                                            setMutationMode('in');
+                                            window.scrollTo({ top: 380, behavior: 'smooth' });
+                                        }}
+                                        className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-gold text-brand-navy shrink-0 ml-1 hover:bg-brand-goldDark transition-colors active:scale-95 shadow-sm cursor-pointer" 
+                                        title="Tambah Mata Uang Asing Baru"
+                                    >
+                                        <Plus className="w-4 h-4" strokeWidth={3} />
+                                    </button>
                                 </>
                             ) : (
-                                <div className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0">
-                                    <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
-                                        <img src="/CASH.svg" alt="IDR" className="w-full h-full object-contain" />
-                                    </div>
-                                    <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(user?.cashBalance || 0).split(",")[0]}</span>
+                                <div className="flex items-center gap-2 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-3 py-1.5 rounded-full shrink-0">
+                                    <Globe className="w-3.5 h-3.5 text-amber-300" />
+                                    <span className="font-medium text-white/90">Belum ada saldo valas • Catat di bawah</span>
                                 </div>
                             )}
                         </div>
@@ -615,8 +603,8 @@ export default function Forex() {
                                         {curr}
                                     </span>
                                 </div>
-                                <div className={`text-xs font-black tabular-nums ${isTrialExpired ? 'text-rose-500' : 'text-slate-800'}`}>
-                                    {isTrialExpired ? "✨ Pro" : `Rp ${Math.round(getSafeRate(curr)).toLocaleString("id-ID")}`}
+                                <div className="text-xs font-black tabular-nums text-slate-800">
+                                    Rp {Math.round(getSafeRate(curr)).toLocaleString("id-ID")}
                                 </div>
                             </button>
                         );
@@ -882,7 +870,7 @@ export default function Forex() {
                                 <input 
                                     type="text" 
                                     inputMode="decimal" 
-                                    placeholder={isTrialExpired ? "✨" : formatIdr(Math.round(getSafeRate(selectedCurr.code)).toString())} 
+                                    placeholder={formatIdr(Math.round(getSafeRate(selectedCurr.code)).toString())} 
                                     className="w-full h-12 px-4 text-base font-black rounded-2xl bg-slate-50 border border-slate-200 focus:border-brand-navy focus:bg-white outline-none tabular-nums" 
                                     value={rateExchange} 
                                     onChange={(e) => setRateExchange(formatIdr(e.target.value))}
@@ -958,12 +946,12 @@ export default function Forex() {
                                     </div>
 
                                     <div className="text-right shrink-0">
-                                        <div className={`font-black ${isTrialExpired ? 'text-rose-500' : 'text-emerald-700'} text-sm sm:text-base tabular-nums`}>
-                                            {isTrialExpired ? "✨ Premium" : formatRp(idrVal)}
+                                        <div className="font-black text-emerald-700 text-sm sm:text-base tabular-nums">
+                                            {formatRp(idrVal)}
                                         </div>
                                         <div className="text-[10px] text-slate-500 font-medium flex items-center justify-end gap-1 mt-0.5">
                                             <Activity className="w-3 h-3 text-amber-600"/>
-                                            <span>@ {isTrialExpired ? "***" : formatRp(liveRate)}</span>
+                                            <span>@ {formatRp(liveRate)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -979,7 +967,7 @@ export default function Forex() {
       {/* ========================================================================= */}
       {/* 📈 MODAL GRAFIK PASAR VALAS */}
       {/* ========================================================================= */}
-      {chartCurr && !isTrialExpired && (
+      {chartCurr && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in">
               <div className="bg-white w-full max-w-md rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 relative border border-slate-100">
                   <div className="flex justify-between items-center mb-4">
@@ -1047,22 +1035,23 @@ export default function Forex() {
           </div>
       )}
 
-      {/* Modal Edit Saldo Sumber Dana */}
-      {editingWallet && (
+      {/* Modal Edit Saldo Valas Langsung */}
+      {editingForexAsset && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100">
-                  <div className="flex justify-between items-center mb-4">
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100 space-y-4">
+                  <div className="flex justify-between items-center mb-1">
                       <div className="flex items-center gap-2.5">
-                          <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
-                              <Pencil className="w-5 h-5" />
+                          <div className="w-10 h-10 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center font-black text-sm">
+                              {editingForexAsset.currency}
                           </div>
                           <div>
-                              <h3 className="font-extrabold text-slate-800 text-base">Edit Saldo Dompet</h3>
-                              <p className="text-xs text-slate-400 font-bold">{editingWallet.name}</p>
+                              <h3 className="font-extrabold text-slate-800 text-base">Edit Saldo Valas</h3>
+                              <p className="text-xs text-slate-400 font-bold">Mata Uang: {editingForexAsset.currency}</p>
                           </div>
                       </div>
                       <button
-                          onClick={() => setEditingWallet(null)}
+                          type="button"
+                          onClick={() => setEditingForexAsset(null)}
                           className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center cursor-pointer"
                       >
                           <X className="w-4 h-4" />
@@ -1072,28 +1061,26 @@ export default function Forex() {
                   <div className="space-y-4">
                       <div>
                           <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                              Saldo Saat Ini
+                              Jumlah Saldo ({editingForexAsset.currency})
                           </label>
-                          <div className="relative">
-                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">Rp</span>
-                              <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={formatIdr(editWalletBalance)}
-                                  onChange={(e) => setEditWalletBalance(e.target.value.replace(/\D/g, ""))}
-                                  placeholder="0"
-                                  className="w-full h-12 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-800 text-lg focus:outline-none focus:border-brand-navy focus:bg-white transition-all"
-                                  autoFocus
-                              />
-                          </div>
+                          <input
+                              type="text"
+                              inputMode="decimal"
+                              value={editForexAmount}
+                              onChange={(e) => setEditForexAmount(e.target.value.replace(/[^0-9.,]/g, ""))}
+                              placeholder="0"
+                              className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-800 text-lg focus:outline-none focus:border-brand-navy focus:bg-white transition-all text-center tabular-nums"
+                              autoFocus
+                          />
                       </div>
 
                       <Button
-                          onClick={handleSaveWalletBalance}
-                          disabled={isSavingWallet}
+                          type="button"
+                          onClick={handleSaveForexBalance}
+                          disabled={isSavingForex}
                           className="w-full h-12 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm transition-all cursor-pointer"
                       >
-                          {isSavingWallet ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Simpan"}
+                          {isSavingForex ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Simpan Perubahan Saldo"}
                       </Button>
                   </div>
               </div>

@@ -13,6 +13,7 @@ import nodemailer from "nodemailer";
 import crypto from "crypto";
 import { trackingEvents } from "../shared/schema.js";
 import { registerIncomeStrategyRoutes } from "./incomeStrategy.js";
+import { applyRateLimiter } from "./security.js";
 
 let firebaseAdminInitialized = false;
 try {
@@ -71,6 +72,11 @@ async function askSmartAI(systemPrompt: string, userMessage: string, history: an
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  app.use("/api/auth", applyRateLimiter('auth'));
+  app.use("/api/chat", applyRateLimiter('ai'));
+  app.use("/api/payment", applyRateLimiter('payment'));
+  app.use("/api/admin", applyRateLimiter('admin'));
 
   app.use("/api", (req: any, res: any, next: any) => {
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -1500,18 +1506,58 @@ function parseCleanJson(text: string): any {
 
           if (!restKey || !appId) return res.status(400).json({ error: "ONESIGNAL_REST_KEY atau ONESIGNAL_APP_ID tidak ditemukan di environment Vercel." });
 
-          const NOTIF_MESSAGES = [
-              "Waktunya ngecek dompet! Ada jajan yang belum dicatat? 🤔",
-              "BILANO kangen nih. Yuk update catatan keuanganmu! 🚀",
-              "Hari ini udah nabung atau malah boncos? Yuk catat dulu! 📊"
-          ];
-          const randomMsg = NOTIF_MESSAGES[Math.floor(Math.random() * NOTIF_MESSAGES.length)];
+          // Hitung Jam Sekarang dalam WIB (UTC+7)
+          const nowUtc = new Date();
+          const wibHour = (nowUtc.getUTCHours() + 7) % 24;
+
+          let heading = "BILANO Finance 🎯";
+          let messagePool: string[] = [];
+
+          if (wibHour >= 5 && wibHour < 11) {
+              // 🌅 PAGI (05:00 - 10:59 WIB)
+              heading = "Semangat Pagi dari BILANO ☀️";
+              messagePool = [
+                  "Awali hari dengan kontrol finansial prima! Cek pos anggaran hari ini 🎯",
+                  "Sebelum beraktivitas, pastikan alokasi kas & tabunganmu aman yuk ☕",
+                  "Disiplin kecil di pagi hari membawa kebebasan finansial di masa depan 🚀",
+                  "Cek status dompet & target finansialmu sebelum mulai berbelanja 📊"
+              ];
+          } else if (wibHour >= 11 && wibHour < 15) {
+              // 🍱 SIANG (11:00 - 14:59 WIB)
+              heading = "Cek Arus Kas Siang 🍱";
+              messagePool = [
+                  "Habis makan siang atau jajan kopi? Yuk langsung catat di BILANO ☕",
+                  "Pantau pengeluaran siang hari agar tetap sesuai rencana anggaranmu 💸",
+                  "Jangan biarkan ada pos pengeluaran yang terlewat, catat dalam 5 detik ⚡",
+                  "Waktunya cek dompet tengah hari: Arus kas masih aman terkendali? 🔍"
+              ];
+          } else if (wibHour >= 15 && wibHour < 19) {
+              // 🌇 SORE (15:00 - 18:59 WIB)
+              heading = "Tinjauan Sore BILANO 🌇";
+              messagePool = [
+                  "Aktivitas sore selesai! Yuk cek rekap pengeluaran harianmu sebelum malam 📝",
+                  "Ada tagihan atau piutang yang jatuh tempo hari ini? Cek di BILANO yuk 🔔",
+                  "Disiplin mencatat di sore hari bikin evaluasi malam lebih tenang 📈",
+                  "Kekayaan bertumbuh dari konsistensi catatan harianmu 🌟"
+              ];
+          } else {
+              // 🌙 MALAM (19:00 - 23:59 & Dini Hari WIB)
+              heading = "Rekap Finansial Malam 🌙";
+              messagePool = [
+                  "Yuk luangkan 1 menit untuk rekap seluruh pengeluaran & pemasukan hari ini 📊",
+                  "Cek kesehatan arus kas dan perkembangan target kekayaanmu sebelum istirahat 💤",
+                  "Hari ini sudah hemat atau ada bocor halus? Yuk evaluasi bersama BILANO ✨",
+                  "Tutup hari dengan portofolio yang rapi dan terencana dengan baik 🏆"
+              ];
+          }
+
+          const selectedMsg = messagePool[Math.floor(Math.random() * messagePool.length)];
 
           const payload = {
               app_id: appId,
               included_segments: ["Subscribed Users"], 
-              headings: { en: "BILANO Finance", id: "BILANO Finance" },
-              contents: { en: randomMsg, id: randomMsg },
+              headings: { en: heading, id: heading },
+              contents: { en: selectedMsg, id: selectedMsg },
               url: "https://bilanofinance-dvbi.vercel.app/dashboard",
               chrome_web_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON-NEW.png",
               chrome_web_badge: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON-NEW.png",
@@ -1525,7 +1571,7 @@ function parseCleanJson(text: string): any {
           });
 
           const data = await response.json();
-          res.json({ success: true, onesignal_response: data });
+          res.json({ success: true, wibHour, heading, message: selectedMsg, onesignal_response: data });
       } catch (error: any) {
           res.status(500).json({ error: "Gagal memproses Cron Job OneSignal: " + error.message });
       }
@@ -1569,18 +1615,61 @@ Jika pengguna menanyakan hal di LUAR topik keuangan, finansial, investasi, ekono
 3. DEKONSTRUKSI MASALAH & MULTI-OPSI STRATEGI: Jangan pernah mendikte satu solusi kaku. Bedah akar masalahnya, lalu tawarkan beberapa opsi strategi terukur (misal: Opsi A - Agresif vs Opsi B - Bertahap) beserta pertimbangan pro dan kontranya agar pengguna dapat mengambil keputusan terbaik.
 4. GAYA KOMUNIKASI: Luwes, elegan, berwibawa, tajam, langsung ke inti (No Yapping), menggunakan format Markdown yang rapi (bolding pada angka krusial, bullet points terstruktur).
 5. MENTOR PROAKTIF: Di akhir setiap jawaban finansial, sertakan 1 pertanyaan tindak lanjut atau rekomendasi langkah konkret berikutnya untuk membantu pengguna.
-6. PEMISAHAN WAKTU: Perhatikan apakah pengguna menanyakan data "bulan ini" (gunakan data bulan berjalan) atau "total kekayaan/harta" (gunakan data Net Worth dan total aset).
+7. PENAWARAN TINDAK LANJUT INTERAKTIF (FOLLOW-UP OPTIONS):
+Di akhir setiap jawabanmu, kamu WAJIB memberikan penawaran tindak lanjut/opsi langkah berikutnya yang proaktif, jelas, dan relevan dengan topik yang baru dibahas.
+Tuliskan opsi-opsi pilihan tersebut di baris paling akhir pesanmu dengan format persis:
+[SUGGESTIONS: ["Opsi 1", "Opsi 2", "Opsi 3"]]
+
+Contoh jika menawarkan simulasi/penjelasan lebih lanjut:
+[SUGGESTIONS: ["Mau, tolong simulasikan", "Tidak, sudah cukup jelas"]]
+
+Contoh jika membedah multi-opsi strategi (misal Opsi A vs Opsi B):
+[SUGGESTIONS: ["Bedah Opsi Agresif", "Bedah Opsi Bertahap", "Tidak, terima kasih"]]
+
+Contoh jika mengevaluasi portofolio atau kebocoran dana:
+[SUGGESTIONS: ["Audit Pengeluaran Lain", "Simulasi Alokasi Saham", "Tidak, sudah paham"]]
+
+Aturan penulisan [SUGGESTIONS: ...]:
+- Gunakan 2 sampai 3 tombol opsi yang singkat (2-5 kata per opsi).
+- Jika ada penawaran 'Apakah mau dijabarkan lebih lanjut?', sediakan tombol "Mau, tolong jabarkan" dan "Tidak, sudah jelas".
+- Jika ada topik-topik turunan (Detail A, Detail B), berikan nama detail tersebut di dalam tombol.
+- Pastikan format JSON array string valid di dalam tag [SUGGESTIONS: [...]].
 
 ================================================================================
 📊 DATA KEUANGAN LIVE PENGGUNA (LENGKAP DARI SELURUH HALAMAN BILANO):
 ================================================================================
 ${financialContext}
 
-Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya (No Yapping), dan akhiri dengan pertanyaan penawaran bantuan lanjutan yang proaktif!
+Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya (No Yapping), dan sertakan tag [SUGGESTIONS: [...]] di baris paling akhir!
 `;
 
-      const reply = await askSmartAI(systemPrompt, message, history);
-      res.json({ reply });
+      const rawReply = await askSmartAI(systemPrompt, message, history);
+      let reply = rawReply;
+      let suggestions: string[] = [];
+
+      const suggestionsRegex = /\[SUGGESTIONS:\s*(\[.*?\])\s*\]/is;
+      const match = rawReply.match(suggestionsRegex);
+      if (match) {
+          try {
+              suggestions = JSON.parse(match[1]);
+              reply = rawReply.replace(suggestionsRegex, '').trim();
+          } catch (e) {
+              const inside = match[1].replace(/[\[\]"]/g, '');
+              suggestions = inside.split(',').map((s: string) => s.trim()).filter(Boolean);
+              reply = rawReply.replace(suggestionsRegex, '').trim();
+          }
+      }
+
+      if (!suggestions || suggestions.length === 0) {
+          const lower = reply.toLowerCase();
+          if (lower.includes("apakah anda ingin") || lower.includes("apakah mau") || lower.includes("tertarik") || lower.includes("apakah kamu mau")) {
+              suggestions = ["Mau, tolong jelaskan detailnya", "Tidak, sudah cukup jelas"];
+          } else {
+              suggestions = ["Jelaskan Lebih Detail", "Simulasi Arus Kas Lain", "Tidak, sudah cukup"];
+          }
+      }
+
+      res.json({ reply, suggestions });
   });
 
   app.get("/api/retained", async (req: any, res: any) => {
@@ -1979,6 +2068,27 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           }
 
           res.json({ success: true, newBalance: currentAmount });
+      } catch (error: any) {
+          res.status(500).json({ error: error.message || "Terjadi kesalahan pada server." });
+      }
+  });
+
+  app.post("/api/forex/set-balance", async (req: any, res: any) => {
+      try {
+          const user = await getUser(req);
+          if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          const { currency, amount } = req.body;
+          const numAmount = Math.max(0, parseFloat(amount) || 0);
+
+          const existing = await storage.getForexByCurrency(user.id, currency);
+          if (existing) {
+              await storage.updateForexAsset(existing.id, numAmount);
+          } else {
+              await storage.createForexAsset(user.id, { currency, amount: numAmount } as any);
+          }
+
+          res.json({ success: true, currency, newAmount: numAmount });
       } catch (error: any) {
           res.status(500).json({ error: error.message || "Terjadi kesalahan pada server." });
       }

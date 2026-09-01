@@ -1693,10 +1693,7 @@ export default function IncomeStrategy() {
   const [isSynthesizing, setIsSynthesizing] = useState(false);
 
   const isPro = user?.isPro || (typeof window !== "undefined" && localStorage.getItem("bilano_pro") === "true");
-  const startTime = new Date(user?.createdAt || Date.now()).getTime();
-  const daysPassed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
-  const isTrialExpired = daysPassed >= 3;
-  const locked = !isUserLoading && !isPro && isTrialExpired;
+  const locked = !isUserLoading && !isPro;
 
   useEffect(() => {
     if (!isAttemptsLoading && !isProfileLoading) {

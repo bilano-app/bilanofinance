@@ -21,8 +21,7 @@ export default function Categories() {
 
     const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     const accessTier = getAccessTier(user);
-    const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
-    const isLocked = accessTier === "free" && isTrialExpired;
+    const isLocked = accessTier === "free";
 
     useEffect(() => { fetchCategories(); }, []);
 

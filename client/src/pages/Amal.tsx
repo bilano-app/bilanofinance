@@ -38,7 +38,7 @@ export default function Amal() {
 
     const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "default" : "default";
     const accessTier = getAccessTier(user);
-    const isLocked = accessTier === "free" && localStorage.getItem(`bilano_trial_expired_${userEmail}`) === "true";
+    const isLocked = accessTier === "free";
 
     const [amalPct, setAmalPct] = useState<number>(2.5);
     const [amalDict, setAmalDict] = useState<Record<string, number>>({});

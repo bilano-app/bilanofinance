@@ -55,8 +55,6 @@ export default function Subscriptions() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
   const getAuthHeaders = () => ({ "x-user-email": currentUserEmail });
 
   const formatNum = (val: string) => {
@@ -125,11 +123,6 @@ export default function Subscriptions() {
   };
 
   const handleSaveSub = async () => {
-      if (isTrialExpired) {
-          window.dispatchEvent(new Event('trigger-paywall-lock'));
-          return;
-      }
-
       if (!name.trim()) {
           toast({ title: "Nama Tagihan Wajib Diisi", description: "Masukkan nama layanan atau tagihan.", variant: "destructive" });
           return;
@@ -201,10 +194,6 @@ export default function Subscriptions() {
 
 
   const toggleStatus = async (id: number, currentStatus: boolean) => {
-      if (isTrialExpired) {
-          window.dispatchEvent(new Event('trigger-paywall-lock'));
-          return;
-      }
       try {
           await fetch(`/api/subscriptions/${id}/status`, {
               method: "PATCH", 
@@ -224,11 +213,6 @@ export default function Subscriptions() {
   };
 
   const deleteSub = async (id: number, subName: string) => {
-      if (isTrialExpired) {
-          window.dispatchEvent(new Event('trigger-paywall-lock'));
-          return;
-      }
-
       if(!confirm(`Hapus layanan "${subName}" secara permanen dari daftar langganan?`)) return;
       try {
           await fetch(`/api/subscriptions/${id}`, { 

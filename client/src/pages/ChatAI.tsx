@@ -26,6 +26,7 @@ interface Message {
     sender: 'user' | 'ai';
     text: string;
     time: string;
+    suggestions?: string[];
 }
 
 const QUICK_PROMPTS = [
@@ -75,7 +76,6 @@ export default function ChatAI() {
 
     const accessTier = getAccessTier(user);
     const isPro = accessTier !== "free";
-    const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
     
     const MAX_FREE_CHATS = 3;
     const [chatCount, setChatCount] = useState<number>(() => {
@@ -84,7 +84,7 @@ export default function ChatAI() {
     });
 
     const isOutOfQuota = accessTier === "free" && chatCount >= MAX_FREE_CHATS;
-    const isLocked = accessTier === "free" && (isTrialExpired || isOutOfQuota);
+    const isLocked = isOutOfQuota;
 
     const [messages, setMessages] = useState<Message[]>(() => {
         const savedChat = typeof window !== 'undefined' ? localStorage.getItem(`bilano_chat_history_${currentUserEmail}`) : null;
@@ -95,6 +95,11 @@ export default function ChatAI() {
                 id: 1, 
                 sender: 'ai', 
                 text: "Halo! Saya **BILANO Intelligence** 🤖\n\nSaya telah terhubung langsung dengan seluruh data aset, kas, dompet, hutang/piutang, investasi, valas, langganan, dan target keuangan Anda. Ada strategi keuangan atau evaluasi finansial yang ingin kita diskusikan hari ini?", 
+                suggestions: [
+                    "Evaluasi Arus Kas Saya",
+                    "Analisis Kekayaan Bersih",
+                    "Strategi Menabung Disiplin"
+                ],
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
             }];
         }
@@ -387,6 +392,7 @@ ${recentTxList}
                 id: Date.now() + 1,
                 sender: 'ai',
                 text: data.reply || "Maaf, mesin AI saya sedang sibuk sebentar.",
+                suggestions: Array.isArray(data.suggestions) && data.suggestions.length > 0 ? data.suggestions : undefined,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
             
@@ -424,8 +430,7 @@ ${recentTxList}
 
     let placeholderText = "Tanya seputar strategi keuangan...";
     if (isLocked) {
-        if (isTrialExpired) placeholderText = "🔒 Masa Coba Telah Berakhir";
-        else if (isOutOfQuota) placeholderText = "🔒 Kuota Chat Gratis Habis";
+        placeholderText = "🔒 Kuota Chat Gratis Habis (Upgrade VIP untuk Unlimited)";
     } else if (!isPro) {
         placeholderText = `Ketik pertanyaan (${MAX_FREE_CHATS - chatCount} kuota gratis tersisa)...`; 
     }
@@ -597,18 +602,56 @@ ${recentTxList}
                                     {msg.sender === 'user' ? (
                                         <p className="whitespace-pre-wrap font-bold">{msg.text}</p>
                                     ) : (
-                                        <div className="markdown-container">
-                                            <ReactMarkdown 
-                                                components={{
-                                                    strong: ({node, ...props}) => <span className="font-black text-[#1D3E72] bg-blue-50 px-1 py-0.5 rounded border border-blue-200/60" {...props} />,
-                                                    ul: ({node, ...props}) => <ul className="list-disc ml-4 my-2 space-y-1 text-slate-700" {...props} />,
-                                                    ol: ({node, ...props}) => <ol className="list-decimal ml-4 my-2 space-y-1 text-slate-700" {...props} />,
-                                                    li: ({node, ...props}) => <li className="pl-0.5" {...props} />,
-                                                    p: ({node, ...props}) => <p className="mb-2 last:mb-0 text-slate-800 font-medium" {...props} />
-                                                }}
-                                            >
-                                                {msg.text}
-                                            </ReactMarkdown>
+                                        <div>
+                                            <div className="markdown-container">
+                                                <ReactMarkdown 
+                                                    components={{
+                                                        strong: ({node, ...props}) => <span className="font-black text-[#1D3E72] bg-blue-50 px-1 py-0.5 rounded border border-blue-200/60" {...props} />,
+                                                        ul: ({node, ...props}) => <ul className="list-disc ml-4 my-2 space-y-1 text-slate-700" {...props} />,
+                                                        ol: ({node, ...props}) => <ol className="list-decimal ml-4 my-2 space-y-1 text-slate-700" {...props} />,
+                                                        li: ({node, ...props}) => <li className="pl-0.5" {...props} />,
+                                                        p: ({node, ...props}) => <p className="mb-2 last:mb-0 text-slate-800 font-medium" {...props} />
+                                                    }}
+                                                >
+                                                    {msg.text}
+                                                </ReactMarkdown>
+                                            </div>
+
+                                            {/* 🎯 INTERACTIVE FOLLOW-UP BUTTONS / SUGGESTION CHIPS */}
+                                            {msg.suggestions && msg.suggestions.length > 0 && (
+                                                <div className="mt-3.5 pt-3 border-t border-blue-100/90 flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-1 duration-300">
+                                                    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-blue-900/70">
+                                                        <Sparkles className="w-3 h-3 text-amber-500 fill-amber-400" />
+                                                        <span>Pilihan Tindak Lanjut:</span>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {msg.suggestions.map((sug, sIdx) => {
+                                                            const lower = sug.toLowerCase();
+                                                            const isNegative = lower.startsWith("tidak") || lower.includes("cukup") || lower.includes("batal");
+                                                            const isAffirmative = lower.startsWith("mau") || lower.startsWith("ya") || lower.startsWith("tentu");
+
+                                                            return (
+                                                                <button
+                                                                    key={sIdx}
+                                                                    onClick={() => handleSend(sug)}
+                                                                    disabled={isLocked || isTyping}
+                                                                    className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-xs active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                                                                        isNegative
+                                                                            ? "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 shadow-sm"
+                                                                            : isAffirmative
+                                                                                ? "bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-[2px_2px_0px_0px] shadow-[#0A162B] border border-emerald-400/40"
+                                                                                : "bg-gradient-to-r from-blue-600 to-[#1D3E72] hover:from-blue-700 hover:to-[#152e55] text-white shadow-[2px_2px_0px_0px] shadow-[#0A162B] border border-blue-400/30"
+                                                                    }`}
+                                                                >
+                                                                    {isAffirmative && <Check className="w-3.5 h-3.5 text-emerald-200 stroke-[3]" />}
+                                                                    {!isNegative && !isAffirmative && <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" />}
+                                                                    <span>{sug}</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                     <p className={`text-[9px] mt-1.5 text-right font-bold ${msg.sender === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
