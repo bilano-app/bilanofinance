@@ -610,32 +610,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
               forexAssetsList = Array.isArray(forexRes) ? forexRes : (forexRes as any).rows || [];
           } catch(e) {}
 
+          let investmentsList: any[] = [];
+          try {
+              const invRes = await db.execute(sql`SELECT * FROM investments`);
+              investmentsList = Array.isArray(invRes) ? invRes : (invRes as any).rows || [];
+          } catch(e) {}
+
+          let retainedList: any[] = [];
+          try {
+              const retRes = await db.execute(sql`SELECT * FROM retained_balances`);
+              retainedList = Array.isArray(retRes) ? retRes : (retRes as any).rows || [];
+          } catch(e) {}
+
+          let debtsList: any[] = [];
+          try {
+              const debtRes = await db.execute(sql`SELECT * FROM debts`);
+              debtsList = Array.isArray(debtRes) ? debtRes : (debtRes as any).rows || [];
+          } catch(e) {}
+
           const metrics = { 
               landing_viewed: 0, 
               faq_toggled: 0, 
-              cta_clicked: 0, 
-              quiz_started: 0, 
-              quiz_completed: 0, 
-              pricing_viewed: 0, 
+              video_played: 0,
+              pwa_button_clicked: 0,
+              pwa_prompted: 0,
+              pwa_installed: 0,
+              pwa_manual_needed: 0,
+              open_in_chrome: 0,
+              escaped_ig_webview: 0,
               checkout_initiated: 0, 
               payment_attempted: 0, 
-              payment_success: 0, 
-              pwa_installed: 0 
+              payment_success: 0
           };
           const plans = { year: 0, month: 0 };
           const devices = { desktop: 0, mobile: 0 };
-          const quizData = { q1: {ya:0, tidak:0}, q2: {ya:0, tidak:0}, q3: {ya:0, tidak:0}, q4: {scores:{} as Record<string, number>} };
           const uniqueVisitors = new Set();
           
           let totalRevenue = 0;
           const transactionHistory: any[] = []; 
-          const dailyTrend: Record<string, { visitors: number, sales: number, checkouts: number }> = {};
+          const dailyTrend: Record<string, { visitors: number, pwa_clicks: number, sales: number, checkouts: number }> = {};
           
           const featureAdoption = { 
               ai_chat: 0, 
               smart_scan: 0, 
-              expert_terminal: 0,
-              wealth_blueprint: 0,
               forex: 0,
               investments: 0,
               targets: 0,
@@ -643,8 +660,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               subscriptions: 0, 
               amal: 0, 
               retained: 0, 
+              transfer: 0,
+              performance: 0,
               reports: 0, 
-              manual_input: 0 
+              manual_input: 0,
+              guide: 0,
+              blueprint: 0,
+              help: 0
           };
 
           const activeUsers30Days = new Set();
@@ -660,7 +682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let investStarted = 0, investSaved = 0;
           let targetStarted = 0, targetSaved = 0;
           let debtStarted = 0, debtSaved = 0;
-          let subStarted = 0, subSaved = 0;
+          let forexStarted = 0, forexSaved = 0;
           
           const now = new Date();
           const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
@@ -676,7 +698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               const eventDate = new Date(e.created_at || now);
               const dateStr = eventDate.toISOString().split('T')[0];
-              if (!dailyTrend[dateStr]) dailyTrend[dateStr] = { visitors: 0, sales: 0, checkouts: 0 };
+              if (!dailyTrend[dateStr]) dailyTrend[dateStr] = { visitors: 0, pwa_clicks: 0, sales: 0, checkouts: 0 };
 
               if (e.user_id) {
                  if (eventDate >= thirtyDaysAgo) activeUsers30Days.add(e.user_id);
@@ -685,7 +707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               const ev = e.event_name;
 
-              // WEBSITE EVENTS
+              // WEBSITE & PWA LANDING EVENTS
               if (ev === 'landing_page_viewed' || ev === 'landing_visit') {
                   metrics.landing_viewed++;
                   dailyTrend[dateStr].visitors++;
@@ -693,15 +715,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   else devices.desktop++;
               }
               if (ev === 'faq_toggled') metrics.faq_toggled++;
-              if (ev === 'cta_landing_clicked') metrics.cta_clicked++;
-              if (ev === 'onboarding_started') metrics.quiz_started++;
-              if (ev === 'assessment_viewed') metrics.quiz_completed++;
-              if (ev === 'pricing_viewed') metrics.pricing_viewed++;
+              if (ev === 'video_play_clicked' || ev === 'video_played') metrics.video_played++;
+              if (ev === 'pwa_install_button_clicked' || ev === 'cta_landing_clicked') {
+                  metrics.pwa_button_clicked++;
+                  dailyTrend[dateStr].pwa_clicks++;
+              }
+              if (ev === 'pwa_install_prompted') metrics.pwa_prompted++;
+              if (ev === 'pwa_install_accepted' || ev === 'pwa_installed') metrics.pwa_installed++;
+              if (ev === 'pwa_manual_install_needed' || ev === 'pwa_manual_install_viewed') metrics.pwa_manual_needed++;
+              if (ev === 'open_in_chrome_tapped') metrics.open_in_chrome++;
+              if (ev === 'escaped_ig_webview_success') metrics.escaped_ig_webview++;
+
               if (ev === 'checkout_initiated') {
                   metrics.checkout_initiated++;
                   dailyTrend[dateStr].checkouts++;
               }
-              if (ev === 'pwa_install_accepted' || ev === 'pwa_installed') metrics.pwa_installed++;
 
               if (ev === 'payment_success') {
                   metrics.payment_success++;
@@ -722,32 +750,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   });
               }
 
-              if (ev === 'quiz_step_answered') {
-                 if (props.question === 'q1') { if (props.answer === 'Ya') quizData.q1.ya++; else quizData.q1.tidak++; }
-                 if (props.question === 'q2') { if (props.answer === 'Ya') quizData.q2.ya++; else quizData.q2.tidak++; }
-                 if (props.question === 'q3') { if (props.answer === 'Ya') quizData.q3.ya++; else quizData.q3.tidak++; }
-                 if (props.question === 'q4') { 
-                     const score = String(props.answer || '5'); 
-                     quizData.q4.scores[score] = (quizData.q4.scores[score] || 0) + 1; 
-                 }
-              }
-
-              // APP / PWA FEATURE ADOPTION EVENTS
+              // APP / PWA FEATURE ADOPTION EVENTS ACROSS 16 MODULES
               if (ev === 'ai_chat_used' || ev === 'chat_message_sent' || ev === 'ai_assistant_query') featureAdoption.ai_chat++;
               if (ev === 'smart_scan_used' || ev === 'smart_scan_started') {
                   featureAdoption.smart_scan++;
                   scanStarted++;
               }
-              if (ev === 'smart_scan_completed' || ev === 'smart_scan_saved') scanSaved++;
-
-              if (ev === 'expert_terminal_viewed' || ev === 'portfolio_viewed' || ev === 'macro_radar_viewed') featureAdoption.expert_terminal++;
-              if (ev === 'income_strategy_started' || ev === 'wealth_blueprint_viewed' || ev === 'income_strategy_status_selected') {
-                  featureAdoption.wealth_blueprint++;
-                  stratStarted++;
+              if (ev === 'smart_scan_completed' || ev === 'smart_scan_saved' || ev === 'smart_scan_batch_saved') {
+                  scanSaved++;
+                  featureAdoption.smart_scan++;
               }
-              if (ev === 'income_strategy_saved' || ev === 'blueprint_plan_saved') stratSaved++;
 
-              if (ev === 'forex_viewed' || ev === 'forex_transaction_created') featureAdoption.forex++;
+              if (ev === 'forex_viewed' || ev === 'forex_mutation_recorded' || ev === 'forex_exchange_completed') {
+                  featureAdoption.forex++;
+                  forexStarted++;
+              }
+              if (ev === 'forex_exchange_completed' || ev === 'forex_transaction_created') forexSaved++;
+
               if (ev === 'investment_viewed' || ev === 'investment_transaction_created' || ev === 'initial_investment_setup') {
                   featureAdoption.investments++;
                   investStarted++;
@@ -759,20 +778,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   targetStarted++;
                   targetSaved++;
               }
-              if (ev === 'debt_added' || ev === 'initial_debt_setup' || ev === 'debt_viewed') {
+              if (ev === 'debt_added' || ev === 'initial_debt_setup' || ev === 'debt_viewed' || ev === 'debt_paid') {
                   featureAdoption.debts++;
                   debtStarted++;
                   debtSaved++;
               }
-              if (ev === 'subscription_added' || ev === 'initial_sub_setup' || ev === 'subscription_viewed') {
+              if (ev === 'subscription_added' || ev === 'initial_sub_setup' || ev === 'subscription_viewed' || ev === 'subscription_edited') {
                   featureAdoption.subscriptions++;
-                  subStarted++;
-                  subSaved++;
               }
-              if (ev === 'amal_added' || ev === 'amal_viewed' || ev === 'zakat_calculated') featureAdoption.amal++;
+              if (ev === 'amal_added' || ev === 'amal_viewed' || ev === 'amal_tx_added' || ev === 'zakat_calculated') featureAdoption.amal++;
               if (ev === 'retained_balance_added' || ev === 'retained_viewed' || ev === 'retained_withdrawn') featureAdoption.retained++;
-              if (ev === 'report_generated' || ev === 'report_downloaded' || ev === 'portfolio_report_viewed') featureAdoption.reports++;
+              if (ev === 'transfer_viewed' || ev === 'wallet_transfer_completed') featureAdoption.transfer++;
+              if (ev === 'performance_viewed' || ev === 'portfolio_donut_viewed') featureAdoption.performance++;
+              if (ev === 'report_generated' || ev === 'report_downloaded' || ev === 'portfolio_report_viewed' || ev === 'portfolio_viewed') featureAdoption.reports++;
               if (ev === 'manual_tx_added' || ev === 'transaction_created') featureAdoption.manual_input++;
+              if (ev === 'guide_viewed') featureAdoption.guide++;
+              if (ev === 'wealth_blueprint_viewed' || ev === 'income_strategy_status_selected' || ev === 'income_strategy_started') {
+                  featureAdoption.blueprint++;
+                  stratStarted++;
+              }
+              if (ev === 'income_strategy_saved' || ev === 'blueprint_plan_saved') stratSaved++;
+              if (ev === 'help_ticket_submitted' || ev === 'help_viewed') featureAdoption.help++;
 
               // Durasi Sesi & Error logging
               if (ev === 'session_ping' || ev === 'session_open') {
@@ -793,14 +819,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const funnel = {
              landing: Math.max(metrics.landing_viewed, new Set(allEvents.filter(e => e.event_name === 'landing_page_viewed' || e.event_name === 'landing_visit').map(e => e.anonymous_id)).size),
-             quiz_started: Math.max(metrics.quiz_started, new Set(allEvents.filter(e => e.event_name === 'onboarding_started').map(e => e.anonymous_id)).size),
-             quiz_completed: Math.max(metrics.quiz_completed, new Set(allEvents.filter(e => e.event_name === 'assessment_viewed').map(e => e.anonymous_id)).size),
-             pricing: Math.max(metrics.pricing_viewed, new Set(allEvents.filter(e => e.event_name === 'pricing_viewed').map(e => e.anonymous_id)).size),
+             pwa_clicked: Math.max(metrics.pwa_button_clicked, new Set(allEvents.filter(e => e.event_name === 'pwa_install_button_clicked').map(e => e.anonymous_id)).size),
+             pwa_installed: Math.max(metrics.pwa_installed, new Set(allEvents.filter(e => e.event_name === 'pwa_install_accepted' || e.event_name === 'pwa_installed').map(e => e.anonymous_id)).size),
+             registered: allUsers.length,
              checkout: Math.max(metrics.checkout_initiated, new Set(allEvents.filter(e => e.event_name === 'checkout_initiated').map(e => e.anonymous_id)).size),
              paid: Math.max(metrics.payment_success, new Set(allEvents.filter(e => e.event_name === 'payment_success').map(e => e.anonymous_id)).size),
           };
 
-          const installRate = metrics.payment_success > 0 ? Math.round((metrics.pwa_installed / metrics.payment_success) * 100) : 0;
+          const installRate = funnel.pwa_clicked > 0 ? Math.round((funnel.pwa_installed / funnel.pwa_clicked) * 100) : 0;
           const stickiness = activeUsers30Days.size > 0 ? Math.round((activeUsersToday.size / activeUsers30Days.size) * 100) : 0;
           
           let sumTTV = 0, ttvCount = 0;
@@ -831,20 +857,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const zombieRate = proCount > 0 ? Math.round((zombieCount / proCount) * 100) : 0;
           const renewalRate = plans.year > 0 || plans.month > 0 ? 85 : 0;
 
-          // AUM Volume Calculation (Rupiah + Valas)
-          let totalRupiahAUM = 0;
-          let totalValasIDRAUM = 0;
-          allTxs.forEach((t: any) => {
-              if (t.type === 'income' || t.type === 'pemasukan') totalRupiahAUM += Number(t.amount || 0);
+          // AUM Volume Calculation (Kas Rupiah + Valas + Investasi + Saldo Tertahan + Piutang)
+          let totalCashIDR = 0;
+          allUsers.forEach((u: any) => {
+              totalCashIDR += Math.max(0, Number(u.cashBalance || u.cash_balance || 0));
           });
+
+          let totalValasIDRAUM = 0;
           forexAssetsList.forEach((f: any) => {
               const rate = cachedRates[f.currency] || DEFAULT_RATES[f.currency] || 16000;
               totalValasIDRAUM += (Number(f.amount || 0) * rate);
           });
 
+          let totalInvestIDRAUM = 0;
+          investmentsList.forEach((inv: any) => {
+              const m = (inv.type === 'saham' || !inv.type) ? 100 : 1;
+              totalInvestIDRAUM += (Number(inv.quantity || 0) * Number(inv.avgPrice || inv.avg_price || 0) * m);
+          });
+
+          let totalRetainedIDRAUM = 0;
+          retainedList.forEach((ret: any) => {
+              const rate = ret.currency === 'IDR' ? 1 : (cachedRates[ret.currency] || DEFAULT_RATES[ret.currency] || 16000);
+              totalRetainedIDRAUM += (Number(ret.amount || 0) * rate);
+          });
+
+          let totalPiutangIDRAUM = 0;
+          debtsList.forEach((d: any) => {
+              if (d.type === 'piutang' && !d.is_paid && !d.isPaid) {
+                  const curr = (d.name || "").split('|')[1] || 'IDR';
+                  const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 16000);
+                  totalPiutangIDRAUM += (Number(d.amount || 0) * rate);
+              }
+          });
+
           const dailyTrendArray = Object.keys(dailyTrend).sort().map(key => ({
               date: key, 
               visitors: dailyTrend[key].visitors, 
+              pwa_clicks: dailyTrend[key].pwa_clicks,
               sales: dailyTrend[key].sales,
               checkouts: dailyTrend[key].checkouts
           })).slice(-30);
@@ -861,10 +910,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
 
           const dropoff = [
-              { name: 'Smart Scan', Dimulai: Math.max(scanStarted, featureAdoption.smart_scan), Tersimpan: Math.max(scanSaved, Math.round(featureAdoption.smart_scan * 0.7)) },
-              { name: 'Setup Strategi', Dimulai: Math.max(stratStarted, featureAdoption.wealth_blueprint), Tersimpan: Math.max(stratSaved, Math.round(featureAdoption.wealth_blueprint * 0.65)) },
-              { name: 'Investasi Aset', Dimulai: Math.max(investStarted, featureAdoption.investments), Tersimpan: Math.max(investSaved, Math.round(featureAdoption.investments * 0.8)) },
-              { name: 'Target Disiplin', Dimulai: Math.max(targetStarted, featureAdoption.targets), Tersimpan: Math.max(targetSaved, Math.round(featureAdoption.targets * 0.85)) },
+              { name: 'Smart Scan AI', Dimulai: Math.max(scanStarted, featureAdoption.smart_scan), Tersimpan: Math.max(scanSaved, Math.round(featureAdoption.smart_scan * 0.8)) },
+              { name: 'Valas & Forex', Dimulai: Math.max(forexStarted, featureAdoption.forex), Tersimpan: Math.max(forexSaved, Math.round(featureAdoption.forex * 0.85)) },
+              { name: 'Investasi Aset', Dimulai: Math.max(investStarted, featureAdoption.investments), Tersimpan: Math.max(investSaved, Math.round(featureAdoption.investments * 0.85)) },
+              { name: 'Target Disiplin', Dimulai: Math.max(targetStarted, featureAdoption.targets), Tersimpan: Math.max(targetSaved, Math.round(featureAdoption.targets * 0.9)) },
               { name: 'Hutang / Piutang', Dimulai: Math.max(debtStarted, featureAdoption.debts), Tersimpan: Math.max(debtSaved, Math.round(featureAdoption.debts * 0.9)) }
           ];
 
@@ -874,7 +923,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const advancedMetrics = {
               dropoff,
-              aum: { totalRupiah: totalRupiahAUM, totalValasIDR: totalValasIDRAUM },
+              aum: { 
+                  totalRupiah: totalCashIDR, 
+                  totalValasIDR: totalValasIDRAUM,
+                  totalInvestIDR: totalInvestIDRAUM,
+                  totalRetainedIDR: totalRetainedIDRAUM,
+                  totalPiutangIDR: totalPiutangIDRAUM,
+                  grandTotalAUM: totalCashIDR + totalValasIDRAUM + totalInvestIDRAUM + totalRetainedIDRAUM + totalPiutangIDRAUM
+              },
               errors: { totalErrors, errorRate, popularErrors },
               sessions: { 
                   avgMinutes: sessionDurationCount > 0 ? (sessionDurationSum / sessionDurationCount) : 4.8, 
@@ -882,19 +938,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           };
 
-          res.json({ 
-              success: true, 
-              totalUnique: uniqueVisitors.size, 
+          res.json({
+              totalEvents: allEvents.length,
+              totalUnique: uniqueVisitors.size,
               totalRevenue,
+              metrics,
+              plans,
+              devices,
+              funnel,
+              featureAdoption,
+              appMetrics,
+              advancedMetrics,
               transactionHistory,
-              metrics, plans, devices, quizData, funnel,
-              dailyTrend: dailyTrendArray,
-              appMetrics, featureAdoption,
-              advancedMetrics
+              dailyTrend: dailyTrendArray
           });
-
-      } catch (e: any) {
-          res.status(500).json({ error: e.message });
+      } catch (error: any) {
+          console.error("Error in /api/admin/tracking-stats:", error);
+          res.status(500).json({ error: error.message || "Gagal memproses metrik tracking" });
       }
   });
 
@@ -998,74 +1058,342 @@ function parseCleanJson(text: string): any {
   app.post("/api/transactions/undo", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
-          const lastTx = await storage.getLatestTransaction(user!.id);
-          if (!lastTx) return res.status(404).json({ error: "Tidak ada transaksi untuk dibatalkan." });
+          if (!user) return res.status(401).json({ error: "Sesi telah berakhir." });
 
-          let newBalance = Math.round(user!.cashBalance);
+          const lastTx = await storage.getLatestTransaction(user.id);
+          if (!lastTx) return res.status(404).json({ error: "Tidak ada transaksi yang dapat dibatalkan." });
+
+          let newCashBalance = Math.round(user.cashBalance);
+          let walletSources: any[] = user.walletSources ? [...(user.walletSources as any[])] : [];
           const amt = Math.round(lastTx.amount);
+          const desc = lastTx.description || "";
+          const cat = lastTx.category || "";
+          const type = lastTx.type;
+          const source = lastTx.source;
 
-          const isValas = lastTx.category?.includes('Valas');
+          // 1. CEK TRANSAKSI TRANSFER ANTAR DOMPET (PAIRING: TRANSFER MASUK & TRANSFER KELUAR)
+          if (cat === 'Transfer Masuk' || cat === 'Transfer Keluar') {
+              const allTxs = await storage.getTransactions(user.id);
+              const matchingPair = allTxs.find((t: any) => 
+                  t.id !== lastTx.id && 
+                  (t.category === 'Transfer Keluar' || t.category === 'Transfer Masuk') &&
+                  Math.abs(t.amount - amt) < 1 &&
+                  Math.abs(new Date(t.date).getTime() - new Date(lastTx.date).getTime()) < 10000
+              );
 
-          if (!isValas) {
-              if (lastTx.type === 'income') newBalance -= amt;
-              else if (lastTx.type === 'expense') newBalance += amt;
-              else if (lastTx.type === 'debt_borrow' || lastTx.type === 'piutang_record') newBalance -= amt;
-              else if (lastTx.type === 'debt_lend' || lastTx.type === 'hutang_record') newBalance += amt;
-              else if (lastTx.type === 'debt_receive') newBalance -= amt;
-              else if (lastTx.type === 'debt_pay') newBalance += amt;
-          }
+              if (matchingPair) {
+                  const inTx = lastTx.category === 'Transfer Masuk' ? lastTx : matchingPair;
+                  const outTx = lastTx.category === 'Transfer Keluar' ? lastTx : matchingPair;
 
-          if (lastTx.type === 'invest_buy') newBalance += amt;
-          else if (lastTx.type === 'invest_sell') newBalance -= amt;
-          else if (lastTx.type === 'forex_buy') newBalance += amt;
-          else if (lastTx.type === 'forex_sell') newBalance -= amt;
-
-          if (lastTx.type === 'forex_buy' || lastTx.type === 'forex_sell') {
-              const desc = lastTx.description || "";
-              const match = desc.match(/(Beli|Jual)\s+([0-9.]+)\s+([A-Z]{3})/i);
-              if (match) {
-                  const qty = parseFloat(match[2]);
-                  const curr = match[3].toUpperCase();
-                  const existing = await storage.getForexByCurrency(user!.id, curr);
-                  if (existing) {
-                      const reverseQty = (lastTx.type === 'forex_buy') ? (existing.amount - qty) : (existing.amount + qty);
-                      await storage.updateForexAsset(existing.id, Math.max(0, reverseQty));
+                  if (inTx.source) {
+                      const toIdx = walletSources.findIndex((w: any) => w.name === inTx.source);
+                      if (toIdx >= 0) walletSources[toIdx].balance = Math.max(0, walletSources[toIdx].balance - amt);
                   }
+                  if (outTx.source) {
+                      const fromIdx = walletSources.findIndex((w: any) => w.name === outTx.source);
+                      if (fromIdx >= 0) walletSources[fromIdx].balance = walletSources[fromIdx].balance + amt;
+                  }
+
+                  await storage.updateUserWalletSources(user.id, walletSources);
+                  await storage.deleteTransaction(lastTx.id);
+                  await storage.deleteTransaction(matchingPair.id);
+
+                  return res.json({ 
+                      success: true, 
+                      message: `Berhasil membatalkan Transfer Antar Dompet (${amt.toLocaleString('id-ID')})` 
+                  });
               }
           }
 
-          if (lastTx.type === 'invest_buy') {
-              const desc = lastTx.description || "";
-              const match = desc.match(/([0-9.]+)\s+lot\/unit\s+([A-Z0-9]+)/i);
-              if (match) {
-                  const qty = parseFloat(match[1]);
-                  const symbol = match[2].toUpperCase();
-                  const inv = await storage.getInvestmentBySymbol(user!.id, symbol);
+          // 2. CEK TRANSAKSI PENCAIRAN SALDO TERTAHAN (RETAINED BALANCE WITHDRAWAL)
+          if (cat === 'Pencairan Dana' || desc.includes('Pencairan dari')) {
+              const matchRet = desc.match(/Pencairan dari (.+?)\s*\(([0-9.]+)\s*([A-Z]{3})\)/i);
+              if (matchRet) {
+                  const retPlatform = matchRet[1].trim();
+                  const retAmount = parseFloat(matchRet[2]);
+                  const retCurr = matchRet[3].toUpperCase();
+
+                  newCashBalance = Math.max(0, newCashBalance - amt);
+                  if (source) {
+                      const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                      if (wsIdx >= 0) walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+                  }
+
+                  const retResult = await db.execute(sql`SELECT * FROM retained_balances WHERE user_id = ${user.id} AND LOWER(source) = ${retPlatform.toLowerCase()} LIMIT 1`);
+                  const retRows = Array.isArray(retResult) ? retResult : (retResult as any).rows || [];
+                  if (retRows.length > 0) {
+                      const curRet = retRows[0];
+                      await db.execute(sql`UPDATE retained_balances SET amount = ${curRet.amount + retAmount}, updated_at = NOW() WHERE id = ${curRet.id}`);
+                  } else {
+                      await db.execute(sql`INSERT INTO retained_balances (user_id, source, amount, currency, created_at, updated_at) VALUES (${user.id}, ${retPlatform}, ${retAmount}, ${retCurr}, NOW(), NOW())`);
+                  }
+
+                  await storage.updateUserBalance(user.id, newCashBalance);
+                  if (source) await storage.updateUserWalletSources(user.id, walletSources);
+                  await storage.deleteTransaction(lastTx.id);
+
+                  return res.json({ success: true, message: `Berhasil membatalkan: Pencairan ${retPlatform}` });
+              }
+          }
+
+          // 3. CEK TRANSAKSI FOREX / VALAS (TUKAR VALAS & CAIRKAN VALAS)
+          if (type === 'forex_buy' || type === 'forex_sell' || cat === 'Tukar Valas' || cat === 'Cairkan Valas') {
+              const matchFx = desc.match(/(Beli|Jual)\s+([0-9.]+)\s+([A-Z]{3})/i);
+              if (matchFx) {
+                  const action = matchFx[1].toUpperCase();
+                  const qty = parseFloat(matchFx[2]);
+                  const curr = matchFx[3].toUpperCase();
+
+                  const existingForex = await storage.getForexByCurrency(user.id, curr);
+
+                  if (action === 'BELI' || type === 'forex_buy') {
+                      newCashBalance += amt;
+                      if (source) {
+                          const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                          if (wsIdx >= 0) walletSources[wsIdx].balance += amt;
+                      }
+                      if (existingForex) {
+                          const newFxAmt = Math.max(0, existingForex.amount - qty);
+                          await storage.updateForexAsset(existingForex.id, newFxAmt);
+                      }
+                  } else {
+                      newCashBalance = Math.max(0, newCashBalance - amt);
+                      if (source) {
+                          const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                          if (wsIdx >= 0) walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+                      }
+                      if (existingForex) {
+                          await storage.updateForexAsset(existingForex.id, existingForex.amount + qty);
+                      } else {
+                          await storage.createForexAsset(user.id, { currency: curr, amount: qty } as any);
+                      }
+                  }
+
+                  await storage.updateUserBalance(user.id, newCashBalance);
+                  if (source) await storage.updateUserWalletSources(user.id, walletSources);
+                  await storage.deleteTransaction(lastTx.id);
+
+                  return res.json({ success: true, message: `Berhasil membatalkan transaksi Valas: ${action} ${qty} ${curr}` });
+              }
+          }
+
+          // 4. CEK TRANSAKSI MUTASI VALAS MURNI
+          if (cat === 'Pemasukan Valas' || cat === 'Pengeluaran Valas') {
+              const matchMutasi = desc.match(/([0-9.]+)\s+([A-Z]{3})/i);
+              if (matchMutasi) {
+                  const qty = parseFloat(matchMutasi[1]);
+                  const curr = matchMutasi[2].toUpperCase();
+                  const existingForex = await storage.getForexByCurrency(user.id, curr);
+
+                  if (type === 'income' || cat === 'Pemasukan Valas') {
+                      if (existingForex) {
+                          await storage.updateForexAsset(existingForex.id, Math.max(0, existingForex.amount - qty));
+                      }
+                  } else {
+                      if (existingForex) {
+                          await storage.updateForexAsset(existingForex.id, existingForex.amount + qty);
+                      } else {
+                          await storage.createForexAsset(user.id, { currency: curr, amount: qty } as any);
+                      }
+                  }
+              }
+              if (source) {
+                  if (type === 'income') {
+                      newCashBalance = Math.max(0, newCashBalance - amt);
+                      const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                      if (wsIdx >= 0) walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+                  } else {
+                      newCashBalance += amt;
+                      const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                      if (wsIdx >= 0) walletSources[wsIdx].balance += amt;
+                  }
+                  await storage.updateUserBalance(user.id, newCashBalance);
+                  await storage.updateUserWalletSources(user.id, walletSources);
+              }
+              await storage.deleteTransaction(lastTx.id);
+              return res.json({ success: true, message: `Berhasil membatalkan: ${cat}` });
+          }
+
+          // 5. CEK TRANSAKSI INVESTASI (BELI ASET / JUAL ASET)
+          if (type === 'invest_buy' || cat === 'Beli Aset') {
+              newCashBalance += amt;
+              if (source) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                  if (wsIdx >= 0) walletSources[wsIdx].balance += amt;
+              }
+
+              const matchInv = desc.match(/([0-9.]+)\s+(?:unit\/lot|lot\/unit|lot|unit)\s+([A-Z0-9|_-]+)/i);
+              if (matchInv) {
+                  const qty = parseFloat(matchInv[1]);
+                  const symbol = matchInv[2].toUpperCase();
+                  const inv = await storage.getInvestmentBySymbol(user.id, symbol);
                   if (inv) {
                       const newQty = inv.quantity - qty;
                       if (newQty <= 0) await storage.deleteInvestment(inv.id);
                       else await storage.updateInvestment(inv.id, newQty, inv.avgPrice);
                   }
               }
+
+              await storage.updateUserBalance(user.id, newCashBalance);
+              if (source) await storage.updateUserWalletSources(user.id, walletSources);
+              await storage.deleteTransaction(lastTx.id);
+
+              return res.json({ success: true, message: `Berhasil membatalkan Pembelian Aset (${lastTx.description})` });
           }
 
-          await storage.updateUserBalance(user!.id, newBalance);
-          if (lastTx.source && user!.walletSources) {
-              let walletSources: any[] = [...(user!.walletSources as any[])];
-              const wsIdx = walletSources.findIndex((w: any) => w.name === lastTx.source);
-              if (wsIdx >= 0) {
-                  if (lastTx.type === 'income' || lastTx.type === 'debt_borrow' || lastTx.type === 'debt_receive' || lastTx.type === 'invest_sell' || lastTx.type === 'forex_sell') {
-                      walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
-                  } else if (lastTx.type === 'expense' || lastTx.type === 'debt_lend' || lastTx.type === 'debt_pay' || lastTx.type === 'invest_buy' || lastTx.type === 'forex_buy') {
-                      walletSources[wsIdx].balance += amt;
+          if (type === 'invest_sell' || cat === 'Jual Aset') {
+              newCashBalance = Math.max(0, newCashBalance - amt);
+              if (source) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                  if (wsIdx >= 0) walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+              }
+
+              const matchInvSell = desc.match(/([0-9.]+)\s+(?:unit\/lot|lot\/unit|lot|unit)\s+([A-Z0-9|_-]+)(?:\s+@\s+([A-Z]{3})?\s*([0-9.,]+))?/i);
+              if (matchInvSell) {
+                  const qty = parseFloat(matchInvSell[1]);
+                  const symbol = matchInvSell[2].toUpperCase();
+                  const priceStr = matchInvSell[4] ? matchInvSell[4].replace(/,/g, '') : "0";
+                  const price = parseFloat(priceStr) || 0;
+
+                  const inv = await storage.getInvestmentBySymbol(user.id, symbol);
+                  if (inv) {
+                      await storage.updateInvestment(inv.id, inv.quantity + qty, inv.avgPrice);
+                  } else {
+                      await storage.createInvestment(user.id, {
+                          symbol,
+                          quantity: qty,
+                          avgPrice: price,
+                          type: symbol.length === 4 ? 'saham' : 'crypto'
+                      } as any);
                   }
-                  await storage.updateUserWalletSources(user!.id, walletSources);
+              }
+
+              await storage.updateUserBalance(user.id, newCashBalance);
+              if (source) await storage.updateUserWalletSources(user.id, walletSources);
+              await storage.deleteTransaction(lastTx.id);
+
+              return res.json({ success: true, message: `Berhasil membatalkan Penjualan Aset (${lastTx.description})` });
+          }
+
+          // 6. CEK TRANSAKSI HUTANG & PIUTANG
+          if (type === 'debt_pay' || cat === 'Bayar Hutang' || cat === 'Bayar Hutang Valas') {
+              newCashBalance += amt;
+              if (source) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                  if (wsIdx >= 0) walletSources[wsIdx].balance += amt;
+              }
+
+              const matchDebtName = desc.match(/Lunas\/Cicilan ke (.+?)(?:\s*\(|$)/i);
+              if (matchDebtName) {
+                  const debtNameOnly = matchDebtName[1].trim();
+                  const debts = await storage.getDebts(user.id);
+                  const matchedDebt = debts.find((d: any) => d.type === 'hutang' && d.name.toLowerCase().includes(debtNameOnly.toLowerCase()));
+                  if (matchedDebt && matchedDebt.isPaid) {
+                      await db.execute(sql`UPDATE debts SET is_paid = false WHERE id = ${matchedDebt.id}`);
+                  }
+              }
+
+              await storage.updateUserBalance(user.id, newCashBalance);
+              if (source) await storage.updateUserWalletSources(user.id, walletSources);
+              await storage.deleteTransaction(lastTx.id);
+
+              return res.json({ success: true, message: `Berhasil membatalkan Pembayaran Hutang (${lastTx.description})` });
+          }
+
+          if (type === 'debt_receive' || cat === 'Piutang Dibayar' || cat === 'Piutang Valas Dibayar') {
+              newCashBalance = Math.max(0, newCashBalance - amt);
+              if (source) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                  if (wsIdx >= 0) walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+              }
+
+              const matchPiutangName = desc.match(/Lunas\/Cicilan dari (.+?)(?:\s*\(|$)/i);
+              if (matchPiutangName) {
+                  const piutangNameOnly = matchPiutangName[1].trim();
+                  const debts = await storage.getDebts(user.id);
+                  const matchedPiutang = debts.find((d: any) => d.type === 'piutang' && d.name.toLowerCase().includes(piutangNameOnly.toLowerCase()));
+                  if (matchedPiutang && matchedPiutang.isPaid) {
+                      await db.execute(sql`UPDATE debts SET is_paid = false WHERE id = ${matchedPiutang.id}`);
+                  }
+              }
+
+              await storage.updateUserBalance(user.id, newCashBalance);
+              if (source) await storage.updateUserWalletSources(user.id, walletSources);
+              await storage.deleteTransaction(lastTx.id);
+
+              return res.json({ success: true, message: `Berhasil membatalkan Penerimaan Piutang (${lastTx.description})` });
+          }
+
+          if (type === 'debt_lend' || cat === 'Beri Pinjaman' || cat === 'Beri Pinjaman Valas') {
+              newCashBalance += amt;
+              if (source) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                  if (wsIdx >= 0) walletSources[wsIdx].balance += amt;
+              }
+
+              const matchDebtTitle = desc.match(/\[(PIUTANG|HUTANG)\]\s*(.+?)(?:\s*-\s*|$)/i);
+              if (matchDebtTitle) {
+                  const dName = matchDebtTitle[2].trim();
+                  const debts = await storage.getDebts(user.id);
+                  const matched = debts.find((d: any) => d.type === 'piutang' && d.name.toLowerCase().includes(dName.toLowerCase()));
+                  if (matched) await storage.deleteDebt(matched.id);
+              }
+
+              await storage.updateUserBalance(user.id, newCashBalance);
+              if (source) await storage.updateUserWalletSources(user.id, walletSources);
+              await storage.deleteTransaction(lastTx.id);
+
+              return res.json({ success: true, message: `Berhasil membatalkan Pinjaman Diberikan (${lastTx.description})` });
+          }
+
+          if (type === 'debt_borrow' || cat === 'Dapat Pinjaman' || cat === 'Dapat Pinjaman Valas') {
+              newCashBalance = Math.max(0, newCashBalance - amt);
+              if (source) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                  if (wsIdx >= 0) walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+              }
+
+              const matchDebtTitle = desc.match(/\[(PIUTANG|HUTANG)\]\s*(.+?)(?:\s*-\s*|$)/i);
+              if (matchDebtTitle) {
+                  const dName = matchDebtTitle[2].trim();
+                  const debts = await storage.getDebts(user.id);
+                  const matched = debts.find((d: any) => d.type === 'hutang' && d.name.toLowerCase().includes(dName.toLowerCase()));
+                  if (matched) await storage.deleteDebt(matched.id);
+              }
+
+              await storage.updateUserBalance(user.id, newCashBalance);
+              if (source) await storage.updateUserWalletSources(user.id, walletSources);
+              await storage.deleteTransaction(lastTx.id);
+
+              return res.json({ success: true, message: `Berhasil membatalkan Pinjaman Diterima (${lastTx.description})` });
+          }
+
+          // 7. TRANSAKSI STANDAR (INCOME & EXPENSE LAINNYA / AMAL / LANGGANAN)
+          if (type === 'income' || type === 'piutang_record') {
+              newCashBalance = Math.max(0, newCashBalance - amt);
+              if (source) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                  if (wsIdx >= 0) walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+              }
+          } else {
+              newCashBalance += amt;
+              if (source) {
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+                  if (wsIdx >= 0) walletSources[wsIdx].balance += amt;
               }
           }
+
+          await storage.updateUserBalance(user.id, newCashBalance);
+          if (source) await storage.updateUserWalletSources(user.id, walletSources);
           await storage.deleteTransaction(lastTx.id);
 
-          res.json({ success: true, message: `Berhasil membatalkan: ${lastTx.category}` });
-      } catch (e: any) { res.status(500).json({ error: e.message }); }
+          res.json({ 
+              success: true, 
+              message: `Berhasil membatalkan: ${cat || type} (${desc || amt.toLocaleString('id-ID')})` 
+          });
+      } catch (e: any) { 
+          res.status(500).json({ error: e.message || "Gagal membatalkan transaksi." }); 
+      }
   });
 
   app.post("/api/auth/reset-password", async (req: any, res: any) => {
@@ -1209,24 +1537,47 @@ function parseCleanJson(text: string): any {
       
       const { message, history, financialContext } = req.body; 
 
-      // 🔥 ROMBAK TOTAL KEPRIBADIAN DAN LOGIKA ANALISIS DI SINI
       const systemPrompt = `
-      Kamu adalah BILANO Intelligence, konsultan keuangan elit dan profesional yang tertanam di dalam aplikasi BILANO.
-      Kamu diciptakan dan dikembangkan oleh Adrien Fandra (seorang konten kreator juga). 
-      PENTING: Kamu TIDAK BOLEH menyebut identitasmu sebagai Gemini, buatan Google, atau program AI generik lainnya. Jika terjadi error, jangan pernah menyebut soal API.
-      
-      PERATURAN SIKAP & LOGIKA KEUANGAN (MUTLAK):
-      1. INGAT KONTEKS: Kamu menerima riwayat percakapan. Jika pengguna bertanya hal lanjutan, jawablah menyambung dengan topik sebelumnya tanpa kebingungan.
-      2. GAYA BAHASA: Jadilah konsultan yang luwes, elegan, dan enak diajak ngobrol. Tidak kaku seperti robot, tapi juga tidak 'sok asik' atau memakai bahasa gaul yang berlebihan. Pertahankan wibawa profesional.
-      3. DEKONSTRUKSI & MULTI-SOLUSI: Saat diminta saran atau rekomendasi, JANGAN PERNAH memberikan satu solusi tunggal yang mendikte. Dekonstruksi akar masalahnya secara kritis berdasarkan data keuangan atau cerita pengguna, lalu tawarkan BEBERAPA ALTERNATIF strategi (Opsi A, Opsi B, dll) beserta pro-kontranya agar pengguna bisa berpikir dan mengambil keputusan sendiri.
-      4. MENTOR PROAKTIF: Jadilah mentor yang peduli. SETIAP KALI selesai memberikan jawaban/analisis, kamu WAJIB mengakhirinya dengan sebuah pertanyaan penawaran bantuan lanjutan.
-      5. PEMISAHAN WAKTU: Perhatikan pertanyaan pengguna! Jika bertanya "bulan ini", gunakan data [DATA BULAN INI KHUSUS]. Jika bertanya "kekayaan" atau "keseluruhan", gunakan data [DATA KESELURUHAN (TOTAL)].
-      
-      --- DATA KEUANGAN PENGGUNA SAAT INI (AKURAT & LIVE) ---
-      ${financialContext}
-      
-      Jawab dengan format Markdown yang rapi, berwibawa, langsung ke intinya (No Yapping), dan tutup dengan pertanyaan proaktif!
-      `;
+Kamu adalah BILANO Intelligence, asisten pintar dan konsultan keuangan elit, profesional, dan strategis yang tertanam di dalam aplikasi BILANO.
+Kamu diciptakan dan dikembangkan oleh Adrien Fandra.
+PENTING: Kamu TIDAK BOLEH menyebut identitasmu sebagai Gemini, buatan Google, ChatGPT, OpenAI, atau program AI generik lainnya. Jika terjadi kendala, jangan pernah menyebut teknis API.
+
+================================================================================
+🚨 ATURAN UTAMA & PEMBATASAN TOPIK (STRICT DOMAIN GUARDRAILS - SANGAT KETAT):
+================================================================================
+Kamu adalah ASISTEN KHUSUS KEUANGAN, INVESTASI, DAN EKONOMI BISNIS.
+Kamu HANYA BOLEH menjawab, menganalisis, dan berdiskusi seputar:
+1. Keuangan pribadi (personal finance), arus kas (cashflow), manajemen kas/dompet, budgeting, penghematan, audit kebocoran dana, dana darurat, dan target keuangan.
+2. Investasi dan portofolio (saham, reksadana, crypto, emas, obligasi, properti, bisnis), analisis risiko, dan strategi alokasi aset.
+3. Valuta asing (forex), kurs mata uang, transaksi tukar valas, dan lindung nilai (hedging).
+4. Manajemen dan strategi pelunasan hutang serta penagihan piutang.
+5. Manajemen langganan rutin (subscriptions), saldo tertahan (retained balance), dan alokasi amal/sedekah.
+6. Strategi peningkatan pendapatan (income strategy), monetisasi keahlian, dan analisis mendalam dari data keuangan pengguna yang ada di BILANO.
+
+⛔ BATASAN NON-KEUANGAN (WAJIB DITOLAK SECARA TEGAS & ELEGAN):
+Jika pengguna menanyakan hal di LUAR topik keuangan, finansial, investasi, ekonomi, bisnis, atau fitur aplikasi BILANO (contohnya: resep masakan, tugas sekolah matematika/fisika/biologi/sains umum, pemrograman/coding umum di luar sistem finance, cerita fiksi/dongeng, gosip selebriti, kesehatan medis, game, puisi, lirik lagu, obrolan santai tanpa kaitan finansial, dsb.):
+-> KAMU DILARANG KERAS MEMBERIKAN JAWABAN ATAS TOPIK TERSEBUT.
+-> Tolaklah dengan sopan, berwibawa, elegan, dan profesional.
+-> Terangkan kepada pengguna bahwa kamu adalah "BILANO Intelligence", konsultan spesialis keuangan yang didedikasikan secara eksklusif untuk mendampingi pengelolaan keuangan, kekayaan, aset, dan investasi pengguna.
+-> Ajak pengguna kembali untuk menanyakan perihal kondisi keuangan, evaluasi pengeluaran, strategi investasi, atau alokasi aset mereka.
+
+================================================================================
+🧠 INSTRUKSI SIKAP & KUALITAS ANALISIS:
+================================================================================
+1. INGAT KONTEKS & RIWAYAT: Sambungkan jawaban dengan riwayat percakapan sebelumnya secara koheren dan cerdas.
+2. ANALISIS DATA 360° MENYELURUH: Baca dan manfaatkan seluruh data keuangan live pengguna di bawah ini (saldo kas, dompet, pemasukan, pengeluaran per kategori, investasi, valas, saldo tertahan, hutang/piutang, langganan, target impian) untuk memberikan masukan yang benar-benar akurat, berbasis data nyata pengguna, dan bernilai tinggi (high-value actionable insights).
+3. DEKONSTRUKSI MASALAH & MULTI-OPSI STRATEGI: Jangan pernah mendikte satu solusi kaku. Bedah akar masalahnya, lalu tawarkan beberapa opsi strategi terukur (misal: Opsi A - Agresif vs Opsi B - Bertahap) beserta pertimbangan pro dan kontranya agar pengguna dapat mengambil keputusan terbaik.
+4. GAYA KOMUNIKASI: Luwes, elegan, berwibawa, tajam, langsung ke inti (No Yapping), menggunakan format Markdown yang rapi (bolding pada angka krusial, bullet points terstruktur).
+5. MENTOR PROAKTIF: Di akhir setiap jawaban finansial, sertakan 1 pertanyaan tindak lanjut atau rekomendasi langkah konkret berikutnya untuk membantu pengguna.
+6. PEMISAHAN WAKTU: Perhatikan apakah pengguna menanyakan data "bulan ini" (gunakan data bulan berjalan) atau "total kekayaan/harta" (gunakan data Net Worth dan total aset).
+
+================================================================================
+📊 DATA KEUANGAN LIVE PENGGUNA (LENGKAP DARI SELURUH HALAMAN BILANO):
+================================================================================
+${financialContext}
+
+Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya (No Yapping), dan akhiri dengan pertanyaan penawaran bantuan lanjutan yang proaktif!
+`;
 
       const reply = await askSmartAI(systemPrompt, message, history);
       res.json({ reply });

@@ -31,10 +31,44 @@ self.addEventListener('fetch', (event) => {
     }
 });
 
-// 🚀 RADAR 2: Tangkap Klik Notifikasi (Sangat Wajib untuk PWA Android!)
+// 🚀 RADAR 2: Tangkap Push Notifikasi dari Server / Background
+self.addEventListener('push', (event) => {
+    let data = { 
+        title: 'BILANO Financial', 
+        body: 'Pengingat finansial harian Anda siap!', 
+        icon: '/BILANO-ICON-NEW.png', 
+        url: '/' 
+    };
+    
+    if (event.data) {
+        try {
+            data = event.data.json();
+        } catch (e) {
+            data.body = event.data.text();
+        }
+    }
+
+    const options = {
+        body: data.body,
+        icon: data.icon || '/BILANO-ICON-NEW.png',
+        badge: '/BILANO-ICON-NEW.png',
+        vibrate: [200, 100, 200],
+        data: {
+            url: data.url || '/'
+        }
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(data.title || 'BILANO', options)
+    );
+});
+
+// 🚀 RADAR 3: Tangkap Klik Notifikasi (Sangat Wajib untuk PWA Android & iOS!)
 self.addEventListener('notificationclick', (event) => {
     // Tutup jendela notifikasi di atas layar
     event.notification.close();
+
+    const targetUrl = (event.notification.data && event.notification.data.url) || '/';
 
     // Membuka aplikasi BILANO
     event.waitUntil(
@@ -48,7 +82,7 @@ self.addEventListener('notificationclick', (event) => {
             }
             // Jika aplikasi tertutup sepenuhnya, buka jendela baru
             if (clients.openWindow) {
-                return clients.openWindow('/');
+                return clients.openWindow(targetUrl);
             }
         })
     );

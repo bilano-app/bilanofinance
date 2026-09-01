@@ -11,7 +11,7 @@ import ReactMarkdown from "react-markdown";
 import { useQuery } from "@tanstack/react-query";
 import { 
     useUser, useTransactions, useForexAssets, 
-    useInvestments, useTarget, getAccessTier 
+    useInvestments, useTarget, useSubscriptions, getAccessTier 
 } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { trackEvent } from "@/lib/tracking";
@@ -41,6 +41,7 @@ export default function ChatAI() {
     const { data: forexAssetsData } = useForexAssets();
     const { data: investments } = useInvestments();
     const { data: target } = useTarget();
+    const { data: subscriptions } = useSubscriptions();
 
     const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     
@@ -93,7 +94,7 @@ export default function ChatAI() {
             return [{ 
                 id: 1, 
                 sender: 'ai', 
-                text: "Halo! Saya **BILANO Intelligence** 🤖\n\nSaya telah terhubung langsung dengan seluruh data aset, kas, hutang, dan laporan transaksi Anda. Ada strategi keuangan atau portofolio yang ingin kita evaluasi hari ini?", 
+                text: "Halo! Saya **BILANO Intelligence** 🤖\n\nSaya telah terhubung langsung dengan seluruh data aset, kas, dompet, hutang/piutang, investasi, valas, langganan, dan target keuangan Anda. Ada strategi keuangan atau evaluasi finansial yang ingin kita diskusikan hari ini?", 
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
             }];
         }
@@ -159,7 +160,7 @@ export default function ChatAI() {
             promptLength: textToSend.length 
         });
 
-        // 🚀 KALKULASI DATA LIVE YANG SANGAT AKURAT
+        // 🚀 KALKULASI DATA 360° LIVE DARI SELURUH PENJURU DAN HALAMAN APLIKASI
         const cashReal = (user?.cashBalance || 0); 
         const forexValue = Array.isArray(forexAssetsData) ? forexAssetsData.reduce((acc: number, asset: any) => {
             const curr = asset.currency;
@@ -221,44 +222,152 @@ export default function ChatAI() {
         const monthlyIncome = baseIncomeTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'income').reduce((acc, v) => acc + v.amount, 0);
         const monthlyExpense = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'expense').reduce((acc, v) => acc + v.amount, 0);
 
-        // Menyiapkan Data Konteks Lengkap untuk LLM
+        // 1. Wallets List
+        const walletList = Array.isArray(user?.walletSources) && user.walletSources.length > 0
+            ? (user.walletSources as any[]).map((w: any) => `- ${w.name}: Rp ${Math.round(w.balance || 0).toLocaleString('id-ID')}`).join('\n')
+            : `- Kas Utama: Rp ${cashReal.toLocaleString('id-ID')}`;
+
+        // 2. Expense by Category
+        const categoryMap: Record<string, number> = {};
+        baseExpenseTxs.forEach((t: any) => {
+            const cat = t.category || 'Lainnya';
+            categoryMap[cat] = (categoryMap[cat] || 0) + t.amount;
+        });
+        const expenseCategoryList = Object.entries(categoryMap).length > 0
+            ? Object.entries(categoryMap)
+                .sort((a, b) => b[1] - a[1])
+                .map(([cat, amt]) => {
+                    const pct = monthlyExpense > 0 ? Math.round((amt / monthlyExpense) * 100) : 0;
+                    return `- ${cat}: Rp ${amt.toLocaleString('id-ID')} (${pct}% dari total pengeluaran)`;
+                })
+                .join('\n')
+            : '- Belum ada data pengeluaran berkategori bulan ini';
+
+        // 3. Subscriptions
+        const subItems = Array.isArray(subscriptions) ? subscriptions : [];
+        const totalSubMonthly = subItems.reduce((acc: number, s: any) => {
+            const cost = Number(s.price || s.cost || 0);
+            return acc + (s.cycle === 'yearly' ? Math.round(cost / 12) : cost);
+        }, 0);
+        const subList = subItems.length > 0
+            ? subItems.map((s: any) => `- ${s.name}: Rp ${(s.price || s.cost || 0).toLocaleString('id-ID')} / ${s.cycle === 'yearly' ? 'Tahun' : 'Bulan'} (Jatuh tempo: ${s.nextBilling || s.nextPaymentDate ? new Date(s.nextBilling || s.nextPaymentDate).toLocaleDateString('id-ID') : 'Rutin'})`).join('\n')
+            : '- Tidak ada langganan/tagihan rutin aktif';
+
+        // 4. Retained Balances
+        const retainedItems = Array.isArray(retainedData) ? retainedData : [];
+        const retainedList = retainedItems.length > 0
+            ? retainedItems.map((r: any) => {
+                const rRate = r.currency === 'IDR' ? 1 : (forexRates[r.currency] || DEFAULT_RATES[r.currency] || 15000);
+                return `- ${r.source}: ${r.amount.toLocaleString('id-ID')} ${r.currency} (≈ Rp ${Math.round(r.amount * rRate).toLocaleString('id-ID')})`;
+            }).join('\n')
+            : '- Tidak ada saldo tertahan di platform eksternal';
+
+        // 5. Debts & Receivables
         const activeDebts = Array.isArray(debtsData) ? debtsData.filter((d: any) => !d.isPaid) : [];
-        const hutangList = activeDebts.filter((d: any) => d.type === 'hutang').map((d: any) => `- ${d.name.split('|')[0]} (${d.name.split('|')[1] || 'IDR'}): ${d.amount.toLocaleString('id-ID')} (Jatuh tempo: ${d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tidak diset'})`).join('\n');
-        const piutangList = activeDebts.filter((d: any) => d.type === 'piutang').map((d: any) => `- ${d.name.split('|')[0]} (${d.name.split('|')[1] || 'IDR'}): ${d.amount.toLocaleString('id-ID')} (Jatuh tempo: ${d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tidak diset'})`).join('\n');
+        const hutangList = activeDebts.filter((d: any) => d.type === 'hutang').map((d: any) => `- ${d.name.split('|')[0]} (${d.name.split('|')[1] || 'IDR'}): Rp ${d.amount.toLocaleString('id-ID')} (Jatuh tempo: ${d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tidak diset'})`).join('\n');
+        const piutangList = activeDebts.filter((d: any) => d.type === 'piutang').map((d: any) => `- ${d.name.split('|')[0]} (${d.name.split('|')[1] || 'IDR'}): Rp ${d.amount.toLocaleString('id-ID')} (Jatuh tempo: ${d.dueDate ? new Date(d.dueDate).toLocaleDateString('id-ID') : 'Tidak diset'})`).join('\n');
 
-        const invList = Array.isArray(investments) ? investments.map((i: any) => `- ${i.symbol.split('|')[0]} (${i.symbol.split('|')[1] || 'IDR'}): ${i.quantity} lot/unit @ ${i.avgPrice}`).join('\n') : '';
-        const forexList = Array.isArray(forexAssetsData) ? forexAssetsData.map((f: any) => `- ${f.currency}: ${f.amount}`).join('\n') : '';
+        // 6. Investments
+        const invList = Array.isArray(investments) && investments.length > 0
+            ? investments.map((i: any) => {
+                const parts = (i.symbol || "").split('|');
+                const sym = parts[0] || "";
+                const curr = parts[1] || 'IDR';
+                const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 15000);
+                const isSaham = i.type === 'saham' || (!i.type && sym.length === 4 && i.type !== 'crypto');
+                const m = (isSaham && curr === 'IDR') ? 100 : 1;
+                const totalVal = i.quantity * i.avgPrice * m * rate;
+                return `- ${sym} [${i.type || 'Aset'}]: ${i.quantity} ${isSaham ? 'lot' : 'unit'} @ ${i.avgPrice.toLocaleString('id-ID')} ${curr} (Total: Rp ${Math.round(totalVal).toLocaleString('id-ID')})`;
+            }).join('\n')
+            : '- Tidak ada aset investasi aktif';
 
+        // 7. Forex Assets
+        const forexList = Array.isArray(forexAssetsData) && forexAssetsData.length > 0
+            ? forexAssetsData.map((f: any) => {
+                const rate = forexRates[f.currency] || DEFAULT_RATES[f.currency] || 15000;
+                return `- ${f.currency}: ${f.amount.toLocaleString('id-ID')} (Kurs @ Rp ${Math.round(rate).toLocaleString('id-ID')} → Total: Rp ${Math.round(f.amount * rate).toLocaleString('id-ID')})`;
+            }).join('\n')
+            : '- Tidak ada aset valuta asing aktif';
+
+        // 8. Recent 10 Transactions
+        const recentTxList = Array.isArray(transactions) && transactions.length > 0
+            ? transactions.slice(0, 10).map((t: any) => {
+                const dStr = new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                const sign = t.type === 'income' ? '+' : '-';
+                return `- [${dStr}] ${sign}Rp ${t.amount.toLocaleString('id-ID')} | ${t.category || t.type} | Dompet: ${t.source || 'Kas'} | "${t.description || '-'}"`;
+            }).join('\n')
+            : '- Belum ada riwayat transaksi';
+
+        // Menyiapkan Data Konteks Lengkap 360 Derajat untuk LLM
         const financialContext = `
-        [DATA KESELURUHAN (TOTAL HARTAMU SAAT INI)]
-        - Kekayaan Bersih (Net Worth): Rp ${currentWealth.toLocaleString('id-ID')}
-        - Kas Tunai (Uang Likuid): Rp ${cashReal.toLocaleString('id-ID')}
-        - Aset Investasi: Rp ${investmentReal.toLocaleString('id-ID')}
-        - Valuta Asing (Valas): Rp ${forexValue.toLocaleString('id-ID')}
-        - Saldo Tertahan: Rp ${retainedReal.toLocaleString('id-ID')}
-        - Total Piutang: Rp ${piutangReal.toLocaleString('id-ID')}
-        - Total Hutang: Rp ${hutangReal.toLocaleString('id-ID')}
+================================================================================
+🏛️ 1. RINGKASAN TOTAL KEKAYAAN BERSIH (NET WORTH) & KAS:
+================================================================================
+- Kekayaan Bersih Total (Net Worth): Rp ${currentWealth.toLocaleString('id-ID')}
+- Total Saldo Kas Likuid: Rp ${cashReal.toLocaleString('id-ID')}
+- Total Portofolio Investasi: Rp ${investmentReal.toLocaleString('id-ID')}
+- Total Valuta Asing (Valas IDR): Rp ${forexValue.toLocaleString('id-ID')}
+- Total Saldo Tertahan di Platform: Rp ${retainedReal.toLocaleString('id-ID')}
+- Total Piutang (Uang di pihak lain): Rp ${piutangReal.toLocaleString('id-ID')}
+- Total Kewajiban Hutang: Rp ${hutangReal.toLocaleString('id-ID')}
 
-        [RINCIAN HUTANG & PIUTANG AKTIF]
-        Hutang (Kewajiban kepada pihak lain):
-        ${hutangList || '- Tidak ada hutang'}
-        
-        Piutang (Uang di pihak lain):
-        ${piutangList || '- Tidak ada piutang'}
+[RINCIAN SUMBER DANA / DOMPET / REKENING PENGGUNA]
+${walletList}
 
-        [RINCIAN ASET & VALAS]
-        Investasi Berjalan:
-        ${invList || '- Tidak ada aset investasi'}
-        
-        Valas Berjalan:
-        ${forexList || '- Tidak ada aset valas'}
+================================================================================
+📊 2. ARUS KAS BULAN INI (${now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}):
+================================================================================
+- Pemasukan Murni Bulan Ini: Rp ${monthlyIncome.toLocaleString('id-ID')}
+- Pengeluaran Murni Bulan Ini: Rp ${monthlyExpense.toLocaleString('id-ID')}
+- Net Cashflow Bulan Ini: Rp ${(monthlyIncome - monthlyExpense).toLocaleString('id-ID')} (${monthlyIncome >= monthlyExpense ? 'SURPLUS ✅' : 'DEFISIT ⚠️'})
+- Pengeluaran Amal / Sedekah: Rp ${totalAmal.toLocaleString('id-ID')}
+- Batas Anggaran Bulanan (Budget Limit): ${target?.monthlyBudget ? `Rp ${target.monthlyBudget.toLocaleString('id-ID')}` : 'Tidak diset'}
+- Sisa Anggaran Pengeluaran: ${target?.monthlyBudget ? `Rp ${(target.monthlyBudget - monthlyExpense).toLocaleString('id-ID')}` : 'Tanpa batas'}
 
-        [DATA BULAN INI KHUSUS (${now.toLocaleDateString('id-ID', { month:'long', year:'numeric' })})]
-        - Pemasukan Murni Bulan Ini: Rp ${monthlyIncome.toLocaleString('id-ID')}
-        - Pengeluaran Murni Bulan Ini: Rp ${monthlyExpense.toLocaleString('id-ID')}
-        - Pengeluaran Amal/Sedekah Bulan Ini: Rp ${totalAmal.toLocaleString('id-ID')}
-        - Net Cashflow Bulan Ini: Rp ${(monthlyIncome - monthlyExpense).toLocaleString('id-ID')}
-        - Sisa Target Budget Pengeluaran: Rp ${target?.monthlyBudget ? (target.monthlyBudget - monthlyExpense).toLocaleString('id-ID') : 'Tanpa batas'}
+[BREAKDOWN PENGELUARAN BULAN INI PER KATEGORI (URUT DARI TERBESAR)]
+${expenseCategoryList}
+
+================================================================================
+📈 3. PORTOFOLIO INVESTASI AKTIF:
+================================================================================
+${invList}
+
+================================================================================
+🌍 4. KEPEMILIKAN VALUTA ASING (FOREX):
+================================================================================
+${forexList}
+
+================================================================================
+💼 5. SALDO TERTAHAN DI PLATFORM BISNIS/FREELANCE (RETAINED EARNINGS):
+================================================================================
+${retainedList}
+
+================================================================================
+📅 6. TAGIHAN RUTIN & LANGGANAN BERULANG (SUBSCRIPTIONS):
+================================================================================
+- Estimasi Beban Tagihan per Bulan: Rp ${totalSubMonthly.toLocaleString('id-ID')}
+${subList}
+
+================================================================================
+⚖️ 7. STATUS HUTANG & PIUTANG:
+================================================================================
+Hutang (Kewajiban Harus Dibayar):
+${hutangList || '- Tidak ada hutang'}
+
+Piutang (Uang yang Harus Ditagih):
+${piutangList || '- Tidak ada piutang'}
+
+================================================================================
+🎯 8. TARGET & IMPIAN KEUANGAN:
+================================================================================
+- Target Tabungan: ${target?.targetAmount ? `Rp ${target.targetAmount.toLocaleString('id-ID')} (${target.durationMonths || 12} Bulan, Mulai: ${target.startMonth || 1}/${target.startYear || 2026})` : 'Belum membuat target tabungan'}
+- Progres Kas Terhadap Target: ${target?.targetAmount ? `${Math.min(100, Math.round((cashReal / target.targetAmount) * 100))}%` : '-'}
+- Batas Anggaran Bulanan: ${target?.monthlyBudget ? `Rp ${target.monthlyBudget.toLocaleString('id-ID')} (${target.budgetType === 'dynamic' ? 'Anggaran Dinamis' : 'Anggaran Statis'})` : 'Tidak diset'}
+
+================================================================================
+📝 9. 10 TRANSAKSI TERAKHIR PENGGUNA:
+================================================================================
+${recentTxList}
         `;
 
         const historyToSend = currentMessages.slice(-6).map(m => ({ role: m.sender, text: m.text }));

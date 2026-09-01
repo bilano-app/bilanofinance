@@ -6,13 +6,16 @@ import {
     Globe, RefreshCw, TrendingUp, TrendingDown, ArrowRightLeft, 
     Wallet, Plus, Trash2, ArrowLeft, X, ChevronDown, 
     Search, Activity, FileText, ArrowDownCircle, ArrowUpCircle, 
-    StickyNote, Loader2, HandCoins, Check, DollarSign, ChevronRight
+    StickyNote, Loader2, HandCoins, Check, DollarSign, ChevronRight,
+    Pencil, Eye, EyeOff
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useTransactions, getAccessTier } from "@/hooks/use-finance";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
+import { getWalletLogo } from "@/lib/wallet-sources";
+import { formatCurrency } from "@/lib/utils";
 
 const CURRENCY_LIST = [
     { code: "USD", name: "Dolar Amerika Serikat", country: "Amerika Serikat", flag: "🇺🇸" },
@@ -80,38 +83,73 @@ export default function Forex() {
     onSelect: (src: string) => void;
   } | null>(null);
 
+  const [isPrivacyMode, setIsPrivacyMode] = useState(false);
+  const [editingWallet, setEditingWallet] = useState<{ id?: string; name: string; balance: number } | null>(null);
+  const [editWalletBalance, setEditWalletBalance] = useState("");
+  const [isSavingWallet, setIsSavingWallet] = useState(false);
+
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const accessTier = getAccessTier(user);
   const isPro = accessTier !== "free";
 
   const isTrialExpired = currentUserEmail ? localStorage.getItem(`bilano_trial_expired_${currentUserEmail}`) === "true" : false;
 
-  // ──────────────────────────────────────────────────────────────────────
-  // SUMBER UANG VALAS: disimpan di localStorage per user
-  // Format: { "USD": "BCA Dollar", "SGD": "DBS Singapura" }
-  // ──────────────────────────────────────────────────────────────────────
-  const forexSourceKey = `bilano_forex_sources_${currentUserEmail}`;
+  useEffect(() => {
+    setIsPrivacyMode(localStorage.getItem("bilano_privacy") === "true");
+  }, []);
 
-  const getForexSources = (): Record<string, string> => {
+  const togglePrivacy = () => {
+    const newVal = !isPrivacyMode;
+    setIsPrivacyMode(newVal);
+    localStorage.setItem("bilano_privacy", String(newVal));
+  };
+
+  const handleOpenEditWallet = (wallet: any) => {
+    setEditingWallet(wallet);
+    setEditWalletBalance(wallet.balance.toString());
+  };
+
+  const handleSaveWalletBalance = async () => {
+    if (!editingWallet || !user) return;
+    setIsSavingWallet(true);
     try {
-      const raw = localStorage.getItem(forexSourceKey);
-      return raw ? JSON.parse(raw) : {};
-    } catch { return {}; }
+        const newBal = parseInt(editWalletBalance.replace(/\D/g, ""), 10) || 0;
+        const walletSources = user.walletSources ? [...(user.walletSources as any[])] : [];
+        const wsIdx = walletSources.findIndex((w: any) => (editingWallet.id && w.id === editingWallet.id) || w.name === editingWallet.name);
+        if (wsIdx >= 0) {
+            walletSources[wsIdx] = {
+                ...walletSources[wsIdx],
+                balance: newBal
+            };
+        } else {
+            walletSources.push({
+                name: editingWallet.name,
+                balance: newBal
+            });
+        }
+
+        const res = await fetch("/api/user/profile", {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "x-user-email": currentUserEmail
+            },
+            body: JSON.stringify({ walletSources })
+        });
+
+        if (res.ok) {
+            toast({ title: "Saldo Diperbarui!", description: `Saldo ${editingWallet.name} berhasil diubah.` });
+            setEditingWallet(null);
+            refetchUser();
+        } else {
+            toast({ title: "Gagal Update", description: "Terjadi kesalahan saat menyimpan saldo.", variant: "destructive" });
+        }
+    } catch (e) {
+        toast({ title: "Gagal Update", description: "Terjadi kesalahan jaringan.", variant: "destructive" });
+    } finally {
+        setIsSavingWallet(false);
+    }
   };
-
-  const saveForexSources = (sources: Record<string, string>) => {
-    localStorage.setItem(forexSourceKey, JSON.stringify(sources));
-    setForexSources({ ...sources });
-  };
-
-  const [forexSources, setForexSources] = useState<Record<string, string>>(getForexSources);
-
-  // State untuk popup pengisian sumber valas
-  // Sekarang menggunakan SourceSelectionPopup (sama seperti halaman Pemasukan)
-  const [showForexSourcePopup, setShowForexSourcePopup] = useState(false);
-  const [pendingSourceCurrencies, setPendingSourceCurrencies] = useState<{ currency: string; amount: number; flag: string }[]>([]);
-  const [currentPendingIndex, setCurrentPendingIndex] = useState(0);
-  const [editingSourceCurrency, setEditingSourceCurrency] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -140,24 +178,6 @@ export default function Forex() {
   useEffect(() => {
     fetchData();
   }, []);
-
-  // Cek apakah ada aset valas yang belum punya sumber uang → tampilkan popup
-  useEffect(() => {
-    if (assets.length === 0) return;
-    const sources = getForexSources();
-    const missing = assets
-      .filter(a => a.amount > 0 && !sources[a.currency])
-      .map(a => ({
-        currency: a.currency,
-        amount: a.amount,
-        flag: CURRENCY_LIST.find(c => c.code === a.currency)?.flag ?? "🌐"
-      }));
-    if (missing.length > 0) {
-      setPendingSourceCurrencies(missing);
-      setCurrentPendingIndex(0);
-      setShowForexSourcePopup(true);
-    }
-  }, [assets]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -472,28 +492,85 @@ export default function Forex() {
             </div>
 
             {/* 2. HERO CARD TOTAL ASET VALAS (SATU-SATUNYA DENGAN SOLID SHADOW KHAS BILANO) */}
-            <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-6 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
+            <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-5 sm:p-6 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
                 <Globe className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
                 <div className="absolute right-0 top-0 w-32 h-32 bg-brand-gold/15 rounded-full blur-xl pointer-events-none" />
 
                 <div className="relative z-10 flex flex-col">
-                    <div className="flex justify-between items-center mb-3">
+                    <div className="flex justify-between items-center mb-2">
                         <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
                             <Globe className="w-3 h-3 text-brand-navy fill-current" />
                             ESTIMASI TOTAL NILAI VALAS
                         </span>
 
-                        <span className="text-[10px] text-amber-200 font-bold bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
-                            {assets.length} Mata Uang Aktif
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-amber-200 font-bold bg-black/40 px-2.5 py-0.5 rounded-full border border-white/20">
+                                {assets.length} Mata Uang Aktif
+                            </span>
+                            <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-brand-gold cursor-pointer">
+                                {isPrivacyMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                        </div>
                     </div>
 
                     <p className="text-[10px] font-bold text-amber-200 uppercase tracking-widest mb-0.5">
                         Kekayaan Valuta Asing (IDR)
                     </p>
-                    <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-brand-gold mb-2 tabular-nums">
+                    <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-brand-gold mb-3 tabular-nums">
                         {displayTotalValas}
                     </h2>
+
+                    {/* SUMBER DANA DOMPET (SEBAGAIMANA PADA KARTU DI HALAMAN HOME) */}
+                    <div className="flex justify-between items-center mb-2">
+                        <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                            {user?.walletSources && (user.walletSources as any[]).length > 0 ? (
+                                <>
+                                    {(user.walletSources as any[]).map((wallet: any, idx: number) => {
+                                        const logo = getWalletLogo(wallet.name);
+                                        return (
+                                            <div key={idx} className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0 shadow-xs backdrop-blur-xs">
+                                                {logo ? (
+                                                    <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs" title={wallet.name}>
+                                                        <img
+                                                            src={logo}
+                                                            alt={wallet.name}
+                                                            className="w-full h-full object-contain rounded-full"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <span className="font-bold text-blue-200 text-[10px]">{wallet.name}:</span>
+                                                )}
+                                                <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(wallet.balance).split(",")[0]}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleOpenEditWallet(wallet);
+                                                    }}
+                                                    className="ml-0.5 p-0.5 hover:bg-white/20 rounded-full text-blue-200 hover:text-white transition-colors active:scale-95 cursor-pointer"
+                                                    title={`Edit Saldo ${wallet.name}`}
+                                                >
+                                                    <Pencil className="w-2.5 h-2.5 text-brand-gold" />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                    <Link href="/transfer">
+                                        <button className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-gold text-brand-navy shrink-0 ml-1 hover:bg-brand-goldDark transition-colors active:scale-95 shadow-sm cursor-pointer" title="Tambah / Pindah Dompet">
+                                            <Plus className="w-4 h-4" strokeWidth={3} />
+                                        </button>
+                                    </Link>
+                                </>
+                            ) : (
+                                <div className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0">
+                                    <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
+                                        <img src="/CASH.svg" alt="IDR" className="w-full h-full object-contain" />
+                                    </div>
+                                    <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(user?.cashBalance || 0).split(",")[0]}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-white/15 text-[10px] text-amber-100/80 font-semibold">
                         <span>*Mengikuti kurs live pasar global</span>
@@ -859,7 +936,6 @@ export default function Forex() {
                         const currInfo = CURRENCY_LIST.find(c => c.code === asset.currency) || { country: "", name: asset.currency, flag: "🌐" };
                         const liveRate = getSafeRate(asset.currency);
                         const idrVal = asset.amount * liveRate;
-                        const walletSource = forexSources[asset.currency];
                         return (
                             <div
                                 key={asset.id}
@@ -890,31 +966,6 @@ export default function Forex() {
                                             <span>@ {isTrialExpired ? "***" : formatRp(liveRate)}</span>
                                         </div>
                                     </div>
-                                </div>
-
-                                {/* Baris sumber uang */}
-                                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                                    {walletSource ? (
-                                        <div className="flex items-center gap-1.5">
-                                            <Wallet className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                            <span className="text-[11px] font-bold text-slate-700 truncate max-w-[160px]">{walletSource}</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="text-[11px] text-slate-400 italic font-medium">Sumber belum diisi</span>
-                                        </div>
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setEditingSourceCurrency(asset.currency);
-                                            setEditSourceValue(forexSources[asset.currency] || "");
-                                        }}
-                                        className="flex items-center gap-1 text-[10px] font-bold text-brand-navy bg-slate-100 hover:bg-amber-50 hover:text-amber-700 border border-slate-200 hover:border-amber-300 px-2.5 py-1 rounded-full transition-all active:scale-95 cursor-pointer shrink-0"
-                                    >
-                                        <Plus className="w-3 h-3" strokeWidth={2.5} />
-                                        {walletSource ? "Ubah" : "Tambah Sumber"}
-                                    </button>
                                 </div>
                             </div>
                         );
@@ -987,7 +1038,7 @@ export default function Forex() {
 
                   <button 
                       type="button"
-                      onClick={() => setChartCurr(null)}
+                      onClick={() => setChartCurr(null)} 
                       className="w-full h-12 rounded-2xl bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider shadow-sm active:scale-95 transition-all cursor-pointer"
                   >
                       Tutup Grafik
@@ -996,58 +1047,72 @@ export default function Forex() {
           </div>
       )}
 
-      {/* ====================================================== */}
-      {/* POPUP: ISI SUMBER UANG VALAS (pakai SourceSelectionPopup) */}
-      {/* ====================================================== */}
-      {showForexSourcePopup && pendingSourceCurrencies.length > 0 && currentPendingIndex < pendingSourceCurrencies.length && (() => {
-          const fc = pendingSourceCurrencies[currentPendingIndex];
-          const isLast = currentPendingIndex >= pendingSourceCurrencies.length - 1;
-          return (
-              <SourceSelectionPopup
-                  type="income"
-                  title={`Pilih Dompet untuk ${fc.flag} ${fc.currency}`}
-                  description={`Aset ${fc.currency} (${fc.amount % 1 === 0 ? fc.amount.toLocaleString("id-ID") : fc.amount.toFixed(4)} ${fc.currency}) disimpan di akun atau dompet mana?`}
-                  onCancel={() => {
-                      setShowForexSourcePopup(false);
-                      setPendingSourceCurrencies([]);
-                      setCurrentPendingIndex(0);
-                  }}
-                  onSelect={(src) => {
-                      const current = getForexSources();
-                      saveForexSources({ ...current, [fc.currency]: src });
-                      toast({ title: "Tersimpan!", description: `Sumber ${fc.currency} → ${src}` });
-                      if (isLast) {
-                          setShowForexSourcePopup(false);
-                          setPendingSourceCurrencies([]);
-                          setCurrentPendingIndex(0);
-                      } else {
-                          setCurrentPendingIndex(prev => prev + 1);
-                      }
-                  }}
-              />
-          );
-      })()}
+      {/* Modal Edit Saldo Sumber Dana */}
+      {editingWallet && (
+          <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100">
+                  <div className="flex justify-between items-center mb-4">
+                      <div className="flex items-center gap-2.5">
+                          <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                              <Pencil className="w-5 h-5" />
+                          </div>
+                          <div>
+                              <h3 className="font-extrabold text-slate-800 text-base">Edit Saldo Dompet</h3>
+                              <p className="text-xs text-slate-400 font-bold">{editingWallet.name}</p>
+                          </div>
+                      </div>
+                      <button
+                          onClick={() => setEditingWallet(null)}
+                          className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center cursor-pointer"
+                      >
+                          <X className="w-4 h-4" />
+                      </button>
+                  </div>
 
-      {/* POPUP EDIT SUMBER SATU MATA UANG (pakai SourceSelectionPopup) */}
-      {editingSourceCurrency && (() => {
-          const asset = assets.find(a => a.currency === editingSourceCurrency);
-          if (!asset) return null;
-          const currInfo = CURRENCY_LIST.find(c => c.code === editingSourceCurrency);
-          return (
-              <SourceSelectionPopup
-                  type="income"
-                  title={`Pilih Dompet ${currInfo?.flag ?? "🌐"} ${editingSourceCurrency}`}
-                  description={`Pilih akun atau dompet tempat menyimpan ${editingSourceCurrency} (${asset.amount % 1 === 0 ? asset.amount.toLocaleString("id-ID") : asset.amount.toFixed(4)} ${editingSourceCurrency})`}
-                  onCancel={() => setEditingSourceCurrency(null)}
-                  onSelect={(src) => {
-                      const current = getForexSources();
-                      saveForexSources({ ...current, [editingSourceCurrency]: src });
-                      setEditingSourceCurrency(null);
-                      toast({ title: "Tersimpan!", description: `Sumber ${editingSourceCurrency} → ${src}` });
-                  }}
-              />
-          );
-      })()}
+                  <div className="space-y-4">
+                      <div>
+                          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                              Saldo Saat Ini
+                          </label>
+                          <div className="relative">
+                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">Rp</span>
+                              <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={formatIdr(editWalletBalance)}
+                                  onChange={(e) => setEditWalletBalance(e.target.value.replace(/\D/g, ""))}
+                                  placeholder="0"
+                                  className="w-full h-12 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-800 text-lg focus:outline-none focus:border-brand-navy focus:bg-white transition-all"
+                                  autoFocus
+                              />
+                          </div>
+                      </div>
+
+                      <Button
+                          onClick={handleSaveWalletBalance}
+                          disabled={isSavingWallet}
+                          className="w-full h-12 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm transition-all cursor-pointer"
+                      >
+                          {isSavingWallet ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Simpan"}
+                      </Button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* POPUP SUMBER DANA KETIKA MUTASI / TUKAR VALAS */}
+      {showSourcePopup && sourcePopupConfig && (
+          <SourceSelectionPopup
+              type={sourcePopupConfig.type}
+              title={sourcePopupConfig.title}
+              description={sourcePopupConfig.description}
+              onCancel={() => {
+                  setShowSourcePopup(false);
+                  setPendingForexSubmit(null);
+              }}
+              onSelect={sourcePopupConfig.onSelect}
+          />
+      )}
     </MobileLayout>
   );
 }

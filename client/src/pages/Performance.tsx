@@ -659,6 +659,230 @@ export default function Performance() {
                 </div>
             </div>
 
+            {/* ========================================================================= */}
+            {/* 🍩 GRAFIK LINGKARAN ALOKASI ASET (ASSET ALLOCATION PIE / DONUT CHART) */}
+            {/* ========================================================================= */}
+            {(() => {
+                const totalGrossAssets = cashReal + investmentReal + forexValue + retainedReal + piutangReal;
+                
+                const assetCategories = [
+                    {
+                        id: "kas",
+                        name: "Kas & Bank",
+                        amount: cashReal,
+                        color: "#1D3E72", // BILANO Navy
+                        bgLight: "bg-blue-50",
+                        textColor: "text-[#1D3E72]",
+                        dotColor: "bg-[#1D3E72]",
+                        desc: "Dana likuid & kas operasional"
+                    },
+                    {
+                        id: "investasi",
+                        name: "Investasi",
+                        amount: investmentReal,
+                        color: "#F59E0B", // Amber Gold
+                        bgLight: "bg-amber-50",
+                        textColor: "text-amber-700",
+                        dotColor: "bg-amber-500",
+                        desc: "Saham, Crypto, Reksadana, Emas"
+                    },
+                    {
+                        id: "valas",
+                        name: "Valas (Forex)",
+                        amount: forexValue,
+                        color: "#0284C7", // Sky Blue
+                        bgLight: "bg-sky-50",
+                        textColor: "text-sky-700",
+                        dotColor: "bg-sky-500",
+                        desc: "Mata uang asing (kurs live)"
+                    },
+                    {
+                        id: "tertahan",
+                        name: "Saldo Tertahan",
+                        amount: retainedReal,
+                        color: "#8B5CF6", // Purple
+                        bgLight: "bg-purple-50",
+                        textColor: "text-purple-700",
+                        dotColor: "bg-purple-500",
+                        desc: "Platform bisnis / freelance"
+                    },
+                    {
+                        id: "piutang",
+                        name: "Piutang",
+                        amount: piutangReal,
+                        color: "#10B981", // Emerald Green
+                        bgLight: "bg-emerald-50",
+                        textColor: "text-emerald-700",
+                        dotColor: "bg-emerald-500",
+                        desc: "Uang dipinjamkan ke pihak lain"
+                    }
+                ];
+
+                const calculatedCategories = assetCategories.map(cat => ({
+                    ...cat,
+                    pct: totalGrossAssets > 0 ? (cat.amount / totalGrossAssets) * 100 : 0
+                }));
+
+                const radius = 38;
+                const circumference = 2 * Math.PI * radius; // ~238.76
+
+                return (
+                    <div className="bg-white border border-slate-200/80 shadow-xs hover:shadow-sm rounded-3xl p-5 space-y-4">
+                        {/* Header Box */}
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h3 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-brand-navy"></span>
+                                    Alokasi & Komposisi Aset
+                                </h3>
+                                <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                                    Proporsi sebaran aset & kekayaan bruto
+                                </p>
+                            </div>
+                            <span className="text-[9px] font-black text-brand-navy bg-brand-gold px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                                5 KELAS ASET
+                            </span>
+                        </div>
+
+                        {/* Top Donut & Summary Section */}
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-5 py-2">
+                            {/* SVG Donut Chart */}
+                            <div className="relative w-44 h-44 flex items-center justify-center shrink-0">
+                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                    {/* Background Circle */}
+                                    <circle
+                                        cx="50"
+                                        cy="50"
+                                        r={radius}
+                                        fill="transparent"
+                                        stroke="#F1F5F9"
+                                        strokeWidth="13"
+                                    />
+                                    {/* Segment Arcs */}
+                                    {totalGrossAssets > 0 && (() => {
+                                        let accumulatedPct = 0;
+                                        return calculatedCategories.map(cat => {
+                                            if (cat.pct <= 0) return null;
+                                            const strokeDasharray = `${(cat.pct / 100) * circumference} ${circumference}`;
+                                            const strokeDashoffset = -((accumulatedPct / 100) * circumference);
+                                            accumulatedPct += cat.pct;
+                                            return (
+                                                <circle
+                                                    key={cat.id}
+                                                    cx="50"
+                                                    cy="50"
+                                                    r={radius}
+                                                    fill="transparent"
+                                                    stroke={cat.color}
+                                                    strokeWidth="13"
+                                                    strokeDasharray={strokeDasharray}
+                                                    strokeDashoffset={strokeDashoffset}
+                                                    strokeLinecap="butt"
+                                                    className="transition-all duration-700 hover:opacity-90"
+                                                />
+                                            );
+                                        });
+                                    })()}
+                                </svg>
+
+                                {/* Center Donut Text */}
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2 pointer-events-none">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                                        TOTAL ASET
+                                    </span>
+                                    <span className="text-[13px] font-black text-slate-900 leading-tight mt-1 tabular-nums">
+                                        {formatRp(totalGrossAssets)}
+                                    </span>
+                                    <span className="text-[8px] font-bold text-slate-400 mt-0.5">
+                                        Kekayaan Bruto
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Mini Visual Bar Strip */}
+                            <div className="w-full flex-1 space-y-2">
+                                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
+                                    {totalGrossAssets > 0 ? (
+                                        calculatedCategories.map(cat => {
+                                            if (cat.pct <= 0) return null;
+                                            return (
+                                                <div
+                                                    key={cat.id}
+                                                    style={{ width: `${cat.pct}%`, backgroundColor: cat.color }}
+                                                    className="h-full transition-all duration-500"
+                                                    title={`${cat.name}: ${cat.pct.toFixed(1)}%`}
+                                                />
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="w-full h-full bg-slate-200" />
+                                    )}
+                                </div>
+                                <div className="flex justify-between text-[10px] font-bold text-slate-500 px-0.5">
+                                    <span>Likuid: {(((cashReal + retainedReal) / Math.max(totalGrossAssets, 1)) * 100).toFixed(1)}%</span>
+                                    <span>Investasi & Valas: {(((investmentReal + forexValue) / Math.max(totalGrossAssets, 1)) * 100).toFixed(1)}%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* List Detail Per Kategori Aset */}
+                        <div className="space-y-2 pt-1">
+                            {calculatedCategories.map(cat => {
+                                return (
+                                    <div 
+                                        key={cat.id}
+                                        className="p-2.5 rounded-2xl border border-slate-100 hover:border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3 transition-colors"
+                                    >
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <div 
+                                                className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs"
+                                                style={{ backgroundColor: cat.color }}
+                                            />
+                                            <div className="truncate">
+                                                <p className="text-xs font-bold text-slate-800 leading-tight truncate">
+                                                    {cat.name}
+                                                </p>
+                                                <p className="text-[10px] text-slate-400 font-medium truncate">
+                                                    {cat.desc}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-right shrink-0">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <span className="text-xs font-black text-slate-900 tabular-nums">
+                                                    {formatRp(cat.amount)}
+                                                </span>
+                                                <span 
+                                                    className="text-[10px] font-black px-1.5 py-0.5 rounded-md text-white tabular-nums"
+                                                    style={{ backgroundColor: cat.color }}
+                                                >
+                                                    {cat.pct.toFixed(1)}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Footnote Ringkasan Neraca Bersih */}
+                        <div className="p-3 bg-gradient-to-r from-slate-50 to-blue-50/50 rounded-2xl border border-slate-200/80 flex items-center justify-between text-[10px] font-semibold text-slate-600">
+                            <div>
+                                <span className="text-slate-400">Kekayaan Bersih (Net): </span>
+                                <span className="font-black text-slate-900 tabular-nums">{displayWealth}</span>
+                            </div>
+                            {hutangReal > 0 && (
+                                <div className="text-rose-700 font-bold">
+                                    <span>Hutang: </span>
+                                    <span className="tabular-nums">-{formatRp(hutangReal)}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
+
             {/* REALISASI & CASHFLOW GRAPH BOX */}
             <div className="bg-white border border-slate-200/80 shadow-xs hover:shadow-sm rounded-3xl overflow-hidden">
                 <div className="p-5 border-b border-slate-100">

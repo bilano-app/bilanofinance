@@ -68,6 +68,23 @@ export default function Landing() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalling, setIsInstalling] = useState(false); // State untuk Pop-up Proses Install
   const [showManualInstall, setShowManualInstall] = useState(false); // State untuk Pop-up Langkah Alternatif
+  const [isBottomBtnVisible, setIsBottomBtnVisible] = useState(false);
+  const bottomInstallBtnRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsBottomBtnVisible(entry.isIntersecting);
+      },
+      { threshold: 0.15 }
+    );
+
+    if (bottomInstallBtnRef.current) {
+      observer.observe(bottomInstallBtnRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if ((window as any).deferredPwaPrompt) {
@@ -214,6 +231,17 @@ export default function Landing() {
                   {headlines[headlineIdx].bottom}
                 </span>
               </h2>
+
+              {/* 🔥 TOMBOL INSTALL DI BAGIAN ATAS (HERO) */}
+              <div className="mt-3 lg:mt-4 w-full flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
+                <button
+                  onClick={handlePwaInstall}
+                  className="w-full sm:w-auto bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-base md:text-lg tracking-wide py-4 px-8 rounded-2xl shadow-[0_12px_30px_rgba(251,191,36,0.35)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 cursor-pointer"
+                >
+                  <Download strokeWidth={3} className="w-5 h-5 animate-bounce" />
+                  <span>INSTALL BILANO SEKARANG</span>
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 relative w-full flex justify-center lg:justify-end z-10 -mt-6 md:-mt-8 lg:mt-0">
@@ -336,17 +364,38 @@ export default function Landing() {
             </div>
           )}
 
-          {/* 🔥 4. TOMBOL INSTALL PWA (Ditambahkan hidden lg:flex agar sembunyi di HP) */}
-          {/* 🔥 4. TOMBOL INSTALL PWA (Muncul di semua device, letaknya tepat di atas FAQ) */}
-          <div className="w-full flex justify-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both max-w-7xl px-4 lg:px-0 mb-8">
+          {/* 🔥 4. TOMBOL INSTALL PWA UTAMA (DI ATAS FAQ) */}
+          <div ref={bottomInstallBtnRef} className="w-full flex justify-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both max-w-7xl px-4 lg:px-0 mb-8">
             <button
               onClick={handlePwaInstall}
-              className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] md:text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
+              className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] md:text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px] cursor-pointer"
             >
               <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
-              INSTALL BILANO SEKARANG
+              <span>INSTALL BILANO SEKARANG</span>
             </button>
           </div>
+
+          {/* 🚀 FLOATING STICKY INSTALL BUTTON (MUNCUL KETIKA TOMBOL UTAMA TIDAK DI AREA PANDANG) */}
+          {!isBottomBtnVisible && (
+            <div className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none animate-in fade-in slide-in-from-bottom-5 duration-300">
+              <div className="pointer-events-auto w-full max-w-[440px] bg-[#0c142c]/95 backdrop-blur-xl border border-amber-400/30 p-2.5 rounded-[26px] shadow-[0_15px_40px_rgba(0,0,0,0.7)] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 pl-2">
+                  <img src="/BILANO-ICON-NEW.png" alt="Bilano" className="w-8 h-8 object-contain rounded-lg shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-black text-white uppercase tracking-wider leading-tight">BILANO PWA</span>
+                    <span className="text-[9px] text-amber-400 font-bold">Kawal Visi Finansial</span>
+                  </div>
+                </div>
+                <button
+                  onClick={handlePwaInstall}
+                  className="bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-xs md:text-sm tracking-wide py-2.5 px-4 md:px-5 rounded-2xl shadow-md active:scale-95 transition-all flex items-center gap-1.5 border-b-2 border-amber-600 cursor-pointer shrink-0"
+                >
+                  <Download strokeWidth={3} className="w-4 h-4 animate-bounce" />
+                  <span>INSTALL SEKARANG</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 🔥 5. LANGKAH INSTALL & FAQ */}
           <div className="flex flex-col lg:flex-row gap-10 lg:gap-16 w-full max-w-7xl">

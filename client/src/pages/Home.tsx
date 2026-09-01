@@ -310,10 +310,13 @@ export default function Home() {
     };
 
     const handleUndo = async () => {
-        if (!confirm("Ingin membatalkan transaksi paling terakhir? Saldo Kas, Valas, dan Investasi akan diputar balik otomatis.")) return;
+        if (!confirm("Ingin membatalkan transaksi paling terakhir? Saldo Kas, Rekening Dompet, Valas, Investasi, dan Hutang/Piutang akan diputar balik secara otomatis.")) return;
         try {
-            await undoTx.mutateAsync();
-            toast({ title: "Berhasil!", description: "Transaksi terakhir telah dibatalkan." });
+            const res = await undoTx.mutateAsync();
+            toast({ 
+                title: "Undo Berhasil! 🔄", 
+                description: res?.message || "Transaksi terakhir berhasil dibatalkan dan seluruh posisi aset dikembalikan." 
+            });
             window.location.reload();
         } catch (e: any) {
             toast({ title: "Gagal Undo", description: e.message, variant: "destructive" });
@@ -454,12 +457,24 @@ export default function Home() {
             );
 
             if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-                await Promise.race([Notification.requestPermission(), timeout]).catch(() => { });
+                const perm = await Promise.race([Notification.requestPermission(), timeout]).catch(() => { });
+                if (perm === "granted" || (Notification.permission as any) === "granted") {
+                    if ("serviceWorker" in navigator) {
+                        navigator.serviceWorker.ready.then((reg) => {
+                            reg.showNotification("🎉 Notifikasi Bilano Berhasil Aktif!", {
+                                body: "Pengingat disiplin & laporan harian Anda akan dikirimkan otomatis.",
+                                icon: "/BILANO-ICON-NEW.png",
+                                badge: "/BILANO-ICON-NEW.png",
+                                vibrate: [200, 100, 200]
+                            } as any);
+                        }).catch(() => {});
+                    }
+                }
             }
 
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 await Promise.race([
-                    navigator.mediaDevices.getUserMedia({ video: true, audio: true }),
+                    navigator.mediaDevices.getUserMedia({ video: true }).catch(() => {}),
                     timeout
                 ]).catch(() => { });
             }
@@ -476,7 +491,7 @@ export default function Home() {
             localStorage.setItem("bilano_permissions_prompted", "true");
             setShowPermissionPrompt(false);
             setIsRequestingPerms(false);
-            toast({ title: "Siap Digunakan!", description: "Pengaturan telah disesuaikan." });
+            toast({ title: "Siap Digunakan! 🎉", description: "Notifikasi dan fitur pintar Bilano telah aktif." });
         }
     };
 
@@ -576,6 +591,22 @@ export default function Home() {
     const expense = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'expense').reduce((acc, v) => acc + v.amount, 0);
 
     const needsMigration = user && !user.walletSources?.length && user.cashBalance > 0 && !hasCompletedMigration;
+
+    if (isUserLoading || (isTxLoading && !transactions)) {
+        return (
+            <div className="min-h-screen bg-gradient-to-b from-[#F0F6FD] via-[#E4EFFB] to-[#D8E8F9] flex flex-col items-center justify-center px-6 select-none relative overflow-hidden">
+                <img 
+                    src="/BILANO-ICON-NEW.png" 
+                    alt="Loading BILANO" 
+                    className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-xl" 
+                />
+                <div className="flex items-center gap-2.5 text-[#1D3E72] font-black text-xs bg-white/90 backdrop-blur-md border border-blue-200/80 px-5 py-2.5 rounded-full shadow-md">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#1D3E72]"/>
+                    <span className="tracking-wide">Menyiapkan Dasbor Keuangan Anda...</span>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <MobileLayout>

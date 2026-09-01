@@ -8,7 +8,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 // ==========================================
-// 🎨 IKON KUSTOM PREMIUM
+// 🎨 IKON KUSTOM EXECUTIVE
 // ==========================================
 const IconVault = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="8" width="18" height="12" rx="2" /><path d="M7 8V6a5 5 0 0 1 10 0v2" /><circle cx="12" cy="14" r="2" /></svg>
@@ -49,13 +49,13 @@ interface BenchmarkSnapshot {
   notes: string;
   metrics: {
     visitors: number;
+    pwaClicks: number;
+    pwaInstalled: number;
     checkout: number;
     paid: number;
     revenue: number;
     conversionRate: string;
-    checkoutRate: string;
-    paidRate: string;
-    avgUrgency: string;
+    installRate: string;
   };
 }
 
@@ -72,7 +72,7 @@ export default function Manager() {
   const [activeTab, setActiveTab] = useState<'website' | 'app' | 'users' | 'transactions' | 'tickets' | 'benchmark'>('website');
 
   // ==========================================
-  // 👥 STATE UNTUK TAB 3: MANAJEMEN MEMBER PRO (BELUM PRO vs SUDAH PRO)
+  // 👥 STATE UNTUK TAB 3: MANAJEMEN MEMBER PRO
   // ==========================================
   const [userProSubTab, setUserProSubTab] = useState<'belum_pro' | 'sudah_pro'>('belum_pro');
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -87,7 +87,7 @@ export default function Manager() {
   const [isSendingReply, setIsSendingReply] = useState(false);
 
   // ==========================================
-  // 🧹 STATE UNTUK MODAL RESET DATA KPI (MULAI DARI 0)
+  // 🧹 STATE UNTUK MODAL RESET DATA KPI
   // ==========================================
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetConfirmInput, setResetConfirmInput] = useState("");
@@ -109,13 +109,20 @@ export default function Manager() {
   // 🚀 ADVANCED METRICS (APP PWA)
   // ==========================================
   const [funnelDataDropoff, setFunnelDataDropoff] = useState([
-    { name: 'Smart Scan', Dimulai: 0, Tersimpan: 0 },
-    { name: 'Setup Strategi', Dimulai: 0, Tersimpan: 0 },
+    { name: 'Smart Scan AI', Dimulai: 0, Tersimpan: 0 },
+    { name: 'Valas & Forex', Dimulai: 0, Tersimpan: 0 },
     { name: 'Investasi Aset', Dimulai: 0, Tersimpan: 0 },
     { name: 'Target Disiplin', Dimulai: 0, Tersimpan: 0 },
     { name: 'Hutang / Piutang', Dimulai: 0, Tersimpan: 0 }
   ]);
-  const [aumVolume, setAumVolume] = useState({ totalRupiah: 0, totalValasIDR: 0 });
+  const [aumVolume, setAumVolume] = useState({ 
+    totalRupiah: 0, 
+    totalValasIDR: 0,
+    totalInvestIDR: 0,
+    totalRetainedIDR: 0,
+    totalPiutangIDR: 0,
+    grandTotalAUM: 0 
+  });
   const [errorMetrics, setErrorMetrics] = useState({ 
     totalErrors: 0, 
     errorRate: 0, 
@@ -132,7 +139,6 @@ export default function Manager() {
       fetchTicketsList();
     }
     
-    // Inisialisasi Riwayat Benchmark dari LocalStorage
     const savedBenchmarks = localStorage.getItem("bilano_benchmark_snapshots");
     if (savedBenchmarks) {
       try {
@@ -141,7 +147,6 @@ export default function Manager() {
     }
   }, []);
 
-  // Hubungkan Advanced Metrics saat data berubah
   useEffect(() => {
     if (data && data.advancedMetrics) {
         if (data.advancedMetrics.dropoff) setFunnelDataDropoff(data.advancedMetrics.dropoff);
@@ -150,23 +155,22 @@ export default function Manager() {
         if (data.advancedMetrics.sessions) setSessionDuration(data.advancedMetrics.sessions);
     }
 
-    // Inisialisasi Baseline A1 otomatis jika belum ada benchmark
     if (data && benchmarkHistory.length === 0) {
       const initialA1: BenchmarkSnapshot = {
         id: Date.now(),
         version: "A1",
         title: "Versi Awal Publikasi (Baseline)",
         date: new Date().toISOString(),
-        notes: "Titik acuan awal performa website & checkout sebelum dilakukan evaluasi atau eksperimen marketing.",
+        notes: "Titik acuan awal performa landing page & instalasi PWA sebelum eksperimen marketing.",
         metrics: {
           visitors: data.totalUnique || 0,
-          checkout: data.funnel?.checkout || 0,
+          pwaClicks: data.funnel?.pwa_clicked || data.metrics?.pwa_button_clicked || 0,
+          pwaInstalled: data.funnel?.pwa_installed || data.metrics?.pwa_installed || 0,
+          checkout: data.funnel?.checkout || data.metrics?.checkout_initiated || 0,
           paid: data.metrics?.payment_success || 0,
           revenue: data.totalRevenue || 0,
           conversionRate: data.totalUnique ? ((data.metrics?.payment_success || 0) / data.totalUnique * 100).toFixed(2) : "0",
-          checkoutRate: data.funnel?.landing ? ((data.funnel?.checkout || 0) / data.funnel.landing * 100).toFixed(2) : "0",
-          paidRate: data.funnel?.checkout ? ((data.metrics?.payment_success || 0) / data.funnel.checkout * 100).toFixed(2) : "0",
-          avgUrgency: getAvgUrgencyScore(data.quizData?.q4)
+          installRate: (data.funnel?.pwa_clicked) ? ((data.funnel?.pwa_installed || 0) / data.funnel.pwa_clicked * 100).toFixed(2) : "0",
         }
       };
       const newHistory = [initialA1];
@@ -175,7 +179,6 @@ export default function Manager() {
     }
   }, [data]);
 
-  // Fetch data saat tab berganti
   useEffect(() => {
     if (isAuthorized) {
       if (activeTab === 'users') fetchUsersList();
@@ -252,7 +255,6 @@ export default function Manager() {
     }
   };
 
-  // 👥 FETCH USER LIST
   const fetchUsersList = async (overrideEmail?: string) => {
     setIsLoadingUsers(true);
     try {
@@ -269,7 +271,6 @@ export default function Manager() {
     }
   };
 
-  // 💬 FETCH TICKETS
   const fetchTicketsList = async (overrideEmail?: string) => {
     setIsLoadingTickets(true);
     try {
@@ -286,7 +287,6 @@ export default function Manager() {
     }
   };
 
-  // 🌟 MEMBER PRO TOGGLE: MEMBERIKAN ATAU MENCABUT STATUS PRO
   const handleTogglePro = async (user: any, targetProStatus: boolean) => {
     const actionName = targetProStatus ? "MEMBERIKAN AKSES PRO" : "MENCABUT STATUS PRO";
     const confirmMsg = `Konfirmasi: Apakah Anda yakin ingin ${actionName} untuk akun:\n\n${user.name || user.username} (${user.email})?`;
@@ -301,7 +301,7 @@ export default function Manager() {
           userId: user.id, 
           email: user.email, 
           isPro: targetProStatus,
-          durationDays: targetProStatus ? 36500 : 0 // Default Lifetime (100 tahun)
+          durationDays: targetProStatus ? 36500 : 0
         })
       });
       const json = await res.json();
@@ -317,7 +317,6 @@ export default function Manager() {
     }
   };
 
-  // 🧹 FUNGSI RESET DATA KPI (MULAI DARI 0)
   const handleExecuteResetAnalytics = async () => {
     if (resetConfirmInput !== "RESET") {
       alert("Harap ketik 'RESET' dengan huruf kapital untuk mengonfirmasi.");
@@ -346,7 +345,6 @@ export default function Manager() {
     }
   };
 
-  // 💬 BALAS TIKET EMAIL
   const handleSendReply = async () => {
     if (!replyingTo || !replyMessage) return;
     setIsSendingReply(true);
@@ -376,7 +374,6 @@ export default function Manager() {
     }
   };
 
-  // ⏱️ CATAT BENCHMARK BARU (LAP)
   const handleSaveLapBenchmark = () => {
     if (!lapTitle) {
       alert("Harap masukkan nama versi / judul pembaruan.");
@@ -394,13 +391,13 @@ export default function Manager() {
       notes: lapNotes || "Pembaruan strategi marketing / website.",
       metrics: {
         visitors: data?.totalUnique || 0,
-        checkout: data?.funnel?.checkout || 0,
+        pwaClicks: data?.funnel?.pwa_clicked || data?.metrics?.pwa_button_clicked || 0,
+        pwaInstalled: data?.funnel?.pwa_installed || data?.metrics?.pwa_installed || 0,
+        checkout: data?.funnel?.checkout || data?.metrics?.checkout_initiated || 0,
         paid: data?.metrics?.payment_success || 0,
         revenue: data?.totalRevenue || 0,
         conversionRate: data?.totalUnique ? ((data?.metrics?.payment_success || 0) / data.totalUnique * 100).toFixed(2) : "0",
-        checkoutRate: data?.funnel?.landing ? ((data?.funnel?.checkout || 0) / data.funnel.landing * 100).toFixed(2) : "0",
-        paidRate: data?.funnel?.checkout ? ((data?.metrics?.payment_success || 0) / data.funnel.checkout * 100).toFixed(2) : "0",
-        avgUrgency: getAvgUrgencyScore(data?.quizData?.q4)
+        installRate: (data?.funnel?.pwa_clicked) ? ((data?.funnel?.pwa_installed || 0) / data.funnel.pwa_clicked * 100).toFixed(2) : "0",
       }
     };
 
@@ -415,11 +412,10 @@ export default function Manager() {
     alert(`Berhasil mencatat Benchmark Versi ${versionTag}! Analisis komparatif dapat dilihat di Tab Evaluasi Benchmark.`);
   };
 
-  // 📄 ARSIP PDF BULANAN
   const exportAnnualArchivePDF = (targetYear: number) => {
     const doc = new jsPDF();
     
-    doc.setFillColor(15, 23, 42); // #0f172a
+    doc.setFillColor(15, 23, 42);
     doc.rect(0, 0, 210, 30, 'F');
     
     doc.setTextColor(255, 255, 255);
@@ -481,19 +477,6 @@ export default function Manager() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(amount);
   };
-
-  function getAvgUrgencyScore(q4ScoresObj: any): string {
-    if (!q4ScoresObj) return "0.0";
-    let totalScore = 0;
-    let totalCount = 0;
-    Object.keys(q4ScoresObj).forEach(key => {
-      const scoreNum = parseInt(key) || 0;
-      const count = q4ScoresObj[key] || 0;
-      totalScore += scoreNum * count;
-      totalCount += count;
-    });
-    return totalCount > 0 ? (totalScore / totalCount).toFixed(1) : "0.0";
-  }
 
   function getMonthlySummaryData(year: number = new Date().getFullYear()) {
     const monthNames = [
@@ -590,27 +573,43 @@ export default function Manager() {
     </div>
   );
 
-  const formatYesNoData = (qData: any) => [ 
-    { name: "Ya", value: (qData && qData.ya) || 0 }, 
-    { name: "Tidak", value: (qData && qData.tidak) || 0 } 
-  ];
-  const COLORS_QUIZ = ["#2563eb", "#ef4444"]; 
-  const q4Scores = (data.quizData && data.quizData.q4 && data.quizData.q4.scores) || {};
-  const q4Data = Object.keys(q4Scores).map(key => ({ name: `Skor ${key}`, value: q4Scores[key] }));
-
   const funnelData = [
-    { name: 'Kunjungan', count: (data.funnel && data.funnel.landing) || 0 },
-    { name: 'Mulai Kuis', count: (data.funnel && data.funnel.quiz_started) || 0 },
-    { name: 'Lolos Kuis', count: (data.funnel && data.funnel.quiz_completed) || 0 },
-    { name: 'Lihat Harga', count: (data.funnel && data.funnel.pricing) || 0 },
-    { name: 'Checkout', count: (data.funnel && data.funnel.checkout) || 0 },
-    { name: 'Lunas', count: (data.funnel && data.funnel.paid) || 0 },
+    { name: 'Kunjungan Landing', count: (data.funnel && data.funnel.landing) || (data.totalUnique || 0) },
+    { name: 'Klik Pasang PWA', count: (data.funnel && data.funnel.pwa_clicked) || (data.metrics?.pwa_button_clicked || 0) },
+    { name: 'PWA Terpasang', count: (data.funnel && data.funnel.pwa_installed) || (data.metrics?.pwa_installed || 0) },
+    { name: 'Akun Terdaftar', count: (data.funnel && data.funnel.registered) || usersList.length || 0 },
+    { name: 'Inisiasi Checkout', count: (data.funnel && data.funnel.checkout) || (data.metrics?.checkout_initiated || 0) },
+    { name: 'Pembayaran Lunas', count: (data.funnel && data.funnel.paid) || (data.metrics?.payment_success || 0) },
   ];
+
+  // 16 Feature counts across all BILANO modules
+  const featAdopt = data.featureAdoption || {};
+  const aiChatCount = featAdopt.ai_chat || 0;
+  const smartScanCount = featAdopt.smart_scan || 0;
+  const forexCount = featAdopt.forex || 0;
+  const investmentsCount = featAdopt.investments || 0;
+  const targetsCount = featAdopt.targets || 0;
+  const debtsCount = featAdopt.debts || 0;
+  const subscriptionsCount = featAdopt.subscriptions || 0;
+  const amalCount = featAdopt.amal || 0;
+  const retainedCount = featAdopt.retained || 0;
+  const transferCount = featAdopt.transfer || 0;
+  const performanceCount = featAdopt.performance || 0;
+  const reportsCount = featAdopt.reports || 0;
+  const manualInputCount = featAdopt.manual_input || 0;
+  const guideCount = featAdopt.guide || 0;
+  const blueprintCount = featAdopt.blueprint || 0;
+  const helpCount = featAdopt.help || 0;
+
+  const totalFeatureEvents = (
+    aiChatCount + smartScanCount + forexCount + investmentsCount + 
+    targetsCount + debtsCount + subscriptionsCount + amalCount + 
+    retainedCount + transferCount + performanceCount + reportsCount + 
+    manualInputCount + guideCount + blueprintCount + helpCount
+  ) || 1;
 
   // App metrics fallback safe
   const appMetrics = data.appMetrics || {};
-  const featAdopt = data.featureAdoption || {};
-  
   const dau = appMetrics.dau || 0;
   const mau = appMetrics.mau || 0;
   const stickiness = appMetrics.stickiness || 0;
@@ -620,29 +619,12 @@ export default function Manager() {
   const renewalRate = appMetrics.renewalRate || 0;
   const avgTxPerWeek = appMetrics.avgTxPerWeek || 0;
 
-  // Feature counts
-  const aiChatCount = featAdopt.ai_chat || 0;
-  const smartScanCount = featAdopt.smart_scan || 0;
-  const expertTerminalCount = featAdopt.expert_terminal || 0;
-  const wealthBlueprintCount = featAdopt.wealth_blueprint || 0;
-  const forexCount = featAdopt.forex || 0;
-  const investmentsCount = featAdopt.investments || 0;
-  const targetsCount = featAdopt.targets || 0;
-  const debtsCount = featAdopt.debts || 0;
-  const subscriptionsCount = featAdopt.subscriptions || 0;
-  const amalCount = featAdopt.amal || 0;
-  const retainedCount = featAdopt.retained || 0;
-  const reportsCount = featAdopt.reports || 0;
-  const manualInputCount = featAdopt.manual_input || 0;
-
-  const totalFeatureEvents = (aiChatCount + smartScanCount + expertTerminalCount + wealthBlueprintCount + forexCount + investmentsCount + targetsCount + debtsCount + subscriptionsCount + amalCount + retainedCount + reportsCount + manualInputCount) || 1;
-
   const currentYear = new Date().getFullYear();
   const currentYearMonthlyData = getMonthlySummaryData(currentYear);
 
   // Grouping Users into Belum Pro vs Sudah Pro
-  const proUsers = usersList.filter((u: any) => u.isPro);
-  const freeUsers = usersList.filter((u: any) => !u.isPro);
+  const proUsers = usersList.filter((u: any) => u.isPro || u.is_pro);
+  const freeUsers = usersList.filter((u: any) => !u.isPro && !u.is_pro);
 
   const filteredProUsers = proUsers.filter((u: any) => {
     const q = userSearchQuery.toLowerCase();
@@ -730,13 +712,13 @@ export default function Manager() {
               onClick={() => setActiveTab('website')} 
               className={`py-3 px-3 text-xs font-extrabold uppercase tracking-wider border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'website' ? 'border-blue-500 text-blue-400 bg-blue-500/5' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
            >
-              <IconWeb /> 1. Analisis Website (Landing)
+              <IconWeb /> 1. Analisis Website & PWA Funnel
            </button>
            <button 
               onClick={() => setActiveTab('app')} 
               className={`py-3 px-3 text-xs font-extrabold uppercase tracking-wider border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'app' ? 'border-purple-500 text-purple-400 bg-purple-500/5' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
            >
-              <IconApp /> 2. Performa Aplikasi (PWA)
+              <IconApp /> 2. Performa Aplikasi (16 Fitur)
            </button>
            <button 
               onClick={() => setActiveTab('users')} 
@@ -748,7 +730,7 @@ export default function Manager() {
               onClick={() => setActiveTab('transactions')} 
               className={`py-3 px-3 text-xs font-extrabold uppercase tracking-wider border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'transactions' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/5' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
            >
-              <IconDocument /> 4. Riwayat Transaksi
+              <IconDocument /> 4. Riwayat Transaksi Lunas
            </button>
            <button 
               onClick={() => setActiveTab('tickets')} 
@@ -768,7 +750,7 @@ export default function Manager() {
       <main className="max-w-7xl mx-auto px-6 pt-6">
         
         {/* ==========================================
-            TAB 1: ANALISIS WEBSITE (LANDING & MARKETING FUNNEL)
+            TAB 1: ANALISIS WEBSITE (LANDING & MARKETING / PWA FUNNEL)
         ========================================== */}
         {activeTab === 'website' && (
           <div className="space-y-6 animate-in fade-in duration-300">
@@ -807,20 +789,20 @@ export default function Manager() {
                     <div><span className="text-[#f59e0b] font-black text-xl">{data.plans?.year || 0}</span> <span className="text-[11px] text-[#64748b] font-bold">Tahun</span></div>
                     <div><span className="text-[#2563eb] font-black text-xl">{data.plans?.month || 0}</span> <span className="text-[11px] text-[#64748b] font-bold">Bulan</span></div>
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-1 font-medium">Skor Urgensi Kuis: {getAvgUrgencyScore(data.quizData?.q4)}/10</p>
+                  <p className="text-[10px] text-slate-500 mt-1 font-medium">Klik Pasang PWA: {data.metrics?.pwa_button_clicked || 0} kali</p>
                 </div>
                 <div className="text-[#f59e0b] bg-[#fffbeb] p-2.5 rounded-lg"><IconRadar /></div>
               </div>
             </div>
 
-            {/* Grafik Konversi (Line Chart) */}
+            {/* Grafik Konversi Tren Harian (Line Chart) */}
             <section className="bg-white border border-[#cbd5e1] rounded-xl shadow-sm p-6">
                <div className="flex justify-between items-center mb-6">
                  <div>
                    <h3 className="text-xs font-extrabold text-[#0f172a] uppercase tracking-wider flex items-center gap-2">
-                     <IconRadar /> Tren Pengunjung vs Penjualan Harian
+                     <IconRadar /> Tren Pengunjung, Pasang PWA & Penjualan Harian
                    </h3>
-                   <p className="text-[11px] text-[#64748b] mt-0.5">Memantau fluktuasi traffic landing page, checkout, dan pembayaran lunas.</p>
+                   <p className="text-[11px] text-[#64748b] mt-0.5">Memantau fluktuasi traffic landing page, klik instalasi PWA, checkout, dan pembayaran lunas.</p>
                  </div>
                </div>
                <div className="h-72">
@@ -833,6 +815,7 @@ export default function Manager() {
                         <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} />
                         <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '10px' }}/>
                         <Line yAxisId="left" type="monotone" name="Pengunjung" dataKey="visitors" stroke="#0ea5e9" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                        <Line yAxisId="left" type="monotone" name="Klik Pasang PWA" dataKey="pwa_clicks" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 2 }} />
                         <Line yAxisId="left" type="monotone" name="Inisiasi Checkout" dataKey="checkouts" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2 }} />
                         <Line yAxisId="right" type="monotone" name="Sales Lunas" dataKey="sales" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 7 }} />
                      </LineChart>
@@ -840,23 +823,23 @@ export default function Manager() {
                </div>
             </section>
 
-            {/* Funnel & Quiz */}
+            {/* Corong Konversi & Matriks Interaksi Website */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <section className="bg-white border border-[#cbd5e1] rounded-xl shadow-sm p-6">
                  <h3 className="text-xs font-extrabold text-[#0f172a] uppercase tracking-wider mb-2 flex items-center gap-2">
-                   <IconRadar /> Corong Konversi (Marketing Funnel)
+                   <IconRadar /> Corong Konversi PWA & Akuisisi Pengguna
                  </h3>
-                 <p className="text-[11px] text-[#64748b] mb-6">Drop-off dari pengunjung pertama landing page hingga pembayaran lunas.</p>
+                 <p className="text-[11px] text-[#64748b] mb-6">Alur dari kunjungan pertama landing page, instalasi PWA, hingga pembayaran lunas.</p>
                  <div className="h-64">
                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={funnelData} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
+                      <BarChart data={funnelData} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                         <XAxis type="number" stroke="#94a3b8" fontSize={10} />
-                        <YAxis dataKey="name" type="category" width={85} stroke="#475569" fontWeight="bold" fontSize={11} />
+                        <YAxis dataKey="name" type="category" width={110} stroke="#475569" fontWeight="bold" fontSize={11} />
                         <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px' }} />
                         <Bar dataKey="count" fill="#2563eb" radius={[0, 4, 4, 0]}>
                           {funnelData.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={['#94a3b8', '#64748b', '#6366f1', '#3b82f6', '#f59e0b', '#10b981'][index % 6]} />
+                            <Cell key={`cell-${index}`} fill={['#94a3b8', '#8b5cf6', '#3b82f6', '#0ea5e9', '#f59e0b', '#10b981'][index % 6]} />
                           ))}
                         </Bar>
                       </BarChart>
@@ -866,25 +849,40 @@ export default function Manager() {
 
               <section className="bg-white border border-[#cbd5e1] rounded-xl shadow-sm p-6">
                 <h3 className="text-xs font-extrabold text-[#0f172a] uppercase tracking-wider mb-2 flex items-center gap-2">
-                   <IconNode /> Kualifikasi Kuis Diagnostik Finansial
+                   <IconNode /> Matriks Interaksi Landing Page & PWA
                 </h3>
-                <p className="text-[11px] text-[#64748b] mb-4">Jawaban responden kuis kesiapan finansial pada halaman onboarding.</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <QuizChart title="Q1: Terencana" data={formatYesNoData(data.quizData?.q1)} total={((data.quizData?.q1?.ya || 0) + (data.quizData?.q1?.tidak || 0))} />
-                  <QuizChart title="Q2: Visi Arah" data={formatYesNoData(data.quizData?.q2)} total={((data.quizData?.q2?.ya || 0) + (data.quizData?.q2?.tidak || 0))} />
-                  <QuizChart title="Q3: Kebiasaan" data={formatYesNoData(data.quizData?.q3)} total={((data.quizData?.q3?.ya || 0) + (data.quizData?.q3?.tidak || 0))} />
-                  <div className="border border-[#e2e8f0] rounded-lg p-3 text-center bg-[#f8fafc]">
-                    <h3 className="text-[10px] font-bold text-[#0f172a] uppercase">Q4: Urgensi (1-10)</h3>
-                    <div className="h-28 mt-2">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={q4Data} cx="50%" cy="50%" innerRadius={20} outerRadius={40} dataKey="value">
-                            {q4Data.map((_, index) => (<Cell key={`cell-${index}`} fill={`hsl(220, 80%, ${30 + (index * 8)}%)`} />))}
-                          </Pie>
-                          <Tooltip contentStyle={{ borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px' }} />
-                        </PieChart>
-                      </ResponsiveContainer>
+                <p className="text-[11px] text-[#64748b] mb-4">Aktivitas pengunjung di halaman promosi, interaksi video, dan jalur instalasi.</p>
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div className="border border-[#e2e8f0] rounded-xl p-4 bg-[#f8fafc] flex flex-col justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Video Demo Preview</p>
+                      <h4 className="text-2xl font-black text-[#0f172a] mt-1">{data.metrics?.video_played || 0}</h4>
                     </div>
+                    <p className="text-[10px] text-slate-400 mt-2 font-medium">Pengunjung memutar video fitur</p>
+                  </div>
+
+                  <div className="border border-[#e2e8f0] rounded-xl p-4 bg-[#f8fafc] flex flex-col justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">FAQ Pertanyaan Dibuka</p>
+                      <h4 className="text-2xl font-black text-indigo-600 mt-1">{data.metrics?.faq_toggled || 0}</h4>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-2 font-medium">Interaksi jawaban pertanyaan</p>
+                  </div>
+
+                  <div className="border border-[#e2e8f0] rounded-xl p-4 bg-[#f8fafc] flex flex-col justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pindah ke Chrome (Android)</p>
+                      <h4 className="text-2xl font-black text-amber-600 mt-1">{data.metrics?.open_in_chrome || 0}</h4>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-2 font-medium">Pengalihan dari IG/FB in-app browser</p>
+                  </div>
+
+                  <div className="border border-[#e2e8f0] rounded-xl p-4 bg-[#f8fafc] flex flex-col justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Panduan Manual PWA</p>
+                      <h4 className="text-2xl font-black text-emerald-600 mt-1">{data.metrics?.pwa_manual_needed || 0}</h4>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-2 font-medium">Panduan install iOS / Browser lain</p>
                   </div>
                 </div>
               </section>
@@ -959,7 +957,7 @@ export default function Manager() {
         )}
 
         {/* ==========================================
-            TAB 2: PERFORMA APLIKASI (PWA & USER BEHAVIOR)
+            TAB 2: PERFORMA APLIKASI (PWA & 16 FITUR UTAMA)
         ========================================== */}
         {activeTab === 'app' && (
           <div className="space-y-6 animate-in fade-in duration-300">
@@ -983,12 +981,12 @@ export default function Manager() {
               </div>
 
               <div className="bg-white p-5 rounded-xl border border-[#cbd5e1] shadow-sm">
-                <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">PWA Post-Purchase Install</p>
+                <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Rasio Pasang PWA</p>
                 <p className="text-2xl font-black text-[#0f172a]">{installRate}%</p>
                 <div className="w-full bg-slate-100 h-2 mt-2 rounded-full overflow-hidden">
                     <div className="h-full bg-[#3b82f6]" style={{width: `${Math.max(0, Math.min(100, installRate))}%`}}></div>
                 </div>
-                <p className="text-[10px] text-[#64748b] mt-1 font-mono">Rasio Pasang PWA vs Pembeli</p>
+                <p className="text-[10px] text-[#64748b] mt-1 font-mono">Rasio Pasang PWA vs Klik</p>
               </div>
 
               <div className="bg-white p-5 rounded-xl border border-[#cbd5e1] shadow-sm relative overflow-hidden">
@@ -1004,13 +1002,16 @@ export default function Manager() {
             {/* AUM & SESSION DURATION */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="bg-white p-5 rounded-xl border border-[#cbd5e1] shadow-sm">
-                    <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Total Nilai Aset Terkelola Pengguna (AUM)</p>
+                    <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Total Nilai Aset Terkelola Pengguna (AUM Global)</p>
                     <h3 className="text-2xl font-black text-[#0f172a]">
-                        {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format((aumVolume.totalRupiah || 0) + (aumVolume.totalValasIDR || 0))}
+                        {formatCurrency((aumVolume as any).grandTotalAUM || (aumVolume.totalRupiah + aumVolume.totalValasIDR))}
                     </h3>
-                    <div className="flex justify-between text-[11px] text-[#64748b] mt-2 pt-2 border-t border-slate-100 font-medium">
-                        <span>💰 Kas IDR: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(aumVolume.totalRupiah || 0)}</span>
-                        <span>🌐 Valas Equiv: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(aumVolume.totalValasIDR || 0)}</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-[#64748b] mt-3 pt-3 border-t border-slate-100 font-medium">
+                        <span>💵 Kas IDR: <b>{formatCurrency(aumVolume.totalRupiah || 0)}</b></span>
+                        <span>🌐 Valas: <b>{formatCurrency(aumVolume.totalValasIDR || 0)}</b></span>
+                        <span>📈 Investasi: <b>{formatCurrency((aumVolume as any).totalInvestIDR || 0)}</b></span>
+                        <span>💼 Tertahan: <b>{formatCurrency((aumVolume as any).totalRetainedIDR || 0)}</b></span>
+                        <span>🤝 Piutang: <b>{formatCurrency((aumVolume as any).totalPiutangIDR || 0)}</b></span>
                     </div>
                 </div>
 
@@ -1023,26 +1024,30 @@ export default function Manager() {
                 </div>
             </div>
 
-            {/* Feature Adoption Heatmap across 12 Modules */}
+            {/* Feature Adoption Heatmap across ALL 16 Modules */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <section className="bg-white border border-[#cbd5e1] rounded-xl shadow-sm p-6">
                  <h3 className="text-xs font-extrabold text-[#0f172a] uppercase tracking-wider mb-2 flex items-center gap-2">
-                   <IconNode /> Feature Adoption Ranking (12 Modul Bilano)
+                   <IconNode /> Feature Adoption Ranking (16 Modul Bilano)
                  </h3>
                  <p className="text-[11px] text-[#64748b] mb-6">Persentase intensitas penggunaan seluruh fitur aplikasi.</p>
                  <div className="space-y-3.5">
-                    <FeatureBar name="1. AI Financial Advisor (Chat)" count={aiChatCount} total={totalFeatureEvents} color="bg-indigo-500" />
-                    <FeatureBar name="2. Smart Scanner AI (Struk Belanja)" count={smartScanCount} total={totalFeatureEvents} color="bg-rose-500" />
-                    <FeatureBar name="3. Expert Terminal & Macro Radar" count={expertTerminalCount} total={totalFeatureEvents} color="bg-slate-900" />
-                    <FeatureBar name="4. Wealth Blueprint & Career Strategy (S1-S15)" count={wealthBlueprintCount} total={totalFeatureEvents} color="bg-amber-500" />
-                    <FeatureBar name="5. Multi-Valas & Forex Asset Tracker" count={forexCount} total={totalFeatureEvents} color="bg-emerald-500" />
-                    <FeatureBar name="6. Investasi & Portofolio Saham" count={investmentsCount} total={totalFeatureEvents} color="bg-blue-500" />
-                    <FeatureBar name="7. Target Tabungan & Budgeting Disiplin" count={targetsCount} total={totalFeatureEvents} color="bg-purple-500" />
-                    <FeatureBar name="8. Manajemen Hutang & Piutang" count={debtsCount} total={totalFeatureEvents} color="bg-orange-500" />
-                    <FeatureBar name="9. Pengeluaran Berulang (Subscriptions)" count={subscriptionsCount} total={totalFeatureEvents} color="bg-pink-500" />
-                    <FeatureBar name="10. Manajemen Amal, Zakat & Sedekah" count={amalCount} total={totalFeatureEvents} color="bg-teal-500" />
-                    <FeatureBar name="11. Dana Mengendap (Cadangan Likuid)" count={retainedCount} total={totalFeatureEvents} color="bg-cyan-500" />
-                    <FeatureBar name="12. Cetak Laporan & Evaluasi PDF" count={reportsCount} total={totalFeatureEvents} color="bg-amber-600" />
+                    <FeatureBar name="1. AI Financial Advisor (ChatAI 360°)" count={aiChatCount} total={totalFeatureEvents} color="bg-indigo-500" />
+                    <FeatureBar name="2. Smart Scanner AI (Struk & Nota)" count={smartScanCount} total={totalFeatureEvents} color="bg-rose-500" />
+                    <FeatureBar name="3. Multi-Valas & Realtime Forex Portfolio" count={forexCount} total={totalFeatureEvents} color="bg-emerald-500" />
+                    <FeatureBar name="4. Investasi & Portofolio Saham/Crypto" count={investmentsCount} total={totalFeatureEvents} color="bg-blue-500" />
+                    <FeatureBar name="5. Target Tabungan & Budgeting Disiplin" count={targetsCount} total={totalFeatureEvents} color="bg-purple-500" />
+                    <FeatureBar name="6. Manajemen Hutang & Piutang Multi-Valas" count={debtsCount} total={totalFeatureEvents} color="bg-orange-500" />
+                    <FeatureBar name="7. Pengeluaran Berulang (Subscriptions)" count={subscriptionsCount} total={totalFeatureEvents} color="bg-pink-500" />
+                    <FeatureBar name="8. Manajemen Amal, Zakat & Sedekah" count={amalCount} total={totalFeatureEvents} color="bg-teal-500" />
+                    <FeatureBar name="9. Saldo Tertahan / Cadangan Likuid" count={retainedCount} total={totalFeatureEvents} color="bg-cyan-500" />
+                    <FeatureBar name="10. Transfer Antar Rekening & Dompet" count={transferCount} total={totalFeatureEvents} color="bg-sky-500" />
+                    <FeatureBar name="11. Realisasi Kas Bulanan & Portofolio Donut" count={performanceCount} total={totalFeatureEvents} color="bg-violet-600" />
+                    <FeatureBar name="12. Cetak Laporan Keuangan & Evaluasi PDF" count={reportsCount} total={totalFeatureEvents} color="bg-amber-600" />
+                    <FeatureBar name="13. Catat Pemasukan / Pengeluaran Kas Manual" count={manualInputCount} total={totalFeatureEvents} color="bg-emerald-600" />
+                    <FeatureBar name="14. Buku Panduan Aplikasi (Guide 16 Modul)" count={guideCount} total={totalFeatureEvents} color="bg-blue-600" />
+                    <FeatureBar name="15. Wealth Blueprint & Strategi Finansial" count={blueprintCount} total={totalFeatureEvents} color="bg-amber-500" />
+                    <FeatureBar name="16. Pusat Bantuan Tiket & Keamanan" count={helpCount} total={totalFeatureEvents} color="bg-slate-700" />
                  </div>
                  <div className="mt-6 pt-4 border-t border-slate-100 text-[10px] text-slate-500 font-mono text-center">
                     Berdasarkan {totalFeatureEvents.toLocaleString()} kali trigger interaksi fitur di database
@@ -1548,9 +1553,9 @@ export default function Manager() {
               </div>
 
               <div className="bg-white p-5 rounded-xl border border-[#cbd5e1] shadow-sm">
-                <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Total Pendapatan (IDR)</p>
+                <p className="text-[#64748b] text-[10px] font-bold uppercase tracking-wider mb-1">Total Pendapatan</p>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-lg font-black text-[#2563eb]">{formatCurrency(evalBenchmark?.metrics?.revenue || 0)}</span>
+                  <span className="text-base font-black text-[#0f172a]">{formatCurrency(evalBenchmark?.metrics?.revenue || 0)}</span>
                   <span className={`text-xs font-bold px-2 py-0.5 rounded ${((evalBenchmark?.metrics?.revenue || 0) >= (baseBenchmark?.metrics?.revenue || 0)) ? 'bg-[#ecfdf5] text-[#10b981]' : 'bg-[#fee2e2] text-[#ef4444]'}`}>
                     {getDeltaPct(baseBenchmark?.metrics?.revenue || 0, evalBenchmark?.metrics?.revenue || 0)}
                   </span>
@@ -1559,45 +1564,29 @@ export default function Manager() {
               </div>
             </div>
 
-            {/* Timeline Perubahan */}
+            {/* Riwayat Log Seluruh Lap */}
             <section className="bg-white border border-[#cbd5e1] rounded-xl shadow-sm p-6">
               <h3 className="text-xs font-extrabold text-[#0f172a] uppercase tracking-wider mb-4 flex items-center gap-2">
-                <IconBenchmark /> Timeline Perubahan & Log Latar Belakang Eksperimen
+                <IconDocument /> Log Riwayat Versi Pembaruan (Lap History)
               </h3>
-
-              <div className="overflow-x-auto border border-[#e2e8f0] rounded-lg">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-[#f8fafc] text-[10px] text-[#475569] uppercase tracking-wider font-bold border-b border-[#cbd5e1]">
-                      <th className="px-4 py-3">Versi</th>
-                      <th className="px-4 py-3">Tanggal Lap</th>
-                      <th className="px-4 py-3">Judul Pembaruan</th>
-                      <th className="px-4 py-3">Catatan / Latar Belakang Evaluasi</th>
-                      <th className="px-4 py-3 text-right">Pengunjung</th>
-                      <th className="px-4 py-3 text-right">Lunas</th>
-                      <th className="px-4 py-3 text-right">Konversi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-xs">
-                    {benchmarkHistory.map((b, idx) => (
-                      <tr key={idx} className="hover:bg-[#f8fafc] border-b border-[#e2e8f0] last:border-0 transition-colors">
-                        <td className="px-4 py-3">
-                          <span className="bg-[#ec4899] text-white px-2.5 py-0.5 rounded font-black text-[10px]">
-                            {b.version}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-mono text-[#64748b] text-[11px]">
-                          {new Date(b.date).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                        </td>
-                        <td className="px-4 py-3 font-bold text-[#0f172a]">{b.title}</td>
-                        <td className="px-4 py-3 text-[#334155] max-w-xs leading-relaxed">{b.notes}</td>
-                        <td className="px-4 py-3 text-right font-mono text-[#0ea5e9]">{b.metrics.visitors}</td>
-                        <td className="px-4 py-3 text-right font-mono text-[#10b981] font-bold">{b.metrics.paid}</td>
-                        <td className="px-4 py-3 text-right font-mono font-bold text-[#2563eb]">{b.metrics.conversionRate}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-3">
+                {benchmarkHistory.map((b) => (
+                  <div key={b.id} className="p-4 border border-[#e2e8f0] rounded-lg bg-[#f8fafc] flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="bg-[#0f172a] text-white text-[10px] font-black px-2 py-0.5 rounded uppercase">{b.version}</span>
+                        <h4 className="text-xs font-bold text-[#0f172a]">{b.title}</h4>
+                        <span className="text-[10px] text-[#64748b] font-mono">• {new Date(b.date).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                      </div>
+                      <p className="text-xs text-[#475569] mt-1.5 leading-relaxed">{b.notes}</p>
+                    </div>
+                    <div className="flex gap-4 text-xs font-mono shrink-0">
+                      <div><span className="text-slate-400">Visitors:</span> <b>{b.metrics?.visitors}</b></div>
+                      <div><span className="text-slate-400">Paid:</span> <b className="text-emerald-600">{b.metrics?.paid}</b></div>
+                      <div><span className="text-slate-400">Conv:</span> <b className="text-blue-600">{b.metrics?.conversionRate}%</b></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </section>
           </div>
@@ -1606,127 +1595,136 @@ export default function Manager() {
       </main>
 
       {/* ==========================================
-          MODAL 1: RESET DATA KPI (MULAI DARI 0)
-      ========================================== */}
-      {showResetModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white p-7 rounded-2xl max-w-md w-full border-t-8 border-rose-500 shadow-2xl relative animate-in zoom-in-95">
-            <button onClick={() => { setShowResetModal(false); setResetConfirmInput(""); }} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
-            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
-              <IconTrash />
-            </div>
-            <h3 className="text-base font-black text-[#0f172a] uppercase tracking-wide mb-1">Konfirmasi Reset Data KPI</h3>
-            <p className="text-xs text-slate-600 mb-5 leading-relaxed">
-              Tindakan ini akan <b>mengosongkan seluruh riwayat pelacakan interaksi website & aplikasi</b> (<code className="bg-slate-100 px-1 py-0.5 rounded text-rose-600 font-mono">tracking_events</code>). Seluruh grafik, corong konversi, dan metrik KPI akan dimulai dari angka <b>0 kembali</b>.
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Ketik <span className="text-rose-600 font-mono font-black">RESET</span> untuk melanjutkan:
-                </label>
-                <input 
-                  type="text" 
-                  placeholder="RESET"
-                  value={resetConfirmInput}
-                  onChange={(e) => setResetConfirmInput(e.target.value)}
-                  className="w-full bg-[#f8fafc] border border-rose-200 rounded-lg px-4 py-2.5 text-sm font-mono font-bold text-rose-600 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 outline-none uppercase"
-                />
-              </div>
-
-              <div className="pt-2 flex gap-3">
-                <button 
-                  disabled={resetConfirmInput !== "RESET" || isResetting}
-                  onClick={handleExecuteResetAnalytics}
-                  className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold py-3 rounded-lg uppercase tracking-wider text-xs shadow-lg transition-all"
-                >
-                  {isResetting ? "MENGHAPUS DATA..." : "YA, RESET SEMUA KE 0"}
-                </button>
-                <button 
-                  onClick={() => { setShowResetModal(false); setResetConfirmInput(""); }}
-                  className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-lg uppercase tracking-wider text-xs transition-colors"
-                >
-                  BATAL
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ==========================================
-          MODAL 2: CATAT BENCHMARK LAP
+          MODAL CATAT LAP BENCHMARK
       ========================================== */}
       {showLapModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white p-7 rounded-2xl max-w-lg w-full border border-[#cbd5e1] shadow-2xl relative animate-in zoom-in-95">
-            <button onClick={() => setShowLapModal(false)} className="absolute top-4 right-4 text-[#94a3b8] hover:text-[#0f172a] font-bold">✕</button>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xl">⏱️</span>
-              <h3 className="text-sm font-bold text-[#0f172a] uppercase tracking-wider">Catat Benchmark Pembaruan (Lap)</h3>
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-xl max-w-lg w-full p-6 border border-[#cbd5e1] shadow-2xl space-y-4">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-[#2563eb] bg-[#eff6ff] px-2.5 py-0.5 rounded-full border border-[#bfdbfe]">
+                Titik Batas Pembaruan
+              </span>
+              <h3 className="text-base font-bold text-[#0f172a] uppercase tracking-wider mt-1.5">Catat Versi Lap Baru</h3>
+              <p className="text-xs text-[#64748b] mt-0.5">Simpan snapshot data metriks saat ini untuk menguji efektivitas perubahan.</p>
             </div>
-            <p className="text-xs text-[#64748b] mb-6 font-medium leading-relaxed">
-              Tandai hasil statistik website & checkout saat ini sebagai snapshot acuan (seperti A1, A2). Masukkan latar belakang perubahan yang dilakukan.
-            </p>
 
-            <div className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-[#475569] uppercase text-[10px] mb-1">Judul Pembaruan / Versi</label>
-                <input 
-                  type="text" 
-                  placeholder="Misal: A2 - Redesign Banner & Tombol CTA Baru" 
-                  value={lapTitle}
-                  onChange={(e) => setLapTitle(e.target.value)}
-                  className="w-full bg-[#f8fafc] border border-[#cbd5e1] rounded-lg px-4 py-2.5 outline-none focus:border-[#2563eb] font-bold"
-                />
-              </div>
+            <div>
+              <label className="block text-[11px] font-bold text-[#475569] uppercase tracking-wider mb-1.5">Nama / Judul Pembaruan</label>
+              <input 
+                type="text" 
+                placeholder="Contoh: Rombak CTA & Video Demo Baru"
+                value={lapTitle}
+                onChange={(e) => setLapTitle(e.target.value)}
+                className="w-full bg-[#f8fafc] border border-[#cbd5e1] rounded-lg px-4 py-2.5 text-xs outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
 
-              <div>
-                <label className="block font-bold text-[#475569] uppercase text-[10px] mb-1">Catatan Latar Belakang Perubahan</label>
-                <textarea 
-                  placeholder="Jelaskan alasan evaluasi, perbaikan copywriting, perubahan diskon, atau optimasi landing page..."
-                  value={lapNotes}
-                  onChange={(e) => setLapNotes(e.target.value)}
-                  className="w-full bg-[#f8fafc] border border-[#cbd5e1] rounded-lg p-3 min-h-[100px] outline-none focus:border-[#2563eb] resize-none"
-                />
-              </div>
+            <div>
+              <label className="block text-[11px] font-bold text-[#475569] uppercase tracking-wider mb-1.5">Catatan Perubahan (Opsional)</label>
+              <textarea 
+                rows={3}
+                placeholder="Tulis detail apa saja yang diubah (harga, copywriting, layout)..."
+                value={lapNotes}
+                onChange={(e) => setLapNotes(e.target.value)}
+                className="w-full bg-[#f8fafc] border border-[#cbd5e1] rounded-lg px-4 py-2 text-xs outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
+              ></textarea>
+            </div>
 
-              <div className="pt-2 flex gap-3">
-                <button 
-                  onClick={handleSaveLapBenchmark}
-                  className="flex-1 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold py-3 rounded-lg uppercase tracking-wider text-xs shadow-md transition-colors"
-                >
-                  SIMPAN BENCHMARK & KUNCI SNAPSHOT
-                </button>
-                <button 
-                  onClick={() => setShowLapModal(false)}
-                  className="px-4 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#64748b] font-bold py-3 rounded-lg uppercase tracking-wider text-xs transition-colors"
-                >
-                  BATAL
-                </button>
-              </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button 
+                onClick={() => setShowLapModal(false)} 
+                className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Batal
+              </button>
+              <button 
+                onClick={handleSaveLapBenchmark} 
+                className="px-5 py-2 text-xs font-black uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+              >
+                Simpan Snapshot Lap
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* ==========================================
-          MODAL 3: BALAS TIKET BANTUAN
+          MODAL RESET ANALISIS KE 0
+      ========================================== */}
+      {showResetModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 border border-rose-200 shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 text-xl font-bold mx-auto">
+              ⚠️
+            </div>
+            <div className="text-center">
+              <h3 className="text-base font-extrabold text-[#0f172a] uppercase tracking-wider">Konfirmasi Reset Data KPI</h3>
+              <p className="text-xs text-[#64748b] mt-1 leading-relaxed">
+                Tindakan ini akan mengosongkan seluruh riwayat event interaksi dan corong pengunjung di database. Data akan dimulai kembali dari <b>0</b>.
+              </p>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs text-rose-800 font-medium">
+              Ketik <b>RESET</b> dengan huruf kapital di bawah untuk melanjutkan:
+            </div>
+
+            <input 
+              type="text" 
+              placeholder="RESET"
+              value={resetConfirmInput}
+              onChange={(e) => setResetConfirmInput(e.target.value)}
+              className="w-full bg-[#f8fafc] border border-rose-300 text-center font-mono font-black text-sm rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-rose-200"
+            />
+
+            <div className="flex gap-2 pt-2">
+              <button 
+                onClick={() => { setShowResetModal(false); setResetConfirmInput(""); }} 
+                className="flex-1 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Batal
+              </button>
+              <button 
+                disabled={isResetting || resetConfirmInput !== "RESET"}
+                onClick={handleExecuteResetAnalytics} 
+                className="flex-1 py-2.5 text-xs font-black uppercase tracking-wider bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white rounded-lg transition-colors shadow-sm"
+              >
+                {isResetting ? "Mereset..." : "RESET KE 0 SEKARANG"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          MODAL BALAS EMAIL TIKET
       ========================================== */}
       {replyingTo && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white p-7 rounded-2xl max-w-lg w-full border border-[#cbd5e1] shadow-2xl relative animate-in zoom-in-95">
-            <button onClick={() => setReplyingTo(null)} className="absolute top-4 right-4 text-[#94a3b8] hover:text-[#0f172a] font-bold">✕</button>
-            <h3 className="text-sm font-bold text-[#0f172a] uppercase tracking-wider mb-1">Balas Tiket Bantuan Klien</h3>
-            <p className="text-xs text-[#64748b] mb-4">Email balasan akan dikirimkan ke: <b className="text-[#2563eb]">{replyingTo.email}</b></p>
-            
-            <textarea 
-              className="w-full min-h-[140px] p-3.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-lg text-xs outline-none focus:border-[#2563eb] resize-none mb-4" 
-              placeholder="Ketik pesan balasan solusi teknis..."
-              value={replyMessage}
-              onChange={(e) => setReplyMessage(e.target.value)}
-            />
-            
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-xl max-w-lg w-full p-6 border border-[#cbd5e1] shadow-2xl space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-sm font-bold text-[#0f172a] uppercase tracking-wider">Balas Tiket Resmi</h3>
+                <p className="text-xs text-[#2563eb] font-mono mt-0.5">Kepada: {replyingTo.email}</p>
+              </div>
+              <button onClick={() => setReplyingTo(null)} className="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600">
+              <span className="font-bold text-slate-800">Pesan Pengguna:</span>
+              <p className="mt-1 italic leading-relaxed">"{replyingTo.message}"</p>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-[#475569] uppercase tracking-wider mb-1.5">Tulis Jawaban Resmi Tim Bilano</label>
+              <textarea 
+                rows={5}
+                placeholder="Halo, terima kasih telah menghubungi Bilano. Terkait pertanyaan Anda..."
+                value={replyMessage}
+                onChange={(e) => setReplyMessage(e.target.value)}
+                className="w-full bg-[#f8fafc] border border-[#cbd5e1] rounded-lg px-4 py-2.5 text-xs outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
+              ></textarea>
+            </div>
+
             <button 
               onClick={handleSendReply} 
               disabled={isSendingReply || !replyMessage} 
@@ -1740,26 +1738,6 @@ export default function Manager() {
 
     </div>
   );
-
-  function QuizChart({ title, data, total }: any) {
-    return (
-      <div className="border border-[#e2e8f0] rounded-lg p-3 text-center bg-[#f8fafc]">
-        <h3 className="text-[10px] font-bold text-[#0f172a] uppercase">{title}</h3>
-        <p className="text-[9px] text-[#64748b] mb-1 font-mono">Vol: {total || 0}</p>
-        <div className="h-28">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={data} cx="50%" cy="50%" innerRadius={20} outerRadius={40} dataKey="value" stroke="none">
-                {data.map((_:any, index:number) => (<Cell key={`cell-${index}`} fill={COLORS_QUIZ[index % COLORS_QUIZ.length]} />))}
-              </Pie>
-              <Tooltip contentStyle={{ borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '11px' }} />
-              <Legend wrapperStyle={{ fontSize: '9px', fontWeight: 'bold', color: '#475569' }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    );
-  }
 
   function FeatureBar({ name, count, total, color }: any) {
     const validCount = count || 0;
