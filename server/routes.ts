@@ -1558,7 +1558,7 @@ function parseCleanJson(text: string): any {
               included_segments: ["Subscribed Users"], 
               headings: { en: heading, id: heading },
               contents: { en: selectedMsg, id: selectedMsg },
-              url: "https://bilanofinance-dvbi.vercel.app/dashboard",
+              url: "https://bilano.app/",
               chrome_web_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON-NEW.png",
               chrome_web_badge: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON-NEW.png",
               firefox_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON-NEW.png"

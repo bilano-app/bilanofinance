@@ -601,7 +601,14 @@ export default function Home() {
     const income = baseIncomeTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'income').reduce((acc, v) => acc + v.amount, 0);
     const expense = baseExpenseTxs.reduce((acc, t) => acc + t.amount, 0) + virtualPLTxs.filter(v => v.type === 'expense').reduce((acc, v) => acc + v.amount, 0);
 
-    const needsMigration = user && !user.walletSources?.length && user.cashBalance > 0 && !hasCompletedMigration;
+    const isAlreadyMigrated = hasCompletedMigration || 
+        (typeof window !== 'undefined' && (
+            localStorage.getItem("bilano_migration_completed") === "true" ||
+            localStorage.getItem("onboarding_just_finished") === "true" ||
+            Boolean(localStorage.getItem("bilano_initial_sources"))
+        ));
+
+    const needsMigration = user && (!user.walletSources || user.walletSources.length === 0) && (user.cashBalance > 0) && !isAlreadyMigrated;
 
     if (isUserLoading || (isTxLoading && !transactions)) {
         return (

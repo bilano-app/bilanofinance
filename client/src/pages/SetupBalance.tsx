@@ -23,11 +23,21 @@ interface WalletEntry {
 interface InvestmentEntry {
   id: string;
   name: string;
+  assetType: 'saham' | 'crypto' | 'emas' | 'reksadana' | 'obligasi' | 'lainnya';
   quantity: string;
   avgPrice: string;
   broker: string;
   isCustomBroker: boolean;
 }
+
+const ASSET_TYPE_OPTIONS = [
+  { id: 'saham', label: '📈 Saham (Stock)', unit: 'Lot', placeholderName: 'Contoh: BBCA, BBRI, ASII', placeholderQty: '0' },
+  { id: 'crypto', label: '🪙 Crypto (Koin / Token)', unit: 'Koin', placeholderName: 'Contoh: BTC, ETH, SOL', placeholderQty: '0.00' },
+  { id: 'emas', label: '🥇 Emas / Logam Mulia', unit: 'Gram', placeholderName: 'Contoh: Antam, UBS, Galeri24', placeholderQty: '0.0' },
+  { id: 'reksadana', label: '📊 Reksadana', unit: 'Unit', placeholderName: 'Contoh: Sucorinvest, Batavia', placeholderQty: '0.00' },
+  { id: 'obligasi', label: '📜 Obligasi / SBN / Sukuk', unit: 'Unit', placeholderName: 'Contoh: ORI024, SR019, PBS', placeholderQty: '0' },
+  { id: 'lainnya', label: '💼 Aset Lainnya / P2P', unit: 'Porsi', placeholderName: 'Contoh: Properti, Bisnis, P2P', placeholderQty: '0' }
+] as const;
 
 interface DebtEntry {
   id: string;
@@ -105,9 +115,20 @@ export default function SetupBalance() {
         .filter(e => e.currency !== 'IDR' && parseNumber(e.amount) > 0)
         .map(e => ({ currency: e.currency, amount: parseNumber(e.amount) }));
 
+      const idrWalletSources = entries
+        .filter(e => e.currency === 'IDR' && parseNumber(e.amount) > 0)
+        .map(e => ({
+          id: e.id,
+          name: e.source,
+          type: 'bank',
+          balance: parseNumber(e.amount)
+        }));
+
       localStorage.setItem("bilano_initial_sources", JSON.stringify(entries));
+      localStorage.setItem("bilano_migration_completed", "true");
       const userEmail = localStorage.getItem("bilano_email") || "";
 
+      // 1. Simpan Saldo Kas & Valas Awal
       const res = await fetch("/api/target", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-user-email": userEmail },
@@ -116,6 +137,15 @@ export default function SetupBalance() {
           initialForexList: forexList,
         })
       });
+
+      // 2. Simpan Rincian Multi-Dompet agar sinkron dan tidak memicu pop-up migrasi pengguna lama
+      if (idrWalletSources.length > 0) {
+        await fetch("/api/user/wallet-sources", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-user-email": userEmail },
+          body: JSON.stringify({ walletSources: idrWalletSources })
+        });
+      }
 
       if (!res.ok) throw new Error("Gagal menyimpan saldo");
       trackEvent("initial_balance_setup", { totalIDR, forexCount: forexList.length });
@@ -133,7 +163,7 @@ export default function SetupBalance() {
   // ==========================================
   const [invViewState, setInvViewState] = useState<'question' | 'form'>('question');
   const [investments, setInvestments] = useState<InvestmentEntry[]>([
-    { id: Date.now().toString(), name: "", quantity: "", avgPrice: "", broker: "", isCustomBroker: false }
+    { id: Date.now().toString(), name: "", assetType: 'saham', quantity: "", avgPrice: "", broker: "", isCustomBroker: false }
   ]);
   const [isSubmittingInv, setIsSubmittingInv] = useState(false);
 
@@ -141,7 +171,7 @@ export default function SetupBalance() {
   const availableBrokers = useMemo(() => {
     const sources = entries.map(e => e.source).filter(s => s.trim() !== "" && s !== "Cash (Uang Kertas)");
     const unique = Array.from(new Set(sources));
-    if (unique.length === 0) return ["BCA Sekuritas", "Stockbit", "Pluang", "Ajaib", "Bareksa"];
+    if (unique.length === 0) return ["BCA Sekuritas", "Stockbit", "Pluang", "Ajaib", "Bareksa", "TokoCrypto", "Indodax", "Pintu", "Treasury", "Bibit"];
     return unique;
   }, [entries]);
 
@@ -155,7 +185,7 @@ export default function SetupBalance() {
   };
 
   const handleAddInv = () => {
-    setInvestments([...investments, { id: Date.now().toString(), name: "", quantity: "", avgPrice: "", broker: availableBrokers[0], isCustomBroker: false }]);
+    setInvestments([...investments, { id: Date.now().toString(), name: "", assetType: 'saham', quantity: "", avgPrice: "", broker: availableBrokers[0], isCustomBroker: false }]);
   };
   const handleRemoveInv = (id: string) => { setInvestments(investments.filter(e => e.id !== id)); };
   const updateInv = (id: string, field: keyof InvestmentEntry, value: any) => {
@@ -185,8 +215,8 @@ export default function SetupBalance() {
           symbol: i.name.toUpperCase(),
           quantity: parseFloat(i.quantity.replace(/,/g, '.')),
           price: parseNumber(i.avgPrice),
-          type: 'saham',
-          broker: i.broker // Bisa disimpan/digunakan di alur Jual Beli (Prompt 12)
+          type: i.assetType || 'saham',
+          broker: i.broker
       }));
 
       const userEmail = localStorage.getItem("bilano_email") || "";
@@ -525,82 +555,136 @@ export default function SetupBalance() {
             </div>
 
             <div className="space-y-4">
-              {investments.map((inv, index) => (
-                <div key={inv.id} className="bg-white p-5 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 relative group">
-                  <div className="absolute -top-3 left-5 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
-                    Aset {index + 1}
-                  </div>
-                  
-                  {investments.length > 1 && (
-                    <button onClick={() => handleRemoveInv(inv.id)} className="absolute top-3 right-3 p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+              {investments.map((inv, index) => {
+                const currentTypeObj = ASSET_TYPE_OPTIONS.find(t => t.id === inv.assetType) || ASSET_TYPE_OPTIONS[0];
+                const totalAssetVal = (parseFloat(inv.quantity.replace(/,/g, '.')) || 0) * parseNumber(inv.avgPrice);
 
-                  <div className="mt-3 space-y-4">
-                    <div className="flex gap-3">
-                      <div className="flex-1">
-                        <label className="text-xs font-bold text-slate-500 mb-1.5 block">Nama / Kode Aset</label>
-                        <Input 
-                          placeholder="BBCA / BTC" 
-                          value={inv.name} 
-                          onChange={(e) => updateInv(inv.id, 'name', e.target.value)}
-                          className="h-14 font-black text-lg bg-slate-50 border-slate-200 rounded-2xl focus:border-indigo-500 uppercase placeholder:normal-case"
-                        />
+                return (
+                  <div key={inv.id} className="bg-white p-5 rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 relative group">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="bg-brand-navy text-brand-gold text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-sm border border-brand-gold/30">
+                        Aset Investasi #{index + 1}
                       </div>
-                      <div className="w-1/3">
-                        <label className="text-xs font-bold text-slate-500 mb-1.5 block">Kuantitas</label>
-                        <Input 
-                          type="tel"
-                          placeholder="0.00" 
-                          value={inv.quantity} 
-                          onChange={(e) => updateInv(inv.id, 'quantity', e.target.value)}
-                          className="h-14 font-black text-lg bg-slate-50 border-slate-200 rounded-2xl focus:border-indigo-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-500 mb-1.5 block">Harga Beli Rata-rata (Avg Price) per Unit</label>
-                      <div className="relative flex items-center">
-                        <span className="absolute left-4 font-bold text-slate-400">Rp</span>
-                        <Input 
-                          type="tel"
-                          placeholder="0" 
-                          value={inv.avgPrice} 
-                          onChange={(e) => updateInv(inv.id, 'avgPrice', formatNumber(e.target.value))}
-                          className="h-14 pl-12 font-black text-xl bg-slate-50 border-slate-200 rounded-2xl focus:border-indigo-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-500 mb-1.5 block">Sekuritas / Platform (Tempat Penyimpanan)</label>
-                      {!inv.isCustomBroker ? (
-                        <div className="relative">
-                          <select
-                            value={inv.broker}
-                            onChange={(e) => updateInv(inv.id, 'broker', e.target.value)}
-                            className="w-full appearance-none bg-indigo-50 border border-indigo-100 text-indigo-800 text-sm font-bold rounded-2xl h-14 px-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                          >
-                            {availableBrokers.map(b => <option key={b} value={b}>{b}</option>)}
-                            <option value="custom">+ Ketik Manual Platform Lainnya</option>
-                          </select>
-                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500 pointer-events-none" />
-                        </div>
-                      ) : (
-                        <Input 
-                          placeholder="Ketik nama aplikasi/sekuritas..."
-                          value={inv.broker}
-                          onChange={(e) => updateInv(inv.id, 'broker', e.target.value)}
-                          className="h-14 bg-indigo-50 border-indigo-100 rounded-2xl font-bold text-sm text-indigo-800"
-                          autoFocus
-                        />
+                      
+                      {investments.length > 1 && (
+                        <button 
+                          type="button"
+                          onClick={() => handleRemoveInv(inv.id)} 
+                          className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       )}
                     </div>
+
+                    <div className="space-y-4">
+                      {/* 1. Dropdown Jenis Aset Investasi */}
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1.5 block">Jenis Aset Investasi</label>
+                        <div className="relative">
+                          <select
+                            value={inv.assetType}
+                            onChange={(e) => updateInv(inv.id, 'assetType', e.target.value)}
+                            className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-black rounded-2xl h-13 px-4 focus:ring-2 focus:ring-brand-navy focus:bg-white focus:outline-none cursor-pointer"
+                          >
+                            {ASSET_TYPE_OPTIONS.map(opt => (
+                              <option key={opt.id} value={opt.id}>
+                                {opt.label} (Satuan: {opt.unit})
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* 2. Nama Aset & Kuantitas Satuan Dinamis */}
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="text-xs font-bold text-slate-500 mb-1.5 block">Nama / Kode Aset</label>
+                          <Input 
+                            placeholder={currentTypeObj.placeholderName}
+                            value={inv.name} 
+                            onChange={(e) => updateInv(inv.id, 'name', e.target.value)}
+                            className="h-13 font-black text-base bg-slate-50 border-slate-200 rounded-2xl focus:border-brand-navy uppercase placeholder:normal-case placeholder:text-xs"
+                          />
+                        </div>
+                        <div className="w-2/5">
+                          <label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                            Jumlah ({currentTypeObj.unit})
+                          </label>
+                          <div className="relative flex items-center">
+                            <Input 
+                              type="text"
+                              inputMode="decimal"
+                              placeholder={currentTypeObj.placeholderQty} 
+                              value={inv.quantity} 
+                              onChange={(e) => updateInv(inv.id, 'quantity', e.target.value)}
+                              className="h-13 font-black text-base bg-slate-50 border-slate-200 rounded-2xl focus:border-brand-navy pr-12 tabular-nums"
+                            />
+                            <span className="absolute right-3 text-[10px] font-black text-brand-navy bg-brand-gold/20 px-1.5 py-0.5 rounded-md uppercase">
+                              {currentTypeObj.unit}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 3. Harga Beli Rata-rata */}
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                          Harga Beli per {currentTypeObj.unit} (Avg Price)
+                        </label>
+                        <div className="relative flex items-center">
+                          <span className="absolute left-4 font-black text-slate-400 text-sm">Rp</span>
+                          <Input 
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="0" 
+                            value={inv.avgPrice} 
+                            onChange={(e) => updateInv(inv.id, 'avgPrice', formatNumber(e.target.value))}
+                            className="h-13 pl-12 font-black text-lg bg-slate-50 border-slate-200 rounded-2xl focus:border-brand-navy tabular-nums"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 4. Kalkulasi Otomatis Total Nilai Aset */}
+                      {totalAssetVal > 0 && (
+                        <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-800">Total Nilai Aset Ini:</span>
+                          <span className="text-xs font-black text-emerald-900 tabular-nums">
+                            {formatRp(totalAssetVal)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* 5. Sekuritas / Platform */}
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1.5 block">Sekuritas / Platform (Tempat Simpan)</label>
+                        {!inv.isCustomBroker ? (
+                          <div className="relative">
+                            <select
+                              value={inv.broker}
+                              onChange={(e) => updateInv(inv.id, 'broker', e.target.value)}
+                              className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-sm font-bold rounded-2xl h-13 px-4 focus:ring-2 focus:ring-brand-navy focus:outline-none cursor-pointer"
+                            >
+                              {availableBrokers.map(b => <option key={b} value={b}>{b}</option>)}
+                              <option value="custom">+ Ketik Manual Platform Lainnya</option>
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                          </div>
+                        ) : (
+                          <Input 
+                            placeholder="Ketik nama aplikasi/sekuritas..."
+                            value={inv.broker}
+                            onChange={(e) => updateInv(inv.id, 'broker', e.target.value)}
+                            className="h-13 bg-slate-50 border-slate-200 rounded-2xl font-bold text-sm text-slate-900"
+                            autoFocus
+                          />
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <button onClick={handleAddInv} className="w-full flex items-center justify-center gap-2 h-14 border-2 border-dashed border-indigo-200 text-indigo-500 font-bold rounded-[24px] hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all active:scale-95 mt-4">

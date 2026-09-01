@@ -620,8 +620,7 @@ ${recentTxList}
                                             {/* 🎯 INTERACTIVE FOLLOW-UP BUTTONS / SUGGESTION CHIPS */}
                                             {msg.suggestions && msg.suggestions.length > 0 && (
                                                 <div className="mt-3.5 pt-3 border-t border-blue-100/90 flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-1 duration-300">
-                                                    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-blue-900/70">
-                                                        <Sparkles className="w-3 h-3 text-amber-500 fill-amber-400" />
+                                                    <div className="text-[10px] font-black uppercase tracking-wider text-blue-900/70">
                                                         <span>Pilihan Tindak Lanjut:</span>
                                                     </div>
                                                     <div className="flex flex-wrap gap-2">
@@ -644,7 +643,6 @@ ${recentTxList}
                                                                     }`}
                                                                 >
                                                                     {isAffirmative && <Check className="w-3.5 h-3.5 text-emerald-200 stroke-[3]" />}
-                                                                    {!isNegative && !isAffirmative && <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" />}
                                                                     <span>{sug}</span>
                                                                 </button>
                                                             );

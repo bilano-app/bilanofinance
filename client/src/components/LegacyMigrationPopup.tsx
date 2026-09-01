@@ -86,6 +86,7 @@ export default function LegacyMigrationPopup({ onComplete }: { onComplete: () =>
         
         if (!res.ok) throw new Error("Gagal menyimpan data sumber dana.");
         
+        localStorage.setItem("bilano_migration_completed", "true");
         toast({ title: "Migrasi Selesai", description: "Rincian dompet berhasil disimpan." });
         onComplete();
     } catch (e: any) {

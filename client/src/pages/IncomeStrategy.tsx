@@ -113,11 +113,16 @@ function OptionButton({ label, selected, onClick, checkbox }: { label: string; s
 
 function DisclaimerBanner() {
   return (
-    <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3.5 flex gap-2.5 items-start mb-4 shadow-xs">
-      <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-      <p className="text-[11px] text-amber-950 font-medium leading-relaxed">
-        Ini adalah simulasi strategi bisnis taktis. Pertimbangkan kesiapan waktu & risiko sebelum mengeluarkan modal riil.
-      </p>
+    <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3.5 flex items-start gap-2.5 mb-4 shadow-xs text-left">
+      <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+      <div className="space-y-0.5">
+        <p className="text-[10px] font-black text-amber-950 uppercase tracking-wider">
+          Penafian Penting (Disclaimer)
+        </p>
+        <p className="text-[11px] text-amber-900 leading-relaxed font-medium">
+          Seluruh ide, bimbingan, dan simulasi strategi bisnis di sini ditujukan murni sebagai <b>pemberi wawasan (insight)</b> serta referensi analisis taktis. Segala keputusan akhir, tindakan eksekusi, dan risiko finansial seutuhnya berada di tangan pengguna.
+        </p>
+      </div>
     </div>
   );
 }
@@ -283,24 +288,66 @@ function SynthesisLoadingScreen() {
 function LockedScreen() {
   return (
     <MobileLayout title="Ide & Pembimbing Penghasilan" showBack>
-      <div className="flex flex-col items-center justify-center min-h-[75vh] px-6 text-center -mx-5 -mt-5 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] p-6">
-        <div className="w-20 h-20 bg-brand-gold text-brand-navy rounded-3xl flex items-center justify-center mb-5 shadow-sm border border-brand-navy">
-          <Crown className="w-10 h-10" />
+      <div className="flex flex-col items-center justify-center min-h-[80vh] px-5 py-8 text-center -mx-5 -mt-5 bg-gradient-to-b from-[#F0F6FD] via-[#E8F1FC] to-[#DDEBFA]">
+        
+        {/* Kartu Eksekutif Beraksen Glassmorphism */}
+        <div className="w-full max-w-sm bg-white/95 backdrop-blur-md rounded-[32px] p-6 sm:p-7 border border-blue-100 shadow-[0_15px_35px_rgba(29,62,114,0.08)] flex flex-col items-center animate-in zoom-in-95 duration-500 relative overflow-hidden">
+          
+          {/* Aksen Cahaya Lembut di Sudut */}
+          <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-400/15 rounded-full blur-2xl pointer-events-none"></div>
+          <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-blue-600/10 rounded-full blur-2xl pointer-events-none"></div>
+
+          {/* Ikon Mahkota Gold Mewah */}
+          <div className="relative mb-4 mt-1">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-400 to-yellow-500 text-[#0a1128] flex items-center justify-center shadow-[0_10px_25px_rgba(251,191,36,0.35)] border-2 border-amber-300">
+              <Crown className="w-10 h-10 stroke-[2.2]" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 bg-[#1D3E72] text-white rounded-full p-1 shadow-md border border-white">
+              <CheckCircle2 className="w-4 h-4 text-brand-gold" />
+            </div>
+          </div>
+
+          {/* Badge Label */}
+          <span className="bg-[#1D3E72]/10 border border-[#1D3E72]/20 text-[#1D3E72] text-[10px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full mb-3 shadow-xs">
+            FITUR EKSKLUSIF BILANO PRO
+          </span>
+
+          {/* Judul & Deskripsi yang Elegan */}
+          <h2 className="text-2xl font-black text-slate-900 mb-2.5 tracking-tight leading-tight">
+            Buka Akses Peta Cuan AI
+          </h2>
+          <p className="text-xs text-slate-500 font-medium mb-6 leading-relaxed">
+            Dapatkan bimbingan langkah demi langkah dari AI untuk membedah modal, keahlian, dan mengeksekusi bisnis nyata.
+          </p>
+
+          {/* Poin Benefit Ringkas */}
+          <div className="w-full bg-slate-50/90 border border-slate-100 rounded-2xl p-3.5 mb-6 text-left space-y-2">
+            <div className="flex items-center gap-2.5 text-xs text-slate-700 font-bold">
+              <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] shrink-0 font-black">✓</div>
+              <span>Analisis Modal & Peluang Bisnis Presisi</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-xs text-slate-700 font-bold">
+              <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] shrink-0 font-black">✓</div>
+              <span>Rencana Eksekusi Harian Berbasis AI</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-xs text-slate-700 font-bold">
+              <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] shrink-0 font-black">✓</div>
+              <span>Simulasi Estimasi Omset & ROI Usaha</span>
+            </div>
+          </div>
+
+          {/* Tombol CTA yang Proporsional, Luas, dan Berwarna Emas Elegan */}
+          <Link href="/paywall" className="w-full">
+            <button
+              type="button"
+              className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-xs sm:text-sm uppercase tracking-wider py-4 px-6 rounded-2xl shadow-[0_10px_25px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2.5 border-b-4 border-amber-600 cursor-pointer"
+            >
+              <Crown className="w-4 h-4" />
+              <span>UPGRADE KE BILANO PRO</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </Link>
         </div>
-        <span className="bg-brand-navy text-brand-gold text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2 shadow-xs">
-          FITUR EKSKLUSIF BILANO PRO
-        </span>
-        <h2 className="text-2xl font-black text-brand-navy mb-2 tracking-tight">
-          Buka Akses Peta Cuan AI
-        </h2>
-        <p className="text-xs text-amber-950 font-medium mb-6 max-w-xs leading-relaxed">
-          Dapatkan bimbingan langkah demi langkah dari AI untuk membedah modal, keahlian, dan mengeksekusi bisnis nyata.
-        </p>
-        <Link href="/paywall">
-          <button className="w-full max-w-xs h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer">
-            UPGRADE KE BILANO PRO
-          </button>
-        </Link>
       </div>
     </MobileLayout>
   );
@@ -310,19 +357,28 @@ function CooldownScreen({ dateStr }: { dateStr: string }) {
   const formatted = new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
   return (
     <MobileLayout title="Masa Jeda Evaluasi" showBack>
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6 -mx-5 -mt-5 p-6">
-        <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mb-4 border border-amber-300 shadow-xs">
-          <Lock className="w-8 h-8" />
+      <div className="flex flex-col items-center justify-center min-h-[80vh] px-5 py-8 text-center -mx-5 -mt-5 bg-gradient-to-b from-[#F0F6FD] via-[#E8F1FC] to-[#DDEBFA]">
+        <div className="w-full max-w-sm bg-white/95 backdrop-blur-md rounded-[32px] p-6 sm:p-7 border border-blue-100 shadow-[0_15px_35px_rgba(29,62,114,0.08)] flex flex-col items-center animate-in zoom-in-95 duration-500">
+          <div className="w-18 h-18 bg-amber-50 text-amber-600 rounded-3xl flex items-center justify-center mb-4 border border-amber-200 shadow-sm">
+            <Lock className="w-8 h-8" />
+          </div>
+          <span className="bg-amber-100/80 text-amber-800 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider mb-2 border border-amber-200">
+            EVALUASI BERJALAN
+          </span>
+          <h2 className="text-xl font-black text-slate-900 mb-2 tracking-tight">Masa Jeda Evaluasi Berjalan</h2>
+          <p className="text-xs text-slate-500 mb-6 leading-relaxed font-medium">
+            Anda baru saja menghentikan operasional bisnis sebelumnya. Sistem menahan pembuatan ide baru agar Anda fokus mengevaluasi catatan keuangan. Fitur terbuka kembali pada <strong className="text-slate-800">{formatted}</strong>.
+          </p>
+          <Link href="/" className="w-full">
+            <button
+              type="button"
+              className="w-full bg-[#1D3E72] hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider py-4 px-6 rounded-2xl shadow-sm hover:shadow active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>KEMBALI KE BERANDA</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </Link>
         </div>
-        <h2 className="text-lg font-black text-slate-900 mb-1 tracking-tight">Masa Jeda Evaluasi Berjalan</h2>
-        <p className="text-xs text-slate-500 mb-6 leading-relaxed font-medium max-w-xs">
-          Anda baru saja menghentikan operasional bisnis sebelumnya. Sistem menahan pembuatan ide baru agar Anda fokus mengevaluasi catatan keuangan. Fitur terbuka kembali pada <strong>{formatted}</strong>.
-        </p>
-        <Link href="/">
-          <button className="w-full max-w-xs h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center">
-            Kembali ke Beranda
-          </button>
-        </Link>
       </div>
     </MobileLayout>
   );
@@ -479,6 +535,8 @@ function IdentifyFlow({ onComplete, onBackToIntro }: { onComplete: (status: stri
       </div>
 
       <ProgressBar step={stepIndex} total={totalSteps} />
+
+      <DisclaimerBanner />
 
       <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
         <h2 className="text-base sm:text-lg font-extrabold text-slate-900 leading-snug">
@@ -715,6 +773,8 @@ function RecommendView({ profile, attempts, onResume, onSelect, selectingId, loc
 
       {/* DAFTAR REKOMENDASI TAKTIK */}
       <div className="space-y-3">
+        <DisclaimerBanner />
+
         <div className="flex justify-between items-center px-1">
           <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
             <Compass className="w-4 h-4 text-amber-600" />
