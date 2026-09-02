@@ -3329,7 +3329,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   let symbol = rawSymbol.toUpperCase().trim();
                   
                   const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
-                  const fetchSymbol = isGold ? 'GC=F' : symbol;
+                  const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA'].includes(symbol);
+                  const fetchSymbol = isGold ? 'GC=F' : (isCrypto && !symbol.includes('-')) ? `${symbol}-USD` : symbol;
                   
                   const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=1d&range=1d`);
                   
@@ -3341,7 +3342,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                          const currency = data.chart?.result?.[0]?.meta?.currency || "IDR";
                          let finalPrice = price;
                          
-                         // 🟢 PERBAIKAN: Mencegah error Rupiah berubah jadi Miliaran (Inflasi Ganda)
+                         // 🟢 Mencegah error Rupiah berubah jadi Miliaran (Inflasi Ganda)
                          if (rawSymbol === 'IDR=X') {
                              finalPrice = price;
                          } else if (isGold) {
@@ -3371,7 +3372,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
 
           const results: Record<string, { timestamps: number[], close: number[] }> = {};
 
-          // 🟢 PERBAIKAN: Tarik data kurs SEKALI SAJA di luar perulangan
+          // 🟢 Tarik data kurs SEKALI SAJA di luar perulangan
           const now = Date.now();
           if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) {
               await fetchLiveRates(); 
@@ -3383,7 +3384,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   let symbol = rawSymbol.toUpperCase().trim();
                   
                   const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
-                  const fetchSymbol = isGold ? 'GC=F' : symbol;
+                  const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA'].includes(symbol);
+                  const fetchSymbol = isGold ? 'GC=F' : (isCrypto && !symbol.includes('-')) ? `${symbol}-USD` : symbol;
                   
                   const interval = range === '1d' ? '5m' : range === '5d' ? '15m' : '1d';
                   const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${fetchSymbol}?interval=${interval}&range=${range}`);
@@ -3396,9 +3398,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                           let timestamps = result.timestamp || [];
                           let close = result.indicators?.quote?.[0]?.close || [];
                           
-                          // 🟢 PERBAIKAN: Proteksi IDR=X dari Inflasi Ganda di data Historis
+                          // 🟢 Proteksi IDR=X dari Inflasi Ganda di data Historis
                           if (rawSymbol === 'IDR=X') {
-                              // Jangan dikalikan dengan kurs USD lagi
                               close = close.map((p: number) => p);
                           } else if (isGold) {
                               close = close.map((p: number) => p ? (p / 31.1034768) * usdToIdr : p);

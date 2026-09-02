@@ -4,7 +4,7 @@ import {
   ArrowUpRight, ArrowDownRight, ChevronUp, ChevronDown, Orbit, Database, X, Wrench, ScanSearch, Radio, LogOut, Calculator, Settings2, Hourglass,
   Target, Globe, Newspaper, Search
 } from "lucide-react";
-import { useUser, useInvestments, useTransactions, useLiveQuotes, useHistoricalQuotes, usePortfolioSnapshots, useSaveSnapshot } from "@/hooks/use-finance";
+import { useUser, useInvestments, useTransactions, useLiveQuotes, useHistoricalQuotes, usePortfolioSnapshots, useSaveSnapshot, useForexRates } from "@/hooks/use-finance";
 import { useToast } from "@/hooks/use-toast";
 import { PieChart, Pie, Cell, ComposedChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line, LineChart, Legend } from 'recharts';
 import { useQuery } from "@tanstack/react-query";
@@ -74,14 +74,7 @@ export default function ExpertTerminal() {
   
   const [intelStatus, setIntelStatus] = useState("Membangun koneksi ke server agregator...");
 
-  const { data: forexRates = {} } = useQuery({
-      queryKey: ['forexRates', currentUserEmail],
-      queryFn: async () => {
-          const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": currentUserEmail } });
-          return res.json();
-      },
-      enabled: !!currentUserEmail && isTerminalAuth
-  });
+  const { data: forexRates = {} } = useForexRates();
 
   const [tickerOverrides, setTickerOverrides] = useState<Record<string, string>>(() => {
       const saved = localStorage.getItem('bilano_ticker_overrides');
@@ -116,8 +109,10 @@ export default function ExpertTerminal() {
         const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
         
         const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
+        const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA'].includes(sym);
         let defaultTicker = sym;
         if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
+        else if (isCrypto && !sym.includes('-')) defaultTicker = `${sym}-USD`;
         
         tickers.add(tickerOverrides[sym] || defaultTicker);
     });
@@ -131,10 +126,12 @@ export default function ExpertTerminal() {
                 const isIDR = !isUSD;
                 const isStock = symbol.length === 4; 
                 const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
+                const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA'].includes(symbol);
                 const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
                 
                 let defaultTicker = symbol;
                 if (isIDR && isStock && !isGold && !knownUS.includes(symbol) && !symbol.endsWith('.JK')) defaultTicker = `${symbol}.JK`;
+                else if (isCrypto && !symbol.includes('-')) defaultTicker = `${symbol}-USD`;
                 tickers.add(tickerOverrides[symbol] || defaultTicker);
             }
         }
@@ -322,8 +319,10 @@ export default function ExpertTerminal() {
       const multiplier = (isStock && isIDR && !isGold) ? 100 : 1; 
 
       const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
+      const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 'XRP', 'ADA'].includes(sym);
       let defaultTicker = sym;
       if (isIDR && isStock && !isGold && !knownUS.includes(sym) && !sym.endsWith('.JK')) defaultTicker = `${sym}.JK`;
+      else if (isCrypto && !sym.includes('-')) defaultTicker = `${sym}-USD`;
       
       const activeTicker = tickerOverrides[sym] || defaultTicker;
       const invDateTs = inv.createdAt ? new Date(inv.createdAt).getTime() : Date.now();
@@ -639,8 +638,7 @@ export default function ExpertTerminal() {
 
   const totalAssetValue = activePortfolio.reduce((acc: any, p: any) => {
     const livePriceAPI = livePrices[p.activeTicker];
-    const currentRate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
-    const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * currentRate) : p.totalModalIDR;
+    const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
     return acc + liveValuationIDR;
   }, 0);
 
@@ -649,22 +647,16 @@ export default function ExpertTerminal() {
   const totalWealth = cashBalance + totalAssetValue;
 
   const realizedTrades = useMemo(() => {
-    return realizedTradesBase.map((t: any) => {
-        const currentRate = t.currency === 'IDR' ? 1 : (Number(forexRates[t.currency]) || 16200);
-        const livePricePerShare = livePrices[t.activeTicker] || 0;
-        const livePriceIDR = livePricePerShare * currentRate;
-        return {
-            ...t, livePriceIDR
-        };
-    });
-  }, [realizedTradesBase, livePrices, forexRates]);
+    return realizedTradesBase.map((t: any) => ({
+        ...t, livePriceIDR: livePrices[t.activeTicker] || 0
+    }));
+  }, [realizedTradesBase, livePrices]);
 
   const pieData = [
     { name: 'Cash Tunai', value: cashBalance },
     ...activePortfolio.map((p: any) => {
        const livePriceAPI = livePrices[p.activeTicker];
-       const currentRate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
-       const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * currentRate) : p.totalModalIDR;
+       const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
        return { name: p.symbol, value: liveValuationIDR };
     })
   ].filter((d: any) => d.value > 0);
@@ -834,8 +826,7 @@ export default function ExpertTerminal() {
                   price = historicalPrice || price;
               }
               
-              const currentRate = currentAsset.currency === 'IDR' ? 1 : (isCurrent ? (Number(forexRates[currentAsset.currency]) || 16200) : getHistoricalRate(targetTs, currentAsset.currency));
-              const valuasi = price ? (qtyMap[sym].qty * price * liveMultiplier * currentRate) : qtyMap[sym].investedIDR;
+              const valuasi = price ? (qtyMap[sym].qty * price * liveMultiplier) : qtyMap[sym].investedIDR;
               details[sym] = { invested: qtyMap[sym].investedIDR, valuasi, qty: qtyMap[sym].qty };
               totalInv += qtyMap[sym].investedIDR;
               totalVal += valuasi;
@@ -1061,8 +1052,7 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
 
                  if (isNaN(price) || !isFinite(price)) price = 0;
 
-                 const assetRate = (assetMeta?.currency === 'IDR' || !assetMeta) ? 1 : getHistoricalRate(currentTs, assetMeta.currency);
-                 let val = currentQty[sym] * price * multiplier * assetRate;
+                 let val = currentQty[sym] * price * multiplier;
                  if (isNaN(val) || !isFinite(val)) val = 0;
 
                  let invested = currentInvestedIDR[sym];
@@ -1090,8 +1080,7 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
                  const assetMeta = activePortfolio.find((p: any) => p.symbol === chartAssetFilter);
                  if (assetMeta) {
                      const liveP = livePrices[assetMeta.activeTicker];
-                     const currentRate = assetMeta.currency === 'IDR' ? 1 : (Number(forexRates[assetMeta.currency]) || 16200);
-                     dailyValuation = liveP ? (assetMeta.qty * liveP * assetMeta.liveMultiplier * currentRate) : assetMeta.totalModalIDR;
+                     dailyValuation = liveP ? (assetMeta.qty * liveP * assetMeta.liveMultiplier) : assetMeta.totalModalIDR;
                      dailyInvested = assetMeta.totalModalIDR;
                  }
              }
@@ -1200,8 +1189,7 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
       
       const assetsDetail = activePortfolio.reduce((acc: any, p: any) => {
          const livePriceAPI = livePrices[p.activeTicker];
-         const currentRate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
-         const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * currentRate) : p.totalModalIDR;
+         const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
          acc[p.symbol] = { invested: p.totalModalIDR, valuasi: liveValuationIDR, qty: p.qty };
          return acc;
       }, {} as Record<string, {invested: number, valuasi: number, qty: number}>);
@@ -1437,12 +1425,13 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
                         <span className="text-[#00E5FF] font-mono">
                            {(() => {
                               const curr = assetDetailModal.currency || 'IDR';
-                              const rawP = livePrices[assetDetailModal.activeTicker] || 0;
+                              const priceIDR = livePrices[assetDetailModal.activeTicker] || 0;
                               const currentRate = curr === 'IDR' ? 1 : (Number(forexRates[curr]) || 16200);
                               if (curr !== 'IDR') {
-                                return `${curr} ${rawP.toLocaleString('en-US')} (Rp ${Math.round(rawP * currentRate).toLocaleString('id-ID')})`;
+                                const nativePrice = currentRate > 0 ? (priceIDR / currentRate) : 0;
+                                return `${curr} ${nativePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Rp ${Math.round(priceIDR).toLocaleString('id-ID')})`;
                               }
-                              return maskRp(rawP);
+                              return maskRp(priceIDR);
                            })()}
                         </span>
                     </div>
@@ -1450,10 +1439,8 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
                         <span className="text-[#A1A1AA] text-[10px] font-bold uppercase tracking-[0.15em]">Valuasi Total</span>
                         <span className="text-[#00FF41] font-mono font-black text-lg">
                            {(() => {
-                              const curr = assetDetailModal.currency || 'IDR';
-                              const rawP = livePrices[assetDetailModal.activeTicker] || 0;
-                              const currentRate = curr === 'IDR' ? 1 : (Number(forexRates[curr]) || 16200);
-                              return maskRp(assetDetailModal.qty * rawP * assetDetailModal.liveMultiplier * currentRate);
+                              const priceIDR = livePrices[assetDetailModal.activeTicker] || 0;
+                              return maskRp(assetDetailModal.qty * priceIDR * assetDetailModal.liveMultiplier);
                            })()}
                         </span>
                     </div>
@@ -1614,8 +1601,7 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
                               <td className="px-6 py-4">{maskRp(cashBalance)}</td>
                               {activePortfolio.map((p: any) => {
                                 const livePriceAPI = livePrices[p.activeTicker];
-                                const currentRate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
-                                const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * currentRate) : p.totalModalIDR;
+                                const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
                                 return <td key={p.symbol} className="px-6 py-4">{maskRp(liveValuationIDR)}</td>
                               })}
                             </tr>
@@ -1624,8 +1610,7 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
                               <td className="px-6 py-4 text-[#00FF41] font-black">{totalWealth > 0 ? formatPct(cashBalance / totalWealth) : '0%'}</td>
                               {activePortfolio.map((p: any) => {
                                  const livePriceAPI = livePrices[p.activeTicker];
-                                 const currentRate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
-                                 const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * currentRate) : p.totalModalIDR;
+                                 const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
                                  return <td key={p.symbol} className="px-6 py-4 text-[#00E5FF] font-black">{totalWealth > 0 ? formatPct(liveValuationIDR / totalWealth) : '0%'}</td>
                               })}
                             </tr>
