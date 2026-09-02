@@ -823,11 +823,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Lengkapi hitungan manual input dari total transaksi di DB
           featureAdoption.manual_input = Math.max(featureAdoption.manual_input, allTxs.length);
 
+          const sep1Date = new Date('2026-09-01T00:00:00+07:00');
+          const validSepUsers = allUsers.filter((u: any) => u.created_at && new Date(u.created_at) >= sep1Date);
+
           const funnel = {
              landing: Math.max(metrics.landing_viewed, new Set(allEvents.filter(e => e.event_name === 'landing_page_viewed' || e.event_name === 'landing_visit').map(e => e.anonymous_id)).size),
              pwa_clicked: Math.max(metrics.pwa_button_clicked, new Set(allEvents.filter(e => e.event_name === 'pwa_install_button_clicked').map(e => e.anonymous_id)).size),
              pwa_installed: Math.max(metrics.pwa_installed, new Set(allEvents.filter(e => e.event_name === 'pwa_install_accepted' || e.event_name === 'pwa_installed').map(e => e.anonymous_id)).size),
-             registered: allUsers.length,
+             registered: validSepUsers.length,
              checkout: Math.max(metrics.checkout_initiated, new Set(allEvents.filter(e => e.event_name === 'checkout_initiated').map(e => e.anonymous_id)).size),
              paid: Math.max(metrics.payment_success, new Set(allEvents.filter(e => e.event_name === 'payment_success').map(e => e.anonymous_id)).size),
           };
@@ -2864,6 +2867,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               MAX(t.date) AS "lastTxDate"
             FROM users u
             LEFT JOIN transactions t ON t.user_id = u.id
+            WHERE u.created_at >= '2026-09-01 00:00:00+07'
             GROUP BY u.id
             ORDER BY u.created_at DESC
           `);
@@ -2900,6 +2904,55 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
       } 
       catch (e: any) { 
           res.status(500).json({ error: "Gagal memuat data pengguna: " + e.message }); 
+      }
+  });
+
+  app.delete("/api/admin/users/:id", async (req: any, res: any) => {
+      const emailAdmin = req.headers["x-user-email"] as string;
+      if (!isAdminValid(emailAdmin)) return res.status(403).json({ error: "Akses Ditolak. Anda bukan admin." });
+      try {
+          const userId = parseInt(req.params.id);
+          const targetUser = await storage.getUser(userId);
+          if (!targetUser) return res.status(404).json({ error: "Pengguna tidak ditemukan." });
+
+          // Proteksi: Akun Admin Utama tidak boleh dihapus
+          if (isAdminValid(targetUser.email || targetUser.username)) {
+              return res.status(400).json({ error: "Akun Super Admin tidak dapat dihapus." });
+          }
+
+          // Hapus akun di Firebase Auth jika tersedia
+          if (firebaseAdminInitialized && targetUser.email) {
+              try {
+                  const record = await admin.auth().getUserByEmail(targetUser.email);
+                  await admin.auth().deleteUser(record.uid);
+              } catch (fbErr: any) {
+                  console.log("Admin delete user Firebase notice:", fbErr?.message || fbErr);
+              }
+          }
+
+          // Cascade delete seluruh relasi data di database
+          await db.execute(sql`DELETE FROM transactions WHERE user_id = ${userId}`);
+          await db.execute(sql`DELETE FROM investments WHERE user_id = ${userId}`);
+          await db.execute(sql`DELETE FROM targets WHERE user_id = ${userId}`);
+          await db.execute(sql`DELETE FROM debts WHERE user_id = ${userId}`);
+          await db.execute(sql`DELETE FROM subscriptions WHERE user_id = ${userId}`);
+          await db.execute(sql`DELETE FROM categories WHERE user_id = ${userId}`);
+          await db.execute(sql`DELETE FROM forex_assets WHERE user_id = ${userId}`);
+          await db.execute(sql`DELETE FROM help_tickets WHERE user_id = ${userId} OR email = ${targetUser.email || targetUser.username}`);
+          await db.execute(sql`DELETE FROM retained_balances WHERE user_id = ${userId}`);
+          await db.execute(sql`DELETE FROM portfolio_snapshots WHERE user_id = ${userId}`);
+          await db.execute(sql`DELETE FROM user_income_profiles WHERE user_id = ${userId}`);
+          await db.execute(sql`DELETE FROM income_attempts WHERE user_id = ${userId}`);
+          await db.execute(sql`DELETE FROM tracking_events WHERE user_id = ${userId}`);
+          await db.execute(sql`DELETE FROM otp_sessions WHERE email = ${targetUser.email || targetUser.username}`);
+          await db.execute(sql`DELETE FROM users WHERE id = ${userId}`);
+
+          res.json({ 
+              success: true, 
+              message: `Pengguna ${targetUser.email || targetUser.username} dan seluruh datanya berhasil dihapus permanen.` 
+          });
+      } catch (e: any) {
+          res.status(500).json({ error: "Gagal menghapus pengguna: " + e.message });
       }
   });
 

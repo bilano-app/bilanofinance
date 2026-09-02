@@ -45,7 +45,7 @@ export default function ExpertTerminal() {
   const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | '5Y'>('1M');
   
   const [chartAssetFilter, setChartAssetFilter] = useState<string>('ALL');
-  const [chartLineFilter, setChartLineFilter] = useState<'ALL' | 'MARKET_VALUE' | 'MODAL' | 'DIVIDEND'>('ALL');
+  const [chartLineFilter, setChartLineFilter] = useState<'ALL' | 'TOTAL_WEALTH' | 'MARKET_VALUE' | 'MODAL' | 'KAS' | 'DIVIDEND'>('ALL');
   
   const [intelStatus, setIntelStatus] = useState("Membangun koneksi ke server agregator...");
 
@@ -99,7 +99,7 @@ export default function ExpertTerminal() {
 
     chronologicalTxs.forEach((t: any) => {
         if (t.type === 'invest_sell') {
-            const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+            const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
             const symbol = match ? match[1].toUpperCase().trim() : 'Unknown';
             if (symbol !== 'Unknown') {
                 const isUSD = t.description?.includes('USD') || t.description?.includes('US$');
@@ -322,10 +322,10 @@ export default function ExpertTerminal() {
 
       chronologicalTxs.forEach((t: any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
-              const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+              const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
               const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
-              const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
-              const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
+              const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i);
+              const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(/,/g, '')) : 0;
               const ts = new Date(t.date).getTime();
 
               if (!symbolData[sym]) {
@@ -577,10 +577,10 @@ export default function ExpertTerminal() {
 
   const realizedTradesBase = useMemo(() => {
     return chronologicalTxs.filter((t: any) => t.type === 'invest_sell').map((t: any) => {
-      const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+      const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
       const symbol = match ? match[1].toUpperCase().trim() : 'Unknown';
       
-      const sellPriceMatch = t.description?.match(/@\s*(?:Rp|USD|US\$)?\s*([0-9.,]+)/i);
+      const sellPriceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
       const sellPriceRaw = sellPriceMatch ? parseFloat(sellPriceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
 
       const isUSD = t.description?.includes('USD') || t.description?.includes('US$');
@@ -655,12 +655,12 @@ export default function ExpertTerminal() {
       
       chronologicalTxs.forEach((t: any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
-              const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+              const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
               const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
-              const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i); 
-              const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
+              const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i); 
+              const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(/,/g, '')) : 0;
               
-              const priceMatch = t.description?.match(/@\s*(?:Rp|USD|US\$)?\s*([0-9.,]+)/i);
+              const priceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
               const rawPrice = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
 
               const asset = activePortfolio.find((p: any) => p.symbol === sym);
@@ -693,9 +693,9 @@ export default function ExpertTerminal() {
           
           if (Math.abs(setupQty) > 0.0001 || Math.abs(setupInvested) > 1) { 
               bases[p.symbol] = {
-                  qty: setupQty,
-                  invested: setupInvested,
-                  date: p.createdAt ? new Date(p.createdAt) : new Date(0)
+                  qty: Math.max(0, setupQty),
+                  invested: Math.max(0, setupInvested),
+                  date: new Date(0)
               };
           }
       });
@@ -707,21 +707,19 @@ export default function ExpertTerminal() {
       const targetTs = targetDate.getTime();
       
       Object.keys(setupAwalBases).forEach(sym => {
-          if (setupAwalBases[sym].date.getTime() <= targetTs) {
-              qtyMap[sym] = { qty: setupAwalBases[sym].qty, investedIDR: setupAwalBases[sym].invested };
-          }
+          qtyMap[sym] = { qty: setupAwalBases[sym].qty, investedIDR: setupAwalBases[sym].invested };
       });
 
       const pastTx = chronologicalTxs.filter((t:any) => new Date(t.date).getTime() <= targetTs);
       pastTx.forEach((t:any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
-              const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+              const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
               if (match) {
                   const sym = match[1].toUpperCase().trim();
-                  const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
-                  const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0; 
+                  const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i);
+                  const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(/,/g, '')) : 0; 
                   
-                  const priceMatch = t.description?.match(/@\s*(?:Rp|USD|US\$)?\s*([0-9.,]+)/i);
+                  const priceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
                   const rawPrice = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
 
                   const asset = activePortfolio.find((p: any) => p.symbol === sym);
@@ -850,15 +848,15 @@ export default function ExpertTerminal() {
   }, [getSnapshotAtDate]);
 
   const chartDataDaily = useMemo(() => {
-     if (activePortfolio.length === 0 || Object.keys(historyPrices).length === 0) return [];
+     if (activePortfolio.length === 0 && cashBalance === 0) return [];
 
      const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => {
-         const match = t.description?.match(/(?:lot\/unit\s+)([^|@\s]+)/i);
+         const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
          const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
-         const qtyMatch = t.description?.match(/([0-9.]+)\s+lot\/unit/i);
-         const qty = qtyMatch ? parseFloat(qtyMatch[1]) : 0;
+         const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i);
+         const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(/,/g, '')) : 0;
 
-         const priceMatch = t.description?.match(/@\s*(?:Rp|USD|US\$)?\s*([0-9.,]+)/i);
+         const priceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
          const rawPrice = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
 
          const asset = activePortfolio.find((p: any) => p.symbol === sym);
@@ -894,12 +892,10 @@ export default function ExpertTerminal() {
          startTimeframe = now - 90 * 24 * 60 * 60 * 1000;
          stepSize = 24 * 60 * 60 * 1000; 
      } else if (chartTimeframe === '1Y') {
-         const hasBase = Object.keys(setupAwalBases).length > 0;
-         startTimeframe = hasBase ? (now - 365 * 24 * 60 * 60 * 1000) : Math.max(firstDate, now - 365 * 24 * 60 * 60 * 1000);
+         startTimeframe = now - 365 * 24 * 60 * 60 * 1000;
          stepSize = 24 * 60 * 60 * 1000; 
      } else if (chartTimeframe === '5Y') {
-         const hasBase = Object.keys(setupAwalBases).length > 0;
-         startTimeframe = hasBase ? (now - 1825 * 24 * 60 * 60 * 1000) : Math.max(firstDate, now - 1825 * 24 * 60 * 60 * 1000);
+         startTimeframe = now - 1825 * 24 * 60 * 60 * 1000;
          stepSize = 3 * 24 * 60 * 60 * 1000; 
      }
      
@@ -920,7 +916,7 @@ export default function ExpertTerminal() {
 
      const getQtyAtTime = (sym: string, targetTs: number) => {
          let q = 0;
-         if (setupAwalBases[sym] && setupAwalBases[sym].date.getTime() <= targetTs) {
+         if (setupAwalBases[sym]) {
              q = setupAwalBases[sym].qty;
          }
          parsedInvestTxs.forEach((t: any) => {
@@ -964,10 +960,8 @@ export default function ExpertTerminal() {
          let currentInvestedIDR: Record<string, number> = {};
 
          Object.keys(setupAwalBases).forEach(sym => {
-             if (setupAwalBases[sym].date.getTime() <= currentTs) {
-                 currentQty[sym] = setupAwalBases[sym].qty;
-                 currentInvestedIDR[sym] = setupAwalBases[sym].invested;
-             }
+             currentQty[sym] = setupAwalBases[sym].qty;
+             currentInvestedIDR[sym] = setupAwalBases[sym].invested;
          });
 
          parsedInvestTxs.forEach((t: any) => {
@@ -1033,18 +1027,39 @@ export default function ExpertTerminal() {
 
                  const divs = dividendEvents[ticker] || [];
                  divs.forEach((d: any) => {
-                     const divTsMs = d.date * 1000;
+                     const divTsMs = d.date * 1000; 
                      if (divTsMs > currentTs && divTsMs <= (currentTs + stepSize)) {
                          cumulativeDividend += (d.amount * currentQty[sym] * multiplier);
                      }
                  });
              }
          });
+
+         // Jaminan sinkronisasi presisi pada titik paling mutakhir (Today)
+         const isLatestPoint = (currentTs + stepSize > endTs);
+         if (isLatestPoint) {
+             if (chartAssetFilter === 'ALL') {
+                 dailyValuation = totalAssetValue;
+                 dailyInvested = totalInvested;
+             } else {
+                 const assetMeta = activePortfolio.find((p: any) => p.symbol === chartAssetFilter);
+                 if (assetMeta) {
+                     const liveP = livePrices[assetMeta.activeTicker];
+                     dailyValuation = liveP ? (assetMeta.qty * liveP * assetMeta.liveMultiplier) : assetMeta.totalModalIDR;
+                     dailyInvested = assetMeta.totalModalIDR;
+                 }
+             }
+         }
+
+         const pointCash = chartAssetFilter === 'ALL' ? cashBalance : 0;
+         const pointTotalWealth = dailyValuation + pointCash;
                  
          dailyData.push({
              name: dateLabel,
+             TotalKekayaan: pointTotalWealth,
              Total: dailyValuation,
              Investasi: dailyInvested,
+             Kas: pointCash,
              Dividend: cumulativeDividend
          });
 
@@ -1052,7 +1067,7 @@ export default function ExpertTerminal() {
      }
 
      return dailyData;
-  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices, chartAssetFilter, getHistoricalRate, dividendEvents]); 
+  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices, chartAssetFilter, getHistoricalRate, dividendEvents, cashBalance, totalAssetValue, totalInvested]); 
 
   // Isolated Y-Domain calculation to prevent Recharts rendering loops and crashes
   const chartYDomain = useMemo(() => {
@@ -1061,8 +1076,10 @@ export default function ExpertTerminal() {
       let min = Infinity, max = -Infinity;
       chartDataDaily.forEach((d: any) => {
           const vals: number[] = [];
+          if (chartLineFilter === 'ALL' || chartLineFilter === 'TOTAL_WEALTH') vals.push(d.TotalKekayaan);
           if (chartLineFilter === 'ALL' || chartLineFilter === 'MARKET_VALUE') vals.push(d.Total);
           if (chartLineFilter === 'ALL' || chartLineFilter === 'MODAL') vals.push(d.Investasi);
+          if (chartLineFilter === 'ALL' || chartLineFilter === 'KAS') vals.push(d.Kas);
           if (chartLineFilter === 'DIVIDEND') vals.push(d.Dividend);
           
           vals.forEach(v => {
@@ -1729,11 +1746,13 @@ export default function ExpertTerminal() {
                              <button key={tf} onClick={() => setChartTimeframe(tf as any)} className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold transition-all ${chartTimeframe===tf?'bg-[#00E5FF] text-black':'text-[#A1A1AA] hover:text-white'}`}>{tf}</button>
                          ))}
                       </div>
-                      <div className="flex bg-[#111] border border-[#333]">
-                         <button onClick={() => setChartLineFilter('ALL')} className={`px-3 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='ALL'?'bg-[#333] text-white':'text-[#666] hover:text-white'}`}>SEMUA GARIS</button>
-                         <button onClick={() => setChartLineFilter('MARKET_VALUE')} className={`px-3 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='MARKET_VALUE'?'bg-[#FF003C] text-white':'text-[#666] hover:text-white'}`}>MARKET VALUE</button>
-                         <button onClick={() => setChartLineFilter('MODAL')} className={`px-3 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='MODAL'?'bg-[#FFF] text-black':'text-[#666] hover:text-white'}`}>TOTAL MODAL</button>
-                         <button onClick={() => setChartLineFilter('DIVIDEND')} className={`px-3 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='DIVIDEND'?'bg-[#FFD700] text-black':'text-[#666] hover:text-white'}`}>DIVIDEND</button>
+                      <div className="flex flex-wrap bg-[#111] border border-[#333]">
+                         <button onClick={() => setChartLineFilter('ALL')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='ALL'?'bg-[#333] text-white':'text-[#666] hover:text-white'}`}>SEMUA GARIS</button>
+                         <button onClick={() => setChartLineFilter('TOTAL_WEALTH')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='TOTAL_WEALTH'?'bg-[#00FF41] text-black':'text-[#666] hover:text-white'}`}>TOTAL KEKAYAAN</button>
+                         <button onClick={() => setChartLineFilter('MARKET_VALUE')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='MARKET_VALUE'?'bg-[#00E5FF] text-black':'text-[#666] hover:text-white'}`}>VALUASI PASAR</button>
+                         <button onClick={() => setChartLineFilter('MODAL')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='MODAL'?'bg-[#FFF] text-black':'text-[#666] hover:text-white'}`}>TOTAL MODAL</button>
+                         <button onClick={() => setChartLineFilter('KAS')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='KAS'?'bg-[#FFD700] text-black':'text-[#666] hover:text-white'}`}>KAS TUNAI</button>
+                         <button onClick={() => setChartLineFilter('DIVIDEND')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='DIVIDEND'?'bg-[#B500FF] text-white':'text-[#666] hover:text-white'}`}>DIVIDEND</button>
                       </div>
                   </div>
                 </div>
@@ -1755,22 +1774,38 @@ export default function ExpertTerminal() {
                                 orientation="right" 
                              />
                              <Tooltip 
-                                formatter={(val: number, name: string) => [maskRp(val), name === 'Total' ? 'Nilai Portofolio (Market)' : name]} 
+                                formatter={(val: number, name: string) => {
+                                   let label = name;
+                                   if (name === 'TotalKekayaan') label = 'Total Kekayaan (Kas + Portofolio)';
+                                   else if (name === 'Total') label = 'Valuasi Portofolio (Market)';
+                                   else if (name === 'Investasi') label = 'Total Modal Investasi';
+                                   else if (name === 'Kas') label = 'Kas Tunai Likuid';
+                                   else if (name === 'Dividend') label = 'Akumulasi Dividen';
+                                   return [maskRp(val), label];
+                                }} 
                                 contentStyle={{backgroundColor: '#000', borderColor: '#333', borderRadius: '0', color: '#fff', fontFamily: 'JetBrains Mono'}} 
                                 itemStyle={{fontWeight: 'bold', fontSize: '11px'}}
                              />
                              <CartesianGrid stroke="#222" strokeDasharray="3 3" vertical={false} />
                              
                              {(chartLineFilter === 'ALL' || chartLineFilter === 'DIVIDEND') && (
-                                 <Area type="stepAfter" dataKey="Dividend" name="Total Dividend" stroke="#FFD700" strokeWidth={2} fillOpacity={0.15} fill="#FFD700" isAnimationActive={false} />
+                                 <Area type="stepAfter" dataKey="Dividend" name="Dividend" stroke="#B500FF" strokeWidth={2} fillOpacity={0.15} fill="#B500FF" isAnimationActive={false} />
                              )}
 
                              {(chartLineFilter === 'ALL' || chartLineFilter === 'MODAL') && (
-                                 <Line type="stepAfter" dataKey="Investasi" name="Total Modal" stroke="#FFFFFF" strokeWidth={3} dot={false} isAnimationActive={false} />
+                                 <Line type="stepAfter" dataKey="Investasi" name="Investasi" stroke="#A1A1AA" strokeWidth={2} strokeDasharray="4 4" dot={false} isAnimationActive={false} />
                              )}
-                             
+
+                             {(chartLineFilter === 'ALL' || chartLineFilter === 'KAS') && (
+                                 <Line type="stepAfter" dataKey="Kas" name="Kas" stroke="#FFD700" strokeWidth={2} dot={false} isAnimationActive={false} />
+                             )}
+
                              {(chartLineFilter === 'ALL' || chartLineFilter === 'MARKET_VALUE') && (
-                                 <Line type="linear" dataKey="Total" name="Nilai Portofolio" stroke="#FF003C" strokeWidth={2} dot={false} activeDot={{ r: 6, fill: '#FF003C', stroke: '#000', strokeWidth: 2 }} isAnimationActive={false} />
+                                 <Line type="linear" dataKey="Total" name="Total" stroke="#00E5FF" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: '#00E5FF', stroke: '#000', strokeWidth: 2 }} isAnimationActive={false} />
+                             )}
+
+                             {(chartLineFilter === 'ALL' || chartLineFilter === 'TOTAL_WEALTH') && (
+                                 <Line type="linear" dataKey="TotalKekayaan" name="TotalKekayaan" stroke="#00FF41" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#00FF41', stroke: '#000', strokeWidth: 2 }} isAnimationActive={false} />
                              )}
                           </ComposedChart>
                        </ResponsiveContainer>

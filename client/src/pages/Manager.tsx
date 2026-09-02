@@ -262,12 +262,45 @@ export default function Manager() {
       const res = await fetch("/api/admin/users", { headers: { "x-user-email": adminEmail } });
       if (res.ok) {
         const json = await res.json();
-        setUsersList(json.users || json || []);
+        const rawList = Array.isArray(json) ? json : json.users || [];
+        const sep1Date = new Date('2026-09-01T00:00:00+07:00');
+        const filteredList = rawList.filter((u: any) => !u.createdAt || new Date(u.createdAt) >= sep1Date);
+        setUsersList(filteredList);
       }
     } catch (e) {
       console.error("Gagal memuat daftar pengguna:", e);
     } finally {
       setIsLoadingUsers(false);
+    }
+  };
+
+  const handleDeleteUser = async (user: any) => {
+    const confirmName = user.name || user.username || user.email;
+    const promptText = `⚠️ PERINGATAN PENGHAPUSAN AKUN PERMANEN\n\nNama: ${confirmName}\nEmail: ${user.email}\nStatus: ${user.isPro ? 'PRO (Aktif)' : 'FREE'}\n\nSeluruh data transaksi, aset, dan riwayat akun ini akan DIMUSNAHKAN secara permanen.\n\nKetik 'HAPUS' dengan huruf kapital untuk mengonfirmasi:`;
+    
+    const input = prompt(promptText);
+    if (input !== "HAPUS") {
+      if (input !== null) {
+        alert("Penghapusan dibatalkan. Kata konfirmasi tidak sesuai.");
+      }
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", "x-user-email": getAdminEmail() }
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        alert(`✅ Berhasil! Akun ${user.email} dan seluruh datanya telah dihapus permanen.`);
+        await fetchUsersList();
+        await fetchDashboardStats();
+      } else {
+        alert(json.error || "Gagal menghapus pengguna.");
+      }
+    } catch (e: any) {
+      alert("Terjadi kesalahan jaringan saat menghapus pengguna: " + (e.message || ""));
     }
   };
 
@@ -1265,12 +1298,22 @@ export default function Manager() {
                                 </span>
                               </td>
                               <td className="px-4 py-3.5 text-center">
-                                <button 
-                                  onClick={() => handleTogglePro(u, true)}
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black uppercase px-4 py-2 rounded-lg transition-all shadow-sm flex items-center gap-1.5 mx-auto active:scale-95"
-                                >
-                                  <span>⭐</span> JADIKAN PRO
-                                </button>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button 
+                                    onClick={() => handleTogglePro(u, true)}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1 active:scale-95 whitespace-nowrap"
+                                    title="Beri Akses PRO"
+                                  >
+                                    <span>⭐</span> PRO
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteUser(u)}
+                                    className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 active:scale-95 whitespace-nowrap"
+                                    title="Hapus Akun Pengguna Ini"
+                                  >
+                                    <IconTrash /> HAPUS
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -1353,12 +1396,22 @@ export default function Manager() {
                                 )}
                               </td>
                               <td className="px-4 py-3.5 text-center">
-                                <button 
-                                  onClick={() => handleTogglePro(u, false)}
-                                  className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 text-[10px] font-bold uppercase px-3 py-1.5 rounded-lg transition-colors"
-                                >
-                                  CABUT PRO
-                                </button>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button 
+                                    onClick={() => handleTogglePro(u, false)}
+                                    className="bg-amber-50 hover:bg-amber-100 text-amber-700 hover:text-amber-800 border border-amber-200 text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                                    title="Cabut Akses PRO"
+                                  >
+                                    CABUT PRO
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteUser(u)}
+                                    className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 active:scale-95 whitespace-nowrap"
+                                    title="Hapus Akun Pengguna Ini"
+                                  >
+                                    <IconTrash /> HAPUS
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))
