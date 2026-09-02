@@ -600,38 +600,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       try {
           await db.execute(sql`CREATE TABLE IF NOT EXISTS tracking_events (id SERIAL PRIMARY KEY, anonymous_id TEXT NOT NULL, user_id INTEGER, event_name TEXT NOT NULL, properties TEXT, created_at TIMESTAMP DEFAULT NOW());`);
+          await db.execute(sql`CREATE TABLE IF NOT EXISTS manager_excluded_users (id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE, email TEXT, excluded_at TIMESTAMP DEFAULT NOW());`);
 
-          const allEventsRes = await db.execute(sql`SELECT * FROM tracking_events ORDER BY created_at DESC`);
-          const allEvents = Array.isArray(allEventsRes) ? allEventsRes : (allEventsRes as any).rows || [];
+          // Hapus seluruh event tracking sebelum 1 September 2026 tanpa sisa khusus untuk data pelaporan manager
+          try {
+              await db.execute(sql`DELETE FROM tracking_events WHERE created_at < '2026-09-01 00:00:00+07'`);
+          } catch(errPurge) {}
 
-          const allUsersRes = await db.execute(sql`SELECT * FROM users`);
-          const allUsers = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
+          const sep1Date = new Date('2026-09-01T00:00:00+07:00');
+
+          // Daftar pengguna yang dikeluarkan dari seluruh pelaporan manager
+          const excludedUsersRes = await db.execute(sql`SELECT * FROM manager_excluded_users`);
+          const excludedRows = Array.isArray(excludedUsersRes) ? excludedUsersRes : (excludedUsersRes as any).rows || [];
+          const excludedUserIds = new Set(excludedRows.map((r: any) => r.user_id).filter(Boolean));
+          const excludedEmails = new Set(excludedRows.map((r: any) => (r.email || '').toLowerCase().trim()).filter(Boolean));
+
+          const allEventsRes = await db.execute(sql`SELECT * FROM tracking_events WHERE created_at >= '2026-09-01 00:00:00+07' ORDER BY created_at DESC`);
+          const rawEvents = Array.isArray(allEventsRes) ? allEventsRes : (allEventsRes as any).rows || [];
+          const allEvents = rawEvents.filter((e: any) => {
+              if (e.created_at && new Date(e.created_at) < sep1Date) return false;
+              if (e.user_id && excludedUserIds.has(e.user_id)) return false;
+              if (e.properties) {
+                  try {
+                      const p = JSON.parse(e.properties);
+                      if (p.email && excludedEmails.has(p.email.toLowerCase().trim())) return false;
+                  } catch(err) {}
+              }
+              return true;
+          });
+
+          const allUsersRes = await db.execute(sql`SELECT * FROM users WHERE created_at >= '2026-09-01 00:00:00+07'`);
+          const rawUsers = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
+          const allUsers = rawUsers.filter((u: any) => {
+              if (u.created_at && new Date(u.created_at) < sep1Date) return false;
+              if (excludedUserIds.has(u.id)) return false;
+              if (u.email && excludedEmails.has(u.email.toLowerCase().trim())) return false;
+              if (u.username && excludedEmails.has(u.username.toLowerCase().trim())) return false;
+              return true;
+          });
+          const validUserIds = new Set(allUsers.map((u: any) => u.id));
           
-          const allTxRes = await db.execute(sql`SELECT * FROM transactions`);
-          const allTxs = Array.isArray(allTxRes) ? allTxRes : (allTxRes as any).rows || [];
+          const allTxRes = await db.execute(sql`SELECT * FROM transactions WHERE date >= '2026-09-01 00:00:00+07'`);
+          const rawTxs = Array.isArray(allTxRes) ? allTxRes : (allTxRes as any).rows || [];
+          const allTxs = rawTxs.filter((t: any) => {
+              if (t.date && new Date(t.date) < sep1Date) return false;
+              const uid = t.user_id || t.userId;
+              if (uid && (excludedUserIds.has(uid) || !validUserIds.has(uid))) return false;
+              return true;
+          });
 
           let forexAssetsList: any[] = [];
           try {
               const forexRes = await db.execute(sql`SELECT * FROM forex_assets`);
-              forexAssetsList = Array.isArray(forexRes) ? forexRes : (forexRes as any).rows || [];
+              const rawForex = Array.isArray(forexRes) ? forexRes : (forexRes as any).rows || [];
+              forexAssetsList = rawForex.filter((f: any) => validUserIds.has(f.user_id || f.userId));
           } catch(e) {}
 
           let investmentsList: any[] = [];
           try {
               const invRes = await db.execute(sql`SELECT * FROM investments`);
-              investmentsList = Array.isArray(invRes) ? invRes : (invRes as any).rows || [];
+              const rawInv = Array.isArray(invRes) ? invRes : (invRes as any).rows || [];
+              investmentsList = rawInv.filter((inv: any) => validUserIds.has(inv.user_id || inv.userId));
           } catch(e) {}
 
           let retainedList: any[] = [];
           try {
               const retRes = await db.execute(sql`SELECT * FROM retained_balances`);
-              retainedList = Array.isArray(retRes) ? retRes : (retRes as any).rows || [];
+              const rawRet = Array.isArray(retRes) ? retRes : (retRes as any).rows || [];
+              retainedList = rawRet.filter((r: any) => validUserIds.has(r.user_id || r.userId));
           } catch(e) {}
 
           let debtsList: any[] = [];
           try {
               const debtRes = await db.execute(sql`SELECT * FROM debts`);
-              debtsList = Array.isArray(debtRes) ? debtRes : (debtRes as any).rows || [];
+              const rawDebt = Array.isArray(debtRes) ? debtRes : (debtRes as any).rows || [];
+              debtsList = rawDebt.filter((d: any) => validUserIds.has(d.user_id || d.userId));
           } catch(e) {}
 
           const metrics = { 
@@ -703,7 +746,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
 
               const eventDate = new Date(e.created_at || now);
+              if (eventDate < sep1Date) return;
               const dateStr = eventDate.toISOString().split('T')[0];
+              if (dateStr < '2026-09-01') return;
               if (!dailyTrend[dateStr]) dailyTrend[dateStr] = { visitors: 0, pwa_clicks: 0, sales: 0, checkouts: 0 };
 
               if (e.user_id) {
@@ -746,14 +791,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const amountNum = Number(props.amount || 0);
                   if (amountNum > 0) totalRevenue += amountNum;
 
-                  transactionHistory.push({
-                      date: e.created_at,
-                      name: props.name || props.customerName || "Member Bilano",
-                      email: props.email || "-",
-                      phone: props.phone || "-",
-                      plan: (props.plan === 'year' || props.plan === 'yearly') ? 'Tahunan' : 'Bulanan',
-                      amount: amountNum || ((props.plan === 'year' || props.plan === 'yearly') ? 99000 : 14900)
-                  });
+                  if (!props.email || !excludedEmails.has(props.email.toLowerCase().trim())) {
+                      transactionHistory.push({
+                          date: e.created_at,
+                          name: props.name || props.customerName || "Member Bilano",
+                          email: props.email || "-",
+                          phone: props.phone || "-",
+                          plan: (props.plan === 'year' || props.plan === 'yearly') ? 'Tahunan' : 'Bulanan',
+                          amount: amountNum || ((props.plan === 'year' || props.plan === 'yearly') ? 99000 : 14900)
+                      });
+                  }
               }
 
               // APP / PWA FEATURE ADOPTION EVENTS ACROSS 16 MODULES
@@ -823,14 +870,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Lengkapi hitungan manual input dari total transaksi di DB
           featureAdoption.manual_input = Math.max(featureAdoption.manual_input, allTxs.length);
 
-          const sep1Date = new Date('2026-09-01T00:00:00+07:00');
-          const validSepUsers = allUsers.filter((u: any) => u.created_at && new Date(u.created_at) >= sep1Date);
-
           const funnel = {
              landing: Math.max(metrics.landing_viewed, new Set(allEvents.filter(e => e.event_name === 'landing_page_viewed' || e.event_name === 'landing_visit').map(e => e.anonymous_id)).size),
              pwa_clicked: Math.max(metrics.pwa_button_clicked, new Set(allEvents.filter(e => e.event_name === 'pwa_install_button_clicked').map(e => e.anonymous_id)).size),
              pwa_installed: Math.max(metrics.pwa_installed, new Set(allEvents.filter(e => e.event_name === 'pwa_install_accepted' || e.event_name === 'pwa_installed').map(e => e.anonymous_id)).size),
-             registered: validSepUsers.length,
+             registered: allUsers.length,
              checkout: Math.max(metrics.checkout_initiated, new Set(allEvents.filter(e => e.event_name === 'checkout_initiated').map(e => e.anonymous_id)).size),
              paid: Math.max(metrics.payment_success, new Set(allEvents.filter(e => e.event_name === 'payment_success').map(e => e.anonymous_id)).size),
           };
@@ -899,13 +943,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           });
 
-          const dailyTrendArray = Object.keys(dailyTrend).sort().map(key => ({
+          const dailyTrendArray = Object.keys(dailyTrend).filter(key => key >= '2026-09-01').sort().map(key => ({
               date: key, 
               visitors: dailyTrend[key].visitors, 
               pwa_clicks: dailyTrend[key].pwa_clicks,
               sales: dailyTrend[key].sales,
               checkouts: dailyTrend[key].checkouts
-          })).slice(-30);
+          }));
 
           const appMetrics = {
               dau: activeUsersToday.size,
@@ -2849,6 +2893,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
       const email = req.headers["x-user-email"] as string;
       if (!isAdminValid(email)) return res.status(403).json({ error: "Akses Ditolak. Anda bukan admin." });
       try { 
+          await db.execute(sql`CREATE TABLE IF NOT EXISTS manager_excluded_users (id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE, email TEXT, excluded_at TIMESTAMP DEFAULT NOW());`);
           const allUsersRes = await db.execute(sql`
             SELECT 
               u.id, 
@@ -2868,6 +2913,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
             FROM users u
             LEFT JOIN transactions t ON t.user_id = u.id
             WHERE u.created_at >= '2026-09-01 00:00:00+07'
+              AND u.id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL)
+              AND LOWER(COALESCE(u.email, u.username, '')) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND email != '')
             GROUP BY u.id
             ORDER BY u.created_at DESC
           `);
@@ -2904,6 +2951,42 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
       } 
       catch (e: any) { 
           res.status(500).json({ error: "Gagal memuat data pengguna: " + e.message }); 
+      }
+  });
+
+  app.post("/api/admin/exclude-user", async (req: any, res: any) => {
+      const emailAdmin = req.headers["x-user-email"] as string;
+      if (!isAdminValid(emailAdmin)) return res.status(403).json({ error: "Akses Ditolak. Anda bukan admin." });
+      try {
+          await db.execute(sql`CREATE TABLE IF NOT EXISTS manager_excluded_users (id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE, email TEXT, excluded_at TIMESTAMP DEFAULT NOW());`);
+          const userId = req.body.userId ? parseInt(req.body.userId) : null;
+          const userEmail = (req.body.email || "").trim().toLowerCase();
+
+          if (!userId && !userEmail) {
+              return res.status(400).json({ error: "Data pengguna tidak valid." });
+          }
+
+          if (userEmail && isAdminValid(userEmail)) {
+              return res.status(400).json({ error: "Akun Super Admin tidak dapat dihapus dari pelaporan manager." });
+          }
+
+          if (userId) {
+              await db.execute(sql`INSERT INTO manager_excluded_users (user_id, email) VALUES (${userId}, ${userEmail}) ON CONFLICT (user_id) DO UPDATE SET email = EXCLUDED.email`);
+              await db.execute(sql`DELETE FROM tracking_events WHERE user_id = ${userId}`);
+          } else if (userEmail) {
+              await db.execute(sql`INSERT INTO manager_excluded_users (email) VALUES (${userEmail})`);
+          }
+
+          if (userEmail) {
+              await db.execute(sql`DELETE FROM tracking_events WHERE properties ILIKE ${'%' + userEmail + '%'}`);
+          }
+
+          res.json({
+              success: true,
+              message: "Pengguna berhasil dihapus dari seluruh data pelaporan manager tanpa menghapus akunnya."
+          });
+      } catch (e: any) {
+          res.status(500).json({ error: "Gagal menghapus pengguna dari data manager: " + e.message });
       }
   });
 
@@ -3134,13 +3217,35 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
   app.get("/api/admin/help", async (req: any, res: any) => {
       const email = req.headers["x-user-email"] as string;
       if (!isAdminValid(email)) return res.status(403).json({ error: "Penyusup Ditolak" });
-      try { const result = await db.execute(sql`SELECT * FROM help_tickets ORDER BY date DESC`); const rows = Array.isArray(result) ? result : (result as any).rows || []; res.json(rows); } catch (e) { res.json([]); }
+      try { 
+          await db.execute(sql`CREATE TABLE IF NOT EXISTS manager_excluded_users (id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE, email TEXT, excluded_at TIMESTAMP DEFAULT NOW());`);
+          const result = await db.execute(sql`
+            SELECT * FROM help_tickets 
+            WHERE date >= '2026-09-01 00:00:00+07'
+              AND LOWER(email) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND email != '')
+              AND (user_id IS NULL OR user_id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL))
+            ORDER BY date DESC
+          `); 
+          const rows = Array.isArray(result) ? result : (result as any).rows || []; 
+          res.json(rows); 
+      } catch (e) { res.json([]); }
   });
 
   app.get("/api/admin/tickets", async (req: any, res: any) => {
       const email = req.headers["x-user-email"] as string;
       if (!isAdminValid(email)) return res.status(403).json({ error: "Penyusup Ditolak" });
-      try { const result = await db.execute(sql`SELECT * FROM help_tickets ORDER BY date DESC`); const rows = Array.isArray(result) ? result : (result as any).rows || []; res.json(rows); } catch (e) { res.json([]); }
+      try { 
+          await db.execute(sql`CREATE TABLE IF NOT EXISTS manager_excluded_users (id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE, email TEXT, excluded_at TIMESTAMP DEFAULT NOW());`);
+          const result = await db.execute(sql`
+            SELECT * FROM help_tickets 
+            WHERE date >= '2026-09-01 00:00:00+07'
+              AND LOWER(email) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND email != '')
+              AND (user_id IS NULL OR user_id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL))
+            ORDER BY date DESC
+          `); 
+          const rows = Array.isArray(result) ? result : (result as any).rows || []; 
+          res.json(rows); 
+      } catch (e) { res.json([]); }
   });
 
   const handleHelpReply = async (req: any, res: any) => {

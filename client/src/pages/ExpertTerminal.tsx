@@ -17,6 +17,31 @@ import TerminalAIChat from "./TerminalAIChat";
 const COLORS = ['#00FF41', '#00E5FF', '#FF003C', '#FFD700', '#B500FF', '#FF8C00', '#FFFFFF'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
 
+function parseFormattedNumber(str: string): number {
+  if (!str) return 0;
+  const clean = str.trim();
+  if (clean.includes(',') && clean.includes('.')) {
+    if (clean.indexOf(',') < clean.indexOf('.')) {
+      return parseFloat(clean.replace(/,/g, '')) || 0;
+    } else {
+      return parseFloat(clean.replace(/\./g, '').replace(/,/g, '.')) || 0;
+    }
+  }
+  if (clean.includes(',')) {
+    if (/,\d{3}(?:,|$)/.test(clean) || /,\d{3}$/.test(clean)) {
+      return parseFloat(clean.replace(/,/g, '')) || 0;
+    }
+    return parseFloat(clean.replace(/,/g, '.')) || 0;
+  }
+  if (clean.includes('.')) {
+    if (/\.\d{3}(?:\.|$)/.test(clean) || /\.\d{3}$/.test(clean)) {
+      return parseFloat(clean.replace(/\./g, '')) || 0;
+    }
+    return parseFloat(clean) || 0;
+  }
+  return parseFloat(clean) || 0;
+}
+
 export default function ExpertTerminal() {
   const { toast } = useToast();
   
@@ -581,7 +606,7 @@ export default function ExpertTerminal() {
       const symbol = match ? match[1].toUpperCase().trim() : 'Unknown';
       
       const sellPriceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
-      const sellPriceRaw = sellPriceMatch ? parseFloat(sellPriceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
+      const sellPriceRaw = sellPriceMatch ? parseFormattedNumber(sellPriceMatch[1]) : 0;
 
       const isUSD = t.description?.includes('USD') || t.description?.includes('US$');
       const currency = isUSD ? 'USD' : 'IDR'; 
@@ -590,9 +615,18 @@ export default function ExpertTerminal() {
       const txDateTs = new Date(t.date).getTime();
       const historicalRate = isIDR ? 1 : getHistoricalRate(txDateTs, currency);
       
-      const sellPriceIDR = sellPriceRaw * historicalRate;
       const isStock = symbol.length === 4; 
       const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(symbol);
+      const multiplier = (isStock && isIDR && !isGold) ? 100 : 1;
+
+      const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i);
+      const parsedQty = qtyMatch ? parseFormattedNumber(qtyMatch[1]) : 1;
+
+      let sellPriceIDR = sellPriceRaw * historicalRate;
+      if (t.amount && parsedQty > 0) {
+          sellPriceIDR = Number(t.amount) / (parsedQty * multiplier);
+      }
+      
       const knownUS = ['AAPL', 'MSFT', 'GOOG', 'TSLA', 'AMZN', 'META', 'QQQM', 'IVV', 'VOO', 'SPY'];
       
       let defaultTicker = symbol;
@@ -605,7 +639,8 @@ export default function ExpertTerminal() {
 
   const totalAssetValue = activePortfolio.reduce((acc: any, p: any) => {
     const livePriceAPI = livePrices[p.activeTicker];
-    const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
+    const currentRate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
+    const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * currentRate) : p.totalModalIDR;
     return acc + liveValuationIDR;
   }, 0);
 
@@ -614,16 +649,22 @@ export default function ExpertTerminal() {
   const totalWealth = cashBalance + totalAssetValue;
 
   const realizedTrades = useMemo(() => {
-    return realizedTradesBase.map((t: any) => ({
-        ...t, livePriceIDR: livePrices[t.activeTicker] || 0
-    }));
-  }, [realizedTradesBase, livePrices]);
+    return realizedTradesBase.map((t: any) => {
+        const currentRate = t.currency === 'IDR' ? 1 : (Number(forexRates[t.currency]) || 16200);
+        const livePricePerShare = livePrices[t.activeTicker] || 0;
+        const livePriceIDR = livePricePerShare * currentRate;
+        return {
+            ...t, livePriceIDR
+        };
+    });
+  }, [realizedTradesBase, livePrices, forexRates]);
 
   const pieData = [
     { name: 'Cash Tunai', value: cashBalance },
     ...activePortfolio.map((p: any) => {
        const livePriceAPI = livePrices[p.activeTicker];
-       const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
+       const currentRate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
+       const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * currentRate) : p.totalModalIDR;
        return { name: p.symbol, value: liveValuationIDR };
     })
   ].filter((d: any) => d.value > 0);
@@ -658,19 +699,19 @@ export default function ExpertTerminal() {
               const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
               const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
               const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i); 
-              const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(/,/g, '')) : 0;
+              const qty = qtyMatch ? parseFormattedNumber(qtyMatch[1]) : 0;
               
               const priceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
-              const rawPrice = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
+              const rawPrice = priceMatch ? parseFormattedNumber(priceMatch[1]) : 0;
 
               const asset = activePortfolio.find((p: any) => p.symbol === sym);
               const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
               const multiplier = asset ? asset.liveMultiplier : (sym.length === 4 ? 100 : 1);
               const rate = currency === 'IDR' ? 1 : getHistoricalRate(new Date(t.date).getTime(), currency);
 
-              let realAmountIDR = rawPrice * qty * multiplier * rate;
+              let realAmountIDR = Number(t.amount);
               if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) {
-                  realAmountIDR = t.amount;
+                  realAmountIDR = rawPrice * qty * multiplier * rate;
               }
               
               if (!txNetQty[sym]) txNetQty[sym] = { qty: 0, invested: 0 };
@@ -695,7 +736,7 @@ export default function ExpertTerminal() {
               bases[p.symbol] = {
                   qty: Math.max(0, setupQty),
                   invested: Math.max(0, setupInvested),
-                  date: new Date(0)
+                  date: p.createdAt ? new Date(p.createdAt) : new Date(0)
               };
           }
       });
@@ -707,7 +748,9 @@ export default function ExpertTerminal() {
       const targetTs = targetDate.getTime();
       
       Object.keys(setupAwalBases).forEach(sym => {
-          qtyMap[sym] = { qty: setupAwalBases[sym].qty, investedIDR: setupAwalBases[sym].invested };
+          if (setupAwalBases[sym].date.getTime() <= targetTs) {
+              qtyMap[sym] = { qty: setupAwalBases[sym].qty, investedIDR: setupAwalBases[sym].invested };
+          }
       });
 
       const pastTx = chronologicalTxs.filter((t:any) => new Date(t.date).getTime() <= targetTs);
@@ -717,19 +760,19 @@ export default function ExpertTerminal() {
               if (match) {
                   const sym = match[1].toUpperCase().trim();
                   const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i);
-                  const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(/,/g, '')) : 0; 
+                  const qty = qtyMatch ? parseFormattedNumber(qtyMatch[1]) : 0; 
                   
                   const priceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
-                  const rawPrice = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
+                  const rawPrice = priceMatch ? parseFormattedNumber(priceMatch[1]) : 0;
 
                   const asset = activePortfolio.find((p: any) => p.symbol === sym);
                   const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
                   const multiplier = asset ? asset.liveMultiplier : (sym.length === 4 ? 100 : 1);
                   const rate = currency === 'IDR' ? 1 : getHistoricalRate(new Date(t.date).getTime(), currency);
 
-                  let realAmountIDR = rawPrice * qty * multiplier * rate;
+                  let realAmountIDR = Number(t.amount);
                   if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) {
-                      realAmountIDR = t.amount;
+                      realAmountIDR = rawPrice * qty * multiplier * rate;
                   }
                   
                   if (!qtyMap[sym]) qtyMap[sym] = { qty: 0, investedIDR: 0 };
@@ -791,7 +834,8 @@ export default function ExpertTerminal() {
                   price = historicalPrice || price;
               }
               
-              const valuasi = price ? (qtyMap[sym].qty * price * liveMultiplier) : qtyMap[sym].investedIDR;
+              const currentRate = currentAsset.currency === 'IDR' ? 1 : (isCurrent ? (Number(forexRates[currentAsset.currency]) || 16200) : getHistoricalRate(targetTs, currentAsset.currency));
+              const valuasi = price ? (qtyMap[sym].qty * price * liveMultiplier * currentRate) : qtyMap[sym].investedIDR;
               details[sym] = { invested: qtyMap[sym].investedIDR, valuasi, qty: qtyMap[sym].qty };
               totalInv += qtyMap[sym].investedIDR;
               totalVal += valuasi;
@@ -801,7 +845,7 @@ export default function ExpertTerminal() {
       });
       
       return { totalValue: totalVal, investValue: totalInv, details };
-  }, [setupAwalBases, chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate, getHistoricalRate, simHistoryPrices]);
+  }, [setupAwalBases, chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate, getHistoricalRate, simHistoryPrices, forexRates]);
 
   const availableMonths = useMemo(() => {
       const currentYear = new Date().getFullYear();
@@ -849,15 +893,14 @@ export default function ExpertTerminal() {
 
   const chartDataDaily = useMemo(() => {
      if (activePortfolio.length === 0 && cashBalance === 0) return [];
-
-     const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => {
+const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => {
          const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
          const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
          const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i);
-         const qty = qtyMatch ? parseFloat(qtyMatch[1].replace(/,/g, '')) : 0;
+         const qty = qtyMatch ? parseFormattedNumber(qtyMatch[1]) : 0;
 
          const priceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
-         const rawPrice = priceMatch ? parseFloat(priceMatch[1].replace(/\./g, '').replace(/,/g, '.')) : 0;
+         const rawPrice = priceMatch ? parseFormattedNumber(priceMatch[1]) : 0;
 
          const asset = activePortfolio.find((p: any) => p.symbol === sym);
          const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
@@ -865,9 +908,9 @@ export default function ExpertTerminal() {
          const txDateTs = new Date(t.date).getTime();
          const historicalRate = currency === 'IDR' ? 1 : getHistoricalRate(txDateTs, currency);
 
-         let realAmountIDR = rawPrice * qty * multiplier * historicalRate;
+         let realAmountIDR = Number(t.amount);
          if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) {
-             realAmountIDR = t.amount;
+             realAmountIDR = rawPrice * qty * multiplier * historicalRate;
          }
 
          return { ...t, parsedSymbol: sym, parsedQty: qty, parsedRealAmountIDR: realAmountIDR };
@@ -960,8 +1003,10 @@ export default function ExpertTerminal() {
          let currentInvestedIDR: Record<string, number> = {};
 
          Object.keys(setupAwalBases).forEach(sym => {
-             currentQty[sym] = setupAwalBases[sym].qty;
-             currentInvestedIDR[sym] = setupAwalBases[sym].invested;
+             if (setupAwalBases[sym].date.getTime() <= currentTs) {
+                 currentQty[sym] = setupAwalBases[sym].qty;
+                 currentInvestedIDR[sym] = setupAwalBases[sym].invested;
+             }
          });
 
          parsedInvestTxs.forEach((t: any) => {
@@ -1016,7 +1061,8 @@ export default function ExpertTerminal() {
 
                  if (isNaN(price) || !isFinite(price)) price = 0;
 
-                 let val = currentQty[sym] * price * multiplier;
+                 const assetRate = (assetMeta?.currency === 'IDR' || !assetMeta) ? 1 : getHistoricalRate(currentTs, assetMeta.currency);
+                 let val = currentQty[sym] * price * multiplier * assetRate;
                  if (isNaN(val) || !isFinite(val)) val = 0;
 
                  let invested = currentInvestedIDR[sym];
@@ -1035,7 +1081,6 @@ export default function ExpertTerminal() {
              }
          });
 
-         // Jaminan sinkronisasi presisi pada titik paling mutakhir (Today)
          const isLatestPoint = (currentTs + stepSize > endTs);
          if (isLatestPoint) {
              if (chartAssetFilter === 'ALL') {
@@ -1045,13 +1090,30 @@ export default function ExpertTerminal() {
                  const assetMeta = activePortfolio.find((p: any) => p.symbol === chartAssetFilter);
                  if (assetMeta) {
                      const liveP = livePrices[assetMeta.activeTicker];
-                     dailyValuation = liveP ? (assetMeta.qty * liveP * assetMeta.liveMultiplier) : assetMeta.totalModalIDR;
+                     const currentRate = assetMeta.currency === 'IDR' ? 1 : (Number(forexRates[assetMeta.currency]) || 16200);
+                     dailyValuation = liveP ? (assetMeta.qty * liveP * assetMeta.liveMultiplier * currentRate) : assetMeta.totalModalIDR;
                      dailyInvested = assetMeta.totalModalIDR;
                  }
              }
          }
 
-         const pointCash = chartAssetFilter === 'ALL' ? cashBalance : 0;
+         let pointCash = cashBalance;
+         if (chartAssetFilter === 'ALL') {
+             chronologicalTxs.filter((t: any) => new Date(t.date).getTime() > currentTs).forEach((t: any) => {
+                 const amt = Number(t.amount) || 0;
+                 const isNonCash = t.description?.includes('[WRITE_OFF]') || t.description?.includes('[Catat Awal]') || t.description?.includes('(Potong Dompet Valas)');
+                 if (!isNonCash) {
+                     if (['income', 'debt_borrow', 'debt_receive', 'invest_sell', 'forex_sell'].includes(t.type)) pointCash -= amt;
+                     else if (['expense', 'debt_lend', 'debt_pay', 'invest_buy', 'forex_buy'].includes(t.type)) pointCash += amt;
+                 }
+             });
+             if (user?.createdAt && currentTs < new Date(user.createdAt).getTime()) {
+                 pointCash = 0;
+             }
+             pointCash = Math.max(0, Math.round(pointCash));
+         } else {
+             pointCash = 0;
+         }
          const pointTotalWealth = dailyValuation + pointCash;
                  
          dailyData.push({
@@ -1067,7 +1129,7 @@ export default function ExpertTerminal() {
      }
 
      return dailyData;
-  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices, chartAssetFilter, getHistoricalRate, dividendEvents, cashBalance, totalAssetValue, totalInvested]); 
+  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices, chartAssetFilter, getHistoricalRate, dividendEvents, cashBalance, totalAssetValue, totalInvested, forexRates, user]); 
 
   // Isolated Y-Domain calculation to prevent Recharts rendering loops and crashes
   const chartYDomain = useMemo(() => {
@@ -1138,7 +1200,8 @@ export default function ExpertTerminal() {
       
       const assetsDetail = activePortfolio.reduce((acc: any, p: any) => {
          const livePriceAPI = livePrices[p.activeTicker];
-         const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
+         const currentRate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
+         const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * currentRate) : p.totalModalIDR;
          acc[p.symbol] = { invested: p.totalModalIDR, valuasi: liveValuationIDR, qty: p.qty };
          return acc;
       }, {} as Record<string, {invested: number, valuasi: number, qty: number}>);
@@ -1371,12 +1434,27 @@ export default function ExpertTerminal() {
                     </div>
                     <div className="flex justify-between items-center border-b border-[#222] pb-3">
                         <span className="text-[#A1A1AA] text-[10px] font-bold uppercase tracking-[0.15em]">Harga Live/Unit</span>
-                        <span className="text-[#00E5FF] font-mono">{maskRp(livePrices[assetDetailModal.activeTicker] || 0)}</span>
+                        <span className="text-[#00E5FF] font-mono">
+                           {(() => {
+                              const curr = assetDetailModal.currency || 'IDR';
+                              const rawP = livePrices[assetDetailModal.activeTicker] || 0;
+                              const currentRate = curr === 'IDR' ? 1 : (Number(forexRates[curr]) || 16200);
+                              if (curr !== 'IDR') {
+                                return `${curr} ${rawP.toLocaleString('en-US')} (Rp ${Math.round(rawP * currentRate).toLocaleString('id-ID')})`;
+                              }
+                              return maskRp(rawP);
+                           })()}
+                        </span>
                     </div>
                     <div className="flex justify-between items-center pt-1">
                         <span className="text-[#A1A1AA] text-[10px] font-bold uppercase tracking-[0.15em]">Valuasi Total</span>
                         <span className="text-[#00FF41] font-mono font-black text-lg">
-                           {maskRp(assetDetailModal.qty * (livePrices[assetDetailModal.activeTicker] || 0) * assetDetailModal.liveMultiplier)}
+                           {(() => {
+                              const curr = assetDetailModal.currency || 'IDR';
+                              const rawP = livePrices[assetDetailModal.activeTicker] || 0;
+                              const currentRate = curr === 'IDR' ? 1 : (Number(forexRates[curr]) || 16200);
+                              return maskRp(assetDetailModal.qty * rawP * assetDetailModal.liveMultiplier * currentRate);
+                           })()}
                         </span>
                     </div>
                 </div>
@@ -1536,7 +1614,8 @@ export default function ExpertTerminal() {
                               <td className="px-6 py-4">{maskRp(cashBalance)}</td>
                               {activePortfolio.map((p: any) => {
                                 const livePriceAPI = livePrices[p.activeTicker];
-                                const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
+                                const currentRate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
+                                const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * currentRate) : p.totalModalIDR;
                                 return <td key={p.symbol} className="px-6 py-4">{maskRp(liveValuationIDR)}</td>
                               })}
                             </tr>
@@ -1545,7 +1624,8 @@ export default function ExpertTerminal() {
                               <td className="px-6 py-4 text-[#00FF41] font-black">{totalWealth > 0 ? formatPct(cashBalance / totalWealth) : '0%'}</td>
                               {activePortfolio.map((p: any) => {
                                  const livePriceAPI = livePrices[p.activeTicker];
-                                 const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier) : p.totalModalIDR;
+                                 const currentRate = p.currency === 'IDR' ? 1 : (Number(forexRates[p.currency]) || 16200);
+                                 const liveValuationIDR = livePriceAPI ? (p.qty * livePriceAPI * p.liveMultiplier * currentRate) : p.totalModalIDR;
                                  return <td key={p.symbol} className="px-6 py-4 text-[#00E5FF] font-black">{totalWealth > 0 ? formatPct(liveValuationIDR / totalWealth) : '0%'}</td>
                               })}
                             </tr>

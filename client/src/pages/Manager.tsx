@@ -142,7 +142,10 @@ export default function Manager() {
     const savedBenchmarks = localStorage.getItem("bilano_benchmark_snapshots");
     if (savedBenchmarks) {
       try {
-        setBenchmarkHistory(JSON.parse(savedBenchmarks));
+        const parsed = JSON.parse(savedBenchmarks);
+        const sep1 = new Date('2026-09-01T00:00:00+07:00');
+        const valid = Array.isArray(parsed) ? parsed.filter((b: any) => !b.date || new Date(b.date) >= sep1) : [];
+        setBenchmarkHistory(valid);
       } catch(e){}
     }
   }, []);
@@ -244,6 +247,13 @@ export default function Manager() {
       try { json = await res.json(); } catch(e) { json = { error: "Gagal memproses respons server." }; }
 
       if (res.ok) {
+        const sep1Date = new Date('2026-09-01T00:00:00+07:00');
+        if (json.transactionHistory && Array.isArray(json.transactionHistory)) {
+          json.transactionHistory = json.transactionHistory.filter((t: any) => !t.date || new Date(t.date) >= sep1Date);
+        }
+        if (json.dailyTrend && Array.isArray(json.dailyTrend)) {
+          json.dailyTrend = json.dailyTrend.filter((d: any) => d.date >= '2026-09-01');
+        }
         setData(json);
       } else { 
         alert(json.error || "Gagal memuat data intelijen."); 
@@ -264,7 +274,7 @@ export default function Manager() {
         const json = await res.json();
         const rawList = Array.isArray(json) ? json : json.users || [];
         const sep1Date = new Date('2026-09-01T00:00:00+07:00');
-        const filteredList = rawList.filter((u: any) => !u.createdAt || new Date(u.createdAt) >= sep1Date);
+        const filteredList = rawList.filter((u: any) => u.createdAt && new Date(u.createdAt) >= sep1Date);
         setUsersList(filteredList);
       }
     } catch (e) {
@@ -274,30 +284,26 @@ export default function Manager() {
     }
   };
 
-  const handleDeleteUser = async (user: any) => {
+  const handleExcludeUser = async (user: any) => {
     const confirmName = user.name || user.username || user.email;
-    const promptText = `⚠️ PERINGATAN PENGHAPUSAN AKUN PERMANEN\n\nNama: ${confirmName}\nEmail: ${user.email}\nStatus: ${user.isPro ? 'PRO (Aktif)' : 'FREE'}\n\nSeluruh data transaksi, aset, dan riwayat akun ini akan DIMUSNAHKAN secara permanen.\n\nKetik 'HAPUS' dengan huruf kapital untuk mengonfirmasi:`;
+    const confirmMsg = `🗑️ HAPUS DARI DATA PELAPORAN MANAGER\n\nNama: ${confirmName}\nEmail: ${user.email}\nStatus: ${user.isPro ? 'PRO (Aktif)' : 'FREE'}\n\nPengguna ini akan DIHAPUS DARI DATA MANAGER. Seluruh riwayat angkanya di kelima halaman manager akan dihilangkan dan aktivitasnya tidak lagi tercatat.\n\nAkun pengguna TETAP UTUH dan TIDAK DIHAPUS (pengguna tetap dapat login ke aplikasi seperti biasa).\n\nLanjutkan menghapus ${user.email} dari data manager?`;
     
-    const input = prompt(promptText);
-    if (input !== "HAPUS") {
-      if (input !== null) {
-        alert("Penghapusan dibatalkan. Kata konfirmasi tidak sesuai.");
-      }
-      return;
-    }
+    if (!confirm(confirmMsg)) return;
 
     try {
-      const res = await fetch(`/api/admin/users/${user.id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json", "x-user-email": getAdminEmail() }
+      const res = await fetch(`/api/admin/exclude-user`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-email": getAdminEmail() },
+        body: JSON.stringify({ userId: user.id, email: user.email })
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        alert(`✅ Berhasil! Akun ${user.email} dan seluruh datanya telah dihapus permanen.`);
+        alert(`✅ Berhasil! Pengguna ${user.email} telah dihapus dari pelaporan manager (akun tetap utuh).`);
         await fetchUsersList();
         await fetchDashboardStats();
+        await fetchTicketsList();
       } else {
-        alert(json.error || "Gagal menghapus pengguna.");
+        alert(json.error || "Gagal menghapus pengguna dari data manager.");
       }
     } catch (e: any) {
       alert("Terjadi kesalahan jaringan saat menghapus pengguna: " + (e.message || ""));
@@ -311,7 +317,10 @@ export default function Manager() {
       const res = await fetch("/api/admin/tickets", { headers: { "x-user-email": adminEmail } });
       if (res.ok) {
         const json = await res.json();
-        setTickets(json.tickets || json || []);
+        const rawTickets = Array.isArray(json) ? json : json.tickets || [];
+        const sep1Date = new Date('2026-09-01T00:00:00+07:00');
+        const filteredTickets = rawTickets.filter((t: any) => (!t.date && !t.createdAt) || new Date(t.date || t.createdAt) >= sep1Date);
+        setTickets(filteredTickets);
       }
     } catch (e) {
       console.error("Gagal memuat tiket bantuan:", e);
@@ -1307,11 +1316,11 @@ export default function Manager() {
                                     <span>⭐</span> PRO
                                   </button>
                                   <button 
-                                    onClick={() => handleDeleteUser(u)}
+                                    onClick={() => handleExcludeUser(u)}
                                     className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 active:scale-95 whitespace-nowrap"
-                                    title="Hapus Akun Pengguna Ini"
+                                    title="Hapus dari Data Pelaporan Manager"
                                   >
-                                    <IconTrash /> HAPUS
+                                    <IconTrash /> HAPUS DARI DATA
                                   </button>
                                 </div>
                               </td>
@@ -1405,11 +1414,11 @@ export default function Manager() {
                                     CABUT PRO
                                   </button>
                                   <button 
-                                    onClick={() => handleDeleteUser(u)}
+                                    onClick={() => handleExcludeUser(u)}
                                     className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 active:scale-95 whitespace-nowrap"
-                                    title="Hapus Akun Pengguna Ini"
+                                    title="Hapus dari Data Pelaporan Manager"
                                   >
-                                    <IconTrash /> HAPUS
+                                    <IconTrash /> HAPUS DARI DATA
                                   </button>
                                 </div>
                               </td>
