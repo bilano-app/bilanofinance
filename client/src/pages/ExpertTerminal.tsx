@@ -281,6 +281,17 @@ export default function ExpertTerminal() {
               }
           }
       }
+
+      // Jika timestamp target lebih awal dari awal histori, ambil harga awal terdekat
+      if (closestPrice === null && hist.close && hist.close.length > 0) {
+          for (let i = 0; i < hist.close.length; i++) {
+              if (hist.close[i] !== null && hist.close[i] !== undefined) {
+                  closestPrice = hist.close[i];
+                  break;
+              }
+          }
+      }
+
       return closestPrice;
   }, [historyPrices]);
 
@@ -990,97 +1001,57 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
          else if (chartTimeframe === '5Y') dateLabel = dateObj.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
          else dateLabel = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
 
-         let currentQty: Record<string, number> = {};
-         let currentInvestedIDR: Record<string, number> = {};
-
-         Object.keys(setupAwalBases).forEach(sym => {
-             if (setupAwalBases[sym].date.getTime() <= currentTs) {
-                 currentQty[sym] = setupAwalBases[sym].qty;
-                 currentInvestedIDR[sym] = setupAwalBases[sym].invested;
-             }
-         });
-
-         parsedInvestTxs.forEach((t: any) => {
-             if (new Date(t.date).getTime() <= currentTs) {
-                 if (!currentQty[t.parsedSymbol]) { currentQty[t.parsedSymbol] = 0; currentInvestedIDR[t.parsedSymbol] = 0; }
-                 
-                 if (t.type === 'invest_buy') {
-                     currentQty[t.parsedSymbol] += t.parsedQty;
-                     currentInvestedIDR[t.parsedSymbol] += t.parsedRealAmountIDR;
-                 } else {
-                     const currentAvgCost = currentQty[t.parsedSymbol] > 0 
-                         ? (currentInvestedIDR[t.parsedSymbol] / currentQty[t.parsedSymbol]) 
-                         : 0;
-
-                     currentQty[t.parsedSymbol] -= t.parsedQty;
-                     currentInvestedIDR[t.parsedSymbol] -= (t.parsedQty * currentAvgCost);
-
-                     if (currentQty[t.parsedSymbol] <= 0) {
-                         currentQty[t.parsedSymbol] = 0;
-                         currentInvestedIDR[t.parsedSymbol] = 0;
-                     }
-                 }
-             }
-         });
-
          let dailyValuation = 0;
          let dailyInvested = 0;
+         const isLatestPoint = (currentTs + stepSize > endTs);
 
-         Object.keys(currentQty).forEach(sym => {
-             if (currentQty[sym] > 0) {
-                 if (chartAssetFilter !== 'ALL' && sym !== chartAssetFilter) return;
-
-                 const assetMeta = activePortfolio.find((p: any) => p.symbol === sym);
-                 const ticker = assetMeta ? assetMeta.activeTicker : (tickerOverrides[sym] || sym);
-                 const multiplier = assetMeta ? assetMeta.liveMultiplier : 1;
+         if (chartAssetFilter === 'ALL') {
+             activePortfolio.forEach((p: any) => {
+                 const ticker = p.activeTicker;
+                 const multiplier = p.liveMultiplier;
                  const livePriceFallback = livePrices[ticker];
-                 const isIntradayView = chartTimeframe === '1D' || chartTimeframe === '1W';
-
-                 let price = getPriceForDate(ticker, currentTs);
                  
-                 if ((!price || price === 0) && livePriceFallback) {
+                 let price = getPriceForDate(ticker, currentTs);
+                 if (!price || price === 0) {
                      price = livePriceFallback;
                  }
-                 
-                 if (isIntradayView && (currentTs + stepSize > endTs || !getPriceForDate(ticker, currentTs))) {
-                     price = livePriceFallback || price;
+                 if (!price || price === 0) {
+                     price = p.totalModalIDR / (p.qty * multiplier);
                  }
-
-                 if (!price || isNaN(price) || price === 0) {
-                     price = currentInvestedIDR[sym] / (currentQty[sym] * multiplier);
-                 }
-
                  if (isNaN(price) || !isFinite(price)) price = 0;
 
-                 let val = currentQty[sym] * price * multiplier;
-                 if (isNaN(val) || !isFinite(val)) val = 0;
+                 dailyValuation += (p.qty * price * multiplier);
+             });
 
-                 let invested = currentInvestedIDR[sym];
-                 if (isNaN(invested) || !isFinite(invested)) invested = 0;
+             // Modal untuk semua investasi pengguna yang aktif
+             dailyInvested = totalInvested;
 
-                 dailyValuation += val;
-                 dailyInvested += invested;
-
-                 const divs = dividendEvents[ticker] || [];
-                 divs.forEach((d: any) => {
-                     const divTsMs = d.date * 1000; 
-                     if (divTsMs > currentTs && divTsMs <= (currentTs + stepSize)) {
-                         cumulativeDividend += (d.amount * currentQty[sym] * multiplier);
-                     }
-                 });
-             }
-         });
-
-         const isLatestPoint = (currentTs + stepSize > endTs);
-         if (isLatestPoint) {
-             if (chartAssetFilter === 'ALL') {
+             if (isLatestPoint) {
                  dailyValuation = totalAssetValue;
                  dailyInvested = totalInvested;
-             } else {
-                 const assetMeta = activePortfolio.find((p: any) => p.symbol === chartAssetFilter);
-                 if (assetMeta) {
-                     const liveP = livePrices[assetMeta.activeTicker];
-                     dailyValuation = liveP ? (assetMeta.qty * liveP * assetMeta.liveMultiplier) : assetMeta.totalModalIDR;
+             }
+         } else {
+             const assetMeta = activePortfolio.find((p: any) => p.symbol === chartAssetFilter);
+             if (assetMeta) {
+                 const ticker = assetMeta.activeTicker;
+                 const multiplier = assetMeta.liveMultiplier;
+                 const livePriceFallback = livePrices[ticker];
+
+                 let price = getPriceForDate(ticker, currentTs);
+                 if (!price || price === 0) {
+                     price = livePriceFallback;
+                 }
+                 if (!price || price === 0) {
+                     price = assetMeta.totalModalIDR / (assetMeta.qty * multiplier);
+                 }
+                 if (isNaN(price) || !isFinite(price)) price = 0;
+
+                 dailyValuation = assetMeta.qty * price * multiplier;
+                 dailyInvested = assetMeta.totalModalIDR;
+
+                 if (isLatestPoint) {
+                     const liveP = livePrices[ticker];
+                     dailyValuation = liveP ? (assetMeta.qty * liveP * multiplier) : assetMeta.totalModalIDR;
                      dailyInvested = assetMeta.totalModalIDR;
                  }
              }
