@@ -70,7 +70,7 @@ export default function ExpertTerminal() {
   const [chartTimeframe, setChartTimeframe] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | '5Y'>('1M');
   
   const [chartAssetFilter, setChartAssetFilter] = useState<string>('ALL');
-  const [chartLineFilter, setChartLineFilter] = useState<'ALL' | 'TOTAL_WEALTH' | 'MARKET_VALUE' | 'MODAL' | 'KAS' | 'DIVIDEND'>('ALL');
+  const [chartLineFilter, setChartLineFilter] = useState<'ALL' | 'MARKET_VALUE' | 'MODAL'>('ALL');
   
   const [intelStatus, setIntelStatus] = useState("Membangun koneksi ke server agregator...");
 
@@ -1127,11 +1127,8 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
       let min = Infinity, max = -Infinity;
       chartDataDaily.forEach((d: any) => {
           const vals: number[] = [];
-          if (chartLineFilter === 'ALL' || chartLineFilter === 'TOTAL_WEALTH') vals.push(d.TotalKekayaan);
           if (chartLineFilter === 'ALL' || chartLineFilter === 'MARKET_VALUE') vals.push(d.Total);
           if (chartLineFilter === 'ALL' || chartLineFilter === 'MODAL') vals.push(d.Investasi);
-          if (chartLineFilter === 'ALL' || chartLineFilter === 'KAS') vals.push(d.Kas);
-          if (chartLineFilter === 'DIVIDEND') vals.push(d.Dividend);
           
           vals.forEach(v => {
               if (typeof v === 'number' && !isNaN(v)) {
@@ -1812,12 +1809,9 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
                          ))}
                       </div>
                       <div className="flex flex-wrap bg-[#111] border border-[#333]">
-                         <button onClick={() => setChartLineFilter('ALL')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='ALL'?'bg-[#333] text-white':'text-[#666] hover:text-white'}`}>SEMUA GARIS</button>
-                         <button onClick={() => setChartLineFilter('TOTAL_WEALTH')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='TOTAL_WEALTH'?'bg-[#00FF41] text-black':'text-[#666] hover:text-white'}`}>TOTAL KEKAYAAN</button>
-                         <button onClick={() => setChartLineFilter('MARKET_VALUE')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='MARKET_VALUE'?'bg-[#00E5FF] text-black':'text-[#666] hover:text-white'}`}>VALUASI PASAR</button>
-                         <button onClick={() => setChartLineFilter('MODAL')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='MODAL'?'bg-[#FFF] text-black':'text-[#666] hover:text-white'}`}>TOTAL MODAL</button>
-                         <button onClick={() => setChartLineFilter('KAS')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='KAS'?'bg-[#FFD700] text-black':'text-[#666] hover:text-white'}`}>KAS TUNAI</button>
-                         <button onClick={() => setChartLineFilter('DIVIDEND')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='DIVIDEND'?'bg-[#B500FF] text-white':'text-[#666] hover:text-white'}`}>DIVIDEND</button>
+                         <button onClick={() => setChartLineFilter('ALL')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='ALL'?'bg-[#333] text-white':'text-[#666] hover:text-white'}`}>SEMUA (MODAL & NILAI ASET)</button>
+                         <button onClick={() => setChartLineFilter('MARKET_VALUE')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='MARKET_VALUE'?'bg-[#00E5FF] text-black':'text-[#666] hover:text-white'}`}>NILAI ASET</button>
+                         <button onClick={() => setChartLineFilter('MODAL')} className={`px-2.5 py-1 text-[8px] uppercase tracking-[0.1em] font-bold transition-all ${chartLineFilter==='MODAL'?'bg-[#FFF] text-black':'text-[#666] hover:text-white'}`}>MODAL INVESTASI</button>
                       </div>
                   </div>
                 </div>
@@ -1841,11 +1835,8 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
                              <Tooltip 
                                 formatter={(val: number, name: string) => {
                                    let label = name;
-                                   if (name === 'TotalKekayaan') label = 'Total Kekayaan (Kas + Portofolio)';
-                                   else if (name === 'Total') label = 'Valuasi Portofolio (Market)';
-                                   else if (name === 'Investasi') label = 'Total Modal Investasi';
-                                   else if (name === 'Kas') label = 'Kas Tunai Likuid';
-                                   else if (name === 'Dividend') label = 'Akumulasi Dividen';
+                                   if (name === 'Total' || name === 'Nilai Aset') label = 'Nilai Aset (Valuasi Pasar)';
+                                   else if (name === 'Investasi' || name === 'Modal Investasi') label = 'Modal Investasi';
                                    return [maskRp(val), label];
                                 }} 
                                 contentStyle={{backgroundColor: '#000', borderColor: '#333', borderRadius: '0', color: '#fff', fontFamily: 'JetBrains Mono'}} 
@@ -1853,24 +1844,12 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
                              />
                              <CartesianGrid stroke="#222" strokeDasharray="3 3" vertical={false} />
                              
-                             {(chartLineFilter === 'ALL' || chartLineFilter === 'DIVIDEND') && (
-                                 <Area type="stepAfter" dataKey="Dividend" name="Dividend" stroke="#B500FF" strokeWidth={2} fillOpacity={0.15} fill="#B500FF" isAnimationActive={false} />
-                             )}
-
                              {(chartLineFilter === 'ALL' || chartLineFilter === 'MODAL') && (
-                                 <Line type="stepAfter" dataKey="Investasi" name="Investasi" stroke="#A1A1AA" strokeWidth={2} strokeDasharray="4 4" dot={false} isAnimationActive={false} />
-                             )}
-
-                             {(chartLineFilter === 'ALL' || chartLineFilter === 'KAS') && (
-                                 <Line type="stepAfter" dataKey="Kas" name="Kas" stroke="#FFD700" strokeWidth={2} dot={false} isAnimationActive={false} />
+                                 <Line type="stepAfter" dataKey="Investasi" name="Modal Investasi" stroke="#A1A1AA" strokeWidth={2} strokeDasharray="4 4" dot={false} isAnimationActive={false} />
                              )}
 
                              {(chartLineFilter === 'ALL' || chartLineFilter === 'MARKET_VALUE') && (
-                                 <Line type="linear" dataKey="Total" name="Total" stroke="#00E5FF" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: '#00E5FF', stroke: '#000', strokeWidth: 2 }} isAnimationActive={false} />
-                             )}
-
-                             {(chartLineFilter === 'ALL' || chartLineFilter === 'TOTAL_WEALTH') && (
-                                 <Line type="linear" dataKey="TotalKekayaan" name="TotalKekayaan" stroke="#00FF41" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#00FF41', stroke: '#000', strokeWidth: 2 }} isAnimationActive={false} />
+                                 <Line type="linear" dataKey="Total" name="Nilai Aset" stroke="#00E5FF" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: '#00E5FF', stroke: '#000', strokeWidth: 2 }} isAnimationActive={false} />
                              )}
                           </ComposedChart>
                        </ResponsiveContainer>
