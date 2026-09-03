@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { formatCurrency } from "@/lib/utils";
 
 // ==========================================
 // 🎨 IKON KUSTOM EXECUTIVE
@@ -926,6 +927,14 @@ export default function Manager() {
                     </div>
                     <p className="text-[10px] text-slate-400 mt-2 font-medium">Panduan install iOS / Browser lain</p>
                   </div>
+
+                  <div className="border border-[#e2e8f0] rounded-xl p-4 bg-[#f8fafc] flex flex-col justify-between col-span-2 sm:col-span-1 border-l-4 border-l-sky-500">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Coba di Browser (Web)</p>
+                      <h4 className="text-2xl font-black text-sky-600 mt-1">{data.metrics?.try_in_browser || 0}</h4>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-2 font-medium">Pengunjung memilih akses langsung via web</p>
+                  </div>
                 </div>
               </section>
             </div>
@@ -1280,6 +1289,7 @@ export default function Manager() {
                         <tr className="bg-[#f8fafc] text-[10px] text-[#475569] uppercase tracking-wider font-bold border-b border-[#cbd5e1]">
                           <th className="px-4 py-3">Pengguna & Email</th>
                           <th className="px-4 py-3">Terdaftar</th>
+                          <th className="px-4 py-3 text-right">Saldo Kas Terdeteksi</th>
                           <th className="px-4 py-3 text-center">Total Input Tx</th>
                           <th className="px-4 py-3">Status Akun</th>
                           <th className="px-4 py-3 text-center">Aksi / Otoritas</th>
@@ -1287,7 +1297,7 @@ export default function Manager() {
                       </thead>
                       <tbody className="text-xs">
                         {filteredFreeUsers.length === 0 ? (
-                          <tr><td colSpan={5} className="px-4 py-8 text-center text-[#64748b] font-mono">Tidak ada pengguna belum pro yang sesuai.</td></tr>
+                          <tr><td colSpan={6} className="px-4 py-8 text-center text-[#64748b] font-mono">Tidak ada pengguna belum pro yang sesuai.</td></tr>
                         ) : (
                           filteredFreeUsers.map((u: any) => (
                             <tr key={u.id} className="hover:bg-[#f8fafc] border-b border-[#e2e8f0] last:border-0 transition-colors">
@@ -1297,6 +1307,24 @@ export default function Manager() {
                               </td>
                               <td className="px-4 py-3.5 font-mono text-[#64748b]">
                                 {u.createdAt ? new Date(u.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}
+                              </td>
+                              <td className="px-4 py-3.5 text-right font-mono">
+                                <div className="font-bold text-[#0f172a]">
+                                  {formatCurrency(Number(u.cashBalance || 0))}
+                                </div>
+                                {Number(u.cashBalance || 0) >= 10000000 ? (
+                                  <span className="inline-block mt-0.5 bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shadow-xs">
+                                    👑 WHALE
+                                  </span>
+                                ) : Number(u.cashBalance || 0) > 0 ? (
+                                  <span className="inline-block mt-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">
+                                    KAS TERISI
+                                  </span>
+                                ) : (
+                                  <span className="inline-block mt-0.5 text-slate-400 text-[10px]">
+                                    Belum diisi
+                                  </span>
+                                )}
                               </td>
                               <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
                                 {u.txCount || 0} Tx
@@ -1359,6 +1387,7 @@ export default function Manager() {
                         <tr className="bg-[#f8fafc] text-[10px] text-[#475569] uppercase tracking-wider font-bold border-b border-[#cbd5e1]">
                           <th className="px-4 py-3">Member & Email</th>
                           <th className="px-4 py-3">Terdaftar</th>
+                          <th className="px-4 py-3 text-right">Saldo Kas Terdeteksi</th>
                           <th className="px-4 py-3">Tanggal Menjadi PRO</th>
                           <th className="px-4 py-3">Masa Berlaku</th>
                           <th className="px-4 py-3">Keaktifan</th>
@@ -1367,7 +1396,7 @@ export default function Manager() {
                       </thead>
                       <tbody className="text-xs">
                         {filteredProUsers.length === 0 ? (
-                          <tr><td colSpan={6} className="px-4 py-8 text-center text-[#64748b] font-mono">Belum ada pengguna berstatus PRO yang sesuai.</td></tr>
+                          <tr><td colSpan={7} className="px-4 py-8 text-center text-[#64748b] font-mono">Belum ada pengguna berstatus PRO yang sesuai.</td></tr>
                         ) : (
                           filteredProUsers.map((u: any) => (
                             <tr key={u.id} className="hover:bg-[#f8fafc] border-b border-[#e2e8f0] last:border-0 transition-colors">
@@ -1380,6 +1409,16 @@ export default function Manager() {
                               </td>
                               <td className="px-4 py-3.5 font-mono text-[#64748b]">
                                 {u.createdAt ? new Date(u.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}
+                              </td>
+                              <td className="px-4 py-3.5 text-right font-mono">
+                                <div className="font-bold text-[#0f172a]">
+                                  {formatCurrency(Number(u.cashBalance || 0))}
+                                </div>
+                                {Number(u.cashBalance || 0) >= 10000000 && (
+                                  <span className="inline-block mt-0.5 bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shadow-xs">
+                                    👑 WHALE
+                                  </span>
+                                )}
                               </td>
                               <td className="px-4 py-3.5">
                                 <div className="font-bold text-emerald-700 font-mono">

@@ -258,11 +258,13 @@ function Router() {
     );
   }
 
+  const hasAuth = typeof window !== 'undefined' && Boolean(localStorage.getItem("bilano_auth"));
+
   return (
     <>
       <Switch>
         <Route path="/">
-          {isStandalone ? <Home /> : <Landing />}
+          {(isStandalone || hasAuth) ? <Home /> : <Landing />}
         </Route>
         
         <Route path="/terminal">

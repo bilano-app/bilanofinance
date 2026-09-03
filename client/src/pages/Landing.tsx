@@ -385,7 +385,7 @@ export default function Landing() {
           )}
 
           {/* 🔥 4. TOMBOL INSTALL PWA UTAMA (DI ATAS FAQ) */}
-          <div ref={bottomInstallBtnRef} className="w-full flex justify-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both max-w-7xl px-4 lg:px-0 mb-8">
+          <div ref={bottomInstallBtnRef} className="w-full flex flex-col items-center justify-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both max-w-7xl px-4 lg:px-0 mb-8 gap-3">
             <button
               onClick={handlePwaInstall}
               className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] md:text-[1.2rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px] cursor-pointer"
@@ -393,12 +393,23 @@ export default function Landing() {
               <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
               <span>INSTALL BILANO SEKARANG</span>
             </button>
+
+            <button
+              onClick={() => {
+                trackEvent("try_in_browser_clicked", { source: "main_cta" });
+                setLocation('/auth');
+              }}
+              type="button"
+              className="w-full max-w-[400px] bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white font-bold text-sm tracking-wide py-3.5 px-6 rounded-[20px] border border-white/15 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer shadow-sm"
+            >
+              <span>Atau Coba Langsung di Browser →</span>
+            </button>
           </div>
 
           {/* 🚀 FLOATING STICKY INSTALL BUTTON (MUNCUL KETIKA TOMBOL UTAMA TIDAK DI AREA PANDANG) */}
           {!isBottomBtnVisible && (
             <div className="fixed bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none animate-in fade-in slide-in-from-bottom-5 duration-300">
-              <div className="pointer-events-auto w-full max-w-[440px] bg-[#0c142c]/95 backdrop-blur-xl border border-amber-400/30 p-2.5 rounded-[26px] shadow-[0_15px_40px_rgba(0,0,0,0.7)] flex items-center justify-between gap-3">
+              <div className="pointer-events-auto w-full max-w-[440px] bg-[#0c142c]/95 backdrop-blur-xl border border-amber-400/30 p-2.5 rounded-[26px] shadow-[0_15px_40px_rgba(0,0,0,0.7)] flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 pl-2">
                   <img src="/BILANO-ICON-NEW.png" alt="Bilano" className="w-8 h-8 object-contain rounded-lg shrink-0" />
                   <div className="flex flex-col">
@@ -406,13 +417,25 @@ export default function Landing() {
                     <span className="text-[9px] text-amber-400 font-bold">Kawal Visi Finansial</span>
                   </div>
                 </div>
-                <button
-                  onClick={handlePwaInstall}
-                  className="bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-xs md:text-sm tracking-wide py-2.5 px-4 md:px-5 rounded-2xl shadow-md active:scale-95 transition-all flex items-center gap-1.5 border-b-2 border-amber-600 cursor-pointer shrink-0"
-                >
-                  <Download strokeWidth={3} className="w-4 h-4 animate-bounce" />
-                  <span>INSTALL SEKARANG</span>
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => {
+                      trackEvent("try_in_browser_clicked", { source: "sticky_bar" });
+                      setLocation('/auth');
+                    }}
+                    type="button"
+                    className="text-[11px] font-bold text-slate-300 hover:text-white px-2 py-2 transition-colors cursor-pointer"
+                  >
+                    Coba di Web
+                  </button>
+                  <button
+                    onClick={handlePwaInstall}
+                    className="bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-xs md:text-sm tracking-wide py-2.5 px-3.5 md:px-5 rounded-2xl shadow-md active:scale-95 transition-all flex items-center gap-1.5 border-b-2 border-amber-600 cursor-pointer shrink-0"
+                  >
+                    <Download strokeWidth={3} className="w-3.5 h-3.5 animate-bounce" />
+                    <span>INSTALL</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -658,29 +681,26 @@ export default function Landing() {
             {/* Langkah Selanjutnya Box */}
             <div className="w-full bg-[#1e293b]/80 border border-slate-700/70 rounded-2xl p-4 text-left mb-6 space-y-2.5">
               <p className="text-[11px] font-black text-amber-400 uppercase tracking-wider">
-                Langkah Selanjutnya:
+                Aplikasi Siap Digunakan! 🚀
               </p>
               <div className="flex items-start gap-2.5 text-xs text-slate-200">
-                <span className="w-5 h-5 rounded-full bg-amber-400 text-[#0a1128] font-black flex items-center justify-center text-[10px] shrink-0 mt-0.5">1</span>
-                <span>Tutup halaman browser Chrome ini.</span>
+                <span className="w-5 h-5 rounded-full bg-amber-400 text-[#0a1128] font-black flex items-center justify-center text-[10px] shrink-0 mt-0.5">✓</span>
+                <span>Ikon <b className="text-white">BILANO</b> sudah terpasang di Layar Utama HP Anda.</span>
               </div>
               <div className="flex items-start gap-2.5 text-xs text-slate-200">
-                <span className="w-5 h-5 rounded-full bg-amber-400 text-[#0a1128] font-black flex items-center justify-center text-[10px] shrink-0 mt-0.5">2</span>
-                <span>Cari & buka ikon <b className="text-white">BILANO</b> di Layar Utama HP Anda.</span>
-              </div>
-              <div className="flex items-start gap-2.5 text-xs text-slate-200">
-                <span className="w-5 h-5 rounded-full bg-amber-400 text-[#0a1128] font-black flex items-center justify-center text-[10px] shrink-0 mt-0.5">3</span>
-                <span>Masuk/Daftar dan nikmati asisten keuangan cerdas Anda!</span>
+                <span className="w-5 h-5 rounded-full bg-amber-400 text-[#0a1128] font-black flex items-center justify-center text-[10px] shrink-0 mt-0.5">✓</span>
+                <span>Anda bisa langsung masuk sekarang tanpa perlu keluar dari browser.</span>
               </div>
             </div>
 
             <button
               onClick={() => {
                 setIsInstallSuccess(false);
+                setLocation('/auth');
               }}
               className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-sm tracking-wide py-4 px-6 rounded-2xl shadow-[0_10px_25px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2 border-b-4 border-amber-600 cursor-pointer"
             >
-              <span>MENGERTI, BUKA DARI LAYAR UTAMA</span>
+              <span>BUKA & MASUK SEKARANG →</span>
             </button>
           </div>
         </div>

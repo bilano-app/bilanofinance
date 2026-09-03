@@ -687,6 +687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               pwa_manual_needed: 0,
               open_in_chrome: 0,
               escaped_ig_webview: 0,
+              try_in_browser: 0,
               checkout_initiated: 0, 
               payment_attempted: 0, 
               payment_success: 0
@@ -776,6 +777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (ev === 'pwa_manual_install_needed' || ev === 'pwa_manual_install_viewed') metrics.pwa_manual_needed++;
               if (ev === 'open_in_chrome_tapped') metrics.open_in_chrome++;
               if (ev === 'escaped_ig_webview_success') metrics.escaped_ig_webview++;
+              if (ev === 'try_in_browser_clicked' || ev === 'try_in_browser') metrics.try_in_browser++;
 
               if (ev === 'checkout_initiated') {
                   metrics.checkout_initiated++;
