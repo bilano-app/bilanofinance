@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   ShieldCheck, ChevronDown, Star, LayoutDashboard, Download, Mail, Phone, MapPin,
-  Play, Volume2, VolumeX, X, ExternalLink, MoreVertical, Share2
+  Play, Volume2, VolumeX, X, ExternalLink, MoreVertical, Share2, Sparkles
 } from "lucide-react";
 import { trackEvent } from "@/lib/tracking";
 import { isInAppBrowser, isIOS, buildChromeIntentUrl } from "@/lib/browserDetect";
@@ -10,6 +10,7 @@ import { isInAppBrowser, isIOS, buildChromeIntentUrl } from "@/lib/browserDetect
 export default function Landing() {
   const [, setLocation] = useLocation();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [showGuestModal, setShowGuestModal] = useState(false);
 
   // =======================================================
   // 🕵️ DETEKSI WEBVIEW INSTAGRAM/FACEBOOK & PLATFORM
@@ -397,7 +398,7 @@ export default function Landing() {
             <button
               onClick={() => {
                 trackEvent("try_in_browser_clicked", { source: "main_cta" });
-                setLocation('/auth');
+                setShowGuestModal(true);
               }}
               type="button"
               className="w-full max-w-[400px] bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white font-bold text-sm tracking-wide py-3.5 px-6 rounded-[20px] border border-white/15 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer shadow-sm"
@@ -421,7 +422,7 @@ export default function Landing() {
                   <button
                     onClick={() => {
                       trackEvent("try_in_browser_clicked", { source: "sticky_bar" });
-                      setLocation('/auth');
+                      setShowGuestModal(true);
                     }}
                     type="button"
                     className="text-[11px] font-bold text-slate-300 hover:text-white px-2 py-2 transition-colors cursor-pointer"
@@ -702,6 +703,56 @@ export default function Landing() {
             >
               <span>BUKA & MASUK SEKARANG →</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🚀 MODAL 5: COBA LANGSUNG DI BROWSER (MODE TAMU / DEMO) */}
+      {showGuestModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-[#0f172a] border border-amber-400/40 rounded-[36px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-300 text-center shadow-2xl flex flex-col items-center">
+            <button
+              onClick={() => setShowGuestModal(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            <div className="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mb-4 border border-amber-400/30 shadow-inner">
+              <Sparkles className="w-8 h-8 animate-pulse" />
+            </div>
+
+            <h3 className="text-xl font-black mb-2 text-white">Coba Langsung di Browser</h3>
+            <p className="text-xs text-slate-300 mb-6 leading-relaxed">
+              Mulai eksplorasi BILANO seketika dalam <strong>Mode Tamu</strong> tanpa perlu daftar akun atau mengisi password terlebih dahulu.
+            </p>
+
+            <div className="w-full space-y-3">
+              <button
+                onClick={() => {
+                  trackEvent("guest_mode_entered", { source: "landing_modal" });
+                  localStorage.setItem("bilano_guest_mode", "true");
+                  localStorage.setItem("bilano_auth", "true");
+                  localStorage.setItem("bilano_email", "guest@bilano.app");
+                  localStorage.setItem("bilano_migration_completed", "true");
+                  localStorage.setItem("onboarding_just_finished", "true");
+                  window.location.href = "/";
+                }}
+                className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-xs md:text-sm tracking-wide py-4 px-5 rounded-2xl shadow-[0_10px_25px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2 border-b-4 border-amber-600 cursor-pointer"
+              >
+                <span>🚀 MASUK SEBAGAI TAMU (COBA DULU)</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowGuestModal(false);
+                  setLocation('/auth?mode=signup');
+                }}
+                className="w-full py-2.5 text-center text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                Sudah punya akun? Masuk / Daftar Permanen →
+              </button>
+            </div>
           </div>
         </div>
       )}

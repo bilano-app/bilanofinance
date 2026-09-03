@@ -16,7 +16,10 @@ import {
 export default function Auth() {
   localStorage.removeItem("bilano_trial_expired");
 
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.location.search.includes("mode=signup") || window.location.hash === "#signup";
+  });
   const [fullName, setFullName] = useState("");
 
   const [email, setEmail] = useState(() => localStorage.getItem("auth_email") || "");

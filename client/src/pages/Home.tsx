@@ -198,9 +198,11 @@ export default function Home() {
         (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
 
     const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+    const isGuestMode = typeof window !== 'undefined' && 
+        (localStorage.getItem("bilano_guest_mode") === "true" || rawEmail === "guest@bilano.app" || rawEmail === "guest");
 
     useEffect(() => {
-        if (rawEmail && user && user.username === 'guest') {
+        if (rawEmail && rawEmail !== 'guest@bilano.app' && rawEmail !== 'guest' && user && user.username === 'guest') {
             window.location.reload();
         }
     }, [user, rawEmail]);
@@ -213,7 +215,7 @@ export default function Home() {
         if (savedPin && !isUnlockedSession) setIsLocked(true);
 
         const hasPrompted = localStorage.getItem("bilano_permissions_prompted");
-        if (!hasPrompted) setShowPermissionPrompt(true);
+        if (!hasPrompted && !isGuestMode) setShowPermissionPrompt(true);
 
         if (localStorage.getItem("onboarding_just_finished") === "true") {
             setShowOnboardingTargetPopup(true);
@@ -358,7 +360,7 @@ export default function Home() {
     };
 
     const userEmail = rawEmail || "Pengguna";
-    const greetingName = user?.firstName ? user.firstName : userEmail.split("@")[0];
+    const greetingName = isGuestMode ? "Tamu" : (user?.firstName ? user.firstName : userEmail.split("@")[0]);
 
     const handleMenuScroll = (e: any) => {
         const scrollLeft = e.target.scrollLeft;
@@ -530,7 +532,7 @@ export default function Home() {
         setShowPermissionPrompt(false);
     };
 
-    const cashRupiah = (user?.cashBalance || 0);
+    const cashRupiah = (isGuestMode && (!user?.cashBalance || user?.cashBalance === 0)) ? 12500000 : (user?.cashBalance || 0);
     const totalBalance = cashRupiah;
 
     const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
@@ -1125,6 +1127,30 @@ export default function Home() {
             <div className="flex flex-col">
                 {/* TOP BANNER CONTAINER: Gradient background covering welcome area and card area */}
                 <div className="-mx-5 -mt-5 px-5 pt-5 pb-8 bg-gradient-to-b from-[#f1f5f9] via-[#e2eaf4] to-[#d6e3f2] flex flex-col relative z-10">
+
+                    {/* 🌟 BANNER KHUSUS MODE TAMU / DEMO */}
+                    {isGuestMode && (
+                        <div className="-mx-5 -mt-5 px-4 py-2.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-[#0a1128] flex items-center justify-between gap-2 shadow-xs z-40 relative border-b border-amber-600/30">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-2 h-2 rounded-full bg-[#0a1128] animate-ping shrink-0"></span>
+                                <p className="text-[11px] font-black tracking-tight truncate">
+                                    Mode Tamu (Simulasi) • Belum tersimpan
+                                </p>
+                            </div>
+                            <Link href="/auth?mode=signup">
+                                <button 
+                                    onClick={() => {
+                                        localStorage.removeItem("bilano_guest_mode");
+                                        localStorage.removeItem("bilano_auth");
+                                        localStorage.removeItem("bilano_email");
+                                    }}
+                                    className="bg-[#0a1128] hover:bg-slate-900 text-amber-300 font-black text-[10px] px-3 py-1.5 rounded-xl shrink-0 shadow-xs cursor-pointer active:scale-95 transition-all"
+                                >
+                                    Daftar Gratis →
+                                </button>
+                            </Link>
+                        </div>
+                    )}
 
                     {/* 1. WELCOME HEADER SECTION: White background seamless at top, rounded bottom corners */}
                     <div className="-mx-5 -mt-5 px-5 pt-6 pb-5 bg-white rounded-b-[28px] shadow-[0_4px_16px_rgba(15,23,42,0.03)] flex items-center justify-between relative z-30">
