@@ -1561,11 +1561,6 @@ export default function Home() {
                                         <div className="flex items-center gap-4">
                                             <div className="w-16 h-16 rounded-2xl bg-[#dbebfb] flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-white/20 relative">
                                                 <img src="/AI.png" alt="ChatAI" className="w-full h-full object-cover" />
-                                                {isGuestMode && (
-                                                    <div className="absolute top-1 right-1 w-5 h-5 bg-slate-950 text-amber-400 rounded-full flex items-center justify-center border border-amber-400/80 shadow-md">
-                                                        <Lock className="w-2.5 h-2.5" />
-                                                    </div>
-                                                )}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 mb-0.5 flex-wrap">
@@ -1575,13 +1570,7 @@ export default function Home() {
                                                 <p className="text-[11px] text-blue-200/80 font-medium">Konsultasi strategi & evaluasi keuangan pribadi</p>
                                             </div>
                                         </div>
-                                        {isGuestMode ? (
-                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-amber-400 border border-amber-400/40">
-                                                <Lock className="w-4 h-4" />
-                                            </div>
-                                        ) : (
-                                            <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-brand-gold group-hover:translate-x-0.5 transition-all shrink-0" />
-                                        )}
+                                        <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-brand-gold group-hover:translate-x-0.5 transition-all shrink-0" />
                                     </div>
                                 </div>
                             </Link>
@@ -1780,44 +1769,40 @@ export default function Home() {
                 </div>
             )}
 
-            {/* 🔒 MODAL FITUR EKSKLUSIF TERKUNCI (KHUSUS MODE UJI COBA) */}
+            {/* 📱 MODAL PERLU INSTALL & BUAT AKUN (KHUSUS MODE UJI COBA) */}
             {lockedFeatureModal.isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-[#0c142c] border-2 border-amber-400/40 rounded-[32px] w-full max-w-sm p-6 text-center shadow-2xl animate-in zoom-in-95 flex flex-col items-center">
-                        <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-amber-400 to-yellow-500 text-[#0a1128] flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(251,191,36,0.4)]">
-                            <Lock className="w-8 h-8 stroke-[2.5]" />
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[28px] border border-slate-200/80 w-full max-w-sm p-6 text-center shadow-2xl animate-in zoom-in-95 flex flex-col items-center">
+                        <div className="w-16 h-16 rounded-2xl bg-brand-navy/5 p-2 flex items-center justify-center mb-4 border border-slate-100 shadow-sm">
+                            <img src="/BILANO-ICON-NEW.png" alt="BILANO" className="w-11 h-11 object-contain" />
                         </div>
 
-                        <span className="bg-amber-400/10 text-amber-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-2 border border-amber-400/30">
-                            FITUR EKSKLUSIF APLIKASI
-                        </span>
-
-                        <h3 className="text-xl font-black text-white leading-tight mb-2">
-                            {lockedFeatureModal.featureName}
+                        <h3 className="text-lg font-black text-slate-900 leading-tight mb-2">
+                            Kamu Perlu Install & Buat Akun Dulu
                         </h3>
 
-                        <p className="text-xs text-slate-300 leading-relaxed mb-6 font-medium">
-                            Fitur ini dapat digunakan di aplikasi resmi BILANO. Pasang aplikasi ke layar HP dan buat akun Anda terlebih dahulu untuk memulai.
+                        <p className="text-xs text-slate-600 leading-relaxed mb-6 font-medium">
+                            Untuk mulai menggunakan fitur <strong className="text-slate-900 font-bold">{lockedFeatureModal.featureName}</strong>, kamu perlu install aplikasi BILANO ke HP dan membuat akun terlebih dahulu.
                         </p>
 
-                        <div className="w-full space-y-2.5">
+                        <div className="w-full space-y-2">
                             <button
                                 type="button"
                                 onClick={() => {
                                     setLockedFeatureModal({ isOpen: false, featureName: "" });
                                     triggerPwaInstallOrGuide();
                                 }}
-                                className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-sm tracking-wide py-3.5 px-5 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 border-b-4 border-amber-600 cursor-pointer"
+                                className="w-full bg-brand-navy hover:bg-brand-navy/90 text-white font-bold text-xs py-3.5 px-4 rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                             >
-                                <span>PASANG BILANO & BUAT AKUN</span>
+                                <span>Install Aplikasi & Buat Akun</span>
                             </button>
 
                             <button
                                 type="button"
                                 onClick={() => setLockedFeatureModal({ isOpen: false, featureName: "" })}
-                                className="w-full py-2 text-xs text-slate-400 hover:text-white font-bold transition-colors cursor-pointer"
+                                className="w-full py-2 text-xs text-slate-400 hover:text-slate-600 font-medium transition-colors cursor-pointer"
                             >
-                                Tutup
+                                Nanti Saja
                             </button>
                         </div>
                     </div>
@@ -1852,17 +1837,14 @@ function MenuIconBox({
                 onClick={onLockedClick}
                 className="relative flex flex-col items-center justify-start gap-1.5 cursor-pointer active:scale-95 transition-transform group"
             >
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center p-0.5 group-hover:scale-105 transition-all relative">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center p-0.5 group-hover:scale-105 transition-all">
                     <img
                         src={imageSrc}
                         alt={label}
-                        className="w-full h-full object-contain opacity-75 grayscale-[20%]"
+                        className="w-full h-full object-contain drop-shadow-sm group-hover:scale-110 transition-transform"
                     />
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-slate-900 text-amber-400 rounded-full flex items-center justify-center border border-amber-400/80 shadow-md">
-                        <Lock className="w-2.5 h-2.5" />
-                    </div>
                 </div>
-                <span className="text-[11px] font-bold text-slate-600 text-center whitespace-nowrap">{label}</span>
+                <span className="text-[11px] font-bold text-slate-700 text-center whitespace-nowrap">{label}</span>
             </div>
         );
     }
