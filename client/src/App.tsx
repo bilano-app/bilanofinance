@@ -128,6 +128,7 @@ import AcademyReader from "@/pages/AcademyReader";
 import IncomeStrategy from "@/pages/IncomeStrategy";
 import SetupBalance from "@/pages/SetupBalance";
 import Transfer from "@/pages/Transfer";
+import { isTrialMode } from "@/lib/trial-data";
 
 function Router() {
   const [location, setLocation] = useLocation();
@@ -280,7 +281,7 @@ function Router() {
     <>
       <Switch>
         <Route path="/">
-          {(isStandalone || hasAuth) ? <Home /> : <Landing />}
+          {isStandalone ? <Home /> : isTrialMode() ? <Home /> : <Landing />}
         </Route>
         
         <Route path="/terminal">

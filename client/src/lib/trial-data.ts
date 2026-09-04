@@ -97,20 +97,40 @@ const TRIAL_STORAGE_KEY = "bilano_trial_sandbox_data";
 export function isTrialMode(): boolean {
   if (typeof window === "undefined") return false;
 
+  const isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as any).standalone === true;
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const hasTrialParam = urlParams.get("trial") === "true";
   const hasTrialSession = sessionStorage.getItem("bilano_trial_session") === "true";
   const isGuest =
     localStorage.getItem("bilano_guest_mode") === "true" ||
     localStorage.getItem("bilano_trial_mode") === "true" ||
     localStorage.getItem("bilano_email") === "guest@bilano.app";
 
-  // Jika pernah coba di browser tapi tab/browser sudah pernah ditutup,
-  // maka sesi trial sudah hangus -> bersihkan agar kembali ke Landing page
+  // 1. Jika URL secara eksplisit memiliki ?trial=true, inisialisasi dan aktifkan mode trial
+  if (hasTrialParam) {
+    if (!hasTrialSession) {
+      initTrialSession();
+    }
+    return true;
+  }
+
+  // 2. Jika di browser biasa membuka root '/' tanpa ?trial=true,
+  // berarti pengguna mengetik bilano.app di browser -> selalu bersihkan sesi trial dan tampilkan Landing!
+  if (!isStandalone && window.location.pathname === "/" && !hasTrialParam) {
+    clearTrialMode();
+    return false;
+  }
+
+  // 3. Jika pernah coba di browser tapi tab/browser sudah pernah ditutup
   if (isGuest && !hasTrialSession) {
     clearTrialMode();
     return false;
   }
 
-  return isGuest && hasTrialSession;
+  return (isGuest || hasTrialSession) && hasTrialSession;
 }
 
 export function createInitialTrialData(): TrialData {

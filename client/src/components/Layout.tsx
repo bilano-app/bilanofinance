@@ -18,7 +18,7 @@ export function MobileLayout({ children, title, showBack = false }: LayoutProps)
         {/* Tombol Back (Hanya muncul di sub-halaman) */}
         {showBack && (
           <div className="absolute left-4 top-1/2 -translate-y-1/2">
-            <Link href="/">
+            <Link href={typeof window !== 'undefined' && sessionStorage.getItem("bilano_trial_session") === "true" ? "/?trial=true" : "/"}>
               <button className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors text-slate-600">
                 <ArrowLeft className="h-6 w-6" />
               </button>

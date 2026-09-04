@@ -72,8 +72,9 @@ export default function Auth() {
           toast({ title: "Registrasi Berhasil!", description: "Mari atur saldo awal dan portofoliomu." });
           setLocation("/setup-balance"); // Pindah langsung ke setup saldo awal
       } else {
-          toast({ title: "Berhasil!", description: "Selamat datang kembali di BILANO." });
-          window.location.href = "/"; 
+          const isStandalone = typeof window !== 'undefined' && 
+              (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
+          window.location.href = isStandalone ? "/" : "/dashboard"; 
       }
   };
 

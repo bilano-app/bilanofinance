@@ -400,7 +400,7 @@ export default function Landing() {
               onClick={() => {
                 trackEvent("try_in_browser_clicked", { source: "main_cta" });
                 initTrialSession();
-                window.location.href = "/";
+                window.location.href = "/?trial=true";
               }}
               type="button"
               className="w-full max-w-[400px] bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white font-bold text-sm tracking-wide py-3.5 px-6 rounded-[20px] border border-white/15 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer shadow-sm"
@@ -425,7 +425,7 @@ export default function Landing() {
                     onClick={() => {
                       trackEvent("try_in_browser_clicked", { source: "sticky_bar" });
                       initTrialSession();
-                      window.location.href = "/";
+                      window.location.href = "/?trial=true";
                     }}
                     type="button"
                     className="text-[11px] font-bold text-slate-300 hover:text-white px-2 py-2 transition-colors cursor-pointer"
@@ -735,7 +735,7 @@ export default function Landing() {
                 onClick={() => {
                   trackEvent("guest_mode_entered", { source: "landing_modal" });
                   initTrialSession();
-                  window.location.href = "/";
+                  window.location.href = "/?trial=true";
                 }}
                 className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-xs md:text-sm tracking-wide py-4 px-5 rounded-2xl shadow-[0_10px_25px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2 border-b-4 border-amber-600 cursor-pointer"
               >
