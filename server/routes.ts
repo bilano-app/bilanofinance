@@ -1033,6 +1033,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   });
 
+  // 🧹 API ADMIN: RESET METRIK COBA DI BROWSER (TRIAL) KE 0
+  app.post("/api/admin/reset-trial-events", async (_req: any, res: any) => {
+      try {
+          await db.execute(sql`DELETE FROM tracking_events WHERE event_name IN ('try_in_browser_clicked', 'try_in_browser', 'guest_mode_entered');`);
+          res.json({ success: true, message: "Hitungan Coba di Browser (Trial) berhasil direset ke 0." });
+      } catch (err: any) {
+          res.status(500).json({ error: "Gagal mereset hitungan trial: " + err.message });
+      }
+  });
+
   // =========================================================================
 // 🚀 ENDPOINT TAMBAHAN: STRATEGI PEMASUKAN BILANO AI (GEMINI)
 // =========================================================================

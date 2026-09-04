@@ -12,6 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { formatCurrency } from "@/lib/utils";
 import { trackEvent } from "@/lib/tracking";
+import { isTrialMode, recordTrialExpense } from "@/lib/trial-data";
 
 const EXPENSE_CATEGORIES = [
     { label: "Makan & Minum", icon: "🍜" },
@@ -144,6 +145,20 @@ export default function Expense() {
       setIsSubmitting(true);
       
       try {
+          if (isTrialMode()) {
+              const finalSource = selectedSource || "GoPay";
+              recordTrialExpense(spendingAmount, category, finalSource, desc.trim() || `Pengeluaran: ${category}`);
+              queryClient.invalidateQueries();
+              toast({
+                  title: "Pengeluaran Tercatat! 💸",
+                  description: `Berhasil mencatat ${formatRp(spendingAmount)} dipotong dari ${finalSource}.`
+              });
+              sessionStorage.setItem("bilano_trial_simulated", "true");
+              setIsSubmitting(false);
+              setLocation("/?trial=true");
+              return;
+          }
+
           if (paymentMode === 'cash') {
               await addTransactionMutation.mutateAsync({
                   type: 'expense',
@@ -241,7 +256,7 @@ export default function Expense() {
             {/* Top Navigation Bar */}
             <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(225,29,72,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                    <Link href="/">
+                    <Link href={isTrialMode() ? "/?trial=true" : "/"}>
                         <button 
                             className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
                             title="Kembali ke Beranda"
@@ -326,6 +341,64 @@ export default function Expense() {
         {/* ========================================================================= */}
         <div className="px-5 pt-5 pb-24 bg-slate-50 flex flex-col gap-4">
             
+            {/* 💡 PANDUAN KHUSUS MODE UJI COBA */}
+            {isTrialMode() && (
+                <div className="bg-gradient-to-br from-amber-50 to-yellow-100/80 border-2 border-amber-300 rounded-[24px] p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-start gap-3">
+                        <span className="text-2xl shrink-0">💡</span>
+                        <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider mb-1">
+                                Panduan Uji Coba: Catat Pengeluaran Pertama
+                            </h4>
+                            <p className="text-[11px] text-slate-600 leading-relaxed font-medium mb-3">
+                                Ketik nominal pengeluaran di bawah, atau sentuh salah satu contoh cepat ini agar form terisi otomatis:
+                            </p>
+                            <div className="grid grid-cols-3 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setAmountStr("25.000");
+                                        setCategory("Makan & Minum");
+                                        setDesc("Kopi Susu");
+                                    }}
+                                    className="p-2 bg-white rounded-xl border border-amber-300/80 hover:bg-amber-50 active:scale-95 transition-all text-center shadow-xs cursor-pointer"
+                                >
+                                    <span className="text-base block mb-0.5">☕</span>
+                                    <p className="text-[10px] font-black text-slate-800">Kopi Susu</p>
+                                    <p className="text-[9px] font-bold text-amber-600">Rp 25.000</p>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setAmountStr("45.000");
+                                        setCategory("Makan & Minum");
+                                        setDesc("Makan Siang");
+                                    }}
+                                    className="p-2 bg-white rounded-xl border border-amber-300/80 hover:bg-amber-50 active:scale-95 transition-all text-center shadow-xs cursor-pointer"
+                                >
+                                    <span className="text-base block mb-0.5">🍜</span>
+                                    <p className="text-[10px] font-black text-slate-800">Makan Siang</p>
+                                    <p className="text-[9px] font-bold text-amber-600">Rp 45.000</p>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setAmountStr("30.000");
+                                        setCategory("Transportasi");
+                                        setDesc("Bensin Motor");
+                                    }}
+                                    className="p-2 bg-white rounded-xl border border-amber-300/80 hover:bg-amber-50 active:scale-95 transition-all text-center shadow-xs cursor-pointer"
+                                >
+                                    <span className="text-base block mb-0.5">⛽</span>
+                                    <p className="text-[10px] font-black text-slate-800">Bensin</p>
+                                    <p className="text-[9px] font-bold text-amber-600">Rp 30.000</p>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* SWITCHER METODE PENGELUARAN */}
             <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-xs flex gap-1.5">
                 <button 

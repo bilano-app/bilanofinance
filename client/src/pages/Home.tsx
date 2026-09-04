@@ -23,9 +23,8 @@ import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/tracking";
 import { queryClient } from "@/lib/queryClient";
-import TrialSimulationModal from "@/components/TrialSimulationModal";
 import TrialInstallModal from "@/components/TrialInstallModal";
-import { isTrialMode, getTrialData } from "@/lib/trial-data";
+import { isTrialMode, getTrialData, triggerPwaInstallOrGuide } from "@/lib/trial-data";
 
 // ─────────────────────────────────────────────────────────────
 // BILANO BRAND TOKENS
@@ -115,7 +114,7 @@ export default function Home() {
 
     // Trial Mode Interactive Sandbox States
     const performanceCardRef = useRef<HTMLDivElement>(null);
-    const [showTrialSimulationModal, setShowTrialSimulationModal] = useState(false);
+    const [lockedFeatureModal, setLockedFeatureModal] = useState<{ isOpen: boolean; featureName: string }>({ isOpen: false, featureName: "" });
     const [showTrialInstallModal, setShowTrialInstallModal] = useState(false);
     const [showPerformanceNudge, setShowPerformanceNudge] = useState(false);
 
@@ -210,11 +209,12 @@ export default function Home() {
     const isGuestMode = typeof window !== 'undefined' && 
         (localStorage.getItem("bilano_guest_mode") === "true" || localStorage.getItem("bilano_trial_mode") === "true" || rawEmail === "guest@bilano.app" || rawEmail === "guest" || isTrialMode());
 
-    // Efek khusus mode trial: trigger simulasi & pantau kembali dari Performa
+    // Efek khusus mode trial: trigger panduan Performa setelah pengeluaran & pantau kembali dari Performa
     useEffect(() => {
         if (isGuestMode) {
             const hasSimulated = sessionStorage.getItem("bilano_trial_simulated") === "true";
             const hasVisitedPerf = sessionStorage.getItem("bilano_trial_visited_performance") === "true";
+            const hasDismissedPerfBubble = sessionStorage.getItem("bilano_perf_bubble_dismissed") === "true";
 
             // Jika user baru kembali dari melihat halaman Performa, langsung picu pop up install & buat akun
             if (hasVisitedPerf) {
@@ -222,24 +222,17 @@ export default function Home() {
                 return;
             }
 
-            // Jika belum pernah simulasi pengeluaran, buka modal simulasi 1-sentuhan setelah 3.5 detik
-            if (!hasSimulated) {
-                const timer = setTimeout(() => {
-                    setShowTrialSimulationModal(true);
-                }, 3500);
-                return () => clearTimeout(timer);
+            // Jika sudah mencatat pengeluaran di /expense dan belum dismiss bubble performa:
+            if (hasSimulated && !hasDismissedPerfBubble) {
+                setShowPerformanceNudge(true);
+                setTimeout(() => {
+                    if (performanceCardRef.current) {
+                        performanceCardRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                }, 400);
             }
         }
     }, [isGuestMode]);
-
-    const handleTrialSimulationSuccess = (_note: string, _amt: number) => {
-        setShowPerformanceNudge(true);
-        setTimeout(() => {
-            if (performanceCardRef.current) {
-                performanceCardRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-            }
-        }, 500);
-    };
 
     useEffect(() => {
         if (rawEmail && rawEmail !== 'guest@bilano.app' && rawEmail !== 'guest' && user && user.username === 'guest') {
@@ -1455,11 +1448,23 @@ export default function Home() {
                                 </Link>
 
                                 <Link href="/expense">
-                                    <button className="flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform group w-full">
-                                        <div className="w-12 h-12 rounded-2xl bg-white/10 group-hover:bg-white/20 flex items-center justify-center p-1.5 shadow-inner transition-all">
+                                    <button className="flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform group w-full relative">
+                                        <div className={`w-12 h-12 rounded-2xl bg-white/10 group-hover:bg-white/20 flex items-center justify-center p-1.5 shadow-inner transition-all ${
+                                            isGuestMode && !sessionStorage.getItem("bilano_trial_simulated") ? 'ring-4 ring-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.9)] animate-pulse' : ''
+                                        }`}>
                                             <img src="/EXPENSE.png" alt="Pengeluaran" className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-105 transition-transform" />
                                         </div>
                                         <span className="text-[10px] font-bold text-blue-100 uppercase tracking-wider text-center">Pengeluaran</span>
+
+                                        {/* BUBBLE CHAT POINTER KE TOMBOL PENGELUARAN (TIDAK BISA DI-CLOSE) */}
+                                        {isGuestMode && !sessionStorage.getItem("bilano_trial_simulated") && (
+                                            <div className="absolute -top-16 -right-2 z-30 pointer-events-none w-48 animate-bounce duration-1000">
+                                                <div className="bg-gradient-to-r from-amber-400 to-yellow-300 text-[#0a1128] p-2.5 rounded-2xl shadow-2xl border-2 border-white text-[10.5px] font-black text-center leading-tight">
+                                                    ✨ Coba sentuh tombol Pengeluaran ini untuk mencatat transaksi pertamamu!
+                                                </div>
+                                                <div className="w-3 h-3 bg-yellow-300 rotate-45 ml-auto mr-8 -mt-1.5 border-r-2 border-b-2 border-white"></div>
+                                            </div>
+                                        )}
                                     </button>
                                 </Link>
                             </div>
@@ -1524,14 +1529,14 @@ export default function Home() {
                         </div>
 
                         <div className="grid grid-cols-4 gap-y-6 gap-x-2 py-1">
-                            <MenuIconBox href="/forex" imageSrc="/Valas-ICON.png" label="Valas" />
-                            <MenuIconBox href="/debts" imageSrc="/Hutang.png" label="Hutang" />
-                            <MenuIconBox href="/subscriptions" imageSrc="/Langganan.png" label="Langganan" />
-                            <MenuIconBox href="/investment" imageSrc="/Investasi.png" label="Investasi" />
-                            <MenuIconBox href="/reports" imageSrc="/Laporan.png" label="Laporan" />
-                            <MenuIconBox href="/scan" imageSrc="/Scanner.png" label="Scanner" />
-                            <MenuIconBox href="/amal" imageSrc="/Amal.png" label="Amal" />
-                            <MenuIconBox href="/retained" imageSrc="/Tertahan.png" label="Tertahan" />
+                            <MenuIconBox href="/forex" imageSrc="/Valas-ICON.png" label="Valas" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Valas / Portofolio Mata Uang" })} />
+                            <MenuIconBox href="/debts" imageSrc="/Hutang.png" label="Hutang" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Catatan Hutang & Piutang" })} />
+                            <MenuIconBox href="/subscriptions" imageSrc="/Langganan.png" label="Langganan" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Manajemen Langganan Rutin" })} />
+                            <MenuIconBox href="/investment" imageSrc="/Investasi.png" label="Investasi" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Portofolio Multi-Investasi" })} />
+                            <MenuIconBox href="/reports" imageSrc="/Laporan.png" label="Laporan" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Laporan & Jurnal Arus Kas" })} />
+                            <MenuIconBox href="/scan" imageSrc="/Scanner.png" label="Scanner" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "AI Smart Scanner Struk" })} />
+                            <MenuIconBox href="/amal" imageSrc="/Amal.png" label="Amal" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Kalkulator & Dompet Amal" })} />
+                            <MenuIconBox href="/retained" imageSrc="/Tertahan.png" label="Tertahan" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Dana Tertahan & Rekonsiliasi" })} />
                         </div>
                     </div>
 
@@ -1543,42 +1548,75 @@ export default function Home() {
                         </h3>
 
                         {/* Chat AI Card (Persegi Panjang Kecil) */}
-                        <Link href="/chat-ai">
-                            <div className="bg-brand-navy rounded-[24px] p-5 border-l-[6px] border-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 cursor-pointer active:shadow-[3px_3px_0px_0px] active:shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group mb-3.5">
-                                <Bot className="absolute -right-2 -bottom-2 w-28 h-28 text-white/[0.05] -rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:-rotate-6" strokeWidth={1} />
-                                <div className="flex items-center justify-between relative z-10">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-16 h-16 rounded-2xl bg-[#dbebfb] flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-white/20">
-                                            <img src="/AI.png" alt="ChatAI" className="w-full h-full object-cover" />
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                                <h3 className="font-black text-white text-base tracking-tight">ChatAI</h3>
-                                                <span className="bg-brand-goldTintMed text-brand-goldDark text-[9px] font-black px-2 py-0.5 rounded-md border border-brand-gold uppercase tracking-wider">24/7 ONLINE</span>
+                        <div onClick={(e) => {
+                            if (isGuestMode) {
+                                e.preventDefault();
+                                setLockedFeatureModal({ isOpen: true, featureName: "ChatAI Konsultasi Finansial" });
+                            }
+                        }}>
+                            <Link href={isGuestMode ? "#" : "/chat-ai"}>
+                                <div className="bg-brand-navy rounded-[24px] p-5 border-l-[6px] border-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 cursor-pointer active:shadow-[3px_3px_0px_0px] active:shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group mb-3.5">
+                                    <Bot className="absolute -right-2 -bottom-2 w-28 h-28 text-white/[0.05] -rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:-rotate-6" strokeWidth={1} />
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-16 h-16 rounded-2xl bg-[#dbebfb] flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-white/20 relative">
+                                                <img src="/AI.png" alt="ChatAI" className="w-full h-full object-cover" />
+                                                {isGuestMode && (
+                                                    <div className="absolute top-1 right-1 w-5 h-5 bg-slate-950 text-amber-400 rounded-full flex items-center justify-center border border-amber-400/80 shadow-md">
+                                                        <Lock className="w-2.5 h-2.5" />
+                                                    </div>
+                                                )}
                                             </div>
-                                            <p className="text-[11px] text-blue-200/80 font-medium">Konsultasi strategi & evaluasi keuangan pribadi</p>
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                                    <h3 className="font-black text-white text-base tracking-tight">ChatAI</h3>
+                                                    <span className="bg-brand-goldTintMed text-brand-goldDark text-[9px] font-black px-2 py-0.5 rounded-md border border-brand-gold uppercase tracking-wider">24/7 ONLINE</span>
+                                                </div>
+                                                <p className="text-[11px] text-blue-200/80 font-medium">Konsultasi strategi & evaluasi keuangan pribadi</p>
+                                            </div>
                                         </div>
+                                        {isGuestMode ? (
+                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-amber-400 border border-amber-400/40">
+                                                <Lock className="w-4 h-4" />
+                                            </div>
+                                        ) : (
+                                            <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-brand-gold group-hover:translate-x-0.5 transition-all shrink-0" />
+                                        )}
                                     </div>
-                                    <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-brand-gold group-hover:translate-x-0.5 transition-all shrink-0" />
                                 </div>
-                            </div>
-                        </Link>
-
-                        {/* Pointer / Nudge Bubble setelah simulasi pengeluaran */}
-                        {showPerformanceNudge && (
-                            <div className="p-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-[#0a1128] rounded-2xl shadow-lg border-2 border-white flex items-center justify-between gap-3 animate-in zoom-in-95 duration-300">
-                                <div className="flex items-center gap-2.5">
-                                    <span className="text-xl shrink-0">👇</span>
-                                    <p className="text-xs font-black leading-tight">
-                                        Pengeluaranmu terhitung otomatis! Sentuh kartu <strong>Performa</strong> di bawah untuk melihat analisis kas, aset, dan laju targetmu!
-                                    </p>
-                                </div>
-                                <ChevronRight className="w-5 h-5 shrink-0 animate-bounce" />
-                            </div>
-                        )}
+                            </Link>
+                        </div>
 
                         {/* Performa Card (Persegi Panjang Kecil) */}
                         <div ref={performanceCardRef} className="relative">
+                            {/* BUBBLE CHAT POINTER KE KARTU PERFORMA (BISA DI-CLOSE) */}
+                            {showPerformanceNudge && (
+                                <div className="absolute -top-16 left-2 right-2 z-30 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    <div className="relative bg-slate-900 text-white p-3 rounded-2xl shadow-2xl border-2 border-amber-400 flex items-center justify-between gap-2.5">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <span className="text-lg shrink-0">📈</span>
+                                            <p className="text-[11px] font-bold leading-snug">
+                                                Pengeluaranmu terhitung otomatis! Sentuh kartu <strong>Performa</strong> untuk melihat analisis kas & targetmu.
+                                            </p>
+                                        </div>
+                                        <button 
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                sessionStorage.setItem("bilano_perf_bubble_dismissed", "true");
+                                                setShowPerformanceNudge(false);
+                                            }}
+                                            className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                                            title="Tutup panduan"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                        <div className="absolute -bottom-2 left-10 w-4 h-4 bg-slate-900 rotate-45 border-r-2 border-b-2 border-amber-400"></div>
+                                    </div>
+                                </div>
+                            )}
+
                             <Link href="/performance">
                                 <div className={`bg-brand-gold rounded-[24px] p-5 border-l-[6px] border-brand-navy shadow-[6px_6px_0px_0px] shadow-brand-navy cursor-pointer active:shadow-[3px_3px_0px_0px] shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group ${
                                     showPerformanceNudge ? 'ring-4 ring-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.6)] animate-pulse' : ''
@@ -1615,7 +1653,7 @@ export default function Home() {
                         <div onClick={(e) => {
                             if (isGuestMode) {
                                 e.preventDefault();
-                                setShowTrialInstallModal(true);
+                                setLockedFeatureModal({ isOpen: true, featureName: "Ide & Pembimbing Penghasilan" });
                             }
                         }}>
                             <Link href={isGuestMode ? "#" : "/wealth-blueprint"}>
@@ -1652,7 +1690,7 @@ export default function Home() {
                         <div onClick={(e) => {
                             if (isGuestMode) {
                                 e.preventDefault();
-                                setShowTrialInstallModal(true);
+                                setLockedFeatureModal({ isOpen: true, featureName: "BILANO Academy E-Book VIP" });
                             }
                         }}>
                             <Link href={isGuestMode ? "#" : "/academy"}>
@@ -1742,12 +1780,49 @@ export default function Home() {
                 </div>
             )}
 
-            {/* 🚀 MODAL SIMULASI PENGELUARAN 1-SENTUHAN KHUSUS TRIAL */}
-            <TrialSimulationModal
-                isOpen={showTrialSimulationModal}
-                onClose={() => setShowTrialSimulationModal(false)}
-                onSuccess={handleTrialSimulationSuccess}
-            />
+            {/* 🔒 MODAL FITUR EKSKLUSIF TERKUNCI (KHUSUS MODE UJI COBA) */}
+            {lockedFeatureModal.isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-[#0c142c] border-2 border-amber-400/40 rounded-[32px] w-full max-w-sm p-6 text-center shadow-2xl animate-in zoom-in-95 flex flex-col items-center">
+                        <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-amber-400 to-yellow-500 text-[#0a1128] flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(251,191,36,0.4)]">
+                            <Lock className="w-8 h-8 stroke-[2.5]" />
+                        </div>
+
+                        <span className="bg-amber-400/10 text-amber-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-2 border border-amber-400/30">
+                            FITUR EKSKLUSIF APLIKASI
+                        </span>
+
+                        <h3 className="text-xl font-black text-white leading-tight mb-2">
+                            {lockedFeatureModal.featureName}
+                        </h3>
+
+                        <p className="text-xs text-slate-300 leading-relaxed mb-6 font-medium">
+                            Fitur ini dapat digunakan di aplikasi resmi BILANO. Pasang aplikasi ke layar HP dan buat akun Anda terlebih dahulu untuk memulai.
+                        </p>
+
+                        <div className="w-full space-y-2.5">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setLockedFeatureModal({ isOpen: false, featureName: "" });
+                                    triggerPwaInstallOrGuide();
+                                }}
+                                className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-sm tracking-wide py-3.5 px-5 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 border-b-4 border-amber-600 cursor-pointer"
+                            >
+                                <span>PASANG BILANO & BUAT AKUN</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setLockedFeatureModal({ isOpen: false, featureName: "" })}
+                                className="w-full py-2 text-xs text-slate-400 hover:text-white font-bold transition-colors cursor-pointer"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* 🚀 MODAL PERSUASIF PASANG PWA & BUAT AKUN ASLI */}
             <TrialInstallModal
@@ -1758,7 +1833,40 @@ export default function Home() {
     );
 }
 
-function MenuIconBox({ href, imageSrc, label }: { href: string; imageSrc: string; label: string }) {
+function MenuIconBox({ 
+    href, 
+    imageSrc, 
+    label, 
+    isLocked = false, 
+    onLockedClick 
+}: { 
+    href: string; 
+    imageSrc: string; 
+    label: string; 
+    isLocked?: boolean; 
+    onLockedClick?: () => void;
+}) {
+    if (isLocked) {
+        return (
+            <div 
+                onClick={onLockedClick}
+                className="relative flex flex-col items-center justify-start gap-1.5 cursor-pointer active:scale-95 transition-transform group"
+            >
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center p-0.5 group-hover:scale-105 transition-all relative">
+                    <img
+                        src={imageSrc}
+                        alt={label}
+                        className="w-full h-full object-contain opacity-75 grayscale-[20%]"
+                    />
+                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-slate-900 text-amber-400 rounded-full flex items-center justify-center border border-amber-400/80 shadow-md">
+                        <Lock className="w-2.5 h-2.5" />
+                    </div>
+                </div>
+                <span className="text-[11px] font-bold text-slate-600 text-center whitespace-nowrap">{label}</span>
+            </div>
+        );
+    }
+
     return (
         <Link href={href}>
             <div className="relative flex flex-col items-center justify-start gap-1.5 cursor-pointer active:scale-95 transition-transform group">

@@ -239,6 +239,31 @@ export default function Manager() {
     setData(null);
   };
 
+  const handleResetTrialCount = async () => {
+    if (!confirm("Reset jumlah Coba di Browser (Web) kembali ke 0?")) return;
+    try {
+      const res = await fetch("/api/admin/reset-trial-events", { method: "POST" });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setData((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            metrics: {
+              ...prev.metrics,
+              try_in_browser: 0
+            }
+          };
+        });
+        alert("Hitungan Coba di Browser berhasil direset ke 0!");
+      } else {
+        alert("Gagal reset: " + (json.error || "Terjadi kesalahan"));
+      }
+    } catch (e: any) {
+      alert("Gagal koneksi: " + e.message);
+    }
+  };
+
   const fetchDashboardStats = async (overrideEmail?: string) => {
     setLoading(true);
     try {
@@ -929,9 +954,19 @@ export default function Manager() {
                   </div>
 
                   <div className="border border-[#e2e8f0] rounded-xl p-4 bg-[#f8fafc] flex flex-col justify-between col-span-2 sm:col-span-1 border-l-4 border-l-sky-500">
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Coba di Browser (Web)</p>
-                      <h4 className="text-2xl font-black text-sky-600 mt-1">{data.metrics?.try_in_browser || 0}</h4>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Coba di Browser (Web)</p>
+                        <h4 className="text-2xl font-black text-sky-600 mt-1">{data.metrics?.try_in_browser || 0}</h4>
+                      </div>
+                      <button 
+                        onClick={handleResetTrialCount}
+                        className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all text-xs flex items-center gap-1 font-bold border border-slate-200 cursor-pointer shadow-xs active:scale-95"
+                        title="Reset hitungan ke 0"
+                      >
+                        <IconRefresh />
+                        <span className="text-[10px]">Reset (0)</span>
+                      </button>
                     </div>
                     <p className="text-[10px] text-slate-400 mt-2 font-medium">Pengunjung memilih akses langsung via web</p>
                   </div>
