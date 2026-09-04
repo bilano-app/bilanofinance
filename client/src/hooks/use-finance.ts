@@ -4,6 +4,8 @@ import {
   Target, InsertTarget, Category, InsertCategory, ForexAsset, Debt, Subscription 
 } from "@shared/schema";
 
+import { isTrialMode, getTrialData } from "@/lib/trial-data";
+
 const getHeaders = () => {
     const email = localStorage.getItem("bilano_email");
     return { 
@@ -18,6 +20,21 @@ let globalFetchPromise: Promise<any> | null = null;
 let globalFetchTime = 0;
 
 const fetchSuperData = async () => {
+    // Jika dalam mode uji coba browser (Trial Mode), gunakan trial dummy data langsung
+    if (isTrialMode()) {
+        const trial = getTrialData();
+        return {
+            user: trial.user,
+            transactions: trial.transactions,
+            investments: trial.investments,
+            debts: trial.debts,
+            forexAssets: trial.forexAssets,
+            subscriptions: trial.subscriptions,
+            target: trial.target,
+            retained: trial.retained,
+        };
+    }
+
     const now = Date.now();
     if (globalFetchPromise && (now - globalFetchTime < 3000)) {
         return globalFetchPromise;
@@ -53,6 +70,8 @@ const fetchSuperData = async () => {
 export type AccessTier = "free" | "standard" | "premium";
 
 export function getAccessTier(user?: any): AccessTier {
+  if (isTrialMode()) return "premium";
+
   const savedTier = typeof window !== "undefined" ? localStorage.getItem("bilano_access_tier") : null;
   const explicitTier = user?.plan || savedTier;
 

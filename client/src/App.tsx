@@ -258,6 +258,22 @@ function Router() {
     );
   }
 
+  // Jika sebelumnya user hanya coba-coba di browser lalu menutup browser/tab,
+  // saat dibuka kembali di masa depan, jangan langsung buka app melainkan kembali ke Landing
+  if (typeof window !== "undefined") {
+    const rawEmail = localStorage.getItem("bilano_email");
+    const isGuest = localStorage.getItem("bilano_guest_mode") === "true" || rawEmail === "guest@bilano.app";
+    const hasTrialSession = sessionStorage.getItem("bilano_trial_session") === "true";
+
+    if (isGuest && !hasTrialSession) {
+      localStorage.removeItem("bilano_guest_mode");
+      localStorage.removeItem("bilano_trial_mode");
+      localStorage.removeItem("bilano_auth");
+      localStorage.removeItem("bilano_email");
+      localStorage.removeItem("bilano_trial_sandbox_data");
+    }
+  }
+
   const hasAuth = typeof window !== 'undefined' && Boolean(localStorage.getItem("bilano_auth"));
 
   return (

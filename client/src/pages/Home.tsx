@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import {
     useUser, useTransactions, useTarget,
@@ -23,6 +23,9 @@ import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/tracking";
 import { queryClient } from "@/lib/queryClient";
+import TrialSimulationModal from "@/components/TrialSimulationModal";
+import TrialInstallModal from "@/components/TrialInstallModal";
+import { isTrialMode, getTrialData } from "@/lib/trial-data";
 
 // ─────────────────────────────────────────────────────────────
 // BILANO BRAND TOKENS
@@ -109,6 +112,12 @@ export default function Home() {
         return !localStorage.getItem("bilano_hide_browser_install_banner");
     });
     const [isFabOpen, setIsFabOpen] = useState(false);
+
+    // Trial Mode Interactive Sandbox States
+    const performanceCardRef = useRef<HTMLDivElement>(null);
+    const [showTrialSimulationModal, setShowTrialSimulationModal] = useState(false);
+    const [showTrialInstallModal, setShowTrialInstallModal] = useState(false);
+    const [showPerformanceNudge, setShowPerformanceNudge] = useState(false);
 
     const handleTriggerBrowserInstall = () => {
         const promptEvent = (window as any).deferredPwaPrompt;
@@ -199,7 +208,38 @@ export default function Home() {
 
     const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     const isGuestMode = typeof window !== 'undefined' && 
-        (localStorage.getItem("bilano_guest_mode") === "true" || rawEmail === "guest@bilano.app" || rawEmail === "guest");
+        (localStorage.getItem("bilano_guest_mode") === "true" || localStorage.getItem("bilano_trial_mode") === "true" || rawEmail === "guest@bilano.app" || rawEmail === "guest" || isTrialMode());
+
+    // Efek khusus mode trial: trigger simulasi & pantau kembali dari Performa
+    useEffect(() => {
+        if (isGuestMode) {
+            const hasSimulated = sessionStorage.getItem("bilano_trial_simulated") === "true";
+            const hasVisitedPerf = sessionStorage.getItem("bilano_trial_visited_performance") === "true";
+
+            // Jika user baru kembali dari melihat halaman Performa, langsung picu pop up install & buat akun
+            if (hasVisitedPerf) {
+                setShowTrialInstallModal(true);
+                return;
+            }
+
+            // Jika belum pernah simulasi pengeluaran, buka modal simulasi 1-sentuhan setelah 3.5 detik
+            if (!hasSimulated) {
+                const timer = setTimeout(() => {
+                    setShowTrialSimulationModal(true);
+                }, 3500);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [isGuestMode]);
+
+    const handleTrialSimulationSuccess = (_note: string, _amt: number) => {
+        setShowPerformanceNudge(true);
+        setTimeout(() => {
+            if (performanceCardRef.current) {
+                performanceCardRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        }, 500);
+    };
 
     useEffect(() => {
         if (rawEmail && rawEmail !== 'guest@bilano.app' && rawEmail !== 'guest' && user && user.username === 'guest') {
@@ -217,13 +257,13 @@ export default function Home() {
         const hasPrompted = localStorage.getItem("bilano_permissions_prompted");
         if (!hasPrompted && !isGuestMode) setShowPermissionPrompt(true);
 
-        if (localStorage.getItem("onboarding_just_finished") === "true") {
+        if (localStorage.getItem("onboarding_just_finished") === "true" && !isGuestMode) {
             setShowOnboardingTargetPopup(true);
             localStorage.removeItem("onboarding_just_finished");
         }
 
-        // Cek izin notifikasi untuk pengguna (lama maupun baru)
-        if (typeof window !== "undefined" && "Notification" in window) {
+        // Cek izin notifikasi untuk pengguna akun asli
+        if (typeof window !== "undefined" && "Notification" in window && !isGuestMode) {
             if (Notification.permission !== "granted" && Notification.permission !== "denied") {
                 const dismissed = sessionStorage.getItem("bilano_notif_prompt_dismissed");
                 if (!dismissed) {
@@ -232,7 +272,7 @@ export default function Home() {
                 }
             }
         }
-    }, []);
+    }, [isGuestMode]);
 
     const isAnyDataLoading = isUserLoading || isTargetLoading || isTxLoading || isFxLoading || isSubLoading;
 
@@ -261,7 +301,7 @@ export default function Home() {
     }, [isAnyDataLoading]);
 
     useEffect(() => {
-        if (rawEmail && !isAnyDataLoading && user) {
+        if (rawEmail && !isAnyDataLoading && user && !isGuestMode) {
             const premiumPromptSeen = localStorage.getItem(`bilano_premium_prompt_seen_${rawEmail}`);
 
             if (!user.isPro && !premiumPromptSeen) {
@@ -284,7 +324,7 @@ export default function Home() {
                 return () => clearTimeout(timer);
             }
         }
-    }, [rawEmail, isAnyDataLoading, user, target]);
+    }, [rawEmail, isAnyDataLoading, user, target, isGuestMode]);
 
     const handleClosePremiumPrompt = () => {
         setShowPremiumPrompt(false);
@@ -474,12 +514,12 @@ export default function Home() {
     const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
 
     useEffect(() => {
-        if (!isUserLoading && !isTargetLoading && target !== undefined) {
+        if (!isUserLoading && !isTargetLoading && target !== undefined && !isGuestMode) {
             if (isTargetEmpty) {
                 setLocation("/setup-balance");
             }
         }
-    }, [isTargetEmpty, isUserLoading, isTargetLoading, setLocation]);
+    }, [isTargetEmpty, isUserLoading, isTargetLoading, setLocation, isGuestMode]);
 
     const requestAllPermissions = async () => {
         setIsRequestingPerms(true);
@@ -796,71 +836,74 @@ export default function Home() {
                 </div>
             )}
 
-            <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
-                {showGuideTooltip && (
-                    <div className="absolute right-[60px] bottom-0 w-[270px] bg-white border-2 border-brand-navy p-4 rounded-[20px] shadow-[6px_6px_0px_0px] shadow-slate-900 animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
-                        <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-full hover:bg-slate-100">
-                            <X className="w-4 h-4" />
-                        </button>
-                        <p className="text-[13px] font-black mb-1.5 text-slate-900 flex items-center gap-1.5">
-                            👋 Pelajari Cara Pakai BILANO
-                        </p>
-                        <p className="text-[11px] text-slate-600 leading-relaxed font-bold pr-2 mb-3">
-                            Baru pertama kali pakai BILANO? Buka Buku Panduan untuk memahami cara memaksimalkan seluruh fitur canggih kami!
-                        </p>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => {
-                                    dismissGuideTooltip();
-                                    setLocation('/guide');
-                                }}
-                                className="bg-brand-navy text-brand-gold text-[11px] font-black px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs hover:bg-[#152e55] active:scale-95 transition-all cursor-pointer"
-                            >
-                                <Notebook className="w-3.5 h-3.5" />
-                                <span>Buka Panduan</span>
+            {/* 🚀 FLOATING ACTION BUTTON (FAB '+') & PANDUAN: HANYA MUNCUL DI AKUN ASLI */}
+            {!isGuestMode && (
+                <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
+                    {showGuideTooltip && (
+                        <div className="absolute right-[60px] bottom-0 w-[270px] bg-white border-2 border-brand-navy p-4 rounded-[20px] shadow-[6px_6px_0px_0px] shadow-slate-900 animate-in fade-in zoom-in slide-in-from-right-4 duration-500 z-50">
+                            <button onClick={dismissGuideTooltip} className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-slate-900 transition-colors rounded-full hover:bg-slate-100">
+                                <X className="w-4 h-4" />
                             </button>
-                            <button
-                                onClick={dismissGuideTooltip}
-                                className="text-[11px] font-bold text-slate-400 hover:text-slate-600 px-2 py-1.5"
-                            >
-                                Nanti Saja
-                            </button>
+                            <p className="text-[13px] font-black mb-1.5 text-slate-900 flex items-center gap-1.5">
+                                👋 Pelajari Cara Pakai BILANO
+                            </p>
+                            <p className="text-[11px] text-slate-600 leading-relaxed font-bold pr-2 mb-3">
+                                Baru pertama kali pakai BILANO? Buka Buku Panduan untuk memahami cara memaksimalkan seluruh fitur canggih kami!
+                            </p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        dismissGuideTooltip();
+                                        setLocation('/guide');
+                                    }}
+                                    className="bg-brand-navy text-brand-gold text-[11px] font-black px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs hover:bg-[#152e55] active:scale-95 transition-all cursor-pointer"
+                                >
+                                    <Notebook className="w-3.5 h-3.5" />
+                                    <span>Buka Panduan</span>
+                                </button>
+                                <button
+                                    onClick={dismissGuideTooltip}
+                                    className="text-[11px] font-bold text-slate-400 hover:text-slate-600 px-2 py-1.5"
+                                >
+                                    Nanti Saja
+                                </button>
+                            </div>
+                            <div className="absolute bottom-[14px] -right-[10px] w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[10px] border-l-brand-navy"></div>
+                            <div className="absolute bottom-[16px] -right-[7px] w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[8px] border-l-white"></div>
                         </div>
-                        <div className="absolute bottom-[14px] -right-[10px] w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[10px] border-l-brand-navy"></div>
-                        <div className="absolute bottom-[16px] -right-[7px] w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[8px] border-l-white"></div>
-                    </div>
-                )}
+                    )}
 
-                {/* 🚀 FLOATING ACTION BUTTON (FAB '+') */}
-                <button
-                    onClick={() => setIsFabOpen(true)}
-                    className="w-13 h-13 bg-gradient-to-tr from-amber-400 via-amber-500 to-yellow-500 text-[#0a1128] rounded-full shadow-[0_6px_20px_rgba(245,158,11,0.5)] border-2 border-white flex items-center justify-center transition-all active:scale-95 group relative z-50 cursor-pointer"
-                    title="Catat Cepat"
-                >
-                    <Plus className="w-6 h-6 stroke-[3] text-[#0a1128]" />
-                    <span className="absolute right-full mr-3 bg-slate-900 text-amber-300 text-[10px] font-black px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                        + Catat Cepat
-                    </span>
-                </button>
-
-                <Link href="/help">
-                    <button className="w-12 h-12 bg-brand-gold text-brand-navy rounded-full shadow-[3px_3px_0px_0px] shadow-brand-navy active:shadow-[1px_1px_0px_0px] active:shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center transition-all group relative">
-                        <HelpCircle className="w-6 h-6" strokeWidth={2.25} />
-                        <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                            Pusat Bantuan
+                    {/* 🚀 FLOATING ACTION BUTTON (FAB '+') */}
+                    <button
+                        onClick={() => setIsFabOpen(true)}
+                        className="w-13 h-13 bg-gradient-to-tr from-amber-400 via-amber-500 to-yellow-500 text-[#0a1128] rounded-full shadow-[0_6px_20px_rgba(245,158,11,0.5)] border-2 border-white flex items-center justify-center transition-all active:scale-95 group relative z-50 cursor-pointer"
+                        title="Catat Cepat"
+                    >
+                        <Plus className="w-6 h-6 stroke-[3] text-[#0a1128]" />
+                        <span className="absolute right-full mr-3 bg-slate-900 text-amber-300 text-[10px] font-black px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                            + Catat Cepat
                         </span>
                     </button>
-                </Link>
 
-                <Link href="/guide">
-                    <button onClick={dismissGuideTooltip} className="w-12 h-12 bg-brand-navy text-brand-gold rounded-full shadow-[3px_3px_0px_0px] shadow-slate-900 active:shadow-[1px_1px_0px_0px] active:shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center transition-all group relative">
-                        <Notebook className="w-6 h-6" strokeWidth={2.25} />
-                        <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                            Panduan Fitur
-                        </span>
-                    </button>
-                </Link>
-            </div>
+                    <Link href="/help">
+                        <button className="w-12 h-12 bg-brand-gold text-brand-navy rounded-full shadow-[3px_3px_0px_0px] shadow-brand-navy active:shadow-[1px_1px_0px_0px] active:shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center transition-all group relative">
+                            <HelpCircle className="w-6 h-6" strokeWidth={2.25} />
+                            <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                Pusat Bantuan
+                            </span>
+                        </button>
+                    </Link>
+
+                    <Link href="/guide">
+                        <button onClick={dismissGuideTooltip} className="w-12 h-12 bg-brand-navy text-brand-gold rounded-full shadow-[3px_3px_0px_0px] shadow-slate-900 active:shadow-[1px_1px_0px_0px] active:shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center transition-all group relative">
+                            <Notebook className="w-6 h-6" strokeWidth={2.25} />
+                            <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                Panduan Fitur
+                            </span>
+                        </button>
+                    </Link>
+                </div>
+            )}
 
             {/* 🚀 MODAL PILIHAN CATAT TRANSAKSI CEPAT (DARI FAB '+') */}
             {isFabOpen && (
@@ -1128,27 +1171,21 @@ export default function Home() {
                 {/* TOP BANNER CONTAINER: Gradient background covering welcome area and card area */}
                 <div className="-mx-5 -mt-5 px-5 pt-5 pb-8 bg-gradient-to-b from-[#f1f5f9] via-[#e2eaf4] to-[#d6e3f2] flex flex-col relative z-10">
 
-                    {/* 🌟 BANNER KHUSUS MODE TAMU / DEMO */}
+                    {/* 🌟 BANNER KHUSUS MODE TAMU / TRIAL */}
                     {isGuestMode && (
                         <div className="-mx-5 -mt-5 px-4 py-2.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-[#0a1128] flex items-center justify-between gap-2 shadow-xs z-40 relative border-b border-amber-600/30">
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="w-2 h-2 rounded-full bg-[#0a1128] animate-ping shrink-0"></span>
                                 <p className="text-[11px] font-black tracking-tight truncate">
-                                    Mode Tamu (Simulasi) • Belum tersimpan
+                                    Mode Uji Coba Interaktif • Saldo Kas Rp 10.000.000 (Dummy)
                                 </p>
                             </div>
-                            <Link href="/auth?mode=signup">
-                                <button 
-                                    onClick={() => {
-                                        localStorage.removeItem("bilano_guest_mode");
-                                        localStorage.removeItem("bilano_auth");
-                                        localStorage.removeItem("bilano_email");
-                                    }}
-                                    className="bg-[#0a1128] hover:bg-slate-900 text-amber-300 font-black text-[10px] px-3 py-1.5 rounded-xl shrink-0 shadow-xs cursor-pointer active:scale-95 transition-all"
-                                >
-                                    Daftar Gratis →
-                                </button>
-                            </Link>
+                            <button 
+                                onClick={() => setShowTrialInstallModal(true)}
+                                className="bg-[#0a1128] hover:bg-slate-900 text-amber-300 font-black text-[10px] px-3 py-1.5 rounded-xl shrink-0 shadow-xs cursor-pointer active:scale-95 transition-all flex items-center gap-1"
+                            >
+                                <span>⚡ Pasang App</span>
+                            </button>
                         </div>
                     )}
 
@@ -1210,8 +1247,15 @@ export default function Home() {
                                     </h2>
 
                                     {user ? (
-                                        user.isPro === true ? (
+                                        user.isPro === true && !isGuestMode ? (
                                             <Crown className="w-4 h-4 text-brand-gold shrink-0" fill="currentColor" />
+                                        ) : isGuestMode ? (
+                                            <button
+                                                onClick={() => setShowTrialInstallModal(true)}
+                                                className="bg-brand-navy text-brand-gold font-bold text-[9px] px-2 py-0.5 rounded-md hover:bg-[#152e55] transition-colors cursor-pointer shrink-0 uppercase tracking-wider"
+                                            >
+                                                INSTALL APP
+                                            </button>
                                         ) : (
                                             <Link href="/paywall">
                                                 <span className="text-brand-gold font-bold text-[11px] leading-tight flex items-center hover:text-brand-goldDark transition-colors cursor-pointer shrink-0">
@@ -1252,14 +1296,32 @@ export default function Home() {
 
                                 {isMenuOpen && (
                                     <div className="absolute top-12 right-0 w-48 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 py-2 z-50 animate-in slide-in-from-top-2">
-                                        <Link href="/profile">
-                                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400" /> Edit Profil & Sandi</button>
-                                        </Link>
-                                        <Link href="/security">
-                                            <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400" /> Keamanan</button>
-                                        </Link>
-                                        <div className="h-px bg-slate-100 my-1 mx-2"></div>
-                                        <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500" /> Keluar</button>
+                                        {!isGuestMode ? (
+                                            <>
+                                                <Link href="/profile">
+                                                    <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><User className="w-4 h-4 text-slate-400" /> Edit Profil & Sandi</button>
+                                                </Link>
+                                                <Link href="/security">
+                                                    <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-slate-400" /> Keamanan</button>
+                                                </Link>
+                                                <div className="h-px bg-slate-100 my-1 mx-2"></div>
+                                                <button onClick={handleLogout} className="w-full text-left px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-3 font-bold"><LogOut className="w-4 h-4 text-rose-500" /> Keluar</button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button 
+                                                    onClick={() => { setIsMenuOpen(false); setShowTrialInstallModal(true); }}
+                                                    className="w-full text-left px-4 py-3 text-sm text-amber-700 hover:bg-amber-50 font-bold flex items-center gap-3"
+                                                >
+                                                    <Crown className="w-4 h-4 text-amber-500" /> Buat Akun Penuh
+                                                </button>
+                                                <Link href="/guide">
+                                                    <button className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-3">
+                                                        <BookOpen className="w-4 h-4 text-slate-400" /> Panduan Aplikasi
+                                                    </button>
+                                                </Link>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1337,25 +1399,29 @@ export default function Home() {
                                                             <span className="font-bold text-blue-200 text-[10px]">{wallet.name}:</span>
                                                         )}
                                                         <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(wallet.balance).split(",")[0]}</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleOpenEditWallet(wallet);
-                                                            }}
-                                                            className="ml-0.5 p-0.5 hover:bg-white/20 rounded-full text-blue-200 hover:text-white transition-colors active:scale-95"
-                                                            title={`Edit Saldo ${wallet.name}`}
-                                                        >
-                                                            <Pencil className="w-2.5 h-2.5 text-brand-gold" />
-                                                        </button>
+                                                        {!isGuestMode && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleOpenEditWallet(wallet);
+                                                                }}
+                                                                className="ml-0.5 p-0.5 hover:bg-white/20 rounded-full text-blue-200 hover:text-white transition-colors active:scale-95"
+                                                                title={`Edit Saldo ${wallet.name}`}
+                                                            >
+                                                                <Pencil className="w-2.5 h-2.5 text-brand-gold" />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 );
                                             })}
-                                            <Link href="/transfer">
-                                                <button className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-gold text-brand-navy shrink-0 ml-1 hover:bg-brand-goldDark transition-colors active:scale-95 shadow-sm" title="Tambah / Pindah Dompet">
-                                                    <Plus className="w-4 h-4" strokeWidth={3} />
-                                                </button>
-                                            </Link>
+                                            {!isGuestMode && (
+                                                <Link href="/transfer">
+                                                    <button className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-gold text-brand-navy shrink-0 ml-1 hover:bg-brand-goldDark transition-colors active:scale-95 shadow-sm" title="Tambah / Pindah Dompet">
+                                                        <Plus className="w-4 h-4" strokeWidth={3} />
+                                                    </button>
+                                                </Link>
+                                            )}
                                         </>
                                     ) : (
                                         <div className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0">
@@ -1498,27 +1564,44 @@ export default function Home() {
                             </div>
                         </Link>
 
-                        {/* Performa Card (Persegi Panjang Kecil) */}
-                        <Link href="/performance">
-                            <div className="bg-brand-gold rounded-[24px] p-5 border-l-[6px] border-brand-navy shadow-[6px_6px_0px_0px] shadow-brand-navy cursor-pointer active:shadow-[3px_3px_0px_0px] shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group">
-                                <BarChart3 className="absolute -right-4 -bottom-4 w-32 h-32 text-brand-navy/10 rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-6" strokeWidth={1} />
-                                <div className="flex items-center justify-between relative z-10">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-16 h-16 rounded-2xl bg-[#fdf5ea] flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-brand-navy/20">
-                                            <img src="/Performance.png" alt="Performa" className="w-full h-full object-cover" />
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                                <h3 className="font-black text-brand-navy text-base tracking-tight">Performa</h3>
-                                                <span className="bg-brand-navy text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider">REAL-TIME</span>
-                                            </div>
-                                            <p className="text-[11px] text-brand-navy/80 font-bold">Pantau rasio laba, aset & pencapaian target</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight className="w-5 h-5 text-brand-navy/40 group-hover:text-brand-navy group-hover:translate-x-0.5 transition-all shrink-0" />
+                        {/* Pointer / Nudge Bubble setelah simulasi pengeluaran */}
+                        {showPerformanceNudge && (
+                            <div className="p-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-[#0a1128] rounded-2xl shadow-lg border-2 border-white flex items-center justify-between gap-3 animate-in zoom-in-95 duration-300">
+                                <div className="flex items-center gap-2.5">
+                                    <span className="text-xl shrink-0">👇</span>
+                                    <p className="text-xs font-black leading-tight">
+                                        Pengeluaranmu terhitung otomatis! Sentuh kartu <strong>Performa</strong> di bawah untuk melihat analisis kas, aset, dan laju targetmu!
+                                    </p>
                                 </div>
+                                <ChevronRight className="w-5 h-5 shrink-0 animate-bounce" />
                             </div>
-                        </Link>
+                        )}
+
+                        {/* Performa Card (Persegi Panjang Kecil) */}
+                        <div ref={performanceCardRef} className="relative">
+                            <Link href="/performance">
+                                <div className={`bg-brand-gold rounded-[24px] p-5 border-l-[6px] border-brand-navy shadow-[6px_6px_0px_0px] shadow-brand-navy cursor-pointer active:shadow-[3px_3px_0px_0px] shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group ${
+                                    showPerformanceNudge ? 'ring-4 ring-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.6)] animate-pulse' : ''
+                                }`}>
+                                    <BarChart3 className="absolute -right-4 -bottom-4 w-32 h-32 text-brand-navy/10 rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:rotate-6" strokeWidth={1} />
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-16 h-16 rounded-2xl bg-[#fdf5ea] flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-brand-navy/20">
+                                                <img src="/Performance.png" alt="Performa" className="w-full h-full object-cover" />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                                    <h3 className="font-black text-brand-navy text-base tracking-tight">Performa</h3>
+                                                    <span className="bg-brand-navy text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider">REAL-TIME</span>
+                                                </div>
+                                                <p className="text-[11px] text-brand-navy/80 font-bold">Pantau rasio laba, aset & pencapaian target</p>
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="w-5 h-5 text-brand-navy/40 group-hover:text-brand-navy group-hover:translate-x-0.5 transition-all shrink-0" />
+                                    </div>
+                                </div>
+                            </Link>
+                        </div>
                     </div>
 
                     {/* 6. EKSKLUSIF PREMIUM (Format Kotak Besar dengan Visual Backwrap & Action Bar) */}
@@ -1529,64 +1612,78 @@ export default function Home() {
                         </h3>
 
                         {/* Ide & Pembimbing Penghasilan (Kotak Besar) */}
-                        <Link href="/wealth-blueprint">
-                            <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#0d2146] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
-                                <img
-                                    src="/IDEA.png"
-                                    alt="Ide & Pembimbing Penghasilan"
-                                    className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 group-hover:scale-105"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-transparent to-black/60 pointer-events-none" />
+                        <div onClick={(e) => {
+                            if (isGuestMode) {
+                                e.preventDefault();
+                                setShowTrialInstallModal(true);
+                            }
+                        }}>
+                            <Link href={isGuestMode ? "#" : "/wealth-blueprint"}>
+                                <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#0d2146] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
+                                    <img
+                                        src="/IDEA.png"
+                                        alt="Ide & Pembimbing Penghasilan"
+                                        className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 group-hover:scale-105"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-transparent to-black/60 pointer-events-none" />
 
-                                <div className="relative z-10">
-                                    <span className="inline-flex items-center bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs mb-1">
-                                        STRATEGI CUAN AI • LIVE
-                                    </span>
-                                    <h3 className="font-black text-white text-xl leading-tight drop-shadow-sm">Ide & Pembimbing Penghasilan</h3>
-                                    <p className="text-xs text-blue-100 font-bold max-w-[240px] mt-0.5 leading-snug drop-shadow-xs">Peta jalur cuan & blueprint strategi bisnis AI</p>
-                                </div>
+                                    <div className="relative z-10">
+                                        <span className="inline-flex items-center bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs mb-1">
+                                            STRATEGI CUAN AI • LIVE
+                                        </span>
+                                        <h3 className="font-black text-white text-xl leading-tight drop-shadow-sm">Ide & Pembimbing Penghasilan</h3>
+                                        <p className="text-xs text-blue-100 font-bold max-w-[240px] mt-0.5 leading-snug drop-shadow-xs">Peta jalur cuan & blueprint strategi bisnis AI</p>
+                                    </div>
 
-                                <div className="relative z-10 mt-6 bg-[#16386d]/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl border border-white/25 shadow-lg flex items-center justify-between group-hover:bg-[#122e5a] transition-all">
-                                    <div>
-                                        <h4 className="font-black text-white text-[13px] leading-tight">Buka Peta Ide</h4>
-                                        <p className="text-[10px] text-blue-200 font-semibold leading-tight mt-0.5">Mulai bangun sumber income baru</p>
-                                    </div>
-                                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 group-hover:bg-white/30 group-hover:translate-x-0.5 transition-all">
-                                        <ChevronRight className="w-4 h-4" />
+                                    <div className="relative z-10 mt-6 bg-[#16386d]/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl border border-white/25 shadow-lg flex items-center justify-between group-hover:bg-[#122e5a] transition-all">
+                                        <div>
+                                            <h4 className="font-black text-white text-[13px] leading-tight">Buka Peta Ide</h4>
+                                            <p className="text-[10px] text-blue-200 font-semibold leading-tight mt-0.5">Mulai bangun sumber income baru</p>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 group-hover:bg-white/30 group-hover:translate-x-0.5 transition-all">
+                                            <ChevronRight className="w-4 h-4" />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </Link>
+                            </Link>
+                        </div>
 
                         {/* BILANO Academy (Kotak Besar) */}
-                        <Link href="/academy">
-                            <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#5c4314] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
-                                <img
-                                    src="/ACADEMY.png"
-                                    alt="BILANO Academy"
-                                    className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 group-hover:scale-105"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-b from-[#1e150b]/80 via-transparent to-black/60 pointer-events-none" />
+                        <div onClick={(e) => {
+                            if (isGuestMode) {
+                                e.preventDefault();
+                                setShowTrialInstallModal(true);
+                            }
+                        }}>
+                            <Link href={isGuestMode ? "#" : "/academy"}>
+                                <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#5c4314] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
+                                    <img
+                                        src="/ACADEMY.png"
+                                        alt="BILANO Academy"
+                                        className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-transform duration-500 group-hover:scale-105"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-b from-[#1e150b]/80 via-transparent to-black/60 pointer-events-none" />
 
-                                <div className="relative z-10">
-                                    <span className="inline-flex items-center bg-brand-gold text-slate-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs mb-1">
-                                        E-BOOK & PANDUAN VIP
-                                    </span>
-                                    <h3 className="font-black text-white text-xl leading-tight drop-shadow-sm">BILANO Academy</h3>
-                                    <p className="text-xs text-amber-100 font-bold max-w-[240px] mt-0.5 leading-snug drop-shadow-xs">Koleksi E-Book & kurikulum finansial eksklusif</p>
-                                </div>
+                                    <div className="relative z-10">
+                                        <span className="inline-flex items-center bg-brand-gold text-slate-950 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs mb-1">
+                                            E-BOOK & PANDUAN VIP
+                                        </span>
+                                        <h3 className="font-black text-white text-xl leading-tight drop-shadow-sm">BILANO Academy</h3>
+                                        <p className="text-xs text-amber-100 font-bold max-w-[240px] mt-0.5 leading-snug drop-shadow-xs">Koleksi E-Book & kurikulum finansial eksklusif</p>
+                                    </div>
 
-                                <div className="relative z-10 mt-6 bg-[#261d14]/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl border border-amber-500/25 shadow-lg flex items-center justify-between group-hover:bg-[#1c150e] transition-all">
-                                    <div>
-                                        <h4 className="font-black text-white text-[13px] leading-tight">Akses Academy</h4>
-                                        <p className="text-[10px] text-amber-200 font-semibold leading-tight mt-0.5">Pelajari materi & e-book VIP</p>
-                                    </div>
-                                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 group-hover:bg-white/30 group-hover:translate-x-0.5 transition-all">
-                                        <ChevronRight className="w-4 h-4" />
+                                    <div className="relative z-10 mt-6 bg-[#261d14]/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl border border-amber-500/25 shadow-lg flex items-center justify-between group-hover:bg-[#1c150e] transition-all">
+                                        <div>
+                                            <h4 className="font-black text-white text-[13px] leading-tight">Akses Academy</h4>
+                                            <p className="text-[10px] text-amber-200 font-semibold leading-tight mt-0.5">Pelajari materi & e-book VIP</p>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 group-hover:bg-white/30 group-hover:translate-x-0.5 transition-all">
+                                            <ChevronRight className="w-4 h-4" />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </Link>
+                            </Link>
+                        </div>
                     </div>
 
                     {/* 7. Footer / Copyright */}
@@ -1644,6 +1741,19 @@ export default function Home() {
                     </div>
                 </div>
             )}
+
+            {/* 🚀 MODAL SIMULASI PENGELUARAN 1-SENTUHAN KHUSUS TRIAL */}
+            <TrialSimulationModal
+                isOpen={showTrialSimulationModal}
+                onClose={() => setShowTrialSimulationModal(false)}
+                onSuccess={handleTrialSimulationSuccess}
+            />
+
+            {/* 🚀 MODAL PERSUASIF PASANG PWA & BUAT AKUN ASLI */}
+            <TrialInstallModal
+                isOpen={showTrialInstallModal}
+                onClose={() => setShowTrialInstallModal(false)}
+            />
         </MobileLayout>
     );
 }

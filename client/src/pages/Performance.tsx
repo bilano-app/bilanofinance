@@ -13,6 +13,8 @@ import { useUser, useTarget, useTransactions, useForexRates, useInvestments, get
 import { formatCurrency } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { isTrialMode, getTrialData } from "@/lib/trial-data";
+import TrialInstallModal from "@/components/TrialInstallModal";
 
 const DEFAULT_RATES: Record<string, number> = {
     USD: 16250, EUR: 17500, SGD: 12200, JPY: 108, GBP: 20500,
@@ -29,44 +31,61 @@ export default function Performance() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const isTrial = isTrialMode();
+  const trialData = isTrial ? getTrialData() : null;
+
   const [selectedPlan, setSelectedPlan] = useState<'yearly' | 'monthly'>('yearly');
   const [isCharging, setIsCharging] = useState(false);
   const [expandedDetail, setExpandedDetail] = useState<'income' | 'expense' | null>(null);
   const [isDeletingTx, setIsDeletingTx] = useState(false);
+  const [showTrialInstallModal, setShowTrialInstallModal] = useState(false);
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const accessTier = getAccessTier(user);
-  const isPro = accessTier !== "free";
-  const isLocked = accessTier === "free";
+  const isPro = isTrial ? true : accessTier !== "free";
+  const isLocked = isTrial ? false : accessTier === "free";
 
-  const { data: forexAssetsData = [] } = useQuery({
+  useEffect(() => {
+    if (isTrial) {
+      sessionStorage.setItem("bilano_trial_visited_performance", "true");
+      const timer = setTimeout(() => {
+        setShowTrialInstallModal(true);
+      }, 11000);
+      return () => clearTimeout(timer);
+    }
+  }, [isTrial]);
+
+  const { data: forexAssetsData = isTrial ? (trialData?.forexAssets || []) : [] } = useQuery({
       queryKey: ['forex-assets', currentUserEmail],
       queryFn: async () => {
+          if (isTrial) return trialData?.forexAssets || [];
           const res = await fetch("/api/forex/assets", { headers: { "x-user-email": currentUserEmail } });
           if (!res.ok) return [];
           return res.json();
       },
-      enabled: !!currentUserEmail
+      enabled: !isTrial ? !!currentUserEmail : true
   });
 
-  const { data: retainedData = [] } = useQuery({
+  const { data: retainedData = isTrial ? (trialData?.retained || []) : [] } = useQuery({
       queryKey: ['retained-data', currentUserEmail],
       queryFn: async () => {
+          if (isTrial) return trialData?.retained || [];
           const res = await fetch("/api/retained", { headers: { "x-user-email": currentUserEmail } });
           if (!res.ok) return [];
           return res.json();
       },
-      enabled: !!currentUserEmail
+      enabled: !isTrial ? !!currentUserEmail : true
   });
 
-  const { data: debtsData = [] } = useQuery({
+  const { data: debtsData = isTrial ? (trialData?.debts || []) : [] } = useQuery({
       queryKey: ['debts-data', currentUserEmail],
       queryFn: async () => {
+          if (isTrial) return trialData?.debts || [];
           const res = await fetch("/api/debts", { headers: { "x-user-email": currentUserEmail } });
           if (!res.ok) return [];
           return res.json();
       },
-      enabled: !!currentUserEmail
+      enabled: !isTrial ? !!currentUserEmail : true
   });
 
   const handleLanjutBayar = async () => {
@@ -1140,6 +1159,13 @@ export default function Performance() {
 
         </div>
       </div>
+
+      <TrialInstallModal
+        isOpen={showTrialInstallModal}
+        onClose={() => setShowTrialInstallModal(false)}
+        title="Waktunya Mengelola Uang Aslimu!"
+        description="Anda telah melihat analisis komprehensif BILANO mulai dari runway kas, target impian, hingga diagnosis ketahanan aset. Install BILANO sekarang untuk mengelola saldo aslimu!"
+      />
     </MobileLayout>
   );
 }
