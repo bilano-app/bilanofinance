@@ -1,1050 +1,358 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
-  ArrowRight, Download, CheckCircle2, X, Target, Fingerprint, Activity, Radar, Copy, RefreshCw, AlertCircle, ShieldCheck, LockKeyhole, ChevronDown, Compass
+  ArrowRight, CheckCircle2, X, Target, Zap, ShieldAlert, Sparkles, 
+  Clock, Crown, Gift, Loader2, ShieldCheck, ChevronRight
 } from "lucide-react";
-import { trackEvent } from "@/lib/tracking";
-
-// =======================================================
-// 🚀 DATABASE METODE PEMBAYARAN & LOGO (STABIL)
-// =======================================================
-const paymentOptions = [
-  { id: "SQ", name: "QRIS (GoPay/OVO/Dana)", icon: "/QRIS.png" }, 
-  { id: "M2", name: "Mandiri Virtual Account", icon: "/Mandiri.png" },
-  { id: "I1", name: "BNI Virtual Account", icon: "/BNI.png" },
-  { id: "BR", name: "BRI Virtual Account", icon: "/BRI.png" },
-  { id: "B1", name: "CIMB Niaga Virtual Account", icon: "/CIMB.png" },
-  { id: "BT", name: "Permata Virtual Account", icon: "/Permata.png" },
-  { id: "BSI", name: "BSI Virtual Account", icon: "/BSI.png" },
-  { id: "D1", name: "Danamon Virtual Account", icon: "/Danamon.png" },
-  { id: "VA", name: "Maybank Virtual Account", icon: "/Maybank.png" },
-  { id: "NC", name: "Bank Neo Commerce", icon: "/BNC.png" },
-  { id: "A1", name: "ATM Bersama", icon: "/ATM.png" },
-  { id: "FT", name: "Alfamart / Pegadaian / Pos", icon: "/Alfa.png" }
-];
-
-// 🛡️ KOMPONEN PENGAMAN GAMBAR RUSAK (FALLBACK UI)
-const PaymentIcon = ({ src, name }: { src: string, name: string }) => {
-  const [hasError, setHasError] = useState(false);
-  
-  if (hasError || !src) {
-    const initial = name.replace(/Virtual Account/i, "").replace(/Bank/i, "").trim().substring(0, 2).toUpperCase();
-    return (
-      <div className="w-full h-full bg-slate-200 flex items-center justify-center rounded text-[10px] font-black text-slate-800 tracking-tighter">
-        {initial}
-      </div>
-    );
-  }
-  
-  return (
-    <img 
-      src={src} 
-      alt={name} 
-      className="w-full h-full object-contain" 
-      onError={() => setHasError(true)} 
-    />
-  );
-};
+import { Button } from "@/components/UIComponents";
+import { setStoredUserGoal, useWelcomeCountdown, UserGoal, getGoalPitchDetails } from "@/lib/welcome-deal";
+import { useUser } from "@/hooks/use-finance";
 
 export default function Onboarding() {
   const [, setLocation] = useLocation();
-  
-  const [step, setStep] = useState(0);
-  const [fade, setFade] = useState(true);
-  
-  const [answers, setAnswers] = useState({
-    q1: "",
-    q2: "",
-    q3: "",
-    q4: 0
-  });
+  const { data: user } = useUser();
+  const userEmail = localStorage.getItem("bilano_email") || user?.email || "";
 
-  const [selectedPlan, setSelectedPlan] = useState<"year" | "month" | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: ""
-  });
+  const countdown = useWelcomeCountdown(userEmail);
 
-  // State Metode Pembayaran
-  const [paymentMethod, setPaymentMethod] = useState("SQ"); 
-  const [paymentDetails, setPaymentDetails] = useState<any>(null);
-  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
-  const [showPaymentAlert, setShowPaymentAlert] = useState(false); 
+  const [step, setStep] = useState<1 | 2 | 3 | "analyzing" | "result">(1);
+  const [selectedGoal, setSelectedGoal] = useState<UserGoal>("income");
+  const [selectedChallenge, setSelectedChallenge] = useState<string>("Uang sering habis tanpa sadar");
+  const [selectedPace, setSelectedPace] = useState<string>("Akselerasi cepat dalam 1-3 bulan");
 
-  // State Khusus Voucher
-  const [voucherCode, setVoucherCode] = useState("");
-  const [discountPercent, setDiscountPercent] = useState(0);
-  const [voucherMessage, setVoucherMessage] = useState("");
-
-  // State Bantuan Panduan Instalasi
-  const [showInstallGuideContent, setShowInstallGuideContent] = useState(false);
-
-  // State Khusus Custom Dropdown
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const [showManualInstall, setShowManualInstall] = useState(false);
-  const [accessCode, setAccessCode] = useState<string | null>(null);
-
+  // Ketika masuk step "analyzing", beri delay 1.5 detik agar terasa diproses oleh AI
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
+    if (step === "analyzing") {
+      const timer = setTimeout(() => {
+        setStoredUserGoal(selectedGoal, userEmail);
+        setStep("result");
+      }, 1500);
+      return () => clearTimeout(timer);
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [step, selectedGoal, userEmail]);
 
-  const selectedMethodDetails = paymentOptions.find(p => p.id === paymentMethod) || paymentOptions[0];
-
-  // =======================================================
-  // 🧠 MESIN ANALISIS PSIKOLOGI FINANSIAL (DETAIL)
-  // =======================================================
-  const getAssessment = () => {
-    const { q1, q2, q3, q4 } = answers;
-    const score = Number(q4);
-    const y1 = q1 === 'Ya'; // Terencana
-    const y2 = q2 === 'Ya'; // Visi Jelas
-    const y3 = q3 === 'Ya'; // Siap Berkomitmen
-
-    if (y1 && y2 && y3) {
-      if (score >= 9) {
-        return {
-          title: "👑 Sang Visioner Finansial Tertinggi!",
-          desc: `Kombinasi jawabanmu sempurna! Kamu terencana, punya visi jelas, siap beraksi, ditambah komitmen absolut (${score}/10). Kamu berada di top 1% mentalitas finansial. BILANO akan menjadi senjata rahasia untuk melacak setiap sen dan mengakselerasi asetmu secara agresif.`,
-          icon: <Target className="w-10 h-10 animate-pulse text-amber-400" />,
-          highlight: "Mari eksekusi mahakarya finansialmu sekarang."
-        };
-      } else {
-        return {
-          title: "⚡ Pejuang Finansial Potensial",
-          desc: `Kamu punya pondasi luar biasa (Terencana, Ada Visi, Mau Berusaha). Namun, tingkat keyakinan tindakanmu saat ini bernilai ${score}/10. Masih ada sedikit kendala psikologis atau eksternal yang menahanmu. BILANO hadir untuk menghapus ragu lewat sistem kas otomatis.`,
-          icon: <Target className="w-10 h-10 text-amber-500" />,
-          highlight: "Mari pertebal keyakinan dan mulai eksekusi."
-        };
-      }
-    }
-
-    if (y1 && y2 && !y3) {
-      if (score >= 8) {
-        return {
-          title: "⚡ Sang Arsitek Cerdas (Mager tapi Ambisius)",
-          desc: `Ini kombinasi unik! Kamu tahu arah dan ingin terencana, tapi kamu jujur benci keribetan rutinitas mencatat manual (Skor Komitmen: ${score}/10). Di sinilah BILANO bersinar! Fitur Smart AI dan otomatisasi kami dirancang khusus untuk orang sepertimu: hasil maksimal tanpa pusing proses.`,
-          icon: <Activity className="w-10 h-10 animate-pulse text-blue-400" />,
-          highlight: "Delegasikan keribetan finansialmu pada AI BILANO."
-        };
-      } else {
-        return {
-          title: "💤 Konseptor Finansial Pasif",
-          desc: `Kamu punya rencana dan visi, tapi komitmen tindakanmu cenderung rendah (${score}/10) karena faktor malas atau sibuk. Jika dibiarkan, visimu hanya akan jadi wacana. BILANO akan membantu memicu kebiasaanmu secara perlahan tanpa terasa membebani.`,
-          icon: <Activity className="w-10 h-10 text-blue-500" />,
-          highlight: "Ubah wacana keuanganmu menjadi sistem yang berjalan."
-        };
-      }
-    }
-
-    if (y1 && !y2 && y3) {
-      return {
-        title: "🛠️ Pengumpul Aset yang Setia",
-        desc: `Kamu adalah pekerja keras. Kamu ingin rapi dan siap membangun kebiasaan baik, meskipun arah akhir target nominal besarmu (${score}/10) belum terdefinisi jelas. Tenang saja, BILANO akan bertindak sebagai kompas yang membantumu menemukan angka ideal tersebut seiring waktu.`,
-        icon: <Fingerprint className="w-10 h-10 text-emerald-400" />,
-        highlight: "Mari petakan masa depan finansialmu langkah demi langkah."
-      };
-    }
-
-    if (!y1 && y2 && !y3) {
-      if (score >= 8) {
-        return {
-          title: "☁️ Manifestor Ambisius (Ego Tinggi)",
-          desc: `Jawabanmu menunjukkan kontradiksi kuat. Kamu mendambakan angka kekayaan besar, tapi menolak teratur dan enggan membangun kebiasaan. Skor ${score}/10 menunjukkan ego ekspektasi tinggi. Hati-hati, tanpa sistem manajemen, mimpimu berisiko runtuh akibat kebocoran halus.`,
-          icon: <Target className="w-10 h-10 text-purple-400" />,
-          highlight: "Waktunya membumikan mimpimu menjadi angka riil."
-        };
-      } else {
-        return {
-          title: "🔮 Sang Pemimpi Finansial",
-          desc: `Kamu ingin kaya tapi saat ini hidup mengalir saja tanpa rencana maupun usaha ekstra (Tingkat dorongan: ${score}/10). Tidak apa-apa, BILANO tidak akan memaksa kamu berubah drastis. Kami akan bantu secara pasif memantau kemana perginya uangmu terlebih dahulu.`,
-          icon: <Compass className="w-10 h-10 text-purple-500" />,
-          highlight: "Mulai sadari arus kasmu sebelum membangun mimpi."
-        };
-      }
-    }
-
-    if (!y1 && !y2 && y3) {
-      return {
-        title: "🌱 Pejuang Awal Berdedikasi",
-        desc: `Saat ini kondisi keuanganmu mungkin belum terarah dengan baik. Tapi luar biasanya, kamu punya modal paling berharga: Kesediaan penuh untuk berupaya dan belajar (Skor kesiapan: ${score}/10). BILANO akan menjadi mentor digital pertamamu untuk keluar dari zona nyaman ini.`,
-        icon: <ShieldCheck className="w-10 h-10 text-rose-400" />,
-        highlight: "Mari amankan kondisi keuanganmu mulai hari ini."
-      };
-    }
-
-    if (!y1 && !y2 && !y3) {
-      if (score >= 7) {
-        return {
-          title: "🚨 Peringatan Dini Finansial!",
-          desc: `Kamu menjawab TIDAK pada semua pilar dasar, namun skor urgensimu tinggi (${score}/10). Ini adalah sinyal darurat bahwa kamu sadar ada yang salah dengan keuanganmu dan butuh pertolongan cepat. BILANO hadir sebagai pelampung keselamatan untuk menambal kebocoran kasmu.`,
-          icon: <Radar className="w-10 h-10 animate-pulse text-rose-500" />,
-          highlight: "Jangan tunda lagi, selamatkan arus kasmu sekarang."
-        };
-      } else {
-        return {
-          title: "🧭 Penjelajah Keuangan Santai",
-          desc: `Dengan skor ${score}/10 dan dominasi jawaban pasif, tampaknya kamu belum terlalu memikirkan manajemen keuangan jangka panjang. Menjelajahi BILANO secara santai adalah langkah awal yang bagus tanpa perlu merasa tertekan.`,
-          icon: <Radar className="w-10 h-10 text-slate-400" />,
-          highlight: "Lihat-lihat dulu, pahami uangmu secara perlahan."
-        };
-      }
-    }
-
-    return {
-      title: "🚀 Navigator Finansial Dinamis",
-      desc: `Analisis jawaban unikmu menunjukkan skor kesiapan ${score}/10. Kamu memiliki gaya pengaturan keuangan yang fleksibel dan personal. BILANO akan menyesuaikan dengan gayamu, baik secara mendalam maupun serba otomatis.`,
-      icon: <Target className="w-10 h-10 text-amber-400" />,
-      highlight: "Mari mulai perjalanan finansial kustommu sekarang."
-    };
+  const handleSkip = () => {
+    setStoredUserGoal(selectedGoal, userEmail);
+    setLocation("/setup-balance");
   };
 
-  const assessment = getAssessment();
-
-  useEffect(() => {
-    if (step === 0) trackEvent("onboarding_started");
-    else if (step === 4) trackEvent("assessment_viewed", { profile: assessment.title });
-    else if (step === 5) trackEvent("pricing_viewed");
-    else if (step === 6) trackEvent("success_page_viewed");
-  }, [step, assessment.title]);
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('payment') === 'success') {
-      const pendingDataStr = localStorage.getItem('bilano_pending_checkout');
-      const pendingData = pendingDataStr ? JSON.parse(pendingDataStr) : {};
-      
-      fetch('/api/payment/claim-account', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(pendingData)
-      })
-      .then(res => res.json())
-      .then(data => {
-          if (data.success && data.tempCode) {
-              setAccessCode(data.tempCode);
-              trackEvent("payment_success", pendingData); 
-              localStorage.removeItem('bilano_pending_checkout'); 
-              setStep(6);
-              window.history.replaceState({}, '', '/onboarding');
-          }
-      }).catch(err => console.error("Gagal claim akun:", err));
-    }
-  }, []);
-
-  // Tangkap event PWA ke state lokal dan objek window global
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
-  useEffect(() => {
-    // Cek apakah prompt sudah tertangkap sebelumnya di global window
-    if ((window as any).deferredPwaPrompt) {
-      setDeferredPrompt((window as any).deferredPwaPrompt);
-    }
-
-    const handler = (e: any) => {
-      e.preventDefault(); 
-      setDeferredPrompt(e);
-      // Simpan juga ke window agar tidak hilang saat transisi step
-      (window as any).deferredPwaPrompt = e; 
-    };
-    
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, [step]); // Render ulang deteksi setiap kali pindah step
-
-  const handlePwaInstall = async () => {
-    trackEvent("pwa_install_prompted");
-    
-    // Gunakan state atau ambil paksa dari global window
-    const promptEvent = deferredPrompt || (window as any).deferredPwaPrompt;
-    
-    if (promptEvent) {
-      // ✅ JIKA LANCAR: Munculkan pop-up instalasi otomatis bawaan Google/Sistem
-      promptEvent.prompt();
-      const { outcome } = await promptEvent.userChoice;
-      
-      if (outcome === 'accepted') {
-        trackEvent("pwa_install_accepted");
-        // Reset prompt setelah dipakai
-        setDeferredPrompt(null);
-        (window as any).deferredPwaPrompt = null;
-        
-        // Pindah ke halaman Auth setelah sukses install
-        setTimeout(() => setLocation('/auth'), 1500); 
-      } else {
-        trackEvent("pwa_install_dismissed");
-      }
-    } else {
-      // ❌ JIKA ADA KENDALA (Browser tidak support, mode incognito, atau sudah di-install)
-      // Barulah kita munculkan pop-up manual
-      setShowManualInstall(true);
-      trackEvent("pwa_manual_install_viewed");
-    }
+  const handleNextStep1 = (goal: UserGoal) => {
+    setSelectedGoal(goal);
+    setStep(2);
   };
 
-  const handleAnswer = (key: string, value: any) => {
-    trackEvent("quiz_step_answered", { question: key, answer: value });
-    setAnswers(prev => ({ ...prev, [key]: value }));
-    setFade(false);
-    
-    setTimeout(() => {
-      setStep(prev => prev + 1);
-      setFade(true);
-    }, 300);
+  const handleNextStep2 = (challenge: string) => {
+    setSelectedChallenge(challenge);
+    setStep(3);
   };
 
- // 🎫 SISTEM VALIDASI VOUCHER
-  // 🎫 SISTEM VALIDASI VOUCHER
-  const handleApplyVoucher = () => {
-    const code = voucherCode.toUpperCase();
-    
-    if (code === "PRAPUBLIK") {
-      if (selectedPlan === "year") {
-        setDiscountPercent(20);
-        setVoucherMessage("✅ Voucher Valid: Diskon 20% Diterapkan!");
-      } else {
-        setDiscountPercent(0);
-        setVoucherMessage("❌ Voucher PRAPUBLIK hanya berlaku untuk Paket Setahun.");
-      }
-    } else if (code === "ADR14") {
-      setDiscountPercent(100);
-      setVoucherMessage("✅ Akses VIP: Diskon 100% (GRATIS) Diterapkan!");
-    } else {
-      setDiscountPercent(0);
-      setVoucherMessage("❌ Kode voucher tidak ditemukan atau kadaluarsa.");
-    }
+  const handleNextStep3 = (pace: string) => {
+    setSelectedPace(pace);
+    setStep("analyzing");
   };
 
-  const handleCheckoutSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); 
-    
-    if (!formData.name || !formData.email || !formData.phone) {
-      alert("Harap lengkapi semua data pembeli!");
-      return;
-    }
-
-    setLoading(true);
-    
-    // 🔥 PERBAIKAN KALKULASI MATEMATIKA DISKON
-    const basePrice = selectedPlan === 'year' ? 99000 : 14900;
-    const finalPrice = basePrice - (basePrice * discountPercent) / 100;
-
-    localStorage.setItem('bilano_pending_checkout', JSON.stringify({
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      plan: selectedPlan,
-      amount: finalPrice,
-      method: paymentMethod
-    }));
-
-    trackEvent("checkout_initiated", { plan: selectedPlan, method: paymentMethod, discount: discountPercent });
-
-    // BYPASS KE API KLIK DATA PREMIUM JIKA HARGA 0 (VOUCHER 100%)
-    if (finalPrice === 0) {
-      try {
-// ... (Sisa kode di bawahnya biarkan tetap sama)
-        const response = await fetch('/api/payment/claim-account', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: formData.name,
-              email: formData.email,
-              plan: selectedPlan,
-              amount: 0
-            })
-        });
-        const data = await response.json();
-        if (data.success && data.tempCode) {
-            setAccessCode(data.tempCode);
-            setStep(6);
-            setSelectedPlan(null);
-        } else {
-            alert(data.error || "Gagal mengaktifkan akun gratis melalui kode voucher.");
-        }
-      } catch (err) {
-          alert("Terjadi kesalahan jaringan.");
-      } finally {
-          setLoading(false);
-      }
-      return;
-    }
-
-    try {
-      const productDetail = selectedPlan === 'year' ? 'Paket Tahunan BILANO' : 'Paket Bulanan BILANO';
-
-      const response = await fetch('/api/payment/duitku-production', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          price: finalPrice,
-          productDetail,
-          customerName: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          paymentMethod: paymentMethod 
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.paymentData) {
-        // 🔥 SIMPAN MERCHANT ORDER ID DARI DUITKU KE STATE AGAR BISA DICEK
-        setPaymentDetails({ ...data.paymentData, merchantOrderId: data.merchantOrderId });
-        setSelectedPlan(null); 
-        setStep(7); 
-      } else {
-        alert(data.error || "Gagal terhubung ke sistem pembayaran Duitku.");
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Terjadi kesalahan jaringan.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRefreshPaymentStatus = async () => {
-    setIsCheckingPayment(true);
-    
-    try {
-      const pendingDataStr = localStorage.getItem('bilano_pending_checkout');
-      // 🔥 SERTAKAN MERCHANT ORDER ID SAAT MENGECEK KE BACKEND
-      const pendingData = pendingDataStr 
-        ? { ...JSON.parse(pendingDataStr), merchantOrderId: paymentDetails?.merchantOrderId } 
-        : { email: formData.email, merchantOrderId: paymentDetails?.merchantOrderId };
-
-      const response = await fetch('/api/payment/check-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pendingData)
-      });
-      
-      const data = await response.json();
-      
-      if (data.success && data.isPaid) {
-        const claimRes = await fetch('/api/payment/claim-account', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(pendingData)
-        });
-        const claimData = await claimRes.json();
-        
-        if (claimData.success && claimData.tempCode) {
-            setAccessCode(claimData.tempCode);
-            trackEvent("payment_success", pendingData);
-            localStorage.removeItem('bilano_pending_checkout');
-            setStep(6);
-        }
-      } else {
-        setShowPaymentAlert(true);
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Gagal melakukan pengecekan data ke server keuangan."); 
-    } finally {
-      setIsCheckingPayment(false);
-    }
-  };
+  const pitch = getGoalPitchDetails(selectedGoal);
 
   return (
-    <div className="min-h-[100dvh] bg-[#040814] w-full text-white font-sans flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-[#0a1128] via-[#0f1d40] to-[#0a1128] text-white flex flex-col items-center justify-between p-5">
       
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none"></div>
-
-      <div className="w-full max-w-lg z-10 flex flex-col items-center">
-        
-        {step < 4 && (
-          <div className="w-full flex flex-col items-center">
-            <div className="flex items-center gap-2 mb-10">
-              {[0, 1, 2, 3].map((idx) => (
-                <div 
-                  key={idx} 
-                  className={`h-1.5 rounded-full transition-all duration-500 ${
-                    step >= idx ? "w-8 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]" : "w-4 bg-slate-700"
-                  }`}
-                />
-              ))}
-            </div>
-            
-            <span className="text-amber-400 font-bold text-sm tracking-widest mb-6 uppercase">
-              Pertanyaan {step + 1} / 4
-            </span>
-
-            <div className={`transition-opacity duration-300 w-full flex flex-col items-center text-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
-              
-              {step === 0 && (
-                <>
-                  <h2 className="text-2xl md:text-3xl font-black leading-snug mb-10">
-                    Apakah kamu ingin masa depan finansialmu lebih terencana dibanding sekarang?
-                  </h2>
-                  <div className="w-full space-y-4">
-                    <button onClick={() => handleAnswer('q1', 'Ya')} className="w-full py-4 rounded-2xl bg-[#121c3a] border border-white/10 hover:border-amber-400/50 hover:bg-[#172447] text-lg font-bold transition-all active:scale-95">Ya</button>
-                    <button onClick={() => handleAnswer('q1', 'Tidak')} className="w-full py-4 rounded-2xl bg-transparent border border-white/10 hover:bg-white/5 text-slate-400 text-lg font-bold transition-all active:scale-95">Tidak</button>
-                  </div>
-                </>
-              )}
-
-              {step === 1 && (
-                <>
-                  <h2 className="text-2xl md:text-3xl font-black leading-snug mb-10">
-                    Apakah kamu termasuk orang yang ingin punya visi/arah keuangan yang jelas untuk masa depan?
-                  </h2>
-                  <div className="w-full space-y-4">
-                    <button onClick={() => handleAnswer('q2', 'Ya')} className="w-full py-4 rounded-2xl bg-[#121c3a] border border-white/10 hover:border-amber-400/50 hover:bg-[#172447] text-lg font-bold transition-all active:scale-95">Ya</button>
-                    <button onClick={() => handleAnswer('q2', 'Tidak')} className="w-full py-4 rounded-2xl bg-transparent border border-white/10 hover:bg-white/5 text-slate-400 text-lg font-bold transition-all active:scale-95">Tidak</button>
-                  </div>
-                </>
-              )}
-
-              {step === 2 && (
-                <>
-                  <h2 className="text-2xl md:text-3xl font-black leading-snug mb-10">
-                    Apakah kamu bersedia membangun kebiasaan kecil setiap hari demi tujuan finansialmu, dengan bantuan BILANO?
-                  </h2>
-                  <div className="w-full space-y-4">
-                    <button onClick={() => handleAnswer('q3', 'Ya')} className="w-full py-4 rounded-2xl bg-[#121c3a] border border-white/10 hover:border-amber-400/50 hover:bg-[#172447] text-lg font-bold transition-all active:scale-95">Ya</button>
-                    <button onClick={() => handleAnswer('q3', 'Tidak')} className="w-full py-4 rounded-2xl bg-transparent border border-white/10 hover:bg-white/5 text-slate-400 text-lg font-bold transition-all active:scale-95">Tidak</button>
-                  </div>
-                </>
-              )}
-
-              {step === 3 && (
-                <>
-                  <h2 className="text-2xl md:text-3xl font-black leading-snug mb-4">
-                    Seberapa penting bagi kamu untuk punya target keuangan yang jelas dan terarah?
-                  </h2>
-                  <p className="text-slate-400 mb-8 text-sm">Pilih skala 1 (Tidak Penting) hingga 10 (Sangat Penting)</p>
-                  
-                  <div className="flex flex-wrap justify-center gap-3 w-full">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                      <button 
-                        key={num}
-                        onClick={() => handleAnswer('q4', num)}
-                        className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-[#121c3a] border border-white/10 text-white font-black text-lg hover:bg-amber-400 hover:text-black hover:border-amber-400 transition-all active:scale-90 flex items-center justify-center"
-                      >
-                        {num}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-
-            </div>
+      {/* HEADER / NAVIGATION BAR */}
+      <div className="w-full max-w-md flex items-center justify-between pt-2 mb-6">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-brand-navy border border-brand-gold/40 flex items-center justify-center shadow-xs">
+            <img src="/BILANO-ICON-NEW.png" alt="BILANO" className="w-5 h-5 object-contain" />
           </div>
-        )}
+          <span className="text-xs font-black tracking-widest text-slate-200 uppercase">
+            BILANO ONBOARDING
+          </span>
+        </div>
 
-        {step === 4 && (
-          <div className={`transition-opacity duration-500 w-full flex flex-col items-center text-center bg-gradient-to-b from-[#121c3a]/90 to-[#0a1128]/95 p-8 rounded-[32px] border border-amber-400/30 backdrop-blur-xl shadow-[0_15px_50px_rgba(251,191,36,0.15)] ${fade ? 'opacity-100' : 'opacity-0'}`}>
-            <div className="w-20 h-20 bg-amber-400/20 text-amber-400 rounded-full flex items-center justify-center mb-6 shadow-[0_0_25px_rgba(251,191,36,0.25)]">
-              {assessment.icon}
-            </div>
-            <h2 className="text-2xl md:text-3xl font-black mb-4 text-white drop-shadow-md">
-              {assessment.title}
-            </h2>
-            <p className="text-slate-300 leading-relaxed mb-8 text-[15px] md:text-base max-w-sm">
-              {assessment.desc}
-              <br/><br/>
-              <span className="font-black text-amber-400 tracking-wide">{assessment.highlight}</span>
-            </p>
-            <button 
-              onClick={() => {
-                setFade(false);
-                setTimeout(() => { setStep(5); setFade(true); }, 300);
-              }}
-              className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-lg py-4 rounded-2xl shadow-[0_10px_30px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2 border-b-[4px] border-amber-600 active:border-b-0 active:translate-y-[4px]"
-            >
-              🚀 GAS, MULAI SEKARANG! <ArrowRight className="w-6 h-6" />
-            </button>
-          </div>
-        )}
-
-        {step === 5 && (
-          <div className={`transition-opacity duration-500 w-full flex flex-col items-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-black mb-2">Investasi Masa Depan</h2>
-              <p className="text-slate-400 text-sm">Pilih paket akses penuh untuk menggunakan BILANO.</p>
-            </div>
-
-            <button 
-              onClick={() => {
-                trackEvent("plan_selected", { type: "year" }); 
-                setSelectedPlan('year');
-              }}
-              className="relative w-full bg-[#121c3a] border-2 border-amber-400/80 rounded-[28px] p-6 text-left hover:bg-[#172447] hover:border-amber-400 transition-all mb-4 group overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 bg-amber-400 text-black text-[10px] font-black px-4 py-1.5 rounded-bl-xl rounded-tr-[24px] uppercase tracking-wider">
-                Paling Hemat
-              </div>
-              <h3 className="text-xl font-black text-white mb-1">Paket Akses Setahun</h3>
-              <div className="flex items-end gap-1 mb-4">
-                <span className="text-3xl font-black text-amber-400">Rp8.250</span>
-                <span className="text-slate-400 text-sm mb-1">/ bulan</span>
-              </div>
-              <ul className="space-y-2">
-                <li className="flex items-center gap-2 text-sm text-slate-300"><CheckCircle2 className="w-4 h-4 text-emerald-400"/> Akses penuh 12 Bulan</li>
-                <li className="flex items-center gap-2 text-sm text-slate-300"><CheckCircle2 className="w-4 h-4 text-emerald-400"/> Fitur Asisten AI & Scanner</li>
-              </ul>
-            </button>
-
-            <button 
-              onClick={() => {
-                trackEvent("plan_selected", { type: "month" }); 
-                setSelectedPlan('month');
-              }}
-              className="text-slate-400 text-sm font-semibold hover:text-white transition-colors underline decoration-slate-600 underline-offset-4 mb-8"
-            >
-              "Saya mau coba dulu" (Paket Sebulan Rp14.900)
-            </button>
-
-            <div className="w-full max-w-md space-y-3 text-left">
-              <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 md:p-5">
-                <div className="flex items-center gap-2 text-indigo-400 mb-2">
-                  <ShieldCheck className="w-5 h-5" />
-                  <h4 className="font-bold text-sm tracking-wide">Garansi Kunci Harga Permanen</h4>
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                  Seiring bertambahnya fitur AI ke depannya, harga untuk pengguna baru akan terus dinaikkan. Namun bagi Anda yang mengamankan akun hari ini, tarif perpanjangan akan <strong>dikunci mati selamanya di nominal awal</strong> tanpa biaya tambahan apa pun.
-                </p>
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {step === 6 && (
-          <div className={`transition-opacity duration-500 w-full flex flex-col items-center text-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
-            <div className="w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
-              <CheckCircle2 className="w-10 h-10" />
-            </div>
-            <h2 className="text-3xl font-black mb-2">Pembayaran Berhasil!</h2>
-            <p className="text-slate-300 mb-8 leading-relaxed text-[15px]">
-              Akun Premium Anda telah aktif. Berikut adalah <span className="font-bold text-amber-400">Kode Akses Rahasia</span> Anda.
-            </p>
-
-            <div className="bg-[#121c3a] border-2 border-rose-500/50 rounded-[28px] p-6 w-full max-w-sm mb-8 relative overflow-hidden shadow-[0_0_30px_rgba(244,63,94,0.15)]">
-               <div className="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-black px-4 py-1.5 rounded-bl-xl rounded-tr-[24px] uppercase tracking-wider flex items-center gap-1">
-                 <LockKeyhole className="w-3 h-3" /> PENTING
-               </div>
-               <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-3">Password Sementara Anda</p>
-               
-               <div className="bg-[#040814] py-4 px-6 rounded-2xl border border-slate-800 flex justify-between items-center mb-4 group">
-                  <span className="text-4xl font-black tracking-[0.3em] text-white">
-                    {accessCode || "------"}
-                  </span>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(accessCode || "");
-                      alert('Kode Akses berhasil disalin!');
-                    }} 
-                    className="p-3 bg-amber-400/10 text-amber-400 rounded-xl hover:bg-amber-400 hover:text-black transition-colors"
-                  >
-                    <Copy className="w-5 h-5" />
-                  </button>
-               </div>
-
-               <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                 Silakan <strong>Simpan/Screenshot kode ini</strong> sekarang juga. Kode ini digunakan untuk login masuk aplikasi pertama kali.
-               </p>
-            </div>
-
-            <button
-              onClick={handlePwaInstall}
-              className="w-full max-w-[400px] bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-[1.1rem] tracking-wide py-5 px-6 rounded-[24px] shadow-[0_15px_40px_rgba(251,191,36,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 border-b-[5px] border-amber-600 active:border-b-0 active:translate-y-[5px]"
-            >
-              <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
-              INSTALL APLIKASI SEKARANG
-            </button>
-            
-            {/* 🛠️ LINK MENUJU PANDUAN KENDALA INSTALASI */}
-            <button 
-              onClick={() => setShowInstallGuideContent(true)}
-              className="mt-5 text-sm font-bold text-slate-400 hover:text-amber-400 underline underline-offset-4 transition-colors block"
-            >
-              Kendala untuk Install PWA? Klik di sini
-            </button>
-
-            <p className="text-[10px] text-slate-500 mt-4 max-w-xs text-center">
-              Setelah install, aplikasi akan meminta Anda memasukkan email dan kode di atas untuk masuk.
-            </p>
-          </div>
-        )}
-
-        {step === 7 && paymentDetails && (
-          <div className={`transition-opacity duration-500 w-full flex flex-col items-center ${fade ? 'opacity-100' : 'opacity-0'}`}>
-            <div className="bg-[#121c3a]/90 border border-white/10 rounded-[32px] p-6 lg:p-8 text-center w-full max-w-md shadow-2xl relative">
-              <h2 className="text-2xl font-black mb-2 text-white">Selesaikan Pembayaran</h2>
-              <p className="text-slate-400 text-sm mb-6">
-                {paymentDetails.qrString || paymentDetails.paymentUrl?.includes("qris") 
-                  ? "Scan kode QR di bawah menggunakan e-Wallet atau M-Banking kamu:" 
-                  : "Silakan lakukan transfer ke rekening Virtual Account berikut:"}
-              </p>
-
-              <div className="bg-[#040814] rounded-2xl p-6 border border-white/5 mb-6 shadow-inner">
-                {paymentDetails.qrString || paymentDetails.paymentUrl?.includes("qris") ? (
-                  <div className="flex flex-col items-center justify-center bg-white p-4 rounded-xl mb-4">
-                    <img 
-                      src={paymentDetails.qrString 
-                        ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(paymentDetails.qrString)}` 
-                        : paymentDetails.paymentUrl
-                      } 
-                      alt="QRIS Code BILANO" 
-                      className="w-48 h-48 object-contain"
-                    />
-                    <span className="text-slate-800 text-[10px] font-bold mt-2 tracking-wider">QRIS AUTOMATIC VERIFY</span>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">
-                      Nomor Virtual Account ({selectedMethodDetails.name})
-                    </p>
-                    <div className="flex items-center justify-between bg-[#121c3a] border border-white/10 rounded-xl p-4 mb-4 group">
-                      <span className="text-xl lg:text-2xl font-black tracking-widest text-white">
-                        {paymentDetails.vaNumber}
-                      </span>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(paymentDetails.vaNumber);
-                          alert('Nomor VA berhasil disalin!');
-                        }} 
-                        className="p-2 bg-amber-400/10 text-amber-400 rounded-lg hover:bg-amber-400 hover:text-black transition-colors"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                <div className="pt-2 border-t border-white/5">
-                  <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Total Tagihan</p>
-                  <span className="text-3xl font-black text-amber-400">
-                    Rp {parseInt(paymentDetails.amount).toLocaleString('id-ID')}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                onClick={handleRefreshPaymentStatus}
-                disabled={isCheckingPayment}
-                className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 text-[#0a1128] font-black text-sm py-4 rounded-xl shadow-[0_10px_30px_rgba(251,191,36,0.3)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-75"
-              >
-                {isCheckingPayment ? (
-                  <RefreshCw className="w-5 h-5 animate-spin" /> 
-                ) : (
-                  <RefreshCw className="w-5 h-5" />
-                )}
-                {isCheckingPayment ? "MENYINGKRONKAN DATA..." : "REFRESH STATUS PEMBAYARAN"}
-              </button>
-
-              <button
-                onClick={() => {
-                  setPaymentDetails(null);
-                  setStep(5); 
-                }}
-                className="mt-5 text-[13px] font-semibold text-slate-400 hover:text-white transition-colors underline decoration-slate-600 underline-offset-4 block w-full text-center"
-              >
-                Ganti Metode Pembayaran
-              </button>
-
-            </div>
-          </div>
-        )}
-
+        {/* TOMBOL LEWATI (ALWAYS VISIBLE & CLEAR) */}
+        <button
+          onClick={handleSkip}
+          className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1 py-1.5 px-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-white/10"
+        >
+          <span>Lewati</span>
+          <X className="w-3.5 h-3.5" />
+        </button>
       </div>
 
-      {selectedPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200">
-            
-            <button 
-              onClick={() => setSelectedPlan(null)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-white"
+      {/* STEP 1: TUJUAN UTAMA */}
+      {step === 1 && (
+        <div className="w-full max-w-md flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="mb-2">
+            <span className="text-[10px] font-black text-brand-gold uppercase tracking-widest bg-brand-gold/10 px-3 py-1 rounded-full border border-brand-gold/20">
+              Langkah 1 dari 3
+            </span>
+          </div>
+          <h1 className="text-2xl font-black text-white mt-3 mb-2 leading-tight">
+            Apa target finansial terbesarmu saat ini?
+          </h1>
+          <p className="text-xs text-slate-400 mb-6 font-medium leading-relaxed">
+            Pilih satu fokus agar BILANO dapat menyesuaikan sistem dan rekomendasi strategis akun Anda.
+          </p>
+
+          <div className="space-y-3">
+            <button
+              onClick={() => handleNextStep1("income")}
+              className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-brand-gold/20 hover:to-white/10 border-2 border-white/10 hover:border-brand-gold rounded-2xl p-4 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
             >
-              <X className="w-6 h-6" />
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center shrink-0">
+                  <Zap className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white group-hover:text-amber-300 transition-colors">
+                    Cari Pemasukan & Cuan Baru
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                    Butuh ide & strategi praktis untuk melipatgandakan penghasilan
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-amber-300 transition-colors shrink-0" />
             </button>
-            
-            <h3 className="text-xl font-black mb-4 pr-8">Konfirmasi Pembayaran</h3>
-            
-            <div className="bg-[#0a1128] rounded-2xl p-4 mb-4 border border-white/5">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-slate-400 text-sm">Paket Dipilih</span>
-                <span className="font-bold text-white text-sm">
-                  {selectedPlan === 'year' ? '12 Bulan' : '1 Bulan'}
-                </span>
+
+            <button
+              onClick={() => handleNextStep1("leakage")}
+              className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-emerald-500/20 hover:to-white/10 border-2 border-white/10 hover:border-emerald-400 rounded-2xl p-4 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
+                  <ShieldAlert className="w-5 h-5 text-emerald-300" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white group-hover:text-emerald-300 transition-colors">
+                    Stop Kebocoran Kas Halus
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                    Gaji sering numpang lewat, ingin uang terkontrol & tabungan aman
+                  </p>
+                </div>
               </div>
-              <div className="h-[1px] w-full bg-white/10 mb-3"></div>
-              <div className="flex justify-between items-end">
-                <span className="text-slate-300 font-medium text-sm">Total Tagihan</span>
-                <span className="text-2xl font-black text-amber-400">
-                  {selectedPlan === 'year' ? 'Rp99.000' : 'Rp14.900'}
-                </span>
+              <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-300 transition-colors shrink-0" />
+            </button>
+
+            <button
+              onClick={() => handleNextStep1("debt")}
+              className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-blue-500/20 hover:to-white/10 border-2 border-white/10 hover:border-blue-400 rounded-2xl p-4 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0">
+                  <Target className="w-5 h-5 text-blue-300" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white group-hover:text-blue-300 transition-colors">
+                    Bebas Utang & Bangun Aset
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                    Lunasi kewajiban lebih cepat dan mulai kumpulkan portofolio
+                  </p>
+                </div>
               </div>
+              <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-300 transition-colors shrink-0" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2: TANTANGAN TERBESAR */}
+      {step === 2 && (
+        <div className="w-full max-w-md flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="mb-2">
+            <span className="text-[10px] font-black text-brand-gold uppercase tracking-widest bg-brand-gold/10 px-3 py-1 rounded-full border border-brand-gold/20">
+              Langkah 2 dari 3
+            </span>
+          </div>
+          <h1 className="text-2xl font-black text-white mt-3 mb-2 leading-tight">
+            Apa kendala terbesarmu saat mengelola uang?
+          </h1>
+          <p className="text-xs text-slate-400 mb-6 font-medium leading-relaxed">
+            BILANO memiliki fitur otomatisasi untuk menyelesaikan titik lemah ini.
+          </p>
+
+          <div className="space-y-3">
+            {[
+              { title: "Sering lupa & ga tahu uang habis ke mana", desc: "Perlu audit otomatis dan radar peringatan kas" },
+              { title: "Malas mencatat struk satu per satu secara manual", desc: "Butuh Smart OCR untuk scan struk instan" },
+              { title: "Punya tabungan tapi bingung cara memutarnya", desc: "Perlu bimbingan strategi dan edukasi finansial" }
+            ].map((item, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleNextStep2(item.title)}
+                className="w-full bg-white/5 hover:bg-white/10 border-2 border-white/10 hover:border-brand-gold/50 rounded-2xl p-4 text-left transition-all cursor-pointer flex items-center justify-between active:scale-98"
+              >
+                <div>
+                  <h3 className="text-xs font-black text-white">{item.title}</h3>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">{item.desc}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3: KOMMITMEN WAKTU */}
+      {step === 3 && (
+        <div className="w-full max-w-md flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="mb-2">
+            <span className="text-[10px] font-black text-brand-gold uppercase tracking-widest bg-brand-gold/10 px-3 py-1 rounded-full border border-brand-gold/20">
+              Langkah 3 dari 3
+            </span>
+          </div>
+          <h1 className="text-2xl font-black text-white mt-3 mb-2 leading-tight">
+            Seberapa cepat kamu ingin melihat perubahan finansial?
+          </h1>
+          <p className="text-xs text-slate-400 mb-6 font-medium leading-relaxed">
+            Pilih ritme yang paling sesuai dengan gaya hidupmu saat ini.
+          </p>
+
+          <div className="space-y-3">
+            {[
+              { title: "Akselerasi Cepat (1 - 3 Bulan ke Depan)", desc: "Siap berkomitmen untuk disiplin dan mencoba strategi baru", badge: "Direkomendasikan" },
+              { title: "Santai & Bertahap", desc: "Mulai pelan-pelan dari pencatatan dasar terlebih dahulu", badge: "Fleksibel" }
+            ].map((item, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleNextStep3(item.title)}
+                className="w-full bg-white/5 hover:bg-white/10 border-2 border-white/10 hover:border-brand-gold/50 rounded-2xl p-4 text-left transition-all cursor-pointer flex items-center justify-between active:scale-98"
+              >
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded-md">
+                    {item.badge}
+                  </span>
+                  <h3 className="text-xs font-black text-white mt-1.5">{item.title}</h3>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">{item.desc}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* STEP: ANALYZING ANIMATION */}
+      {step === "analyzing" && (
+        <div className="w-full max-w-md flex-1 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300">
+          <div className="w-16 h-16 rounded-full bg-brand-gold/20 border-2 border-brand-gold flex items-center justify-center mb-6 animate-spin">
+            <Sparkles className="w-8 h-8 text-brand-gold" />
+          </div>
+          <h2 className="text-xl font-black text-white mb-2">
+            Menganalisis Profil Finansial Anda...
+          </h2>
+          <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
+            Menyusun formula alokasi kas, kalkulasi risiko, dan menyiapkan rekomendasi blueprint personal.
+          </p>
+        </div>
+      )}
+
+      {/* STEP: RESULT & DYNAMIC PAYWALL REVEAL */}
+      {step === "result" && (
+        <div className="w-full max-w-md flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-500 py-2">
+          
+          {/* RAPOR PROFIL FINANSIAL (GRATIS) */}
+          <div className="bg-white/10 border border-white/15 rounded-3xl p-5 mb-5 backdrop-blur-md">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300 bg-emerald-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Rapor Finansial Selesai Disiapkan
+              </span>
+              <span className="text-[10px] font-bold text-slate-400">Tersimpan di Akun</span>
             </div>
 
-            <form onSubmit={handleCheckoutSubmit} className="flex flex-col gap-3">
-              <input
-                type="text"
-                required
-                placeholder="Nama Lengkap"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors"
-              />
-              
-              <div className="flex flex-col gap-1 w-full">
-                <input
-                  type="email"
-                  required
-                  placeholder="Alamat Email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors"
-                />
-                <p className="text-[10px] text-amber-400/90 text-left pl-1 leading-normal">
-                  *Penting: Email ini digunakan sebagai akses login PWA premium Anda.
+            <h3 className="text-lg font-black text-white mb-1">
+              {pitch.badge.replace("Rekomendasi Profil: ", "")}
+            </h3>
+            <p className="text-xs text-slate-300 font-medium leading-relaxed mb-3">
+              Fokus Utama: <strong className="text-amber-300">{pitch.featureTag}</strong>. Ritme: {selectedPace.split("(")[0].trim()}.
+            </p>
+
+            <div className="bg-black/30 rounded-2xl p-3 border border-white/5 space-y-1.5 text-[11px]">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Skor Kesiapan Finansial:</span>
+                <span className="font-black text-emerald-400">88 / 100 (Sangat Potensial)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Tindakan Kunci:</span>
+                <span className="font-bold text-white">Eksekusi Blueprint + Kontrol Kas Harian</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ⏱️ WELCOME DEAL 24 JAM OFFER */}
+          <div className="bg-gradient-to-b from-[#14234b] to-[#0c1735] border-2 border-brand-gold rounded-3xl p-5 mb-5 shadow-xl relative overflow-hidden">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5 text-amber-300 text-xs font-black">
+                <Clock className="w-4 h-4 animate-pulse" />
+                <span>WELCOME DEAL: {countdown.formatted}</span>
+              </div>
+              <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                HEMAT 57%
+              </span>
+            </div>
+
+            <h2 className="text-base font-black text-white mb-1 leading-snug">
+              {pitch.headline}
+            </h2>
+            <p className="text-[11px] text-slate-300 mb-3.5 leading-relaxed">
+              {pitch.subheadline}
+            </p>
+
+            {/* HARGA TAHUNAN PROMO */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 mb-3.5 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] text-slate-400 line-through font-bold">Rp 228.000</p>
+                <p className="text-xl font-black text-brand-gold leading-none mt-0.5">
+                  Rp 99.000 <span className="text-[10px] text-slate-300 font-bold">/ tahun</span>
+                </p>
+                <p className="text-[9px] text-emerald-300 font-bold mt-0.5">Hanya Rp 8.250 / bulan</p>
+              </div>
+
+              {/* BONUS EBOOK ANCHOR */}
+              <div className="bg-amber-400/15 border border-amber-300/30 rounded-xl p-2 text-right max-w-[150px]">
+                <div className="flex items-center justify-end gap-1 text-[9px] font-black text-amber-300 uppercase">
+                  <Gift className="w-3 h-3" /> Gratis E-Book
+                </div>
+                <p className="text-[9px] text-slate-300 leading-tight mt-0.5">
+                  Termasuk 5 E-Book Finansial Academy (Normal Rp 29.000)
                 </p>
               </div>
-
-              <input
-                type="tel"
-                required
-                placeholder="Nomor Telepon"
-                value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors mb-2"
-              />
-
-              {/* 🔥 CUSTOM DROPDOWN UTUK METODE PEMBAYARAN */}
-              <div className="flex flex-col gap-1 mb-2 relative" ref={dropdownRef}>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
-                  Metode Pembayaran
-                </label>
-                
-                <button
-                  type="button"
-                  disabled={discountPercent === 100}
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="w-full bg-[#040814] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition-colors flex items-center justify-between group disabled:opacity-50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-white rounded-md p-1 flex items-center justify-center shrink-0">
-                      {discountPercent === 100 ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                      ) : (
-                        <PaymentIcon src={selectedMethodDetails.icon} name={selectedMethodDetails.name} />
-                      )}
-                    </div>
-                    <span className="font-semibold text-left line-clamp-1">
-                      {discountPercent === 100 ? "Bypass Akses Voucher Emas" : selectedMethodDetails.name}
-                    </span>
-                  </div>
-                  {discountPercent !== 100 && <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${isDropdownOpen ? 'rotate-180' : ''}`} />}
-                </button>
-
-                {isDropdownOpen && (
-                  <ul className="absolute bottom-[105%] left-0 w-full bg-[#121c3a] border border-white/10 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto custom-scrollbar overflow-x-hidden flex flex-col p-2 gap-1">
-                    {paymentOptions.map((option) => (
-                      <li 
-                        key={option.id}
-                        onClick={() => {
-                          setPaymentMethod(option.id);
-                          setIsDropdownOpen(false);
-                        }}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${paymentMethod === option.id ? 'bg-amber-400/10 border border-amber-400/20' : 'hover:bg-white/5 border border-transparent'}`}
-                      >
-                        <div className="w-8 h-8 bg-white rounded-md p-1 shrink-0 flex items-center justify-center">
-                          <PaymentIcon src={option.icon} name={option.name} />
-                        </div>
-                        <span className={`text-sm ${paymentMethod === option.id ? 'text-amber-400 font-bold' : 'text-slate-300 font-medium'}`}>
-                          {option.name}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* 🎫 UI SISTEM INPUT VOUCHER */}
-              <div className="mt-1 mb-1 p-3 bg-white/5 border border-white/10 rounded-xl">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Punya Kode Voucher?</label>
-                <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    value={voucherCode}
-                    onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                    placeholder="KODE VOUCHER" 
-                    className="flex-1 bg-[#040814] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 uppercase tracking-wider"
-                  />
-                  <button 
-                    type="button" 
-                    onClick={handleApplyVoucher}
-                    className="bg-[#0a1128] border border-white/10 px-3 rounded-lg text-xs font-bold hover:bg-white/10 text-amber-400 transition-colors"
-                  >
-                    Klaim
-                  </button>
-                </div>
-                {voucherMessage && (
-                  <p className={`text-[10px] mt-2 font-bold ${discountPercent > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {voucherMessage}
-                  </p>
-                )}
-              </div>
-
-              {/* 🟢 INFO HARGA JIKA VOUCHER DISKON AKTIF */}
-              {discountPercent > 0 && (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex justify-between items-center text-xs mt-2 mb-2">
-                   <span className="text-emerald-400 font-bold">Total Setelah Potongan ({discountPercent}%):</span>
-                   <span className="text-base font-black text-emerald-400">
-                     {discountPercent === 100 
-                       ? "Rp 0 (GRATIS)" 
-                       : `Rp ${((selectedPlan === 'year' ? 99000 : 14900) * (1 - discountPercent / 100)).toLocaleString('id-ID')}`}
-                   </span>
-                </div>
-              )}
-
-              <button 
-                type="submit"
-                disabled={loading}
-                className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center mt-2"
-              >
-                {loading ? "MEMPROSES AKSES..." : "KONFIRMASI AKUN SEKARANG"}
-              </button>
-            </form>
-
-          </div>
-        </div>
-      )}
-
-      {showManualInstall && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200 text-center">
-            <button 
-              onClick={() => setShowManualInstall(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-white"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            
-            <div className="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Download className="w-8 h-8" />
             </div>
-            
-            <h3 className="text-xl font-black mb-3">Install Manual</h3>
-            <p className="text-sm text-slate-300 mb-6 leading-relaxed text-left">
-              Browser Anda membatasi instalasi otomatis (Incognito mode atau diblokir sistem OS). Cara pasang:
-              <br/><br/>
-              1. Ketuk ikon <strong>Titik Tiga (⋮)</strong> atau <strong>Share</strong> di browser Anda.<br/>
-              2. Pilih opsi <strong>"Tambahkan ke Layar Utama"</strong> atau <strong>"Install App"</strong>.<br/>
+
+            {/* TRUST NOTICE */}
+            <p className="text-[10px] text-slate-400 text-center flex items-center justify-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Bayar 1x via QRIS/VA • Tanpa auto-debit diam-diam</span>
             </p>
+          </div>
 
-            <button 
-              onClick={() => setShowManualInstall(false)}
-              className="w-full bg-slate-100 hover:bg-white text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center"
+          {/* ACTION BUTTONS */}
+          <div className="space-y-2.5">
+            <Button
+              onClick={() => setLocation("/paywall")}
+              className="w-full h-14 rounded-2xl text-xs font-black tracking-widest flex items-center justify-center gap-2 bg-gradient-to-r from-brand-gold to-[#f5d77a] text-brand-navy hover:from-[#f2ce5d] hover:to-brand-gold shadow-xl cursor-pointer"
             >
-              SAYA MENGERTI
+              <span>AKTIFKAN PAKET TAHUNAN (RP 99.000)</span>
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+
+            <button
+              type="button"
+              onClick={handleSkip}
+              className="w-full py-2 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer text-center"
+            >
+              Lanjutkan dengan Akun Gratis (Atur Saldo Dulu)
             </button>
           </div>
         </div>
       )}
 
-      {showPaymentAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#121c3a] border border-white/10 rounded-[32px] w-full max-w-sm p-6 relative animate-in zoom-in-95 duration-200 text-center shadow-2xl">
-            <button 
-              onClick={() => setShowPaymentAlert(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            
-            <div className="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(251,191,36,0.2)]">
-              <AlertCircle className="w-8 h-8" />
-            </div>
-            
-            <h3 className="text-xl font-black mb-3">Dana Belum Masuk</h3>
-            <p className="text-sm text-slate-300 mb-6 leading-relaxed">
-              Sistem belum mendeteksi mutasi masuk pada rekening Virtual Account atau QRIS Anda.
-              <br/><br/>
-              Mohon tunggu sekitar <strong>1-3 menit</strong> untuk sinkronisasi perbankan selesai, kemudian ketuk kembali tombol Refresh Status.
-            </p>
-
-            <button 
-              onClick={() => setShowPaymentAlert(false)}
-              className="w-full bg-slate-100 hover:bg-white text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center"
-            >
-              SAYA MENGERTI
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 🛠️ OVERLAY PANDUAN PENGATURAN BLOKIR INSTALASI HP */}
-      {showInstallGuideContent && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-[#121c3a] border border-white/10 rounded-[28px] w-full max-w-md p-6 relative shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar text-center">
-            
-            <h3 className="text-xl font-black text-amber-400 mb-4 flex items-center justify-center gap-2">
-              <ShieldCheck className="w-6 h-6" /> Mengatasi Masalah Instalasi PWA
-            </h3>
-            
-            <p className="text-xs md:text-sm text-slate-300 leading-relaxed mb-6 text-left">
-              Beberapa jenis HP (terutama Xiaomi, Oppo, Vivo, atau jika menggunakan browser internal bawaan aplikasi sosial media) memblokir sistem instalasi widget. Ikuti petunjuk alternatif ini:
-            </p>
-
-            <div className="space-y-4 mb-6 text-left">
-              <div className="bg-[#040814] p-4 rounded-xl border border-white/5">
-                <h4 className="font-bold text-white text-sm mb-2">Android (Google Chrome / Edge)</h4>
-                <ol className="text-xs text-slate-400 list-decimal pl-4 space-y-1.5 leading-normal">
-                  <li>Pastikan Anda membuka link ini langsung di aplikasi <strong>Chrome</strong> asli, bukan dari web-view WhatsApp/Instagram.</li>
-                  <li>Ketuk ikon <strong>Titik Tiga (⋮)</strong> di sudut kanan atas layar Chrome.</li>
-                  <li>Pilih menu <strong>"Tambahkan ke Layar Utama"</strong> atau <strong>"Instal Aplikasi"</strong>.</li>
-                  <li>Konfirmasi pemesanan shortcut di layar depan.</li>
-                </ol>
-              </div>
-
-              <div className="bg-[#040814] p-4 rounded-xl border border-white/5">
-                <h4 className="font-bold text-white text-sm mb-2">iOS / iPhone (Safari)</h4>
-                <ol className="text-xs text-slate-400 list-decimal pl-4 space-y-1.5 leading-normal">
-                  <li>Buka link situs ini menggunakan browser bawaan Apple <strong>Safari</strong>.</li>
-                  <li>Ketuk tombol <strong>Share</strong> (ikon kotak dengan panah mengarah ke atas) di panel bawah.</li>
-                  <li>Gulir pilihan ke bawah, lalu ketuk opsi <strong>"Add to Home Screen"</strong>.</li>
-                  <li>Ketuk tulisan <strong>Add</strong> di kanan atas.</li>
-                </ol>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <a 
-                href="mailto:bilanotech@gmail.com?subject=Bantuan Kendala Sistem PWA BILANO"
-                className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3.5 rounded-xl transition-all text-xs flex items-center justify-center gap-2 border border-white/10 shadow"
-              >
-                <AlertCircle className="w-4 h-4 text-amber-400" /> Hubungi Admin (Bantuan Manual)
-              </a>
-              
-              <button 
-                onClick={() => setShowInstallGuideContent(false)}
-                className="w-full bg-gradient-to-b from-yellow-400 to-amber-500 text-black font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 text-sm tracking-wide"
-              >
-                KEMBALI KE HALAMAN UTAMA
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
+      {/* FOOTER */}
+      <div className="w-full max-w-md text-center py-2">
+        <p className="text-[10px] text-slate-500 font-semibold">
+          BILANO Finance App • Privasi & Data Terenkripsi
+        </p>
+      </div>
     </div>
   );
 }

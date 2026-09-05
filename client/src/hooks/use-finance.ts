@@ -67,7 +67,7 @@ const fetchSuperData = async () => {
     return globalFetchPromise;
 };
 
-export type AccessTier = "free" | "standard" | "premium";
+export type AccessTier = "free" | "premium";
 
 export function getAccessTier(user?: any): AccessTier {
   if (isTrialMode()) return "premium";
@@ -75,8 +75,7 @@ export function getAccessTier(user?: any): AccessTier {
   const savedTier = typeof window !== "undefined" ? localStorage.getItem("bilano_access_tier") : null;
   const explicitTier = user?.plan || savedTier;
 
-  if (explicitTier === "premium") return "premium";
-  if (explicitTier === "standard") return "standard";
+  if (explicitTier === "premium" || explicitTier === "standard") return "premium";
   if (explicitTier === "free") return "free";
   if (user?.isPro) return "premium";
   return "free";
@@ -84,8 +83,8 @@ export function getAccessTier(user?: any): AccessTier {
 
 export function hasAccess(user: any, requiredTier: AccessTier): boolean {
   const currentTier = getAccessTier(user);
-  const order: Record<AccessTier, number> = { free: 0, standard: 1, premium: 2 };
-  return order[currentTier] >= order[requiredTier];
+  if (requiredTier === "free") return true;
+  return currentTier === "premium";
 }
 
 export function isPremiumFeatureLocked(user: any): boolean {
