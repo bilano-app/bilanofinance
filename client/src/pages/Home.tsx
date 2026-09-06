@@ -90,7 +90,11 @@ export default function Home() {
     const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
     const [isRequestingPerms, setIsRequestingPerms] = useState(false);
 
-    const currentUserEmail = localStorage.getItem("bilano_email") || user?.email || "";
+    const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+    const isGuestMode = typeof window !== 'undefined' && 
+        (localStorage.getItem("bilano_guest_mode") === "true" || localStorage.getItem("bilano_trial_mode") === "true" || rawEmail === "guest@bilano.app" || rawEmail === "guest" || isTrialMode());
+
+    const currentUserEmail = rawEmail || user?.email || "";
     const welcomeCountdown = useWelcomeCountdown(currentUserEmail);
     const userGoal = getStoredUserGoal(currentUserEmail);
     const userGoalPitch = getGoalPitchDetails(userGoal);
@@ -232,10 +236,6 @@ export default function Home() {
 
     const isStandalone = typeof window !== 'undefined' &&
         (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
-
-    const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-    const isGuestMode = typeof window !== 'undefined' && 
-        (localStorage.getItem("bilano_guest_mode") === "true" || localStorage.getItem("bilano_trial_mode") === "true" || rawEmail === "guest@bilano.app" || rawEmail === "guest" || isTrialMode());
 
     // Efek khusus mode trial: trigger panduan Performa setelah pengeluaran & pantau kembali dari Performa
     useEffect(() => {
