@@ -451,16 +451,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const finalAnonId = anonymousId || session_id || 'unknown';
         
           const email = req.headers["x-user-email"];
+          if (email && typeof email === 'string' && email.toLowerCase().includes('@bilano.app')) {
+              return res.json({ success: true, ignored: true });
+          }
+
           let resolvedUserId = user_id || null;
           if (!resolvedUserId && email && email !== "guest") {
               const user = await storage.getUserByUsername(email as string);
-              if (user) resolvedUserId = user.id;
+              if (user) {
+                  if ((user.email && user.email.toLowerCase().includes('@bilano.app')) || 
+                      (user.username && user.username.toLowerCase().includes('@bilano.app'))) {
+                      return res.json({ success: true, ignored: true });
+                  }
+                  resolvedUserId = user.id;
+              }
           }
 
           let finalProps = properties || {};
           if (typeof finalProps === 'string') {
               try { finalProps = JSON.parse(finalProps); } catch(e) { finalProps = {}; }
           }
+          if (finalProps && (
+              (finalProps.email && typeof finalProps.email === 'string' && finalProps.email.toLowerCase().includes('@bilano.app')) ||
+              (finalProps.userEmail && typeof finalProps.userEmail === 'string' && finalProps.userEmail.toLowerCase().includes('@bilano.app'))
+          )) {
+              return res.json({ success: true, ignored: true });
+          }
+
           if (utm_source) finalProps.utm_source = utm_source;
           if (utm_medium) finalProps.utm_medium = utm_medium;
           if (platform) finalProps.platform = platform;
@@ -615,30 +632,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const excludedUserIds = new Set(excludedRows.map((r: any) => r.user_id).filter(Boolean));
           const excludedEmails = new Set(excludedRows.map((r: any) => (r.email || '').toLowerCase().trim()).filter(Boolean));
 
-          const allEventsRes = await db.execute(sql`SELECT * FROM tracking_events WHERE created_at >= '2026-09-01 00:00:00+07' ORDER BY created_at DESC`);
-          const rawEvents = Array.isArray(allEventsRes) ? allEventsRes : (allEventsRes as any).rows || [];
-          const allEvents = rawEvents.filter((e: any) => {
-              if (e.created_at && new Date(e.created_at) < sep1Date) return false;
-              if (e.user_id && excludedUserIds.has(e.user_id)) return false;
-              if (e.properties) {
-                  try {
-                      const p = JSON.parse(e.properties);
-                      if (p.email && excludedEmails.has(p.email.toLowerCase().trim())) return false;
-                  } catch(err) {}
-              }
-              return true;
-          });
-
           const allUsersRes = await db.execute(sql`SELECT * FROM users WHERE created_at >= '2026-09-01 00:00:00+07'`);
           const rawUsers = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
           const allUsers = rawUsers.filter((u: any) => {
               if (u.created_at && new Date(u.created_at) < sep1Date) return false;
+              const uEmail = (u.email || '').toLowerCase().trim();
+              const uUsername = (u.username || '').toLowerCase().trim();
+              if (uEmail.includes('@bilano.app') || uUsername.includes('@bilano.app')) return false;
               if (excludedUserIds.has(u.id)) return false;
-              if (u.email && excludedEmails.has(u.email.toLowerCase().trim())) return false;
-              if (u.username && excludedEmails.has(u.username.toLowerCase().trim())) return false;
+              if (u.email && excludedEmails.has(uEmail)) return false;
+              if (u.username && excludedEmails.has(uUsername)) return false;
               return true;
           });
           const validUserIds = new Set(allUsers.map((u: any) => u.id));
+
+          const allEventsRes = await db.execute(sql`SELECT * FROM tracking_events WHERE created_at >= '2026-09-01 00:00:00+07' ORDER BY created_at DESC`);
+          const rawEvents = Array.isArray(allEventsRes) ? allEventsRes : (allEventsRes as any).rows || [];
+          const allEvents = rawEvents.filter((e: any) => {
+              if (e.created_at && new Date(e.created_at) < sep1Date) return false;
+              if (e.user_id && (excludedUserIds.has(e.user_id) || !validUserIds.has(e.user_id))) return false;
+              if (e.properties) {
+                  try {
+                      const p = JSON.parse(e.properties);
+                      const propEmail = (p.email || p.userEmail || '').toLowerCase().trim();
+                      if (propEmail.includes('@bilano.app')) return false;
+                      if (propEmail && excludedEmails.has(propEmail)) return false;
+                  } catch(err) {}
+              }
+              return true;
+          });
           
           const allTxRes = await db.execute(sql`SELECT * FROM transactions WHERE date >= '2026-09-01 00:00:00+07'`);
           const rawTxs = Array.isArray(allTxRes) ? allTxRes : (allTxRes as any).rows || [];
@@ -2927,14 +2949,19 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
             WHERE u.created_at >= '2026-09-01 00:00:00+07'
               AND u.id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL)
               AND LOWER(COALESCE(u.email, u.username, '')) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND email != '')
+              AND LOWER(COALESCE(u.email, u.username, '')) NOT LIKE '%@bilano.app%'
             GROUP BY u.id
             ORDER BY u.created_at DESC
           `);
           
           const rawRows = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
+          const filteredRows = rawRows.filter((u: any) => {
+              const em = (u.email || u.username || '').toLowerCase().trim();
+              return !em.includes('@bilano.app');
+          });
           const fourteenDaysAgo = Date.now() - (14 * 24 * 60 * 60 * 1000);
 
-          const formattedUsers = rawRows.map((u: any) => {
+          const formattedUsers = filteredRows.map((u: any) => {
               const fullName = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
               const hasRecentActivity = u.lastTxDate ? (new Date(u.lastTxDate).getTime() >= fourteenDaysAgo) : false;
               const isZombie = Boolean(u.isPro && !hasRecentActivity);
@@ -3235,6 +3262,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
             SELECT * FROM help_tickets 
             WHERE date >= '2026-09-01 00:00:00+07'
               AND LOWER(email) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND email != '')
+              AND LOWER(COALESCE(email, '')) NOT LIKE '%@bilano.app%'
               AND (user_id IS NULL OR user_id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL))
             ORDER BY date DESC
           `); 
@@ -3252,6 +3280,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
             SELECT * FROM help_tickets 
             WHERE date >= '2026-09-01 00:00:00+07'
               AND LOWER(email) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND email != '')
+              AND LOWER(COALESCE(email, '')) NOT LIKE '%@bilano.app%'
               AND (user_id IS NULL OR user_id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL))
             ORDER BY date DESC
           `); 

@@ -5,7 +5,7 @@ import { Button } from "@/components/UIComponents";
 import { useUser } from "@/hooks/use-finance";
 import { 
   CheckCircle2, Crown, ArrowRight, Loader2, X, AlertCircle,
-  ChevronDown, Copy, RefreshCw, BookOpen, Clock, ShieldCheck, Sparkles, Gift
+  ChevronDown, Copy, RefreshCw, BookOpen, Clock, ShieldCheck, Sparkles, Gift, Smartphone
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWelcomeCountdown, getStoredUserGoal, getGoalPitchDetails } from "@/lib/welcome-deal";
@@ -75,7 +75,7 @@ export default function Paywall() {
         body: JSON.stringify({ 
           price: prices.total,
           plan: cycle === 'annual' ? 'year' : 'month',
-          productDetail: `Paket PREMIUM BILANO (${cycle === 'annual' ? 'Tahunan 99k + Bonus Ebook' : 'Bulanan'})`,
+          productDetail: `Paket PREMIUM BILANO (${cycle === 'annual' ? (!countdown.isExpired ? 'Tahunan 99k + Bonus Ebook' : 'Tahunan 99k') : 'Bulanan'})`,
           customerName: `${user?.firstName || 'User'} ${user?.lastName || ''}`.trim(),
           email: userEmail,
           paymentMethod: paymentMethod,
@@ -149,26 +149,69 @@ export default function Paywall() {
           <div className="w-full px-5 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-md">
             
             {/* ⏱️ PERSISTENT WELCOME DEAL TIMER BOX */}
-            <div className="bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/20 border-2 border-amber-400/40 rounded-2xl p-3.5 mb-5 shadow-lg backdrop-blur-md">
+            <div className={`border-2 rounded-2xl p-3.5 mb-5 shadow-lg backdrop-blur-md transition-all ${
+              countdown.isExpired 
+                ? 'bg-slate-900/60 border-slate-700/60' 
+                : 'bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/20 border-amber-400/40'
+            }`}>
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-amber-400 text-brand-navy flex items-center justify-center font-black shrink-0 animate-pulse">
-                    <Clock className="w-4 h-4" />
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black shrink-0 ${
+                    countdown.isExpired 
+                      ? 'bg-slate-800 text-slate-400' 
+                      : 'bg-amber-400 text-brand-navy animate-pulse'
+                  }`}>
+                    {countdown.isExpired ? <Clock className="w-4 h-4" /> : <Gift className="w-4 h-4" />}
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-wider text-amber-300">
-                      Penawaran Sambutan 24 Jam
-                    </p>
-                    <p className="text-xs font-extrabold text-white">
-                      Gratis Bundle E-Book Finansial
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                        countdown.isExpired 
+                          ? 'bg-slate-800 text-slate-400' 
+                          : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
+                      }`}>
+                        <Smartphone className="w-2.5 h-2.5" />
+                        Khusus Perangkat Ini
+                      </span>
+                      {!countdown.isExpired && (
+                        <span className="text-[9px] font-bold text-amber-200">
+                          1x Kesempatan Hari Ini
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs font-extrabold text-white mt-0.5">
+                      {countdown.isExpired 
+                        ? 'Waktu Promo E-Book di Perangkat Ini Habis' 
+                        : 'Gratis Bundle 5 E-Book Finansial Academy'}
                     </p>
                   </div>
                 </div>
-                <div className="bg-brand-navy/90 border border-amber-400/50 px-3 py-1.5 rounded-xl text-center shrink-0">
-                  <span className="text-xs font-black text-amber-300 font-mono tracking-widest">
+                <div className={`border px-3 py-1.5 rounded-xl text-center shrink-0 ${
+                  countdown.isExpired 
+                    ? 'bg-slate-800/80 border-slate-700 text-slate-400' 
+                    : 'bg-brand-navy/90 border-amber-400/50 text-amber-300'
+                }`}>
+                  <span className="text-xs font-black font-mono tracking-widest block">
                     {countdown.formatted}
                   </span>
+                  <span className="text-[8px] font-bold uppercase tracking-wider block opacity-80">
+                    {countdown.isExpired ? 'Hangus' : 'Sisa Waktu'}
+                  </span>
                 </div>
+              </div>
+
+              {/* Explicit device-locking notice */}
+              <div className={`mt-2.5 pt-2 border-t text-[10px] leading-relaxed flex items-start gap-1.5 ${
+                countdown.isExpired ? 'border-slate-800 text-slate-400' : 'border-amber-400/20 text-amber-200/90'
+              }`}>
+                <Smartphone className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>
+                  {countdown.isExpired ? (
+                    <>Promo bonus bundle e-book gratis telah berakhir untuk perangkat ini. Anda tetap dapat mengaktifkan Paket VIP Tahunan untuk akses tanpa batas seluruh fitur finansial cerdas.</>
+                  ) : (
+                    <><strong>Pemberitahuan:</strong> Promo gratis e-book ini dikunci khusus pada <strong>perangkat ini</strong> selama 24 jam hari ini. Tidak dapat diulang atau di-reset dengan mendaftar email baru di perangkat yang sama.</>
+                  )}
+                </span>
               </div>
             </div>
 
@@ -191,7 +234,7 @@ export default function Paywall() {
                 {cycle === 'annual' && (
                   <div className="absolute -top-9 left-1/2 -translate-x-1/2">
                     <div className="bg-gradient-to-r from-amber-400 to-yellow-300 text-[10px] font-black text-brand-navy px-3 py-1 rounded-xl shadow-md relative animate-bounce whitespace-nowrap uppercase tracking-wider">
-                      🔥 Hemat Rp 158.000 + Ebook
+                      {countdown.isExpired ? '🔥 Hemat Rp 129.000' : '🔥 Hemat Rp 158.000 + Ebook'}
                       <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[5px] border-t-amber-400"></div>
                     </div>
                   </div>
@@ -268,17 +311,31 @@ export default function Paywall() {
                 
                 {/* E-BOOK BUNDLE HIGHLIGHT */}
                 {cycle === 'annual' ? (
-                  <div className="bg-amber-400/10 border border-amber-400/30 rounded-xl p-3 flex items-start gap-2.5 mt-2">
-                    <Gift className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-black text-amber-300 leading-snug">
-                        Bonus Spesial: Paket E-Book Finansial Academy
-                      </p>
-                      <p className="text-[11px] text-slate-300 leading-normal mt-0.5">
-                        Harga normal Rp 29.000/tahun — <strong className="text-white">GRATIS</strong> khusus Paket Tahunan hari ini!
-                      </p>
+                  !countdown.isExpired ? (
+                    <div className="bg-amber-400/10 border border-amber-400/30 rounded-xl p-3 flex items-start gap-2.5 mt-2">
+                      <Gift className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-black text-amber-300 leading-snug">
+                          Bonus Spesial: Paket 5 E-Book Finansial Academy
+                        </p>
+                        <p className="text-[11px] text-slate-300 leading-normal mt-0.5">
+                          Harga normal Rp 29.000/tahun — <strong className="text-white">GRATIS</strong> khusus Paket Tahunan di perangkat ini hari ini!
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-3 flex items-start gap-2.5 mt-2 opacity-75">
+                      <Clock className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-300 leading-snug">
+                          Bonus E-Book Gratis (Periode Promo Perangkat Berakhir)
+                        </p>
+                        <p className="text-[10px] text-slate-400 leading-normal mt-0.5">
+                          Periode promo bonus e-book 24 jam untuk perangkat ini telah lewat. Anda tetap mendapatkan diskon Paket Tahunan 57%.
+                        </p>
+                      </div>
+                    </div>
+                  )
                 ) : (
                   <BenefitItem dark active={false} text="Paket E-Book Finansial Academy (Hanya di Paket Tahunan)" />
                 )}

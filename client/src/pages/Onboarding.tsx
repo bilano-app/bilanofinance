@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
   ArrowRight, CheckCircle2, X, Target, Zap, ShieldAlert, Sparkles, 
-  Clock, Crown, Gift, Loader2, ShieldCheck, ChevronRight
+  Clock, Crown, Gift, Loader2, ShieldCheck, ChevronRight, Smartphone
 } from "lucide-react";
 import { Button } from "@/components/UIComponents";
 import { setStoredUserGoal, useWelcomeCountdown, UserGoal, getGoalPitchDetails } from "@/lib/welcome-deal";
@@ -284,10 +284,11 @@ export default function Onboarding() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5 text-amber-300 text-xs font-black">
                 <Clock className="w-4 h-4 animate-pulse" />
-                <span>WELCOME DEAL: {countdown.formatted}</span>
+                <span>PERANGKAT INI: {countdown.formatted}</span>
               </div>
-              <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                HEMAT 57%
+              <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <Smartphone className="w-2.5 h-2.5" />
+                1X PROMO HARI INI
               </span>
             </div>
 
@@ -319,11 +320,17 @@ export default function Onboarding() {
               </div>
             </div>
 
-            {/* TRUST NOTICE */}
-            <p className="text-[10px] text-slate-400 text-center flex items-center justify-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Bayar 1x via QRIS/VA • Tanpa auto-debit diam-diam</span>
-            </p>
+            {/* TRUST & DEVICE NOTICE */}
+            <div className="space-y-1">
+              <p className="text-[10px] text-amber-300/90 text-center flex items-center justify-center gap-1">
+                <Smartphone className="w-3 h-3" />
+                <span>Khusus perangkat ini (1x kesempatan hari ini, anti-reset email)</span>
+              </p>
+              <p className="text-[10px] text-slate-400 text-center flex items-center justify-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Bayar 1x via QRIS/VA • Tanpa auto-debit diam-diam</span>
+              </p>
+            </div>
           </div>
 
           {/* ACTION BUTTONS */}

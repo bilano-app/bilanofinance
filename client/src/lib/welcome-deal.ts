@@ -4,27 +4,89 @@ export type UserGoal = "income" | "leakage" | "debt" | "general";
 
 const DEAL_STORAGE_KEY_PREFIX = "bilano_welcome_deal_deadline_";
 const GOAL_STORAGE_KEY_PREFIX = "bilano_user_goal_";
+const DEVICE_ID_KEY = "bilano_device_uuid";
+const DEVICE_DEADLINE_KEY = "bilano_device_welcome_deal_deadline";
+const DEVICE_PROMO_NOTIFIED_KEY = "bilano_device_promo_notified_v1";
+
+// Helper persisten cookie agar tahan jika localStorage parsial terhapus
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+function setCookie(name: string, value: string, days = 365) {
+  if (typeof document === "undefined") return;
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
+export function getOrCreateDeviceId(): string {
+  if (typeof window === "undefined") return "server-device";
+  let deviceId = localStorage.getItem(DEVICE_ID_KEY) || getCookie(DEVICE_ID_KEY);
+  if (!deviceId) {
+    deviceId = "dev_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now().toString(36);
+    localStorage.setItem(DEVICE_ID_KEY, deviceId);
+    setCookie(DEVICE_ID_KEY, deviceId);
+  } else {
+    if (!localStorage.getItem(DEVICE_ID_KEY)) localStorage.setItem(DEVICE_ID_KEY, deviceId);
+    if (!getCookie(DEVICE_ID_KEY)) setCookie(DEVICE_ID_KEY, deviceId);
+  }
+  return deviceId;
+}
 
 export function getWelcomeDeadline(userEmail?: string): number {
   if (typeof window === "undefined") return Date.now() + 24 * 60 * 60 * 1000;
   
-  const key = DEAL_STORAGE_KEY_PREFIX + (userEmail || "guest");
-  const stored = localStorage.getItem(key) || localStorage.getItem("bilano_global_welcome_deal_deadline");
-  
-  if (stored) {
-    const parsed = parseInt(stored, 10);
-    if (!isNaN(parsed)) return parsed;
+  // 1. Kunci Utama: Perangkat (Device-bound)
+  const storedDevice = localStorage.getItem(DEVICE_DEADLINE_KEY) || getCookie(DEVICE_DEADLINE_KEY);
+  if (storedDevice) {
+    const parsed = parseInt(storedDevice, 10);
+    if (!isNaN(parsed)) {
+      if (!localStorage.getItem(DEVICE_DEADLINE_KEY)) localStorage.setItem(DEVICE_DEADLINE_KEY, storedDevice);
+      if (!getCookie(DEVICE_DEADLINE_KEY)) setCookie(DEVICE_DEADLINE_KEY, storedDevice);
+      return parsed;
+    }
   }
 
-  // Jika belum ada, buat 24 jam dari sekarang
+  // 2. Fallback legacy jika ada data lama di browser ini
+  const legacyGlobal = localStorage.getItem("bilano_global_welcome_deal_deadline");
+  const legacyUser = userEmail ? localStorage.getItem(DEAL_STORAGE_KEY_PREFIX + userEmail) : null;
+  const legacy = legacyGlobal || legacyUser;
+  if (legacy) {
+    const parsed = parseInt(legacy, 10);
+    if (!isNaN(parsed)) {
+      localStorage.setItem(DEVICE_DEADLINE_KEY, parsed.toString());
+      setCookie(DEVICE_DEADLINE_KEY, parsed.toString());
+      return parsed;
+    }
+  }
+
+  // 3. Jika pertama kali di perangkat ini, set 24 jam dari sekarang
   const newDeadline = Date.now() + 24 * 60 * 60 * 1000;
-  localStorage.setItem(key, newDeadline.toString());
+  localStorage.setItem(DEVICE_DEADLINE_KEY, newDeadline.toString());
+  setCookie(DEVICE_DEADLINE_KEY, newDeadline.toString());
   localStorage.setItem("bilano_global_welcome_deal_deadline", newDeadline.toString());
+  if (userEmail) {
+    localStorage.setItem(DEAL_STORAGE_KEY_PREFIX + userEmail, newDeadline.toString());
+  }
   return newDeadline;
+}
+
+export function hasSeenDevicePromoNotification(): boolean {
+  if (typeof window === "undefined") return true;
+  return !!(localStorage.getItem(DEVICE_PROMO_NOTIFIED_KEY) || getCookie(DEVICE_PROMO_NOTIFIED_KEY));
+}
+
+export function markDevicePromoNotificationSeen() {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(DEVICE_PROMO_NOTIFIED_KEY, "true");
+  setCookie(DEVICE_PROMO_NOTIFIED_KEY, "true");
 }
 
 export function useWelcomeCountdown(userEmail?: string) {
   const [deadline] = useState(() => getWelcomeDeadline(userEmail));
+  const [deviceId] = useState(() => getOrCreateDeviceId());
   const [timeLeft, setTimeLeft] = useState(() => {
     const diff = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
     return diff;
@@ -50,8 +112,10 @@ export function useWelcomeCountdown(userEmail?: string) {
     hours,
     minutes,
     seconds,
-    formatted: `${hours}:${minutes}:${seconds}`,
-    isExpired
+    formatted: isExpired ? "00:00:00" : `${hours}:${minutes}:${seconds}`,
+    isExpired,
+    deadline,
+    deviceId
   };
 }
 

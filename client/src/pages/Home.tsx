@@ -14,7 +14,7 @@ import {
     BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
     Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Banknote,
     ArrowDownLeft, ArrowUpRight, Send, Target, Plus, Pencil,
-    Gift, Clock, ArrowRight
+    Gift, Clock, ArrowRight, Smartphone
 } from "lucide-react";
 import LegacyMigrationPopup from "@/components/LegacyMigrationPopup";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
@@ -26,7 +26,7 @@ import { trackEvent } from "@/lib/tracking";
 import { queryClient } from "@/lib/queryClient";
 import TrialInstallModal from "@/components/TrialInstallModal";
 import { isTrialMode, getTrialData, triggerPwaInstallOrGuide } from "@/lib/trial-data";
-import { useWelcomeCountdown, getStoredUserGoal, getGoalPitchDetails } from "@/lib/welcome-deal";
+import { useWelcomeCountdown, getStoredUserGoal, getGoalPitchDetails, hasSeenDevicePromoNotification, markDevicePromoNotificationSeen } from "@/lib/welcome-deal";
 
 // ─────────────────────────────────────────────────────────────
 // BILANO BRAND TOKENS
@@ -94,6 +94,32 @@ export default function Home() {
     const welcomeCountdown = useWelcomeCountdown(currentUserEmail);
     const userGoal = getStoredUserGoal(currentUserEmail);
     const userGoalPitch = getGoalPitchDetails(userGoal);
+
+    const [showPromoAnnouncement, setShowPromoAnnouncement] = useState(() => {
+        if (typeof window === "undefined") return false;
+        return !hasSeenDevicePromoNotification();
+    });
+
+    useEffect(() => {
+        if (!user?.isPro && !isGuestMode && !welcomeCountdown.isExpired && !hasSeenDevicePromoNotification()) {
+            setShowPromoAnnouncement(true);
+            toast({
+                title: "🎁 Promo E-Book Spesial Hadir di Perangkat Ini!",
+                description: "Kesempatan 24 jam khusus di perangkat Anda telah dimulai hari ini.",
+            });
+        }
+    }, [user?.isPro, isGuestMode, welcomeCountdown.isExpired]);
+
+    const handleClosePromoAnnouncement = () => {
+        markDevicePromoNotificationSeen();
+        setShowPromoAnnouncement(false);
+    };
+
+    const handleClaimPromo = () => {
+        markDevicePromoNotificationSeen();
+        setShowPromoAnnouncement(false);
+        setLocation("/paywall");
+    };
 
     const [dueSub, setDueSub] = useState<any | null>(null);
     const [dynamicAmount, setDynamicAmount] = useState("");
@@ -1185,33 +1211,56 @@ export default function Home() {
                         </div>
                     )}
 
-                    {/* ⏱️ SMART WELCOME DEAL 24H COUNTDOWN BANNER (Khusus Free User) */}
+                    {/* ⏱️ SMART WELCOME DEAL 24H COUNTDOWN BANNER (Khusus Free User / 1 Device Saja) */}
                     {!user?.isPro && !isGuestMode && (
                         <div 
                             onClick={() => setLocation("/paywall")}
-                            className="bg-gradient-to-r from-amber-500/20 via-yellow-400/25 to-amber-500/20 border-2 border-amber-400/60 rounded-[22px] p-3.5 mt-3 shadow-sm backdrop-blur-md flex items-center justify-between gap-3 cursor-pointer hover:border-amber-400 active:scale-[0.98] transition-all animate-in fade-in slide-in-from-top-2"
+                            className={`border-2 rounded-[22px] p-3.5 mt-3 shadow-sm backdrop-blur-md flex items-center justify-between gap-3 cursor-pointer active:scale-[0.98] transition-all animate-in fade-in slide-in-from-top-2 ${
+                                welcomeCountdown.isExpired 
+                                    ? 'bg-slate-100/90 border-slate-300' 
+                                    : 'bg-gradient-to-r from-amber-500/20 via-yellow-400/25 to-amber-500/20 border-amber-400/60 hover:border-amber-400'
+                            }`}
                         >
                             <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-brand-navy flex items-center justify-center shrink-0 shadow-sm font-black">
-                                    <Gift className="w-5 h-5" />
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm font-black ${
+                                    welcomeCountdown.isExpired 
+                                        ? 'bg-slate-200 text-slate-500' 
+                                        : 'bg-gradient-to-tr from-amber-400 to-yellow-300 text-brand-navy'
+                                }`}>
+                                    {welcomeCountdown.isExpired ? <Clock className="w-5 h-5" /> : <Gift className="w-5 h-5" />}
                                 </div>
                                 <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-[9px] font-black uppercase tracking-wider text-brand-navy bg-brand-gold px-2 py-0.5 rounded-md">
-                                            Promo 24 Jam
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                                            welcomeCountdown.isExpired 
+                                                ? 'bg-slate-200 text-slate-600' 
+                                                : 'text-brand-navy bg-brand-gold'
+                                        }`}>
+                                            <Smartphone className="w-2.5 h-2.5" />
+                                            {welcomeCountdown.isExpired ? 'Promo Berakhir' : 'Khusus Perangkat Ini'}
                                         </span>
-                                        <span className="text-[10px] font-mono font-black text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                            <Clock className="w-3 h-3 animate-pulse text-amber-600" />
+                                        <span className={`text-[10px] font-mono font-black px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                                            welcomeCountdown.isExpired 
+                                                ? 'text-slate-500 bg-slate-200/80' 
+                                                : 'text-amber-800 bg-amber-100/90'
+                                        }`}>
+                                            <Clock className={`w-3 h-3 ${!welcomeCountdown.isExpired ? 'animate-pulse text-amber-600' : ''}`} />
                                             {welcomeCountdown.formatted}
                                         </span>
                                     </div>
                                     <p className="text-xs font-black text-slate-800 truncate mt-1">
-                                        {userGoalPitch.badge.replace("Rekomendasi Profil: ", "")}: <span className="text-amber-800">Paket 99k + Gratis E-Book</span>
+                                        {welcomeCountdown.isExpired 
+                                            ? 'Masa promo bonus e-book telah berakhir di perangkat ini' 
+                                            : `${userGoalPitch.badge.replace("Rekomendasi Profil: ", "")}: Paket 99k + Gratis E-Book`}
                                     </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1 text-[11px] font-black text-brand-navy shrink-0 bg-gradient-to-r from-brand-gold to-[#f5d77a] px-3.5 py-2 rounded-xl shadow-xs hover:scale-105 transition-transform">
-                                <span>Buka</span>
+                            <div className={`flex items-center gap-1 text-[11px] font-black shrink-0 px-3.5 py-2 rounded-xl shadow-xs hover:scale-105 transition-transform ${
+                                welcomeCountdown.isExpired 
+                                    ? 'text-slate-700 bg-slate-200' 
+                                    : 'text-brand-navy bg-gradient-to-r from-brand-gold to-[#f5d77a]'
+                            }`}>
+                                <span>{welcomeCountdown.isExpired ? 'Upgrade' : 'Klaim'}</span>
                                 <ArrowRight className="w-3.5 h-3.5" />
                             </div>
                         </div>
@@ -1677,6 +1726,92 @@ export default function Home() {
                 isOpen={showTrialInstallModal}
                 onClose={() => setShowTrialInstallModal(false)}
             />
+
+            {/* 🎁 POPUP NOTIFIKASI SAMBUTAN: PROMO E-BOOK KHUSUS PERANGKAT (UNTUK PENGGUNA LAMA & NON-PRO) */}
+            {showPromoAnnouncement && !user?.isPro && !isGuestMode && !welcomeCountdown.isExpired && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-gradient-to-b from-[#14234b] via-[#0f1d3e] to-[#0a142c] text-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl border-2 border-brand-gold relative overflow-hidden animate-in zoom-in-95 duration-200">
+                        {/* Background subtle glowing circles */}
+                        <div className="absolute -right-8 -top-8 w-32 h-32 bg-brand-gold/20 rounded-full blur-2xl pointer-events-none"></div>
+                        <div className="absolute -left-8 -bottom-8 w-32 h-32 bg-blue-500/20 rounded-full blur-2xl pointer-events-none"></div>
+
+                        {/* Close button */}
+                        <button 
+                            onClick={handleClosePromoAnnouncement}
+                            className="absolute right-4 top-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+
+                        {/* Header badge */}
+                        <div className="flex items-center gap-1.5 mb-4">
+                            <span className="bg-gradient-to-r from-brand-gold to-[#f5d77a] text-brand-navy text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                                <Gift className="w-3 h-3" />
+                                Penawaran Spesial Baru
+                            </span>
+                            <span className="text-[10px] font-black text-amber-300 bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <Clock className="w-3 h-3 animate-pulse" />
+                                24 Jam
+                            </span>
+                        </div>
+
+                        {/* Title & Icon */}
+                        <div className="flex items-start gap-3 mb-3">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-gold to-yellow-300 text-brand-navy flex items-center justify-center font-black shrink-0 shadow-lg">
+                                <Crown className="w-6 h-6 fill-brand-navy" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black leading-tight text-white">
+                                    Kabar Gembira Untuk Anda!
+                                </h3>
+                                <p className="text-[11px] text-amber-300 font-bold mt-0.5">
+                                    Gratis 5 E-Book Finansial Academy
+                                </p>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                            Sebagai bentuk apresiasi bagi Anda, nikmati promo baru: Upgrade ke <strong className="text-white">Paket Tahunan Rp 99.000</strong> dan dapatkan langsung seluruh paket <strong className="text-brand-gold">5 E-Book Finansial Academy (Senilai Rp 29.000) GRATIS!</strong>
+                        </p>
+
+                        {/* Device Notice Card */}
+                        <div className="bg-white/5 border border-amber-400/30 rounded-2xl p-3 mb-5 space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="font-bold text-slate-300 flex items-center gap-1">
+                                    <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+                                    Terkunci di Perangkat Ini:
+                                </span>
+                                <span className="font-mono font-black text-amber-300">
+                                    {welcomeCountdown.formatted}
+                                </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 leading-normal">
+                                Promo ini hanya aktif 1 kali selama 24 jam hari ini khusus pada perangkat Anda. Tidak dapat diulang dengan mendaftar email baru di perangkat yang sama.
+                            </p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="space-y-2">
+                            <button
+                                type="button"
+                                onClick={handleClaimPromo}
+                                className="w-full bg-gradient-to-r from-brand-gold to-[#f5d77a] hover:from-[#f2ce5d] hover:to-brand-gold text-brand-navy font-black text-xs py-3.5 px-4 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                                <span>Klaim Promo E-Book Sekarang</span>
+                                <ArrowRight className="w-4 h-4" />
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleClosePromoAnnouncement}
+                                className="w-full py-2 text-xs text-slate-400 hover:text-slate-300 font-medium transition-colors cursor-pointer"
+                            >
+                                Nanti Saja
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </MobileLayout>
     );
 }

@@ -300,7 +300,11 @@ export default function Manager() {
         const json = await res.json();
         const rawList = Array.isArray(json) ? json : json.users || [];
         const sep1Date = new Date('2026-09-01T00:00:00+07:00');
-        const filteredList = rawList.filter((u: any) => u.createdAt && new Date(u.createdAt) >= sep1Date);
+        const filteredList = rawList.filter((u: any) => {
+          const isAfterSep1 = u.createdAt && new Date(u.createdAt) >= sep1Date;
+          const isBilanoApp = ((u.email || '').toLowerCase().includes('@bilano.app') || (u.username || '').toLowerCase().includes('@bilano.app'));
+          return isAfterSep1 && !isBilanoApp;
+        });
         setUsersList(filteredList);
       }
     } catch (e) {
@@ -345,7 +349,11 @@ export default function Manager() {
         const json = await res.json();
         const rawTickets = Array.isArray(json) ? json : json.tickets || [];
         const sep1Date = new Date('2026-09-01T00:00:00+07:00');
-        const filteredTickets = rawTickets.filter((t: any) => (!t.date && !t.createdAt) || new Date(t.date || t.createdAt) >= sep1Date);
+        const filteredTickets = rawTickets.filter((t: any) => {
+          const isAfterSep1 = (!t.date && !t.createdAt) || new Date(t.date || t.createdAt) >= sep1Date;
+          const isBilanoApp = (t.email || '').toLowerCase().includes('@bilano.app');
+          return isAfterSep1 && !isBilanoApp;
+        });
         setTickets(filteredTickets);
       }
     } catch (e) {
