@@ -301,11 +301,6 @@ export default function Home() {
         }
     }, [isGuestMode]);
 
-    useEffect(() => {
-        if (rawEmail && rawEmail !== 'guest@bilano.app' && rawEmail !== 'guest' && user && user.username === 'guest') {
-            window.location.reload();
-        }
-    }, [user, rawEmail]);
 
     useEffect(() => {
         setIsPrivacyMode(localStorage.getItem("bilano_privacy") === "true");

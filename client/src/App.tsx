@@ -292,7 +292,7 @@ function Router() {
     <>
       <Switch>
         <Route path="/">
-          {isStandalone ? <Home /> : isTrialMode() ? <Home /> : <Landing />}
+          {isStandalone ? <Home /> : isTrialMode() ? <Home /> : hasAuth ? <Home /> : <Landing />}
         </Route>
         
         <Route path="/terminal">
