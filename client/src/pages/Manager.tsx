@@ -1330,7 +1330,7 @@ export default function Manager() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-[#f8fafc] text-[10px] text-[#475569] uppercase tracking-wider font-bold border-b border-[#cbd5e1]">
-                          <th className="px-4 py-3">Pengguna & Email</th>
+                          <th className="px-4 py-3">Pengguna, Email & Telp</th>
                           <th className="px-4 py-3">Terdaftar</th>
                           <th className="px-4 py-3 text-right">Saldo Kas Terdeteksi</th>
                           <th className="px-4 py-3 text-center">Total Input Tx</th>
@@ -1347,6 +1347,8 @@ export default function Manager() {
                               <td className="px-4 py-3.5">
                                 <div className="font-bold text-[#0f172a]">{u.name || u.username}</div>
                                 <div className="text-[11px] font-mono text-[#2563eb]">{u.email}</div>
+                                {u.phone && <div className="text-[10px] font-mono text-slate-500">{u.phone}</div>}
+                                <div className="text-[10px] font-mono text-emerald-600 font-bold mt-0.5">{u.appOpenCount || 0}x Buka App</div>
                               </td>
                               <td className="px-4 py-3.5 font-mono text-[#64748b]">
                                 {u.createdAt ? new Date(u.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}
@@ -1428,7 +1430,7 @@ export default function Manager() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-[#f8fafc] text-[10px] text-[#475569] uppercase tracking-wider font-bold border-b border-[#cbd5e1]">
-                          <th className="px-4 py-3">Member & Email</th>
+                          <th className="px-4 py-3">Member, Email & Telp</th>
                           <th className="px-4 py-3">Terdaftar</th>
                           <th className="px-4 py-3 text-right">Saldo Kas Terdeteksi</th>
                           <th className="px-4 py-3">Tanggal Menjadi PRO</th>
@@ -1449,6 +1451,8 @@ export default function Manager() {
                                   <span className="text-amber-500">👑</span>
                                 </div>
                                 <div className="text-[11px] font-mono text-[#2563eb]">{u.email}</div>
+                                {u.phone && <div className="text-[10px] font-mono text-slate-500">{u.phone}</div>}
+                                <div className="text-[10px] font-mono text-emerald-600 font-bold mt-0.5">{u.appOpenCount || 0}x Buka App</div>
                               </td>
                               <td className="px-4 py-3.5 font-mono text-[#64748b]">
                                 {u.createdAt ? new Date(u.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}

@@ -21,6 +21,7 @@ export default function Auth() {
     return window.location.search.includes("mode=signup") || window.location.hash === "#signup";
   });
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
 
   const [email, setEmail] = useState(() => localStorage.getItem("auth_email") || "");
   const [password, setPassword] = useState(() => localStorage.getItem("auth_password") || "");
@@ -114,7 +115,7 @@ export default function Auth() {
                         "Content-Type": "application/json",
                         "x-user-email": cleanEmail 
                     },
-                    body: JSON.stringify({ firstName, lastName })
+                    body: JSON.stringify({ firstName, lastName, phone: phone.trim() })
                 });
 
                 // 3. Simpan Password ke Database (Untuk opsi login DB)
@@ -230,6 +231,19 @@ export default function Auth() {
                           <div className="relative">
                               <UserIcon className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
                               <Input type="text" placeholder="Nama lengkap Anda" className="pl-10 h-12" value={fullName} onChange={(e) => setFullName(e.target.value)}/>
+                          </div>
+                      </div>
+                  )}
+
+                  {isSignUp && (
+                      <div className="space-y-1 animate-in fade-in duration-300">
+                          <div className="flex items-center justify-between ml-1">
+                              <label className="text-xs font-bold text-slate-500">Nomor WhatsApp</label>
+                              <span className="text-[10px] text-slate-400 font-medium">Opsional • Verifikasi & Reminder</span>
+                          </div>
+                          <div className="relative">
+                              <UserIcon className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
+                              <Input type="tel" placeholder="Contoh: 08123456789 (opsional)" className="pl-10 h-12" value={phone} onChange={(e) => setPhone(e.target.value)}/>
                           </div>
                       </div>
                   )}

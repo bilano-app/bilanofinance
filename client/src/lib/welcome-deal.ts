@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 
 export type UserGoal = "income" | "leakage" | "debt" | "general";
 
-const DEAL_STORAGE_KEY_PREFIX = "bilano_welcome_deal_deadline_";
+const DEAL_STORAGE_KEY_PREFIX = "bilano_welcome_deal_deadline_v2_";
 const GOAL_STORAGE_KEY_PREFIX = "bilano_user_goal_";
 const DEVICE_ID_KEY = "bilano_device_uuid";
-const DEVICE_DEADLINE_KEY = "bilano_device_welcome_deal_deadline";
-const DEVICE_PROMO_NOTIFIED_KEY = "bilano_device_promo_notified_v1";
+const DEVICE_DEADLINE_KEY = "bilano_device_welcome_deal_deadline_v2";
+const DEVICE_PROMO_NOTIFIED_KEY = "bilano_device_promo_notified_v2";
 
 // Helper persisten cookie agar tahan jika localStorage parsial terhapus
 function getCookie(name: string): string | null {
@@ -38,6 +38,8 @@ export function getOrCreateDeviceId(): string {
 export function getWelcomeDeadline(userEmail?: string): number {
   if (typeof window === "undefined") return Date.now() + 24 * 60 * 60 * 1000;
   
+  const cleanEmail = (userEmail || "").trim().toLowerCase();
+
   // 1. Kunci Utama: Perangkat (Device-bound)
   const storedDevice = localStorage.getItem(DEVICE_DEADLINE_KEY) || getCookie(DEVICE_DEADLINE_KEY);
   if (storedDevice) {
@@ -49,12 +51,23 @@ export function getWelcomeDeadline(userEmail?: string): number {
     }
   }
 
-  // 2. Fallback legacy jika ada data lama di browser ini
+  // 2. User specific post-trial offer deadline
+  if (cleanEmail) {
+    const userStored = localStorage.getItem(DEAL_STORAGE_KEY_PREFIX + cleanEmail);
+    if (userStored) {
+      const parsed = parseInt(userStored, 10);
+      if (!isNaN(parsed)) {
+        localStorage.setItem(DEVICE_DEADLINE_KEY, parsed.toString());
+        setCookie(DEVICE_DEADLINE_KEY, parsed.toString());
+        return parsed;
+      }
+    }
+  }
+
+  // 3. Fallback jika ada data lama di browser ini
   const legacyGlobal = localStorage.getItem("bilano_global_welcome_deal_deadline");
-  const legacyUser = userEmail ? localStorage.getItem(DEAL_STORAGE_KEY_PREFIX + userEmail) : null;
-  const legacy = legacyGlobal || legacyUser;
-  if (legacy) {
-    const parsed = parseInt(legacy, 10);
+  if (legacyGlobal) {
+    const parsed = parseInt(legacyGlobal, 10);
     if (!isNaN(parsed)) {
       localStorage.setItem(DEVICE_DEADLINE_KEY, parsed.toString());
       setCookie(DEVICE_DEADLINE_KEY, parsed.toString());
@@ -62,13 +75,13 @@ export function getWelcomeDeadline(userEmail?: string): number {
     }
   }
 
-  // 3. Jika pertama kali di perangkat ini, set 24 jam dari sekarang
+  // 4. Inisialisasi 24 jam penawaran promo
   const newDeadline = Date.now() + 24 * 60 * 60 * 1000;
   localStorage.setItem(DEVICE_DEADLINE_KEY, newDeadline.toString());
   setCookie(DEVICE_DEADLINE_KEY, newDeadline.toString());
   localStorage.setItem("bilano_global_welcome_deal_deadline", newDeadline.toString());
-  if (userEmail) {
-    localStorage.setItem(DEAL_STORAGE_KEY_PREFIX + userEmail, newDeadline.toString());
+  if (cleanEmail) {
+    localStorage.setItem(DEAL_STORAGE_KEY_PREFIX + cleanEmail, newDeadline.toString());
   }
   return newDeadline;
 }

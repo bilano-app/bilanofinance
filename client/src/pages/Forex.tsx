@@ -17,6 +17,8 @@ import { trackEvent } from "@/lib/tracking";
 import { getWalletLogo } from "@/lib/wallet-sources";
 import { formatCurrency } from "@/lib/utils";
 
+import TrialFeatureNotice from "@/components/TrialFeatureNotice";
+
 const CURRENCY_LIST = [
     { code: "USD", name: "Dolar Amerika Serikat", country: "Amerika Serikat", flag: "🇺🇸" },
     { code: "SGD", name: "Dolar Singapura", country: "Singapura", flag: "🇸🇬" },
@@ -442,6 +444,8 @@ export default function Forex() {
         {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO NAVY & GOLD */}
         {/* ========================================================================= */}
         <div className="px-5 pt-5 pb-8 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b border-amber-300/60">
+            
+            <TrialFeatureNotice featureKey="forex" featureName="Valas" className="px-1" />
             
             {/* Top Navigation Bar */}
             <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(29,62,114,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">

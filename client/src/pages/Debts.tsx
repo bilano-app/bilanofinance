@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser, useTransactions, getAccessTier } from "@/hooks/use-finance";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
+import TrialFeatureNotice from "@/components/TrialFeatureNotice";
 
 interface DebtItem {
   id: number;
@@ -340,6 +341,8 @@ export default function Debts() {
         {/* 1. TOP HEADER BANNER DENGAN TEMA ORANGE (#EA580C) & BILANO NAVY (#1D3E72) */}
         {/* ========================================================================= */}
         <div className="px-5 pt-5 pb-8 bg-gradient-to-b from-[#FFF5ED] via-[#FEE9D8] to-[#FED7AA] flex flex-col relative z-10 border-b border-orange-300/60">
+            
+            <TrialFeatureNotice featureKey="debts" featureName="Hutang & Piutang" className="px-1" />
             
             {/* Top Navigation Bar */}
             <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(234,88,12,0.06)] flex items-center justify-between relative z-30 border-b border-slate-100">

@@ -15,6 +15,7 @@ import {
 } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { trackEvent } from "@/lib/tracking";
+import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
 
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -437,6 +438,7 @@ ${recentTxList}
 
     return (
         <MobileLayout>
+            <TrialFeatureNotice featureKey="chatai" featureName="Tanya AI" />
             <div className="flex flex-col h-[100dvh] -mx-5 -mt-5 bg-gradient-to-b from-[#F0F6FD] via-[#E4EFFB] to-[#D8E8F9] select-none relative overflow-hidden">
                 
                 {/* ========================================================================= */}

@@ -67,6 +67,8 @@ const fetchSuperData = async () => {
     return globalFetchPromise;
 };
 
+import { getTrialInfo } from "@/lib/trial-manager";
+
 export type AccessTier = "free" | "premium";
 
 export function getAccessTier(user?: any): AccessTier {
@@ -76,8 +78,13 @@ export function getAccessTier(user?: any): AccessTier {
   const explicitTier = user?.plan || savedTier;
 
   if (explicitTier === "premium" || explicitTier === "standard") return "premium";
+  if (user?.isPro || (typeof window !== "undefined" && localStorage.getItem("bilano_pro") === "true")) return "premium";
+
+  // 👑 Akses Penuh 7 Hari Trial untuk seluruh fitur premium
+  const trial = getTrialInfo(user);
+  if (trial.isTrialActive) return "premium";
+
   if (explicitTier === "free") return "free";
-  if (user?.isPro) return "premium";
   return "free";
 }
 
@@ -101,10 +108,6 @@ export function useUser() {
       const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"]; 
       
       if (data) {
-          const savedTier = typeof window !== "undefined" ? localStorage.getItem("bilano_access_tier") : null;
-          const explicitTier = data.plan === "free" || data.plan === "standard" || data.plan === "premium" ? data.plan : savedTier;
-          const currentTier = explicitTier === "standard" || explicitTier === "premium" ? explicitTier : (vipEmails.includes(email) ? "premium" : "free");
-
           let isReallyPro = false;
           if (vipEmails.includes(email)) {
               isReallyPro = true;
@@ -120,18 +123,17 @@ export function useUser() {
           if (isReallyPro) {
               data.isPro = true;
               data.plan = "premium";
-              localStorage.setItem("bilano_pro", "true");
-              localStorage.setItem("bilano_access_tier", "premium");
-          } else if (currentTier === "standard" || currentTier === "premium") {
-              data.isPro = true;
-              data.plan = currentTier;
-              localStorage.setItem("bilano_pro", "true");
-              localStorage.setItem("bilano_access_tier", currentTier);
+              if (typeof window !== "undefined") {
+                  localStorage.setItem("bilano_pro", "true");
+                  localStorage.setItem("bilano_access_tier", "premium");
+              }
           } else {
               data.isPro = false;
               data.plan = "free";
-              localStorage.removeItem("bilano_pro");
-              localStorage.setItem("bilano_access_tier", "free");
+              if (typeof window !== "undefined") {
+                  localStorage.removeItem("bilano_pro");
+                  localStorage.setItem("bilano_access_tier", "free");
+              }
           }
       }
       return data;

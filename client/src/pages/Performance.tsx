@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { 
     Trophy, TrendingUp, AlertCircle, ArrowUpRight, ArrowDownRight, 
@@ -15,6 +15,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isTrialMode, getTrialData } from "@/lib/trial-data";
 import TrialInstallModal from "@/components/TrialInstallModal";
+import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
 
 const DEFAULT_RATES: Record<string, number> = {
     USD: 16250, EUR: 17500, SGD: 12200, JPY: 108, GBP: 20500,
@@ -22,6 +23,7 @@ const DEFAULT_RATES: Record<string, number> = {
 };
 
 export default function Performance() {
+  const [, setLocation] = useLocation();
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: target, isLoading: isTargetLoading } = useTarget();
   const { data: transactions = [], isLoading: isTxLoading } = useTransactions();
@@ -88,30 +90,8 @@ export default function Performance() {
       enabled: !isTrial ? !!currentUserEmail : true
   });
 
-  const handleLanjutBayar = async () => {
-    setIsCharging(true);
-    try {
-        const email = currentUserEmail || "customer@bilano.id";
-        const res = await fetch("/api/pay/mayar", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                email, 
-                plan: selectedPlan,
-                feature: "performance_analytics"
-            })
-        });
-        const data = await res.json();
-        if (res.ok && data.redirectUrl) {
-            window.location.href = data.redirectUrl; 
-        } else { 
-            toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); 
-        }
-    } catch (error) { 
-        toast({ title: "Error koneksi", variant: "destructive" }); 
-    } finally { 
-        setIsCharging(false); 
-    }
+  const handleLanjutBayar = () => {
+      setLocation('/paywall');
   };
 
   const handleDeleteTransaction = async (id: number) => {
@@ -135,79 +115,13 @@ export default function Performance() {
       }
   };
 
-  if (isLocked && !isUserLoading) {
-      return (
-          <MobileLayout title="Analisa Performa" showBack>
-              <div className="flex flex-col items-center justify-center min-h-[75vh] px-6 text-center -mx-5 -mt-5 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] p-6">
-                  <div className="w-20 h-20 bg-brand-gold text-brand-navy rounded-3xl flex items-center justify-center mb-4 shadow-md border border-brand-navy animate-bounce">
-                      <Crown className="w-10 h-10" />
-                  </div>
-                  <span className="bg-brand-navy text-brand-gold text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2 shadow-xs">
-                      ANALISIS FINANSIAL KELAS EXECUTIVE
-                  </span>
-                  <h2 className="text-2xl font-black text-brand-navy mb-2 tracking-tight">
-                      Buka Akses Analisa Finansial PRO
-                  </h2>
-                  <p className="text-xs text-amber-950 font-medium mb-6 max-w-xs leading-relaxed">
-                      Dapatkan diagnosis mendalam perihal Cashflow Runway, Rasio Tabungan, ROI Multi-Aset, dan Proyeksi Target Kekayaan Bersih.
-                  </p>
+  useEffect(() => {
+      if (!isPro && !isUserLoading) {
+          setLocation('/paywall');
+      }
+  }, [isPro, isUserLoading, setLocation]);
 
-                  <div className="w-full max-w-sm space-y-3 mb-6">
-                      <div 
-                        onClick={() => setSelectedPlan('yearly')} 
-                        className={`relative p-4 rounded-2xl border cursor-pointer transition-all ${
-                            selectedPlan === 'yearly' ? 'border-brand-navy bg-white shadow-sm' : 'border-slate-300 bg-white/70'
-                        }`}
-                      >
-                          {selectedPlan === 'yearly' && (
-                              <span className="absolute top-0 right-0 bg-brand-gold text-brand-navy text-[9px] font-black uppercase tracking-widest px-3 py-0.5 rounded-bl-xl border-l border-b border-brand-navy">
-                                  PALING HEMAT
-                              </span>
-                          )}
-                          <div className="flex justify-between items-center mb-1 text-left">
-                              <h4 className="font-bold text-sm text-brand-navy">Paket 1 Tahun</h4>
-                              <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${selectedPlan === 'yearly' ? 'border-brand-navy bg-brand-gold' : 'border-slate-300'}`}>
-                                  {selectedPlan === 'yearly' && <div className="w-2 h-2 bg-brand-navy rounded-full"></div>}
-                              </div>
-                          </div>
-                          <p className="text-xl font-black text-slate-900 text-left">
-                              Rp 8.250 <span className="text-xs font-medium text-slate-500">/ bulan</span>
-                          </p>
-                          <p className="text-[10px] text-emerald-700 font-bold text-left mt-0.5">Ditagih Rp 99.000 / tahun</p>
-                      </div>
-
-                      <div 
-                        onClick={() => setSelectedPlan('monthly')} 
-                        className={`p-4 rounded-2xl border cursor-pointer transition-all text-left ${
-                            selectedPlan === 'monthly' ? 'border-brand-navy bg-white shadow-sm' : 'border-slate-300 bg-white/70'
-                        }`}
-                      >
-                          <div className="flex justify-between items-center mb-1">
-                              <h4 className="font-bold text-sm text-slate-800">Paket 1 Bulan</h4>
-                              <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${selectedPlan === 'monthly' ? 'border-brand-navy bg-brand-gold' : 'border-slate-300'}`}>
-                                  {selectedPlan === 'monthly' && <div className="w-2 h-2 bg-brand-navy rounded-full"></div>}
-                              </div>
-                          </div>
-                          <p className="text-xl font-black text-slate-900">
-                              Rp 14.900 <span className="text-xs font-medium text-slate-500">/ bulan</span>
-                          </p>
-                      </div>
-                  </div>
-
-                  <button 
-                    onClick={handleLanjutBayar} 
-                    disabled={isCharging} 
-                    className="w-full max-w-sm h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                      {isCharging ? <Loader2 className="w-5 h-5 animate-spin"/> : "LANJUTKAN PEMBAYARAN PRO"}
-                  </button>
-                  <p className="mt-4 text-[10px] text-amber-950 font-medium flex items-center gap-1">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600"/> Pembayaran Terverifikasi & Otomatis oleh Mayar
-                  </p>
-              </div>
-          </MobileLayout>
-      );
-  }
+  if (!isPro) return null;
 
   // =========================================================================
   // 📐 FORMULASI & KALKULASI ANALITIK FINANSIAL MENDALAM
@@ -448,6 +362,7 @@ export default function Performance() {
 
   return (
     <MobileLayout>
+      <TrialFeatureNotice featureKey="performance" featureName="Analisa Performa" />
       <div className="flex flex-col -mx-5 -mt-5">
         
         {/* ========================================================================= */}

@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
   ArrowRight, CheckCircle2, X, Target, Zap, ShieldAlert, Sparkles, 
-  Clock, Crown, Gift, Loader2, ShieldCheck, ChevronRight, Smartphone
+  Clock, Crown, Gift, Loader2, ShieldCheck, ChevronRight, Smartphone,
+  Sun, Sunset, Moon, HeartHandshake, Check
 } from "lucide-react";
 import { Button } from "@/components/UIComponents";
-import { setStoredUserGoal, useWelcomeCountdown, UserGoal, getGoalPitchDetails } from "@/lib/welcome-deal";
+import { setStoredUserGoal, UserGoal } from "@/lib/welcome-deal";
+import { saveUserCommitment } from "@/lib/trial-manager";
 import { useUser } from "@/hooks/use-finance";
 
 export default function Onboarding() {
@@ -13,12 +15,52 @@ export default function Onboarding() {
   const { data: user } = useUser();
   const userEmail = localStorage.getItem("bilano_email") || user?.email || "";
 
-  const countdown = useWelcomeCountdown(userEmail);
+  const [step, setStep] = useState<1 | 2 | 3 | "analyzing" | "result" | "commitment">(1);
 
-  const [step, setStep] = useState<1 | 2 | 3 | "analyzing" | "result">(1);
+  const getEmotionalProfile = (goal: UserGoal) => {
+    switch (goal) {
+      case "income":
+        return {
+          title: "Potensi Skala Besar Terdeteksi",
+          description: "Anda memiliki mentalitas pertumbuhan yang luar biasa. Ketidakpuasan pada stagnasi penghasilan saat ini adalah bahan bakar terbaik. Anda siap mendobrak batasan.",
+          highlight: "Sangat Cocok untuk Akselerasi",
+          emotion: "Ambisus & Proaktif",
+          score: 92
+        };
+      case "leakage":
+        return {
+          title: "Kesadaran Finansial Tingkat Tinggi",
+          description: "Mengakui adanya kebocoran halus butuh keberanian yang besar. Anda telah mengambil langkah krusial pertama menuju ketenangan batin dan kontrol total atas uang Anda.",
+          highlight: "Siap Memegang Kendali",
+          emotion: "Lega & Berdaya",
+          score: 88
+        };
+      case "debt":
+        return {
+          title: "Mentalitas Pejuang Finansial",
+          description: "Membawa beban masa lalu memang melelahkan, tetapi tekad Anda untuk memutus rantai ini jauh lebih kuat. Anda berada di titik balik sempurna untuk membangun aset sejati.",
+          highlight: "Fokus & Bertekad Baja",
+          emotion: "Tangguh & Terfokus",
+          score: 95
+        };
+      default:
+        return {
+          title: "Potensi Skala Besar Terdeteksi",
+          description: "Anda memiliki mentalitas pertumbuhan yang luar biasa. Ketidakpuasan pada stagnasi penghasilan saat ini adalah bahan bakar terbaik. Anda siap mendobrak batasan.",
+          highlight: "Sangat Cocok untuk Akselerasi",
+          emotion: "Ambisus & Proaktif",
+          score: 92
+        };
+    }
+  };
   const [selectedGoal, setSelectedGoal] = useState<UserGoal>("income");
   const [selectedChallenge, setSelectedChallenge] = useState<string>("Uang sering habis tanpa sadar");
   const [selectedPace, setSelectedPace] = useState<string>("Akselerasi cepat dalam 1-3 bulan");
+
+  // State untuk Halaman Komitmen + Trial Notice
+  const [selectedReminder, setSelectedReminder] = useState<"pagi" | "siang" | "malam">("malam");
+  const [isCommitted, setIsCommitted] = useState<boolean>(true);
+  const [isSubmittingCommitment, setIsSubmittingCommitment] = useState<boolean>(false);
 
   // Ketika masuk step "analyzing", beri delay 1.5 detik agar terasa diproses oleh AI
   useEffect(() => {
@@ -33,6 +75,7 @@ export default function Onboarding() {
 
   const handleSkip = () => {
     setStoredUserGoal(selectedGoal, userEmail);
+    saveUserCommitment({ reminderTime: selectedReminder, userEmail });
     setLocation("/setup-balance");
   };
 
@@ -51,7 +94,21 @@ export default function Onboarding() {
     setStep("analyzing");
   };
 
-  const pitch = getGoalPitchDetails(selectedGoal);
+  const handleStartTrial = async () => {
+    setIsSubmittingCommitment(true);
+    try {
+      setStoredUserGoal(selectedGoal, userEmail);
+      await saveUserCommitment({
+        reminderTime: selectedReminder,
+        userEmail
+      });
+      setLocation("/setup-balance");
+    } catch (err) {
+      setLocation("/setup-balance");
+    } finally {
+      setIsSubmittingCommitment(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a1128] via-[#0f1d40] to-[#0a1128] text-white flex flex-col items-center justify-between p-5">
@@ -67,7 +124,7 @@ export default function Onboarding() {
           </span>
         </div>
 
-        {/* TOMBOL LEWATI (ALWAYS VISIBLE & CLEAR) */}
+        {/* TOMBOL LEWATI */}
         <button
           onClick={handleSkip}
           className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1 py-1.5 px-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-white/10"
@@ -193,7 +250,7 @@ export default function Onboarding() {
         </div>
       )}
 
-      {/* STEP 3: KOMMITMEN WAKTU */}
+      {/* STEP 3: KOMITMEN WAKTU */}
       {step === 3 && (
         <div className="w-full max-w-md flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="mb-2">
@@ -247,109 +304,182 @@ export default function Onboarding() {
         </div>
       )}
 
-      {/* STEP: RESULT & DYNAMIC PAYWALL REVEAL */}
+      {/* STEP: RESULT (EMOTIONAL VALIDATION) */}
       {step === "result" && (
-        <div className="w-full max-w-md flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-500 py-2">
-          
-          {/* RAPOR PROFIL FINANSIAL (GRATIS) */}
-          <div className="bg-white/10 border border-white/15 rounded-3xl p-5 mb-5 backdrop-blur-md">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300 bg-emerald-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Rapor Finansial Selesai Disiapkan
-              </span>
-              <span className="text-[10px] font-bold text-slate-400">Tersimpan di Akun</span>
+        <div className="w-full max-w-md flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-500 py-4">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500/30 mb-5 shadow-[0_0_30px_rgba(16,185,129,0.25)]">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
             </div>
-
-            <h3 className="text-lg font-black text-white mb-1">
-              {pitch.badge.replace("Rekomendasi Profil: ", "")}
-            </h3>
-            <p className="text-xs text-slate-300 font-medium leading-relaxed mb-3">
-              Fokus Utama: <strong className="text-amber-300">{pitch.featureTag}</strong>. Ritme: {selectedPace.split("(")[0].trim()}.
-            </p>
-
-            <div className="bg-black/30 rounded-2xl p-3 border border-white/5 space-y-1.5 text-[11px]">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Skor Kesiapan Finansial:</span>
-                <span className="font-black text-emerald-400">88 / 100 (Sangat Potensial)</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Tindakan Kunci:</span>
-                <span className="font-bold text-white">Eksekusi Blueprint + Kontrol Kas Harian</span>
-              </div>
-            </div>
-          </div>
-
-          {/* ⏱️ WELCOME DEAL 24 JAM OFFER */}
-          <div className="bg-gradient-to-b from-[#14234b] to-[#0c1735] border-2 border-brand-gold rounded-3xl p-5 mb-5 shadow-xl relative overflow-hidden">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1.5 text-amber-300 text-xs font-black">
-                <Clock className="w-4 h-4 animate-pulse" />
-                <span>PERANGKAT INI: {countdown.formatted}</span>
-              </div>
-              <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-                <Smartphone className="w-2.5 h-2.5" />
-                1X PROMO HARI INI
-              </span>
-            </div>
-
-            <h2 className="text-base font-black text-white mb-1 leading-snug">
-              {pitch.headline}
+            <h2 className="text-2xl font-black text-white leading-tight mb-3">
+              {getEmotionalProfile(selectedGoal).title}
             </h2>
-            <p className="text-[11px] text-slate-300 mb-3.5 leading-relaxed">
-              {pitch.subheadline}
+            <p className="text-sm text-slate-300 leading-relaxed font-medium px-2">
+              {getEmotionalProfile(selectedGoal).description}
             </p>
+          </div>
 
-            {/* HARGA TAHUNAN PROMO */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 mb-3.5 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] text-slate-400 line-through font-bold">Rp 228.000</p>
-                <p className="text-xl font-black text-brand-gold leading-none mt-0.5">
-                  Rp 99.000 <span className="text-[10px] text-slate-300 font-bold">/ tahun</span>
-                </p>
-                <p className="text-[9px] text-emerald-300 font-bold mt-0.5">Hanya Rp 8.250 / bulan</p>
-              </div>
-
-              {/* BONUS EBOOK ANCHOR */}
-              <div className="bg-amber-400/15 border border-amber-300/30 rounded-xl p-2 text-right max-w-[150px]">
-                <div className="flex items-center justify-end gap-1 text-[9px] font-black text-amber-300 uppercase">
-                  <Gift className="w-3 h-3" /> Gratis E-Book
-                </div>
-                <p className="text-[9px] text-slate-300 leading-tight mt-0.5">
-                  Termasuk 5 E-Book Finansial Academy (Normal Rp 29.000)
-                </p>
-              </div>
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-5 mb-8 backdrop-blur-md relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-gold/5 rounded-full blur-2xl -mr-10 -mt-10"></div>
+            
+            <div className="flex items-center gap-2 mb-4 relative z-10">
+               <Crown className="w-5 h-5 text-amber-400" />
+               <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
+                 Karakter Finansial Anda
+               </span>
             </div>
 
-            {/* TRUST & DEVICE NOTICE */}
-            <div className="space-y-1">
-              <p className="text-[10px] text-amber-300/90 text-center flex items-center justify-center gap-1">
-                <Smartphone className="w-3 h-3" />
-                <span>Khusus perangkat ini (1x kesempatan hari ini, anti-reset email)</span>
-              </p>
-              <p className="text-[10px] text-slate-400 text-center flex items-center justify-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Bayar 1x via QRIS/VA • Tanpa auto-debit diam-diam</span>
-              </p>
+            <div className="space-y-3 relative z-10">
+              <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">State Psikologis</p>
+                <p className="text-sm font-black text-white">{getEmotionalProfile(selectedGoal).emotion}</p>
+              </div>
+              <div className="bg-black/20 rounded-2xl p-4 border border-white/5 flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Status Kesiapan</p>
+                  <p className="text-sm font-black text-emerald-400">{getEmotionalProfile(selectedGoal).highlight}</p>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                  <span className="text-sm font-black text-emerald-400">{getEmotionalProfile(selectedGoal).score}</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* ACTION BUTTONS */}
-          <div className="space-y-2.5">
+          <Button
+            onClick={() => setStep("commitment")}
+            className="w-full h-14 rounded-2xl text-xs font-black tracking-widest flex items-center justify-center gap-2 bg-white text-brand-navy hover:bg-slate-200 shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all cursor-pointer"
+          >
+            <span>LANJUTKAN & AMBIL KOMITMEN</span>
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* STEP: [BARU] HALAMAN KOMITMEN + TRIAL NOTICE (SATU HALAMAN, DUA BAGIAN) */}
+      {step === "commitment" && (
+        <div className="w-full max-w-md flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-right-4 duration-500 py-2 space-y-5">
+          
+          {/* BAGIAN A — KOMITMEN IMPLEMENTASI */}
+          <div className="bg-gradient-to-b from-[#14234b]/90 to-[#0c1735]/90 border-2 border-brand-gold/60 rounded-3xl p-5 shadow-xl relative overflow-hidden">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <HeartHandshake className="w-3 h-3" />
+                KOMITMEN PRIBADI
+              </span>
+            </div>
+
+            <h2 className="text-base font-black text-white mb-1.5 leading-snug">
+              Banyak orang niat rutin catat keuangan, tapi cuma sedikit yang benar-benar bertahan.
+            </h2>
+            <p className="text-xs text-amber-300 font-bold mb-4 leading-relaxed">
+              Kamu mau jadi salah satu yang berhasil membangun kebiasaan ini?
+            </p>
+
+            {/* Implementation Intention: Jam Reminder */}
+            <div className="space-y-2 mb-2">
+              <label className="text-[11px] font-black text-slate-200 uppercase tracking-wide block">
+                Jam berapa paling pas buat diingatkan mencatat tiap hari?
+              </label>
+
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: "pagi", label: "Pagi", time: "08:00", icon: Sun, desc: "Rencana kas hari ini" },
+                  { id: "siang", label: "Siang", time: "13:00", icon: Sunset, desc: "Evaluasi makan siang" },
+                  { id: "malam", label: "Malam", time: "20:00", icon: Moon, desc: "Rekap total belanja", rec: true },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isSelected = selectedReminder === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedReminder(item.id as any)}
+                      className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer relative flex flex-col justify-between ${
+                        isSelected
+                          ? "bg-amber-400/20 border-amber-400 text-white shadow-md shadow-amber-400/10 scale-102"
+                          : "bg-white/5 border-white/10 text-slate-300 hover:border-white/20"
+                      }`}
+                    >
+                      {item.rec && (
+                        <span className="absolute -top-2 left-2 bg-amber-400 text-brand-navy text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider">
+                          Pilihan Pas
+                        </span>
+                      )}
+                      <div className="flex items-center justify-between mb-1.5 mt-0.5">
+                        <Icon className={`w-4 h-4 ${isSelected ? "text-amber-300" : "text-slate-400"}`} />
+                        {isSelected && <Check className="w-3.5 h-3.5 text-amber-300 stroke-[3]" />}
+                      </div>
+                      <div>
+                        <p className="text-xs font-black leading-none">{item.label}</p>
+                        <p className="text-[10px] text-amber-300 font-mono font-bold mt-0.5">{item.time}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* BAGIAN B — TRIAL NOTICE (HADIAH KOMITMEN) */}
+          <div className="bg-white/5 border border-emerald-400/30 rounded-3xl p-5 shadow-lg relative overflow-hidden backdrop-blur-md">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <Gift className="w-3 h-3 text-emerald-300" />
+                HADIAH KOMITMEN
+              </span>
+            </div>
+
+            <h3 className="text-base font-black text-white mb-1.5 leading-snug">
+              Akses Penuh 7 Hari Aktif untuk Anda
+            </h3>
+            
+            <p className="text-xs text-slate-300 leading-relaxed mb-3.5 font-medium">
+              Selama <strong>7 hari ke depan</strong>, semua fitur BILANO — <strong className="text-amber-300 font-black">TERMASUK yang biasanya premium</strong> — bisa kamu coba 100% gratis tanpa biaya.
+            </p>
+
+            {/* Checklist Fitur yang Terbuka Selama Trial */}
+            <div className="bg-black/25 rounded-2xl p-3 border border-white/5 space-y-1.5 mb-3 text-[11px]">
+              <div className="flex items-center gap-2 text-slate-200">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>AI Smart Scanner Struk & Suara (Unlimited)</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-200">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Portofolio Investasi Saham, Kripto & Valas Multi-Mata Uang</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-200">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Chat AI Konsultan Finansial 24/7 & Laporan Arus Kas</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-200">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Akses Seluruh Koleksi 5 E-Book Finansial Academy</span>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-slate-400 text-center flex items-center justify-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Tanpa tagihan diam-diam • Langsung pakai tanpa kartu kredit</span>
+            </p>
+          </div>
+
+          {/* CTA ACTION BUTTON */}
+          <div className="space-y-2 pt-1">
             <Button
-              onClick={() => setLocation("/paywall")}
+              disabled={isSubmittingCommitment}
+              onClick={handleStartTrial}
               className="w-full h-14 rounded-2xl text-xs font-black tracking-widest flex items-center justify-center gap-2 bg-gradient-to-r from-brand-gold to-[#f5d77a] text-brand-navy hover:from-[#f2ce5d] hover:to-brand-gold shadow-xl cursor-pointer"
             >
-              <span>AKTIFKAN PAKET TAHUNAN (RP 99.000)</span>
-              <ArrowRight className="w-4 h-4" />
+              {isSubmittingCommitment ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  <span>MULAI AKSES PENUH 7 HARI</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </Button>
-
-            <button
-              type="button"
-              onClick={handleSkip}
-              className="w-full py-2 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer text-center"
-            >
-              Lanjutkan dengan Akun Gratis (Atur Saldo Dulu)
-            </button>
           </div>
         </div>
       )}

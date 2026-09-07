@@ -20,7 +20,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUserBalance(id: number, newBalance: number): Promise<User>;
   updateUserWalletSources(id: number, walletSources: any): Promise<User>;
-  updateUserProfile(id: number, firstName: string, lastName: string, profilePicture?: string): Promise<User>;
+  updateUserProfile(id: number, firstName: string, lastName: string, profilePicture?: string, phone?: string): Promise<User>;
   
   getAllUsers(): Promise<User[]>;
   updateUserOneSignalId(userId: number, onesignalId: string): Promise<User>;
@@ -128,11 +128,12 @@ export class DatabaseStorage implements IStorage {
     return updatedUser;
   }
 
-  async updateUserProfile(id: number, firstName: string, lastName: string, profilePicture?: string): Promise<User> {
+  async updateUserProfile(id: number, firstName: string, lastName: string, profilePicture?: string, phone?: string): Promise<User> {
       const [user] = await db.update(users).set({ 
           firstName, 
           lastName,
-          ...(profilePicture !== undefined ? { profilePicture } : {})
+          ...(profilePicture !== undefined ? { profilePicture } : {}),
+          ...(phone !== undefined ? { phone } : {})
       }).where(eq(users.id, id)).returning();
       if (!user) throw new Error("User not found");
       return user;

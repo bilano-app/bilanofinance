@@ -6,6 +6,10 @@ import {
     Bookmark, Crown, ArrowLeft, BookMarked, CheckCircle2, Star
 } from "lucide-react";
 import { useUser } from "@/hooks/use-finance";
+import { useWelcomeCountdown } from "@/lib/welcome-deal";
+import EbookPaywallScreen from "@/components/EbookPaywallScreen";
+import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
+import { getTrialInfo } from "@/lib/trial-manager";
 
 interface Ebook {
     id: number;
@@ -36,6 +40,10 @@ export default function AcademyList() {
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [coverErrors, setCoverErrors] = useState<Record<number, boolean>>({});
     const [userBookmarks, setUserBookmarks] = useState<Record<string, string>>({});
+
+    const trial = getTrialInfo(user);
+    const welcomeCountdown = useWelcomeCountdown(user?.email || "");
+    const hasAccess = user?.isPro || trial.isTrialActive || user?.hasEbookAccess || (!welcomeCountdown.isExpired && trial.isTrialExpired);
 
     useEffect(() => {
         const fetchEbooks = async () => {
@@ -96,6 +104,7 @@ export default function AcademyList() {
 
     return (
         <MobileLayout>
+            <TrialFeatureNotice featureKey="academy" featureName="BILANO Academy" />
             <div className="flex flex-col -mx-5 -mt-5">
 
                 {/* 1. TOP HEADER GRADIENT BANNER DENGAN NUANSA GOLD & NAVY */}
@@ -143,8 +152,11 @@ export default function AcademyList() {
                         </div>
                     </div>
 
-                    {/* 2. HERO CARD — GOLD DOMINANT DENGAN AKSEN NAVY (SESUAI CARD HOME) */}
-                    <div className="bg-brand-gold text-brand-navy p-5 rounded-[28px] border-l-[6px] border-l-brand-navy shadow-[6px_6px_0px_0px] shadow-brand-navy relative overflow-hidden mt-4">
+                    {!hasAccess ? (
+                        <EbookPaywallScreen user={user} email={user?.email || ""} />
+                    ) : (
+                        /* 2. HERO CARD — GOLD DOMINANT DENGAN AKSEN NAVY (SESUAI CARD HOME) */
+                        <div className="bg-brand-gold text-brand-navy p-5 rounded-[28px] border-l-[6px] border-l-brand-navy shadow-[6px_6px_0px_0px] shadow-brand-navy relative overflow-hidden mt-4">
                         {/* Background Watermarks */}
                         <BookOpen className="absolute -right-4 -bottom-4 w-32 h-32 text-brand-navy/10 rotate-12 pointer-events-none" strokeWidth={1} />
                         <div className="absolute right-0 top-0 w-32 h-32 bg-white/20 rounded-full blur-xl pointer-events-none" />
@@ -190,8 +202,11 @@ export default function AcademyList() {
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
 
+                {hasAccess && (
+                    <>
                 {/* 3. SEARCH & CATEGORY FILTER SECTION */}
                 <div className="px-5 pt-5 pb-2 bg-slate-50 flex flex-col gap-3">
 
@@ -365,7 +380,6 @@ export default function AcademyList() {
                         </div>
                     )}
 
-                    {/* Footer Info */}
                     <div className="mt-4 mb-2 flex flex-col items-center justify-center opacity-70 text-center">
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                             BILANO ACADEMY • VIP WEALTH LIBRARY
@@ -375,6 +389,8 @@ export default function AcademyList() {
                         </p>
                     </div>
                 </div>
+                </>
+                )}
             </div>
         </MobileLayout>
     );

@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { trackEvent } from "@/lib/tracking";
 import { formatCurrency } from "@/lib/utils";
+import TrialFeatureNotice from "@/components/TrialFeatureNotice";
 
 interface Subscription {
   id: number;
@@ -277,6 +278,8 @@ export default function Subscriptions() {
         {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO SIGNATURE GOLD (#F59E0B) */}
         {/* ========================================================================= */}
         <div className="px-5 pt-5 pb-7 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] flex flex-col relative z-10 border-b-2 border-brand-gold">
+            
+            <TrialFeatureNotice featureKey="subscriptions" featureName="Langganan" className="px-1" />
             
             {/* Top Navigation Bar */}
             <div className="-mx-5 -mt-5 px-5 pt-6 pb-4 bg-white/95 backdrop-blur-md rounded-b-[28px] shadow-[0_4px_16px_rgba(245,158,11,0.08)] flex items-center justify-between relative z-30 border-b border-amber-100">

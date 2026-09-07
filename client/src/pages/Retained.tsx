@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import { 
@@ -13,6 +13,7 @@ import { useUser, getAccessTier } from "@/hooks/use-finance";
 import { useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
+import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
 
 interface RetainedItem {
     id: number;
@@ -23,6 +24,7 @@ interface RetainedItem {
 }
 
 export default function Retained() {
+    const [, setLocation] = useLocation();
     const { data: user, isLoading: isUserLoading, refetch: refetchUser } = useUser();
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -81,30 +83,8 @@ export default function Retained() {
         else setIsLoading(false);
     }, [userEmail]);
 
-    const handleLanjutBayar = async () => {
-      setIsCharging(true);
-      try {
-          const email = userEmail || "customer@bilano.id";
-          const res = await fetch("/api/pay/mayar", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                  email, 
-                  plan: selectedPlan,
-                  feature: "retained_access"
-              })
-          });
-          const data = await res.json();
-          if (res.ok && data.redirectUrl) {
-              window.location.href = data.redirectUrl; 
-          } else { 
-              toast({ title: "Gagal memuat kasir", description: data.error || "Coba lagi nanti.", variant: "destructive" }); 
-          }
-      } catch (error) { 
-          toast({ title: "Error koneksi", variant: "destructive" }); 
-      } finally { 
-          setIsCharging(false); 
-      }
+    const handleLanjutBayar = () => {
+      setLocation('/paywall');
     };
 
     const formatNumber = (val: string) => {
@@ -242,62 +222,13 @@ export default function Retained() {
         }
     };
 
-    if (!isPro && !isUserLoading) {
-        return (
-            <MobileLayout title="Saldo Tertahan" showBack>
-                <div className="flex flex-col items-center justify-center min-h-[75vh] px-6 text-center -mx-5 -mt-5 bg-gradient-to-b from-[#FFFBEB] via-[#FEF3C7] to-[#FDE68A] p-6">
-                    <div className="w-20 h-20 bg-brand-gold text-brand-navy rounded-3xl flex items-center justify-center mb-4 shadow-md border border-brand-navy animate-bounce">
-                        <Crown className="w-10 h-10" />
-                    </div>
-                    <span className="bg-brand-navy text-brand-gold text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2 shadow-xs">
-                        FITUR PREMIUM PRO
-                    </span>
-                    <h2 className="text-2xl font-black text-brand-navy mb-2 tracking-tight">
-                        Pelacakan Saldo Tertahan
-                    </h2>
-                    <p className="text-xs text-amber-950 font-medium mb-6 max-w-xs leading-relaxed">
-                        Pantau saldo yang belum dicairkan dari platform eksternal (Google AdSense, AdMob, Upwork, Fiverr, dll) sebelum masuk ke rekening utama Anda.
-                    </p>
+    useEffect(() => {
+        if (!isPro && !isUserLoading) {
+            setLocation('/paywall');
+        }
+    }, [isPro, isUserLoading, setLocation]);
 
-                    <div className="w-full max-w-sm space-y-3 mb-6">
-                        <div 
-                            onClick={() => setSelectedPlan('yearly')} 
-                            className={`relative p-4 rounded-2xl border cursor-pointer transition-all ${
-                                selectedPlan === 'yearly' ? 'border-brand-navy bg-white shadow-sm' : 'border-slate-300 bg-white/70'
-                            }`}
-                        >
-                            {selectedPlan === 'yearly' && (
-                                <span className="absolute top-0 right-0 bg-brand-gold text-brand-navy text-[9px] font-black uppercase tracking-widest px-3 py-0.5 rounded-bl-xl border-l border-b border-brand-navy">
-                                    PALING HEMAT
-                                </span>
-                            )}
-                            <div className="flex justify-between items-center mb-1 text-left">
-                                <h4 className="font-bold text-sm text-brand-navy">Paket 1 Tahun</h4>
-                                <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${selectedPlan === 'yearly' ? 'border-brand-navy bg-brand-gold' : 'border-slate-300'}`}>
-                                    {selectedPlan === 'yearly' && <div className="w-2 h-2 bg-brand-navy rounded-full"></div>}
-                                </div>
-                            </div>
-                            <p className="text-xl font-black text-slate-900 text-left">
-                                Rp 8.250 <span className="text-xs font-medium text-slate-500">/ bulan</span>
-                            </p>
-                            <p className="text-[10px] text-emerald-700 font-bold text-left mt-0.5">Ditagih Rp 99.000 / tahun</p>
-                        </div>
-                    </div>
-
-                    <button 
-                        onClick={handleLanjutBayar} 
-                        disabled={isCharging} 
-                        className="w-full max-w-sm h-14 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider rounded-2xl shadow-sm hover:shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                        {isCharging ? <Loader2 className="w-5 h-5 animate-spin"/> : "BUKA AKSES PRO SEKARANG"}
-                    </button>
-                    <p className="mt-4 text-[10px] text-amber-950 font-medium flex items-center gap-1">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600"/> Pembayaran Terverifikasi & Otomatis oleh Mayar
-                    </p>
-                </div>
-            </MobileLayout>
-        );
-    }
+    if (!isPro) return null;
 
     if (isUserLoading || isLoading) {
         return (
@@ -313,6 +244,7 @@ export default function Retained() {
 
     return (
         <MobileLayout>
+            <TrialFeatureNotice featureKey="retained" featureName="Saldo Tertahan" />
             <div className="flex flex-col -mx-5 -mt-5">
                 
                 {/* ========================================================================= */}

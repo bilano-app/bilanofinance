@@ -25,8 +25,9 @@ import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/tracking";
 import { queryClient } from "@/lib/queryClient";
 import TrialInstallModal from "@/components/TrialInstallModal";
-import { isTrialMode, getTrialData, triggerPwaInstallOrGuide } from "@/lib/trial-data";
 import { useWelcomeCountdown, getStoredUserGoal, getGoalPitchDetails, hasSeenDevicePromoNotification, markDevicePromoNotificationSeen } from "@/lib/welcome-deal";
+import { getTrialInfo } from "@/lib/trial-manager";
+import { isTrialMode } from "@/lib/trial-data";
 
 // ─────────────────────────────────────────────────────────────
 // BILANO BRAND TOKENS
@@ -98,6 +99,7 @@ export default function Home() {
     const welcomeCountdown = useWelcomeCountdown(currentUserEmail);
     const userGoal = getStoredUserGoal(currentUserEmail);
     const userGoalPitch = getGoalPitchDetails(userGoal);
+    const trial = getTrialInfo(user);
 
     const [showPromoAnnouncement, setShowPromoAnnouncement] = useState(() => {
         if (typeof window === "undefined") return false;
@@ -105,14 +107,15 @@ export default function Home() {
     });
 
     useEffect(() => {
-        if (!user?.isPro && !isGuestMode && !welcomeCountdown.isExpired && !hasSeenDevicePromoNotification()) {
+        // 🔥 Penawaran Promo 24 Jam Muncul HANYA setelah Masa Trial 7 Hari Berakhir (Hari ke-8)
+        if (trial.isTrialExpired && !user?.isPro && !isGuestMode && !welcomeCountdown.isExpired && !hasSeenDevicePromoNotification()) {
             setShowPromoAnnouncement(true);
             toast({
-                title: "🎁 Promo E-Book Spesial Hadir di Perangkat Ini!",
-                description: "Kesempatan 24 jam khusus di perangkat Anda telah dimulai hari ini.",
+                title: "🎁 Masa Trial Selesai — Penawaran Spesial 24 Jam!",
+                description: "Dapatkan paket tahunan Rp 99.000 + 5 E-Book Finansial Academy gratis hari ini.",
             });
         }
-    }, [user?.isPro, isGuestMode, welcomeCountdown.isExpired]);
+    }, [trial.isTrialExpired, user?.isPro, isGuestMode, welcomeCountdown.isExpired]);
 
     const handleClosePromoAnnouncement = () => {
         markDevicePromoNotificationSeen();
@@ -138,6 +141,9 @@ export default function Home() {
     const [showSourcePopup, setShowSourcePopup] = useState(false);
 
     // PWA & Browser states
+    const isStandalone = typeof window !== 'undefined' && 
+        (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
+
     const [showBrowserInstallBanner, setShowBrowserInstallBanner] = useState(() => {
         if (typeof window === 'undefined') return false;
         return !localStorage.getItem("bilano_hide_browser_install_banner");
@@ -149,6 +155,42 @@ export default function Home() {
     const [lockedFeatureModal, setLockedFeatureModal] = useState<{ isOpen: boolean; featureName: string }>({ isOpen: false, featureName: "" });
     const [showTrialInstallModal, setShowTrialInstallModal] = useState(false);
     const [showPerformanceNudge, setShowPerformanceNudge] = useState(false);
+
+    // 📸 Sticky Bottom Instagram-Style Mode & Scan State
+    const [scanMode, setScanMode] = useState<'photo' | 'voice'>('voice');
+    const touchStartX = useRef<number | null>(null);
+
+    const handleScanTouchStart = (e: React.TouchEvent) => {
+        touchStartX.current = e.touches[0].clientX;
+    };
+
+    const handleScanTouchEnd = (e: React.TouchEvent) => {
+        if (touchStartX.current === null) return;
+        const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+        if (deltaX > 35) {
+            // Swiped right -> switch to Photo mode
+            setScanMode('photo');
+        } else if (deltaX < -35) {
+            // Swiped left -> switch to Voice mode
+            setScanMode('voice');
+        }
+        touchStartX.current = null;
+    };
+
+    const handleTriggerScan = () => {
+        if (isGuestMode) {
+            setLockedFeatureModal({
+                isOpen: true,
+                featureName: scanMode === 'voice' ? "AI Voice Note Scan" : "AI Smart Scanner Struk"
+            });
+            return;
+        }
+        if (!user?.isPro) {
+            setLocation('/paywall');
+            return;
+        }
+        setLocation(`/scan?mode=${scanMode}`);
+    };
 
     const handleTriggerBrowserInstall = () => {
         const promptEvent = (window as any).deferredPwaPrompt;
@@ -233,9 +275,6 @@ export default function Home() {
             setIsSavingWallet(false);
         }
     };
-
-    const isStandalone = typeof window !== 'undefined' &&
-        (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
 
     // Efek khusus mode trial: trigger panduan Performa setelah pengeluaran & pantau kembali dari Performa
     useEffect(() => {
@@ -758,17 +797,6 @@ export default function Home() {
             {/* 🚀 FLOATING ACTION BUTTON (FAB '+') & PANDUAN: HANYA MUNCUL DI AKUN ASLI */}
             {!isGuestMode && (
                 <div className="fixed bottom-[88px] right-4 flex flex-col gap-3 z-40 animate-in slide-in-from-bottom-10 fade-in">
-                    {/* 🚀 FLOATING ACTION BUTTON (FAB '+') */}
-                    <button
-                        onClick={() => setIsFabOpen(true)}
-                        className="w-13 h-13 bg-gradient-to-tr from-amber-400 via-amber-500 to-yellow-500 text-[#0a1128] rounded-full shadow-[0_6px_20px_rgba(245,158,11,0.5)] border-2 border-white flex items-center justify-center transition-all active:scale-95 group relative z-50 cursor-pointer"
-                        title="Catat Cepat"
-                    >
-                        <Plus className="w-6 h-6 stroke-[3] text-[#0a1128]" />
-                        <span className="absolute right-full mr-3 bg-slate-900 text-amber-300 text-[10px] font-black px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                            + Catat Cepat
-                        </span>
-                    </button>
 
                     <Link href="/help">
                         <button className="w-12 h-12 bg-brand-gold text-brand-navy rounded-full shadow-[3px_3px_0px_0px] shadow-brand-navy active:shadow-[1px_1px_0px_0px] active:shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center transition-all group relative">
@@ -1369,7 +1397,7 @@ export default function Home() {
                                         <span className="text-[10px] font-bold text-blue-100 uppercase tracking-wider text-center">Pengeluaran</span>
 
                                         {/* BUBBLE CHAT POINTER KE TOMBOL PENGELUARAN (TIDAK BISA DI-CLOSE) */}
-                                        {isGuestMode && !sessionStorage.getItem("bilano_trial_simulated") && (
+                                        {!isStandalone && isGuestMode && !sessionStorage.getItem("bilano_trial_simulated") && (
                                             <div className="absolute -top-16 -right-2 z-30 pointer-events-none w-48 animate-bounce duration-1000">
                                                 <div className="bg-gradient-to-r from-amber-400 to-yellow-300 text-[#0a1128] p-2.5 rounded-2xl shadow-2xl border-2 border-white text-[10.5px] font-black text-center leading-tight">
                                                     ✨ Coba sentuh tombol Pengeluaran ini untuk mencatat transaksi pertamamu!
@@ -1385,10 +1413,10 @@ export default function Home() {
                 </div>
 
                 {/* BOTTOM CONTENT SECTION: White container with rounded top corners */}
-                <div className="-mx-5 -mt-6 px-5 pt-8 pb-16 bg-white rounded-t-[32px] border-t border-slate-100 shadow-[0_-8px_24px_rgba(29,62,114,0.06)] flex flex-col gap-8 relative z-20">
+                <div className="-mx-5 -mt-6 px-5 pt-8 pb-28 bg-white rounded-t-[32px] border-t border-slate-100 shadow-[0_-8px_24px_rgba(29,62,114,0.06)] flex flex-col gap-8 relative z-20">
 
                     {/* Misi Pengguna Baru: Muncul hanya jika belum ada transaksi sama sekali */}
-                    {(!transactions || transactions.length === 0) && !isTxLoading && (
+                    {!isStandalone && (!transactions || transactions.length === 0) && !isTxLoading && (
                         <div className="px-1">
                             <div className="bg-gradient-to-br from-amber-50/90 via-yellow-50/60 to-white border-2 border-amber-300/80 rounded-[26px] p-5 shadow-[5px_5px_0px_0px] shadow-amber-900/10 animate-in fade-in slide-in-from-top-3 relative overflow-hidden">
                                 <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-400/10 rounded-full blur-xl pointer-events-none"></div>
@@ -1431,6 +1459,30 @@ export default function Home() {
                         </div>
                     )}
 
+                    {/* 👑 TRIAL STATUS BADGE (SELALU TERLIHAT SELAMA TRIAL AKTIF) */}
+                    {!isGuestMode && !user?.isPro && trial.isTrialActive && (
+                        <div className="px-1">
+                            <div className="bg-gradient-to-r from-amber-500/15 via-yellow-400/10 to-amber-500/5 border border-amber-400/40 rounded-2xl p-3.5 flex items-center justify-between shadow-xs">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-brand-navy flex items-center justify-center font-black shadow-xs">
+                                        <Crown className="w-4 h-4 fill-brand-navy" />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-xs font-black text-slate-800">Mode Trial Akses Penuh</span>
+                                            <span className="bg-amber-400 text-brand-navy text-[9px] font-black px-2 py-0.5 rounded-full">
+                                                {trial.daysLeft} Hari Lagi
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                                            Seluruh fitur premium aktif gratis s.d. {trial.formattedEndDate}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* 4. Fitur Pilihan dengan Ikon PNG */}
                     <div className="px-1">
                         <div className="flex justify-between items-center mb-4 px-1">
@@ -1440,15 +1492,26 @@ export default function Home() {
                             </h3>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-y-6 gap-x-2 py-1">
-                            <MenuIconBox href="/forex" imageSrc="/Valas-ICON.png" label="Valas" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Valas / Portofolio Mata Uang" })} />
-                            <MenuIconBox href="/debts" imageSrc="/Hutang.png" label="Hutang" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Catatan Hutang & Piutang" })} />
-                            <MenuIconBox href="/subscriptions" imageSrc="/Langganan.png" label="Langganan" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Manajemen Langganan Rutin" })} />
-                            <MenuIconBox href="/investment" imageSrc="/Investasi.png" label="Investasi" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Portofolio Multi-Investasi" })} />
-                            <MenuIconBox href="/reports" imageSrc="/Laporan.png" label="Laporan" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Laporan & Jurnal Arus Kas" })} />
-                            <MenuIconBox href="/scan" imageSrc="/Scanner.png" label="Scanner" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "AI Smart Scanner Struk" })} />
-                            <MenuIconBox href="/amal" imageSrc="/Amal.png" label="Amal" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Kalkulator & Dompet Amal" })} />
-                            <MenuIconBox href="/retained" imageSrc="/Tertahan.png" label="Tertahan" isLocked={isGuestMode} onLockedClick={() => setLockedFeatureModal({ isOpen: true, featureName: "Dana Tertahan & Rekonsiliasi" })} />
+                        <div className="space-y-4 py-1">
+                            {/* Baris 1: 4 Fitur di Atas */}
+                            <div className="grid grid-cols-4 gap-x-2">
+                                <MenuIconBox href="/forex" imageSrc="/Valas-ICON.png" label="Valas" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Valas / Portofolio Mata Uang" }) : setLocation('/paywall')} />
+                                <MenuIconBox href="/debts" imageSrc="/Hutang.png" label="Hutang" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Catatan Hutang & Piutang" }) : setLocation('/paywall')} />
+                                <MenuIconBox href="/subscriptions" imageSrc="/Langganan.png" label="Langganan" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Manajemen Langganan Rutin" }) : setLocation('/paywall')} />
+                                <MenuIconBox href="/investment" imageSrc="/Investasi.png" label="Investasi" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Portofolio Multi-Investasi" }) : setLocation('/paywall')} />
+                            </div>
+                            {/* Baris 2: 3 Fitur di Bawah dengan Align Tengah */}
+                            <div className="flex items-center justify-center gap-6 sm:gap-8">
+                                <div className="w-16 flex justify-center">
+                                    <MenuIconBox href="/reports" imageSrc="/Laporan.png" label="Laporan" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Laporan & Jurnal Arus Kas" }) : setLocation('/paywall')} />
+                                </div>
+                                <div className="w-16 flex justify-center">
+                                    <MenuIconBox href="/amal" imageSrc="/Amal.png" label="Amal" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Kalkulator & Dompet Amal" }) : setLocation('/paywall')} />
+                                </div>
+                                <div className="w-16 flex justify-center">
+                                    <MenuIconBox href="/retained" imageSrc="/Tertahan.png" label="Tertahan" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Dana Tertahan & Rekonsiliasi" }) : setLocation('/paywall')} />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1464,9 +1527,12 @@ export default function Home() {
                             if (isGuestMode) {
                                 e.preventDefault();
                                 setLockedFeatureModal({ isOpen: true, featureName: "ChatAI Konsultasi Finansial" });
+                            } else if (!user?.isPro && !trial.isTrialActive) {
+                                e.preventDefault();
+                                setLocation('/paywall');
                             }
                         }}>
-                            <Link href={isGuestMode ? "#" : "/chat-ai"}>
+                            <Link href={isGuestMode || (!user?.isPro && !trial.isTrialActive) ? "#" : "/chat-ai"}>
                                 <div className="bg-brand-navy rounded-[24px] p-5 border-l-[6px] border-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 cursor-pointer active:shadow-[3px_3px_0px_0px] active:shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group mb-3.5">
                                     <Bot className="absolute -right-2 -bottom-2 w-28 h-28 text-white/[0.05] -rotate-12 pointer-events-none transition-transform group-hover:scale-110 group-hover:-rotate-6" strokeWidth={1} />
                                     <div className="flex items-center justify-between relative z-10">
@@ -1489,7 +1555,15 @@ export default function Home() {
                         </div>
 
                         {/* Performa Card (Persegi Panjang Kecil) */}
-                        <div ref={performanceCardRef} className="relative">
+                        <div ref={performanceCardRef} className="relative" onClick={(e) => {
+                            if (isGuestMode) {
+                                e.preventDefault();
+                                setLockedFeatureModal({ isOpen: true, featureName: "Analisa Performa Finansial" });
+                            } else if (!user?.isPro && !trial.isTrialActive) {
+                                e.preventDefault();
+                                setLocation('/paywall');
+                            }
+                        }}>
                             {/* BUBBLE CHAT POINTER KE KARTU PERFORMA (BISA DI-CLOSE) */}
                             {showPerformanceNudge && (
                                 <div className="absolute -top-16 left-2 right-2 z-30 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -1518,7 +1592,7 @@ export default function Home() {
                                 </div>
                             )}
 
-                            <Link href="/performance">
+                            <Link href={isGuestMode || (!user?.isPro && !trial.isTrialActive) ? "#" : "/performance"}>
                                 <div className={`bg-brand-gold rounded-[24px] p-5 border-l-[6px] border-brand-navy shadow-[6px_6px_0px_0px] shadow-brand-navy cursor-pointer active:shadow-[3px_3px_0px_0px] shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] transition-all relative overflow-hidden group ${
                                     showPerformanceNudge ? 'ring-4 ring-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.6)] animate-pulse' : ''
                                 }`}>
@@ -1555,9 +1629,12 @@ export default function Home() {
                             if (isGuestMode) {
                                 e.preventDefault();
                                 setLockedFeatureModal({ isOpen: true, featureName: "Ide & Pembimbing Penghasilan" });
+                            } else if (!user?.isPro) {
+                                e.preventDefault();
+                                setLocation('/paywall');
                             }
                         }}>
-                            <Link href={isGuestMode ? "#" : "/wealth-blueprint"}>
+                            <Link href={isGuestMode || !user?.isPro ? "#" : "/wealth-blueprint"}>
                                 <div className="relative rounded-[28px] overflow-hidden border-2 border-slate-200/80 shadow-[6px_6px_0px_0px] shadow-slate-900 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[3px_3px_0px_0px] transition-all group bg-[#0d2146] min-h-[220px] flex flex-col justify-between p-5 cursor-pointer">
                                     <img
                                         src="/IDEA.png"
@@ -1635,6 +1712,95 @@ export default function Home() {
                 </div>
             </div>
 
+            {/* 📸 STICKY / FLOATING INSTAGRAM-STYLE SCAN & VOICE DOCK */}
+            <div 
+                onTouchStart={handleScanTouchStart}
+                onTouchEnd={handleScanTouchEnd}
+                className="sticky bottom-2 z-40 w-full max-w-[400px] mx-auto px-2 select-none pointer-events-auto"
+            >
+                <div className="bg-slate-950/90 backdrop-blur-xl border-2 border-white/15 rounded-[28px] p-3 shadow-[0_12px_32px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.08)] flex flex-col items-center relative overflow-hidden transition-all duration-300">
+                    
+                    {/* Subtle Ambient Glow */}
+                    <div className={`absolute -top-10 inset-x-0 h-20 blur-2xl pointer-events-none opacity-40 transition-all duration-500 ${
+                        scanMode === 'voice' ? 'bg-amber-400' : 'bg-sky-400'
+                    }`} />
+
+                    {/* Mode Switcher Slider (Instagram-style Carousel Tabs) */}
+                    <div className="flex items-center justify-center gap-1 bg-white/10 p-1 rounded-full border border-white/10 mb-3 relative z-10">
+                        <button
+                            type="button"
+                            onClick={() => setScanMode('photo')}
+                            className={`px-4 py-1.5 rounded-full text-xs font-black transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+                                scanMode === 'photo'
+                                    ? 'bg-sky-400 text-slate-950 shadow-md scale-105'
+                                    : 'text-slate-300 hover:text-white opacity-70 hover:opacity-100'
+                            }`}
+                        >
+                            <Camera className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>FOTO STRUK</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setScanMode('voice')}
+                            className={`px-4 py-1.5 rounded-full text-xs font-black transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+                                scanMode === 'voice'
+                                    ? 'bg-gradient-to-r from-amber-400 to-yellow-300 text-[#0a1128] shadow-md scale-105'
+                                    : 'text-slate-300 hover:text-white opacity-70 hover:opacity-100'
+                            }`}
+                        >
+                            <Mic className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>SCAN SUARA</span>
+                        </button>
+                    </div>
+
+                    {/* Center Action Shutter Button */}
+                    <div className="relative z-10 flex flex-col items-center">
+                        <button
+                            type="button"
+                            onClick={handleTriggerScan}
+                            className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 cursor-pointer ${
+                                scanMode === 'voice'
+                                    ? 'bg-gradient-to-tr from-amber-400 via-yellow-400 to-amber-300 text-[#0a1128] ring-4 ring-amber-400/40 shadow-[0_0_24px_rgba(251,191,36,0.6)]'
+                                    : 'bg-gradient-to-tr from-sky-400 via-blue-500 to-indigo-500 text-white ring-4 ring-sky-400/40 shadow-[0_0_24px_rgba(56,189,248,0.6)]'
+                            }`}
+                            title={scanMode === 'voice' ? "Mulai Scan Suara" : "Mulai Scan Foto Struk"}
+                        >
+                            <span className={`absolute inset-0 rounded-full animate-ping opacity-25 pointer-events-none ${
+                                scanMode === 'voice' ? 'bg-amber-300' : 'bg-sky-400'
+                            }`} />
+                            
+                            {scanMode === 'voice' ? (
+                                <Mic className="w-8 h-8 stroke-[2.5]" />
+                            ) : (
+                                <Camera className="w-8 h-8 stroke-[2.5]" />
+                            )}
+                        </button>
+
+                        {/* Description Text Below Button */}
+                        <div className="mt-2 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                                <span className={`text-[12px] font-black tracking-wide uppercase ${
+                                    scanMode === 'voice' ? 'text-amber-300' : 'text-sky-300'
+                                }`}>
+                                    {scanMode === 'voice' ? '🎙️ Scan Suara (Voice Note)' : '📷 Scan Foto Struk'}
+                                </span>
+                            </div>
+                            <p className="text-[10.5px] text-slate-300 font-medium leading-tight mt-0.5">
+                                {scanMode === 'voice' 
+                                    ? 'Ketuk untuk rekam suara transaksi & AI otomatis catat'
+                                    : 'Ketuk untuk ambil foto / upload bukti struk belanja'
+                                }
+                            </p>
+                            <span className="text-[9px] text-slate-400 font-normal mt-0.5 block">
+                                ⇄ Geser kiri/kanan untuk ganti mode
+                            </span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
             {/* 🔔 MODAL KONFIRMASI IZIN NOTIFIKASI PENGGUNA (UNTUK PENGGUNA LAMA & BARU) */}
             {showPermissionPrompt && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
@@ -1702,7 +1868,7 @@ export default function Home() {
                                 type="button"
                                 onClick={() => {
                                     setLockedFeatureModal({ isOpen: false, featureName: "" });
-                                    triggerPwaInstallOrGuide();
+                                    handleTriggerBrowserInstall();
                                 }}
                                 className="w-full bg-brand-navy hover:bg-brand-navy/90 text-white font-bold text-xs py-3.5 px-4 rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                             >

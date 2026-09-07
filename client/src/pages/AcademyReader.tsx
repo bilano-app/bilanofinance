@@ -5,12 +5,17 @@ import {
     Check, X, RefreshCw, AlertTriangle, ArrowLeft
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/hooks/use-finance";
+import { useWelcomeCountdown } from "@/lib/welcome-deal";
 
 export default function AcademyReader() {
     const [, setLocation] = useLocation();
     const [, params] = useRoute("/academy/:ebookId/read/:chapterNum");
     const ebookId = params?.ebookId;
     const { toast } = useToast();
+    const { data: user } = useUser();
+    const welcomeCountdown = useWelcomeCountdown(user?.email || "");
+    const hasAccess = !welcomeCountdown.isExpired || user?.hasEbookAccess;
 
     const [ebook, setEbook] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -36,6 +41,12 @@ export default function AcademyReader() {
                 
                 if (res.status === 402) {
                     setErrorMsg("Akses VIP Premium Diperlukan.");
+                    setIsLoading(false);
+                    return;
+                }
+
+                if (!hasAccess) {
+                    setErrorMsg("Promo gratis telah berakhir. Silakan beli akses Bundle E-Book.");
                     setIsLoading(false);
                     return;
                 }

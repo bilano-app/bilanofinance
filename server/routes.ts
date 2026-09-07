@@ -157,6 +157,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS pro_since TIMESTAMP;`);
       await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS onesignal_id TEXT;`);
       await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_start_date TIMESTAMP DEFAULT NOW();`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_end_date TIMESTAMP;`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reminder_time TEXT DEFAULT 'malam';`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS monthly_scan_count INTEGER DEFAULT 0;`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_scan_month TEXT;`);
       await db.execute(sql`CREATE TABLE IF NOT EXISTS tracking_events (id SERIAL PRIMARY KEY, anonymous_id TEXT NOT NULL, user_id INTEGER, event_name TEXT NOT NULL, properties TEXT, created_at TIMESTAMP DEFAULT NOW());`);
       await db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (id VARCHAR(255) PRIMARY KEY, user_id INTEGER, email TEXT, name TEXT, subject TEXT, message TEXT, status TEXT, date TIMESTAMP DEFAULT NOW());`);
     } catch (e) {
@@ -171,8 +176,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`);
           
           // 🔥 PENAMBAHAN BARU: KOLOM KUNCI HARGA (GRANDFATHERING)
+          // 🔥 PENAMBAHAN BARU: KOLOM KUNCI HARGA (GRANDFATHERING) & EBOOK
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_plan TEXT;`);
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_price BIGINT;`);
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS has_ebook_access BOOLEAN DEFAULT FALSE;`);
           
           // 🔥 MULTI-WALLET SCHEMA UPDATES
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_sources JSON DEFAULT '[]';`);
@@ -266,7 +273,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       password = ${tempCode},
                       is_custom_password_set = false,
                       locked_plan = ${planKey},
-                      locked_price = ${finalPrice}
+                      locked_price = ${finalPrice},
+                      has_ebook_access = ${plan === 'year' || plan === 'yearly' ? true : sql`has_ebook_access`}
                   WHERE id = ${user.id}
               `);
           } else {
@@ -281,7 +289,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   proSince: new Date(),
                   proValidUntil: validUntil,
                   lockedPlan: planKey,
-                  lockedPrice: finalPrice
+                  lockedPrice: finalPrice,
+                  hasEbookAccess: (plan === 'year' || plan === 'yearly')
               } as any);
           }
 
@@ -306,6 +315,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.status(500).json({ error: "Gagal memproses pembuatan akun premium: " + err.message });
       }
   });
+  // =========================================================================
+  // 🚀 API BARU: CLAIM E-BOOK (SETELAH DIBAYAR)
+  // =========================================================================
+  app.post("/api/payment/claim-ebook", async (req: any, res: any) => {
+      const email = req.headers["x-user-email"] || req.body.email;
+      if (!email) return res.status(401).json({ error: "Sesi tidak valid." });
+
+      try {
+          const user = await storage.getUserByUsername(email as string);
+          if (!user) return res.status(404).json({ error: "User tidak ditemukan." });
+
+          await db.execute(sql`UPDATE users SET has_ebook_access = true WHERE id = ${user.id}`);
+          res.json({ success: true, message: "Akses E-Book diaktifkan." });
+      } catch (err: any) {
+          res.status(500).json({ error: "Gagal memproses aktivasi ebook: " + err.message });
+      }
+  });
+
   // =========================================================================
   // 🚀 API BARU: LOGIN DENGAN KODE 6 DIGIT / PASSWORD PERMANEN
   // =========================================================================
@@ -2921,8 +2948,92 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
       res.json({ id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 });
     }
   });
-  app.patch("/api/user/profile", async (req: any, res: any) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture); res.json({success:true}); });
+  app.patch("/api/user/profile", async (req: any, res: any) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture, req.body.phone); res.json({success:true}); });
+
+  // 🚀 KOMITMEN ONBOARDING & AKTIVASI TRIAL 7 HARI
+  app.post("/api/user/commitment", async (req: any, res: any) => {
+    try {
+      const user = await getUser(req);
+      if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+      const { reminderTime, phone } = req.body;
+      const validReminder = reminderTime || "malam";
+
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      await db.execute(sql`
+        UPDATE users 
+        SET reminder_time = ${validReminder},
+            phone = COALESCE(${phone || null}, phone),
+            trial_start_date = COALESCE(trial_start_date, ${now}),
+            trial_end_date = COALESCE(trial_end_date, ${trialEnd})
+        WHERE id = ${user.id}
+      `);
+
+      res.json({
+        success: true,
+        trialStartDate: now,
+        trialEndDate: trialEnd,
+        reminderTime: validReminder
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // 👑 STATUS TRIAL PENGGUNA
+  app.get("/api/user/trial-status", async (req: any, res: any) => {
+    try {
+      const user = await getUser(req);
+      if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+      const now = new Date();
+      const isPro = Boolean(user.isPro);
+      
+      let trialStart = user.trialStartDate ? new Date(user.trialStartDate) : (user.createdAt ? new Date(user.createdAt) : now);
+      let trialEnd = user.trialEndDate ? new Date(user.trialEndDate) : new Date(trialStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      const isTrialActive = !isPro && now.getTime() <= trialEnd.getTime();
+      const isTrialExpired = !isPro && now.getTime() > trialEnd.getTime();
+      const daysLeft = isTrialActive ? Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))) : 0;
+
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      let scanCount = user.monthlyScanCount || 0;
+      if (user.lastScanMonth !== currentMonthKey) {
+        scanCount = 0;
+      }
+
+      res.json({
+        success: true,
+        isPro,
+        isTrialActive,
+        isTrialExpired,
+        trialStartDate: trialStart,
+        trialEndDate: trialEnd,
+        daysLeft,
+        formattedEndDate: trialEnd.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }),
+        monthlyScanCount: scanCount,
+        maxFreeMonthlyScans: 5,
+        remainingFreeScans: isPro || isTrialActive ? 999 : Math.max(0, 5 - scanCount),
+        reminderTime: user.reminderTime || "malam"
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
   
+  app.patch("/api/user/app-opened", async (req: any, res: any) => {
+      const email = req.headers["x-user-email"];
+      if (!email) return res.status(401).json({ error: "Unauthorized" });
+      try {
+          await db.execute(sql`UPDATE users SET app_open_count = COALESCE(app_open_count, 0) + 1 WHERE email = ${email}`);
+          res.json({ success: true });
+      } catch (e: any) {
+          res.status(500).json({ error: e.message });
+      }
+  });
+
   app.get("/api/admin/users", async (req: any, res: any) => {
       const email = req.headers["x-user-email"] as string;
       if (!isAdminValid(email)) return res.status(403).json({ error: "Akses Ditolak. Anda bukan admin." });
@@ -2935,6 +3046,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               u.email, 
               u.first_name AS "firstName", 
               u.last_name AS "lastName", 
+              u.phone AS "phone",
               u.cash_balance AS "cashBalance", 
               u.is_pro AS "isPro", 
               u.pro_since AS "proSince", 
@@ -2942,6 +3054,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               u.created_at AS "createdAt",
               u.locked_plan AS "lockedPlan",
               u.locked_price AS "lockedPrice",
+              u.app_open_count AS "appOpenCount",
               COUNT(t.id) AS "txCount",
               MAX(t.date) AS "lastTxDate"
             FROM users u
@@ -2980,6 +3093,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   createdAt: u.createdAt ? new Date(u.createdAt).toISOString() : null,
                   lockedPlan: u.lockedPlan,
                   lockedPrice: u.lockedPrice,
+                  appOpenCount: Number(u.appOpenCount || 0),
                   txCount: Number(u.txCount || 0),
                   lastTxDate: u.lastTxDate ? new Date(u.lastTxDate).toISOString() : null,
                   isZombie
@@ -3528,6 +3642,28 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const user = await getUser(req);
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
+          // 🛡️ CEK KUOTA SCANNER (UNLIMITED DI TRIAL & PRO, 5X/BULAN PASCA-TRIAL)
+          const now = new Date();
+          const trialEnd = user.trialEndDate ? new Date(user.trialEndDate) : (user.createdAt ? new Date(new Date(user.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000) : null);
+          const isTrialActive = trialEnd ? now.getTime() <= trialEnd.getTime() : false;
+
+          if (!user.isPro && !isTrialActive) {
+              const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+              const userRes: any = await db.execute(sql`SELECT monthly_scan_count, last_scan_month FROM users WHERE id = ${user.id}`);
+              const row = userRes.rows?.[0] || userRes[0] || {};
+              let count = row.monthly_scan_count || 0;
+              if (row.last_scan_month !== currentMonthKey) count = 0;
+
+              if (count >= 5) {
+                  return res.status(403).json({
+                      error: "Kuota scan gratis bulan ini telah habis (5/5). Upgrade ke BILANO Pro untuk scan struk tanpa batas.",
+                      quotaExceeded: true
+                  });
+              }
+
+              await db.execute(sql`UPDATE users SET monthly_scan_count = ${count + 1}, last_scan_month = ${currentMonthKey} WHERE id = ${user.id}`);
+          }
+
           const { images } = req.body; 
           if (!images || !Array.isArray(images) || images.length === 0) return res.status(400).json({ error: "Tidak ada gambar yang diunggah." });
 
@@ -3615,6 +3751,28 @@ Output WAJIB JSON MURNI sesuai schema berikut:
       try {
           const user = await getUser(req);
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
+
+          // 🛡️ CEK KUOTA SCANNER SUARA
+          const now = new Date();
+          const trialEnd = user.trialEndDate ? new Date(user.trialEndDate) : (user.createdAt ? new Date(new Date(user.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000) : null);
+          const isTrialActive = trialEnd ? now.getTime() <= trialEnd.getTime() : false;
+
+          if (!user.isPro && !isTrialActive) {
+              const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+              const userRes: any = await db.execute(sql`SELECT monthly_scan_count, last_scan_month FROM users WHERE id = ${user.id}`);
+              const row = userRes.rows?.[0] || userRes[0] || {};
+              let count = row.monthly_scan_count || 0;
+              if (row.last_scan_month !== currentMonthKey) count = 0;
+
+              if (count >= 5) {
+                  return res.status(403).json({
+                      error: "Kuota scan gratis bulan ini telah habis (5/5). Upgrade ke BILANO Pro untuk scan suara & struk tanpa batas.",
+                      quotaExceeded: true
+                  });
+              }
+
+              await db.execute(sql`UPDATE users SET monthly_scan_count = ${count + 1}, last_scan_month = ${currentMonthKey} WHERE id = ${user.id}`);
+          }
 
           const { text } = req.body; 
           if (!text) return res.status(400).json({ error: "Tidak ada suara yang ditangkap." });

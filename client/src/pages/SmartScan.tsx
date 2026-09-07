@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, getAccessTier } from "@/hooks/use-finance";
+import { getTrialInfo } from "@/lib/trial-manager";
+import TrialFeatureNotice from "@/components/TrialFeatureNotice";
 import { useQueryClient } from "@tanstack/react-query";
 import { trackEvent } from "@/lib/tracking";
 
@@ -57,12 +59,16 @@ export default function SmartScan() {
 
     const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
     const accessTier = getAccessTier(user);
-    const isPro = accessTier !== "free";
+    const trial = getTrialInfo(user);
+    const isPro = accessTier !== "free" || trial.isTrialActive;
 
     const recognitionRef = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const isLocked = accessTier === "free"; 
+    // 🛡️ Pasca-Trial: Kuota 5x/Bulan untuk Free User
+    const scanCount = user?.monthlyScanCount || 0;
+    const isQuotaExceeded = !user?.isPro && !trial.isTrialActive && scanCount >= 5;
+    const isLocked = !isPro && isQuotaExceeded; 
     
     const getAuthHeaders = () => ({ "x-user-email": currentUserEmail });
 
@@ -221,6 +227,25 @@ export default function SmartScan() {
     };
     
     const stopListening = () => { if (recognitionRef.current) recognitionRef.current.stop(); };
+
+    // Auto-trigger based on URL mode (?mode=voice or ?mode=photo)
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            const mode = params.get("mode");
+            if (mode === "voice" && isPro) {
+                const timer = setTimeout(() => {
+                    startListening();
+                }, 400);
+                return () => clearTimeout(timer);
+            } else if (mode === "photo" && isPro) {
+                const timer = setTimeout(() => {
+                    fileInputRef.current?.click();
+                }, 400);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [isPro]);
 
     // MULTI-PHOTO PROCESSING
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -622,6 +647,26 @@ export default function SmartScan() {
                     {!showResultForm && (
                         <div className="space-y-4 animate-in fade-in">
                             
+                            {/* 👑 TRIAL FIRST TIME BANNER */}
+                            <TrialFeatureNotice featureKey="smart_scan" featureName="AI Smart Scanner" />
+
+                            {/* 🛡️ KUOTA SCAN PASCA-TRIAL UNTUK FREE USER */}
+                            {!user?.isPro && !trial.isTrialActive && (
+                                <div className="bg-amber-50/80 border border-amber-300/60 rounded-2xl p-3 flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                                        <span className="font-bold text-slate-700">
+                                            Kuota Scan Gratis: <strong className="text-amber-800 font-extrabold">{5 - scanCount > 0 ? 5 - scanCount : 0}/5</strong> bulan ini
+                                        </span>
+                                    </div>
+                                    <Link href="/paywall">
+                                        <button className="bg-brand-navy text-brand-gold text-[10px] font-black px-2.5 py-1 rounded-lg hover:bg-brand-navy/90 active:scale-95 transition-all">
+                                            Unlimited PRO
+                                        </button>
+                                    </Link>
+                                </div>
+                            )}
+
                             {/* CARD 1: DIKTE SUARA MULTI-ARUS */}
                             <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs text-center space-y-4">
                                 <div>

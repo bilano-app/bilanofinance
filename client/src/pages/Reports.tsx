@@ -12,6 +12,8 @@ import autoTable from "jspdf-autotable";
 import { useUser } from "@/hooks/use-finance"; 
 import { Link, useLocation } from "wouter";
 import { trackEvent } from "@/lib/tracking";
+import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
+import { getTrialInfo } from "@/lib/trial-manager";
 
 const DEFAULT_RATES: Record<string, number> = {
     "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
@@ -641,7 +643,8 @@ export default function Reports() {
   // 📑 GENERATE PREMIUM WEALTH MANAGEMENT AUDIT PDF
   // =========================================================================
   const generatePDF = async (targetMonth?: number, targetYear?: number, isYearly: boolean = false) => {
-    if (!userProfile?.isPro && localStorage.getItem("bilano_pro") !== "true") {
+    const trial = getTrialInfo(userProfile);
+    if (!userProfile?.isPro && !trial.isTrialActive && localStorage.getItem("bilano_pro") !== "true") {
         toast({ title: "Fitur Premium 👑", description: "Cetak laporan PDF eksklusif untuk pengguna BILANO PRO.", variant: "destructive" });
         setTimeout(() => { setLocation('/paywall'); }, 1000); 
         return;
@@ -1076,6 +1079,7 @@ export default function Reports() {
 
   return (
     <MobileLayout>
+      <TrialFeatureNotice featureKey="reports" featureName="Pusat Laporan" />
       <div className="flex flex-col -mx-5 -mt-5">
         
         {/* ========================================================================= */}

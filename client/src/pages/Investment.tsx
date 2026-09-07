@@ -14,6 +14,7 @@ import { useUser, useInvestments, useForexRates } from "@/hooks/use-finance";
 import { useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
+import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
 
 type AssetType = 'saham' | 'reksadana' | 'kripto' | 'emas' | 'p2p' | 'properti' | 'obligasi' | 'bisnis';
 
@@ -461,6 +462,7 @@ export default function Investment() {
 
   return (
     <MobileLayout>
+      <TrialFeatureNotice featureKey="investment" featureName="Investasi" />
       <div className="flex flex-col -mx-5 -mt-5">
         
         {/* ========================================================================= */}

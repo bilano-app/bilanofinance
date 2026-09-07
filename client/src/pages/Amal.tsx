@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
 import { queryClient } from "@/lib/queryClient";
+import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
 
 const QUICK_AMOUNTS = [10000, 20000, 50000, 100000];
 
@@ -275,6 +276,7 @@ export default function Amal() {
 
     return (
         <MobileLayout>
+            <TrialFeatureNotice featureKey="amal" featureName="Amal & Sedekah" />
             <div className="flex flex-col -mx-5 -mt-5">
 
                 {/* ========================================================================= */}

@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   profilePicture: text("profile_picture"),
   cashBalance: bigint("cash_balance", { mode: "number" }).default(0).notNull(),
   isPro: boolean("is_pro").default(false),
+  hasEbookAccess: boolean("has_ebook_access").default(false),
   proSince: timestamp("pro_since"),
   proValidUntil: timestamp("pro_valid_until"), 
   onesignalId: text("onesignal_id"), 
@@ -20,6 +21,13 @@ export const users = pgTable("users", {
   lockedPlan: text("locked_plan"), // Menyimpan 'year' atau 'month'
   lockedPrice: bigint("locked_price", { mode: "number" }),
   walletSources: json("wallet_sources").default([]), // ARRAY of { id, name, type, balance }
+  phone: text("phone"),
+  appOpenCount: integer("app_open_count").default(0),
+  trialStartDate: timestamp("trial_start_date").defaultNow(),
+  trialEndDate: timestamp("trial_end_date"),
+  reminderTime: text("reminder_time").default("malam"),
+  monthlyScanCount: integer("monthly_scan_count").default(0),
+  lastScanMonth: text("last_scan_month"),
 });
 
 // --- 2. TRANSACTIONS ---

@@ -164,6 +164,17 @@ function Router() {
 
   const { data: user } = useUser();
 
+  // 🚀 TRACKING APP OPEN (1 kali per sesi)
+  useEffect(() => {
+    if (user?.email && !sessionStorage.getItem("app_opened_recorded")) {
+      sessionStorage.setItem("app_opened_recorded", "true");
+      fetch("/api/user/app-opened", {
+        method: "PATCH",
+        headers: { "x-user-email": user.email }
+      }).catch(() => {});
+    }
+  }, [user?.email]);
+
   // 🛡️ FRONTEND GATEKEEPER: Cek secara pasif jika tanggal terlewat
   useEffect(() => {
     if (user && user.proValidUntil) {
