@@ -412,6 +412,8 @@ export default function Home() {
     };
 
     const handleRefresh = () => {
+        queryClient.clear();
+        queryClient.invalidateQueries();
         window.location.reload();
     };
 
