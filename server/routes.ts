@@ -162,6 +162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reminder_time TEXT DEFAULT 'malam';`);
       await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS monthly_scan_count INTEGER DEFAULT 0;`);
       await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_scan_month TEXT;`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;`);
       await db.execute(sql`CREATE TABLE IF NOT EXISTS tracking_events (id SERIAL PRIMARY KEY, anonymous_id TEXT NOT NULL, user_id INTEGER, event_name TEXT NOT NULL, properties TEXT, created_at TIMESTAMP DEFAULT NOW());`);
       await db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (id VARCHAR(255) PRIMARY KEY, user_id INTEGER, email TEXT, name TEXT, subject TEXT, message TEXT, status TEXT, date TIMESTAMP DEFAULT NOW());`);
       await db.execute(sql`UPDATE users SET created_at = COALESCE(created_at, pro_since, trial_start_date, NOW()) WHERE created_at IS NULL;`);
@@ -3050,6 +3051,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
       if (!isAdminValid(email)) return res.status(403).json({ error: "Akses Ditolak. Anda bukan admin." });
       try { 
           await db.execute(sql`CREATE TABLE IF NOT EXISTS manager_excluded_users (id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE, email TEXT, excluded_at TIMESTAMP DEFAULT NOW());`);
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;`);
           const allUsersRes = await db.execute(sql`
             SELECT 
               u.id, 
@@ -3057,28 +3059,24 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               u.email, 
               u.first_name AS "firstName", 
               u.last_name AS "lastName", 
-              u.phone AS "phone",
+              u.phone AS "phone", 
               u.cash_balance AS "cashBalance", 
               u.is_pro AS "isPro", 
               u.pro_since AS "proSince", 
               u.pro_valid_until AS "proValidUntil", 
-              u.created_at AS "createdAt",
-              u.locked_plan AS "lockedPlan",
-              u.locked_price AS "lockedPrice",
+              u.created_at AS "createdAt", 
+              u.locked_plan AS "lockedPlan", 
+              u.locked_price AS "lockedPrice", 
               u.app_open_count AS "appOpenCount",
-              COUNT(t.id) AS "txCount",
-              MAX(t.date) AS "lastTxDate"
+              (SELECT COUNT(*)::int FROM transactions WHERE user_id = u.id) AS "txCount",
+              (SELECT MAX(date) FROM transactions WHERE user_id = u.id) AS "lastTxDate"
             FROM users u
-            LEFT JOIN transactions t ON t.user_id = u.id
-            WHERE (
-              COALESCE(u.created_at, u.pro_since, u.trial_start_date, NOW()) >= '2026-08-31 00:00:00'
-              OR u.created_at IS NULL
-            )
+            WHERE (u.created_at >= '2026-08-31 00:00:00' OR u.created_at IS NULL)
               AND u.id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL)
               AND LOWER(COALESCE(u.email, u.username, '')) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND TRIM(email) != '')
               AND LOWER(COALESCE(u.email, u.username, '')) NOT LIKE '%@bilano.app%'
-            GROUP BY u.id
-            ORDER BY COALESCE(u.created_at, u.pro_since, u.trial_start_date, NOW()) DESC
+              AND LOWER(COALESCE(u.email, u.username, '')) NOT LIKE 'guest%'
+            ORDER BY u.id DESC
           `);
           
           const rawRows = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
