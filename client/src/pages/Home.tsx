@@ -80,8 +80,6 @@ export default function Home() {
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isProfileZoomed, setIsProfileZoomed] = useState(false);
-    const [showTargetModal, setShowTargetModal] = useState(false);
-    const [showOnboardingTargetPopup, setShowOnboardingTargetPopup] = useState(false);
     const [pendingFeatureModal, setPendingFeatureModal] = useState<{ title: string, desc: string } | null>(null);
 
     const [isPrivacyMode, setIsPrivacyMode] = useState(false);
@@ -102,21 +100,20 @@ export default function Home() {
     const userGoalPitch = getGoalPitchDetails(userGoal);
     const trial = getTrialInfo(user);
 
-    const [showPromoAnnouncement, setShowPromoAnnouncement] = useState(() => {
-        if (typeof window === "undefined") return false;
-        return !hasSeenDevicePromoNotification();
-    });
+    const [showPromoAnnouncement, setShowPromoAnnouncement] = useState(false);
 
     useEffect(() => {
-        // 🔥 Penawaran Promo 24 Jam Muncul HANYA setelah Masa Trial 7 Hari Berakhir (Hari ke-8)
-        if (trial.isTrialExpired && !user?.isPro && !isGuestMode && !welcomeCountdown.isExpired && !hasSeenDevicePromoNotification()) {
+        // 🔥 Penawaran Promo 24 Jam Muncul HANYA & TEPAT setelah Masa Trial 7 Hari Habis (Hari ke-8)
+        if (trial.isTrialExpired && !trial.isTrialActive && !user?.isPro && !isGuestMode && !welcomeCountdown.isExpired && !hasSeenDevicePromoNotification()) {
             setShowPromoAnnouncement(true);
             toast({
                 title: "🎁 Masa Trial Selesai — Penawaran Spesial 24 Jam!",
                 description: "Dapatkan paket tahunan Rp 99.000 + 5 E-Book Finansial Academy gratis hari ini.",
             });
+        } else {
+            setShowPromoAnnouncement(false);
         }
-    }, [trial.isTrialExpired, user?.isPro, isGuestMode, welcomeCountdown.isExpired]);
+    }, [trial.isTrialExpired, trial.isTrialActive, user?.isPro, isGuestMode, welcomeCountdown.isExpired]);
 
     const handleClosePromoAnnouncement = () => {
         markDevicePromoNotificationSeen();
@@ -150,6 +147,7 @@ export default function Home() {
         return !localStorage.getItem("bilano_hide_browser_install_banner");
     });
     const [isFabOpen, setIsFabOpen] = useState(false);
+    const [showTargetModal, setShowTargetModal] = useState(false);
 
     // Trial Mode Interactive Sandbox States
     const performanceCardRef = useRef<HTMLDivElement>(null);
@@ -338,8 +336,7 @@ export default function Home() {
         const hasPrompted = localStorage.getItem("bilano_permissions_prompted");
         if (!hasPrompted && !isGuestMode) setShowPermissionPrompt(true);
 
-        if (localStorage.getItem("onboarding_just_finished") === "true" && !isGuestMode) {
-            setShowOnboardingTargetPopup(true);
+        if (localStorage.getItem("onboarding_just_finished") === "true") {
             localStorage.removeItem("onboarding_just_finished");
         }
 
@@ -380,16 +377,6 @@ export default function Home() {
             clearInterval(intervalTips);
         };
     }, [isAnyDataLoading]);
-
-    useEffect(() => {
-        if (rawEmail && !isAnyDataLoading && user && !isGuestMode) {
-            const targetPromptSeen = localStorage.getItem(`bilano_target_prompt_seen_${rawEmail}`);
-            if (!targetPromptSeen && (!target || !target.targetAmount)) {
-                const timer = setTimeout(() => setShowOnboardingTargetPopup(true), 1200);
-                return () => clearTimeout(timer);
-            }
-        }
-    }, [rawEmail, isAnyDataLoading, user, target, isGuestMode]);
 
     const togglePrivacy = () => {
         const newVal = !isPrivacyMode;
@@ -530,14 +517,15 @@ export default function Home() {
     };
 
     const isTargetEmpty = !isTargetLoading && target !== undefined && typeof target === 'object' && target !== null && Object.keys(target).length === 0;
+    const isSetupSkipped = typeof window !== 'undefined' && localStorage.getItem("bilano_setup_balance_skipped") === "true";
 
     useEffect(() => {
-        if (!isUserLoading && !isTargetLoading && target !== undefined && !isGuestMode) {
+        if (!isUserLoading && !isTargetLoading && target !== undefined && !isGuestMode && !isSetupSkipped) {
             if (isTargetEmpty) {
                 setLocation("/setup-balance");
             }
         }
-    }, [isTargetEmpty, isUserLoading, isTargetLoading, setLocation, isGuestMode]);
+    }, [isTargetEmpty, isUserLoading, isTargetLoading, setLocation, isGuestMode, isSetupSkipped]);
 
     const requestAllPermissions = async () => {
         setIsRequestingPerms(true);
@@ -593,7 +581,15 @@ export default function Home() {
     const wsSum = user?.walletSources && Array.isArray(user.walletSources) 
         ? user.walletSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0) 
         : 0;
-    const cashRupiah = (isGuestMode && (!user?.cashBalance || user?.cashBalance === 0)) ? 12500000 : Math.max(Number(user?.cashBalance || 0), wsSum);
+    const hasRealWallet = user?.walletSources && Array.isArray(user.walletSources) && user.walletSources.length > 0;
+    const isBalanceNotSet = !isGuestMode && (
+        (isSetupSkipped && !hasRealWallet && Number(user?.cashBalance || 0) === 0) ||
+        (!hasRealWallet && Number(user?.cashBalance || 0) === 0 && (!transactions || transactions.length === 0))
+    );
+
+    const cashRupiah = isGuestMode 
+        ? ((!user?.cashBalance || user?.cashBalance === 0) ? 12500000 : Math.max(Number(user?.cashBalance || 0), wsSum))
+        : Math.max(Number(user?.cashBalance || 0), wsSum);
     const totalBalance = cashRupiah;
 
     const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
@@ -1085,31 +1081,6 @@ export default function Home() {
                 </div>
             )}
 
-            {showOnboardingTargetPopup && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-slate-100">
-                        <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-5 relative z-10">
-                            <Target className="w-10 h-10 text-emerald-600" strokeWidth={2.25} />
-                        </div>
-
-                        <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Buat Target Keuangan? 🎯</h2>
-                        <p className="text-[13px] text-slate-500 mb-6 leading-relaxed px-2 font-medium">
-                            Keren! Semua aset, utang, dan tagihanmu sudah tercatat rapi. <br /><br />
-                            Mau sekalian pasang target tabungan atau batas pengeluaran biar keuanganmu makin terarah?
-                        </p>
-
-                        <div className="space-y-3">
-                            <Button onClick={() => { localStorage.setItem(`bilano_target_prompt_seen_${rawEmail}`, "true"); setShowOnboardingTargetPopup(false); setLocation('/target'); }} className="w-full h-14 bg-brand-navy text-white text-[13px] font-black rounded-full shadow-[5px_5px_0px_0px] shadow-slate-900 active:shadow-[2px_2px_0px_0px] active:translate-x-[3px] active:translate-y-[3px] transition-all flex items-center justify-center gap-2 relative z-10">
-                                YA, BUAT TARGET SEKARANG
-                            </Button>
-                            <Button variant="ghost" onClick={() => { localStorage.setItem(`bilano_target_prompt_seen_${rawEmail}`, "true"); setShowOnboardingTargetPopup(false); }} className="w-full h-12 font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full relative z-10">
-                                LEWATI (NANTI SAJA)
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {isProfileZoomed && (
                 <div className="fixed inset-0 z-[999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsProfileZoomed(false)}>
                     <div className="relative animate-in fade-in zoom-in duration-200">
@@ -1283,8 +1254,8 @@ export default function Home() {
                         </div>
                     )}
 
-                    {/* ⏱️ SMART WELCOME DEAL 24H COUNTDOWN BANNER (Khusus Free User / 1 Device Saja) */}
-                    {!user?.isPro && !isGuestMode && (
+                    {/* ⏱️ SMART WELCOME DEAL 24H COUNTDOWN BANNER (Muncul HANYA Mulai Hari ke-8 Pasca-Trial) */}
+                    {trial.isTrialExpired && !user?.isPro && !isGuestMode && (
                         <div 
                             onClick={() => setLocation("/paywall")}
                             className={`border-2 rounded-[22px] p-3.5 mt-3 shadow-sm backdrop-blur-md flex items-center justify-between gap-3 cursor-pointer active:scale-[0.98] transition-all animate-in fade-in slide-in-from-top-2 ${
@@ -1347,18 +1318,48 @@ export default function Home() {
                         <div className="relative z-10 flex flex-col pt-1 pb-1">
                             <div className="flex justify-between items-center mb-1">
                                 <p className="text-[10px] font-bold text-blue-200/80 uppercase tracking-widest">Saldo Kas</p>
-                                <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-brand-gold">
-                                    {isPrivacyMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                </button>
+                                {!isBalanceNotSet && (
+                                    <button onClick={togglePrivacy} className="p-1 hover:bg-white/10 rounded-full transition-colors text-brand-gold">
+                                        {isPrivacyMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                    </button>
+                                )}
                             </div>
 
-                            <h2 className={`${getBalanceTextSize(displayBalance)} font-black tracking-tight tabular-nums text-white mb-[18px] flex items-center h-9 whitespace-nowrap transition-all duration-300`}>
-                                {displayBalance}
-                            </h2>
+                            {isBalanceNotSet ? (
+                                <Link href="/setup-balance">
+                                    <div className="my-1.5 py-2.5 px-3.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-brand-gold/40 flex items-center justify-between cursor-pointer transition-all active:scale-98 group">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-8 h-8 rounded-xl bg-brand-gold text-brand-navy flex items-center justify-center font-bold shrink-0 shadow-xs">
+                                                <Plus className="w-4 h-4 stroke-[3]" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-black text-brand-gold group-hover:text-amber-200 transition-colors truncate">
+                                                    Atur Saldo Awal Anda
+                                                </p>
+                                                <p className="text-[10px] text-blue-200 font-medium truncate">
+                                                    Ketuk di sini untuk mulai mengisi saldo kas
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 text-brand-gold group-hover:translate-x-0.5 transition-transform shrink-0" />
+                                    </div>
+                                </Link>
+                            ) : (
+                                <h2 className={`${getBalanceTextSize(displayBalance)} font-black tracking-tight tabular-nums text-white mb-[18px] flex items-center h-9 whitespace-nowrap transition-all duration-300`}>
+                                    {displayBalance}
+                                </h2>
+                            )}
 
                             <div className="flex justify-between items-center">
                                 <div className="flex w-full items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                                    {user?.walletSources && (user.walletSources as any[]).length > 0 ? (
+                                    {isBalanceNotSet ? (
+                                        <Link href="/setup-balance">
+                                            <span className="text-[10px] text-blue-200/80 hover:text-white font-semibold flex items-center gap-1 cursor-pointer">
+                                                <span>Belum ada sumber kas terhubung</span>
+                                                <span className="text-brand-gold font-bold underline underline-offset-2 ml-1">+ Tambah Kas</span>
+                                            </span>
+                                        </Link>
+                                    ) : user?.walletSources && (user.walletSources as any[]).length > 0 ? (
                                         <>
                                             {(user.walletSources as any[]).map((wallet: any, idx: number) => {
                                                 const logo = getWalletLogo(wallet.name);
@@ -1760,33 +1761,31 @@ export default function Home() {
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
                 >
-                    {/* Tombol Utama Bulat Bersinar */}
+                    {/* Tombol Utama Bulat (Jelas, Mewah & Solid Tanpa Kelap-Kelip) */}
                     <div className="relative flex items-center justify-center">
                         {floatingScanMode === 'voice' ? (
                             <button
                                 type="button"
                                 onClick={() => handleTriggerScanMode('voice')}
-                                className="relative group w-14 h-14 rounded-full bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 text-brand-navy flex items-center justify-center shadow-[0_10px_28px_rgba(245,158,11,0.55)] border-2 border-white/90 active:scale-95 transition-all duration-300 cursor-pointer"
+                                className="relative group w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 text-brand-navy flex items-center justify-center shadow-[0_8px_24px_rgba(245,158,11,0.45)] border-[3px] border-white active:scale-95 transition-all duration-200 cursor-pointer"
                                 title="Dikte Suara (Ketuk untuk bicara)"
                             >
-                                <span className="absolute inset-0 rounded-full bg-amber-400/35 animate-ping pointer-events-none"></span>
-                                <Mic className="w-6 h-6 stroke-[2.5]" />
+                                <Mic className="w-7 h-7 stroke-[2.5]" />
                             </button>
                         ) : (
                             <button
                                 type="button"
                                 onClick={() => handleTriggerScanMode('photo')}
-                                className="relative group w-14 h-14 rounded-full bg-gradient-to-tr from-[#1D3E72] via-[#2563eb] to-[#38bdf8] text-white flex items-center justify-center shadow-[0_10px_28px_rgba(37,99,235,0.55)] border-2 border-white/90 active:scale-95 transition-all duration-300 cursor-pointer"
+                                className="relative group w-16 h-16 rounded-full bg-gradient-to-tr from-[#1D3E72] via-[#2563eb] to-[#38bdf8] text-white flex items-center justify-center shadow-[0_8px_24px_rgba(37,99,235,0.45)] border-[3px] border-white active:scale-95 transition-all duration-200 cursor-pointer"
                                 title="Foto Struk (Ketuk untuk foto)"
                             >
-                                <span className="absolute inset-0 rounded-full bg-sky-400/35 animate-ping pointer-events-none"></span>
-                                <Camera className="w-6 h-6 stroke-[2.5]" />
+                                <Camera className="w-7 h-7 stroke-[2.5]" />
                             </button>
                         )}
                     </div>
 
-                    {/* Mode Switcher ala Carousel Instagram (Swipe / Tap) */}
-                    <div className="flex items-center gap-3 px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur-md border border-white/15 shadow-xl transition-all">
+                    {/* Mode Switcher ala Carousel Instagram (Solid & Bersih Tanpa Kedipan) */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/85 backdrop-blur-md border border-white/20 shadow-xl transition-all">
                         <button
                             type="button"
                             onClick={() => {
@@ -1795,19 +1794,16 @@ export default function Home() {
                                     (window.navigator as any).vibrate(15);
                                 }
                             }}
-                            className={`text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex flex-col items-center ${
+                            className={`text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-all cursor-pointer ${
                                 floatingScanMode === 'voice' 
-                                    ? 'text-amber-400 scale-105 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]' 
-                                    : 'text-slate-400 hover:text-slate-200'
+                                    ? 'bg-amber-400 text-brand-navy font-black shadow-xs' 
+                                    : 'text-slate-400 hover:text-slate-200 font-bold'
                             }`}
                         >
-                            <span>SUARA</span>
-                            {floatingScanMode === 'voice' && (
-                                <span className="w-1 h-1 rounded-full bg-amber-400 mt-0.5 animate-pulse"></span>
-                            )}
+                            SUARA
                         </button>
 
-                        <span className="text-white/30 text-[8px] font-bold">•</span>
+                        <span className="text-white/20 text-[8px] font-bold">•</span>
 
                         <button
                             type="button"
@@ -1817,16 +1813,13 @@ export default function Home() {
                                     (window.navigator as any).vibrate(15);
                                 }
                             }}
-                            className={`text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex flex-col items-center ${
+                            className={`text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full transition-all cursor-pointer ${
                                 floatingScanMode === 'photo' 
-                                    ? 'text-sky-400 scale-105 drop-shadow-[0_0_8px_rgba(56,189,248,0.6)]' 
-                                    : 'text-slate-400 hover:text-slate-200'
+                                    ? 'bg-sky-400 text-slate-950 font-black shadow-xs' 
+                                    : 'text-slate-400 hover:text-slate-200 font-bold'
                             }`}
                         >
-                            <span>FOTO</span>
-                            {floatingScanMode === 'photo' && (
-                                <span className="w-1 h-1 rounded-full bg-sky-400 mt-0.5 animate-pulse"></span>
-                            )}
+                            FOTO
                         </button>
                     </div>
                 </div>
@@ -1931,8 +1924,8 @@ export default function Home() {
                 onClose={() => setShowTrialInstallModal(false)}
             />
 
-            {/* 🎁 POPUP NOTIFIKASI SAMBUTAN: PROMO E-BOOK KHUSUS PERANGKAT (UNTUK PENGGUNA LAMA & NON-PRO) */}
-            {showPromoAnnouncement && !user?.isPro && !isGuestMode && !welcomeCountdown.isExpired && (
+            {/* 🎁 POPUP NOTIFIKASI SAMBUTAN: PROMO E-BOOK KHUSUS PERANGKAT (HANYA MUNCUL DI HARI KE-8 PASCA-TRIAL) */}
+            {showPromoAnnouncement && trial.isTrialExpired && !trial.isTrialActive && !user?.isPro && !isGuestMode && !welcomeCountdown.isExpired && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="bg-gradient-to-b from-[#14234b] via-[#0f1d3e] to-[#0a142c] text-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl border-2 border-brand-gold relative overflow-hidden animate-in zoom-in-95 duration-200">
                         {/* Background subtle glowing circles */}

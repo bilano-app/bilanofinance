@@ -107,6 +107,13 @@ export default function SetupBalance() {
   }, [entries]);
 
   const handleFinishAndRedirect = () => {
+    localStorage.removeItem('bilano_setup_balance_skipped');
+    localStorage.setItem('onboarding_just_finished', 'true');
+    window.location.href = '/';
+  };
+
+  const handleSkip = () => {
+    localStorage.setItem('bilano_setup_balance_skipped', 'true');
     localStorage.setItem('onboarding_just_finished', 'true');
     window.location.href = '/';
   };
@@ -133,6 +140,7 @@ export default function SetupBalance() {
           balance: parseNumber(e.amount)
         }));
 
+      localStorage.removeItem('bilano_setup_balance_skipped');
       localStorage.setItem("bilano_initial_sources", JSON.stringify(entries));
       localStorage.setItem("bilano_migration_completed", "true");
       const userEmail = localStorage.getItem("bilano_email") || "";
@@ -410,9 +418,9 @@ export default function SetupBalance() {
 
             {/* Tombol Lewati Dulu */}
             <button
-              onClick={handleFinishAndRedirect}
+              onClick={handleSkip}
               type="button"
-              className="w-full py-2 text-center text-xs font-bold text-slate-400 hover:text-slate-700 transition-colors"
+              className="w-full py-2 text-center text-xs font-bold text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
             >
               Lewati dulu, saya atur nanti di Beranda →
             </button>

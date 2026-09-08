@@ -64,6 +64,7 @@ export default function SmartScan() {
 
     const recognitionRef = useRef<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
 
     // 🛡️ Pasca-Trial: Kuota 5x/Bulan untuk Free User
     const scanCount = user?.monthlyScanCount || 0;
@@ -642,6 +643,7 @@ export default function SmartScan() {
                     )}
 
                     <input type="file" multiple ref={fileInputRef} accept="image/*" className="hidden" onChange={handleFileChange}/>
+                    <input type="file" multiple ref={cameraInputRef} accept="image/*" capture="environment" className="hidden" onChange={handleFileChange}/>
 
                     {/* METHOD SELECTION CARDS (WHEN NOT IN CONFIRMATION DASHBOARD) */}
                     {!showResultForm && (
@@ -722,26 +724,48 @@ export default function SmartScan() {
                             {/* SEPARATOR */}
                             <div className="flex items-center gap-3 px-6">
                                 <div className="h-px bg-slate-200 flex-1"></div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ATAU</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ATAU DENGAN FOTO STRUK</span>
                                 <div className="h-px bg-slate-200 flex-1"></div>
                             </div>
 
-                            {/* CARD 2: SCAN BANYAK STRUK / FOTO KAMERA */}
-                            <div 
-                                onClick={() => fileInputRef.current?.click()} 
-                                className="bg-white rounded-3xl p-6 border border-dashed border-amber-300 hover:border-amber-400 shadow-xs flex flex-col items-center justify-center gap-3 text-center cursor-pointer active:scale-[0.99] transition-all group"
-                            >
-                                <div className="w-16 h-16 rounded-2xl bg-amber-50 group-hover:bg-amber-100 text-brand-navy flex items-center justify-center border border-amber-200 shadow-xs group-hover:scale-105 transition-transform">
-                                    <ImagePlus className="w-8 h-8 text-brand-navy stroke-[2.5]" />
+                            {/* DUA PILIHAN SUMBER FOTO: DARI GALERI ATAU KAMERA */}
+                            <div className="grid grid-cols-2 gap-3">
+                                {/* OPSI 1: DARI GALERI HP */}
+                                <div 
+                                    onClick={() => fileInputRef.current?.click()} 
+                                    className="bg-white rounded-3xl p-5 border border-dashed border-amber-300 hover:border-amber-400 shadow-xs flex flex-col items-center justify-center gap-2.5 text-center cursor-pointer active:scale-[0.98] transition-all group"
+                                >
+                                    <div className="w-14 h-14 rounded-2xl bg-amber-50 group-hover:bg-amber-100 text-brand-navy flex items-center justify-center border border-amber-200 shadow-xs group-hover:scale-105 transition-transform">
+                                        <ImagePlus className="w-7 h-7 text-brand-navy stroke-[2.5]" />
+                                    </div>
+                                    <div>
+                                        <span className="bg-amber-100 text-amber-900 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider block mb-1">
+                                            DARI GALERI
+                                        </span>
+                                        <h4 className="font-extrabold text-slate-900 text-xs">Pilih dari Galeri</h4>
+                                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                                            Dari memori / album HP
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span className="bg-amber-100 text-amber-900 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                                        METODE 2 • MULTI-FOTO
-                                    </span>
-                                    <h4 className="font-extrabold text-slate-900 text-base mt-1">Scan Banyak Foto / Struk Sekaligus</h4>
-                                    <p className="text-xs text-slate-500 font-medium max-w-xs mt-0.5">
-                                        Pilih 1 atau beberapa struk/dokumen sekaligus. AI akan membedah rincian pos dan menjumlahkan totalnya.
-                                    </p>
+
+                                {/* OPSI 2: BUKA KAMERA LANGSUNG */}
+                                <div 
+                                    onClick={() => cameraInputRef.current?.click()} 
+                                    className="bg-white rounded-3xl p-5 border border-dashed border-sky-300 hover:border-sky-400 shadow-xs flex flex-col items-center justify-center gap-2.5 text-center cursor-pointer active:scale-[0.98] transition-all group"
+                                >
+                                    <div className="w-14 h-14 rounded-2xl bg-sky-50 group-hover:bg-sky-100 text-sky-600 flex items-center justify-center border border-sky-200 shadow-xs group-hover:scale-105 transition-transform">
+                                        <Camera className="w-7 h-7 text-sky-600 stroke-[2.5]" />
+                                    </div>
+                                    <div>
+                                        <span className="bg-sky-100 text-sky-900 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider block mb-1">
+                                            KAMERA LANGSUNG
+                                        </span>
+                                        <h4 className="font-extrabold text-slate-900 text-xs">Foto Struk Baru</h4>
+                                        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                                            Jepret kamera sekarang
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 

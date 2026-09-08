@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Lock, RefreshCw, AlertCircle, X, CheckCircle2, ShieldCheck, User as UserIcon } from "lucide-react";
+import { Mail, Lock, RefreshCw, AlertCircle, X, CheckCircle2, ShieldCheck, Phone, User as UserIcon } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { queryClient } from "@/lib/queryClient";
 import { 
@@ -248,13 +248,10 @@ export default function Auth() {
 
                   {isSignUp && (
                       <div className="space-y-1 animate-in fade-in duration-300">
-                          <div className="flex items-center justify-between ml-1">
-                              <label className="text-xs font-bold text-slate-500">Nomor WhatsApp</label>
-                              <span className="text-[10px] text-slate-400 font-medium">Opsional • Verifikasi & Reminder</span>
-                          </div>
+                          <label className="text-xs font-bold text-slate-500 ml-1">Nomor WhatsApp</label>
                           <div className="relative">
-                              <UserIcon className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
-                              <Input type="tel" placeholder="Contoh: 08123456789 (opsional)" className="pl-10 h-12" value={phone} onChange={(e) => setPhone(e.target.value)}/>
+                              <Phone className="absolute left-3 top-3.5 w-4 h-4 text-slate-400"/>
+                              <Input type="tel" placeholder="08123456789" className="pl-10 h-12" value={phone} onChange={(e) => setPhone(e.target.value)}/>
                           </div>
                       </div>
                   )}

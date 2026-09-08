@@ -7,7 +7,7 @@ import {
     ArrowLeft, Crown, ShieldCheck, Loader2, DollarSign, Wallet, 
     Activity, Zap, Target, Briefcase, HelpCircle, ShieldAlert, 
     HeartHandshake, ChevronDown, ChevronUp, ArrowDownCircle, ArrowUpCircle,
-    Trash2
+    Trash2, ArrowRight, Pencil, Sparkles
 } from "lucide-react";
 import { useUser, useTarget, useTransactions, useForexRates, useInvestments, getAccessTier } from "@/hooks/use-finance";
 import { formatCurrency } from "@/lib/utils";
@@ -173,6 +173,14 @@ export default function Performance() {
   }
 
   const currentWealth = cashReal + forexValue + investmentReal + retainedReal + piutangReal - hutangReal;
+  const totalAllAssets = cashReal + investmentReal + forexValue + retainedReal + piutangReal;
+  const hasRealWallet = user?.walletSources && Array.isArray(user.walletSources) && user.walletSources.length > 0;
+  const isSetupSkipped = typeof window !== 'undefined' && localStorage.getItem("bilano_setup_balance_skipped") === "true";
+
+  const isBalanceNotSet = !isTrial && (
+      (isSetupSkipped && !hasRealWallet && Number(user?.cashBalance || 0) === 0) ||
+      (!hasRealWallet && Number(user?.cashBalance || 0) === 0 && totalAllAssets === 0 && (!transactions || transactions.length === 0))
+  );
 
   const hasTargetAmount = target && target.targetAmount > 0;
   const targetDuration = target?.durationMonths || 12;
@@ -363,7 +371,7 @@ export default function Performance() {
   return (
     <MobileLayout>
       <TrialFeatureNotice featureKey="performance" featureName="Analisa Performa" />
-      <div className="flex flex-col -mx-5 -mt-5">
+      <div className={`flex flex-col -mx-5 -mt-5 transition-all ${isBalanceNotSet ? 'filter blur-[2.5px] pointer-events-none select-none' : ''}`}>
         
         {/* ========================================================================= */}
         {/* 1. TOP HEADER BANNER DENGAN TEMA BILANO NAVY & GOLD */}
@@ -400,10 +408,10 @@ export default function Performance() {
                     <Link href="/target">
                         <button 
                             type="button"
-                            className="flex items-center gap-1 bg-brand-navy text-brand-gold px-3 py-1.5 rounded-full text-[10px] font-bold border border-brand-gold/30 shadow-xs active:scale-95 transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 bg-brand-navy hover:bg-slate-900 text-brand-gold px-3.5 py-1.5 rounded-full text-[10px] font-black border border-brand-gold/40 shadow-xs active:scale-95 transition-all cursor-pointer"
                         >
                             <Target className="w-3.5 h-3.5 text-brand-gold" />
-                            <span>SETUP TARGET</span>
+                            <span>{hasTargetAmount ? "TARGET SAYA" : "+ SETUP TARGET"}</span>
                         </button>
                     </Link>
                 </div>
@@ -441,8 +449,8 @@ export default function Performance() {
                         {hutangReal > 0 && <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/10 text-rose-300">Hutang: -{formatRp(hutangReal)}</span>}
                     </div>
 
-                    {/* Target Progress Bar Jika Ada */}
-                    {hasTargetAmount && (
+                    {/* Target Mini Bar inside Hero Card */}
+                    {hasTargetAmount ? (
                         <div className="bg-black/30 p-3.5 rounded-2xl border border-white/10 mt-3.5 space-y-2">
                             <div className="flex justify-between text-[10px] text-amber-200 font-bold uppercase tracking-wider">
                                 <span>Progres Target Impian</span>
@@ -461,6 +469,20 @@ export default function Performance() {
                                 </span>
                             </div>
                         </div>
+                    ) : (
+                        <Link href="/target">
+                            <div className="bg-black/25 hover:bg-black/35 transition-colors p-3 rounded-2xl border border-brand-gold/30 mt-3.5 flex items-center justify-between cursor-pointer group">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-brand-gold"></span>
+                                    <span className="text-[11px] font-bold text-amber-200">
+                                        Target Keuangan Belum Diatur
+                                    </span>
+                                </div>
+                                <span className="text-[10px] font-black text-brand-gold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                                    Atur Sekarang <ChevronRight className="w-3.5 h-3.5" />
+                                </span>
+                            </div>
+                        </Link>
                     )}
                 </div>
             </div>
@@ -496,6 +518,196 @@ export default function Performance() {
                             </Link>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* 🎯 1. PROMINENT FINANCIAL TARGET & MILESTONE BOARD */}
+            {!hasTargetAmount ? (
+                /* STATE A: BELUM MEMBUAT TARGET */
+                <div className="bg-gradient-to-br from-white via-amber-50/50 to-amber-100/30 border-2 border-amber-300/80 shadow-[0_4px_20px_rgba(246,185,59,0.14)] rounded-3xl p-5 relative overflow-hidden">
+                    <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-brand-gold/15 rounded-full blur-2xl pointer-events-none" />
+                    
+                    <div className="relative z-10 space-y-3.5">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-10 h-10 rounded-2xl bg-brand-navy text-brand-gold flex items-center justify-center shrink-0 shadow-xs border border-brand-gold/40">
+                                    <Target className="w-5 h-5 stroke-[2.5]" />
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-black text-brand-navy bg-brand-gold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                                        STRATEGI FINANSIAL
+                                    </span>
+                                    <h3 className="font-extrabold text-slate-900 text-sm mt-0.5 leading-snug">
+                                        Buat Target Keuangan Impian
+                                    </h3>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                            Tentukan nominal impian Anda (misal: Dana Darurat, Tabungan Rp 50 Juta, DP Rumah, dsb). AI BILANO akan mengalkulasi alokasi tabungan bulanan yang realistis dan memantau akselerasi kekayaan Anda secara realtime.
+                        </p>
+
+                        {/* 3 Keuntungan Otomatis */}
+                        <div className="grid grid-cols-3 gap-2">
+                            <div className="bg-white/95 border border-amber-200/80 p-2.5 rounded-2xl text-center shadow-xs">
+                                <p className="text-[8px] font-bold text-slate-400 uppercase">1. Alokasi</p>
+                                <p className="text-[10px] font-black text-slate-800 mt-0.5">Wajib Nabung</p>
+                            </div>
+                            <div className="bg-white/95 border border-amber-200/80 p-2.5 rounded-2xl text-center shadow-xs">
+                                <p className="text-[8px] font-bold text-slate-400 uppercase">2. Estimasi</p>
+                                <p className="text-[10px] font-black text-slate-800 mt-0.5">Waktu Selesai</p>
+                            </div>
+                            <div className="bg-white/95 border border-amber-200/80 p-2.5 rounded-2xl text-center shadow-xs">
+                                <p className="text-[8px] font-bold text-slate-400 uppercase">3. Radar</p>
+                                <p className="text-[10px] font-black text-slate-800 mt-0.5">Batas Anggaran</p>
+                            </div>
+                        </div>
+
+                        <Link href="/target" className="block pt-1">
+                            <button
+                                type="button"
+                                className="w-full h-12 bg-brand-navy hover:bg-slate-900 active:scale-[0.98] text-white font-extrabold text-xs tracking-wider uppercase rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-brand-gold/30"
+                            >
+                                <Target className="w-4 h-4 text-brand-gold" />
+                                <span>Buat Target Keuangan Sekarang</span>
+                                <ArrowRight className="w-4 h-4 text-brand-gold" />
+                            </button>
+                        </Link>
+                    </div>
+                </div>
+            ) : (
+                /* STATE B: TARGET SUDAH AKTIF */
+                <div className="bg-white border border-slate-200/90 shadow-xs hover:shadow-sm rounded-3xl p-5 space-y-4 relative overflow-hidden">
+                    {/* Header Target */}
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-600 shadow-xs">
+                                <Target className="w-4.5 h-4.5 stroke-[2.5]" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-1.5">
+                                    <h3 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider">
+                                        Papan Target Impian
+                                    </h3>
+                                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                        isTargetAchieved 
+                                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                                            : isSafe 
+                                                ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                                                : 'bg-rose-100 text-rose-800 border border-rose-300'
+                                    }`}>
+                                        {isTargetAchieved ? '🏆 Tercapai' : isSafe ? '✨ On Track' : '⚡ Perlu Akselerasi'}
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 font-medium">
+                                    Goal: <strong className="text-slate-900 font-black">{formatRp(target.targetAmount)}</strong>
+                                </p>
+                            </div>
+                        </div>
+
+                        <Link href="/target">
+                            <button 
+                                type="button" 
+                                className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-colors cursor-pointer"
+                                title="Ubah Target"
+                            >
+                                <Pencil className="w-3 h-3" />
+                                <span>Ubah</span>
+                            </button>
+                        </Link>
+                    </div>
+
+                    {/* Progress Bar & Status */}
+                    <div className="bg-slate-50/90 border border-slate-200/70 p-4 rounded-2xl space-y-2.5">
+                        <div className="flex justify-between items-baseline">
+                            <div>
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Kekayaan Terkumpul</span>
+                                <p className="text-base font-black text-slate-900 tabular-nums leading-tight">
+                                    {displayWealth}
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-lg font-black text-emerald-600 tabular-nums">
+                                    {progressPercent.toFixed(1)}%
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400 ml-1">Tercapai</span>
+                            </div>
+                        </div>
+
+                        {/* Custom Sleek Gradient Bar */}
+                        <div className="w-full bg-slate-200 h-3 rounded-full overflow-hidden p-0.5 shadow-inner">
+                            <div 
+                                className="h-full bg-gradient-to-r from-amber-400 via-yellow-400 to-emerald-500 rounded-full transition-all duration-1000 shadow-xs" 
+                                style={{ width: `${progressPercent}%` }}
+                            />
+                        </div>
+
+                        <div className="flex justify-between text-[10px] text-slate-500 font-medium pt-0.5">
+                            <span>Mulai: {formatRp(initialWealth)}</span>
+                            <span className="font-bold text-slate-700">Sisa: {formatRp(targetDelta)}</span>
+                        </div>
+                    </div>
+
+                    {/* 3 Metric Mini Cards */}
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80 text-center">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Sisa Gap</p>
+                            <p className="text-xs font-black text-slate-900 mt-0.5 tabular-nums truncate">{formatRp(targetDelta)}</p>
+                            <p className="text-[8px] text-slate-400 font-medium mt-0.5">Kekurangan</p>
+                        </div>
+
+                        <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80 text-center">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Sisa Waktu</p>
+                            <p className="text-xs font-black text-amber-700 mt-0.5 tabular-nums">{monthsRemaining} Bulan</p>
+                            <p className="text-[8px] text-slate-400 font-medium mt-0.5">dari {targetDuration} bln</p>
+                        </div>
+
+                        <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80 text-center">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Wajib Nabung</p>
+                            <p className="text-xs font-black text-brand-navy mt-0.5 tabular-nums truncate">{formatRp(savingRequired)}</p>
+                            <p className="text-[8px] text-slate-400 font-medium mt-0.5">per bulan</p>
+                        </div>
+                    </div>
+
+                    {/* Dynamic AI Target Guidance */}
+                    <div className={`p-3.5 rounded-2xl border text-[11px] leading-relaxed font-medium flex items-start gap-2.5 ${
+                        isTargetAchieved 
+                            ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
+                            : isSafe 
+                                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' 
+                                : monthlyNet > 0 
+                                    ? 'bg-amber-50/80 border-amber-200 text-amber-950' 
+                                    : 'bg-rose-50/80 border-rose-200 text-rose-950'
+                    }`}>
+                        <span className="text-base shrink-0">
+                            {isTargetAchieved ? '🎉' : isSafe ? '✨' : monthlyNet > 0 ? '⚡' : '🚨'}
+                        </span>
+                        <div className="flex-1">
+                            {isTargetAchieved ? (
+                                <span><strong>Selamat! Target impian tercapai!</strong> Kekayaan bersih Anda saat ini telah mencapai nominal target. Atur target baru untuk level finansial berikutnya.</span>
+                            ) : isSafe ? (
+                                <span><strong>Laju Tabungan Sesuai Jadwal:</strong> Surplus kas bulan ini (<strong>{formatRp(monthlyNet)}</strong>) mencukupi komitmen tabungan minimal (<strong>{formatRp(savingRequired)}</strong>). Pertahankan konsistensi ini!</span>
+                            ) : monthlyNet > 0 ? (
+                                <span><strong>Perlu Tambahan Tabungan:</strong> Surplus kas bulan ini <strong>{formatRp(monthlyNet)}</strong>. Masih perlu <strong>{formatRp(savingRequired - monthlyNet)}</strong> lagi agar target tercapai tepat waktu dalam sisa {monthsRemaining} bulan.</span>
+                            ) : (
+                                <span><strong>Arus Kas Defisit:</strong> Pengeluaran bulan ini melebihi pemasukan. Tekan belanja konsumtif agar dana target tidak tergerus defisit.</span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Quick CTA to Edit or Refine Target */}
+                    <div className="pt-1">
+                        <Link href="/target" className="block">
+                            <button
+                                type="button"
+                                className="w-full h-11 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-800 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                                <span>Sesuaikan Target & Batas Anggaran</span>
+                                <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                            </button>
+                        </Link>
+                    </div>
                 </div>
             )}
 
@@ -1074,6 +1286,47 @@ export default function Performance() {
 
         </div>
       </div>
+
+      {/* POPUP MODAL ISI SALDO DULU JIKA SALDO BELUM DIISI */}
+      {isBalanceNotSet && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 text-center overflow-hidden border border-slate-100">
+            <div className="w-16 h-16 bg-amber-50 border border-amber-200/60 rounded-2xl flex items-center justify-center mx-auto mb-4 text-amber-600 shadow-sm">
+              <Wallet className="w-8 h-8" />
+            </div>
+
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200/60 inline-block mb-2.5">
+              Saldo Belum Diisi
+            </span>
+
+            <h2 className="text-xl font-black text-slate-800 mb-2 tracking-tight">
+              Isi Saldo Awal Terlebih Dahulu 📊
+            </h2>
+            <p className="text-xs text-slate-500 mb-6 leading-relaxed px-1 font-medium">
+              Analisis performa, rasio ketahanan finansial, dan radar kekayaan membutuhkan data saldo kas awalmu untuk mengukur grafik dan alokasi aset secara akurat.
+            </p>
+
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={() => setLocation('/setup-balance')}
+                className="w-full h-14 bg-brand-navy hover:bg-slate-900 text-white font-black text-xs tracking-wider rounded-2xl shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>ATUR SALDO SEKARANG</span>
+                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLocation('/')}
+                className="w-full h-11 text-xs font-bold text-slate-400 hover:text-slate-600 rounded-2xl transition-colors cursor-pointer"
+              >
+                Kembali ke Beranda
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <TrialInstallModal
         isOpen={showTrialInstallModal}

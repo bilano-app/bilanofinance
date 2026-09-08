@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
+import { getTrialInfo } from "./trial-manager";
 
-export type UserGoal = "income" | "leakage" | "debt" | "general";
+export type UserGoal = "income" | "leakage" | "debt" | "invest" | "emergency" | "general";
 
-const DEAL_STORAGE_KEY_PREFIX = "bilano_welcome_deal_deadline_v2_";
+const POST_TRIAL_DEADLINE_KEY = "bilano_device_post_trial_deal_deadline_v3";
+const POST_TRIAL_NOTIFIED_KEY = "bilano_device_post_trial_notified_v3";
 const GOAL_STORAGE_KEY_PREFIX = "bilano_user_goal_";
 const DEVICE_ID_KEY = "bilano_device_uuid";
-const DEVICE_DEADLINE_KEY = "bilano_device_welcome_deal_deadline_v2";
-const DEVICE_PROMO_NOTIFIED_KEY = "bilano_device_promo_notified_v2";
 
 // Helper persisten cookie agar tahan jika localStorage parsial terhapus
 function getCookie(name: string): string | null {
@@ -35,90 +35,95 @@ export function getOrCreateDeviceId(): string {
   return deviceId;
 }
 
+// Dapatkan atau inisialisasi deadline 24 jam Pasca-Trial (HANYA AKTIF MULAI HARI KE-8 / TEPAT SAAT TRIAL HABIS)
 export function getWelcomeDeadline(userEmail?: string): number {
   if (typeof window === "undefined") return Date.now() + 24 * 60 * 60 * 1000;
-  
-  const cleanEmail = (userEmail || "").trim().toLowerCase();
 
-  // 1. Kunci Utama: Perangkat (Device-bound)
-  const storedDevice = localStorage.getItem(DEVICE_DEADLINE_KEY) || getCookie(DEVICE_DEADLINE_KEY);
-  if (storedDevice) {
-    const parsed = parseInt(storedDevice, 10);
-    if (!isNaN(parsed)) {
-      if (!localStorage.getItem(DEVICE_DEADLINE_KEY)) localStorage.setItem(DEVICE_DEADLINE_KEY, storedDevice);
-      if (!getCookie(DEVICE_DEADLINE_KEY)) setCookie(DEVICE_DEADLINE_KEY, storedDevice);
+  const trial = getTrialInfo();
+  if (trial.isTrialActive || !trial.isTrialExpired) {
+    return 0;
+  }
+
+  const stored = localStorage.getItem(POST_TRIAL_DEADLINE_KEY) || getCookie(POST_TRIAL_DEADLINE_KEY);
+  if (stored) {
+    const parsed = parseInt(stored, 10);
+    if (!isNaN(parsed) && parsed > Date.now()) {
+      if (!localStorage.getItem(POST_TRIAL_DEADLINE_KEY)) localStorage.setItem(POST_TRIAL_DEADLINE_KEY, stored);
+      if (!getCookie(POST_TRIAL_DEADLINE_KEY)) setCookie(POST_TRIAL_DEADLINE_KEY, stored);
       return parsed;
     }
   }
 
-  // 2. User specific post-trial offer deadline
-  if (cleanEmail) {
-    const userStored = localStorage.getItem(DEAL_STORAGE_KEY_PREFIX + cleanEmail);
-    if (userStored) {
-      const parsed = parseInt(userStored, 10);
-      if (!isNaN(parsed)) {
-        localStorage.setItem(DEVICE_DEADLINE_KEY, parsed.toString());
-        setCookie(DEVICE_DEADLINE_KEY, parsed.toString());
-        return parsed;
-      }
-    }
-  }
-
-  // 3. Fallback jika ada data lama di browser ini
-  const legacyGlobal = localStorage.getItem("bilano_global_welcome_deal_deadline");
-  if (legacyGlobal) {
-    const parsed = parseInt(legacyGlobal, 10);
-    if (!isNaN(parsed)) {
-      localStorage.setItem(DEVICE_DEADLINE_KEY, parsed.toString());
-      setCookie(DEVICE_DEADLINE_KEY, parsed.toString());
-      return parsed;
-    }
-  }
-
-  // 4. Inisialisasi 24 jam penawaran promo
+  // Inisialisasi deadline 24 jam tepat ketika masa trial habis (Hari ke-8)
   const newDeadline = Date.now() + 24 * 60 * 60 * 1000;
-  localStorage.setItem(DEVICE_DEADLINE_KEY, newDeadline.toString());
-  setCookie(DEVICE_DEADLINE_KEY, newDeadline.toString());
-  localStorage.setItem("bilano_global_welcome_deal_deadline", newDeadline.toString());
-  if (cleanEmail) {
-    localStorage.setItem(DEAL_STORAGE_KEY_PREFIX + cleanEmail, newDeadline.toString());
-  }
+  localStorage.setItem(POST_TRIAL_DEADLINE_KEY, newDeadline.toString());
+  setCookie(POST_TRIAL_DEADLINE_KEY, newDeadline.toString());
   return newDeadline;
 }
 
 export function hasSeenDevicePromoNotification(): boolean {
   if (typeof window === "undefined") return true;
-  return !!(localStorage.getItem(DEVICE_PROMO_NOTIFIED_KEY) || getCookie(DEVICE_PROMO_NOTIFIED_KEY));
+  return !!(localStorage.getItem(POST_TRIAL_NOTIFIED_KEY) || getCookie(POST_TRIAL_NOTIFIED_KEY));
 }
 
 export function markDevicePromoNotificationSeen() {
   if (typeof window === "undefined") return;
-  localStorage.setItem(DEVICE_PROMO_NOTIFIED_KEY, "true");
-  setCookie(DEVICE_PROMO_NOTIFIED_KEY, "true");
+  localStorage.setItem(POST_TRIAL_NOTIFIED_KEY, "true");
+  setCookie(POST_TRIAL_NOTIFIED_KEY, "true");
 }
 
 export function useWelcomeCountdown(userEmail?: string) {
-  const [deadline] = useState(() => getWelcomeDeadline(userEmail));
+  const trial = getTrialInfo();
   const [deviceId] = useState(() => getOrCreateDeviceId());
-  const [timeLeft, setTimeLeft] = useState(() => {
-    const diff = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
-    return diff;
+
+  // Selama trial masih aktif, countdown promo 24 jam SAMA SEKALI BELUM berjalan
+  const isTrialActive = trial.isTrialActive;
+  const isTrialExpired = trial.isTrialExpired;
+
+  const [deadline, setDeadline] = useState<number>(() => {
+    if (isTrialExpired && !isTrialActive) {
+      return getWelcomeDeadline(userEmail);
+    }
+    return 0;
+  });
+
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    if (isTrialActive || !isTrialExpired || deadline === 0) return 0;
+    return Math.max(0, Math.floor((deadline - Date.now()) / 1000));
   });
 
   useEffect(() => {
+    if (isTrialActive || !isTrialExpired) {
+      setTimeLeft(0);
+      try {
+        localStorage.removeItem(POST_TRIAL_DEADLINE_KEY);
+        document.cookie = `${POST_TRIAL_DEADLINE_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
+      } catch (_) {}
+      return;
+    }
+
+    let targetDeadline = deadline;
+    if (targetDeadline === 0) {
+      targetDeadline = getWelcomeDeadline(userEmail);
+      setDeadline(targetDeadline);
+    }
+
+    const initial = Math.max(0, Math.floor((targetDeadline - Date.now()) / 1000));
+    setTimeLeft(initial);
+
     const timer = setInterval(() => {
-      const remaining = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
+      const remaining = Math.max(0, Math.floor((targetDeadline - Date.now()) / 1000));
       setTimeLeft(remaining);
       if (remaining <= 0) clearInterval(timer);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [deadline]);
+  }, [isTrialActive, isTrialExpired, deadline, userEmail]);
 
   const hours = String(Math.floor(timeLeft / 3600)).padStart(2, "0");
   const minutes = String(Math.floor((timeLeft % 3600) / 60)).padStart(2, "0");
   const seconds = String(timeLeft % 60).padStart(2, "0");
-  const isExpired = timeLeft <= 0;
+  const isExpired = isTrialExpired && timeLeft <= 0;
 
   return {
     timeLeft,
@@ -127,6 +132,9 @@ export function useWelcomeCountdown(userEmail?: string) {
     seconds,
     formatted: isExpired ? "00:00:00" : `${hours}:${minutes}:${seconds}`,
     isExpired,
+    isTrialActive,
+    isTrialExpired,
+    isPromoActive: isTrialExpired && timeLeft > 0,
     deadline,
     deviceId
   };
@@ -136,7 +144,7 @@ export function getStoredUserGoal(userEmail?: string): UserGoal {
   if (typeof window === "undefined") return "general";
   const key = GOAL_STORAGE_KEY_PREFIX + (userEmail || "guest");
   const stored = (localStorage.getItem(key) || localStorage.getItem("bilano_user_goal")) as UserGoal;
-  if (stored === "income" || stored === "leakage" || stored === "debt") return stored;
+  if (stored === "income" || stored === "leakage" || stored === "debt" || stored === "invest" || stored === "emergency") return stored;
   return "general";
 }
 
@@ -173,6 +181,22 @@ export function getGoalPitchDetails(goal: UserGoal) {
         heroFeature: "Pelacak & Strategi Pelunasan Utang-Piutang Terintegrasi",
         featureTag: "Bebas Utang Terencana"
       };
+    case "invest":
+      return {
+        badge: "Rekomendasi Profil: Pembangun Portofolio Aset",
+        headline: "Kembangkan Portofolio & Ciptakan Passive Income",
+        subheadline: "Pantau multi-aset saham, kripto, dan valas secara realtime, dan biarkan modal Anda bertumbuh dengan kalkulasi ROI akurat.",
+        heroFeature: "Portofolio Multi-Aset Live & Analisis ROI Realisasi",
+        featureTag: "Mesin Akumulasi Aset"
+      };
+    case "emergency":
+      return {
+        badge: "Rekomendasi Profil: Benteng Dana Darurat",
+        headline: "Bentuk Cadangan Kas Darurat & Raih Ketenangan",
+        subheadline: "Ketahui durasi ketahanan kas (Runway) Anda dan bangun dana darurat 3-6 bulan tanpa mengorbankan kebutuhan harian.",
+        heroFeature: "Kalkulator Financial Runway & Proteksi Cashflow",
+        featureTag: "Benteng Perlindungan Kas"
+      };
     default:
       return {
         badge: "Rekomendasi Profil: Akselerasi Finansial",
@@ -183,3 +207,4 @@ export function getGoalPitchDetails(goal: UserGoal) {
       };
   }
 }
+

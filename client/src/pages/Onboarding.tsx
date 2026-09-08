@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { 
-  ArrowRight, CheckCircle2, X, Target, Zap, ShieldAlert, Sparkles, 
-  Clock, Crown, Gift, Loader2, ShieldCheck, ChevronRight, Smartphone,
-  Sun, Sunset, Moon, HeartHandshake, Check
+  ArrowRight, CheckCircle2, X, Sparkles, 
+  Crown, Gift, Loader2, ShieldCheck, ChevronRight,
+  Sun, Sunset, Moon, HeartHandshake, Check,
+  Magnet, Filter, Scissors, Sprout, LifeBuoy,
+  Footprints, Wand2, Orbit, Gauge, Milestone,
+  Flame, Crosshair, Coffee, Mountain, Cpu, Zap
 } from "lucide-react";
 import { Button } from "@/components/UIComponents";
 import { setStoredUserGoal, UserGoal } from "@/lib/welcome-deal";
@@ -24,38 +27,54 @@ export default function Onboarding() {
           title: "Potensi Skala Besar Terdeteksi",
           description: "Anda memiliki mentalitas pertumbuhan yang luar biasa. Ketidakpuasan pada stagnasi penghasilan saat ini adalah bahan bakar terbaik. Anda siap mendobrak batasan.",
           highlight: "Sangat Cocok untuk Akselerasi",
-          emotion: "Ambisus & Proaktif",
-          score: 92
+          emotion: "Ambisius & Proaktif",
+          score: 94
         };
       case "leakage":
         return {
           title: "Kesadaran Finansial Tingkat Tinggi",
-          description: "Mengakui adanya kebocoran halus butuh keberanian yang besar. Anda telah mengambil langkah krusial pertama menuju ketenangan batin dan kontrol total atas uang Anda.",
-          highlight: "Siap Memegang Kendali",
+          description: "Mengakui adanya kebocoran halus butuh kedewasaan finansial yang besar. Anda telah mengambil langkah krusial pertama menuju ketenangan batin dan kontrol total atas uang Anda.",
+          highlight: "Siap Memegang Kendali Penuh",
           emotion: "Lega & Berdaya",
-          score: 88
+          score: 90
         };
       case "debt":
         return {
           title: "Mentalitas Pejuang Finansial",
-          description: "Membawa beban masa lalu memang melelahkan, tetapi tekad Anda untuk memutus rantai ini jauh lebih kuat. Anda berada di titik balik sempurna untuk membangun aset sejati.",
+          description: "Membawa beban cicilan memang melelahkan, tetapi tekad Anda untuk memutus rantai ini jauh lebih kuat. Anda berada di titik balik sempurna untuk membalikkan posisi menjadi pemilik aset.",
           highlight: "Fokus & Bertekad Baja",
           emotion: "Tangguh & Terfokus",
-          score: 95
+          score: 96
+        };
+      case "invest":
+        return {
+          title: "Visi Investor & Compounder Sejati",
+          description: "Anda menyadari bahwa kerja keras harus diimbangi dengan uang yang bekerja untuk Anda. Membangun portofolio multi-aset adalah tiket tercepat menuju kebebasan waktu dan finansial.",
+          highlight: "Mentalitas Pemilik Aset",
+          emotion: "Visioner & Terencana",
+          score: 93
+        };
+      case "emergency":
+        return {
+          title: "Pondasi Ketahanan Fortress Kuat",
+          description: "Membangun benteng keamanan sebelum ekspansi adalah tanda kedewasaan finansial tertinggi. Ketenangan pikiran Anda akan menjadi fondasi kokoh bagi seluruh impian masa depan.",
+          highlight: "Pilar Pertahanan Kokoh",
+          emotion: "Tenang & Penuh Perhitungan",
+          score: 91
         };
       default:
         return {
           title: "Potensi Skala Besar Terdeteksi",
           description: "Anda memiliki mentalitas pertumbuhan yang luar biasa. Ketidakpuasan pada stagnasi penghasilan saat ini adalah bahan bakar terbaik. Anda siap mendobrak batasan.",
           highlight: "Sangat Cocok untuk Akselerasi",
-          emotion: "Ambisus & Proaktif",
+          emotion: "Ambisius & Proaktif",
           score: 92
         };
     }
   };
   const [selectedGoal, setSelectedGoal] = useState<UserGoal>("income");
-  const [selectedChallenge, setSelectedChallenge] = useState<string>("Uang sering habis tanpa sadar");
-  const [selectedPace, setSelectedPace] = useState<string>("Akselerasi cepat dalam 1-3 bulan");
+  const [selectedChallenge, setSelectedChallenge] = useState<string>("Sering lupa & ga sadar uang habis ke mana");
+  const [selectedPace, setSelectedPace] = useState<string>("Fokus & Terarah (1 - 3 Bulan ke Depan)");
 
   // State untuk Halaman Komitmen + Trial Notice
   const [selectedReminder, setSelectedReminder] = useState<"pagi" | "siang" | "malam">("malam");
@@ -111,13 +130,13 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0a1128] via-[#0f1d40] to-[#0a1128] text-white flex flex-col items-center justify-between p-5">
+    <div className="min-h-screen bg-gradient-to-b from-[#0a1128] via-[#0f1d40] to-[#0a1128] text-white flex flex-col items-center justify-between p-4 sm:p-5">
       
       {/* HEADER / NAVIGATION BAR */}
-      <div className="w-full max-w-md flex items-center justify-between pt-2 mb-6">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-navy border border-brand-gold/40 flex items-center justify-center shadow-xs">
-            <img src="/BILANO-ICON-NEW.png" alt="BILANO" className="w-5 h-5 object-contain" />
+      <div className="w-full max-w-md flex items-center justify-between pt-2 mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center p-1.5 shadow-sm shrink-0">
+            <img src="/BILANO-ICON-NEW.png" alt="BILANO" className="w-full h-full object-contain" />
           </div>
           <span className="text-xs font-black tracking-widest text-slate-200 uppercase">
             BILANO ONBOARDING
@@ -134,157 +153,288 @@ export default function Onboarding() {
         </button>
       </div>
 
-      {/* STEP 1: TUJUAN UTAMA */}
+      {/* STEP 1: TUJUAN UTAMA (5 PILIHAN DENGAN IKON KHAS) */}
       {step === 1 && (
-        <div className="w-full max-w-md flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="w-full max-w-md flex-1 flex flex-col justify-center py-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="mb-2">
             <span className="text-[10px] font-black text-brand-gold uppercase tracking-widest bg-brand-gold/10 px-3 py-1 rounded-full border border-brand-gold/20">
               Langkah 1 dari 3
             </span>
           </div>
-          <h1 className="text-2xl font-black text-white mt-3 mb-2 leading-tight">
+          <h1 className="text-xl sm:text-2xl font-black text-white mt-2 mb-1.5 leading-tight">
             Apa target finansial terbesarmu saat ini?
           </h1>
-          <p className="text-xs text-slate-400 mb-6 font-medium leading-relaxed">
-            Pilih satu fokus agar BILANO dapat menyesuaikan sistem dan rekomendasi strategis akun Anda.
+          <p className="text-xs text-slate-400 mb-4 font-medium leading-relaxed">
+            Pilih satu fokus utama agar BILANO dapat menyesuaikan arsitektur sistem dan rekomendasi blueprint akun Anda.
           </p>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
+            {/* 1. INCOME */}
             <button
               onClick={() => handleNextStep1("income")}
-              className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-brand-gold/20 hover:to-white/10 border-2 border-white/10 hover:border-brand-gold rounded-2xl p-4 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
+              className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-amber-400/20 hover:to-white/10 border border-white/10 hover:border-amber-400 rounded-2xl p-3 sm:p-3.5 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
             >
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center shrink-0">
-                  <Zap className="w-5 h-5 text-amber-300" />
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center shrink-0 shadow-xs">
+                  <Magnet className="w-5 h-5 text-amber-300" />
                 </div>
-                <div>
-                  <h3 className="text-sm font-black text-white group-hover:text-amber-300 transition-colors">
+                <div className="truncate">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition-colors truncate">
                     Cari Pemasukan & Cuan Baru
                   </h3>
-                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                    Butuh ide & strategi praktis untuk melipatgandakan penghasilan
+                  <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium mt-0.5 truncate">
+                    Buka aliran cuan sampingan & lipatgandakan kas masuk
                   </p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-amber-300 transition-colors shrink-0" />
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-300 transition-colors shrink-0 ml-2" />
             </button>
 
+            {/* 2. LEAKAGE */}
             <button
               onClick={() => handleNextStep1("leakage")}
-              className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-emerald-500/20 hover:to-white/10 border-2 border-white/10 hover:border-emerald-400 rounded-2xl p-4 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
+              className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-emerald-500/20 hover:to-white/10 border border-white/10 hover:border-emerald-400 rounded-2xl p-3 sm:p-3.5 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
             >
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
-                  <ShieldAlert className="w-5 h-5 text-emerald-300" />
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 shadow-xs">
+                  <Filter className="w-5 h-5 text-emerald-300" />
                 </div>
-                <div>
-                  <h3 className="text-sm font-black text-white group-hover:text-emerald-300 transition-colors">
+                <div className="truncate">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-emerald-300 transition-colors truncate">
                     Stop Kebocoran Kas Halus
                   </h3>
-                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                    Gaji sering numpang lewat, ingin uang terkontrol & tabungan aman
+                  <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium mt-0.5 truncate">
+                    Gaji sering numpang lewat, amankan dana bocor & perkuat tabungan
                   </p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-300 transition-colors shrink-0" />
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-300 transition-colors shrink-0 ml-2" />
             </button>
 
+            {/* 3. DEBT */}
             <button
               onClick={() => handleNextStep1("debt")}
-              className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-blue-500/20 hover:to-white/10 border-2 border-white/10 hover:border-blue-400 rounded-2xl p-4 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
+              className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-sky-500/20 hover:to-white/10 border border-white/10 hover:border-sky-400 rounded-2xl p-3 sm:p-3.5 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
             >
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0">
-                  <Target className="w-5 h-5 text-blue-300" />
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center shrink-0 shadow-xs">
+                  <Scissors className="w-5 h-5 text-sky-300" />
                 </div>
-                <div>
-                  <h3 className="text-sm font-black text-white group-hover:text-blue-300 transition-colors">
-                    Bebas Utang & Bangun Aset
+                <div className="truncate">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-sky-300 transition-colors truncate">
+                    Bebas Utang & Pelunasan Cepat
                   </h3>
-                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                    Lunasi kewajiban lebih cepat dan mulai kumpulkan portofolio
+                  <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium mt-0.5 truncate">
+                    Pangkas cicilan lebih awal dengan strategi kalkulasi terarah
                   </p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-300 transition-colors shrink-0" />
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-sky-300 transition-colors shrink-0 ml-2" />
+            </button>
+
+            {/* 4. INVEST */}
+            <button
+              onClick={() => handleNextStep1("invest")}
+              className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-purple-500/20 hover:to-white/10 border border-white/10 hover:border-purple-400 rounded-2xl p-3 sm:p-3.5 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/30 flex items-center justify-center shrink-0 shadow-xs">
+                  <Sprout className="w-5 h-5 text-purple-300" />
+                </div>
+                <div className="truncate">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-purple-300 transition-colors truncate">
+                    Kembangkan Portofolio & Investasi
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium mt-0.5 truncate">
+                    Putar modal ke saham, valas & instrumen bertumbuh
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-purple-300 transition-colors shrink-0 ml-2" />
+            </button>
+
+            {/* 5. EMERGENCY */}
+            <button
+              onClick={() => handleNextStep1("emergency")}
+              className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-rose-500/20 hover:to-white/10 border border-white/10 hover:border-rose-400 rounded-2xl p-3 sm:p-3.5 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-400/30 flex items-center justify-center shrink-0 shadow-xs">
+                  <LifeBuoy className="w-5 h-5 text-rose-300" />
+                </div>
+                <div className="truncate">
+                  <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-rose-300 transition-colors truncate">
+                    Bentuk Dana Darurat & Proteksi
+                  </h3>
+                  <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium mt-0.5 truncate">
+                    Siapkan bantalan kas 3-6 bulan untuk ketenangan batin mutlak
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-rose-300 transition-colors shrink-0 ml-2" />
             </button>
           </div>
         </div>
       )}
 
-      {/* STEP 2: TANTANGAN TERBESAR */}
+      {/* STEP 2: TANTANGAN TERBESAR (5 PILIHAN DENGAN IKON KHAS) */}
       {step === 2 && (
-        <div className="w-full max-w-md flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="w-full max-w-md flex-1 flex flex-col justify-center py-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="mb-2">
             <span className="text-[10px] font-black text-brand-gold uppercase tracking-widest bg-brand-gold/10 px-3 py-1 rounded-full border border-brand-gold/20">
               Langkah 2 dari 3
             </span>
           </div>
-          <h1 className="text-2xl font-black text-white mt-3 mb-2 leading-tight">
+          <h1 className="text-xl sm:text-2xl font-black text-white mt-2 mb-1.5 leading-tight">
             Apa kendala terbesarmu saat mengelola uang?
           </h1>
-          <p className="text-xs text-slate-400 mb-6 font-medium leading-relaxed">
-            BILANO memiliki fitur otomatisasi untuk menyelesaikan titik lemah ini.
+          <p className="text-xs text-slate-400 mb-4 font-medium leading-relaxed">
+            BILANO memiliki mesin otomatisasi cerdas untuk menuntaskan titik rawan ini.
           </p>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {[
-              { title: "Sering lupa & ga tahu uang habis ke mana", desc: "Perlu audit otomatis dan radar peringatan kas" },
-              { title: "Malas mencatat struk satu per satu secara manual", desc: "Butuh Smart OCR untuk scan struk instan" },
-              { title: "Punya tabungan tapi bingung cara memutarnya", desc: "Perlu bimbingan strategi dan edukasi finansial" }
-            ].map((item, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleNextStep2(item.title)}
-                className="w-full bg-white/5 hover:bg-white/10 border-2 border-white/10 hover:border-brand-gold/50 rounded-2xl p-4 text-left transition-all cursor-pointer flex items-center justify-between active:scale-98"
-              >
-                <div>
-                  <h3 className="text-xs font-black text-white">{item.title}</h3>
-                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">{item.desc}</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
-              </button>
-            ))}
+              { 
+                title: "Sering lupa & ga sadar uang habis ke mana", 
+                desc: "Butuh radar deteksi kebocoran otomatis & audit realtime", 
+                icon: Footprints, 
+                color: "text-amber-300 bg-amber-400/20 border-amber-400/30" 
+              },
+              { 
+                title: "Malas & ribet mencatat struk belanja manual", 
+                desc: "Butuh Smart Scanner OCR & Dikte Suara instan", 
+                icon: Wand2, 
+                color: "text-sky-300 bg-sky-500/20 border-sky-400/30" 
+              },
+              { 
+                title: "Punya tabungan tapi bingung cara memutarnya", 
+                desc: "Perlu panduan alokasi 50/30/20 & strategi portofolio", 
+                icon: Orbit, 
+                color: "text-purple-300 bg-purple-500/20 border-purple-400/30" 
+              },
+              { 
+                title: "Sering overbudget karena belanja impulsif", 
+                desc: "Perlu batas limit harian/bulanan ketat & alarm defisit", 
+                icon: Gauge, 
+                color: "text-rose-300 bg-rose-500/20 border-rose-400/30" 
+              },
+              { 
+                title: "Belum punya roadmap & milestone masa depan", 
+                desc: "Butuh Blueprint langkah demi langkah kebebasan finansial", 
+                icon: Milestone, 
+                color: "text-emerald-300 bg-emerald-500/20 border-emerald-400/30" 
+              }
+            ].map((item, idx) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => handleNextStep2(item.title)}
+                  className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-white/15 hover:to-white/10 border border-white/10 hover:border-brand-gold/60 rounded-2xl p-3 sm:p-3.5 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 shadow-xs ${item.color}`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className="truncate">
+                      <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition-colors truncate">
+                        {item.title}
+                      </h3>
+                      <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium mt-0.5 truncate">
+                        {item.desc}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-300 transition-colors shrink-0 ml-2" />
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* STEP 3: KOMITMEN WAKTU */}
+      {/* STEP 3: KOMITMEN WAKTU (5 PILIHAN DENGAN IKON KHAS) */}
       {step === 3 && (
-        <div className="w-full max-w-md flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="w-full max-w-md flex-1 flex flex-col justify-center py-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="mb-2">
             <span className="text-[10px] font-black text-brand-gold uppercase tracking-widest bg-brand-gold/10 px-3 py-1 rounded-full border border-brand-gold/20">
               Langkah 3 dari 3
             </span>
           </div>
-          <h1 className="text-2xl font-black text-white mt-3 mb-2 leading-tight">
+          <h1 className="text-xl sm:text-2xl font-black text-white mt-2 mb-1.5 leading-tight">
             Seberapa cepat kamu ingin melihat perubahan finansial?
           </h1>
-          <p className="text-xs text-slate-400 mb-6 font-medium leading-relaxed">
-            Pilih ritme yang paling sesuai dengan gaya hidupmu saat ini.
+          <p className="text-xs text-slate-400 mb-4 font-medium leading-relaxed">
+            Pilih ritme yang paling selaras dengan gaya hidup dan kesiapan komitmenmu.
           </p>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {[
-              { title: "Akselerasi Cepat (1 - 3 Bulan ke Depan)", desc: "Siap berkomitmen untuk disiplin dan mencoba strategi baru", badge: "Direkomendasikan" },
-              { title: "Santai & Bertahap", desc: "Mulai pelan-pelan dari pencatatan dasar terlebih dahulu", badge: "Fleksibel" }
-            ].map((item, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleNextStep3(item.title)}
-                className="w-full bg-white/5 hover:bg-white/10 border-2 border-white/10 hover:border-brand-gold/50 rounded-2xl p-4 text-left transition-all cursor-pointer flex items-center justify-between active:scale-98"
-              >
-                <div>
-                  <span className="text-[9px] font-black uppercase tracking-wider text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded-md">
-                    {item.badge}
-                  </span>
-                  <h3 className="text-xs font-black text-white mt-1.5">{item.title}</h3>
-                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">{item.desc}</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 ml-2" />
-              </button>
-            ))}
+              { 
+                title: "Akselerasi Kilat (1 Bulan Pertama)", 
+                desc: "Siap gaspol disiplin penuh, pangkas pemborosan & coba peluang cuan baru", 
+                badge: "Ultra Fast",
+                icon: Flame,
+                color: "text-amber-300 bg-amber-400/20 border-amber-400/30"
+              },
+              { 
+                title: "Fokus & Terarah (1 - 3 Bulan ke Depan)", 
+                desc: "Komitmen konsisten membangun kebiasaan sehat dan akumulasi kas nyata", 
+                badge: "Direkomendasikan",
+                icon: Crosshair,
+                color: "text-emerald-300 bg-emerald-500/20 border-emerald-400/30"
+              },
+              { 
+                title: "Santai & Bertahap (3 - 6 Bulan)", 
+                desc: "Mulai pelan-pelan dari pencatatan dasar tanpa tekanan berlebih", 
+                badge: "Fleksibel",
+                icon: Coffee,
+                color: "text-sky-300 bg-sky-500/20 border-sky-400/30"
+              },
+              { 
+                title: "Jangka Panjang & Fondasi Kokoh (> 6 Bulan)", 
+                desc: "Fokus compounding aset, pembentukan dividen & stabilitas berkelanjutan", 
+                badge: "Sustainable",
+                icon: Mountain,
+                color: "text-purple-300 bg-purple-500/20 border-purple-400/30"
+              },
+              { 
+                title: "Sesuai Ritme Dinamis (Adaptif)", 
+                desc: "Biarkan AI BILANO menyesuaikan target fleksibel mengikuti arus kas Anda", 
+                badge: "Smart AI Mode",
+                icon: Cpu,
+                color: "text-indigo-300 bg-indigo-500/20 border-indigo-400/30"
+              }
+            ].map((item, idx) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => handleNextStep3(item.title)}
+                  className="w-full bg-gradient-to-r from-white/10 to-white/5 hover:from-white/15 hover:to-white/10 border border-white/10 hover:border-brand-gold/60 rounded-2xl p-3 sm:p-3.5 text-left transition-all group cursor-pointer active:scale-98 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 shadow-xs ${item.color}`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className="truncate">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-amber-300 bg-amber-400/15 border border-amber-400/30 px-2 py-0.2 rounded-md">
+                          {item.badge}
+                        </span>
+                      </div>
+                      <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition-colors mt-0.5 truncate">
+                        {item.title}
+                      </h3>
+                      <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium mt-0.5 truncate">
+                        {item.desc}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-300 transition-colors shrink-0 ml-2" />
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -307,40 +457,60 @@ export default function Onboarding() {
       {/* STEP: RESULT (EMOTIONAL VALIDATION) */}
       {step === "result" && (
         <div className="w-full max-w-md flex-1 flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-500 py-4">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500/30 mb-5 shadow-[0_0_30px_rgba(16,185,129,0.25)]">
-              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400" strokeWidth={2.25} />
             </div>
-            <h2 className="text-2xl font-black text-white leading-tight mb-3">
+            <h2 className="text-2xl font-black text-white leading-tight mb-2 tracking-tight">
               {getEmotionalProfile(selectedGoal).title}
             </h2>
-            <p className="text-sm text-slate-300 leading-relaxed font-medium px-2">
+            <p className="text-xs text-slate-300 leading-relaxed font-medium px-1">
               {getEmotionalProfile(selectedGoal).description}
             </p>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-3xl p-5 mb-8 backdrop-blur-md relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-gold/5 rounded-full blur-2xl -mr-10 -mt-10"></div>
-            
-            <div className="flex items-center gap-2 mb-4 relative z-10">
-               <Crown className="w-5 h-5 text-amber-400" />
-               <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
-                 Karakter Finansial Anda
-               </span>
+          <div className="bg-white/5 border border-white/10 rounded-[28px] p-5 mb-6 shadow-md relative">
+            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-white/10">
+              <div className="w-8 h-8 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300 shrink-0">
+                <Crown className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest block">
+                  Karakter Finansial Anda
+                </span>
+                <p className="text-[11px] text-slate-400 font-semibold">
+                  Analisis profil mental & kesiapan
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-3 relative z-10">
-              <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">State Psikologis</p>
-                <p className="text-sm font-black text-white">{getEmotionalProfile(selectedGoal).emotion}</p>
-              </div>
-              <div className="bg-black/20 rounded-2xl p-4 border border-white/5 flex justify-between items-center">
+            <div className="space-y-2.5">
+              <div className="bg-black/25 rounded-2xl p-3.5 border border-white/5 flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Status Kesiapan</p>
-                  <p className="text-sm font-black text-emerald-400">{getEmotionalProfile(selectedGoal).highlight}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
+                    State Psikologis
+                  </p>
+                  <p className="text-sm font-black text-white">
+                    {getEmotionalProfile(selectedGoal).emotion}
+                  </p>
                 </div>
-                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                  <span className="text-sm font-black text-emerald-400">{getEmotionalProfile(selectedGoal).score}</span>
+                <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-300 shrink-0">
+                  <Zap className="w-4 h-4 text-amber-300" />
+                </div>
+              </div>
+
+              <div className="bg-black/25 rounded-2xl p-3.5 border border-white/5 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">
+                    Status Kesiapan
+                  </p>
+                  <p className="text-sm font-black text-emerald-400">
+                    {getEmotionalProfile(selectedGoal).highlight}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/30 px-3 py-1.5 rounded-xl shrink-0">
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Skor</span>
+                  <span className="text-sm font-black text-emerald-300 font-mono">{getEmotionalProfile(selectedGoal).score}</span>
                 </div>
               </div>
             </div>
@@ -348,10 +518,10 @@ export default function Onboarding() {
 
           <Button
             onClick={() => setStep("commitment")}
-            className="w-full h-14 rounded-2xl text-xs font-black tracking-widest flex items-center justify-center gap-2 bg-white text-brand-navy hover:bg-slate-200 shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all cursor-pointer"
+            className="w-full h-14 rounded-2xl text-xs font-black tracking-widest flex items-center justify-center gap-2 bg-white text-brand-navy hover:bg-slate-100 shadow-md active:scale-98 transition-all cursor-pointer"
           >
             <span>LANJUTKAN & AMBIL KOMITMEN</span>
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-4 h-4 stroke-[2.5]" />
           </Button>
         </div>
       )}

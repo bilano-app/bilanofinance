@@ -710,7 +710,8 @@ export default function Manager() {
     return (
       (u.email && u.email.toLowerCase().includes(q)) ||
       (u.username && u.username.toLowerCase().includes(q)) ||
-      (u.name && u.name.toLowerCase().includes(q))
+      (u.name && u.name.toLowerCase().includes(q)) ||
+      (u.phone && u.phone.toLowerCase().includes(q))
     );
   });
 
@@ -719,7 +720,8 @@ export default function Manager() {
     return (
       (u.email && u.email.toLowerCase().includes(q)) ||
       (u.username && u.username.toLowerCase().includes(q)) ||
-      (u.name && u.name.toLowerCase().includes(q))
+      (u.name && u.name.toLowerCase().includes(q)) ||
+      (u.phone && u.phone.toLowerCase().includes(q))
     );
   });
 
@@ -1302,7 +1304,7 @@ export default function Manager() {
                 {/* Search Bar */}
                 <input 
                   type="text" 
-                  placeholder="Cari nama, email, atau username..." 
+                  placeholder="Cari nama, email, no WhatsApp, atau username..." 
                   value={userSearchQuery}
                   onChange={(e) => setUserSearchQuery(e.target.value)}
                   className="bg-[#f8fafc] border border-[#cbd5e1] rounded-lg px-4 py-2 text-xs w-full sm:w-72 outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
@@ -1350,8 +1352,23 @@ export default function Manager() {
                               <td className="px-4 py-3.5">
                                 <div className="font-bold text-[#0f172a]">{u.name || u.username}</div>
                                 <div className="text-[11px] font-mono text-[#2563eb]">{u.email}</div>
-                                {u.phone && <div className="text-[10px] font-mono text-slate-500">{u.phone}</div>}
-                                <div className="text-[10px] font-mono text-emerald-600 font-bold mt-0.5">{Math.max(1, Number(u.appOpenCount || 0))}x Buka App</div>
+                                {u.phone ? (
+                                  <div className="mt-1">
+                                    <a 
+                                      href={`https://wa.me/${u.phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}`} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md transition-colors shadow-xs"
+                                      title="Klik untuk WhatsApp"
+                                    >
+                                      <span>📱</span>
+                                      <span>{u.phone}</span>
+                                    </a>
+                                  </div>
+                                ) : (
+                                  <div className="text-[10px] font-mono text-slate-400 mt-0.5 italic">- Belum isi WA/Telp -</div>
+                                )}
+                                <div className="text-[10px] font-mono text-emerald-600 font-bold mt-1">{Math.max(1, Number(u.appOpenCount || 0))}x Buka App</div>
                               </td>
                               <td className="px-4 py-3.5 font-mono text-[#64748b]">
                                 {u.createdAt ? new Date(u.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}
@@ -1454,8 +1471,23 @@ export default function Manager() {
                                   <span className="text-amber-500">👑</span>
                                 </div>
                                 <div className="text-[11px] font-mono text-[#2563eb]">{u.email}</div>
-                                {u.phone && <div className="text-[10px] font-mono text-slate-500">{u.phone}</div>}
-                                <div className="text-[10px] font-mono text-emerald-600 font-bold mt-0.5">{Math.max(1, Number(u.appOpenCount || 0))}x Buka App</div>
+                                {u.phone ? (
+                                  <div className="mt-1">
+                                    <a 
+                                      href={`https://wa.me/${u.phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}`} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md transition-colors shadow-xs"
+                                      title="Klik untuk WhatsApp"
+                                    >
+                                      <span>📱</span>
+                                      <span>{u.phone}</span>
+                                    </a>
+                                  </div>
+                                ) : (
+                                  <div className="text-[10px] font-mono text-slate-400 mt-0.5 italic">- Belum isi WA/Telp -</div>
+                                )}
+                                <div className="text-[10px] font-mono text-emerald-600 font-bold mt-1">{Math.max(1, Number(u.appOpenCount || 0))}x Buka App</div>
                               </td>
                               <td className="px-4 py-3.5 font-mono text-[#64748b]">
                                 {u.createdAt ? new Date(u.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}

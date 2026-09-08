@@ -7,6 +7,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
 import { useWelcomeCountdown } from "@/lib/welcome-deal";
+import { getTrialInfo } from "@/lib/trial-manager";
 
 export default function AcademyReader() {
     const [, setLocation] = useLocation();
@@ -14,8 +15,9 @@ export default function AcademyReader() {
     const ebookId = params?.ebookId;
     const { toast } = useToast();
     const { data: user } = useUser();
+    const trial = getTrialInfo(user);
     const welcomeCountdown = useWelcomeCountdown(user?.email || "");
-    const hasAccess = !welcomeCountdown.isExpired || user?.hasEbookAccess;
+    const hasAccess = user?.isPro || trial.isTrialActive || user?.hasEbookAccess || (!welcomeCountdown.isExpired && trial.isTrialExpired);
 
     const [ebook, setEbook] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);

@@ -3132,6 +3132,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   name: fullName || u.username || "User Bilano",
                   firstName: u.firstName,
                   lastName: u.lastName,
+                  phone: u.phone || null,
                   cashBalance: userCash,
                   isPro: Boolean(u.isPro),
                   proSince: u.proSince ? new Date(u.proSince).toISOString() : null,

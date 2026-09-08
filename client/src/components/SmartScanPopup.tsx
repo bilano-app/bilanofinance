@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { 
     Mic, Camera, Loader2, Check, X, AlertCircle, Plus, Trash2,
     Sparkles, ArrowUpRight, ArrowDownLeft, CheckCircle2, Wallet,
-    RotateCcw
+    RotateCcw, ImagePlus, FolderOpen
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
@@ -60,7 +60,10 @@ export default function SmartScanPopup({ isOpen, initialMode = null, onClose }: 
     const [selectedGlobalSource, setSelectedGlobalSource] = useState<string>("");
     const [isSaving, setIsSaving] = useState(false);
 
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    // Photo source picker modal state
+    const [showPhotoSourcePicker, setShowPhotoSourcePicker] = useState(false);
+    const galleryInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
 
     const currentUserEmail = typeof window !== 'undefined' ? (localStorage.getItem("bilano_email") || "").trim().toLowerCase() : "";
     const getAuthHeaders = () => ({ 
@@ -95,9 +98,10 @@ export default function SmartScanPopup({ isOpen, initialMode = null, onClose }: 
         if (isOpen && initialMode === 'voice') {
             transcriptRef.current = "";
             setTranscript("");
+            setShowPhotoSourcePicker(false);
             startListening();
         } else if (isOpen && initialMode === 'photo') {
-            fileInputRef.current?.click();
+            setShowPhotoSourcePicker(true);
         }
     }, [isOpen, initialMode]);
 
@@ -228,6 +232,7 @@ export default function SmartScanPopup({ isOpen, initialMode = null, onClose }: 
 
     // 📷 PHOTO RECEIPT & AI VISION ANALYSIS
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        setShowPhotoSourcePicker(false);
         const files = Array.from(e.target.files || []);
         if (files.length === 0) {
             onClose();
@@ -311,7 +316,8 @@ export default function SmartScanPopup({ isOpen, initialMode = null, onClose }: 
             onClose();
         } finally {
             setIsScanning(false);
-            if (fileInputRef.current) fileInputRef.current.value = "";
+            if (galleryInputRef.current) galleryInputRef.current.value = "";
+            if (cameraInputRef.current) cameraInputRef.current.value = "";
         }
     };
 
@@ -409,7 +415,7 @@ export default function SmartScanPopup({ isOpen, initialMode = null, onClose }: 
         }
     };
 
-    if (!isOpen && !isListening && !isScanning && !showConfirmModal) {
+    if (!isOpen && !isListening && !isScanning && !showConfirmModal && !showPhotoSourcePicker) {
         return null;
     }
 
@@ -418,16 +424,99 @@ export default function SmartScanPopup({ isOpen, initialMode = null, onClose }: 
 
     return (
         <>
-            {/* Hidden Photo File Input */}
+            {/* Hidden File Inputs: Gallery & Direct Camera */}
             <input 
                 type="file" 
-                ref={fileInputRef} 
+                ref={galleryInputRef} 
+                onChange={handleFileSelect} 
+                accept="image/*" 
+                multiple
+                className="hidden" 
+            />
+            <input 
+                type="file" 
+                ref={cameraInputRef} 
                 onChange={handleFileSelect} 
                 accept="image/*" 
                 capture="environment"
                 multiple
                 className="hidden" 
             />
+
+            {/* 📷 POP UP PILIH SUMBER FOTO STRUK (GALERI ATAU KAMERA) */}
+            {showPhotoSourcePicker && !isScanning && !showConfirmModal && (
+                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#0b1329] text-white rounded-t-[32px] sm:rounded-[32px] w-full max-w-sm p-6 shadow-2xl border-t sm:border border-white/10 animate-in slide-in-from-bottom-6 duration-200">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-400 to-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-sky-500/20">
+                                    <Camera className="w-5 h-5 stroke-[2.5]" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-white">Scan Foto Struk AI</h3>
+                                    <p className="text-[10px] text-slate-400">Pilih sumber pengambilan foto</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => { setShowPhotoSourcePicker(false); onClose(); }} 
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                            Pilih foto struk yang sudah ada dari galeri perangkat Anda atau ambil foto baru langsung dengan kamera.
+                        </p>
+
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                            {/* Opsi 1: Dari Galeri HP */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowPhotoSourcePicker(false);
+                                    galleryInputRef.current?.click();
+                                }}
+                                className="flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-amber-400/40 active:scale-95 transition-all text-center group cursor-pointer"
+                            >
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-brand-navy flex items-center justify-center group-hover:scale-105 transition-transform shadow-md shadow-amber-500/20">
+                                    <ImagePlus className="w-6 h-6 stroke-[2.5]" />
+                                </div>
+                                <div>
+                                    <span className="text-xs font-black text-white block">Pilih Galeri</span>
+                                    <span className="text-[10px] text-slate-400">Dari memori HP</span>
+                                </div>
+                            </button>
+
+                            {/* Opsi 2: Buka Kamera */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowPhotoSourcePicker(false);
+                                    cameraInputRef.current?.click();
+                                }}
+                                className="flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-sky-400/40 active:scale-95 transition-all text-center group cursor-pointer"
+                            >
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-400 to-blue-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow-md shadow-sky-500/20">
+                                    <Camera className="w-6 h-6 stroke-[2.5]" />
+                                </div>
+                                <div>
+                                    <span className="text-xs font-black text-white block">Buka Kamera</span>
+                                    <span className="text-[10px] text-slate-400">Ambil foto baru</span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => { setShowPhotoSourcePicker(false); onClose(); }}
+                            className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                        >
+                            Batal
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* 🎙️ 1. POP UP / OVERLAY MENDENGARKAN SUARA (VOICE RECORDING) */}
             {isListening && (
