@@ -662,8 +662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const excludedEmails = new Set(excludedRows.map((r: any) => (r.email || '').toLowerCase().trim()).filter(Boolean));
 
           const allUsersRes = await db.execute(sql`
-            SELECT * FROM users 
-            WHERE (COALESCE(created_at, pro_since, trial_start_date, NOW()) >= '2026-08-31 00:00:00' OR created_at IS NULL)
+            SELECT * FROM users
           `);
           const rawUsers = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
           const allUsers = rawUsers.filter((u: any) => {
@@ -973,7 +972,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // AUM Volume Calculation (Kas Rupiah + Valas + Investasi + Saldo Tertahan + Piutang)
           let totalCashIDR = 0;
           allUsers.forEach((u: any) => {
-              totalCashIDR += Math.max(0, Number(u.cashBalance || u.cash_balance || 0));
+              let userCash = Number(u.cashBalance || u.cash_balance || 0);
+              try {
+                  const ws = typeof u.wallet_sources === 'string' ? JSON.parse(u.wallet_sources) : (u.wallet_sources || []);
+                  const wsSum = Array.isArray(ws) ? ws.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0) : 0;
+                  userCash = Math.max(userCash, wsSum);
+              } catch(e) {}
+              totalCashIDR += userCash;
           });
 
           let totalValasIDRAUM = 0;
@@ -3061,6 +3066,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               u.last_name AS "lastName", 
               u.phone AS "phone", 
               u.cash_balance AS "cashBalance", 
+              u.wallet_sources AS "walletSources", 
               u.is_pro AS "isPro", 
               u.pro_since AS "proSince", 
               u.pro_valid_until AS "proValidUntil", 
@@ -3071,12 +3077,11 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               (SELECT COUNT(*)::int FROM transactions WHERE user_id = u.id) AS "txCount",
               (SELECT MAX(date) FROM transactions WHERE user_id = u.id) AS "lastTxDate"
             FROM users u
-            WHERE (u.created_at >= '2026-08-31 00:00:00' OR u.created_at IS NULL)
-              AND u.id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL)
+            WHERE u.id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL)
               AND LOWER(COALESCE(u.email, u.username, '')) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND TRIM(email) != '')
               AND LOWER(COALESCE(u.email, u.username, '')) NOT LIKE '%@bilano.app%'
               AND LOWER(COALESCE(u.email, u.username, '')) NOT LIKE 'guest%'
-            ORDER BY u.id DESC
+            ORDER BY COALESCE((SELECT MAX(date) FROM transactions WHERE user_id = u.id), u.created_at) DESC
           `);
           
           const rawRows = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
@@ -3091,6 +3096,13 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               const hasRecentActivity = u.lastTxDate ? (new Date(u.lastTxDate).getTime() >= fourteenDaysAgo) : false;
               const isZombie = Boolean(u.isPro && !hasRecentActivity);
 
+              let userCash = Number(u.cashBalance || 0);
+              try {
+                  const ws = typeof u.walletSources === 'string' ? JSON.parse(u.walletSources) : (u.walletSources || []);
+                  const wsSum = Array.isArray(ws) ? ws.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0) : 0;
+                  userCash = Math.max(userCash, wsSum);
+              } catch(e) {}
+
               return {
                   id: u.id,
                   username: u.username,
@@ -3098,7 +3110,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   name: fullName || u.username || "User Bilano",
                   firstName: u.firstName,
                   lastName: u.lastName,
-                  cashBalance: Number(u.cashBalance || 0),
+                  cashBalance: userCash,
                   isPro: Boolean(u.isPro),
                   proSince: u.proSince ? new Date(u.proSince).toISOString() : null,
                   proValidUntil: u.proValidUntil ? new Date(u.proValidUntil).toISOString() : null,
