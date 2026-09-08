@@ -1642,12 +1642,16 @@ function parseCleanJson(text: string): any {
       } catch (e) { res.status(500).json({ error: "Gagal menyimpan ID OneSignal" }); }
   });
 
-  app.all("/api/cron/notifications", async (req: any, res: any) => {
+  app.all(["/api/cron/notifications", "/api/notifications/test"], async (req: any, res: any) => {
       try {
-          const restKey = process.env.ONESIGNAL_REST_KEY;
+          const rawRestKey = process.env.ONESIGNAL_REST_KEY;
           const appId = process.env.ONESIGNAL_APP_ID; 
 
-          if (!restKey || !appId) return res.status(400).json({ error: "ONESIGNAL_REST_KEY atau ONESIGNAL_APP_ID tidak ditemukan di environment Vercel." });
+          if (!rawRestKey || !appId) return res.status(400).json({ error: "ONESIGNAL_REST_KEY atau ONESIGNAL_APP_ID tidak ditemukan di environment Vercel." });
+
+          // Bersihkan REST Key dari spasi/karakter tersembunyi
+          const cleanKey = rawRestKey.replace(/[^a-zA-Z0-9_]/g, '');
+          const authHeader = cleanKey.startsWith("os_v2_") ? `Key ${cleanKey}` : `Basic ${cleanKey}`;
 
           // Hitung Jam Sekarang dalam WIB (UTC+7)
           const nowUtc = new Date();
@@ -1698,7 +1702,7 @@ function parseCleanJson(text: string): any {
 
           const payload = {
               app_id: appId,
-              included_segments: ["Subscribed Users"], 
+              included_segments: ["Total Subscriptions", "Subscribed Users"], 
               headings: { en: heading, id: heading },
               contents: { en: selectedMsg, id: selectedMsg },
               url: "https://bilano.app/",
@@ -1709,7 +1713,10 @@ function parseCleanJson(text: string): any {
 
           const response = await fetch("https://onesignal.com/api/v1/notifications", {
               method: "POST",
-              headers: { "Content-Type": "application/json", "Authorization": `Basic ${restKey}` },
+              headers: { 
+                  "Content-Type": "application/json", 
+                  "Authorization": authHeader 
+              },
               body: JSON.stringify(payload)
           });
 

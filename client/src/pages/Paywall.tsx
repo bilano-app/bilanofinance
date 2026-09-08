@@ -5,7 +5,7 @@ import { Button } from "@/components/UIComponents";
 import { useUser } from "@/hooks/use-finance";
 import { 
   CheckCircle2, Crown, ArrowRight, Loader2, X, AlertCircle,
-  ChevronDown, Copy, RefreshCw, BookOpen, Clock, ShieldCheck, Sparkles, Gift, Smartphone
+  ChevronDown, Copy, RefreshCw, BookOpen, Clock, ShieldCheck, Sparkles, Gift, Smartphone, Check
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWelcomeCountdown, getStoredUserGoal, getGoalPitchDetails } from "@/lib/welcome-deal";
@@ -130,29 +130,29 @@ export default function Paywall() {
 
   return (
     <MobileLayout>
-      <div className="min-h-screen bg-slate-50 text-slate-900 pb-12 flex flex-col items-center">
+      <div className="text-slate-900 pb-10 flex flex-col items-center w-full">
         
-        {/* TOP BAR */}
-        <div className="w-full flex items-center justify-between px-5 pt-6 mb-5 max-w-md">
+        {/* TOP BAR NAVIGATION */}
+        <div className="w-full flex items-center justify-between pt-1 mb-4">
           <button 
             onClick={handleContinueFree} 
-            className="w-10 h-10 rounded-full bg-white hover:bg-slate-100 shadow-xs flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors border border-slate-200 cursor-pointer"
+            className="w-9 h-9 rounded-full bg-white hover:bg-slate-100 shadow-xs flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors border border-slate-200 cursor-pointer"
             title="Tutup & Lanjut ke Beranda"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
-          <div className="bg-amber-50 text-brand-navy border border-amber-300/80 text-[10px] font-black px-3.5 py-1.5 rounded-full tracking-wider uppercase flex items-center gap-1.5 shadow-xs">
+          <div className="bg-amber-50 text-brand-navy border border-amber-300/80 text-[10px] font-black px-3 py-1 rounded-full tracking-wider uppercase flex items-center gap-1.5 shadow-xs">
             <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
             <span>BILANO VIP ACCESS</span>
           </div>
         </div>
 
         {!paymentDetails ? (
-          <div className="w-full px-5 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-md">
+          <div className="w-full animate-in fade-in slide-in-from-bottom-3 duration-300">
             
-            {/* STATUS BADGE: AKTIF TRIAL (HARI 1-7) ATAU 24H COUNTDOWN (HARI 8+) */}
+            {/* STATUS BADGE: AKTIF TRIAL (HARI 1-7) ATAU COUNTDOWN HARI 8 */}
             {trial.isTrialActive ? (
-              <div className="border-2 border-amber-300/80 bg-gradient-to-r from-amber-500/15 via-yellow-400/10 to-amber-500/5 rounded-2xl p-3.5 mb-5 shadow-xs">
+              <div className="border-2 border-amber-300/80 bg-gradient-to-r from-amber-500/15 via-yellow-400/10 to-amber-500/5 rounded-2xl p-3.5 mb-4 shadow-xs">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-brand-navy flex items-center justify-center font-black shrink-0 shadow-xs">
@@ -179,7 +179,7 @@ export default function Paywall() {
                 </div>
               </div>
             ) : (
-              <div className={`border-2 rounded-2xl p-3.5 mb-5 shadow-xs transition-all ${
+              <div className={`border-2 rounded-2xl p-3.5 mb-4 shadow-xs transition-all ${
                 countdown.isExpired 
                   ? 'bg-slate-100 border-slate-200 text-slate-600' 
                   : 'bg-amber-50/90 border-amber-300 text-slate-800'
@@ -229,43 +229,29 @@ export default function Paywall() {
                     </span>
                   </div>
                 </div>
-
-                {/* Explicit device-locking notice */}
-                <div className={`mt-2.5 pt-2 border-t text-[10px] leading-relaxed flex items-start gap-1.5 ${
-                  countdown.isExpired ? 'border-slate-200 text-slate-500' : 'border-amber-200 text-amber-900/90'
-                }`}>
-                  <Smartphone className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span>
-                    {countdown.isExpired ? (
-                      <>Promo bonus bundle e-book gratis telah berakhir untuk perangkat ini. Anda tetap dapat mengaktifkan Paket VIP Tahunan untuk akses tanpa batas seluruh fitur finansial cerdas.</>
-                    ) : (
-                      <><strong>Pemberitahuan:</strong> Promo gratis e-book ini dikunci khusus pada <strong>perangkat ini</strong> selama 24 jam hari ini. Tidak dapat diulang atau di-reset dengan mendaftar email baru di perangkat yang sama.</>
-                    )}
-                  </span>
-                </div>
               </div>
             )}
 
             {/* DYNAMIC PERSONALIZED HEADER */}
-            <div className="text-center mb-5">
-              <span className="inline-block bg-blue-50 text-brand-navy border border-blue-200 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider mb-2">
+            <div className="text-center mb-4">
+              <span className="inline-block bg-amber-100/90 text-amber-900 border border-amber-300/60 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider mb-2 shadow-xs">
                 {pitch.badge}
               </span>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 mb-1.5 leading-tight">
+              <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 mb-1 leading-tight">
                 {pitch.headline}
               </h1>
-              <p className="text-xs text-slate-500 font-medium leading-relaxed px-1">
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
                 {pitch.subheadline}
               </p>
             </div>
 
             {/* CYCLE TOGGLE (BULANAN vs TAHUNAN) */}
-            <div className="flex justify-center mb-5">
-              <div className="bg-slate-200/80 p-1 rounded-full flex relative border border-slate-200 shadow-inner">
+            <div className="flex justify-center mb-4">
+              <div className="bg-slate-200/90 p-1 rounded-full flex relative border border-slate-300/80 shadow-inner">
                 {cycle === 'annual' && (
                   <div className="absolute -top-7 left-1/2 -translate-x-1/2">
-                    <div className="bg-amber-400 text-[9px] font-black text-brand-navy px-2.5 py-0.5 rounded-full shadow-xs whitespace-nowrap uppercase tracking-wider">
-                      {countdown.isPromoActive ? 'Hemat 57% + 5 E-Book' : 'Hemat Rp 129.000'}
+                    <div className="bg-amber-400 text-[9px] font-black text-brand-navy px-3 py-0.5 rounded-full shadow-xs whitespace-nowrap uppercase tracking-wider">
+                      {countdown.isPromoActive ? 'Hemat Rp 129.000 + 5 E-Book' : 'Hemat Rp 129.000'}
                     </div>
                   </div>
                 )}
@@ -284,100 +270,149 @@ export default function Paywall() {
               </div>
             </div>
 
-            {/* MAIN PREMIUM VIP CARD */}
-            <div className="bg-gradient-to-b from-[#14234b] to-[#0c1735] rounded-[28px] p-5.5 border-2 border-brand-gold/60 shadow-xl relative overflow-hidden mb-4 text-white">
-              {cycle === 'annual' && (
+            {/* ============================================================== */}
+            {/* PAKET TAHUNAN (BIRU DONGKER / NAVY & GOLD) vs BULANAN (TEMA PUTIH) */}
+            {/* ============================================================== */}
+            {cycle === 'annual' ? (
+              /* CARD TAHUNAN: BIRU DONGKER / NAVY */
+              <div className="bg-gradient-to-b from-[#14234b] to-[#0c1735] rounded-[28px] p-5 border-2 border-brand-gold/70 shadow-xl relative overflow-hidden mb-4 text-white">
                 <div className="absolute top-0 right-0 bg-brand-gold text-brand-navy text-[9px] font-black px-3.5 py-1 rounded-bl-xl uppercase tracking-widest shadow-xs">
                   Paling Hemat
                 </div>
-              )}
 
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <span className="text-[9px] font-black text-brand-gold bg-brand-navy/80 border border-brand-gold/40 px-2.5 py-1 rounded-lg uppercase tracking-wider inline-block">
-                    Akses Penuh VIP
-                  </span>
-                  <h3 className="text-lg font-black mt-2 flex items-center gap-1.5 text-white">
-                    BILANO Premium <Crown className="w-4 h-4 fill-brand-gold text-brand-gold" />
-                  </h3>
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <span className="text-[9px] font-black text-brand-gold bg-brand-navy/90 border border-brand-gold/50 px-2.5 py-1 rounded-lg uppercase tracking-wider inline-block">
+                      Akses Penuh VIP
+                    </span>
+                    <h3 className="text-lg font-black mt-2 flex items-center gap-1.5 text-white">
+                      BILANO Premium <Crown className="w-4 h-4 fill-brand-gold text-brand-gold" />
+                    </h3>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-[11px] text-slate-400 line-through font-bold">
+                      Rp 228.000
+                    </p>
+                    <div className="flex items-baseline justify-end gap-1 mt-0.5">
+                      <span className="text-2xl sm:text-3xl font-black text-brand-gold tracking-tight leading-none">
+                        Rp 99.000
+                      </span>
+                      <span className="text-xs text-slate-300 font-medium">
+                        / tahun
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-amber-200/90 font-medium mt-1">
+                      (Rp 8.250 / bulan)
+                    </p>
+                  </div>
                 </div>
 
-                <div className="text-right">
-                  {cycle === 'annual' ? (
-                    <div>
-                      <p className="text-[11px] text-slate-400 line-through font-bold">
-                        Rp 228.000
-                      </p>
-                      <div className="flex items-baseline justify-end gap-1 mt-0.5">
-                        <span className="text-2xl sm:text-3xl font-black text-brand-gold tracking-tight leading-none">
-                          Rp 99.000
-                        </span>
-                        <span className="text-xs text-slate-300 font-medium">
-                          / tahun
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-amber-200/90 font-medium mt-1">
-                        (Rp 8.250 / bulan)
-                      </p>
+                {/* BENEFIT LIST TAHUNAN */}
+                <div className="space-y-2.5 pt-3.5 border-t border-white/10 mb-4">
+                  <BenefitItem 
+                    dark 
+                    active 
+                    highlight 
+                    icon={<Crown className="w-3.5 h-3.5 text-brand-gold"/>} 
+                    text={pitch.heroFeature} 
+                  />
+                  <BenefitItem dark active text="Konsultasi Asisten Finansial AI 24/7 Tanpa Batas" />
+                  <BenefitItem dark active text="Laporan Neraca & Radar Kebocoran Kas Lengkap" />
+                  <BenefitItem dark active text="Pemindai Struk Instan (OCR) & Dikte Suara AI" />
+                  <BenefitItem dark active text="Portofolio Saham, Kripto & Valas Multi-Mata Uang" />
+                </div>
+
+                {/* 🎁 PROMO E-BOOK SANGAT MENONJOL (EYE-CATCHING GOLD BOX) */}
+                <div className="bg-gradient-to-r from-amber-500/25 via-yellow-400/20 to-amber-500/15 border-2 border-amber-400 rounded-2xl p-3.5 shadow-lg relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="bg-amber-400 text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                      <Gift className="w-3 h-3 text-brand-navy" />
+                      BONUS EKSKLUSIF PAKET TAHUNAN
+                    </span>
+                    <span className="text-[9px] font-black text-emerald-300 uppercase tracking-wider font-mono">
+                      GRATIS (SENILAI RP 29.000)
+                    </span>
+                  </div>
+
+                  <h4 className="text-xs font-black text-amber-300 leading-snug mb-1 flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-amber-400 shrink-0" />
+                    Paket 5 E-Book Finansial Academy Lengkap:
+                  </h4>
+
+                  <div className="grid grid-cols-1 gap-1 text-[10px] text-slate-200 mt-2 bg-black/30 p-2.5 rounded-xl border border-white/10">
+                    <div className="flex items-center gap-1.5">
+                      <Check className="w-3 h-3 text-amber-400 shrink-0" strokeWidth={3} />
+                      <span className="font-semibold truncate">1. Psikologi Uang & Mindset Kaya</span>
                     </div>
-                  ) : (
-                    <div>
-                      <div className="flex items-baseline justify-end gap-1">
-                        <span className="text-2xl sm:text-3xl font-black text-brand-gold tracking-tight leading-none">
-                          Rp 19.000
-                        </span>
-                        <span className="text-xs text-slate-300 font-medium">
-                          / bulan
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-1.5">
+                      <Check className="w-3 h-3 text-amber-400 shrink-0" strokeWidth={3} />
+                      <span className="font-semibold truncate">2. Radar Kebocoran Kas & Audit Pengeluaran</span>
                     </div>
-                  )}
+                    <div className="flex items-center gap-1.5">
+                      <Check className="w-3 h-3 text-amber-400 shrink-0" strokeWidth={3} />
+                      <span className="font-semibold truncate">3. Strategi Lipatgandakan Cuan & Pemasukan</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Check className="w-3 h-3 text-amber-400 shrink-0" strokeWidth={3} />
+                      <span className="font-semibold truncate">4. Panduan Portofolio 50/30/20 & Saham Valas</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Check className="w-3 h-3 text-amber-400 shrink-0" strokeWidth={3} />
+                      <span className="font-semibold truncate">5. Benteng Finansial & Perlindungan Dana Darurat</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[9px] text-amber-200/90 font-medium mt-2 leading-relaxed">
+                    ✨ Langsung terbuka dan bisa dibaca di aplikasi seumur hidup tanpa bayar lagi!
+                  </p>
                 </div>
               </div>
+            ) : (
+              /* CARD BULANAN: TEMA PUTIH (WHITE THEME) */
+              <div className="bg-white rounded-[28px] p-5 border-2 border-slate-200 shadow-md relative overflow-hidden mb-4 text-slate-900">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <span className="text-[9px] font-black text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg uppercase tracking-wider inline-block">
+                      Paket Bulanan
+                    </span>
+                    <h3 className="text-lg font-black mt-2 text-slate-900">
+                      BILANO Bulanan
+                    </h3>
+                  </div>
 
-              {/* BENEFIT LIST */}
-              <div className="space-y-2.5 pt-3.5 border-t border-white/10 mb-3.5">
-                <BenefitItem 
-                  dark 
-                  active 
-                  highlight 
-                  icon={<Crown className="w-3.5 h-3.5 text-brand-gold"/>} 
-                  text={pitch.heroFeature} 
-                />
-                <BenefitItem dark active text="Konsultasi Asisten Finansial AI 24/7 Tanpa Batas" />
-                <BenefitItem dark active text="Laporan Neraca & Radar Kebocoran Kas Lengkap" />
-                <BenefitItem dark active text="Pemindai Struk Instan (OCR) & Dikte Suara AI" />
-                <BenefitItem dark active text="Portofolio Saham, Kripto & Valas Multi-Mata Uang" />
-                
-                {/* E-BOOK BUNDLE HIGHLIGHT */}
-                {cycle === 'annual' ? (
-                  !countdown.isExpired ? (
-                    <div className="bg-amber-400/10 border border-amber-400/30 rounded-xl p-2.5 flex items-start gap-2.5 mt-2">
-                      <Gift className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-xs font-black text-amber-300 leading-snug">
-                          Bonus Spesial: Paket 5 E-Book Finansial Academy
-                        </p>
-                        <p className="text-[10px] text-slate-300 leading-normal mt-0.5 font-medium">
-                          Harga normal Rp 29.000/tahun — <strong className="text-white font-bold">GRATIS</strong> khusus Paket Tahunan hari ini!
-                        </p>
-                      </div>
+                  <div className="text-right">
+                    <div className="flex items-baseline justify-end gap-1">
+                      <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
+                        Rp 19.000
+                      </span>
+                      <span className="text-xs text-slate-500 font-medium">
+                        / bulan
+                      </span>
                     </div>
-                  ) : (
-                    <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex items-start gap-2.5 mt-2 opacity-80">
-                      <Clock className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-xs font-bold text-slate-300 leading-snug">
-                          Diskon Paket Tahunan 57% Aktif
-                        </p>
-                      </div>
-                    </div>
-                  )
-                ) : (
-                  <BenefitItem dark active={false} text="Paket 5 E-Book Finansial Academy (Khusus Paket Tahunan)" />
-                )}
+                    <p className="text-[10px] text-slate-500 font-medium mt-1">
+                      Fleksibel bayar tiap bulan
+                    </p>
+                  </div>
+                </div>
+
+                {/* BENEFIT LIST BULANAN (TEMA TERANG) */}
+                <div className="space-y-2.5 pt-3.5 border-t border-slate-100 mb-3.5">
+                  <BenefitItem 
+                    dark={false} 
+                    active 
+                    highlight={false} 
+                    icon={<Crown className="w-3.5 h-3.5 text-amber-600"/>} 
+                    text={pitch.heroFeature} 
+                  />
+                  <BenefitItem dark={false} active text="Konsultasi Asisten Finansial AI 24/7 Tanpa Batas" />
+                  <BenefitItem dark={false} active text="Laporan Neraca & Radar Kebocoran Kas Lengkap" />
+                  <BenefitItem dark={false} active text="Pemindai Struk Instan (OCR) & Dikte Suara AI" />
+                  <BenefitItem dark={false} active text="Portofolio Saham, Kripto & Valas Multi-Mata Uang" />
+                  <BenefitItem dark={false} active={false} text="Paket 5 E-Book Finansial Academy (Khusus Paket Tahunan 99k)" />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* TRUST BADGE NOTICE */}
             <div className="bg-white border border-slate-200/90 rounded-2xl p-3 mb-4 flex items-center gap-2.5 shadow-xs">
@@ -388,7 +423,7 @@ export default function Paywall() {
             </div>
 
             {/* PAYMENT SELECTOR */}
-            <div className="flex flex-col gap-1.5 mb-5 relative" ref={dropdownRef}>
+            <div className="flex flex-col gap-1.5 mb-4 relative" ref={dropdownRef}>
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
                 Metode Pembayaran
               </label>
@@ -449,21 +484,21 @@ export default function Paywall() {
               </button>
             </div>
 
-            <p className="text-center text-[10px] text-slate-400 mt-3 font-semibold uppercase tracking-widest">
+            <p className="text-center text-[10px] text-slate-400 mt-2 font-semibold uppercase tracking-widest">
               Secure 256-bit Encrypted Payment Gateway
             </p>
           </div>
         ) : (
           /* PAYMENT PROCESSING VIEW */
-          <div className="w-full px-5 flex flex-col items-center animate-in zoom-in-95 duration-300 my-auto max-w-sm">
-            <div className="bg-white text-slate-900 rounded-[36px] p-7 w-full shadow-2xl text-center border border-slate-100">
+          <div className="w-full flex flex-col items-center animate-in zoom-in-95 duration-300 my-auto">
+            <div className="bg-white text-slate-900 rounded-[32px] p-6 w-full shadow-xl text-center border border-slate-100">
               <div className="w-12 h-12 rounded-2xl bg-amber-50 text-brand-navy border border-amber-200 flex items-center justify-center mx-auto mb-3">
                 <Crown className="w-6 h-6 text-brand-gold fill-current" />
               </div>
               <h2 className="text-xl font-black text-slate-900 mb-1">Selesaikan Pembayaran</h2>
-              <p className="text-xs text-slate-500 mb-5 font-medium">Scan QRIS atau transfer menuju Virtual Account berikut:</p>
+              <p className="text-xs text-slate-500 mb-4 font-medium">Scan QRIS atau transfer menuju Virtual Account berikut:</p>
 
-              <div className="bg-slate-50 rounded-2xl p-5 mb-5 border border-slate-200">
+              <div className="bg-slate-50 rounded-2xl p-4 mb-4 border border-slate-200">
                 {paymentDetails.qrString || paymentDetails.paymentUrl?.includes("qris") ? (
                   <div className="flex flex-col items-center">
                     <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 mb-3">
@@ -503,10 +538,10 @@ export default function Paywall() {
 
         {showPaymentAlert && (
           <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
-            <div className="bg-white rounded-[32px] p-7 w-full max-w-sm text-center shadow-2xl border border-slate-100 text-slate-900">
+            <div className="bg-white rounded-[32px] p-6 w-full max-w-sm text-center shadow-2xl border border-slate-100 text-slate-900">
               <div className="w-14 h-14 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-3"><AlertCircle className="w-7 h-7"/></div>
               <h3 className="text-lg font-black text-slate-900 mb-1.5">Pembayaran Belum Terdeteksi</h3>
-              <p className="text-xs text-slate-500 leading-relaxed font-medium mb-5">Sistem sedang menunggu mutasi dari bank/e-wallet Anda. Tunggu sekitar 1 menit lalu tekan Cek Status Pembayaran kembali.</p>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium mb-4">Sistem sedang menunggu mutasi dari bank/e-wallet Anda. Tunggu sekitar 1 menit lalu tekan Cek Status Pembayaran kembali.</p>
               <Button onClick={() => setShowPaymentAlert(false)} className="w-full h-12 bg-slate-900 text-white rounded-xl font-black text-xs hover:bg-slate-800 transition-colors cursor-pointer">SAYA MENGERTI</Button>
             </div>
           </div>
@@ -516,22 +551,22 @@ export default function Paywall() {
   );
 }
 
-function BenefitItem({ active, text, highlight, icon, dark }: { active?: boolean, text: string, highlight?: boolean, icon?: React.ReactNode, dark?: boolean }) {
+function BenefitItem({ active, text, highlight, icon, dark = true }: { active?: boolean, text: string, highlight?: boolean, icon?: React.ReactNode, dark?: boolean }) {
   return (
     <div className="flex items-start gap-2.5 w-full">
       <div className="shrink-0 w-4 h-4 flex items-center justify-center mt-0.5">
         {active ? (
-          <CheckCircle2 className={`w-4 h-4 ${highlight ? 'text-amber-400' : 'text-emerald-400'}`} />
+          <CheckCircle2 className={`w-4 h-4 ${highlight ? 'text-amber-400' : 'text-emerald-500'}`} />
         ) : (
-          <X className="w-4 h-4 text-slate-500" />
+          <X className="w-4 h-4 text-slate-400" />
         )}
       </div>
       <div className="flex items-start gap-1.5 min-w-0 flex-1">
-        {icon && <span className="text-amber-400 shrink-0 mt-0.5">{icon}</span>}
+        {icon && <span className="text-amber-500 shrink-0 mt-0.5">{icon}</span>}
         <span className={`text-xs font-bold leading-normal break-words ${
           active 
             ? (highlight ? 'text-amber-300' : (dark ? 'text-slate-200' : 'text-slate-700')) 
-            : 'text-slate-500 line-through'
+            : (dark ? 'text-slate-500 line-through' : 'text-slate-400 line-through')
         }`}>{text}</span>
       </div>
     </div>

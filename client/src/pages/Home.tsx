@@ -559,8 +559,23 @@ export default function Home() {
 
             try {
                 (window as any).OneSignalDeferred = (window as any).OneSignalDeferred || [];
-                (window as any).OneSignalDeferred.push(function (OneSignal: any) {
-                    OneSignal.Slidedown.promptPush();
+                (window as any).OneSignalDeferred.push(async function (OneSignal: any) {
+                    try {
+                        if (OneSignal.User && OneSignal.User.PushSubscription) {
+                            await OneSignal.User.PushSubscription.optIn();
+                            const subId = OneSignal.User.PushSubscription.id;
+                            if (subId) {
+                                const email = localStorage.getItem("bilano_email") || "guest";
+                                fetch('/api/user/onesignal', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'x-user-email': email },
+                                    body: JSON.stringify({ onesignalId: subId })
+                                }).catch(() => {});
+                            }
+                        }
+                    } catch (err) {
+                        console.log("OneSignal optIn notice:", err);
+                    }
                 });
             } catch (e) { }
 

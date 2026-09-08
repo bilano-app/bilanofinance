@@ -355,6 +355,81 @@ export default function Profile() {
                 </div>
             </div>
 
+            {/* CARD 3: DIAGNOSTIK & UJI NOTIFIKASI */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs hover:shadow-sm space-y-3.5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div className="flex items-center gap-2">
+                        <span className="text-base">🔔</span>
+                        <h3 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider">
+                            Status & Uji Notifikasi
+                        </h3>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                        {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' ? 'AKTIF ✅' : 'NONAKTIF ⚠️'}
+                    </span>
+                </div>
+
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Tekan tombol di bawah untuk menguji apakah notifikasi berhasil muncul di layar HP atau browser perangkat Anda saat ini.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            if (!("Notification" in window)) {
+                                alert("Browser ini tidak mendukung Web Notification.");
+                                return;
+                            }
+                            if (Notification.permission !== "granted") {
+                                const perm = await Notification.requestPermission();
+                                if (perm !== "granted") {
+                                    alert("Izin notifikasi belum diberikan pada browser Anda. Silakan izinkan di pengaturan browser.");
+                                    return;
+                                }
+                            }
+                            // Tes 1: Notifikasi Lokal Cepat
+                            if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+                                const reg = await navigator.serviceWorker.ready;
+                                reg.showNotification("🎉 Notifikasi BILANO Berhasil!", {
+                                    body: "Sistem notifikasi perangkat Anda telah terhubung sempurna.",
+                                    icon: "/BILANO-ICON-NEW.png",
+                                    badge: "/BILANO-ICON-NEW.png"
+                                } as any);
+                            } else {
+                                new Notification("🎉 Notifikasi BILANO Berhasil!", {
+                                    body: "Sistem notifikasi perangkat Anda telah terhubung sempurna.",
+                                    icon: "/BILANO-ICON-NEW.png"
+                                });
+                            }
+                        }}
+                        className="h-11 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                        <span>🧪 Tes Notif Perangkat Ini</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            try {
+                                const res = await fetch('/api/notifications/test');
+                                const data = await res.json();
+                                if (data.success) {
+                                    alert("✅ Push Notifikasi Server berhasil dikirim!\n\nPesan: " + data.message + "\nJam WIB: " + data.wibHour + ":00");
+                                } else {
+                                    alert("⚠️ Respon Server: " + (data.error || JSON.stringify(data)));
+                                }
+                            } catch (err: any) {
+                                alert("❌ Gagal menembak server: " + err.message);
+                            }
+                        }}
+                        className="h-11 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-[11px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                        <span>🚀 Tes Push Server OneSignal</span>
+                    </button>
+                </div>
+            </div>
+
             {/* TOMBOL SIMPAN */}
             <button 
                 type="button"
