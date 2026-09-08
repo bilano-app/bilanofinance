@@ -36,7 +36,7 @@ export function useNotifications() {
             if (sessionKey && !localStorage.getItem(sessionKey)) {
                 localStorage.setItem(sessionKey, "true");
 
-                const options: NotificationOptions = {
+                const options = {
                     body,
                     icon: "/BILANO-ICON-NEW.png",
                     badge: "/BILANO-ICON-NEW.png",

@@ -15,10 +15,55 @@ import { trackEvent } from "@/lib/tracking";
 const createImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const image = new Image();
+    image.crossOrigin = "anonymous";
     image.addEventListener("load", () => resolve(image));
     image.addEventListener("error", (error) => reject(error));
     image.src = url;
   });
+
+const readFileAsOptimizedDataUrl = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Gagal membaca file gambar"));
+    reader.onload = () => {
+      const rawDataUrl = reader.result?.toString() || "";
+      const img = new Image();
+      img.onerror = () => reject(new Error("Format foto tidak didukung di perangkat ini."));
+      img.onload = () => {
+        const maxDim = 1600;
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
+        
+        if (!width || !height) {
+          return resolve(rawDataUrl);
+        }
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(img, 0, 0, width, height);
+            return resolve(canvas.toDataURL("image/jpeg", 0.9));
+          }
+        }
+        resolve(rawDataUrl);
+      };
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+};
 
 async function getCroppedImg(imageSrc: string, pixelCrop: any): Promise<string> {
   const image = await createImage(imageSrc);
@@ -27,19 +72,29 @@ async function getCroppedImg(imageSrc: string, pixelCrop: any): Promise<string> 
 
   if (!ctx) return "";
 
-  canvas.width = pixelCrop.width;
-  canvas.height = pixelCrop.height;
+  // Output avatar 360x360 px: Sangat tajam & jernih di layar Retina, namun ukuran base64 hanya ~25KB - 40KB
+  const targetSize = 360;
+  canvas.width = targetSize;
+  canvas.height = targetSize;
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  const cropX = pixelCrop?.x ?? 0;
+  const cropY = pixelCrop?.y ?? 0;
+  const cropW = pixelCrop?.width || image.naturalWidth || image.width;
+  const cropH = pixelCrop?.height || image.naturalHeight || image.height;
 
   ctx.drawImage(
     image,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
+    cropX,
+    cropY,
+    cropW,
+    cropH,
     0,
     0,
-    pixelCrop.width,
-    pixelCrop.height
+    targetSize,
+    targetSize
   );
   return canvas.toDataURL("image/jpeg", 0.85);
 }
@@ -56,11 +111,12 @@ export default function Profile() {
   const [newPassword, setNewPassword] = useState("");
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isProcessingImg, setIsProcessingImg] = useState(false);
 
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const [isCropping, setIsCropping] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,17 +132,26 @@ export default function Profile() {
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      if (file.size > 5 * 1024 * 1024) {
-          toast({ title: "Foto Terlalu Besar", description: "Maksimal ukuran file foto adalah 5MB.", variant: "destructive" });
+      if (file.size > 25 * 1024 * 1024) {
+          toast({ title: "Ukuran File Terlalu Besar", description: "Maksimal ukuran foto adalah 25MB.", variant: "destructive" });
           return;
       }
-      const reader = new FileReader();
-      reader.addEventListener("load", () => {
-        setImageSrc(reader.result?.toString() || "");
+      setIsProcessingImg(true);
+      try {
+        const optimizedSrc = await readFileAsOptimizedDataUrl(file);
+        setImageSrc(optimizedSrc);
         setIsCropping(true); 
         setZoom(1);
-      });
-      reader.readAsDataURL(file);
+        setCrop({ x: 0, y: 0 });
+      } catch (err: any) {
+        toast({ title: "Gagal Membuka Foto", description: err?.message || "Format gambar tidak dikenali.", variant: "destructive" });
+      } finally {
+        setIsProcessingImg(false);
+        // Reset input value so re-selecting same file triggers change
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
     }
   };
 
@@ -96,14 +161,19 @@ export default function Profile() {
 
   const showCroppedImage = async () => {
     try {
-      if (imageSrc && croppedAreaPixels) {
-        const croppedImage = await getCroppedImg(imageSrc, croppedAreaPixels);
+      if (!imageSrc) return;
+      setIsProcessingImg(true);
+      const croppedImage = await getCroppedImg(imageSrc, croppedAreaPixels);
+      if (croppedImage) {
         setPhotoUrl(croppedImage); 
         setIsCropping(false); 
-        setImageSrc(null); 
+        setImageSrc(null);
+        toast({ title: "Foto Terpilih! ✨", description: "Jangan lupa tekan tombol 'Simpan Perubahan' di bawah." });
       }
-    } catch (e) {
-      toast({ title: "Gagal Memotong", description: "Gagal memproses gambar.", variant: "destructive" });
+    } catch (e: any) {
+      toast({ title: "Gagal Memotong", description: "Gagal memproses gambar: " + (e?.message || ""), variant: "destructive" });
+    } finally {
+      setIsProcessingImg(false);
     }
   };
 
@@ -120,7 +190,8 @@ export default function Profile() {
         body: JSON.stringify({ firstName, lastName, profilePicture: photoUrl })
       });
 
-      if (!resProfile.ok) throw new Error("Gagal menyimpan biodata profil.");
+      const profileData = await resProfile.json().catch(() => null);
+      if (!resProfile.ok) throw new Error(profileData?.error || "Gagal menyimpan biodata profil.");
 
       // 2. Update Password Permanen jika diisi
       if (newPassword.trim().length > 0) {
@@ -135,10 +206,11 @@ export default function Profile() {
               },
               body: JSON.stringify({ newPassword: newPassword.trim() })
           });
-          if (!resPass.ok) throw new Error("Gagal menyimpan password baru.");
+          const passData = await resPass.json().catch(() => null);
+          if (!resPass.ok) throw new Error(passData?.error || "Gagal menyimpan password baru.");
       }
 
-      toast({ title: "Berhasil! ✨", description: "Biodata profil & pengaturan keamanan berhasil diperbarui." });
+      toast({ title: "Berhasil! ✨", description: "Biodata profil & foto profil berhasil diperbarui." });
       await refetch();
       
       setTimeout(() => { window.location.href = "/"; }, 800);
@@ -209,11 +281,16 @@ export default function Profile() {
             {/* AVATAR UPLOAD SECTION DI ATAS KARTU HEADER */}
             <div className="flex flex-col items-center mt-5">
                 <div 
-                    onClick={() => fileInputRef.current?.click()} 
+                    onClick={() => !isProcessingImg && fileInputRef.current?.click()} 
                     className="relative group cursor-pointer active:scale-95 transition-transform"
                 >
-                    <div className="w-28 h-28 rounded-full border-4 border-white bg-slate-100 shadow-md overflow-hidden flex items-center justify-center">
-                        {photoUrl ? (
+                    <div className="w-28 h-28 rounded-full border-4 border-white bg-slate-100 shadow-md overflow-hidden flex items-center justify-center relative">
+                        {isProcessingImg ? (
+                            <div className="flex flex-col items-center justify-center bg-slate-100 w-full h-full text-brand-navy">
+                                <Loader2 className="w-8 h-8 animate-spin text-brand-gold" />
+                                <span className="text-[9px] font-bold mt-1 text-slate-500">Memproses...</span>
+                            </div>
+                        ) : photoUrl ? (
                             <img src={photoUrl} alt="Profile" className="w-full h-full object-cover" />
                         ) : (
                             <User className="w-14 h-14 text-slate-400" />
@@ -270,24 +347,42 @@ export default function Profile() {
                         <div className="flex gap-3">
                             <button 
                                 type="button"
+                                disabled={isProcessingImg}
                                 onClick={() => { setIsCropping(false); setImageSrc(null); }} 
-                                className="flex-1 h-12 rounded-2xl bg-slate-800 text-slate-300 font-bold text-xs uppercase tracking-wider active:scale-95 transition-all cursor-pointer"
+                                className="flex-1 h-12 rounded-2xl bg-slate-800 text-slate-300 font-bold text-xs uppercase tracking-wider active:scale-95 transition-all cursor-pointer disabled:opacity-50"
                             >
                                 <X className="w-4 h-4 inline mr-1"/> Batal
                             </button>
                             <button 
                                 type="button"
+                                disabled={isProcessingImg}
                                 onClick={showCroppedImage} 
-                                className="flex-1 h-12 rounded-2xl bg-brand-gold text-brand-navy font-bold text-xs uppercase tracking-wider shadow-sm active:scale-95 transition-all cursor-pointer"
+                                className="flex-1 h-12 rounded-2xl bg-brand-gold text-brand-navy font-bold text-xs uppercase tracking-wider shadow-sm active:scale-95 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
                             >
-                                <Check className="w-4 h-4 inline mr-1"/> Terapkan Foto
+                                {isProcessingImg ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin inline mr-1" />
+                                        <span>Memproses...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check className="w-4 h-4 inline mr-1"/> 
+                                        <span>Terapkan Foto</span>
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            <input type="file" ref={fileInputRef} onChange={onFileChange} accept="image/*" className="hidden" />
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={onFileChange} 
+                accept="image/png, image/jpeg, image/jpg, image/webp, image/*" 
+                className="hidden" 
+            />
 
             {/* CARD 1: INFORMASI BIODATA */}
             <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs hover:shadow-sm space-y-4">

@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { trackEvent } from "@/lib/tracking";
 import { isInAppBrowser, isIOS, buildChromeIntentUrl } from "@/lib/browserDetect";
+import { initTrialSession } from "@/lib/trial-data";
 
 export default function Landing() {
   const [, setLocation] = useLocation();

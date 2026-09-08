@@ -3007,7 +3007,26 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
       res.json({ id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 });
     }
   });
-  app.patch("/api/user/profile", async (req: any, res: any) => { const user = await getUser(req); await storage.updateUserProfile(user!.id, req.body.firstName, req.body.lastName, req.body.profilePicture, req.body.phone); res.json({success:true}); });
+  app.patch("/api/user/profile", async (req: any, res: any) => { 
+    try {
+      const user = await getUser(req); 
+      if (!user || !user.id) {
+        return res.status(401).json({ error: "Sesi tidak ditemukan atau kedaluwarsa. Silakan refresh halaman." });
+      }
+      const { firstName, lastName, profilePicture, phone } = req.body || {};
+      const updated = await storage.updateUserProfile(
+        user.id, 
+        typeof firstName === 'string' ? firstName.trim() : (user.firstName || ''), 
+        typeof lastName === 'string' ? lastName.trim() : (user.lastName || ''), 
+        profilePicture, 
+        phone
+      ); 
+      res.json({ success: true, user: updated }); 
+    } catch (err: any) {
+      console.error("Error updating user profile:", err);
+      res.status(500).json({ error: "Gagal memperbarui profil: " + (err?.message || "Kesalahan server") });
+    }
+  });
 
   // 🚀 KOMITMEN ONBOARDING & AKTIVASI TRIAL 7 HARI
   app.post("/api/user/commitment", async (req: any, res: any) => {
