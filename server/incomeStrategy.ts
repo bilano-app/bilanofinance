@@ -5,18 +5,20 @@ import { db } from "./db.js";
 import { sql } from "drizzle-orm";
 
 const getUser = async (req: any) => {
-  const email = req.headers["x-user-email"];
-  if (!email || email === "guest") {
-    let user = await storage.getUser(1);
-    if (!user) user = await storage.createUser({ username: "guest", password: "123", email: "guest@bilano.app" });
-    return user;
+  const rawEmail = req.headers["x-user-email"];
+  const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : "";
+  if (!email || email === "guest" || email === "guest@bilano.app") {
+    let user = await storage.getUser(1).catch(() => null);
+    if (!user) user = await storage.getUserByUsername("guest").catch(() => null);
+    if (!user) user = await storage.createUser({ username: "guest", password: "123", email: "guest@bilano.app" }).catch(() => null);
+    return user || { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 };
   }
-  let user = await storage.getUserByUsername(email as string);
+  let user = await storage.getUserByUsername(email).catch(() => null);
   if (!user) {
-    try { user = await storage.createUser({ username: email as string, password: "123", email: email as string }); }
-    catch (err) { user = await storage.getUserByUsername(email as string); }
+    try { user = await storage.createUser({ username: email, password: "123", email: email }); }
+    catch (err) { user = await storage.getUserByUsername(email).catch(() => null); }
   }
-  return user;
+  return user || { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 };
 };
 
 function safeParse(val: any, fallback: any) {

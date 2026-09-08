@@ -4,6 +4,7 @@ import { Card, Button, Input } from "@/components/UIComponents";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, RefreshCw, AlertCircle, X, CheckCircle2, ShieldCheck, User as UserIcon } from "lucide-react";
 import { auth } from "@/lib/firebase";
+import { queryClient } from "@/lib/queryClient";
 import { 
     getRedirectResult,
     signInWithEmailAndPassword,
@@ -63,8 +64,20 @@ export default function Auth() {
       setLoading(true);
 
       const cleanEmail = (user.email || "").trim().toLowerCase();
+      
+      // Bersihkan seluruh artefak trial & guest
+      sessionStorage.removeItem("bilano_trial_session");
+      sessionStorage.removeItem("bilano_trial_visited_performance");
+      sessionStorage.removeItem("bilano_trial_simulated");
+      localStorage.removeItem("bilano_guest_mode");
+      localStorage.removeItem("bilano_trial_mode");
+      localStorage.removeItem("bilano_trial_sandbox_data");
+
       localStorage.setItem("bilano_auth", "true");
       localStorage.setItem("bilano_email", cleanEmail);
+      
+      // Bersihkan cache query agar data user baru dimuat segar
+      queryClient.clear();
       
       clearAuthCache(); 
       setLoading(false);
@@ -73,9 +86,7 @@ export default function Auth() {
           toast({ title: "Registrasi Berhasil!", description: "Personalisasi akun finansialmu dalam 30 detik." });
           setLocation("/onboarding"); // Pindah ke onboarding 3 pertanyaan
       } else {
-          const isStandalone = typeof window !== 'undefined' && 
-              (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true);
-          window.location.href = isStandalone ? "/" : "/dashboard"; 
+          window.location.href = "/"; 
       }
   };
 

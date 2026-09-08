@@ -97,6 +97,16 @@ const TRIAL_STORAGE_KEY = "bilano_trial_sandbox_data";
 export function isTrialMode(): boolean {
   if (typeof window === "undefined") return false;
 
+  const rawEmail = (localStorage.getItem("bilano_email") || "").trim().toLowerCase();
+  const isAuth = localStorage.getItem("bilano_auth") === "true";
+  const isGuestFlag = localStorage.getItem("bilano_guest_mode") === "true";
+  const isTrialFlag = localStorage.getItem("bilano_trial_mode") === "true";
+
+  // 1. Pengguna yang sudah login dengan akun riil TIDAK PERNAH masuk mode trial
+  if (isAuth && rawEmail && rawEmail !== "guest@bilano.app" && rawEmail !== "guest" && !isGuestFlag && !isTrialFlag) {
+    return false;
+  }
+
   const isStandalone =
     window.matchMedia("(display-mode: standalone)").matches ||
     (window.navigator as any).standalone === true;
@@ -104,12 +114,9 @@ export function isTrialMode(): boolean {
   const urlParams = new URLSearchParams(window.location.search);
   const hasTrialParam = urlParams.get("trial") === "true";
   const hasTrialSession = sessionStorage.getItem("bilano_trial_session") === "true";
-  const isGuest =
-    localStorage.getItem("bilano_guest_mode") === "true" ||
-    localStorage.getItem("bilano_trial_mode") === "true" ||
-    localStorage.getItem("bilano_email") === "guest@bilano.app";
+  const isGuest = isGuestFlag || isTrialFlag || rawEmail === "guest@bilano.app" || rawEmail === "guest";
 
-  // 1. Jika URL secara eksplisit memiliki ?trial=true, inisialisasi dan aktifkan mode trial
+  // 2. Jika URL secara eksplisit memiliki ?trial=true, inisialisasi dan aktifkan mode trial
   if (hasTrialParam) {
     if (!hasTrialSession) {
       initTrialSession();
@@ -117,14 +124,15 @@ export function isTrialMode(): boolean {
     return true;
   }
 
-  // 2. Jika di browser biasa membuka root '/' tanpa ?trial=true,
-  // berarti pengguna mengetik bilano.app di browser -> selalu bersihkan sesi trial dan tampilkan Landing!
+  // 3. Jika di browser biasa membuka root '/' tanpa ?trial=true dan sedang dalam mode tamu, bersihkan sesi tamu
   if (!isStandalone && window.location.pathname === "/" && !hasTrialParam) {
-    clearTrialMode();
+    if (isGuest || hasTrialSession) {
+      clearTrialMode();
+    }
     return false;
   }
 
-  // 3. Jika pernah coba di browser tapi tab/browser sudah pernah ditutup
+  // 4. Jika pernah coba di browser tapi tab/browser sudah pernah ditutup
   if (isGuest && !hasTrialSession) {
     clearTrialMode();
     return false;
@@ -402,13 +410,18 @@ export function recordTrialExpense(
 export function clearTrialMode(): void {
   if (typeof window === "undefined") return;
   sessionStorage.removeItem("bilano_trial_session");
-  localStorage.removeItem("bilano_guest_mode");
-  localStorage.removeItem("bilano_trial_mode");
-  localStorage.removeItem("bilano_auth");
-  localStorage.removeItem("bilano_email");
-  localStorage.removeItem(TRIAL_STORAGE_KEY);
   sessionStorage.removeItem("bilano_trial_visited_performance");
   sessionStorage.removeItem("bilano_trial_simulated");
+  localStorage.removeItem("bilano_guest_mode");
+  localStorage.removeItem("bilano_trial_mode");
+  localStorage.removeItem(TRIAL_STORAGE_KEY);
+  
+  // HANYA hapus bilano_auth / bilano_email jika pengguna saat ini berstatus guest/tamu
+  const currentEmail = (localStorage.getItem("bilano_email") || "").trim().toLowerCase();
+  if (!currentEmail || currentEmail === "guest@bilano.app" || currentEmail === "guest") {
+    localStorage.removeItem("bilano_auth");
+    localStorage.removeItem("bilano_email");
+  }
 }
 
 export function triggerPwaInstallOrGuide(navigate?: (path: string) => void): void {

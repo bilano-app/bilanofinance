@@ -6,11 +6,11 @@ import {
 
 import { isTrialMode, getTrialData } from "@/lib/trial-data";
 
-const getHeaders = () => {
-    const email = localStorage.getItem("bilano_email");
+const getHeaders = (emailOverride?: string) => {
+    const email = emailOverride || (typeof window !== "undefined" ? localStorage.getItem("bilano_email") : "") || "guest";
     return { 
         "Content-Type": "application/json",
-        "x-user-email": email || "guest" 
+        "x-user-email": email.trim().toLowerCase() 
     };
 };
 
@@ -18,48 +18,53 @@ const CACHE_TIME = 1000 * 60; // 1 Menit
 
 let globalFetchPromise: Promise<any> | null = null;
 let globalFetchTime = 0;
+let globalFetchEmail = "";
 
-const fetchSuperData = async () => {
-    // Jika dalam mode uji coba browser (Trial Mode), gunakan trial dummy data langsung
+export const fetchSuperData = async (forceEmail?: string) => {
+    const email = (forceEmail || (typeof window !== "undefined" ? localStorage.getItem("bilano_email") : "") || "guest").trim().toLowerCase();
+
+    // Jika dalam mode uji coba browser (Trial Mode) dan BUKAN user berakun
     if (isTrialMode()) {
         const trial = getTrialData();
         return {
             user: trial.user,
-            transactions: trial.transactions,
-            investments: trial.investments,
-            debts: trial.debts,
-            forexAssets: trial.forexAssets,
-            subscriptions: trial.subscriptions,
+            transactions: trial.transactions || [],
+            investments: trial.investments || [],
+            debts: trial.debts || [],
+            forexAssets: trial.forexAssets || [],
+            subscriptions: trial.subscriptions || [],
             target: trial.target,
-            retained: trial.retained,
+            retained: trial.retained || [],
         };
     }
 
     const now = Date.now();
-    if (globalFetchPromise && (now - globalFetchTime < 3000)) {
+    if (globalFetchPromise && (now - globalFetchTime < 3000) && globalFetchEmail === email) {
         return globalFetchPromise;
     }
 
     globalFetchTime = now;
+    globalFetchEmail = email;
     globalFetchPromise = (async () => {
-        const headers = getHeaders();
+        const headers = getHeaders(email);
         const [resReports, resTarget] = await Promise.all([
             fetch("/api/reports/data", { headers }),
             fetch("/api/target", { headers })
         ]);
 
-        if (!resReports.ok) throw new Error("Gagal membangunkan server Vercel.");
+        if (!resReports.ok) throw new Error("Gagal memuat data dari server.");
 
         const reportsData = await resReports.json();
         const targetData = resTarget.ok ? await resTarget.json() : null;
 
         return {
             user: reportsData.user,
-            transactions: reportsData.transactions,
-            investments: reportsData.investments,
-            debts: reportsData.debts,
-            forexAssets: reportsData.forexAssets,
-            subscriptions: reportsData.subscriptions,
+            transactions: reportsData.transactions || [],
+            investments: reportsData.investments || [],
+            debts: reportsData.debts || [],
+            forexAssets: reportsData.forexAssets || [],
+            subscriptions: reportsData.subscriptions || [],
+            retained: reportsData.retained || [],
             target: targetData
         };
     })();
@@ -99,17 +104,18 @@ export function isPremiumFeatureLocked(user: any): boolean {
 }
 
 export function useUser() {
-  const email = localStorage.getItem("bilano_email") || "";
+  const email = (typeof window !== "undefined" ? localStorage.getItem("bilano_email") : "") || "";
+  const cleanEmail = email.trim().toLowerCase();
   return useQuery({
-    queryKey: ["user", email],
+    queryKey: ["user", cleanEmail],
     queryFn: async () => {
-      const allData = await fetchSuperData();
+      const allData = await fetchSuperData(cleanEmail);
       const data = allData.user;
       const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"]; 
       
       if (data) {
           let isReallyPro = false;
-          if (vipEmails.includes(email)) {
+          if (vipEmails.includes(cleanEmail)) {
               isReallyPro = true;
           } else if (data.isPro) {
               if (data.proValidUntil) {
@@ -144,11 +150,13 @@ export function useUser() {
 }
 
 export function useTransactions() {
+  const email = (typeof window !== "undefined" ? localStorage.getItem("bilano_email") : "") || "";
+  const cleanEmail = email.trim().toLowerCase();
   return useQuery<Transaction[]>({
-    queryKey: ["transactions"],
+    queryKey: ["transactions", cleanEmail],
     queryFn: async () => {
-      const allData = await fetchSuperData();
-      return allData.transactions;
+      const allData = await fetchSuperData(cleanEmail);
+      return allData.transactions || [];
     },
     staleTime: CACHE_TIME,
     retry: 3,
@@ -167,20 +175,20 @@ export function useAddTransaction() {
     onSuccess: () => {
       globalFetchPromise = null;
       globalFetchTime = 0;
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["user"] });
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      globalFetchEmail = "";
       queryClient.invalidateQueries();
     },
   });
 }
 
 export function useInvestments() {
+  const email = (typeof window !== "undefined" ? localStorage.getItem("bilano_email") : "") || "";
+  const cleanEmail = email.trim().toLowerCase();
   return useQuery<Investment[]>({
-    queryKey: ["investments"],
+    queryKey: ["investments", cleanEmail],
     queryFn: async () => {
-      const allData = await fetchSuperData();
-      return allData.investments;
+      const allData = await fetchSuperData(cleanEmail);
+      return allData.investments || [];
     },
     staleTime: CACHE_TIME,
     retry: 3,
@@ -196,8 +204,10 @@ export function useBuyInvestment() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["investments"] });
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+      globalFetchPromise = null;
+      globalFetchTime = 0;
+      globalFetchEmail = "";
+      queryClient.invalidateQueries();
     },
   });
 }
@@ -211,17 +221,21 @@ export function useSellInvestment() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["investments"] });
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+      globalFetchPromise = null;
+      globalFetchTime = 0;
+      globalFetchEmail = "";
+      queryClient.invalidateQueries();
     },
   });
 }
 
 export function useTarget() {
+  const email = (typeof window !== "undefined" ? localStorage.getItem("bilano_email") : "") || "";
+  const cleanEmail = email.trim().toLowerCase();
   return useQuery<Target | null>({
-    queryKey: ["target"],
+    queryKey: ["target", cleanEmail],
     queryFn: async () => {
-      const allData = await fetchSuperData();
+      const allData = await fetchSuperData(cleanEmail);
       return allData.target;
     },
     staleTime: CACHE_TIME,
@@ -238,30 +252,37 @@ export function useUpdateTarget() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["target"] });
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+      globalFetchPromise = null;
+      globalFetchTime = 0;
+      globalFetchEmail = "";
+      queryClient.invalidateQueries();
     },
   });
 }
 
 export function useCategories() {
+  const email = (typeof window !== "undefined" ? localStorage.getItem("bilano_email") : "") || "";
+  const cleanEmail = email.trim().toLowerCase();
   return useQuery<Category[]>({
-    queryKey: ["categories"],
+    queryKey: ["categories", cleanEmail],
     queryFn: async () => {
-      const res = await fetch("/api/categories", { headers: getHeaders() });
+      const res = await fetch("/api/categories", { headers: getHeaders(cleanEmail) });
+      if (!res.ok) return [];
       return res.json();
     },
-    staleTime: Infinity,
+    staleTime: CACHE_TIME,
     retry: 3,
   });
 }
 
 export function useForexAssets() {
+    const email = (typeof window !== "undefined" ? localStorage.getItem("bilano_email") : "") || "";
+    const cleanEmail = email.trim().toLowerCase();
     return useQuery<ForexAsset[]>({
-        queryKey: ["forex"],
+        queryKey: ["forex", cleanEmail],
         queryFn: async () => {
-            const allData = await fetchSuperData();
-            return allData.forexAssets;
+            const allData = await fetchSuperData(cleanEmail);
+            return allData.forexAssets || [];
         },
         staleTime: CACHE_TIME,
         retry: 3,
@@ -269,11 +290,13 @@ export function useForexAssets() {
 }
 
 export function useDebts() {
+    const email = (typeof window !== "undefined" ? localStorage.getItem("bilano_email") : "") || "";
+    const cleanEmail = email.trim().toLowerCase();
     return useQuery<Debt[]>({
-        queryKey: ["debts"],
+        queryKey: ["debts", cleanEmail],
         queryFn: async () => {
-            const allData = await fetchSuperData();
-            return allData.debts;
+            const allData = await fetchSuperData(cleanEmail);
+            return allData.debts || [];
         },
         staleTime: CACHE_TIME,
         retry: 3,
@@ -281,11 +304,13 @@ export function useDebts() {
 }
 
 export function useSubscriptions() {
+    const email = (typeof window !== "undefined" ? localStorage.getItem("bilano_email") : "") || "";
+    const cleanEmail = email.trim().toLowerCase();
     return useQuery<Subscription[]>({
-        queryKey: ["subscriptions"],
+        queryKey: ["subscriptions", cleanEmail],
         queryFn: async () => {
-            const allData = await fetchSuperData();
-            return allData.subscriptions;
+            const allData = await fetchSuperData(cleanEmail);
+            return allData.subscriptions || [];
         },
         staleTime: CACHE_TIME,
         retry: 3,
@@ -296,21 +321,29 @@ export function useUndoTransaction() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/transactions/undo", { method: "POST", headers: { "Content-Type": "application/json", "x-user-email": localStorage.getItem("bilano_email") || "guest" } });
+      const email = typeof window !== "undefined" ? localStorage.getItem("bilano_email") || "guest" : "guest";
+      const res = await fetch("/api/transactions/undo", { method: "POST", headers: { "Content-Type": "application/json", "x-user-email": email.trim().toLowerCase() } });
       if (!res.ok) {
           const err = await res.json();
           throw new Error(err.error || "Gagal membatalkan transaksi");
       }
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries(),
+    onSuccess: () => {
+      globalFetchPromise = null;
+      globalFetchTime = 0;
+      globalFetchEmail = "";
+      queryClient.invalidateQueries();
+    },
   });
 }
 
 export function useReportsData() {
+    const email = (typeof window !== "undefined" ? localStorage.getItem("bilano_email") : "") || "";
+    const cleanEmail = email.trim().toLowerCase();
     return useQuery({
-        queryKey: ["reports"],
-        queryFn: async () => await fetchSuperData(),
+        queryKey: ["reports", cleanEmail],
+        queryFn: async () => await fetchSuperData(cleanEmail),
         staleTime: CACHE_TIME,
         retry: 3,
     });

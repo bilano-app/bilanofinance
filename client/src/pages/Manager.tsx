@@ -191,14 +191,18 @@ export default function Manager() {
   }, [activeTab, isAuthorized]);
 
   const getAdminEmail = () => {
-    return localStorage.getItem("bilano_manager_email") || credentials.email.trim() || "bilanotech@gmail.com";
+    const saved = localStorage.getItem("bilano_manager_email") || localStorage.getItem("bilano_email") || credentials.email.trim();
+    if (saved && (saved.toLowerCase() === "adrienfandra14@gmail.com" || saved.toLowerCase() === "bilanotech@gmail.com")) {
+      return saved.toLowerCase().trim();
+    }
+    return "bilanotech@gmail.com";
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthLoading(true);
     try {
-      const cleanEmail = credentials.email.trim();
+      const cleanEmail = credentials.email.trim().toLowerCase();
       const cleanPassword = credentials.password.trim();
 
       const res = await fetch("/api/admin/manager-login", {
@@ -219,6 +223,7 @@ export default function Manager() {
         setIsAuthorized(true);
         localStorage.setItem("bilano_manager_auth", "true"); 
         localStorage.setItem("bilano_manager_email", cleanEmail);
+        localStorage.setItem("bilano_email", cleanEmail);
         fetchDashboardStats(cleanEmail); 
         fetchUsersList(cleanEmail);
         fetchTicketsList(cleanEmail);
@@ -273,12 +278,12 @@ export default function Manager() {
       try { json = await res.json(); } catch(e) { json = { error: "Gagal memproses respons server." }; }
 
       if (res.ok) {
-        const sep1Date = new Date('2026-09-01T00:00:00+07:00');
+        const sep1Date = new Date('2026-08-31T17:00:00.000Z');
         if (json.transactionHistory && Array.isArray(json.transactionHistory)) {
           json.transactionHistory = json.transactionHistory.filter((t: any) => !t.date || new Date(t.date) >= sep1Date);
         }
         if (json.dailyTrend && Array.isArray(json.dailyTrend)) {
-          json.dailyTrend = json.dailyTrend.filter((d: any) => d.date >= '2026-09-01');
+          json.dailyTrend = json.dailyTrend.filter((d: any) => d.date >= '2026-08-31');
         }
         setData(json);
       } else { 
@@ -299,11 +304,9 @@ export default function Manager() {
       if (res.ok) {
         const json = await res.json();
         const rawList = Array.isArray(json) ? json : json.users || [];
-        const sep1Date = new Date('2026-09-01T00:00:00+07:00');
         const filteredList = rawList.filter((u: any) => {
-          const isAfterSep1 = u.createdAt && new Date(u.createdAt) >= sep1Date;
           const isBilanoApp = ((u.email || '').toLowerCase().includes('@bilano.app') || (u.username || '').toLowerCase().includes('@bilano.app'));
-          return isAfterSep1 && !isBilanoApp;
+          return !isBilanoApp;
         });
         setUsersList(filteredList);
       }

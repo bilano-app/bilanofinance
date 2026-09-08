@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import LegacyMigrationPopup from "@/components/LegacyMigrationPopup";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
+import SmartScanPopup from "@/components/SmartScanPopup";
 import { getWalletLogo } from "@/lib/wallet-sources";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -91,9 +92,9 @@ export default function Home() {
     const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
     const [isRequestingPerms, setIsRequestingPerms] = useState(false);
 
-    const rawEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-    const isGuestMode = typeof window !== 'undefined' && 
-        (localStorage.getItem("bilano_guest_mode") === "true" || localStorage.getItem("bilano_trial_mode") === "true" || rawEmail === "guest@bilano.app" || rawEmail === "guest" || isTrialMode());
+    const rawEmail = typeof window !== 'undefined' ? (localStorage.getItem("bilano_email") || "").trim().toLowerCase() : "";
+    const hasAuth = typeof window !== 'undefined' && localStorage.getItem("bilano_auth") === "true" && rawEmail !== "" && rawEmail !== "guest@bilano.app" && rawEmail !== "guest";
+    const isGuestMode = !hasAuth && (localStorage.getItem("bilano_guest_mode") === "true" || localStorage.getItem("bilano_trial_mode") === "true" || rawEmail === "guest@bilano.app" || rawEmail === "guest" || !rawEmail || isTrialMode());
 
     const currentUserEmail = rawEmail || user?.email || "";
     const welcomeCountdown = useWelcomeCountdown(currentUserEmail);
@@ -156,40 +157,25 @@ export default function Home() {
     const [showTrialInstallModal, setShowTrialInstallModal] = useState(false);
     const [showPerformanceNudge, setShowPerformanceNudge] = useState(false);
 
-    // 📸 Sticky Bottom Instagram-Style Mode & Scan State
-    const [scanMode, setScanMode] = useState<'photo' | 'voice'>('voice');
-    const touchStartX = useRef<number | null>(null);
+    // 📸 In-Place AI Smart Scan State (Dikte Suara & Scan Struk Foto)
+    const [scanPopupState, setScanPopupState] = useState<{ isOpen: boolean; mode: 'voice' | 'photo' | null }>({
+        isOpen: false,
+        mode: null
+    });
 
-    const handleScanTouchStart = (e: React.TouchEvent) => {
-        touchStartX.current = e.touches[0].clientX;
-    };
-
-    const handleScanTouchEnd = (e: React.TouchEvent) => {
-        if (touchStartX.current === null) return;
-        const deltaX = e.changedTouches[0].clientX - touchStartX.current;
-        if (deltaX > 35) {
-            // Swiped right -> switch to Photo mode
-            setScanMode('photo');
-        } else if (deltaX < -35) {
-            // Swiped left -> switch to Voice mode
-            setScanMode('voice');
-        }
-        touchStartX.current = null;
-    };
-
-    const handleTriggerScan = () => {
+    const handleTriggerScanMode = (mode: 'voice' | 'photo') => {
         if (isGuestMode) {
             setLockedFeatureModal({
                 isOpen: true,
-                featureName: scanMode === 'voice' ? "AI Voice Note Scan" : "AI Smart Scanner Struk"
+                featureName: mode === 'voice' ? "AI Voice Note Scan" : "AI Smart Scanner Struk"
             });
             return;
         }
-        if (!user?.isPro) {
+        if (!user?.isPro && !trial.isTrialActive) {
             setLocation('/paywall');
             return;
         }
-        setLocation(`/scan?mode=${scanMode}`);
+        setScanPopupState({ isOpen: true, mode });
     };
 
     const handleTriggerBrowserInstall = () => {
@@ -874,21 +860,39 @@ export default function Home() {
                                 </div>
                             </Link>
 
-                            <Link href="/scan">
-                                <div 
-                                    onClick={() => setIsFabOpen(false)}
-                                    className="p-3.5 rounded-2xl bg-indigo-50/70 hover:bg-indigo-100/70 border border-indigo-100 flex items-center gap-3.5 cursor-pointer active:scale-98 transition-all group"
-                                >
-                                    <div className="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                                        <ScanLine className="w-5 h-5 stroke-[2.5]" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <h4 className="font-extrabold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors">Scan Struk AI</h4>
-                                        <p className="text-[11px] text-slate-500">Foto struk fisik/QRIS, terinput otomatis</p>
-                                    </div>
-                                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                            <div 
+                                onClick={() => {
+                                    setIsFabOpen(false);
+                                    handleTriggerScanMode('photo');
+                                }}
+                                className="p-3.5 rounded-2xl bg-indigo-50/70 hover:bg-indigo-100/70 border border-indigo-100 flex items-center gap-3.5 cursor-pointer active:scale-98 transition-all group"
+                            >
+                                <div className="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                    <Camera className="w-5 h-5 stroke-[2.5]" />
                                 </div>
-                            </Link>
+                                <div className="flex-1">
+                                    <h4 className="font-extrabold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors">Scan Struk AI</h4>
+                                    <p className="text-[11px] text-slate-500">Foto struk fisik/QRIS, konfirmasi pop-up</p>
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                            </div>
+
+                            <div 
+                                onClick={() => {
+                                    setIsFabOpen(false);
+                                    handleTriggerScanMode('voice');
+                                }}
+                                className="p-3.5 rounded-2xl bg-amber-50/70 hover:bg-amber-100/70 border border-amber-100 flex items-center gap-3.5 cursor-pointer active:scale-98 transition-all group"
+                            >
+                                <div className="w-11 h-11 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-sm">
+                                    <Mic className="w-5 h-5 stroke-[2.5]" />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="font-extrabold text-slate-900 text-sm group-hover:text-amber-600 transition-colors">Dikte Suara AI</h4>
+                                    <p className="text-[11px] text-slate-500">Rekam suara pengeluaran/pemasukan</p>
+                                </div>
+                                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                            </div>
 
                             <Link href="/transfer">
                                 <div 
@@ -1408,7 +1412,48 @@ export default function Home() {
                 </div>
 
                 {/* BOTTOM CONTENT SECTION: White container with rounded top corners */}
-                <div className="-mx-5 -mt-6 px-5 pt-8 pb-28 bg-white rounded-t-[32px] border-t border-slate-100 shadow-[0_-8px_24px_rgba(29,62,114,0.06)] flex flex-col gap-8 relative z-20">
+                <div className="-mx-5 -mt-6 px-5 pt-8 pb-28 bg-white rounded-t-[32px] border-t border-slate-100 shadow-[0_-8px_24px_rgba(29,62,114,0.06)] flex flex-col gap-6 relative z-20">
+
+                    {/* ⚡ AI SMART INPUT: SUARA & FOTO STRUK (IN-PLACE POP UP) */}
+                    <div className="px-1">
+                        <div className="bg-gradient-to-r from-[#0F2247] via-[#1D3E72] to-[#0F2247] p-4 rounded-[24px] border-l-[6px] border-brand-gold shadow-[5px_5px_0px_0px] shadow-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-white relative overflow-hidden">
+                            <div className="flex items-center gap-3 w-full sm:w-auto">
+                                <div className="w-11 h-11 rounded-2xl bg-brand-gold text-brand-navy flex items-center justify-center shrink-0 shadow-md">
+                                    <Bot className="w-6 h-6 stroke-[2.5]" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="font-black text-white text-sm tracking-tight">AI Smart Input</h4>
+                                        <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                            INSTANT
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-blue-200/90 font-medium leading-tight mt-0.5">
+                                        Dikte suara atau foto struk, konfirmasi langsung via pop-up
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <button
+                                    type="button"
+                                    onClick={() => handleTriggerScanMode('voice')}
+                                    className="flex-1 sm:flex-initial bg-amber-400 hover:bg-yellow-300 text-[#0a1128] font-black text-xs px-3.5 py-2.5 rounded-xl shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                >
+                                    <Mic className="w-4 h-4 stroke-[2.5]" />
+                                    <span>Dikte Suara</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleTriggerScanMode('photo')}
+                                    className="flex-1 sm:flex-initial bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                >
+                                    <Camera className="w-4 h-4 stroke-[2.5]" />
+                                    <span>Foto Struk</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
                     {/* Misi Pengguna Baru: Muncul hanya jika belum ada transaksi sama sekali */}
                     {!isStandalone && (!transactions || transactions.length === 0) && !isTxLoading && (
@@ -1442,11 +1487,13 @@ export default function Home() {
                                                     <span>+ Pemasukan</span>
                                                 </button>
                                             </Link>
-                                            <Link href="/scan">
-                                                <button className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs px-3 py-2 rounded-xl active:scale-95 transition-all flex items-center gap-1 cursor-pointer">
-                                                    <span>📷 Scan Struk</span>
-                                                </button>
-                                            </Link>
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleTriggerScanMode('photo')}
+                                                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs px-3 py-2 rounded-xl active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+                                            >
+                                                <span>📷 Scan Struk</span>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -1707,94 +1754,12 @@ export default function Home() {
                 </div>
             </div>
 
-            {/* 📸 STICKY / FLOATING INSTAGRAM-STYLE SCAN & VOICE DOCK */}
-            <div 
-                onTouchStart={handleScanTouchStart}
-                onTouchEnd={handleScanTouchEnd}
-                className="sticky bottom-2 z-40 w-full max-w-[400px] mx-auto px-2 select-none pointer-events-auto"
-            >
-                <div className="bg-slate-950/90 backdrop-blur-xl border-2 border-white/15 rounded-[28px] p-3 shadow-[0_12px_32px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.08)] flex flex-col items-center relative overflow-hidden transition-all duration-300">
-                    
-                    {/* Subtle Ambient Glow */}
-                    <div className={`absolute -top-10 inset-x-0 h-20 blur-2xl pointer-events-none opacity-40 transition-all duration-500 ${
-                        scanMode === 'voice' ? 'bg-amber-400' : 'bg-sky-400'
-                    }`} />
-
-                    {/* Mode Switcher Slider (Instagram-style Carousel Tabs) */}
-                    <div className="flex items-center justify-center gap-1 bg-white/10 p-1 rounded-full border border-white/10 mb-3 relative z-10">
-                        <button
-                            type="button"
-                            onClick={() => setScanMode('photo')}
-                            className={`px-4 py-1.5 rounded-full text-xs font-black transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
-                                scanMode === 'photo'
-                                    ? 'bg-sky-400 text-slate-950 shadow-md scale-105'
-                                    : 'text-slate-300 hover:text-white opacity-70 hover:opacity-100'
-                            }`}
-                        >
-                            <Camera className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>FOTO STRUK</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => setScanMode('voice')}
-                            className={`px-4 py-1.5 rounded-full text-xs font-black transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
-                                scanMode === 'voice'
-                                    ? 'bg-gradient-to-r from-amber-400 to-yellow-300 text-[#0a1128] shadow-md scale-105'
-                                    : 'text-slate-300 hover:text-white opacity-70 hover:opacity-100'
-                            }`}
-                        >
-                            <Mic className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>SCAN SUARA</span>
-                        </button>
-                    </div>
-
-                    {/* Center Action Shutter Button */}
-                    <div className="relative z-10 flex flex-col items-center">
-                        <button
-                            type="button"
-                            onClick={handleTriggerScan}
-                            className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90 cursor-pointer ${
-                                scanMode === 'voice'
-                                    ? 'bg-gradient-to-tr from-amber-400 via-yellow-400 to-amber-300 text-[#0a1128] ring-4 ring-amber-400/40 shadow-[0_0_24px_rgba(251,191,36,0.6)]'
-                                    : 'bg-gradient-to-tr from-sky-400 via-blue-500 to-indigo-500 text-white ring-4 ring-sky-400/40 shadow-[0_0_24px_rgba(56,189,248,0.6)]'
-                            }`}
-                            title={scanMode === 'voice' ? "Mulai Scan Suara" : "Mulai Scan Foto Struk"}
-                        >
-                            <span className={`absolute inset-0 rounded-full animate-ping opacity-25 pointer-events-none ${
-                                scanMode === 'voice' ? 'bg-amber-300' : 'bg-sky-400'
-                            }`} />
-                            
-                            {scanMode === 'voice' ? (
-                                <Mic className="w-8 h-8 stroke-[2.5]" />
-                            ) : (
-                                <Camera className="w-8 h-8 stroke-[2.5]" />
-                            )}
-                        </button>
-
-                        {/* Description Text Below Button */}
-                        <div className="mt-2 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                                <span className={`text-[12px] font-black tracking-wide uppercase ${
-                                    scanMode === 'voice' ? 'text-amber-300' : 'text-sky-300'
-                                }`}>
-                                    {scanMode === 'voice' ? '🎙️ Scan Suara (Voice Note)' : '📷 Scan Foto Struk'}
-                                </span>
-                            </div>
-                            <p className="text-[10.5px] text-slate-300 font-medium leading-tight mt-0.5">
-                                {scanMode === 'voice' 
-                                    ? 'Ketuk untuk rekam suara transaksi & AI otomatis catat'
-                                    : 'Ketuk untuk ambil foto / upload bukti struk belanja'
-                                }
-                            </p>
-                            <span className="text-[9px] text-slate-400 font-normal mt-0.5 block">
-                                ⇄ Geser kiri/kanan untuk ganti mode
-                            </span>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
+            {/* 📸 SMART SCAN POPUP (SUARA & FOTO STRUK TANPA PINDAH HALAMAN) */}
+            <SmartScanPopup
+                isOpen={scanPopupState.isOpen}
+                initialMode={scanPopupState.mode}
+                onClose={() => setScanPopupState({ isOpen: false, mode: null })}
+            />
 
             {/* 🔔 MODAL KONFIRMASI IZIN NOTIFIKASI PENGGUNA (UNTUK PENGGUNA LAMA & BARU) */}
             {showPermissionPrompt && (

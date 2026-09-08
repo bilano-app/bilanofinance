@@ -6,7 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
 export default function AdminPremium() {
-    const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+    const rawEmail = typeof window !== 'undefined' ? (localStorage.getItem("bilano_email") || localStorage.getItem("bilano_manager_email") || "") : "";
+    const currentUserEmail = rawEmail.trim().toLowerCase();
     const isAdmin = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"].includes(currentUserEmail);
     
     const { toast } = useToast();

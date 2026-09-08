@@ -164,6 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_scan_month TEXT;`);
       await db.execute(sql`CREATE TABLE IF NOT EXISTS tracking_events (id SERIAL PRIMARY KEY, anonymous_id TEXT NOT NULL, user_id INTEGER, event_name TEXT NOT NULL, properties TEXT, created_at TIMESTAMP DEFAULT NOW());`);
       await db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (id VARCHAR(255) PRIMARY KEY, user_id INTEGER, email TEXT, name TEXT, subject TEXT, message TEXT, status TEXT, date TIMESTAMP DEFAULT NOW());`);
+      await db.execute(sql`UPDATE users SET created_at = COALESCE(created_at, pro_since, trial_start_date, NOW()) WHERE created_at IS NULL;`);
     } catch (e) {
       console.warn("Auto-migration notice:", (e as any)?.message);
     }
@@ -648,10 +649,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Hapus seluruh event tracking sebelum 1 September 2026 tanpa sisa khusus untuk data pelaporan manager
           try {
-              await db.execute(sql`DELETE FROM tracking_events WHERE created_at < '2026-09-01 00:00:00+07'`);
+              await db.execute(sql`DELETE FROM tracking_events WHERE created_at < '2026-08-31 00:00:00'`);
           } catch(errPurge) {}
 
-          const sep1Date = new Date('2026-09-01T00:00:00+07:00');
+          const sep1Date = new Date('2026-08-31T17:00:00.000Z'); // 1 September 2026 00:00 WIB
 
           // Daftar pengguna yang dikeluarkan dari seluruh pelaporan manager
           const excludedUsersRes = await db.execute(sql`SELECT * FROM manager_excluded_users`);
@@ -659,10 +660,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const excludedUserIds = new Set(excludedRows.map((r: any) => r.user_id).filter(Boolean));
           const excludedEmails = new Set(excludedRows.map((r: any) => (r.email || '').toLowerCase().trim()).filter(Boolean));
 
-          const allUsersRes = await db.execute(sql`SELECT * FROM users WHERE created_at >= '2026-09-01 00:00:00+07'`);
+          const allUsersRes = await db.execute(sql`
+            SELECT * FROM users 
+            WHERE (COALESCE(created_at, pro_since, trial_start_date, NOW()) >= '2026-08-31 00:00:00' OR created_at IS NULL)
+          `);
           const rawUsers = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
           const allUsers = rawUsers.filter((u: any) => {
-              if (u.created_at && new Date(u.created_at) < sep1Date) return false;
               const uEmail = (u.email || '').toLowerCase().trim();
               const uUsername = (u.username || '').toLowerCase().trim();
               if (uEmail.includes('@bilano.app') || uUsername.includes('@bilano.app')) return false;
@@ -673,10 +676,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           const validUserIds = new Set(allUsers.map((u: any) => u.id));
 
-          const allEventsRes = await db.execute(sql`SELECT * FROM tracking_events WHERE created_at >= '2026-09-01 00:00:00+07' ORDER BY created_at DESC`);
+          const allEventsRes = await db.execute(sql`
+            SELECT * FROM tracking_events 
+            WHERE created_at >= '2026-08-31 00:00:00' OR created_at IS NULL
+            ORDER BY created_at DESC
+          `);
           const rawEvents = Array.isArray(allEventsRes) ? allEventsRes : (allEventsRes as any).rows || [];
           const allEvents = rawEvents.filter((e: any) => {
-              if (e.created_at && new Date(e.created_at) < sep1Date) return false;
               if (e.user_id && (excludedUserIds.has(e.user_id) || !validUserIds.has(e.user_id))) return false;
               if (e.properties) {
                   try {
@@ -689,10 +695,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return true;
           });
           
-          const allTxRes = await db.execute(sql`SELECT * FROM transactions WHERE date >= '2026-09-01 00:00:00+07'`);
+          const allTxRes = await db.execute(sql`
+            SELECT * FROM transactions 
+            WHERE date >= '2026-08-31 00:00:00' OR date IS NULL
+          `);
           const rawTxs = Array.isArray(allTxRes) ? allTxRes : (allTxRes as any).rows || [];
           const allTxs = rawTxs.filter((t: any) => {
-              if (t.date && new Date(t.date) < sep1Date) return false;
               const uid = t.user_id || t.userId;
               if (uid && (excludedUserIds.has(uid) || !validUserIds.has(uid))) return false;
               return true;
@@ -1560,7 +1568,7 @@ function parseCleanJson(text: string): any {
       const rawEmail = req?.headers?.["x-user-email"];
       const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : "";
       
-      if (!email || email === "guest") {
+      if (!email || email === "guest" || email === "guest@bilano.app") {
           let user = await storage.getUser(1).catch(() => null);
           if (!user) {
               user = await storage.getUserByUsername("guest").catch(() => null);
@@ -1581,7 +1589,8 @@ function parseCleanJson(text: string): any {
       }
       
       const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"];
-      if (user && vipEmails.includes(user.email?.toLowerCase() || "")) {
+      const userEmailCheck = (user?.email || user?.username || "").toLowerCase();
+      if (user && vipEmails.includes(userEmailCheck)) {
           user.isPro = true;
           user.proValidUntil = new Date("2099-12-31").toISOString() as any; 
           return user; 
@@ -1589,7 +1598,9 @@ function parseCleanJson(text: string): any {
       if (user && user.isPro && user.proValidUntil) {
           const now = new Date();
           const validUntil = new Date(user.proValidUntil);
-          if (now > validUntil) user = await storage.updateUserProStatus(user.id, false, null);
+          if (now > validUntil) {
+              user = await storage.updateUserProStatus(user.id, false, null, user.proSince);
+          }
       }
       return user || { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 };
     } catch (e) {
@@ -3059,12 +3070,15 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               MAX(t.date) AS "lastTxDate"
             FROM users u
             LEFT JOIN transactions t ON t.user_id = u.id
-            WHERE u.created_at >= '2026-09-01 00:00:00+07'
+            WHERE (
+              COALESCE(u.created_at, u.pro_since, u.trial_start_date, NOW()) >= '2026-08-31 00:00:00'
+              OR u.created_at IS NULL
+            )
               AND u.id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL)
-              AND LOWER(COALESCE(u.email, u.username, '')) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND email != '')
+              AND LOWER(COALESCE(u.email, u.username, '')) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND TRIM(email) != '')
               AND LOWER(COALESCE(u.email, u.username, '')) NOT LIKE '%@bilano.app%'
             GROUP BY u.id
-            ORDER BY u.created_at DESC
+            ORDER BY COALESCE(u.created_at, u.pro_since, u.trial_start_date, NOW()) DESC
           `);
           
           const rawRows = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
@@ -3374,8 +3388,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           await db.execute(sql`CREATE TABLE IF NOT EXISTS manager_excluded_users (id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE, email TEXT, excluded_at TIMESTAMP DEFAULT NOW());`);
           const result = await db.execute(sql`
             SELECT * FROM help_tickets 
-            WHERE date >= '2026-09-01 00:00:00+07'
-              AND LOWER(email) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND email != '')
+            WHERE (date >= '2026-08-31 00:00:00' OR date IS NULL)
+              AND LOWER(email) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND TRIM(email) != '')
               AND LOWER(COALESCE(email, '')) NOT LIKE '%@bilano.app%'
               AND (user_id IS NULL OR user_id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL))
             ORDER BY date DESC
@@ -3392,8 +3406,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           await db.execute(sql`CREATE TABLE IF NOT EXISTS manager_excluded_users (id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE, email TEXT, excluded_at TIMESTAMP DEFAULT NOW());`);
           const result = await db.execute(sql`
             SELECT * FROM help_tickets 
-            WHERE date >= '2026-09-01 00:00:00+07'
-              AND LOWER(email) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND email != '')
+            WHERE (date >= '2026-08-31 00:00:00' OR date IS NULL)
+              AND LOWER(email) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND TRIM(email) != '')
               AND LOWER(COALESCE(email, '')) NOT LIKE '%@bilano.app%'
               AND (user_id IS NULL OR user_id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL))
             ORDER BY date DESC

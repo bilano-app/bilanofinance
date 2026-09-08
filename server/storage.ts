@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { db } from "./db.js";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { 
   users, transactions, investments, targets, categories, forexAssets, debts, subscriptions, portfolioSnapshots,
   type User, type InsertUser, 
@@ -17,6 +16,7 @@ import {
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserBalance(id: number, newBalance: number): Promise<User>;
   updateUserWalletSources(id: number, walletSources: any): Promise<User>;
@@ -80,7 +80,20 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+    if (!username) return undefined;
+    const clean = username.trim().toLowerCase();
+    const [user] = await db.select().from(users).where(
+      sql`LOWER(TRIM(${users.username})) = ${clean} OR LOWER(TRIM(${users.email})) = ${clean}`
+    );
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    if (!email) return undefined;
+    const clean = email.trim().toLowerCase();
+    const [user] = await db.select().from(users).where(
+      sql`LOWER(TRIM(${users.email})) = ${clean} OR LOWER(TRIM(${users.username})) = ${clean}`
+    );
     return user;
   }
 

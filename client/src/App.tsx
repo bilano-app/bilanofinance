@@ -26,12 +26,13 @@ queryClient.setDefaultOptions({
 const originalFetch = window.fetch;
 window.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : (input as Request).url;
-  const email = localStorage.getItem("bilano_email");
+  const email = (typeof window !== 'undefined' ? localStorage.getItem("bilano_email") : "") || "";
+  const cleanEmail = email.trim().toLowerCase();
 
   const newHeaders = new Headers(init.headers);
-  if (email && url.includes('/api')) {
+  if (url.includes('/api')) {
     if (!newHeaders.has('x-user-email')) {
-      newHeaders.set('x-user-email', email);
+      newHeaders.set('x-user-email', cleanEmail || "guest");
     }
   }
   init.headers = newHeaders;
@@ -60,10 +61,9 @@ XMLHttpRequest.prototype.open = function(method: string, url: string, ...args: a
 // @ts-ignore
 XMLHttpRequest.prototype.send = function(...args: any[]) {
     if ((this as any)._url && typeof (this as any)._url === 'string' && (this as any)._url.includes('/api')) {
-        const email = localStorage.getItem("bilano_email");
-        if (email) {
-            this.setRequestHeader('x-user-email', email);
-        }
+        const email = (typeof window !== 'undefined' ? localStorage.getItem("bilano_email") : "") || "";
+        const cleanEmail = email.trim().toLowerCase();
+        this.setRequestHeader('x-user-email', cleanEmail || "guest");
     }
     return originalXhrSend.apply(this, args as any);
 };
@@ -273,8 +273,8 @@ function Router() {
   // Jika sebelumnya user hanya coba-coba di browser lalu menutup browser/tab,
   // saat dibuka kembali di masa depan, jangan langsung buka app melainkan kembali ke Landing
   if (typeof window !== "undefined") {
-    const rawEmail = localStorage.getItem("bilano_email");
-    const isGuest = localStorage.getItem("bilano_guest_mode") === "true" || rawEmail === "guest@bilano.app";
+    const rawEmail = (localStorage.getItem("bilano_email") || "").trim().toLowerCase();
+    const isGuest = localStorage.getItem("bilano_guest_mode") === "true" || localStorage.getItem("bilano_trial_mode") === "true" || rawEmail === "guest@bilano.app" || rawEmail === "guest";
     const hasTrialSession = sessionStorage.getItem("bilano_trial_session") === "true";
 
     if (isGuest && !hasTrialSession) {
@@ -286,13 +286,14 @@ function Router() {
     }
   }
 
-  const hasAuth = typeof window !== 'undefined' && Boolean(localStorage.getItem("bilano_auth"));
+  const currentEmail = typeof window !== 'undefined' ? (localStorage.getItem("bilano_email") || "").trim().toLowerCase() : "";
+  const hasAuth = typeof window !== 'undefined' && Boolean(localStorage.getItem("bilano_auth")) && currentEmail !== "" && currentEmail !== "guest@bilano.app" && currentEmail !== "guest";
 
   return (
     <>
       <Switch>
         <Route path="/">
-          {isStandalone ? <Home /> : isTrialMode() ? <Home /> : hasAuth ? <Home /> : <Landing />}
+          {hasAuth ? <Home /> : isTrialMode() ? <Home /> : isStandalone ? <Home /> : <Landing />}
         </Route>
         
         <Route path="/terminal">
