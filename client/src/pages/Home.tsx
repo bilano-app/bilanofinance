@@ -163,6 +163,46 @@ export default function Home() {
         mode: null
     });
 
+    // 🎙️ / 📷 Floating Instagram-Style Scan Mode Switcher State
+    const [floatingScanMode, setFloatingScanMode] = useState<'voice' | 'photo'>('voice');
+    const touchStartXRef = useRef<number | null>(null);
+    const touchEndXRef = useRef<number | null>(null);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        touchStartXRef.current = e.touches[0].clientX;
+        touchEndXRef.current = e.touches[0].clientX;
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        touchEndXRef.current = e.touches[0].clientX;
+    };
+
+    const handleTouchEnd = () => {
+        if (touchStartXRef.current === null || touchEndXRef.current === null) return;
+        const diffX = touchStartXRef.current - touchEndXRef.current;
+        const minSwipeDistance = 35; // 35px threshold
+
+        if (diffX > minSwipeDistance) {
+            // Swiped Left -> go to photo (Instagram style swipe)
+            if (floatingScanMode === 'voice') {
+                setFloatingScanMode('photo');
+                if (typeof window !== 'undefined' && (window.navigator as any)?.vibrate) {
+                    (window.navigator as any).vibrate(20);
+                }
+            }
+        } else if (diffX < -minSwipeDistance) {
+            // Swiped Right -> go to voice (Instagram style swipe)
+            if (floatingScanMode === 'photo') {
+                setFloatingScanMode('voice');
+                if (typeof window !== 'undefined' && (window.navigator as any)?.vibrate) {
+                    (window.navigator as any).vibrate(20);
+                }
+            }
+        }
+        touchStartXRef.current = null;
+        touchEndXRef.current = null;
+    };
+
     const handleTriggerScanMode = (mode: 'voice' | 'photo') => {
         if (isGuestMode) {
             setLockedFeatureModal({
@@ -1412,48 +1452,7 @@ export default function Home() {
                 </div>
 
                 {/* BOTTOM CONTENT SECTION: White container with rounded top corners */}
-                <div className="-mx-5 -mt-6 px-5 pt-8 pb-28 bg-white rounded-t-[32px] border-t border-slate-100 shadow-[0_-8px_24px_rgba(29,62,114,0.06)] flex flex-col gap-6 relative z-20">
-
-                    {/* ⚡ AI SMART INPUT: SUARA & FOTO STRUK (IN-PLACE POP UP) */}
-                    <div className="px-1">
-                        <div className="bg-gradient-to-r from-[#0F2247] via-[#1D3E72] to-[#0F2247] p-4 rounded-[24px] border-l-[6px] border-brand-gold shadow-[5px_5px_0px_0px] shadow-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-white relative overflow-hidden">
-                            <div className="flex items-center gap-3 w-full sm:w-auto">
-                                <div className="w-11 h-11 rounded-2xl bg-brand-gold text-brand-navy flex items-center justify-center shrink-0 shadow-md">
-                                    <Bot className="w-6 h-6 stroke-[2.5]" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <h4 className="font-black text-white text-sm tracking-tight">AI Smart Input</h4>
-                                        <span className="bg-brand-gold text-brand-navy text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                            INSTANT
-                                        </span>
-                                    </div>
-                                    <p className="text-[11px] text-blue-200/90 font-medium leading-tight mt-0.5">
-                                        Dikte suara atau foto struk, konfirmasi langsung via pop-up
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <button
-                                    type="button"
-                                    onClick={() => handleTriggerScanMode('voice')}
-                                    className="flex-1 sm:flex-initial bg-amber-400 hover:bg-yellow-300 text-[#0a1128] font-black text-xs px-3.5 py-2.5 rounded-xl shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                                >
-                                    <Mic className="w-4 h-4 stroke-[2.5]" />
-                                    <span>Dikte Suara</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleTriggerScanMode('photo')}
-                                    className="flex-1 sm:flex-initial bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                                >
-                                    <Camera className="w-4 h-4 stroke-[2.5]" />
-                                    <span>Foto Struk</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                <div className="-mx-5 -mt-6 px-5 pt-8 pb-32 bg-white rounded-t-[32px] border-t border-slate-100 shadow-[0_-8px_24px_rgba(29,62,114,0.06)] flex flex-col gap-6 relative z-20">
 
                     {/* Misi Pengguna Baru: Muncul hanya jika belum ada transaksi sama sekali */}
                     {!isStandalone && (!transactions || transactions.length === 0) && !isTxLoading && (
@@ -1750,6 +1749,86 @@ export default function Home() {
                         <p className="text-[10px] text-slate-400 mt-1.5 font-medium leading-relaxed">
                             © {new Date().getFullYear()} • Bilano Official
                         </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* 🎙️ / 📷 FLOATING INSTAGRAM-STYLE SMART SCAN TRIGGER (SELALU IKUT DI BAWAH TENGAH) */}
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center pointer-events-none select-none">
+                <div 
+                    className="pointer-events-auto flex flex-col items-center gap-1.5 touch-pan-x"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                >
+                    {/* Tombol Utama Bulat Bersinar */}
+                    <div className="relative flex items-center justify-center">
+                        {floatingScanMode === 'voice' ? (
+                            <button
+                                type="button"
+                                onClick={() => handleTriggerScanMode('voice')}
+                                className="relative group w-14 h-14 rounded-full bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 text-brand-navy flex items-center justify-center shadow-[0_10px_28px_rgba(245,158,11,0.55)] border-2 border-white/90 active:scale-95 transition-all duration-300 cursor-pointer"
+                                title="Dikte Suara (Ketuk untuk bicara)"
+                            >
+                                <span className="absolute inset-0 rounded-full bg-amber-400/35 animate-ping pointer-events-none"></span>
+                                <Mic className="w-6 h-6 stroke-[2.5]" />
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => handleTriggerScanMode('photo')}
+                                className="relative group w-14 h-14 rounded-full bg-gradient-to-tr from-[#1D3E72] via-[#2563eb] to-[#38bdf8] text-white flex items-center justify-center shadow-[0_10px_28px_rgba(37,99,235,0.55)] border-2 border-white/90 active:scale-95 transition-all duration-300 cursor-pointer"
+                                title="Foto Struk (Ketuk untuk foto)"
+                            >
+                                <span className="absolute inset-0 rounded-full bg-sky-400/35 animate-ping pointer-events-none"></span>
+                                <Camera className="w-6 h-6 stroke-[2.5]" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Mode Switcher ala Carousel Instagram (Swipe / Tap) */}
+                    <div className="flex items-center gap-3 px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur-md border border-white/15 shadow-xl transition-all">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setFloatingScanMode('voice');
+                                if (typeof window !== 'undefined' && (window.navigator as any)?.vibrate) {
+                                    (window.navigator as any).vibrate(15);
+                                }
+                            }}
+                            className={`text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex flex-col items-center ${
+                                floatingScanMode === 'voice' 
+                                    ? 'text-amber-400 scale-105 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]' 
+                                    : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <span>SUARA</span>
+                            {floatingScanMode === 'voice' && (
+                                <span className="w-1 h-1 rounded-full bg-amber-400 mt-0.5 animate-pulse"></span>
+                            )}
+                        </button>
+
+                        <span className="text-white/30 text-[8px] font-bold">•</span>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setFloatingScanMode('photo');
+                                if (typeof window !== 'undefined' && (window.navigator as any)?.vibrate) {
+                                    (window.navigator as any).vibrate(15);
+                                }
+                            }}
+                            className={`text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex flex-col items-center ${
+                                floatingScanMode === 'photo' 
+                                    ? 'text-sky-400 scale-105 drop-shadow-[0_0_8px_rgba(56,189,248,0.6)]' 
+                                    : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <span>FOTO</span>
+                            {floatingScanMode === 'photo' && (
+                                <span className="w-1 h-1 rounded-full bg-sky-400 mt-0.5 animate-pulse"></span>
+                            )}
+                        </button>
                     </div>
                 </div>
             </div>
