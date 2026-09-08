@@ -1541,17 +1541,11 @@ export default function Home() {
                                 <MenuIconBox href="/subscriptions" imageSrc="/Langganan.png" label="Langganan" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Manajemen Langganan Rutin" }) : setLocation('/paywall')} />
                                 <MenuIconBox href="/investment" imageSrc="/Investasi.png" label="Investasi" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Portofolio Multi-Investasi" }) : setLocation('/paywall')} />
                             </div>
-                            {/* Baris 2: 3 Fitur di Bawah dengan Align Tengah */}
-                            <div className="flex items-center justify-center gap-6 sm:gap-8">
-                                <div className="w-16 flex justify-center">
-                                    <MenuIconBox href="/reports" imageSrc="/Laporan.png" label="Laporan" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Laporan & Jurnal Arus Kas" }) : setLocation('/paywall')} />
-                                </div>
-                                <div className="w-16 flex justify-center">
-                                    <MenuIconBox href="/amal" imageSrc="/Amal.png" label="Amal" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Kalkulator & Dompet Amal" }) : setLocation('/paywall')} />
-                                </div>
-                                <div className="w-16 flex justify-center">
-                                    <MenuIconBox href="/retained" imageSrc="/Tertahan.png" label="Tertahan" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Dana Tertahan & Rekonsiliasi" }) : setLocation('/paywall')} />
-                                </div>
+                            {/* Baris 2: 3 Fitur di Bawah dengan Spasi Lebar & Proporsional */}
+                            <div className="grid grid-cols-3 max-w-[300px] sm:max-w-[320px] mx-auto gap-x-6 pt-1">
+                                <MenuIconBox href="/reports" imageSrc="/Laporan.png" label="Laporan" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Laporan & Jurnal Arus Kas" }) : setLocation('/paywall')} />
+                                <MenuIconBox href="/amal" imageSrc="/Amal.png" label="Amal" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Kalkulator & Dompet Amal" }) : setLocation('/paywall')} />
+                                <MenuIconBox href="/retained" imageSrc="/Tertahan.png" label="Tertahan" isLocked={isGuestMode || (!user?.isPro && !trial.isTrialActive)} onLockedClick={() => isGuestMode ? setLockedFeatureModal({ isOpen: true, featureName: "Dana Tertahan & Rekonsiliasi" }) : setLocation('/paywall')} />
                             </div>
                         </div>
                     </div>
