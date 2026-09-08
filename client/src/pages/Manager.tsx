@@ -1351,7 +1351,7 @@ export default function Manager() {
                                 <div className="font-bold text-[#0f172a]">{u.name || u.username}</div>
                                 <div className="text-[11px] font-mono text-[#2563eb]">{u.email}</div>
                                 {u.phone && <div className="text-[10px] font-mono text-slate-500">{u.phone}</div>}
-                                <div className="text-[10px] font-mono text-emerald-600 font-bold mt-0.5">{u.appOpenCount || 0}x Buka App</div>
+                                <div className="text-[10px] font-mono text-emerald-600 font-bold mt-0.5">{Math.max(1, Number(u.appOpenCount || 0))}x Buka App</div>
                               </td>
                               <td className="px-4 py-3.5 font-mono text-[#64748b]">
                                 {u.createdAt ? new Date(u.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}
@@ -1455,7 +1455,7 @@ export default function Manager() {
                                 </div>
                                 <div className="text-[11px] font-mono text-[#2563eb]">{u.email}</div>
                                 {u.phone && <div className="text-[10px] font-mono text-slate-500">{u.phone}</div>}
-                                <div className="text-[10px] font-mono text-emerald-600 font-bold mt-0.5">{u.appOpenCount || 0}x Buka App</div>
+                                <div className="text-[10px] font-mono text-emerald-600 font-bold mt-0.5">{Math.max(1, Number(u.appOpenCount || 0))}x Buka App</div>
                               </td>
                               <td className="px-4 py-3.5 font-mono text-[#64748b]">
                                 {u.createdAt ? new Date(u.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}

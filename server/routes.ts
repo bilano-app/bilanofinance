@@ -663,6 +663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const allUsersRes = await db.execute(sql`
             SELECT * FROM users
+            WHERE (created_at >= '2026-08-31 00:00:00' OR created_at IS NULL)
           `);
           const rawUsers = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
           const allUsers = rawUsers.filter((u: any) => {
@@ -1596,22 +1597,33 @@ function parseCleanJson(text: string): any {
       
       const vipEmails = ["adrienfandra14@gmail.com", "bilanotech@gmail.com"];
       const userEmailCheck = (user?.email || user?.username || "").toLowerCase();
-      if (user && vipEmails.includes(userEmailCheck)) {
-          user.isPro = true;
-          user.proValidUntil = new Date("2099-12-31").toISOString() as any; 
-          return user; 
-      }
-      if (user && user.isPro && user.proValidUntil) {
-          const now = new Date();
-          const validUntil = new Date(user.proValidUntil);
-          if (now > validUntil) {
-              user = await storage.updateUserProStatus(user.id, false, null, user.proSince);
+      if (user) {
+          if (vipEmails.includes(userEmailCheck)) {
+              user.isPro = true;
+              user.proValidUntil = new Date("2099-12-31").toISOString() as any; 
+          } else if (user.isPro && user.proValidUntil) {
+              const now = new Date();
+              const validUntil = new Date(user.proValidUntil);
+              if (now > validUntil) {
+                  user = await storage.updateUserProStatus(user.id, false, null, user.proSince);
+              }
           }
+
+          let wsSum = 0;
+          try {
+              const ws = typeof user.walletSources === 'string' ? JSON.parse(user.walletSources) : (user.walletSources || []);
+              if (Array.isArray(ws)) {
+                  wsSum = ws.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+                  user.walletSources = ws;
+              }
+          } catch(e) {}
+          user.cashBalance = Math.max(Number(user.cashBalance || 0), wsSum);
+          return user;
       }
-      return user || { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 };
+      return user || { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0, walletSources: [] };
     } catch (e) {
       console.error("getUser error:", e);
-      return { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0 };
+      return { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0, walletSources: [] };
     }
   };
 
@@ -3077,7 +3089,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               (SELECT COUNT(*)::int FROM transactions WHERE user_id = u.id) AS "txCount",
               (SELECT MAX(date) FROM transactions WHERE user_id = u.id) AS "lastTxDate"
             FROM users u
-            WHERE u.id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL)
+            WHERE (u.created_at >= '2026-08-31 00:00:00' OR u.created_at IS NULL)
+              AND u.id NOT IN (SELECT user_id FROM manager_excluded_users WHERE user_id IS NOT NULL)
               AND LOWER(COALESCE(u.email, u.username, '')) NOT IN (SELECT LOWER(email) FROM manager_excluded_users WHERE email IS NOT NULL AND TRIM(email) != '')
               AND LOWER(COALESCE(u.email, u.username, '')) NOT LIKE '%@bilano.app%'
               AND LOWER(COALESCE(u.email, u.username, '')) NOT LIKE 'guest%'
@@ -3087,7 +3100,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const rawRows = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes as any).rows || [];
           const filteredRows = rawRows.filter((u: any) => {
               const em = (u.email || u.username || '').toLowerCase().trim();
-              return !em.includes('@bilano.app');
+              return !em.includes('@bilano.app') && !em.startsWith('guest');
           });
           const fourteenDaysAgo = Date.now() - (14 * 24 * 60 * 60 * 1000);
 
@@ -3103,6 +3116,9 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   userCash = Math.max(userCash, wsSum);
               } catch(e) {}
 
+              // Akun terdaftar minimal 1x buka app
+              const countOpened = Math.max(1, Number(u.appOpenCount || 0));
+
               return {
                   id: u.id,
                   username: u.username,
@@ -3117,7 +3133,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   createdAt: u.createdAt ? new Date(u.createdAt).toISOString() : null,
                   lockedPlan: u.lockedPlan,
                   lockedPrice: u.lockedPrice,
-                  appOpenCount: Number(u.appOpenCount || 0),
+                  appOpenCount: countOpened,
                   txCount: Number(u.txCount || 0),
                   lastTxDate: u.lastTxDate ? new Date(u.lastTxDate).toISOString() : null,
                   isZombie

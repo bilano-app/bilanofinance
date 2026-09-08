@@ -588,7 +588,10 @@ export default function Home() {
         setShowPermissionPrompt(false);
     };
 
-    const cashRupiah = (isGuestMode && (!user?.cashBalance || user?.cashBalance === 0)) ? 12500000 : (user?.cashBalance || 0);
+    const wsSum = user?.walletSources && Array.isArray(user.walletSources) 
+        ? user.walletSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0) 
+        : 0;
+    const cashRupiah = (isGuestMode && (!user?.cashBalance || user?.cashBalance === 0)) ? 12500000 : Math.max(Number(user?.cashBalance || 0), wsSum);
     const totalBalance = cashRupiah;
 
     const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
