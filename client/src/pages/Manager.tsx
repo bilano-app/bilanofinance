@@ -73,12 +73,21 @@ export default function Manager() {
   const [activeTab, setActiveTab] = useState<'website' | 'app' | 'users' | 'transactions' | 'tickets' | 'benchmark'>('website');
 
   // ==========================================
-  // 👥 STATE UNTUK TAB 3: MANAJEMEN MEMBER PRO
+  // 👥 STATE UNTUK TAB 3: MANAJEMEN MEMBER PRO & INTELIJEN
   // ==========================================
   const [userProSubTab, setUserProSubTab] = useState<'belum_pro' | 'sudah_pro'>('belum_pro');
   const [usersList, setUsersList] = useState<any[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [leadFilter, setLeadFilter] = useState<'ALL' | 'HOT' | 'WARM' | 'COLD'>('ALL');
+  const [selectedIntelligenceUser, setSelectedIntelligenceUser] = useState<any | null>(null);
+  const [expandedUserIds, setExpandedUserIds] = useState<number[]>([]);
+
+  const toggleExpandUser = (userId: number) => {
+    setExpandedUserIds(prev => 
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
   
   // State Tiket Bantuan (Tab 5)
   const [tickets, setTickets] = useState<any[]>([]);
@@ -705,24 +714,32 @@ export default function Manager() {
   const proUsers = usersList.filter((u: any) => u.isPro || u.is_pro);
   const freeUsers = usersList.filter((u: any) => !u.isPro && !u.is_pro);
 
+  const hotLeadsCount = freeUsers.filter((u: any) => u.intelligence?.leadScore === 'HOT').length;
+  const warmLeadsCount = freeUsers.filter((u: any) => u.intelligence?.leadScore === 'WARM').length;
+  const coldLeadsCount = freeUsers.filter((u: any) => u.intelligence?.leadScore === 'COLD').length;
+
   const filteredProUsers = proUsers.filter((u: any) => {
     const q = userSearchQuery.toLowerCase();
-    return (
+    const matchesSearch = !q || (
       (u.email && u.email.toLowerCase().includes(q)) ||
       (u.username && u.username.toLowerCase().includes(q)) ||
       (u.name && u.name.toLowerCase().includes(q)) ||
       (u.phone && u.phone.toLowerCase().includes(q))
     );
+    const matchesLead = leadFilter === 'ALL' || (u.intelligence?.leadScore === leadFilter);
+    return matchesSearch && matchesLead;
   });
 
   const filteredFreeUsers = freeUsers.filter((u: any) => {
     const q = userSearchQuery.toLowerCase();
-    return (
+    const matchesSearch = !q || (
       (u.email && u.email.toLowerCase().includes(q)) ||
       (u.username && u.username.toLowerCase().includes(q)) ||
       (u.name && u.name.toLowerCase().includes(q)) ||
       (u.phone && u.phone.toLowerCase().includes(q))
     );
+    const matchesLead = leadFilter === 'ALL' || (u.intelligence?.leadScore === leadFilter);
+    return matchesSearch && matchesLead;
   });
 
   // Benchmark Comparisons (Tab 6)
@@ -1283,31 +1300,61 @@ export default function Manager() {
               </div>
             </div>
 
-            {/* Sub-Navigasi 2 Bagian: Belum PRO vs Sudah PRO */}
-            <div className="bg-white border border-[#cbd5e1] rounded-xl shadow-sm p-4">
-              <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-                <div className="flex bg-slate-100 p-1.5 rounded-lg">
+            {/* Sub-Navigasi 2 Bagian: Belum PRO vs Sudah PRO & Filter Lead Intelligence */}
+            <div className="bg-white border border-[#cbd5e1] rounded-xl shadow-sm p-4 space-y-3">
+              <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3">
+                {/* Tab Switcher */}
+                <div className="flex bg-slate-100 p-1.5 rounded-lg shrink-0">
                   <button 
                     onClick={() => setUserProSubTab('belum_pro')}
-                    className={`py-2 px-5 text-xs font-black uppercase tracking-wider rounded-md transition-all flex items-center gap-2 ${userProSubTab === 'belum_pro' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`py-2 px-4 text-xs font-black uppercase tracking-wider rounded-md transition-all flex items-center gap-2 ${userProSubTab === 'belum_pro' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     <span>🟡</span> Member Belum PRO ({freeUsers.length})
                   </button>
                   <button 
                     onClick={() => setUserProSubTab('sudah_pro')}
-                    className={`py-2 px-5 text-xs font-black uppercase tracking-wider rounded-md transition-all flex items-center gap-2 ${userProSubTab === 'sudah_pro' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`py-2 px-4 text-xs font-black uppercase tracking-wider rounded-md transition-all flex items-center gap-2 ${userProSubTab === 'sudah_pro' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     <span>🟢</span> Member Sudah PRO ({proUsers.length})
+                  </button>
+                </div>
+
+                {/* Filter Lead Temperature */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1 hidden sm:inline">Filter:</span>
+                  <button
+                    onClick={() => setLeadFilter('ALL')}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${leadFilter === 'ALL' ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  >
+                    Semua
+                  </button>
+                  <button
+                    onClick={() => setLeadFilter('HOT')}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 whitespace-nowrap ${leadFilter === 'HOT' ? 'bg-rose-600 text-white shadow-xs' : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'}`}
+                  >
+                    <span>🔥</span> HOT ({hotLeadsCount})
+                  </button>
+                  <button
+                    onClick={() => setLeadFilter('WARM')}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 whitespace-nowrap ${leadFilter === 'WARM' ? 'bg-amber-600 text-white shadow-xs' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
+                  >
+                    <span>⛅</span> WARM ({warmLeadsCount})
+                  </button>
+                  <button
+                    onClick={() => setLeadFilter('COLD')}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 whitespace-nowrap ${leadFilter === 'COLD' ? 'bg-slate-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'}`}
+                  >
+                    <span>❄️</span> COLD ({coldLeadsCount})
                   </button>
                 </div>
 
                 {/* Search Bar */}
                 <input 
                   type="text" 
-                  placeholder="Cari nama, email, no WhatsApp, atau username..." 
+                  placeholder="Cari nama, email, no WA..." 
                   value={userSearchQuery}
                   onChange={(e) => setUserSearchQuery(e.target.value)}
-                  className="bg-[#f8fafc] border border-[#cbd5e1] rounded-lg px-4 py-2 text-xs w-full sm:w-72 outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
+                  className="bg-[#f8fafc] border border-[#cbd5e1] rounded-lg px-3.5 py-2 text-xs w-full lg:w-64 outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100"
                 />
               </div>
             </div>
@@ -1317,108 +1364,168 @@ export default function Manager() {
             ========================================== */}
             {userProSubTab === 'belum_pro' && (
               <section className="bg-white border border-[#cbd5e1] rounded-xl shadow-sm p-6 animate-in fade-in">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
                   <div>
                     <h3 className="text-sm font-extrabold text-[#0f172a] uppercase tracking-wider flex items-center gap-2">
                       <span>🟡</span> Daftar Pengguna Belum PRO ({filteredFreeUsers.length})
                     </h3>
                     <p className="text-[11px] text-[#64748b] mt-0.5">
-                      Berikan akses PRO manual kepada pengguna terpilih dengan sekali klik.
+                      Analisis 9 dimensi perilaku per user untuk persiapan <b>follow-up WhatsApp closing PRO</b> yang efektif.
                     </p>
                   </div>
                 </div>
 
                 {isLoadingUsers ? (
-                  <div className="py-12 text-center text-xs text-[#64748b] font-mono">Memuat daftar pengguna...</div>
+                  <div className="py-12 text-center text-xs text-[#64748b] font-mono">Memuat daftar pengguna & data intelijen...</div>
                 ) : (
                   <div className="overflow-x-auto border border-[#e2e8f0] rounded-lg">
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-[#f8fafc] text-[10px] text-[#475569] uppercase tracking-wider font-bold border-b border-[#cbd5e1]">
-                          <th className="px-4 py-3">Pengguna, Email & Telp</th>
-                          <th className="px-4 py-3">Terdaftar</th>
+                          <th className="px-4 py-3">Pengguna & Kontak</th>
+                          <th className="px-4 py-3 text-center">Skor Lead</th>
+                          <th className="px-4 py-3 text-center">Aktivitas Trial</th>
                           <th className="px-4 py-3 text-right">Saldo Kas Terdeteksi</th>
-                          <th className="px-4 py-3 text-center">Total Input Tx</th>
-                          <th className="px-4 py-3">Status Akun</th>
-                          <th className="px-4 py-3 text-center">Aksi / Otoritas</th>
+                          <th className="px-4 py-3">Status Trial</th>
+                          <th className="px-4 py-3 text-center">Intelijen & Aksi</th>
                         </tr>
                       </thead>
                       <tbody className="text-xs">
                         {filteredFreeUsers.length === 0 ? (
-                          <tr><td colSpan={6} className="px-4 py-8 text-center text-[#64748b] font-mono">Tidak ada pengguna belum pro yang sesuai.</td></tr>
+                          <tr><td colSpan={6} className="px-4 py-8 text-center text-[#64748b] font-mono">Tidak ada pengguna belum pro yang sesuai dengan filter.</td></tr>
                         ) : (
-                          filteredFreeUsers.map((u: any) => (
-                            <tr key={u.id} className="hover:bg-[#f8fafc] border-b border-[#e2e8f0] last:border-0 transition-colors">
-                              <td className="px-4 py-3.5">
-                                <div className="font-bold text-[#0f172a]">{u.name || u.username}</div>
-                                <div className="text-[11px] font-mono text-[#2563eb]">{u.email}</div>
-                                {u.phone ? (
-                                  <div className="mt-1">
-                                    <a 
-                                      href={`https://wa.me/${u.phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}`} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md transition-colors shadow-xs"
-                                      title="Klik untuk WhatsApp"
-                                    >
-                                      <span>📱</span>
-                                      <span>{u.phone}</span>
-                                    </a>
+                          filteredFreeUsers.map((u: any) => {
+                            const intel = u.intelligence || {};
+                            const leadScore = intel.leadScore || 'COLD';
+                            
+                            return (
+                              <tr key={u.id} className="hover:bg-[#f8fafc] border-b border-[#e2e8f0] last:border-0 transition-colors">
+                                <td className="px-4 py-3.5">
+                                  <div className="font-bold text-[#0f172a] flex items-center gap-1.5">
+                                    <span>{u.name || u.username}</span>
+                                    {intel.assetTierBadge?.includes("Whale") && <span className="text-xs">👑</span>}
                                   </div>
-                                ) : (
-                                  <div className="text-[10px] font-mono text-slate-400 mt-0.5 italic">- Belum isi WA/Telp -</div>
-                                )}
-                                <div className="text-[10px] font-mono text-emerald-600 font-bold mt-1">{Math.max(1, Number(u.appOpenCount || 0))}x Buka App</div>
-                              </td>
-                              <td className="px-4 py-3.5 font-mono text-[#64748b]">
-                                {u.createdAt ? new Date(u.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}
-                              </td>
-                              <td className="px-4 py-3.5 text-right font-mono">
-                                <div className="font-bold text-[#0f172a]">
-                                  {formatCurrency(Number(u.cashBalance || 0))}
-                                </div>
-                                {Number(u.cashBalance || 0) >= 10000000 ? (
-                                  <span className="inline-block mt-0.5 bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shadow-xs">
-                                    👑 WHALE
+                                  <div className="text-[11px] font-mono text-[#2563eb]">{u.email}</div>
+                                  {u.phone ? (
+                                    <div className="mt-1">
+                                      <a 
+                                        href={`https://wa.me/${u.phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Halo Kak ${u.name || u.firstName || 'Kakak'}, ${intel.followUpHook || 'kami dari tim Bilano Finance ingin menanyakan kabar penggunaan aplikasi Anda.'}`)}`} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md transition-colors shadow-xs"
+                                        title="Klik untuk WhatsApp Follow-up Otomatis"
+                                      >
+                                        <span>📱</span>
+                                        <span>{u.phone}</span>
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <div className="text-[10px] font-mono text-slate-400 mt-0.5 italic">- Belum isi WA/Telp -</div>
+                                  )}
+                                  <div className="text-[10px] text-slate-400 mt-1">
+                                    Daftar: {u.createdAt ? new Date(u.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}
+                                  </div>
+                                </td>
+
+                                {/* Skor Lead */}
+                                <td className="px-4 py-3.5 text-center">
+                                  {leadScore === 'HOT' ? (
+                                    <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-700 border border-rose-300 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider animate-pulse shadow-xs">
+                                      🔥 HOT LEAD
+                                    </span>
+                                  ) : leadScore === 'WARM' ? (
+                                    <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xs">
+                                      ⛅ WARM
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-300 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                                      ❄️ COLD
+                                    </span>
+                                  )}
+                                  <div className="text-[9px] text-slate-400 mt-1">
+                                    {intel.lastActiveText || "Pasif"}
+                                  </div>
+                                </td>
+
+                                {/* Aktivitas Trial */}
+                                <td className="px-4 py-3.5 text-center font-mono">
+                                  <div className="font-bold text-slate-800">{intel.txCount || 0} Tx</div>
+                                  <div className="text-[10px] text-emerald-600 font-bold">{intel.appOpenCount || 1}x Buka App</div>
+                                  <div className="text-[9px] text-slate-400 mt-0.5">
+                                    {intel.hasSeenPaywall ? <span className="text-amber-600 font-bold">👀 Intip Paywall ({intel.paywallViewCount}x)</span> : 'Belum lihat paywall'}
+                                  </div>
+                                </td>
+
+                                {/* Saldo Kas Terdeteksi */}
+                                <td className="px-4 py-3.5 text-right font-mono">
+                                  <div className="font-bold text-[#0f172a]">
+                                    {formatCurrency(Number(u.cashBalance || 0))}
+                                  </div>
+                                  {Number(u.cashBalance || 0) >= 10000000 ? (
+                                    <span className="inline-block mt-0.5 bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shadow-xs">
+                                      👑 WHALE
+                                    </span>
+                                  ) : Number(u.cashBalance || 0) > 0 ? (
+                                    <span className="inline-block mt-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">
+                                      KAS TERISI
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block mt-0.5 text-slate-400 text-[10px]">
+                                      Belum diisi
+                                    </span>
+                                  )}
+                                </td>
+
+                                {/* Status Trial */}
+                                <td className="px-4 py-3.5">
+                                  <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                                    intel.trialUrgencyColor === 'rose' 
+                                      ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                                      : intel.trialUrgencyColor === 'amber'
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                      : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  }`}>
+                                    {intel.trialStatusLabel || "Trial Aktif"}
                                   </span>
-                                ) : Number(u.cashBalance || 0) > 0 ? (
-                                  <span className="inline-block mt-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">
-                                    KAS TERISI
-                                  </span>
-                                ) : (
-                                  <span className="inline-block mt-0.5 text-slate-400 text-[10px]">
-                                    Belum diisi
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3.5 text-center font-mono font-bold text-slate-700">
-                                {u.txCount || 0} Tx
-                              </td>
-                              <td className="px-4 py-3.5">
-                                <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase">
-                                  FREE / TRIAL
-                                </span>
-                              </td>
-                              <td className="px-4 py-3.5 text-center">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  <button 
-                                    onClick={() => handleTogglePro(u, true)}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1 active:scale-95 whitespace-nowrap"
-                                    title="Beri Akses PRO"
-                                  >
-                                    <span>⭐</span> PRO
-                                  </button>
-                                  <button 
-                                    onClick={() => handleExcludeUser(u)}
-                                    className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 active:scale-95 whitespace-nowrap"
-                                    title="Hapus dari Data Pelaporan Manager"
-                                  >
-                                    <IconTrash /> HAPUS DARI DATA
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
+                                  {intel.isAbandonedCheckout && (
+                                    <div className="text-[9px] font-bold text-rose-600 mt-1 flex items-center gap-1">
+                                      <span>⚠️</span> <span>Gagal Bayar / Terhenti</span>
+                                    </div>
+                                  )}
+                                </td>
+
+                                {/* Aksi & Intelijen */}
+                                <td className="px-4 py-3.5 text-center">
+                                  <div className="flex flex-col gap-1.5 items-center">
+                                    <button 
+                                      onClick={() => setSelectedIntelligenceUser(u)}
+                                      className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 border border-indigo-200 text-[10px] font-black uppercase px-2.5 py-1.5 rounded-lg transition-all shadow-xs flex items-center justify-center gap-1 active:scale-95 whitespace-nowrap"
+                                      title="Buka 9 Dimensi Analisis Lengkap"
+                                    >
+                                      <span>🔍</span> 9 ANALISIS
+                                    </button>
+                                    
+                                    <div className="flex items-center gap-1 w-full">
+                                      <button 
+                                        onClick={() => handleTogglePro(u, true)}
+                                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase px-2 py-1 rounded-md transition-all shadow-xs flex items-center justify-center gap-0.5 active:scale-95"
+                                        title="Beri Akses PRO Manual"
+                                      >
+                                        <span>⭐</span> PRO
+                                      </button>
+                                      <button 
+                                        onClick={() => handleExcludeUser(u)}
+                                        className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-[10px] font-bold p-1 rounded-md transition-colors"
+                                        title="Hapus dari Data Pelaporan Manager"
+                                      >
+                                        <IconTrash />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
@@ -1438,7 +1545,7 @@ export default function Manager() {
                       <span>🟢</span> Daftar Member Sudah PRO ({filteredProUsers.length})
                     </h3>
                     <p className="text-[11px] text-[#64748b] mt-0.5">
-                      Menampilkan status lisensi lengkap beserta <b>tanggal kapan akun menjadi PRO</b> dan masa berlakunya.
+                      Menampilkan status lisensi lengkap beserta <b>tanggal kapan akun menjadi PRO</b>, sisa masa aktif, dan analisis keterikatan.
                     </p>
                   </div>
                 </div>
@@ -1450,107 +1557,350 @@ export default function Manager() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-[#f8fafc] text-[10px] text-[#475569] uppercase tracking-wider font-bold border-b border-[#cbd5e1]">
-                          <th className="px-4 py-3">Member, Email & Telp</th>
-                          <th className="px-4 py-3">Terdaftar</th>
+                          <th className="px-4 py-3">Member & Kontak</th>
                           <th className="px-4 py-3 text-right">Saldo Kas Terdeteksi</th>
-                          <th className="px-4 py-3">Tanggal Menjadi PRO</th>
+                          <th className="px-4 py-3">Tanggal PRO</th>
                           <th className="px-4 py-3">Masa Berlaku</th>
                           <th className="px-4 py-3">Keaktifan</th>
-                          <th className="px-4 py-3 text-center">Aksi / Cabut</th>
+                          <th className="px-4 py-3 text-center">Intelijen & Aksi</th>
                         </tr>
                       </thead>
                       <tbody className="text-xs">
                         {filteredProUsers.length === 0 ? (
-                          <tr><td colSpan={7} className="px-4 py-8 text-center text-[#64748b] font-mono">Belum ada pengguna berstatus PRO yang sesuai.</td></tr>
+                          <tr><td colSpan={6} className="px-4 py-8 text-center text-[#64748b] font-mono">Belum ada pengguna berstatus PRO yang sesuai.</td></tr>
                         ) : (
-                          filteredProUsers.map((u: any) => (
-                            <tr key={u.id} className="hover:bg-[#f8fafc] border-b border-[#e2e8f0] last:border-0 transition-colors">
-                              <td className="px-4 py-3.5">
-                                <div className="font-bold text-[#0f172a] flex items-center gap-1.5">
-                                  <span>{u.name || u.username}</span>
-                                  <span className="text-amber-500">👑</span>
-                                </div>
-                                <div className="text-[11px] font-mono text-[#2563eb]">{u.email}</div>
-                                {u.phone ? (
-                                  <div className="mt-1">
-                                    <a 
-                                      href={`https://wa.me/${u.phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}`} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md transition-colors shadow-xs"
-                                      title="Klik untuk WhatsApp"
-                                    >
-                                      <span>📱</span>
-                                      <span>{u.phone}</span>
-                                    </a>
+                          filteredProUsers.map((u: any) => {
+                            const intel = u.intelligence || {};
+                            return (
+                              <tr key={u.id} className="hover:bg-[#f8fafc] border-b border-[#e2e8f0] last:border-0 transition-colors">
+                                <td className="px-4 py-3.5">
+                                  <div className="font-bold text-[#0f172a] flex items-center gap-1.5">
+                                    <span>{u.name || u.username}</span>
+                                    <span className="text-amber-500">👑</span>
                                   </div>
-                                ) : (
-                                  <div className="text-[10px] font-mono text-slate-400 mt-0.5 italic">- Belum isi WA/Telp -</div>
-                                )}
-                                <div className="text-[10px] font-mono text-emerald-600 font-bold mt-1">{Math.max(1, Number(u.appOpenCount || 0))}x Buka App</div>
-                              </td>
-                              <td className="px-4 py-3.5 font-mono text-[#64748b]">
-                                {u.createdAt ? new Date(u.createdAt).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}
-                              </td>
-                              <td className="px-4 py-3.5 text-right font-mono">
-                                <div className="font-bold text-[#0f172a]">
-                                  {formatCurrency(Number(u.cashBalance || 0))}
-                                </div>
-                                {Number(u.cashBalance || 0) >= 10000000 && (
-                                  <span className="inline-block mt-0.5 bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shadow-xs">
-                                    👑 WHALE
+                                  <div className="text-[11px] font-mono text-[#2563eb]">{u.email}</div>
+                                  {u.phone ? (
+                                    <div className="mt-1">
+                                      <a 
+                                        href={`https://wa.me/${u.phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}`} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md transition-colors shadow-xs"
+                                        title="Klik untuk WhatsApp"
+                                      >
+                                        <span>📱</span>
+                                        <span>{u.phone}</span>
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <div className="text-[10px] font-mono text-slate-400 mt-0.5 italic">- Belum isi WA/Telp -</div>
+                                  )}
+                                  <div className="text-[10px] font-mono text-emerald-600 font-bold mt-1">{Math.max(1, Number(u.appOpenCount || 0))}x Buka App</div>
+                                </td>
+
+                                <td className="px-4 py-3.5 text-right font-mono">
+                                  <div className="font-bold text-[#0f172a]">
+                                    {formatCurrency(Number(u.cashBalance || 0))}
+                                  </div>
+                                  {Number(u.cashBalance || 0) >= 10000000 && (
+                                    <span className="inline-block mt-0.5 bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shadow-xs">
+                                      👑 WHALE
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="px-4 py-3.5">
+                                  <div className="font-bold text-emerald-700 font-mono">
+                                    {u.proSince ? new Date(u.proSince).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Aktif (Awal)"}
+                                  </div>
+                                </td>
+
+                                <td className="px-4 py-3.5">
+                                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold font-mono">
+                                    {u.proValidUntil ? (
+                                      new Date(u.proValidUntil).getFullYear() > 2090 ? "LIFETIME (2099)" : new Date(u.proValidUntil).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' })
+                                    ) : "LIFETIME"}
                                   </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3.5">
-                                <div className="font-bold text-emerald-700 font-mono">
-                                  {u.proSince ? new Date(u.proSince).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Aktif (Awal)"}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3.5">
-                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold font-mono">
-                                  {u.proValidUntil ? (
-                                    new Date(u.proValidUntil).getFullYear() > 2090 ? "LIFETIME (2099)" : new Date(u.proValidUntil).toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' })
-                                  ) : "LIFETIME"}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3.5">
-                                {u.isZombie ? (
-                                  <span className="bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded text-[10px] font-bold">
-                                    🧟 Pasif (&gt;14h)
-                                  </span>
-                                ) : (
-                                  <span className="bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded text-[10px] font-bold">
-                                    🟢 Aktif ({u.txCount || 0} Tx)
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3.5 text-center">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  <button 
-                                    onClick={() => handleTogglePro(u, false)}
-                                    className="bg-amber-50 hover:bg-amber-100 text-amber-700 hover:text-amber-800 border border-amber-200 text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
-                                    title="Cabut Akses PRO"
-                                  >
-                                    CABUT PRO
-                                  </button>
-                                  <button 
-                                    onClick={() => handleExcludeUser(u)}
-                                    className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 active:scale-95 whitespace-nowrap"
-                                    title="Hapus dari Data Pelaporan Manager"
-                                  >
-                                    <IconTrash /> HAPUS DARI DATA
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
+                                </td>
+
+                                <td className="px-4 py-3.5">
+                                  {u.isZombie ? (
+                                    <span className="bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                                      🧟 Pasif (&gt;14h)
+                                    </span>
+                                  ) : (
+                                    <span className="bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                                      🟢 Aktif ({u.txCount || 0} Tx)
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="px-4 py-3.5 text-center">
+                                  <div className="flex flex-col gap-1.5 items-center">
+                                    <button 
+                                      onClick={() => setSelectedIntelligenceUser(u)}
+                                      className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 border border-indigo-200 text-[10px] font-black uppercase px-2.5 py-1.5 rounded-lg transition-all shadow-xs flex items-center justify-center gap-1 active:scale-95 whitespace-nowrap"
+                                      title="Buka 9 Dimensi Analisis Lengkap"
+                                    >
+                                      <span>🔍</span> 9 ANALISIS
+                                    </button>
+
+                                    <div className="flex items-center gap-1 w-full">
+                                      <button 
+                                        onClick={() => handleTogglePro(u, false)}
+                                        className="flex-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-bold uppercase px-2 py-1 rounded-md transition-colors whitespace-nowrap"
+                                        title="Cabut Akses PRO"
+                                      >
+                                        CABUT
+                                      </button>
+                                      <button 
+                                        onClick={() => handleExcludeUser(u)}
+                                        className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-[10px] font-bold p-1 rounded-md transition-colors"
+                                        title="Hapus dari Data Pelaporan Manager"
+                                      >
+                                        <IconTrash />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
                   </div>
                 )}
               </section>
+            )}
+
+            {/* =========================================================================
+                👑 MODAL INTELIJEN 9 DIMENSI & WHATSAPP CLOSING COPILOT (PER MEMBER)
+            ========================================================================= */}
+            {selectedIntelligenceUser && (
+              <div className="fixed inset-0 z-50 bg-[#0a0f1d]/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+                <div className="bg-[#0f172a] border border-slate-700 rounded-2xl w-full max-w-2xl text-white shadow-2xl overflow-hidden my-8 animate-in zoom-in-95 duration-200">
+                  {/* Modal Header */}
+                  <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-slate-700/80 flex justify-between items-start">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-400 to-amber-200 text-slate-950 font-black text-xl flex items-center justify-center shadow-lg">
+                        {(selectedIntelligenceUser.name || selectedIntelligenceUser.username || "U").charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-base font-extrabold text-white tracking-wide">
+                            {selectedIntelligenceUser.name || selectedIntelligenceUser.username}
+                          </h2>
+                          {selectedIntelligenceUser.isPro ? (
+                            <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider">
+                              👑 PRO MEMBER
+                            </span>
+                          ) : (
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${
+                              selectedIntelligenceUser.intelligence?.leadScore === 'HOT'
+                                ? 'bg-rose-500/20 text-rose-400 border-rose-500/30 animate-pulse'
+                                : selectedIntelligenceUser.intelligence?.leadScore === 'WARM'
+                                ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                : 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                            }`}>
+                              {selectedIntelligenceUser.intelligence?.leadScore === 'HOT' ? '🔥 HOT LEAD' : selectedIntelligenceUser.intelligence?.leadScore === 'WARM' ? '⛅ WARM LEAD' : '❄️ COLD LEAD'}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-mono text-blue-400 mt-0.5">{selectedIntelligenceUser.email}</p>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => setSelectedIntelligenceUser(null)}
+                      className="text-slate-400 hover:text-white p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+
+                  {/* Modal Body: 9 Tactical Intelligence Signals */}
+                  <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto font-sans">
+                    {/* Highlight Lead Score Banner */}
+                    <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Saran Tindakan & Bahan Obrolan Follow-Up</p>
+                        <p className="text-xs font-medium text-slate-200 mt-1 leading-relaxed">
+                          {selectedIntelligenceUser.intelligence?.followUpHook || "Hubungi via WhatsApp untuk menawarkan bantuan atau informasi promo."}
+                        </p>
+                      </div>
+                      {selectedIntelligenceUser.phone && (
+                        <a
+                          href={`https://wa.me/${selectedIntelligenceUser.phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Halo Kak ${selectedIntelligenceUser.name || selectedIntelligenceUser.firstName || 'Kakak'}, ${selectedIntelligenceUser.intelligence?.followUpHook || 'kami dari tim Bilano Finance ingin menanyakan kabar penggunaan aplikasi Anda.'}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 ml-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition-all shadow-md flex items-center gap-1.5"
+                        >
+                          <span>📱 Chat WA</span>
+                        </a>
+                      )}
+                    </div>
+
+                    {/* 9 Dimensi Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+                      {/* 1. 3 Pertanyaan Onboarding */}
+                      <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400 flex items-center gap-1">
+                            <span>🎯</span> 1. 3 Pertanyaan Onboarding
+                          </span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${selectedIntelligenceUser.intelligence?.hasAnswered3Questions ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}>
+                            {selectedIntelligenceUser.intelligence?.hasAnswered3Questions ? 'Terisi' : 'Dilewati'}
+                          </span>
+                        </div>
+                        <p className="font-semibold text-slate-200">{selectedIntelligenceUser.intelligence?.onboardingGoal || "Target: Belum Diisi"}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Pengingat Komitmen: <b className="text-slate-300">{selectedIntelligenceUser.intelligence?.reminderTime || "Malam"}</b></p>
+                      </div>
+
+                      {/* 2. Aktivitas Selama Trial */}
+                      <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                            <span>📱</span> 2. Aktivitas Selama Trial
+                          </span>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                            Level: {selectedIntelligenceUser.intelligence?.activityLevel || "Pasif"}
+                          </span>
+                        </div>
+                        <p className="font-semibold text-slate-200">
+                          <b className="text-emerald-400">{selectedIntelligenceUser.intelligence?.appOpenCount || 1}x</b> Buka App &bull; <b className="text-blue-400">{selectedIntelligenceUser.intelligence?.txCount || 0}</b> Transaksi
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Frekuensi pencatatan pembukuan keuangan</p>
+                      </div>
+
+                      {/* 3. Intip Paywall / Pricing */}
+                      <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 flex items-center gap-1">
+                            <span>💳</span> 3. Intip Paywall / Pricing
+                          </span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${selectedIntelligenceUser.intelligence?.hasSeenPaywall ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-700 text-slate-400'}`}>
+                            {selectedIntelligenceUser.intelligence?.hasSeenPaywall ? 'Pernah Intip' : 'Belum Pernah'}
+                          </span>
+                        </div>
+                        <p className="font-semibold text-slate-200">
+                          {selectedIntelligenceUser.intelligence?.hasSeenPaywall 
+                            ? `Dilihat ${selectedIntelligenceUser.intelligence?.paywallViewCount || 1} Kali`
+                            : "Belum membuka penawaran PRO"}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {selectedIntelligenceUser.intelligence?.lastPaywallView 
+                            ? `Terakhir dilihat: ${new Date(selectedIntelligenceUser.intelligence.lastPaywallView).toLocaleDateString("id-ID")}`
+                            : "Niat beli belum terpicu"}
+                        </p>
+                      </div>
+
+                      {/* 4. Fitur PRO Terkunci yang Sempat Diklik */}
+                      <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 flex items-center gap-1">
+                            <span>🔒</span> 4. Fitur Terkunci Dicoba
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {selectedIntelligenceUser.intelligence?.lockedHits && selectedIntelligenceUser.intelligence.lockedHits.length > 0 ? (
+                            selectedIntelligenceUser.intelligence.lockedHits.map((feat: string, i: number) => (
+                              <span key={i} className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                {feat}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-[10px] text-slate-400 italic">Belum ada percobaan fitur terkunci</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 5. Sisa Masa Trial & Status Urgensi */}
+                      <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                            <span>⏳</span> 5. Sisa Masa Trial
+                          </span>
+                        </div>
+                        <p className="font-bold text-slate-100">{selectedIntelligenceUser.intelligence?.trialStatusLabel || "Trial Aktif"}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {selectedIntelligenceUser.isPro ? "Akses fitur penuh tanpa batas" : `Countdown: Sisa ${selectedIntelligenceUser.intelligence?.daysLeftInTrial || 0} hari`}
+                        </p>
+                      </div>
+
+                      {/* 6. Skala Finansial & Asset Tier */}
+                      <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-teal-400 flex items-center gap-1">
+                            <span>💰</span> 6. Profil Aset / Kas
+                          </span>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300">
+                            {selectedIntelligenceUser.intelligence?.assetTierBadge || "🌱 Pemula"}
+                          </span>
+                        </div>
+                        <p className="font-bold text-emerald-400 font-mono text-sm">{formatCurrency(Number(selectedIntelligenceUser.cashBalance || 0))}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Tier: {selectedIntelligenceUser.intelligence?.assetTier || "Tier 1"}</p>
+                      </div>
+
+                      {/* 7. Waktu Terakhir Aktif */}
+                      <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 flex items-center gap-1">
+                            <span>🕒</span> 7. Terakhir Aktif (Last Seen)
+                          </span>
+                        </div>
+                        <p className="font-semibold text-slate-100">{selectedIntelligenceUser.intelligence?.lastActiveText || "Belum pernah aktif"}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {selectedIntelligenceUser.lastTxDate ? `Tx terakhir: ${new Date(selectedIntelligenceUser.lastTxDate).toLocaleDateString("id-ID")}` : "Belum mencatat transaksi"}
+                        </p>
+                      </div>
+
+                      {/* 8. Abandoned Checkout Status */}
+                      <div className="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 flex items-center gap-1">
+                            <span>⚠️</span> 8. Status Inisiasi Checkout
+                          </span>
+                        </div>
+                        <p className={`font-semibold ${selectedIntelligenceUser.intelligence?.isAbandonedCheckout ? 'text-rose-400 font-bold' : 'text-slate-300'}`}>
+                          {selectedIntelligenceUser.intelligence?.isAbandonedCheckout 
+                            ? "🚨 Pernah Checkout Belum Bayar" 
+                            : selectedIntelligenceUser.isPro ? "✅ Pembayaran Lunas" : "Belum ada percobaan checkout"}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {selectedIntelligenceUser.intelligence?.isAbandonedCheckout ? "Prioritas follow up via WA!" : "Tidak ada kendala pembayaran"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="p-4 bg-slate-900 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3">
+                    <div className="text-xs text-slate-400 font-mono">
+                      ID Member: #{selectedIntelligenceUser.id} &bull; Bergabung: {selectedIntelligenceUser.createdAt ? new Date(selectedIntelligenceUser.createdAt).toLocaleDateString("id-ID") : "-"}
+                    </div>
+
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      {selectedIntelligenceUser.phone && (
+                        <a
+                          href={`https://wa.me/${selectedIntelligenceUser.phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Halo Kak ${selectedIntelligenceUser.name || selectedIntelligenceUser.firstName || 'Kakak'}, ${selectedIntelligenceUser.intelligence?.followUpHook || 'kami dari tim Bilano Finance ingin menanyakan kabar penggunaan aplikasi Anda.'}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-4 py-2 rounded-lg transition-all shadow-md flex items-center gap-1.5 w-full sm:w-auto justify-center"
+                        >
+                          <span>📱 Chat WhatsApp ({selectedIntelligenceUser.phone})</span>
+                        </a>
+                      )}
+                      <button
+                        onClick={() => setSelectedIntelligenceUser(null)}
+                        className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-4 py-2 rounded-lg transition-colors"
+                      >
+                        Tutup
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}

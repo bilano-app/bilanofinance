@@ -3075,6 +3075,11 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
       try { 
           await db.execute(sql`CREATE TABLE IF NOT EXISTS manager_excluded_users (id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE, email TEXT, excluded_at TIMESTAMP DEFAULT NOW());`);
           await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;`);
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reminder_time TEXT;`);
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_start_date TIMESTAMP;`);
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_end_date TIMESTAMP;`);
+          await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS app_open_count INTEGER DEFAULT 0;`);
+          
           const allUsersRes = await db.execute(sql`
             SELECT 
               u.id, 
@@ -3092,6 +3097,9 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               u.locked_plan AS "lockedPlan", 
               u.locked_price AS "lockedPrice", 
               u.app_open_count AS "appOpenCount",
+              u.reminder_time AS "reminderTime",
+              u.trial_start_date AS "trialStartDate",
+              u.trial_end_date AS "trialEndDate",
               (SELECT COUNT(*)::int FROM transactions WHERE user_id = u.id) AS "txCount",
               (SELECT MAX(date) FROM transactions WHERE user_id = u.id) AS "lastTxDate"
             FROM users u
@@ -3108,7 +3116,35 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               const em = (u.email || u.username || '').toLowerCase().trim();
               return !em.includes('@bilano.app') && !em.startsWith('guest');
           });
+
+          // Ambil seluruh telemetry tracking_events untuk user yang relevan
+          let allEvents: any[] = [];
+          try {
+              const eventsRes = await db.execute(sql`
+                SELECT id, user_id, event_name, properties, created_at 
+                FROM tracking_events 
+                ORDER BY created_at DESC
+                LIMIT 5000
+              `);
+              allEvents = Array.isArray(eventsRes) ? eventsRes : (eventsRes as any).rows || [];
+          } catch(e) {
+              console.warn("Could not query tracking_events:", e);
+          }
+
+          // Ambil profil income / kuesioner jika ada
+          let incomeProfiles: any[] = [];
+          try {
+              const profRes = await db.execute(sql`
+                SELECT user_id, status, tujuan, pola_kerja, completed_at
+                FROM user_income_profiles
+              `);
+              incomeProfiles = Array.isArray(profRes) ? profRes : (profRes as any).rows || [];
+          } catch(e) {
+              console.warn("Could not query user_income_profiles:", e);
+          }
+
           const fourteenDaysAgo = Date.now() - (14 * 24 * 60 * 60 * 1000);
+          const nowMs = Date.now();
 
           const formattedUsers = filteredRows.map((u: any) => {
               const fullName = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
@@ -3122,8 +3158,151 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   userCash = Math.max(userCash, wsSum);
               } catch(e) {}
 
-              // Akun terdaftar minimal 1x buka app
               const countOpened = Math.max(1, Number(u.appOpenCount || 0));
+
+              // Filter event tracking untuk user ini
+              const uEmail = (u.email || u.username || '').toLowerCase().trim();
+              const userEvents = allEvents.filter((ev: any) => {
+                  if (ev.user_id && Number(ev.user_id) === Number(u.id)) return true;
+                  if (ev.properties) {
+                      const propStr = typeof ev.properties === 'string' ? ev.properties : JSON.stringify(ev.properties);
+                      if (propStr.toLowerCase().includes(uEmail)) return true;
+                  }
+                  return false;
+              });
+
+              // 1. DIMENSI ONBOARDING / 3 PERTANYAAN
+              const profile = incomeProfiles.find((p: any) => Number(p.user_id) === Number(u.id));
+              const onboardingEvent = userEvents.find((e: any) => 
+                  e.event_name === 'onboarding_completed' || 
+                  e.event_name === 'quiz_answered' ||
+                  e.event_name === 'onboarding_step_completed'
+              );
+
+              let hasAnswered3Questions = Boolean(profile || u.reminderTime || onboardingEvent);
+              let onboardingGoal = profile?.tujuan || (u.reminderTime ? `Waktu Pengingat: ${u.reminderTime}` : null);
+              
+              if (!onboardingGoal && onboardingEvent && onboardingEvent.properties) {
+                  try {
+                      const p = typeof onboardingEvent.properties === 'string' ? JSON.parse(onboardingEvent.properties) : onboardingEvent.properties;
+                      if (p.goal) onboardingGoal = `Target: ${p.goal}`;
+                  } catch(_) {}
+              }
+
+              // 2. DIMENSI TRIAL & APP ACTIVITY
+              const txCount = Number(u.txCount || 0);
+              let activityLevel: 'Tinggi' | 'Sedang' | 'Pasif' = 'Pasif';
+              if (txCount >= 5 || countOpened >= 8) {
+                  activityLevel = 'Tinggi';
+              } else if (txCount >= 1 || countOpened >= 3) {
+                  activityLevel = 'Sedang';
+              }
+
+              // 3. DIMENSI PAYWALL / PRICING VIEWED
+              const paywallEvents = userEvents.filter((e: any) => 
+                  e.event_name === 'paywall_viewed' || 
+                  e.event_name === 'pricing_viewed' ||
+                  e.event_name === 'welcome_deal_viewed' ||
+                  e.event_name === 'pro_modal_viewed' ||
+                  e.event_name === 'checkout_initiated'
+              );
+              const hasSeenPaywall = paywallEvents.length > 0;
+              const paywallViewCount = paywallEvents.length;
+              const lastPaywallView = paywallEvents.length > 0 ? paywallEvents[0].created_at : null;
+
+              // 4. DIMENSI FITUR PRO TERKUNCI YANG DICOBA
+              const lockedHits: string[] = [];
+              userEvents.forEach((e: any) => {
+                  const evName = (e.event_name || '').toLowerCase();
+                  if (evName.includes('locked') || evName.includes('pro_feature') || evName.includes('limit_reached') || evName.includes('export_pdf_attempt') || evName.includes('valas_locked')) {
+                      let featName = 'Fitur Eksklusif PRO';
+                      if (evName.includes('pdf') || evName.includes('export')) featName = 'Ekspor Laporan PDF/Excel';
+                      else if (evName.includes('valas') || evName.includes('forex')) featName = 'Multi-Valas & Forex';
+                      else if (evName.includes('scan') || evName.includes('ai')) featName = 'Smart Scan Struk AI';
+                      else if (evName.includes('chat') || evName.includes('advisor')) featName = 'AI Financial Advisor';
+                      else if (evName.includes('wallet')) featName = 'Multi-Dompet Kas';
+                      if (!lockedHits.includes(featName)) lockedHits.push(featName);
+                  }
+              });
+
+              // 5. DIMENSI SISA MASA TRIAL
+              const trialStart = u.trialStartDate ? new Date(u.trialStartDate).getTime() : (u.createdAt ? new Date(u.createdAt).getTime() : nowMs);
+              const trialEnd = u.trialEndDate ? new Date(u.trialEndDate).getTime() : (trialStart + 7 * 24 * 60 * 60 * 1000);
+              const msLeft = trialEnd - nowMs;
+              const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+
+              let trialStatusLabel = "Trial Aktif";
+              let trialUrgencyColor = "emerald"; // emerald | amber | rose
+              if (u.isPro) {
+                  trialStatusLabel = "Member PRO (Aktif)";
+                  trialUrgencyColor = "emerald";
+              } else if (daysLeft > 1) {
+                  trialStatusLabel = `Trial Aktif (Sisa ${daysLeft} Hari)`;
+                  trialUrgencyColor = "emerald";
+              } else if (daysLeft === 1 || daysLeft === 0) {
+                  trialStatusLabel = "⚠️ Trial Habis Hari Ini";
+                  trialUrgencyColor = "amber";
+              } else {
+                  const daysExpired = Math.abs(daysLeft);
+                  trialStatusLabel = `⏳ Trial Kadaluarsa (H+${daysExpired})`;
+                  trialUrgencyColor = "rose";
+              }
+
+              // 6. DIMENSI ASSET TIER
+              let assetTier = "Tier 1 (< Rp 1 Jt)";
+              let assetTierBadge = "🌱 Pemula";
+              if (userCash >= 10000000) {
+                  assetTier = "Tier 3 / High Value (> Rp 10 Jt)";
+                  assetTierBadge = "👑 Whale / High-Value";
+              } else if (userCash >= 1000000) {
+                  assetTier = "Tier 2 (Rp 1 Jt - Rp 10 Jt)";
+                  assetTierBadge = "💼 Menengah";
+              }
+
+              // 7. DIMENSI LAST SEEN / TERAKHIR AKTIF
+              const lastTxTimestamp = u.lastTxDate ? new Date(u.lastTxDate).getTime() : 0;
+              const lastEventTimestamp = userEvents.length > 0 && userEvents[0].created_at ? new Date(userEvents[0].created_at).getTime() : 0;
+              const effectiveLastActive = Math.max(lastTxTimestamp, lastEventTimestamp, u.createdAt ? new Date(u.createdAt).getTime() : 0);
+
+              let lastActiveText = "Belum pernah aktif";
+              if (effectiveLastActive > 0) {
+                  const diffHours = Math.floor((nowMs - effectiveLastActive) / (1000 * 60 * 60));
+                  if (diffHours < 1) lastActiveText = "Baru saja aktif";
+                  else if (diffHours < 24) lastActiveText = `${diffHours} jam lalu`;
+                  else {
+                      const diffDays = Math.floor(diffHours / 24);
+                      lastActiveText = `${diffDays} hari lalu`;
+                  }
+              }
+
+              // 8. DIMENSI ABANDONED CHECKOUT
+              const hasCheckoutAttempt = userEvents.some((e: any) => 
+                  e.event_name === 'checkout_initiated' || 
+                  e.event_name === 'payment_pending' ||
+                  e.event_name === 'qris_generated'
+              );
+              const isAbandonedCheckout = !u.isPro && hasCheckoutAttempt;
+
+              // 9. LEAD TEMPERATURE BADGE (HOT, WARM, COLD)
+              let leadScore: 'HOT' | 'WARM' | 'COLD' = 'COLD';
+              let followUpHook = "";
+
+              if (u.isPro) {
+                  leadScore = 'WARM';
+                  followUpHook = "Pelanggan setia. Berikan apresiasi atau tanyakan feedback kepuasan pemakaian PRO.";
+              } else if (isAbandonedCheckout) {
+                  leadScore = 'HOT';
+                  followUpHook = "Sudah sempat masuk checkout bayar tapi belum lunas. Hubungi via WA untuk tawarkan bantuan QRIS/Transfer manual.";
+              } else if (hasSeenPaywall && (txCount > 0 || hasAnswered3Questions)) {
+                  leadScore = 'HOT';
+                  followUpHook = "Sangat berminat (aktif mencatat + sudah intip paywall). Tawarkan promo diskon penutupan trial.";
+              } else if (countOpened >= 3 || txCount >= 1 || hasAnswered3Questions) {
+                  leadScore = 'WARM';
+                  followUpHook = "Mulai terbiasa memakai app. Edukasi manfaat fitur PRO (misal Ekspor PDF / AI) untuk mendorong upgrade.";
+              } else {
+                  leadScore = 'COLD';
+                  followUpHook = "User baru / pasif. Berikan sapaan hangat dan panduan awal 1 menit untuk mulai mencatat keuangan.";
+              }
 
               return {
                   id: u.id,
@@ -3141,9 +3320,33 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   lockedPlan: u.lockedPlan,
                   lockedPrice: u.lockedPrice,
                   appOpenCount: countOpened,
-                  txCount: Number(u.txCount || 0),
+                  txCount: txCount,
                   lastTxDate: u.lastTxDate ? new Date(u.lastTxDate).toISOString() : null,
-                  isZombie
+                  isZombie,
+
+                  // 🚀 9 DIMENSI INTELIJEN ANALISIS PER MEMBER
+                  intelligence: {
+                      leadScore, // 'HOT' | 'WARM' | 'COLD'
+                      hasAnswered3Questions,
+                      onboardingGoal: onboardingGoal || "Belum diisi (Dilewati)",
+                      reminderTime: u.reminderTime || "Malam",
+                      activityLevel, // 'Tinggi' | 'Sedang' | 'Pasif'
+                      appOpenCount: countOpened,
+                      txCount,
+                      hasSeenPaywall,
+                      paywallViewCount,
+                      lastPaywallView: lastPaywallView ? new Date(lastPaywallView).toISOString() : null,
+                      lockedHits,
+                      trialStatusLabel,
+                      trialUrgencyColor,
+                      daysLeftInTrial: daysLeft,
+                      assetTier,
+                      assetTierBadge,
+                      lastActiveText,
+                      effectiveLastActive: effectiveLastActive ? new Date(effectiveLastActive).toISOString() : null,
+                      isAbandonedCheckout,
+                      followUpHook
+                  }
               };
           });
 
