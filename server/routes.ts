@@ -14,6 +14,7 @@ import crypto from "crypto";
 import { trackingEvents } from "../shared/schema.js";
 import { registerIncomeStrategyRoutes } from "./incomeStrategy.js";
 import { applyRateLimiter } from "./security.js";
+import { hashPassword, verifyPassword } from "./auth-crypto.js";
 
 let firebaseAdminInitialized = false;
 try {
@@ -259,6 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const lastName = nameParts.slice(1).join(" ");
 
           const tempCode = Math.floor(100000 + Math.random() * 900000).toString();
+          const hashedTempCode = await hashPassword(tempCode);
 
           const validUntil = new Date();
           if (plan === 'year' || plan === 'yearly') {
@@ -278,7 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   SET is_pro = true, 
                       pro_since = COALESCE(pro_since, NOW()),
                       pro_valid_until = ${validUntil}, 
-                      password = ${tempCode},
+                      password = ${hashedTempCode},
                       is_custom_password_set = false,
                       locked_plan = ${planKey},
                       locked_price = ${finalPrice},
@@ -289,7 +291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               user = await storage.createUser({
                   username: cleanEmail,
                   email: cleanEmail,
-                  password: tempCode,
+                  password: hashedTempCode,
                   firstName: firstName,
                   lastName: lastName,
                   cashBalance: 0,
@@ -354,7 +356,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (!user) return res.status(454).json({ error: "Email belum terdaftar atau belum berlangganan." });
 
-          if (user.password !== password) return res.status(400).json({ error: "Kode akses atau password Anda salah." });
+          const isPasswordValid = await verifyPassword(password.trim(), user.password);
+          if (!isPasswordValid) return res.status(400).json({ error: "Kode akses atau password Anda salah." });
+
+          // Auto-upgrade: jika akun lama masih plain-text, otomatis enkripsi ke hash
+          if (user.password && !user.password.includes(":")) {
+              const modernHash = await hashPassword(password.trim());
+              await db.execute(sql`UPDATE users SET password = ${modernHash} WHERE id = ${user.id}`);
+          }
 
           res.json({ success: true, isPro: user.isPro });
       } catch (err: any) {
@@ -376,9 +385,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const user = await storage.getUserByUsername(email as string);
           if (!user) return res.status(404).json({ error: "User tidak ditemukan." });
 
+          const hashedPassword = await hashPassword(newPassword.trim());
+
           await db.execute(sql`
               UPDATE users 
-              SET password = ${newPassword}, 
+              SET password = ${hashedPassword}, 
                   is_custom_password_set = true 
               WHERE id = ${user.id}
           `);
@@ -1548,6 +1559,12 @@ function parseCleanJson(text: string): any {
           const userRecord = await admin.auth().getUserByEmail(cleanEmail);
           await admin.auth().updateUser(userRecord.uid, { password: newPassword });
           
+          const user = await storage.getUserByUsername(cleanEmail);
+          if (user) {
+              const hashedPassword = await hashPassword(newPassword.trim());
+              await db.execute(sql`UPDATE users SET password = ${hashedPassword}, is_custom_password_set = true WHERE id = ${user.id}`);
+          }
+
           await db.execute(sql`DELETE FROM otp_sessions WHERE LOWER(TRIM(email)) = ${cleanEmail}`); 
           res.status(200).json({ success: true, message: "Password berhasil diubah" });
       } catch (error: any) { res.status(500).json({ error: "Gagal mengganti password: " + error.message }); }
