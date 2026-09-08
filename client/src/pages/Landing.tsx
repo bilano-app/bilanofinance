@@ -6,7 +6,6 @@ import {
 } from "lucide-react";
 import { trackEvent } from "@/lib/tracking";
 import { isInAppBrowser, isIOS, buildChromeIntentUrl } from "@/lib/browserDetect";
-import { initTrialSession } from "@/lib/trial-data";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
@@ -396,17 +395,11 @@ export default function Landing() {
               <span>INSTALL BILANO SEKARANG</span>
             </button>
 
-            <button
-              onClick={() => {
-                trackEvent("try_in_browser_clicked", { source: "main_cta" });
-                initTrialSession();
-                window.location.href = "/?trial=true";
-              }}
-              type="button"
-              className="w-full max-w-[400px] bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white font-bold text-sm tracking-wide py-3.5 px-6 rounded-[20px] border border-white/15 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer shadow-sm"
-            >
-              <span>Atau Coba Langsung di Browser →</span>
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] md:text-xs font-bold text-amber-300/80 tracking-wide mt-1 text-center">
+              <span>✓ Akses Penuh 7 Hari Gratis</span>
+              <span>✓ Tanpa Kartu Kredit</span>
+              <span>✓ Data Aman & Privat</span>
+            </div>
           </div>
 
           {/* 🚀 FLOATING STICKY INSTALL BUTTON (MUNCUL KETIKA TOMBOL UTAMA TIDAK DI AREA PANDANG) */}
@@ -417,27 +410,16 @@ export default function Landing() {
                   <img src="/BILANO-ICON-NEW.png" alt="Bilano" className="w-8 h-8 object-contain rounded-lg shrink-0" />
                   <div className="flex flex-col">
                     <span className="text-[11px] font-black text-white uppercase tracking-wider leading-tight">BILANO PWA</span>
-                    <span className="text-[9px] text-amber-400 font-bold">Kawal Visi Finansial</span>
+                    <span className="text-[9px] text-amber-400 font-bold">7 Hari Akses Gratis</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
-                    onClick={() => {
-                      trackEvent("try_in_browser_clicked", { source: "sticky_bar" });
-                      initTrialSession();
-                      window.location.href = "/?trial=true";
-                    }}
-                    type="button"
-                    className="text-[11px] font-bold text-slate-300 hover:text-white px-2 py-2 transition-colors cursor-pointer"
-                  >
-                    Coba di Web
-                  </button>
-                  <button
                     onClick={handlePwaInstall}
-                    className="bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-xs md:text-sm tracking-wide py-2.5 px-3.5 md:px-5 rounded-2xl shadow-md active:scale-95 transition-all flex items-center gap-1.5 border-b-2 border-amber-600 cursor-pointer shrink-0"
+                    className="bg-gradient-to-b from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-[#0a1128] font-black text-xs md:text-sm tracking-wide py-2.5 px-5 rounded-2xl shadow-md active:scale-95 transition-all flex items-center gap-1.5 border-b-2 border-amber-600 cursor-pointer shrink-0"
                   >
                     <Download strokeWidth={3} className="w-3.5 h-3.5 animate-bounce" />
-                    <span>INSTALL</span>
+                    <span>INSTALL SEKARANG</span>
                   </button>
                 </div>
               </div>
