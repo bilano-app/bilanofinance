@@ -293,7 +293,7 @@ function Router() {
     <>
       <Switch>
         <Route path="/">
-          {isStandalone ? (hasAuth ? <Home /> : <Auth />) : (isTrialMode() ? <Home /> : <Landing />)}
+          {isStandalone ? (hasAuth ? <Home /> : <Auth />) : (typeof window !== 'undefined' && window.location.search.includes('trial=true') ? <Home /> : <Landing />)}
         </Route>
         
         <Route path="/terminal">
