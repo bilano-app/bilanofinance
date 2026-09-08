@@ -163,6 +163,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS monthly_scan_count INTEGER DEFAULT 0;`);
       await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_scan_month TEXT;`);
       await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS has_ebook_access BOOLEAN DEFAULT FALSE;`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_custom_password_set BOOLEAN DEFAULT FALSE;`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS app_open_count INTEGER DEFAULT 0;`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_plan TEXT;`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_price BIGINT;`);
+      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_sources JSON DEFAULT '[]';`);
       await db.execute(sql`CREATE TABLE IF NOT EXISTS tracking_events (id SERIAL PRIMARY KEY, anonymous_id TEXT NOT NULL, user_id INTEGER, event_name TEXT NOT NULL, properties TEXT, created_at TIMESTAMP DEFAULT NOW());`);
       await db.execute(sql`CREATE TABLE IF NOT EXISTS help_tickets (id VARCHAR(255) PRIMARY KEY, user_id INTEGER, email TEXT, name TEXT, subject TEXT, message TEXT, status TEXT, date TIMESTAMP DEFAULT NOW());`);
       await db.execute(sql`UPDATE users SET created_at = COALESCE(created_at, pro_since, trial_start_date, NOW()) WHERE created_at IS NULL;`);
