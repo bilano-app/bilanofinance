@@ -386,7 +386,6 @@ export default function Landing() {
             </div>
           )}
 
-          {/* 🔥 4. TOMBOL INSTALL PWA UTAMA (DI ATAS FAQ) */}
           <div ref={bottomInstallBtnRef} className="w-full flex flex-col items-center justify-center animate-in slide-in-from-bottom-10 fade-in duration-700 delay-400 fill-mode-both max-w-7xl px-4 lg:px-0 mb-8 gap-3">
             <button
               onClick={handlePwaInstall}
@@ -395,12 +394,6 @@ export default function Landing() {
               <Download strokeWidth={3} className="w-6 h-6 animate-bounce" />
               <span>INSTALL BILANO SEKARANG</span>
             </button>
-
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] md:text-xs font-bold text-amber-300/80 tracking-wide mt-1 text-center">
-              <span>✓ Akses Penuh 7 Hari Gratis</span>
-              <span>✓ Tanpa Kartu Kredit</span>
-              <span>✓ Data Aman & Privat</span>
-            </div>
           </div>
 
           {/* 🚀 FLOATING STICKY INSTALL BUTTON (MUNCUL KETIKA TOMBOL UTAMA TIDAK DI AREA PANDANG) */}

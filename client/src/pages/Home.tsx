@@ -12,7 +12,7 @@ import {
     HandCoins, RefreshCcw, FileText, LogOut, User, BarChart3, ChevronRight,
     MoreVertical, ShieldCheck, ScanLine, Crown, EyeOff, Eye, Lock, X, Loader2,
     BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
-    Bot, CheckCircle2, HelpCircle, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Banknote,
+    Bot, CheckCircle2, HelpCircle, Mail, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Banknote,
     ArrowDownLeft, ArrowUpRight, Send, Target, Plus, Pencil,
     Gift, Clock, ArrowRight, Smartphone
 } from "lucide-react";
@@ -837,9 +837,9 @@ export default function Home() {
 
                     <Link href="/help">
                         <button className="w-12 h-12 bg-brand-gold text-brand-navy rounded-full shadow-[3px_3px_0px_0px] shadow-brand-navy active:shadow-[1px_1px_0px_0px] active:shadow-brand-navy active:translate-x-[2px] active:translate-y-[2px] flex items-center justify-center transition-all group relative">
-                            <HelpCircle className="w-6 h-6" strokeWidth={2.25} />
+                            <Mail className="w-5 h-5" strokeWidth={2.25} />
                             <span className="absolute right-full mr-3 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                Pusat Bantuan
+                                Kotak Pesan & Bantuan
                             </span>
                         </button>
                     </Link>
