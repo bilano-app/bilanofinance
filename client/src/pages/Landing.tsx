@@ -404,7 +404,7 @@ export default function Landing() {
                   <img src="/BILANO-ICON-NEW.png" alt="Bilano" className="w-8 h-8 object-contain rounded-lg shrink-0" />
                   <div className="flex flex-col">
                     <span className="text-[11px] font-black text-white uppercase tracking-wider leading-tight">BILANO PWA</span>
-                    <span className="text-[9px] text-amber-400 font-bold">7 Hari Akses Gratis</span>
+                    <span className="text-[9px] text-amber-400 font-bold">Kawal Visi Finansial</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">

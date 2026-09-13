@@ -483,8 +483,27 @@ export default function Profile() {
                                     return;
                                 }
                             }
-                            // Tes 1: Notifikasi Lokal Cepat
-                            if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+                            // Pastikan OneSignal ikut opt-in
+                            try {
+                                const OneSignalDeferred = ((window as any).OneSignalDeferred = (window as any).OneSignalDeferred || []);
+                                OneSignalDeferred.push(async function (OneSignal: any) {
+                                    if (OneSignal.User && OneSignal.User.PushSubscription) {
+                                        await OneSignal.User.PushSubscription.optIn();
+                                        const subId = OneSignal.User.PushSubscription.id;
+                                        if (subId) {
+                                            const email = localStorage.getItem("bilano_email") || "guest";
+                                            fetch('/api/user/onesignal', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json', 'x-user-email': email },
+                                                body: JSON.stringify({ onesignalId: subId })
+                                            }).catch(() => {});
+                                        }
+                                    }
+                                });
+                            } catch (e) {}
+
+                            // Tes 1: Notifikasi Perangkat Cepat
+                            if ("serviceWorker" in navigator) {
                                 const reg = await navigator.serviceWorker.ready;
                                 reg.showNotification("🎉 Notifikasi BILANO Berhasil!", {
                                     body: "Sistem notifikasi perangkat Anda telah terhubung sempurna.",
@@ -500,7 +519,7 @@ export default function Profile() {
                         }}
                         className="h-11 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
                     >
-                        <span>🧪 Tes Notif Perangkat Ini</span>
+                        <span>🧪 Tes Izin & Notif Lokal</span>
                     </button>
 
                     <button

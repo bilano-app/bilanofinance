@@ -815,21 +815,38 @@ export default function ExpertTerminal() {
               if (isCurrent) {
                   price = livePrices[activeTicker] || price;
               } else {
-                  const hist = simHistoryPrices[activeTicker];
+                  // Prioritas 1: Ambil dari historical data aktif
+                  const activeHist = historyPrices[activeTicker];
                   let historicalPrice = null;
-                  
-                  if (hist && hist.timestamps) {
+                  if (activeHist && activeHist.timestamps && activeHist.timestamps.length > 0) {
                       const targetSec = targetTs / 1000;
-                      for(let i = hist.timestamps.length-1; i >= 0; i--) {
-                          if (hist.timestamps[i] <= targetSec) { 
-                              if (hist.close[i] !== null && hist.close[i] !== undefined) {
-                                  historicalPrice = hist.close[i];
+                      for (let i = activeHist.timestamps.length - 1; i >= 0; i--) {
+                          if (activeHist.timestamps[i] <= targetSec) { 
+                              if (activeHist.close[i] !== null && activeHist.close[i] !== undefined) {
+                                  historicalPrice = activeHist.close[i];
                                   break;
                               }
                           }
                       }
                   }
+
+                  // Prioritas 2: Ambil dari 5y cache
+                  if (!historicalPrice) {
+                      const hist = simHistoryPrices[activeTicker];
+                      if (hist && hist.timestamps && hist.timestamps.length > 0) {
+                          const targetSec = targetTs / 1000;
+                          for (let i = hist.timestamps.length - 1; i >= 0; i--) {
+                              if (hist.timestamps[i] <= targetSec) { 
+                                  if (hist.close[i] !== null && hist.close[i] !== undefined) {
+                                      historicalPrice = hist.close[i];
+                                      break;
+                                  }
+                              }
+                          }
+                      }
+                  }
                   
+                  // Prioritas 3: Fungsi getPriceForDate
                   if (!historicalPrice) {
                       historicalPrice = getPriceForDate(activeTicker, targetTs);
                   }
@@ -847,7 +864,7 @@ export default function ExpertTerminal() {
       });
       
       return { totalValue: totalVal, investValue: totalInv, details };
-  }, [setupAwalBases, chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate, getHistoricalRate, simHistoryPrices, forexRates]);
+  }, [setupAwalBases, chronologicalTxs, activePortfolio, tickerOverrides, livePrices, getPriceForDate, getHistoricalRate, historyPrices, simHistoryPrices, forexRates]);
 
   const availableMonths = useMemo(() => {
       const currentYear = new Date().getFullYear();
@@ -895,27 +912,27 @@ export default function ExpertTerminal() {
 
   const chartDataDaily = useMemo(() => {
      if (activePortfolio.length === 0 && cashBalance === 0) return [];
-const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => {
-         const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
-         const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
-         const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i);
-         const qty = qtyMatch ? parseFormattedNumber(qtyMatch[1]) : 0;
+     const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => {
+          const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
+          const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
+          const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i);
+          const qty = qtyMatch ? parseFormattedNumber(qtyMatch[1]) : 0;
 
-         const priceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
-         const rawPrice = priceMatch ? parseFormattedNumber(priceMatch[1]) : 0;
+          const priceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
+          const rawPrice = priceMatch ? parseFormattedNumber(priceMatch[1]) : 0;
 
-         const asset = activePortfolio.find((p: any) => p.symbol === sym);
-         const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
-         const multiplier = asset ? asset.liveMultiplier : (sym.length === 4 ? 100 : 1);
-         const txDateTs = new Date(t.date).getTime();
-         const historicalRate = currency === 'IDR' ? 1 : getHistoricalRate(txDateTs, currency);
+          const asset = activePortfolio.find((p: any) => p.symbol === sym);
+          const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
+          const multiplier = asset ? asset.liveMultiplier : (sym.length === 4 ? 100 : 1);
+          const txDateTs = new Date(t.date).getTime();
+          const historicalRate = currency === 'IDR' ? 1 : getHistoricalRate(txDateTs, currency);
 
-         let realAmountIDR = Number(t.amount);
-         if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) {
-             realAmountIDR = rawPrice * qty * multiplier * historicalRate;
-         }
+          let realAmountIDR = Number(t.amount);
+          if (!realAmountIDR || isNaN(realAmountIDR) || realAmountIDR === 0) {
+              realAmountIDR = rawPrice * qty * multiplier * historicalRate;
+          }
 
-         return { ...t, parsedSymbol: sym, parsedQty: qty, parsedRealAmountIDR: realAmountIDR };
+          return { ...t, parsedSymbol: sym, parsedQty: qty, parsedRealAmountIDR: realAmountIDR };
      });
 
      const firstDate = firstInvestmentDate.getTime();
@@ -925,22 +942,22 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
      let stepSize = 24 * 60 * 60 * 1000; 
      
      if (chartTimeframe === '1D') {
-         startTimeframe = now - 1 * 24 * 60 * 60 * 1000;
+         startTimeframe = Math.max(now - 1 * 24 * 60 * 60 * 1000, firstDate);
          stepSize = 5 * 60 * 1000; 
      } else if (chartTimeframe === '1W') {
-         startTimeframe = now - 7 * 24 * 60 * 60 * 1000;
+         startTimeframe = Math.max(now - 7 * 24 * 60 * 60 * 1000, firstDate);
          stepSize = 1 * 60 * 60 * 1000; 
      } else if (chartTimeframe === '1M') {
-         startTimeframe = now - 30 * 24 * 60 * 60 * 1000;
+         startTimeframe = Math.max(now - 30 * 24 * 60 * 60 * 1000, firstDate);
          stepSize = 12 * 60 * 60 * 1000; 
      } else if (chartTimeframe === '3M') {
-         startTimeframe = now - 90 * 24 * 60 * 60 * 1000;
+         startTimeframe = Math.max(now - 90 * 24 * 60 * 60 * 1000, firstDate);
          stepSize = 24 * 60 * 60 * 1000; 
      } else if (chartTimeframe === '1Y') {
-         startTimeframe = now - 365 * 24 * 60 * 60 * 1000;
+         startTimeframe = Math.max(now - 365 * 24 * 60 * 60 * 1000, firstDate);
          stepSize = 24 * 60 * 60 * 1000; 
      } else if (chartTimeframe === '5Y') {
-         startTimeframe = now - 1825 * 24 * 60 * 60 * 1000;
+         startTimeframe = Math.max(now - 1825 * 24 * 60 * 60 * 1000, firstDate);
          stepSize = 3 * 24 * 60 * 60 * 1000; 
      }
      
@@ -1001,57 +1018,32 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
          else if (chartTimeframe === '5Y') dateLabel = dateObj.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
          else dateLabel = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
 
-         let dailyValuation = 0;
-         let dailyInvested = 0;
          const isLatestPoint = (currentTs + stepSize > endTs);
 
+         // 🟢 Menggunakan Real Snapshot Historis pada tanggal tersebut (Bukan rekayasa perkalian kuantitas hari ini)
+         const snapshot = getSnapshotAtDate(dateObj, isLatestPoint);
+         
+         let dailyValuation = 0;
+         let dailyInvested = 0;
+
          if (chartAssetFilter === 'ALL') {
-             activePortfolio.forEach((p: any) => {
-                 const ticker = p.activeTicker;
-                 const multiplier = p.liveMultiplier;
-                 const livePriceFallback = livePrices[ticker];
-                 
-                 let price = getPriceForDate(ticker, currentTs);
-                 if (!price || price === 0) {
-                     price = livePriceFallback;
-                 }
-                 if (!price || price === 0) {
-                     price = p.totalModalIDR / (p.qty * multiplier);
-                 }
-                 if (isNaN(price) || !isFinite(price)) price = 0;
-
-                 dailyValuation += (p.qty * price * multiplier);
-             });
-
-             // Modal untuk semua investasi pengguna yang aktif
-             dailyInvested = totalInvested;
+             dailyValuation = snapshot.totalValue;
+             dailyInvested = snapshot.investValue;
 
              if (isLatestPoint) {
                  dailyValuation = totalAssetValue;
                  dailyInvested = totalInvested;
              }
          } else {
-             const assetMeta = activePortfolio.find((p: any) => p.symbol === chartAssetFilter);
-             if (assetMeta) {
-                 const ticker = assetMeta.activeTicker;
-                 const multiplier = assetMeta.liveMultiplier;
-                 const livePriceFallback = livePrices[ticker];
+             const assetSnap = snapshot.details[chartAssetFilter] || { invested: 0, valuasi: 0, qty: 0 };
+             dailyValuation = assetSnap.valuasi;
+             dailyInvested = assetSnap.invested;
 
-                 let price = getPriceForDate(ticker, currentTs);
-                 if (!price || price === 0) {
-                     price = livePriceFallback;
-                 }
-                 if (!price || price === 0) {
-                     price = assetMeta.totalModalIDR / (assetMeta.qty * multiplier);
-                 }
-                 if (isNaN(price) || !isFinite(price)) price = 0;
-
-                 dailyValuation = assetMeta.qty * price * multiplier;
-                 dailyInvested = assetMeta.totalModalIDR;
-
-                 if (isLatestPoint) {
-                     const liveP = livePrices[ticker];
-                     dailyValuation = liveP ? (assetMeta.qty * liveP * multiplier) : assetMeta.totalModalIDR;
+             if (isLatestPoint) {
+                 const assetMeta = activePortfolio.find((p: any) => p.symbol === chartAssetFilter);
+                 if (assetMeta) {
+                     const liveP = livePrices[assetMeta.activeTicker];
+                     dailyValuation = liveP ? (assetMeta.qty * liveP * assetMeta.liveMultiplier) : assetMeta.totalModalIDR;
                      dailyInvested = assetMeta.totalModalIDR;
                  }
              }
@@ -1089,7 +1081,7 @@ const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_b
      }
 
      return dailyData;
-  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getPriceForDate, livePrices, chartAssetFilter, getHistoricalRate, dividendEvents, cashBalance, totalAssetValue, totalInvested, forexRates, user]); 
+  }, [historyPrices, chronologicalTxs, activePortfolio, tickerOverrides, chartTimeframe, firstInvestmentDate, setupAwalBases, getSnapshotAtDate, livePrices, chartAssetFilter, getHistoricalRate, dividendEvents, cashBalance, totalAssetValue, totalInvested, forexRates, user]); 
 
   // Isolated Y-Domain calculation to prevent Recharts rendering loops and crashes
   const chartYDomain = useMemo(() => {

@@ -1662,13 +1662,17 @@ function parseCleanJson(text: string): any {
   app.all(["/api/cron/notifications", "/api/notifications/test"], async (req: any, res: any) => {
       try {
           const rawRestKey = process.env.ONESIGNAL_REST_KEY;
-          const appId = process.env.ONESIGNAL_APP_ID; 
+          const appId = process.env.ONESIGNAL_APP_ID || "b45b3256-b290-4a98-b5fa-afa0501a6b1c"; 
 
-          if (!rawRestKey || !appId) return res.status(400).json({ error: "ONESIGNAL_REST_KEY atau ONESIGNAL_APP_ID tidak ditemukan di environment Vercel." });
+          if (!rawRestKey) {
+              return res.status(400).json({ 
+                  error: "ONESIGNAL_REST_KEY belum disetel di environment Vercel. Silakan tambahkan ONESIGNAL_REST_KEY di Project Settings > Environment Variables di Vercel." 
+              });
+          }
 
-          // Bersihkan REST Key dari spasi/karakter tersembunyi
-          const cleanKey = rawRestKey.replace(/[^a-zA-Z0-9_]/g, '');
-          const authHeader = cleanKey.startsWith("os_v2_") ? `Key ${cleanKey}` : `Basic ${cleanKey}`;
+          // Bersihkan REST Key dari spasi/karakter tak terlihat
+          const cleanKey = rawRestKey.trim().replace(/[\r\n\t]/g, '');
+          const authHeader = cleanKey.startsWith("os_v2_") ? `Key ${cleanKey}` : (cleanKey.startsWith("Basic ") || cleanKey.startsWith("Key ") ? cleanKey : `Basic ${cleanKey}`);
 
           // Hitung Jam Sekarang dalam WIB (UTC+7)
           const nowUtc = new Date();
@@ -1719,13 +1723,13 @@ function parseCleanJson(text: string): any {
 
           const payload = {
               app_id: appId,
-              included_segments: ["Total Subscriptions", "Subscribed Users"], 
+              included_segments: ["Subscribed Users"], 
               headings: { en: heading, id: heading },
               contents: { en: selectedMsg, id: selectedMsg },
               url: "https://bilano.app/",
-              chrome_web_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON-NEW.png",
-              chrome_web_badge: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON-NEW.png",
-              firefox_icon: "https://bilanofinance-dvbi.vercel.app/BILANO-ICON-NEW.png"
+              chrome_web_icon: "https://bilano.app/BILANO-ICON-NEW.png",
+              chrome_web_badge: "https://bilano.app/BILANO-ICON-NEW.png",
+              firefox_icon: "https://bilano.app/BILANO-ICON-NEW.png"
           };
 
           const response = await fetch("https://onesignal.com/api/v1/notifications", {
@@ -1738,6 +1742,14 @@ function parseCleanJson(text: string): any {
           });
 
           const data = await response.json();
+          if (!response.ok || (data && data.errors && data.errors.length > 0)) {
+              return res.status(response.status >= 400 ? response.status : 400).json({ 
+                  success: false, 
+                  error: "Gagal mengirim notifikasi melalui OneSignal", 
+                  details: data 
+              });
+          }
+
           res.json({ success: true, wibHour, heading, message: selectedMsg, onesignal_response: data });
       } catch (error: any) {
           res.status(500).json({ error: "Gagal memproses Cron Job OneSignal: " + error.message });
