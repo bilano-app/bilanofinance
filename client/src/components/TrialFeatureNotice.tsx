@@ -37,7 +37,7 @@ export function TrialFeatureNotice({ featureKey, featureName, className = "" }: 
             <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
           </div>
           <p className="text-[11px] font-bold text-slate-700 leading-snug">
-            Fitur ini biasanya premium — <span className="text-amber-700 font-extrabold">gratis untukmu</span> sampai {trial.formattedEndDate || "7 hari ke depan"}.
+            Fitur ini biasanya premium — <span className="text-amber-700 font-extrabold">terbuka selama Akses Eksplorasi 24 Jam</span> (s.d. {trial.formattedEndDate}).
           </p>
         </div>
 

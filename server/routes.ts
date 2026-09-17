@@ -3040,7 +3040,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
     }
   });
 
-  // 🚀 KOMITMEN ONBOARDING & AKTIVASI TRIAL 7 HARI
+  // 🚀 KOMITMEN ONBOARDING & AKTIVASI EKSPLORASI 24 JAM
   app.post("/api/user/commitment", async (req: any, res: any) => {
     try {
       const user = await getUser(req);
@@ -3050,21 +3050,25 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
       const validReminder = reminderTime || "malam";
 
       const now = new Date();
-      const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const defaultTrialEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
+      // 🛡️ COALESCE menjamin akun yang sudah punya trial_start_date & trial_end_date (misal 7 hari) TIDAK DITIMPA
       await db.execute(sql`
         UPDATE users 
         SET reminder_time = ${validReminder},
             phone = COALESCE(${phone || null}, phone),
             trial_start_date = COALESCE(trial_start_date, ${now}),
-            trial_end_date = COALESCE(trial_end_date, ${trialEnd})
+            trial_end_date = COALESCE(trial_end_date, ${defaultTrialEnd})
         WHERE id = ${user.id}
       `);
 
+      const updatedUserRes: any = await db.execute(sql`SELECT trial_start_date, trial_end_date FROM users WHERE id = ${user.id}`);
+      const updatedRow = updatedUserRes.rows?.[0] || updatedUserRes[0] || {};
+
       res.json({
         success: true,
-        trialStartDate: now,
-        trialEndDate: trialEnd,
+        trialStartDate: updatedRow.trial_start_date || user.trialStartDate || now,
+        trialEndDate: updatedRow.trial_end_date || user.trialEndDate || defaultTrialEnd,
         reminderTime: validReminder
       });
     } catch (e: any) {
@@ -3072,7 +3076,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
     }
   });
 
-  // 👑 STATUS TRIAL PENGGUNA
+  // 👑 STATUS EKSPLORASI / TRIAL PENGGUNA
   app.get("/api/user/trial-status", async (req: any, res: any) => {
     try {
       const user = await getUser(req);
@@ -3082,7 +3086,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
       const isPro = Boolean(user.isPro);
       
       let trialStart = user.trialStartDate ? new Date(user.trialStartDate) : (user.createdAt ? new Date(user.createdAt) : now);
-      let trialEnd = user.trialEndDate ? new Date(user.trialEndDate) : new Date(trialStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+      let trialEnd = user.trialEndDate ? new Date(user.trialEndDate) : new Date(trialStart.getTime() + 24 * 60 * 60 * 1000);
 
       const isTrialActive = !isPro && now.getTime() <= trialEnd.getTime();
       const isTrialExpired = !isPro && now.getTime() > trialEnd.getTime();

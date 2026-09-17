@@ -17,7 +17,9 @@ export default function AcademyReader() {
     const { data: user } = useUser();
     const trial = getTrialInfo(user);
     const welcomeCountdown = useWelcomeCountdown(user?.email || "");
-    const hasAccess = user?.isPro || trial.isTrialActive || user?.hasEbookAccess || (!welcomeCountdown.isExpired && trial.isTrialExpired);
+    const isProMember = Boolean(user?.isPro || user?.hasEbookAccess || (!welcomeCountdown.isExpired && trial.isTrialExpired));
+    const isExploration = trial.isTrialActive && !isProMember;
+    const hasAccess = isProMember || isExploration;
 
     const [ebook, setEbook] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -48,15 +50,24 @@ export default function AcademyReader() {
                 }
 
                 if (!hasAccess) {
-                    setErrorMsg("Promo gratis telah berakhir. Silakan beli akses Bundle E-Book.");
+                    setErrorMsg("Masa akses eksplorasi gratis telah berakhir. Silakan upgrade ke Paket VIP.");
                     setIsLoading(false);
                     return;
                 }
 
                 const result = await res.json();
                 
-                if (result.success && result.data) {
-                    const currentBook = result.data.find((b: any) => b.id === Number(ebookId));
+                if (result.success && Array.isArray(result.data)) {
+                    const sorted = result.data;
+                    const isFirstBook = sorted.length > 0 && sorted[0].id === Number(ebookId);
+
+                    if (isExploration && !isFirstBook) {
+                        setErrorMsg("Akses Eksplorasi 24 Jam hanya mencakup 1 E-Book gratis. Upgrade ke VIP untuk membaca seluruh 5 koleksi E-Book.");
+                        setIsLoading(false);
+                        return;
+                    }
+
+                    const currentBook = sorted.find((b: any) => b.id === Number(ebookId));
                     
                     if (currentBook) {
                         if (!currentBook.pdf_url) {
@@ -79,7 +90,7 @@ export default function AcademyReader() {
         };
 
         fetchEbook();
-    }, [ebookId]);
+    }, [ebookId, hasAccess, isExploration]);
 
     // =========================================================================
     // 2. AMBIL BOOKMARK DARI LOCALSTORAGE

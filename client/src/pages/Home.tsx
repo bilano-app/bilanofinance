@@ -14,7 +14,7 @@ import {
     BellRing, Mic, Camera, AlertTriangle, BookOpen, Rocket, CreditCard,
     Bot, CheckCircle2, HelpCircle, Mail, Notebook, HeartHandshake, Undo2, Lightbulb, Hourglass, ShieldAlert, Banknote,
     ArrowDownLeft, ArrowUpRight, Send, Target, Plus, Pencil,
-    Gift, Clock, ArrowRight, Smartphone
+    Gift, Clock, ArrowRight, Smartphone, Sparkles
 } from "lucide-react";
 import LegacyMigrationPopup from "@/components/LegacyMigrationPopup";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
@@ -103,12 +103,12 @@ export default function Home() {
     const [showPromoAnnouncement, setShowPromoAnnouncement] = useState(false);
 
     useEffect(() => {
-        // 🔥 Penawaran Promo 24 Jam Muncul HANYA & TEPAT setelah Masa Trial 7 Hari Habis (Hari ke-8)
+        // 🔥 Penawaran Promo 24 Jam & Notifikasi Visi Muncul TEPAT setelah Waktu Eksplorasi 24 Jam Habis (Hari ke-2)
         if (trial.isTrialExpired && !trial.isTrialActive && !user?.isPro && !isGuestMode && !welcomeCountdown.isExpired && !hasSeenDevicePromoNotification()) {
             setShowPromoAnnouncement(true);
             toast({
-                title: "🎁 Masa Trial Selesai — Penawaran Spesial 24 Jam!",
-                description: "Dapatkan paket tahunan Rp 99.000 + 5 E-Book Finansial Academy gratis hari ini.",
+                title: "⏰ Waktu Eksplorasi 24 Jam Selesai — Bangun Visi Finansial Anda!",
+                description: "Klaim Promo Spesial 24 Jam: Paket Tahunan Rp 99.000 + Gratis 5 E-Book Finansial Academy.",
             });
         } else {
             setShowPromoAnnouncement(false);
@@ -1521,23 +1521,27 @@ export default function Home() {
                         </div>
                     )}
 
-                    {/* 👑 TRIAL STATUS BADGE (SELALU TERLIHAT SELAMA TRIAL AKTIF) */}
+                    {/* 👑 STATUS AKSES TRIAL / EKSPLORASI */}
                     {!isGuestMode && !user?.isPro && trial.isTrialActive && (
                         <div className="px-1">
                             <div className="bg-gradient-to-r from-amber-500/15 via-yellow-400/10 to-amber-500/5 border border-amber-400/40 rounded-2xl p-3.5 flex items-center justify-between shadow-xs">
                                 <div className="flex items-center gap-2.5">
                                     <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-brand-navy flex items-center justify-center font-black shadow-xs">
-                                        <Crown className="w-4 h-4 fill-brand-navy" />
+                                        {trial.totalSecondsLeft > 24 * 3600 ? <Crown className="w-4 h-4 fill-brand-navy" /> : <Clock className="w-4 h-4 text-brand-navy animate-pulse" />}
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-1.5">
-                                            <span className="text-xs font-black text-slate-800">Mode Trial Akses Penuh</span>
-                                            <span className="bg-amber-400 text-brand-navy text-[9px] font-black px-2 py-0.5 rounded-full">
-                                                {trial.daysLeft} Hari Lagi
+                                            <span className="text-xs font-black text-slate-800">
+                                                {trial.totalSecondsLeft > 24 * 3600 ? "Mode Trial Akses Penuh" : "Akses Eksplorasi 24 Jam"}
+                                            </span>
+                                            <span className="bg-brand-navy text-brand-gold text-[9px] font-mono font-black px-2 py-0.5 rounded-full border border-brand-gold/30">
+                                                {trial.formattedTimeLeft}
                                             </span>
                                         </div>
                                         <p className="text-[10px] text-slate-500 font-medium mt-0.5">
-                                            Seluruh fitur premium aktif gratis s.d. {trial.formattedEndDate}
+                                            {trial.totalSecondsLeft > 24 * 3600 
+                                                ? `Seluruh fitur premium aktif gratis s.d. ${trial.formattedEndDate}`
+                                                : `Eksplorasi ekosistem & bentuk visi keuanganmu s.d. ${trial.formattedEndDate}`}
                                         </p>
                                     </div>
                                 </div>
@@ -1939,7 +1943,7 @@ export default function Home() {
                 onClose={() => setShowTrialInstallModal(false)}
             />
 
-            {/* 🎁 POPUP NOTIFIKASI SAMBUTAN: PROMO E-BOOK KHUSUS PERANGKAT (HANYA MUNCUL DI HARI KE-8 PASCA-TRIAL) */}
+            {/* 🎁 POPUP NOTIFIKASI PASCA-EKSPLORASI 24 JAM: AJAKAN BANGUN VISI & PROMO E-BOOK KHUSUS PERANGKAT */}
             {showPromoAnnouncement && trial.isTrialExpired && !trial.isTrialActive && !user?.isPro && !isGuestMode && !welcomeCountdown.isExpired && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="bg-gradient-to-b from-[#14234b] via-[#0f1d3e] to-[#0a142c] text-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl border-2 border-brand-gold relative overflow-hidden animate-in zoom-in-95 duration-200">
@@ -1956,50 +1960,58 @@ export default function Home() {
                         </button>
 
                         {/* Header badge */}
-                        <div className="flex items-center gap-1.5 mb-4">
-                            <span className="bg-gradient-to-r from-brand-gold to-[#f5d77a] text-brand-navy text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                                <Gift className="w-3 h-3" />
-                                Penawaran Spesial Baru
+                        <div className="flex items-center gap-1.5 mb-3">
+                            <span className="bg-gradient-to-r from-brand-gold to-[#f5d77a] text-brand-navy text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                                <Sparkles className="w-3 h-3 text-brand-navy" />
+                                Eksplorasi Selesai
                             </span>
-                            <span className="text-[10px] font-black text-amber-300 bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <span className="text-[9px] font-black text-amber-300 bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 rounded-full flex items-center gap-1">
                                 <Clock className="w-3 h-3 animate-pulse" />
-                                24 Jam
+                                Promo 24 Jam
                             </span>
                         </div>
 
                         {/* Title & Icon */}
                         <div className="flex items-start gap-3 mb-3">
                             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-gold to-yellow-300 text-brand-navy flex items-center justify-center font-black shrink-0 shadow-lg">
-                                <Crown className="w-6 h-6 fill-brand-navy" />
+                                <Target className="w-6 h-6 stroke-[2.5]" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-black leading-tight text-white">
-                                    Kabar Gembira Untuk Anda!
+                                <h3 className="text-base sm:text-lg font-black leading-tight text-white">
+                                    Saatnya Bangun Visi Finansial Anda!
                                 </h3>
                                 <p className="text-[11px] text-amber-300 font-bold mt-0.5">
-                                    Gratis 5 E-Book Finansial Academy
+                                    Bertekad kelola arus kas bersama BILANO
                                 </p>
                             </div>
                         </div>
 
-                        <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                            Sebagai bentuk apresiasi bagi Anda, nikmati promo baru: Upgrade ke <strong className="text-white">Paket Tahunan Rp 99.000</strong> dan dapatkan langsung seluruh paket <strong className="text-brand-gold">5 E-Book Finansial Academy (Senilai Rp 29.000) GRATIS!</strong>
+                        <p className="text-xs text-slate-300 leading-relaxed mb-3.5">
+                            Waktu eksplorasi 24 jam telah selesai. Mengatur keuangan bukan hanya melihat-lihat, tapi komitmen nyata untuk merancang visi dan mengendalikan masa depan finansial Anda.
                         </p>
 
-                        {/* Device Notice Card */}
-                        <div className="bg-white/5 border border-amber-400/30 rounded-2xl p-3 mb-5 space-y-1.5">
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="font-bold text-slate-300 flex items-center gap-1">
-                                    <Smartphone className="w-3.5 h-3.5 text-amber-400" />
-                                    Terkunci di Perangkat Ini:
+                        {/* Promo Bonus Box */}
+                        <div className="bg-white/5 border border-amber-400/30 rounded-2xl p-3 mb-4 space-y-2">
+                            <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-amber-400/20 flex items-center justify-center shrink-0">
+                                    <Gift className="w-3.5 h-3.5 text-amber-400" />
+                                </div>
+                                <p className="text-[11px] font-black text-amber-200">
+                                    Promo Sambutan Khusus Perangkat Anda:
+                                </p>
+                            </div>
+                            <p className="text-[11px] text-slate-300 leading-snug">
+                                Upgrade ke <strong className="text-white">Paket Tahunan Rp 99.000</strong> & dapatkan bonus <strong className="text-brand-gold">5 E-Book Finansial Academy (Senilai Rp 29.000) GRATIS!</strong>
+                            </p>
+                            <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/10">
+                                <span className="font-bold text-slate-400 flex items-center gap-1 text-[10px]">
+                                    <Smartphone className="w-3 h-3 text-amber-400" />
+                                    Berlaku di Perangkat Ini:
                                 </span>
-                                <span className="font-mono font-black text-amber-300">
+                                <span className="font-mono font-black text-amber-300 text-xs">
                                     {welcomeCountdown.formatted}
                                 </span>
                             </div>
-                            <p className="text-[10px] text-slate-400 leading-normal">
-                                Promo ini hanya aktif 1 kali selama 24 jam hari ini khusus pada perangkat Anda. Tidak dapat diulang dengan mendaftar email baru di perangkat yang sama.
-                            </p>
                         </div>
 
                         {/* Action Buttons */}
@@ -2009,8 +2021,8 @@ export default function Home() {
                                 onClick={handleClaimPromo}
                                 className="w-full bg-gradient-to-r from-brand-gold to-[#f5d77a] hover:from-[#f2ce5d] hover:to-brand-gold text-brand-navy font-black text-xs py-3.5 px-4 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                             >
-                                <span>Klaim Promo E-Book Sekarang</span>
-                                <ArrowRight className="w-4 h-4" />
+                                <span>Klaim Promo & Bangun Visi Sekarang</span>
+                                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                             </button>
 
                             <button

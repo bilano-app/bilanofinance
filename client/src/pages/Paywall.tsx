@@ -150,23 +150,25 @@ export default function Paywall() {
         {!paymentDetails ? (
           <div className="w-full animate-in fade-in slide-in-from-bottom-3 duration-300">
             
-            {/* STATUS BADGE: AKTIF TRIAL (HARI 1-7) ATAU COUNTDOWN HARI 8 */}
+            {/* STATUS BADGE: AKTIF TRIAL / EKSPLORASI 24 JAM */}
             {trial.isTrialActive ? (
               <div className="border-2 border-amber-300/80 bg-gradient-to-r from-amber-500/15 via-yellow-400/10 to-amber-500/5 rounded-2xl p-3.5 mb-4 shadow-xs">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-brand-navy flex items-center justify-center font-black shrink-0 shadow-xs">
-                      <Crown className="w-4 h-4 fill-brand-navy" />
+                      {trial.totalSecondsLeft > 24 * 3600 ? <Crown className="w-4 h-4 fill-brand-navy" /> : <Clock className="w-4 h-4 text-brand-navy animate-pulse" />}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-black text-slate-800">Mode Trial Akses Penuh</span>
-                        <span className="bg-amber-400 text-brand-navy text-[9px] font-black px-2 py-0.5 rounded-full">
-                          {trial.daysLeft} Hari Lagi
+                        <span className="text-xs font-black text-slate-800">
+                          {trial.totalSecondsLeft > 24 * 3600 ? "Mode Trial Akses Penuh" : "Akses Eksplorasi 24 Jam"}
+                        </span>
+                        <span className="bg-brand-navy text-brand-gold text-[9px] font-mono font-black px-2 py-0.5 rounded-full border border-brand-gold/30">
+                          {trial.formattedTimeLeft}
                         </span>
                       </div>
                       <p className="text-[10px] text-slate-500 font-medium mt-0.5">
-                        Fitur aktif gratis s.d. {trial.formattedEndDate}
+                        Berakhir pada {trial.formattedEndDate}
                       </p>
                     </div>
                   </div>
@@ -174,7 +176,9 @@ export default function Paywall() {
                 <div className="mt-2.5 pt-2 border-t border-amber-200/60 text-[10px] text-slate-600 leading-relaxed flex items-start gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
                   <span>
-                    Anda sedang menikmati uji coba gratis. Anda dapat mengaktifkan <strong>Paket VIP Tahunan</strong> sekarang untuk akses permanen tanpa batas.
+                    {trial.totalSecondsLeft > 24 * 3600 
+                      ? "Anda sedang menikmati uji coba gratis 7 hari. Anda dapat mengaktifkan Paket VIP Tahunan sekarang untuk akses permanen tanpa batas."
+                      : "Anda sedang dalam masa eksplorasi 24 jam. Aktifkan Paket VIP Tahunan sekarang untuk membuka seluruh 5 E-Book dan modul Ide Penghasilan AI secara permanen."}
                   </span>
                 </div>
               </div>

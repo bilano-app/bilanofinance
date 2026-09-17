@@ -317,7 +317,7 @@ function LockedScreen() {
             Buka Akses Peta Cuan AI
           </h2>
           <p className="text-xs text-slate-500 font-medium mb-6 leading-relaxed">
-            Dapatkan bimbingan langkah demi langkah dari AI untuk membedah modal, keahlian, dan mengeksekusi bisnis nyata.
+            Ide & Pembimbing Penghasilan dirancang untuk merancang dan mengeksekusi bisnis nyata berbasis AI. Fitur ini <strong className="text-slate-800">eksklusif untuk Member Premium</strong> dan tidak dapat diakses saat Mode Eksplorasi 24 Jam.
           </p>
 
           {/* Poin Benefit Ringkas */}

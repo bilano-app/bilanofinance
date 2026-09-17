@@ -584,46 +584,46 @@ export default function Onboarding() {
             </div>
           </div>
 
-          {/* BAGIAN B — TRIAL NOTICE (HADIAH KOMITMEN) */}
-          <div className="bg-white border border-emerald-300 rounded-3xl p-5 shadow-xs relative overflow-hidden">
+          {/* BAGIAN B — EKSPLORASI 24 JAM (HADIAH KOMITMEN) */}
+          <div className="bg-white border border-amber-300 rounded-3xl p-5 shadow-xs relative overflow-hidden">
             <div className="flex items-center gap-2 mb-2">
-              <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-                <Gift className="w-3 h-3 text-emerald-700" />
-                HADIAH KOMITMEN
+              <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-amber-600" />
+                AKSES PENGENALAN PERDANA
               </span>
             </div>
 
             <h3 className="text-sm sm:text-base font-extrabold text-slate-900 mb-1 leading-snug">
-              Akses Penuh 7 Hari Aktif untuk Anda
+              Akses Eksplorasi 24 Jam untuk Anda
             </h3>
             
             <p className="text-xs text-slate-600 leading-relaxed mb-3 font-medium">
-              Selama <strong>7 hari ke depan</strong>, semua fitur BILANO — <strong className="text-amber-800 font-black">TERMASUK yang biasanya premium</strong> — bisa kamu coba 100% gratis tanpa biaya.
+              Selama <strong>24 jam ke depan</strong> di perangkat ini, rasakan langsung kemudahan mengatur kas dan memantapkan visi keuangan jangka panjang Anda bersama BILANO.
             </p>
 
-            {/* Checklist Fitur yang Terbuka Selama Trial */}
+            {/* Checklist Fitur yang Terbuka Selama Eksplorasi */}
             <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200/60 space-y-1.5 mb-3 text-[11px]">
-              <div className="flex items-center gap-2 text-slate-700">
+              <div className="flex items-center gap-2 text-slate-700 font-semibold">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>AI Smart Scanner Struk & Suara (Unlimited)</span>
+                <span>Pencatatan Transaksi & Multi-Rekening Kas (Terbuka)</span>
               </div>
-              <div className="flex items-center gap-2 text-slate-700">
+              <div className="flex items-center gap-2 text-slate-700 font-semibold">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>Portofolio Investasi Saham, Kripto & Valas Multi-Mata Uang</span>
+                <span>AI Smart Scanner Struk & Dikte Suara (Terbuka)</span>
               </div>
-              <div className="flex items-center gap-2 text-slate-700">
+              <div className="flex items-center gap-2 text-slate-700 font-semibold">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>Chat AI Konsultan Finansial 24/7 & Laporan Arus Kas</span>
+                <span>1 E-Book Finansial Academy Pilihan (Gratis Dibaca)</span>
               </div>
-              <div className="flex items-center gap-2 text-slate-700">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>Akses Seluruh Koleksi 5 E-Book Finansial Academy</span>
+              <div className="flex items-center gap-2 text-slate-500 text-[10.5px] pt-1 border-t border-slate-200/60">
+                <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>Ide Penghasilan & 5 Koleksi E-Book lengkap tersedia di Paket Premium</span>
               </div>
             </div>
 
             <p className="text-[10px] text-slate-500 text-center flex items-center justify-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Tanpa tagihan diam-diam • Langsung pakai tanpa kartu kredit</span>
+              <span>Tanpa kartu kredit • Eksplorasi langsung di perangkat Anda</span>
             </p>
           </div>
 
@@ -638,7 +638,7 @@ export default function Onboarding() {
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  <span>MULAI AKSES PENUH 7 HARI</span>
+                  <span>MULAI EKSPLORASI 24 JAM</span>
                   <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </>
               )}

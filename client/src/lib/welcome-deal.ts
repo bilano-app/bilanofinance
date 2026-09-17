@@ -3,8 +3,8 @@ import { getTrialInfo } from "./trial-manager";
 
 export type UserGoal = "income" | "leakage" | "debt" | "invest" | "emergency" | "general";
 
-const POST_TRIAL_DEADLINE_KEY = "bilano_device_post_trial_deal_deadline_v3";
-const POST_TRIAL_NOTIFIED_KEY = "bilano_device_post_trial_notified_v3";
+const POST_TRIAL_DEADLINE_KEY = "bilano_device_post_trial_deal_deadline_v4";
+const POST_TRIAL_NOTIFIED_KEY = "bilano_device_post_trial_notified_v4";
 const GOAL_STORAGE_KEY_PREFIX = "bilano_user_goal_";
 const DEVICE_ID_KEY = "bilano_device_uuid";
 
@@ -35,7 +35,7 @@ export function getOrCreateDeviceId(): string {
   return deviceId;
 }
 
-// Dapatkan atau inisialisasi deadline 24 jam Pasca-Trial (HANYA AKTIF MULAI HARI KE-8 / TEPAT SAAT TRIAL HABIS)
+// Dapatkan atau inisialisasi deadline 24 jam Pasca-Eksplorasi (HANYA AKTIF SAAT EKSPLORASI 24 JAM HABIS)
 export function getWelcomeDeadline(userEmail?: string): number {
   if (typeof window === "undefined") return Date.now() + 24 * 60 * 60 * 1000;
 
@@ -54,7 +54,7 @@ export function getWelcomeDeadline(userEmail?: string): number {
     }
   }
 
-  // Inisialisasi deadline 24 jam tepat ketika masa trial habis (Hari ke-8)
+  // Inisialisasi deadline 24 jam tepat ketika masa eksplorasi 24 jam habis (Hari ke-2)
   const newDeadline = Date.now() + 24 * 60 * 60 * 1000;
   localStorage.setItem(POST_TRIAL_DEADLINE_KEY, newDeadline.toString());
   setCookie(POST_TRIAL_DEADLINE_KEY, newDeadline.toString());
@@ -76,7 +76,7 @@ export function useWelcomeCountdown(userEmail?: string) {
   const trial = getTrialInfo();
   const [deviceId] = useState(() => getOrCreateDeviceId());
 
-  // Selama trial masih aktif, countdown promo 24 jam SAMA SEKALI BELUM berjalan
+  // Selama masa eksplorasi masih aktif, countdown promo bonus 24 jam belum berjalan
   const isTrialActive = trial.isTrialActive;
   const isTrialExpired = trial.isTrialExpired;
 

@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import {
     BookOpen, Lock, Loader2, ChevronRight, Sparkles, Search,
-    Bookmark, Crown, ArrowLeft, BookMarked, CheckCircle2, Star
+    Bookmark, Crown, ArrowLeft, BookMarked, CheckCircle2, Star, Clock
 } from "lucide-react";
 import { useUser } from "@/hooks/use-finance";
 import { useWelcomeCountdown } from "@/lib/welcome-deal";
@@ -43,7 +43,11 @@ export default function AcademyList() {
 
     const trial = getTrialInfo(user);
     const welcomeCountdown = useWelcomeCountdown(user?.email || "");
-    const hasAccess = user?.isPro || trial.isTrialActive || user?.hasEbookAccess || (!welcomeCountdown.isExpired && trial.isTrialExpired);
+    const isProMember = Boolean(user?.isPro || user?.hasEbookAccess || (!welcomeCountdown.isExpired && trial.isTrialExpired));
+    const isExploration = trial.isTrialActive && !isProMember;
+    const hasAccess = isProMember || isExploration;
+
+    const [lockedEbookModal, setLockedEbookModal] = useState<{ isOpen: boolean; title: string }>({ isOpen: false, title: "" });
 
     useEffect(() => {
         const fetchEbooks = async () => {
@@ -180,7 +184,7 @@ export default function AcademyList() {
                                         Mahakarya Finansial
                                     </h2>
                                     <p className="text-xs text-brand-navy/85 font-semibold mt-0.5 leading-snug">
-                                        Panduan literasi keuangan, psikologi investasi & akumulasi aset teruji.
+                                        {isExploration ? "Akses Eksplorasi 24 Jam: 1 E-Book gratis dibuka untuk Anda." : "Panduan literasi keuangan, psikologi investasi & akumulasi aset teruji."}
                                     </p>
                                 </div>
                             </div>
@@ -197,7 +201,7 @@ export default function AcademyList() {
                                 </div>
                                 <div className="bg-white/40 rounded-xl py-1.5 px-2 backdrop-blur-xs">
                                     <p className="text-[9px] font-black text-brand-navy/70 uppercase">Akses</p>
-                                    <p className="text-[11px] font-black text-brand-navy">Unlimited</p>
+                                    <p className="text-[11px] font-black text-brand-navy">{isExploration ? "1 Buku Pilihan" : "Unlimited"}</p>
                                 </div>
                             </div>
                         </div>
@@ -292,13 +296,21 @@ export default function AcademyList() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 gap-3.5">
-                            {filteredEbooks.map((ebook) => {
+                            {filteredEbooks.map((ebook, idx) => {
                                 const savedPage = userBookmarks[ebook.title];
+                                // Dalam Mode Eksplorasi 24 Jam, hanya buku pertama (idx === 0) yang terbuka
+                                const isBookLocked = isExploration && idx > 0;
 
                                 return (
                                     <div
                                         key={ebook.id}
-                                        onClick={() => setLocation(`/academy/${ebook.id}/read/1`)}
+                                        onClick={() => {
+                                            if (isBookLocked) {
+                                                setLockedEbookModal({ isOpen: true, title: ebook.title });
+                                            } else {
+                                                setLocation(`/academy/${ebook.id}/read/1`);
+                                            }
+                                        }}
                                         className="group flex flex-col bg-white rounded-[24px] border-2 border-amber-200/90 shadow-[5px_5px_0px_0px] shadow-brand-navy hover:shadow-[6px_6px_0px_0px] hover:shadow-brand-navy active:shadow-[2px_2px_0px_0px] active:translate-x-[2px] active:translate-y-[2px] transition-all duration-200 cursor-pointer overflow-hidden relative"
                                     >
                                         {/* Cover Image Container (Rasio 2:3 buku standar) */}
@@ -340,11 +352,21 @@ export default function AcademyList() {
                                             {/* Gradient Overlay Lembut */}
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
 
-                                            {/* Badge Status VIP */}
+                                            {/* Badge Status VIP / Eksplorasi */}
                                             <div className="absolute top-2.5 right-2.5 z-10">
-                                                <span className="bg-brand-gold text-brand-navy text-[8px] font-black px-2 py-0.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-950 uppercase tracking-wider flex items-center gap-1 border border-brand-navy/30">
-                                                    <Crown className="w-2.5 h-2.5 fill-current" /> VIP
-                                                </span>
+                                                {isBookLocked ? (
+                                                    <span className="bg-slate-900/90 text-amber-300 text-[8px] font-black px-2 py-0.5 rounded-full shadow-md uppercase tracking-wider flex items-center gap-1 border border-amber-400/40">
+                                                        <Lock className="w-2.5 h-2.5" /> VIP
+                                                    </span>
+                                                ) : isExploration ? (
+                                                    <span className="bg-emerald-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-md uppercase tracking-wider flex items-center gap-1 border border-white/30">
+                                                        <CheckCircle2 className="w-2.5 h-2.5" /> EKSPLORASI
+                                                    </span>
+                                                ) : (
+                                                    <span className="bg-brand-gold text-brand-navy text-[8px] font-black px-2 py-0.5 rounded-full shadow-[2px_2px_0px_0px] shadow-slate-950 uppercase tracking-wider flex items-center gap-1 border border-brand-navy/30">
+                                                        <Crown className="w-2.5 h-2.5 fill-current" /> VIP
+                                                    </span>
+                                                )}
                                             </div>
 
                                             {/* Badge Bookmark jika ada progres baca */}
@@ -366,17 +388,80 @@ export default function AcademyList() {
                                                 {ebook.author}
                                             </p>
 
-                                            {/* Tombol Baca Sekarang Khas Bilano Gold */}
+                                            {/* Tombol Baca Sekarang / Buka Akses */}
                                             <div className="mt-auto pt-2">
-                                                <div className="w-full h-9 rounded-xl bg-brand-gold group-hover:bg-brand-goldDark text-brand-navy font-black text-[11px] shadow-[3px_3px_0px_0px] shadow-brand-navy active:shadow-[1px_1px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1 transition-all">
-                                                    <span>{savedPage ? "Lanjut Baca" : "Baca Sekarang"}</span>
-                                                    <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                                                </div>
+                                                {isBookLocked ? (
+                                                    <div className="w-full h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-[11px] border border-slate-200 flex items-center justify-center gap-1 transition-all">
+                                                        <Lock className="w-3 h-3 text-amber-600" />
+                                                        <span>Terkunci (VIP)</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-full h-9 rounded-xl bg-brand-gold group-hover:bg-brand-goldDark text-brand-navy font-black text-[11px] shadow-[3px_3px_0px_0px] shadow-brand-navy active:shadow-[1px_1px_0px_0px] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1 transition-all">
+                                                        <span>{savedPage ? "Lanjut Baca" : "Baca Sekarang"}</span>
+                                                        <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
                                 );
                             })}
+
+                            {/* 📖 KOTAK: E-BOOK LAINNYA SEDANG DALAM PROSES */}
+                            {selectedCategory === "all" && !searchQuery && (
+                                <div className="flex flex-col bg-gradient-to-b from-[#FFFDF8] via-[#FFF9EE] to-[#FEF5E2] rounded-[24px] border-2 border-dashed border-amber-300 shadow-[5px_5px_0px_0px] shadow-amber-200/70 overflow-hidden relative group transition-all duration-200">
+                                    {/* Visual Header / Placeholder Mockup matching aspect-[2/3] */}
+                                    <div className="w-full aspect-[2/3] relative overflow-hidden bg-gradient-to-br from-amber-100/70 via-amber-50 to-orange-50/50 border-b border-dashed border-amber-200 flex flex-col items-center justify-center p-3.5 text-center">
+                                        {/* Ambient background decoration */}
+                                        <div className="absolute -right-4 -bottom-4 w-28 h-28 bg-brand-gold/20 rounded-full blur-xl pointer-events-none" />
+                                        <div className="absolute -left-4 -top-4 w-24 h-24 bg-amber-200/40 rounded-full blur-lg pointer-events-none" />
+
+                                        {/* Status Badge */}
+                                        <div className="absolute top-2.5 right-2.5 z-10">
+                                            <span className="bg-brand-navy text-brand-gold text-[8px] font-black px-2 py-0.5 rounded-full shadow-xs uppercase tracking-wider flex items-center gap-1 border border-brand-gold/30">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-brand-gold animate-ping"></span>
+                                                PROSES
+                                            </span>
+                                        </div>
+
+                                        {/* Glowing Icon Centerpiece */}
+                                        <div className="w-13 h-13 rounded-2xl bg-white border-2 border-amber-200 text-brand-navy flex items-center justify-center shadow-[3px_3px_0px_0px_rgba(217,119,6,0.15)] relative mb-2.5 group-hover:scale-105 transition-transform">
+                                            <Sparkles className="w-6 h-6 text-amber-500 animate-pulse" />
+                                        </div>
+
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70">
+                                            Sedang Dicurasi
+                                        </span>
+
+                                        <p className="font-serif font-black text-slate-800 text-xs mt-2 leading-tight px-1">
+                                            Koleksi Mahakarya Berikutnya
+                                        </p>
+                                        <p className="text-[9px] text-slate-500 font-semibold mt-1 leading-snug px-1">
+                                            Dalam tahap penulisan & alih bahasa
+                                        </p>
+                                    </div>
+
+                                    {/* Area Detail Info Buku */}
+                                    <div className="p-3.5 flex flex-col flex-grow bg-white/90 backdrop-blur-xs justify-between">
+                                        <div>
+                                            <h3 className="font-black text-slate-800 text-xs md:text-sm leading-snug line-clamp-2 mb-1">
+                                                E-Book Lainnya Sedang Dalam Proses
+                                            </h3>
+                                            <p className="text-[10px] text-amber-700 font-bold mb-2 truncate">
+                                                Tim Riset & Editorial Bilano
+                                            </p>
+                                        </div>
+
+                                        {/* Status Button Placeholder */}
+                                        <div className="mt-auto pt-2">
+                                            <div className="w-full h-9 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 font-black text-[10px] flex items-center justify-center gap-1.5 shadow-xs">
+                                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                                <span>Segera Hadir</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -392,6 +477,51 @@ export default function AcademyList() {
                 </>
                 )}
             </div>
+
+            {/* 🔒 MODAL POPUP KHUSUS E-BOOK TERKUNCI SAAT MODE EKSPLORASI */}
+            {lockedEbookModal.isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl border-2 border-brand-gold relative overflow-hidden animate-in zoom-in-95 text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-brand-navy flex items-center justify-center mx-auto mb-4 shadow-sm">
+                            <Lock className="w-8 h-8 text-amber-600" />
+                        </div>
+
+                        <span className="bg-brand-navy text-brand-gold text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-wider mb-2 inline-block">
+                            E-BOOK EKSKLUSIF VIP
+                        </span>
+
+                        <h3 className="text-lg font-black text-slate-900 leading-tight mb-2">
+                            Buka Akses Seluruh 5 E-Book
+                        </h3>
+
+                        <p className="text-xs text-slate-600 leading-relaxed mb-5 font-medium">
+                            Selama <strong className="text-slate-900">Akses Eksplorasi 24 Jam</strong>, Anda mendapatkan 1 E-Book gratis. Seluruh koleksi lengkap 5 Mahakarya Finansial dapat dibuka dengan upgrade ke Paket VIP atau promo penawaran spesial.
+                        </p>
+
+                        <div className="space-y-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setLockedEbookModal({ isOpen: false, title: "" });
+                                    setLocation("/paywall");
+                                }}
+                                className="w-full bg-brand-gold hover:bg-brand-goldDark text-brand-navy font-black text-xs py-3.5 px-4 rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                                <Crown className="w-4 h-4" />
+                                <span>Buka Semua E-Book (Upgrade VIP)</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setLockedEbookModal({ isOpen: false, title: "" })}
+                                className="w-full py-2 text-xs text-slate-400 hover:text-slate-600 font-medium transition-colors cursor-pointer"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </MobileLayout>
     );
 }
