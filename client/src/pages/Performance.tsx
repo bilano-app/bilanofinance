@@ -133,7 +133,12 @@ export default function Performance() {
   const daysInMonth = new Date(currentYear, currentMonthIdx + 1, 0).getDate();
   const monthProgressPercent = Math.min(100, (currentDay / daysInMonth) * 100);
 
-  const cashReal = (user?.cashBalance || 0); 
+  const activeWalletSources = (user?.walletSources && Array.isArray(user.walletSources))
+      ? (user.walletSources as any[]).filter((w: any) => (Number(w.balance) || 0) > 0)
+      : [];
+  const wsSum = activeWalletSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+  const hasRealWallet = activeWalletSources.length > 0;
+  const cashReal = hasRealWallet ? wsSum : (user?.cashBalance || 0); 
   
   const forexValue = Array.isArray(forexAssetsData) ? forexAssetsData.reduce((acc: number, asset: any) => {
       const curr = asset.currency;
@@ -174,7 +179,6 @@ export default function Performance() {
 
   const currentWealth = cashReal + forexValue + investmentReal + retainedReal + piutangReal - hutangReal;
   const totalAllAssets = cashReal + investmentReal + forexValue + retainedReal + piutangReal;
-  const hasRealWallet = user?.walletSources && Array.isArray(user.walletSources) && user.walletSources.filter((w: any) => (Number(w.balance) || 0) > 0).length > 0;
   const isSetupSkipped = typeof window !== 'undefined' && localStorage.getItem("bilano_setup_balance_skipped") === "true";
 
   const isBalanceNotSet = !isTrial && (

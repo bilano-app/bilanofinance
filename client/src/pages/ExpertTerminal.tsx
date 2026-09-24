@@ -88,7 +88,11 @@ export default function ExpertTerminal() {
       localStorage.setItem('bilano_ticker_overrides', JSON.stringify(tickerOverrides));
   }, [tickerOverrides]);
 
-  const cashBalance = user?.cashBalance || 0;
+  const wsSum = (user?.walletSources && Array.isArray(user.walletSources))
+      ? (user.walletSources as any[]).filter((w: any) => (Number(w.balance) || 0) > 0).reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0)
+      : 0;
+  const hasRealWallet = user?.walletSources && Array.isArray(user.walletSources) && user.walletSources.filter((w: any) => (Number(w.balance) || 0) > 0).length > 0;
+  const cashBalance = hasRealWallet ? wsSum : (user?.cashBalance || 0);
 
   const chronologicalTxs = useMemo(() => {
       return [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());

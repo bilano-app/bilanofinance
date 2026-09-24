@@ -136,7 +136,11 @@ export default function Reports() {
           }
       });
 
-      const liveCash = Number(user.cashBalance || 0);
+      const wsSum = (user?.walletSources && Array.isArray(user.walletSources))
+          ? (user.walletSources as any[]).filter((w: any) => (Number(w.balance) || 0) > 0).reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0)
+          : 0;
+      const hasRealWallet = user?.walletSources && Array.isArray(user.walletSources) && user.walletSources.filter((w: any) => (Number(w.balance) || 0) > 0).length > 0;
+      const liveCash = hasRealWallet ? wsSum : Number(user.cashBalance || 0);
       const safeTargetYear = targetYear;
       const reportDateEnd = isYearly 
             ? new Date(safeTargetYear, 11, 31, 23, 59, 59) 

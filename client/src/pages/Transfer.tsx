@@ -96,8 +96,7 @@ export default function Transfer() {
           ];
 
           const userEmail = localStorage.getItem("bilano_email") || "";
-          const currentTotalCash = Number(user?.cashBalance || 0);
-          const newTotalCash = currentTotalCash + initialBal;
+          const newTotalCash = updatedSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
 
           const res = await fetch("/api/user/wallet-sources", {
               method: "POST",
@@ -226,10 +225,11 @@ export default function Transfer() {
               }
 
               const cleanedSources = updatedSources.filter(w => (Number(w.balance) || 0) > 0);
+              const updatedTotalCash = cleanedSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
               await fetch("/api/user/wallet-sources", {
                   method: "POST",
                   headers,
-                  body: JSON.stringify({ walletSources: cleanedSources })
+                  body: JSON.stringify({ walletSources: cleanedSources, cashBalance: updatedTotalCash })
               });
           }
 

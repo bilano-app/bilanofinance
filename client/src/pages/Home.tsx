@@ -252,12 +252,6 @@ export default function Home() {
     const handleSaveEditWallet = async () => {
         if (!editingWallet || !user) return;
         const newBal = parseNumInput(editWalletAmount);
-        const maxAllowed = user.cashBalance || 0;
-
-        if (newBal > maxAllowed) {
-            setEditWalletError(`Saldo tidak boleh melebihi Total Saldo Kas (Maks: Rp ${formatCurrency(maxAllowed).replace('Rp', '').trim()})`);
-            return;
-        }
 
         setIsSavingWallet(true);
         try {
@@ -285,13 +279,15 @@ export default function Home() {
                 }
             }
 
+            const newTotalCash = walletSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+
             const res = await fetch("/api/user/wallet-sources", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     "x-user-email": rawEmail
                 },
-                body: JSON.stringify({ walletSources })
+                body: JSON.stringify({ walletSources, cashBalance: newTotalCash })
             });
 
             if (!res.ok) throw new Error("Gagal menyimpan perubahan.");
@@ -616,8 +612,8 @@ export default function Home() {
     );
 
     const cashRupiah = isGuestMode 
-        ? ((!user?.cashBalance || user?.cashBalance === 0) ? 12500000 : Math.max(Number(user?.cashBalance || 0), wsSum))
-        : Math.max(Number(user?.cashBalance || 0), wsSum);
+        ? ((!user?.cashBalance || user?.cashBalance === 0) ? 12500000 : (hasRealWallet ? wsSum : Number(user?.cashBalance || 0)))
+        : (hasRealWallet ? wsSum : Number(user?.cashBalance || 0));
     const totalBalance = cashRupiah;
 
     const displayBalance = isPrivacyMode ? "Rp •••••••" : formatCurrency(totalBalance).split(",")[0];
@@ -763,9 +759,9 @@ export default function Home() {
 
                         <div className="space-y-4">
                             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-                                <p className="text-[11px] text-slate-500 font-semibold mb-0.5">Total Saldo Kas Utama:</p>
+                                <p className="text-[11px] text-slate-500 font-semibold mb-0.5">Total Saldo Kas Utama Saat Ini:</p>
                                 <p className="text-sm font-black text-slate-800 tabular-nums">
-                                    {formatCurrency(user?.cashBalance || 0)}
+                                    {formatCurrency(totalBalance)}
                                 </p>
                             </div>
 
@@ -794,7 +790,7 @@ export default function Home() {
                                     </p>
                                 )}
                                 <p className="text-[11px] text-slate-400 mt-1">
-                                    *Jumlah saldo tidak boleh melebihi Total Saldo Kas ({formatCurrency(user?.cashBalance || 0)}).
+                                    *Total saldo kas utama akan otomatis disesuaikan dengan akumulasi seluruh sumber dana.
                                 </p>
                             </div>
 

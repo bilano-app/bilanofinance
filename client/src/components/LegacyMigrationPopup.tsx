@@ -77,11 +77,13 @@ export default function LegacyMigrationPopup({ onComplete }: { onComplete: () =>
             });
         }
 
+        const totalFromSources = walletSources.reduce((acc, w) => acc + (Number(w.balance) || 0), 0);
+
         // We use the new endpoint
         const res = await fetch("/api/user/wallet-sources", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ walletSources })
+            body: JSON.stringify({ walletSources, cashBalance: totalFromSources })
         });
         
         if (!res.ok) throw new Error("Gagal menyimpan data sumber dana.");

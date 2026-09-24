@@ -160,10 +160,11 @@ export default function SetupBalance() {
 
       // 2. Simpan Rincian Multi-Dompet
       if (idrWalletSources.length > 0) {
+        const wsTotal = idrWalletSources.reduce((acc, w) => acc + (Number(w.balance) || 0), 0);
         await fetch("/api/user/wallet-sources", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-user-email": userEmail },
-          body: JSON.stringify({ walletSources: idrWalletSources })
+          body: JSON.stringify({ walletSources: idrWalletSources, cashBalance: wsTotal })
         });
       }
 

@@ -127,7 +127,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserWalletSources(id: number, walletSources: any): Promise<User> {
-    const [user] = await db.update(users).set({ walletSources: walletSources || [] }).where(eq(users.id, id)).returning();
+    const ws = walletSources || [];
+    let wsSum: number | null = null;
+    if (Array.isArray(ws)) {
+      wsSum = ws.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+    }
+    const updatePayload: any = { walletSources: ws };
+    if (wsSum !== null) {
+      updatePayload.cashBalance = wsSum;
+    }
+    const [user] = await db.update(users).set(updatePayload).where(eq(users.id, id)).returning();
     if (!user) throw new Error("User not found");
     return user;
   }

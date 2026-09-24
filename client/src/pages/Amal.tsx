@@ -186,7 +186,11 @@ export default function Amal() {
             return;
         }
 
-        const currentBalance = user?.cashBalance || 0;
+        const wsSum = (user?.walletSources && Array.isArray(user.walletSources))
+            ? (user.walletSources as any[]).filter((w: any) => (Number(w.balance) || 0) > 0).reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0)
+            : 0;
+        const hasRealWallet = user?.walletSources && Array.isArray(user.walletSources) && user.walletSources.filter((w: any) => (Number(w.balance) || 0) > 0).length > 0;
+        const currentBalance = hasRealWallet ? wsSum : (user?.cashBalance || 0);
         if (user && finalAmount > currentBalance) {
             setValidationError(`Saldo Kas tidak mencukupi (Maksimal: ${formatCurrency(currentBalance).split(',')[0]}).`);
             toast({ title: "Saldo Kurang", description: "Nominal melebihi total saldo kas Anda.", variant: "destructive" });

@@ -167,7 +167,11 @@ export default function ChatAI() {
         });
 
         // 🚀 KALKULASI DATA 360° LIVE DARI SELURUH PENJURU DAN HALAMAN APLIKASI
-        const cashReal = (user?.cashBalance || 0); 
+        const wsSum = (user?.walletSources && Array.isArray(user.walletSources))
+            ? (user.walletSources as any[]).filter((w: any) => (Number(w.balance) || 0) > 0).reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0)
+            : 0;
+        const hasRealWallet = user?.walletSources && Array.isArray(user.walletSources) && user.walletSources.filter((w: any) => (Number(w.balance) || 0) > 0).length > 0;
+        const cashReal = hasRealWallet ? wsSum : (user?.cashBalance || 0); 
         const forexValue = Array.isArray(forexAssetsData) ? forexAssetsData.reduce((acc: number, asset: any) => {
             const curr = asset.currency;
             const rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;

@@ -992,9 +992,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           allUsers.forEach((u: any) => {
               let userCash = Number(u.cashBalance || u.cash_balance || 0);
               try {
-                  const ws = typeof u.wallet_sources === 'string' ? JSON.parse(u.wallet_sources) : (u.wallet_sources || []);
-                  const wsSum = Array.isArray(ws) ? ws.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0) : 0;
-                  userCash = Math.max(userCash, wsSum);
+                  const ws = typeof u.wallet_sources === 'string' ? JSON.parse(u.wallet_sources) : (u.wallet_sources || u.walletSources || []);
+                  if (Array.isArray(ws) && ws.length > 0) {
+                      userCash = ws.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+                  }
               } catch(e) {}
               totalCashIDR += userCash;
           });
@@ -1633,14 +1634,21 @@ function parseCleanJson(text: string): any {
           }
 
           let wsSum = 0;
+          let hasWsArray = false;
           try {
               const ws = typeof user.walletSources === 'string' ? JSON.parse(user.walletSources) : (user.walletSources || []);
               if (Array.isArray(ws)) {
                   wsSum = ws.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
                   user.walletSources = ws;
+                  hasWsArray = true;
               }
           } catch(e) {}
-          user.cashBalance = Math.max(Number(user.cashBalance || 0), wsSum);
+          if (hasWsArray && user.walletSources && user.walletSources.length > 0) {
+              if (Number(user.cashBalance) !== wsSum) {
+                  storage.updateUserBalance(user.id, wsSum).catch(() => {});
+              }
+              user.cashBalance = wsSum;
+          }
           return user;
       }
       return user || { id: 1, username: "guest", email: "guest@bilano.app", isPro: false, cashBalance: 0, walletSources: [] };
@@ -1891,7 +1899,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
   app.post("/api/retained/:id/withdraw", async (req: any, res: any) => {
       try {
           const user = await getUser(req);
-          const { amount, source } = req.body;
+          const { amount, source, destinationSource } = req.body;
+          const targetSource = source || destinationSource;
           const result = await db.execute(sql`SELECT * FROM retained_balances WHERE id = ${req.params.id} AND user_id = ${user!.id}`);
           const rows = Array.isArray(result) ? result : (result as any).rows || [];
           if (rows.length === 0) return res.status(404).json({ error: "Data tidak ditemukan" });
@@ -1907,16 +1916,25 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const rate = retained.currency === 'IDR' ? 1 : (cachedRates[retained.currency] || 15000);
           const amountIDR = Math.round(amount * rate);
 
-          const newBalance = Math.round(user!.cashBalance) + amountIDR;
-          await storage.updateUserBalance(user!.id, newBalance);
+          let newBalance = Math.round(user!.cashBalance) + amountIDR;
           
-          if (source) {
-              const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
-              const wsIdx = walletSources.findIndex((w: any) => w.name === source);
+          if (targetSource && user!.walletSources) {
+              const walletSources = [...(user!.walletSources as any[])];
+              const wsIdx = walletSources.findIndex((w: any) => w.name === targetSource);
               if (wsIdx >= 0) {
                   walletSources[wsIdx].balance += amountIDR;
-                  await storage.updateUserWalletSources(user!.id, walletSources);
+              } else {
+                  walletSources.push({
+                      id: Date.now().toString(),
+                      name: targetSource,
+                      type: 'bank',
+                      balance: amountIDR
+                  });
               }
+              await storage.updateUserWalletSources(user!.id, walletSources);
+              newBalance = walletSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+          } else {
+              await storage.updateUserBalance(user!.id, newBalance);
           }
 
           await storage.createTransaction(user!.id, { 
@@ -1939,13 +1957,16 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
           const { walletSources, cashBalance } = req.body; // Array of sources and total balance
           
+          let totalCash = cashBalance !== undefined ? Math.round(cashBalance) : undefined;
           if (walletSources !== undefined) {
+              if (Array.isArray(walletSources)) {
+                  totalCash = walletSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+              }
               await storage.updateUserWalletSources(user.id, walletSources);
+          } else if (totalCash !== undefined) {
+              await storage.updateUserBalance(user.id, Math.round(totalCash));
           }
-          if (cashBalance !== undefined) {
-              await storage.updateUserBalance(user.id, Math.round(cashBalance));
-          }
-          res.json({ success: true, message: "Sumber dompet berhasil diperbarui." });
+          res.json({ success: true, message: "Sumber dompet berhasil diperbarui.", cashBalance: totalCash });
       } catch (e: any) {
           res.status(500).json({ error: e.message });
       }
@@ -1995,11 +2016,12 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           }
       }
       
-      if (newBalance !== Math.round(user!.cashBalance)) {
-          await storage.updateUserBalance(user!.id, newBalance); 
-      }
-      if (sourceName) {
+      if (walletSources.length > 0) {
+          const wsSum = walletSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+          newBalance = wsSum;
           await storage.updateUserWalletSources(user!.id, walletSources);
+      } else if (newBalance !== Math.round(user!.cashBalance)) {
+          await storage.updateUserBalance(user!.id, newBalance); 
       }
       res.json(tx); 
   });
@@ -2060,11 +2082,12 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
 
       walletSources = walletSources.filter((w: any) => (Number(w.balance) || 0) > 0);
 
-      if (newBalance !== Math.round(user.cashBalance)) {
-          await storage.updateUserBalance(user.id, newBalance);
-      }
       if (walletSources.length > 0) {
+          const wsSum = walletSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+          newBalance = wsSum;
           await storage.updateUserWalletSources(user.id, walletSources);
+      } else if (newBalance !== Math.round(user.cashBalance)) {
+          await storage.updateUserBalance(user.id, newBalance);
       }
 
       res.json({ success: true, count: createdTxs.length, transactions: createdTxs });
@@ -3218,8 +3241,9 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               let userCash = Number(u.cashBalance || 0);
               try {
                   const ws = typeof u.walletSources === 'string' ? JSON.parse(u.walletSources) : (u.walletSources || []);
-                  const wsSum = Array.isArray(ws) ? ws.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0) : 0;
-                  userCash = Math.max(userCash, wsSum);
+                  if (Array.isArray(ws) && ws.length > 0) {
+                      userCash = ws.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+                  }
               } catch(e) {}
 
               const countOpened = Math.max(1, Number(u.appOpenCount || 0));

@@ -379,8 +379,8 @@ export function recordTrialExpense(
     })
     .filter((w) => w.balance > 0);
 
-  // Kurangi total saldo kas
-  const newCashBalance = Math.max(0, current.user.cashBalance - amount);
+  // Total saldo kas diselaraskan langsung dengan akumulasi sumber dana
+  const newCashBalance = updatedSources.reduce((acc, w) => acc + (Number(w.balance) || 0), 0);
 
   // Buat catatan transaksi baru di paling atas
   const newTx: TrialTransaction = {

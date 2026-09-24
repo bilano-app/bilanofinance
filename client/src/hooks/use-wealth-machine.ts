@@ -188,7 +188,11 @@ export function useWealthMachine() {
   // PRINSIP 3: Auto-pull snapshot finansial dari database aktual Bilano tanpa tanya ulang
   useEffect(() => {
     if (user) {
-      const currentCash = user.cashBalance || 0;
+      const wsSum = (user.walletSources && Array.isArray(user.walletSources))
+        ? (user.walletSources as any[]).filter((w: any) => (Number(w.balance) || 0) > 0).reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0)
+        : 0;
+      const hasRealWallet = user.walletSources && Array.isArray(user.walletSources) && user.walletSources.filter((w: any) => (Number(w.balance) || 0) > 0).length > 0;
+      const currentCash = hasRealWallet ? wsSum : (user.cashBalance || 0);
       const thisMonth = new Date().getMonth();
       const thisYear = new Date().getFullYear();
       
