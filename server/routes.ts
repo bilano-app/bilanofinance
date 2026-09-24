@@ -1987,7 +1987,10 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               newBalance -= amt; 
               if (sourceName) {
                   const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
-                  if (wsIdx >= 0) walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+                  if (wsIdx >= 0) {
+                      walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
+                  }
+                  walletSources = walletSources.filter((w: any) => (Number(w.balance) || 0) > 0);
               }
           }
       }
@@ -2054,6 +2057,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               }
           }
       }
+
+      walletSources = walletSources.filter((w: any) => (Number(w.balance) || 0) > 0);
 
       if (newBalance !== Math.round(user.cashBalance)) {
           await storage.updateUserBalance(user.id, newBalance);

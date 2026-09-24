@@ -174,7 +174,7 @@ export default function Performance() {
 
   const currentWealth = cashReal + forexValue + investmentReal + retainedReal + piutangReal - hutangReal;
   const totalAllAssets = cashReal + investmentReal + forexValue + retainedReal + piutangReal;
-  const hasRealWallet = user?.walletSources && Array.isArray(user.walletSources) && user.walletSources.length > 0;
+  const hasRealWallet = user?.walletSources && Array.isArray(user.walletSources) && user.walletSources.filter((w: any) => (Number(w.balance) || 0) > 0).length > 0;
   const isSetupSkipped = typeof window !== 'undefined' && localStorage.getItem("bilano_setup_balance_skipped") === "true";
 
   const isBalanceNotSet = !isTrial && (

@@ -261,21 +261,28 @@ export default function Home() {
 
         setIsSavingWallet(true);
         try {
-            const walletSources = user.walletSources ? [...(user.walletSources as any[])] : [];
-            const wsIdx = walletSources.findIndex((w: any) => (editingWallet.id && w.id === editingWallet.id) || w.name === editingWallet.name);
+            let walletSources = user.walletSources ? [...(user.walletSources as any[])] : [];
+            const isDeleting = newBal <= 0;
 
-            if (wsIdx >= 0) {
-                walletSources[wsIdx] = {
-                    ...walletSources[wsIdx],
-                    balance: newBal
-                };
+            if (isDeleting) {
+                // Otomatis hapus dari daftar sumber dana jika saldo diubah menjadi 0
+                walletSources = walletSources.filter((w: any) => !((editingWallet.id && w.id === editingWallet.id) || w.name === editingWallet.name));
             } else {
-                walletSources.push({
-                    id: Date.now().toString(),
-                    name: editingWallet.name,
-                    type: 'bank',
-                    balance: newBal
-                });
+                const wsIdx = walletSources.findIndex((w: any) => (editingWallet.id && w.id === editingWallet.id) || w.name === editingWallet.name);
+
+                if (wsIdx >= 0) {
+                    walletSources[wsIdx] = {
+                        ...walletSources[wsIdx],
+                        balance: newBal
+                    };
+                } else {
+                    walletSources.push({
+                        id: Date.now().toString(),
+                        name: editingWallet.name,
+                        type: 'bank',
+                        balance: newBal
+                    });
+                }
             }
 
             const res = await fetch("/api/user/wallet-sources", {
@@ -291,7 +298,12 @@ export default function Home() {
 
             queryClient.invalidateQueries({ queryKey: ["user"] });
             queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-            toast({ title: "Berhasil!", description: `Saldo ${editingWallet.name} berhasil diperbarui.` });
+            toast({ 
+                title: isDeleting ? "Sumber Dana Dihapus" : "Berhasil!", 
+                description: isDeleting 
+                    ? `Sumber dana ${editingWallet.name} berangka 0 telah otomatis dihapus dari daftar.` 
+                    : `Saldo ${editingWallet.name} berhasil diperbarui.` 
+            });
             setEditingWallet(null);
         } catch (err: any) {
             toast({ title: "Gagal Mengubah", description: err.message, variant: "destructive" });
@@ -593,10 +605,11 @@ export default function Home() {
         setShowPermissionPrompt(false);
     };
 
-    const wsSum = user?.walletSources && Array.isArray(user.walletSources) 
-        ? user.walletSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0) 
-        : 0;
-    const hasRealWallet = user?.walletSources && Array.isArray(user.walletSources) && user.walletSources.length > 0;
+    const activeWalletSources = (user?.walletSources && Array.isArray(user.walletSources))
+        ? (user.walletSources as any[]).filter((w: any) => (Number(w.balance) || 0) > 0)
+        : [];
+    const wsSum = activeWalletSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+    const hasRealWallet = activeWalletSources.length > 0;
     const isBalanceNotSet = !isGuestMode && (
         (isSetupSkipped && !hasRealWallet && Number(user?.cashBalance || 0) === 0) ||
         (!hasRealWallet && Number(user?.cashBalance || 0) === 0 && (!transactions || transactions.length === 0))
@@ -1374,9 +1387,9 @@ export default function Home() {
                                                 <span className="text-brand-gold font-bold underline underline-offset-2 ml-1">+ Tambah Kas</span>
                                             </span>
                                         </Link>
-                                    ) : user?.walletSources && (user.walletSources as any[]).length > 0 ? (
+                                    ) : activeWalletSources.length > 0 ? (
                                         <>
-                                            {(user.walletSources as any[]).map((wallet: any, idx: number) => {
+                                            {activeWalletSources.map((wallet: any, idx: number) => {
                                                 const logo = getWalletLogo(wallet.name);
                                                 return (
                                                     <div key={idx} className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0 shadow-xs backdrop-blur-xs">
@@ -1417,12 +1430,21 @@ export default function Home() {
                                             )}
                                         </>
                                     ) : (
-                                        <div className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0">
-                                            <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
-                                                <img src="/CASH.svg" alt="IDR" className="w-full h-full object-contain" />
+                                        <>
+                                            <div className="flex items-center gap-1.5 text-[11px] text-blue-100 bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-full shrink-0">
+                                                <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
+                                                    <img src="/CASH.svg" alt="IDR" className="w-full h-full object-contain" />
+                                                </div>
+                                                <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
                                             </div>
-                                            <span className="font-bold text-white tabular-nums">{isPrivacyMode ? "•••" : formatCurrency(cashRupiah).split(",")[0]}</span>
-                                        </div>
+                                            {!isGuestMode && (
+                                                <Link href="/transfer">
+                                                    <button className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-gold text-brand-navy shrink-0 ml-1 hover:bg-brand-goldDark transition-colors active:scale-95 shadow-sm" title="Tambah / Pindah Dompet">
+                                                        <Plus className="w-4 h-4" strokeWidth={3} />
+                                                    </button>
+                                                </Link>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             </div>

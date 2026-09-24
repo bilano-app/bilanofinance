@@ -369,13 +369,15 @@ export function recordTrialExpense(
 ): TrialData {
   const current = getTrialData();
 
-  // Kurangi saldo sumber dana yang dipilih
-  const updatedSources = current.user.walletSources.map((w) => {
-    if (w.name.toLowerCase() === sourceName.toLowerCase()) {
-      return { ...w, balance: Math.max(0, w.balance - amount) };
-    }
-    return w;
-  });
+  // Kurangi saldo sumber dana yang dipilih & hapus jika 0
+  const updatedSources = current.user.walletSources
+    .map((w) => {
+      if (w.name.toLowerCase() === sourceName.toLowerCase()) {
+        return { ...w, balance: Math.max(0, w.balance - amount) };
+      }
+      return w;
+    })
+    .filter((w) => w.balance > 0);
 
   // Kurangi total saldo kas
   const newCashBalance = Math.max(0, current.user.cashBalance - amount);

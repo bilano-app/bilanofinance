@@ -225,10 +225,11 @@ export default function Transfer() {
                   });
               }
 
+              const cleanedSources = updatedSources.filter(w => (Number(w.balance) || 0) > 0);
               await fetch("/api/user/wallet-sources", {
                   method: "POST",
                   headers,
-                  body: JSON.stringify({ walletSources: updatedSources })
+                  body: JSON.stringify({ walletSources: cleanedSources })
               });
           }
 
