@@ -5,6 +5,11 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: only light !important;
+  color-scheme: light !important;
+  forced-color-adjust: none !important;
+  -webkit-forced-color-adjust: none !important;
+
   --font-body: 'Inter', sans-serif;
   --font-display: 'Inter', sans-serif;
 
@@ -38,6 +43,11 @@
 }
 
 .dark {
+  color-scheme: only light !important;
+  color-scheme: light !important;
+  forced-color-adjust: none !important;
+  -webkit-forced-color-adjust: none !important;
+
   --background: 0 0% 100%;
   --foreground: 0 0% 0%;
   --card: 0 0% 100%;
@@ -63,6 +73,12 @@
   * {
     @apply border-border;
   }
+  html, body {
+    color-scheme: only light !important;
+    color-scheme: light !important;
+    forced-color-adjust: none !important;
+    -webkit-forced-color-adjust: none !important;
+  }
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-body);
@@ -86,7 +102,7 @@ html, body {
   width: 100%;
   overflow: hidden;   /* MATIKAN scroll di body (menghilangkan scrollbar browser) */
   overscroll-behavior: none; /* MATIKAN efek membal (rubber banding) di iOS/Mac */
-  background-color: #0b101b; /* Background elegan di sisi luar desktop */
+  background-color: #f1f5f9; /* Background terang & elegan di sisi luar desktop */
 }
 
 /* 2. Pindahkan Scroll ke dalam Aplikasi (#root) */

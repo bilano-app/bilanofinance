@@ -2,8 +2,11 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
-// 🛡️ Global Native Feel: Matikan popup contextmenu (Google/Browser) pada gambar, ikon, dan tombol
+// 🛡️ Global Native Feel: Kunci Light Mode & matikan popup contextmenu (Google/Browser) pada gambar, ikon, dan tombol
 if (typeof window !== "undefined") {
+  document.documentElement.classList.remove('dark');
+  document.documentElement.style.colorScheme = 'only light';
+
   window.addEventListener("contextmenu", (e: MouseEvent | TouchEvent) => {
     const target = e.target as HTMLElement | null;
     if (!target) return;

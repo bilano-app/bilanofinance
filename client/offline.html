@@ -3,12 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#ffffff">
+    <meta name="color-scheme" content="only light">
+    <meta name="supported-color-schemes" content="light">
     <title>BILANO Offline</title>
     <style>
+        :root, html, body {
+            color-scheme: only light !important;
+            color-scheme: light !important;
+            forced-color-adjust: none !important;
+            -webkit-forced-color-adjust: none !important;
+        }
         body {
             margin: 0;
             padding: 0;
-            background-color: #f8fafc;
+            background-color: #f8fafc !important;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
             flex-direction: column;
