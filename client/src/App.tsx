@@ -128,6 +128,12 @@ import AcademyReader from "@/pages/AcademyReader";
 import IncomeStrategy from "@/pages/IncomeStrategy";
 import SetupBalance from "@/pages/SetupBalance";
 import Transfer from "@/pages/Transfer";
+import AdrienStoreFront from "@/pages/AdrienStore/StoreFront";
+import AdrienProductDetail from "@/pages/AdrienStore/ProductDetail";
+import AdrienCheckout from "@/pages/AdrienStore/CheckoutPage";
+import AdrienOrderSuccess from "@/pages/AdrienStore/OrderSuccess";
+import AdrienOnlineReader from "@/pages/AdrienStore/OnlineReader";
+import AdrienManagerDashboard from "@/pages/AdrienStore/ManagerDashboard";
 import { isTrialMode } from "@/lib/trial-data";
 
 function Router() {
@@ -207,11 +213,12 @@ function Router() {
     // Daftar rute publik yang bebas diakses
     const publicRoutes = ["/", "/auth", "/terminal", "/onboarding", "/preview", "/checkout", "/manager", "/wealth-blueprint", "/paywall"];
     const normalizedLocation = location.endsWith('/') && location !== '/' ? location.slice(0, -1) : location;
+    const isPublicStore = normalizedLocation.startsWith("/adrienfandra") || publicRoutes.includes(normalizedLocation);
 
     if (!isAuth) {
       if (isStandalone && normalizedLocation !== "/auth") {
         setLocation("/auth");
-      } else if (!isStandalone && !publicRoutes.includes(normalizedLocation)) {
+      } else if (!isStandalone && !isPublicStore) {
         setLocation("/auth");
       }
     }
@@ -334,6 +341,15 @@ function Router() {
         <Route path="/academy/:ebookId/read/:chapterNum" component={AcademyReader} />
         <Route path="/transfer" component={Transfer} />
         
+        {/* 📚 ADRIEN FANDRA EBOOK STORE & MANAGER */}
+        <Route path="/adrienfandra" component={AdrienStoreFront} />
+        <Route path="/adrienfandra/p/:id" component={AdrienProductDetail} />
+        <Route path="/adrienfandra/checkout/:id" component={AdrienCheckout} />
+        <Route path="/adrienfandra/checkout" component={AdrienCheckout} />
+        <Route path="/adrienfandra/order/:orderId" component={AdrienOrderSuccess} />
+        <Route path="/adrienfandra/success" component={AdrienOrderSuccess} />
+        <Route path="/adrienfandra/read/:orderId" component={AdrienOnlineReader} />
+        <Route path="/adrienfandra/manager" component={AdrienManagerDashboard} />
       
         <Route component={NotFound} />
       </Switch>

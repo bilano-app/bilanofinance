@@ -13,6 +13,7 @@ import nodemailer from "nodemailer";
 import crypto from "crypto";
 import { trackingEvents } from "../shared/schema.js";
 import { registerIncomeStrategyRoutes } from "./incomeStrategy.js";
+import { setupAdrienStoreRoutes } from "./adrienStore.js";
 import { applyRateLimiter } from "./security.js";
 import { hashPassword, verifyPassword } from "./auth-crypto.js";
 
@@ -96,7 +97,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const url = req.originalUrl;
       const method = req.method.toUpperCase();
 
-      const publicRoutes = ['/api/auth', '/api/payment', '/api/user/onesignal', '/api/ping'];
+      const publicRoutes = ['/api/auth', '/api/payment', '/api/user/onesignal', '/api/ping', '/api/adrienfandra'];
       const isPublic = publicRoutes.some(p => url.startsWith(p));
       
       if (isPublic || !email || email === "guest") {
@@ -4450,6 +4451,7 @@ Output WAJIB HANYA dalam format JSON MURNI tanpa markdown:
   });
 
   await registerIncomeStrategyRoutes(app);
+  setupAdrienStoreRoutes(app);
   
   const httpServer = createServer(app);
   return httpServer;
