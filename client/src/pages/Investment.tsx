@@ -248,17 +248,19 @@ export default function Investment() {
           setInputPrice("");
           setSelectedSellSymbol("");
           setShowSourcePopup(false);
+          setIsSubmitting(false);
 
-          await queryClient.invalidateQueries({ queryKey: ["investments"] });
-          await queryClient.invalidateQueries({ queryKey: ["user"] });
-          await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+          Promise.all([
+              queryClient.invalidateQueries({ queryKey: ["investments"] }),
+              queryClient.invalidateQueries({ queryKey: ["user"] }),
+              queryClient.invalidateQueries({ queryKey: ["transactions"] })
+          ]).catch(() => {});
       } catch (e: any) {
           toast({
               title: "Transaksi Gagal",
               description: e.message || "Terjadi kesalahan server.",
               variant: "destructive"
           });
-      } finally {
           setIsSubmitting(false);
       }
   };

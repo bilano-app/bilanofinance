@@ -160,15 +160,14 @@ export default function Debts() {
               isForeign: isForeign 
           });
 
-          await fetchData();
-          toast({ title: "Tersimpan! ✨", description: `Catatan ${activeTab} berhasil ditambahkan.` });
-          
           setName(""); setAmount(""); setDesc(""); setDueDate(""); setCurrency("IDR");
           setIsFormOpen(false);
+          setIsSubmitting(false);
+          toast({ title: "Tersimpan! ✨", description: `Catatan ${activeTab} berhasil ditambahkan.` });
+          fetchData().catch(() => {});
       } catch (e: any) {
           toast({ title: "Terjadi Kendala", description: e.message || "Gagal menyimpan data.", variant: "destructive" }); 
-      } finally { 
-          setIsSubmitting(false); 
+          setIsSubmitting(false);
       }
   };
 
@@ -206,7 +205,6 @@ export default function Debts() {
       const nominal = parseNum(payAmount, isPayForeign) || selectedDebt.amount; 
 
       setIsPaying(true);
-      toast({ title: "Memproses...", description: "Menyinkronkan status tagihan..." });
 
       try {
           const res = await fetch(`/api/debts/${selectedDebt.id}/pay`, { 
@@ -225,13 +223,13 @@ export default function Debts() {
               amount: nominal 
           });
           
-          await fetchData(); 
-          toast({ title: "Pembayaran Berhasil! ✨", description: "Status tagihan telah diperbarui." }); 
           setPayAmount(""); setSelectedDebt(null); setPayModalOpen(false); 
+          setIsPaying(false);
+          toast({ title: "Pembayaran Berhasil! ✨", description: "Status tagihan telah diperbarui." }); 
+          fetchData().catch(() => {});
       } catch (e: any) { 
           toast({ title: "Gagal Memproses", description: e.message, variant: "destructive" }); 
-      } finally { 
-          setIsPaying(false); 
+          setIsPaying(false);
       }
   };
 

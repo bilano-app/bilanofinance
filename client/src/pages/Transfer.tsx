@@ -165,8 +165,8 @@ export default function Transfer() {
       };
 
       try {
-          // 1. Transaction Keluar (Dari)
-          await fetch("/api/transactions", {
+          // 1 & 2. Transaction Keluar & Masuk secara Paralel
+          const reqExpense = fetch("/api/transactions", {
               method: "POST",
               headers,
               body: JSON.stringify({
@@ -179,8 +179,7 @@ export default function Transfer() {
               })
           });
 
-          // 2. Transaction Masuk (Ke)
-          await fetch("/api/transactions", {
+          const reqIncome = fetch("/api/transactions", {
               method: "POST",
               headers,
               body: JSON.stringify({
@@ -192,6 +191,8 @@ export default function Transfer() {
                   date: new Date().toISOString()
               })
           });
+
+          await Promise.all([reqExpense, reqIncome]);
 
           // 3. Update / Create Wallet Sources
           if (walletSources.length > 0) {
@@ -233,9 +234,6 @@ export default function Transfer() {
               });
           }
 
-          await refetchUser();
-          queryClient.invalidateQueries();
-
           toast({ 
               title: "Pindah Saldo Berhasil! 🚀", 
               description: `Berhasil memindahkan dana ${formatRp(numAmount)} dari ${fromSource} ke ${actualToSource}.` 
@@ -247,9 +245,11 @@ export default function Transfer() {
           setToSource("");
           setNewSourceName("");
           setDestinationMode('existing');
+          setIsSubmitting(false);
+
+          Promise.all([refetchUser(), queryClient.invalidateQueries()]).catch(() => {});
       } catch (e: any) {
           toast({ title: "Transfer Gagal", description: e.message, variant: "destructive" });
-      } finally {
           setIsSubmitting(false);
       }
   };

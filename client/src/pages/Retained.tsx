@@ -125,15 +125,16 @@ export default function Retained() {
                 setTempSource(""); 
                 setTempAmount(""); 
                 setTempCurrency("IDR");
+                setIsSubmitting(false);
                 queryClient.invalidateQueries();
                 fetchRetained();
             } else {
                 toast({ title: "Gagal Menyimpan", description: "Terjadi kesalahan pada server.", variant: "destructive" });
+                setIsSubmitting(false);
             }
         } catch (e) { 
             toast({ title: "Kendala Jaringan", variant: "destructive" }); 
-        } finally { 
-            setIsSubmitting(false); 
+            setIsSubmitting(false);
         }
     };
 
@@ -150,14 +151,15 @@ export default function Retained() {
                 toast({ title: "Diperbarui! 🔄", description: "Jumlah saldo tertahan berhasil disinkronkan." });
                 setShowEditModal(null); 
                 setTempAmount("");
+                setIsSubmitting(false);
                 queryClient.invalidateQueries();
                 fetchRetained();
             } else {
                 toast({ title: "Gagal Update", variant: "destructive" });
+                setIsSubmitting(false);
             }
-        } catch (e) {
-            toast({ title: "Kendala Jaringan", variant: "destructive" });
-        } finally {
+        } catch (e) { 
+            toast({ title: "Kendala Jaringan", variant: "destructive" }); 
             setIsSubmitting(false);
         }
     };
@@ -208,16 +210,16 @@ export default function Retained() {
                 toast({ title: "Berhasil Dicairkan! 💸", description: `Dana masuk ke kas ${destWallet}.` });
                 setShowWithdrawModal(null);
                 setTempAmount("");
-                await refetchUser();
-                queryClient.invalidateQueries();
+                setIsSubmitting(false);
+                Promise.all([refetchUser(), queryClient.invalidateQueries()]).catch(() => {});
                 fetchRetained();
             } else {
                 const errData = await res.json().catch(() => ({}));
                 toast({ title: "Pencairan Gagal", description: errData.error || "Terjadi kesalahan.", variant: "destructive" });
+                setIsSubmitting(false);
             }
         } catch (e) {
             toast({ title: "Kendala Jaringan", variant: "destructive" });
-        } finally {
             setIsSubmitting(false);
         }
     };

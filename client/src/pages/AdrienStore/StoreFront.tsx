@@ -307,11 +307,6 @@ export default function StoreFront() {
         <p className="font-semibold text-slate-600">
           &copy; 2026 {settings.store_name || "Adrien Fandra Store"}
         </p>
-        <div className="pt-2">
-          <Link href="/adrienfandra/manager" className="text-[11px] text-slate-400 hover:text-blue-600 underline">
-            Manager Admin
-          </Link>
-        </div>
       </footer>
     </div>
   );

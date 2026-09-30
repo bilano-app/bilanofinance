@@ -127,18 +127,30 @@ export default function Forex() {
         });
 
         if (res.ok) {
+            const curr = editingForexAsset.currency;
             toast({ 
                 title: "Saldo Valas Diperbarui! 🌍", 
-                description: `Saldo ${editingForexAsset.currency} berhasil diubah ke ${newBal.toLocaleString()} ${editingForexAsset.currency}.` 
+                description: `Saldo ${curr} berhasil diubah ke ${newBal.toLocaleString()} ${curr}.` 
             });
             setEditingForexAsset(null);
-            await fetchData();
+            setIsSavingForex(false);
+            setAssets(prev => {
+                const idx = prev.findIndex(a => a.currency === curr);
+                if (idx >= 0) {
+                    const updated = [...prev];
+                    updated[idx] = { ...updated[idx], amount: newBal };
+                    return updated;
+                } else {
+                    return [...prev, { id: Date.now(), currency: curr, amount: newBal, updatedAt: new Date().toISOString() }];
+                }
+            });
+            fetchData().catch(() => {});
         } else {
             toast({ title: "Gagal Update", description: "Terjadi kesalahan saat menyimpan saldo valas.", variant: "destructive" });
+            setIsSavingForex(false);
         }
     } catch (e) {
         toast({ title: "Gagal Update", description: "Terjadi kesalahan jaringan.", variant: "destructive" });
-    } finally {
         setIsSavingForex(false);
     }
   };
@@ -269,8 +281,24 @@ export default function Forex() {
         });
 
         if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || "Gagal mencatat mutasi valas.");
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || err.error || "Gagal mencatat mutasi valas.");
+        }
+
+        const data = await res.json().catch(() => null);
+
+        // Optimistically update assets list immediately
+        if (data && typeof data.newBalance === 'number') {
+            setAssets(prev => {
+                const idx = prev.findIndex(a => a.currency === selectedCurr.code);
+                if (idx >= 0) {
+                    const updated = [...prev];
+                    updated[idx] = { ...updated[idx], amount: data.newBalance };
+                    return updated;
+                } else {
+                    return [...prev, { id: Date.now(), currency: selectedCurr.code, amount: data.newBalance, updatedAt: new Date().toISOString() }];
+                }
+            });
         }
 
         trackEvent("forex_mutation_recorded", {
@@ -289,11 +317,12 @@ export default function Forex() {
         setNoteMutation("");
         setDebtName("");
         setDueDate("");
-        await fetchData();
-        await refetchUser();
+        setIsSubmitting(false);
+
+        // Refresh data in background without blocking UI
+        Promise.all([fetchData(), refetchUser()]).catch(() => {});
     } catch (e: any) {
         toast({ title: "Gagal Mencatat", description: e.message, variant: "destructive" });
-    } finally {
         setIsSubmitting(false);
     }
   };
@@ -374,8 +403,24 @@ export default function Forex() {
         });
 
         if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || "Gagal memproses pertukaran valas.");
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || err.error || "Gagal memproses pertukaran valas.");
+        }
+
+        const data = await res.json().catch(() => null);
+
+        // Optimistically update assets list immediately
+        if (data && typeof data.newBalance === 'number') {
+            setAssets(prev => {
+                const idx = prev.findIndex(a => a.currency === selectedCurr.code);
+                if (idx >= 0) {
+                    const updated = [...prev];
+                    updated[idx] = { ...updated[idx], amount: data.newBalance };
+                    return updated;
+                } else {
+                    return [...prev, { id: Date.now(), currency: selectedCurr.code, amount: data.newBalance, updatedAt: new Date().toISOString() }];
+                }
+            });
         }
 
         trackEvent("forex_exchange_completed", {
@@ -395,11 +440,12 @@ export default function Forex() {
         setRateExchange("");
         setShowSourcePopup(false);
         setPendingForexSubmit(null);
-        await fetchData();
-        await refetchUser();
+        setIsSubmitting(false);
+
+        // Refresh data in background without blocking UI
+        Promise.all([fetchData(), refetchUser()]).catch(() => {});
     } catch (e: any) {
         toast({ title: "Gagal Menukar", description: e.message, variant: "destructive" });
-    } finally {
         setIsSubmitting(false);
     }
   };

@@ -131,21 +131,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const DEFAULT_RATES: Record<string, number> = { "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1 };
   let cachedRates: Record<string, number> = { ...DEFAULT_RATES }; 
   let lastRatesFetchTime = 0;
+  let isFetchingRates = false;
 
   const fetchLiveRates = async () => {
+      if (isFetchingRates) return false;
+      isFetchingRates = true;
       try {
-          const response = await fetch("https://open.er-api.com/v6/latest/USD");
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3500);
+          const response = await fetch("https://open.er-api.com/v6/latest/USD", { signal: controller.signal });
+          clearTimeout(timeoutId);
           if (response.ok) {
               const data = await response.json();
               const rates = data.rates;
-              const idrBase = rates.IDR;
-              cachedRates = { "USD": idrBase, "EUR": idrBase / rates.EUR, "SGD": idrBase / rates.SGD, "JPY": idrBase / rates.JPY, "AUD": idrBase / rates.AUD, "GBP": idrBase / rates.GBP, "CNY": idrBase / rates.CNY, "MYR": idrBase / rates.MYR, "THB": idrBase / rates.THB, "SAR": idrBase / rates.SAR, "KRW": idrBase / rates.KRW, "IDR": 1 };
-              lastRatesFetchTime = Date.now(); 
-              return true;
+              const idrBase = rates?.IDR;
+              if (idrBase && typeof idrBase === 'number') {
+                  cachedRates = { "USD": idrBase, "EUR": idrBase / rates.EUR, "SGD": idrBase / rates.SGD, "JPY": idrBase / rates.JPY, "AUD": idrBase / rates.AUD, "GBP": idrBase / rates.GBP, "CNY": idrBase / rates.CNY, "MYR": idrBase / rates.MYR, "THB": idrBase / rates.THB, "SAR": idrBase / rates.SAR, "KRW": idrBase / rates.KRW, "IDR": 1 };
+                  lastRatesFetchTime = Date.now(); 
+                  return true;
+              }
           }
-      } catch (e) { }
+      } catch (e) { } finally {
+          isFetchingRates = false;
+      }
       return false;
   };
+
+  const ensureRatesFresh = () => {
+      const now = Date.now();
+      if (now - lastRatesFetchTime > 30 * 60 * 1000) {
+          fetchLiveRates().catch(() => {});
+      }
+  };
+
+  // Pre-fetch in background without blocking server startup
+  setTimeout(() => { fetchLiveRates().catch(() => {}); }, 1500);
+  setInterval(() => { fetchLiveRates().catch(() => {}); }, 30 * 60 * 1000);
 
   const isAdminValid = (email?: string) => { 
     if (!email) return false;
@@ -1912,9 +1933,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const newAmount = retained.amount - amount;
           await db.execute(sql`UPDATE retained_balances SET amount = ${newAmount}, updated_at = NOW() WHERE id = ${req.params.id}`);
 
-          const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-          const rate = retained.currency === 'IDR' ? 1 : (cachedRates[retained.currency] || 15000);
+          ensureRatesFresh();
+          const rate = retained.currency === 'IDR' ? 1 : (cachedRates[retained.currency] || DEFAULT_RATES[retained.currency] || 15000);
           const amountIDR = Math.round(amount * rate);
 
           let newBalance = Math.round(user!.cashBalance) + amountIDR;
@@ -2200,10 +2220,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
   app.get("/api/forex/assets", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
   
   app.get("/api/forex/rates", async (req: any, res: any) => { 
-      const now = Date.now();
-      const ONE_HOUR = 1000 * 60 * 60;
-      if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > ONE_HOUR) await fetchLiveRates(); 
-      if (Object.keys(cachedRates).length === 0) cachedRates = { "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1 };
+      ensureRatesFresh();
       res.json(cachedRates); 
   });
 
@@ -2215,12 +2232,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const { currency, amount, type, paymentMode, debtName, dueDate, notes, rateSnapshot } = req.body;
           const numAmount = Math.abs(amount);
           
-          const now = Date.now();
-          const ONE_HOUR = 1000 * 60 * 60;
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > ONE_HOUR) await fetchLiveRates();
-          if (Object.keys(cachedRates).length === 0) cachedRates = { "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1 };
-
-          const rate = rateSnapshot || cachedRates[currency as keyof typeof cachedRates] || 15000;
+          ensureRatesFresh();
+          const rate = rateSnapshot || cachedRates[currency as keyof typeof cachedRates] || DEFAULT_RATES[currency] || 15000;
           const amountIDR = Math.round(numAmount * rate);
 
           const existing = await storage.getForexByCurrency(user.id, currency);
@@ -2391,12 +2404,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
       try {
           const currency = req.params.currency.toUpperCase();
           
-          const now = Date.now();
-          const ONE_HOUR = 1000 * 60 * 60;
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > ONE_HOUR) await fetchLiveRates();
-          if (Object.keys(cachedRates).length === 0) cachedRates = { "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1 };
-
-          const baseRate = cachedRates[currency as keyof typeof cachedRates] || 15000;
+          ensureRatesFresh();
+          const baseRate = cachedRates[currency as keyof typeof cachedRates] || DEFAULT_RATES[currency] || 15000;
           
           const data = [];
           const today = new Date();
@@ -2432,13 +2441,9 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           // 2. Perbaikan logika deteksi penambahan saldo valas menggunakan .includes()
           const isIncome = t.includes('buy') || t.includes('income') || t === 'pemasukan' || t === 'in' || t === 'tambah' || t === 'dapat';
           
-          const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) {
-              await fetchLiveRates(); 
-          }
-          
+          ensureRatesFresh();
           // 3. Gunakan customRate jika tersedia, jika kosong gunakan cachedRates sebagai fallback
-          const rate = customRate || cachedRates[currency as keyof typeof cachedRates] || 15000;
+          const rate = customRate || cachedRates[currency as keyof typeof cachedRates] || DEFAULT_RATES[currency] || 15000;
           const amountIDR = Math.round(amount * rate);
           let newCashBalance = Math.round(user!.cashBalance);
           let walletSources: any[] = user!.walletSources ? [...(user!.walletSources as any[])] : [];
@@ -2548,12 +2553,11 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const d = await storage.createDebt(user!.id, { ...req.body, source: source || null } as any); 
           
           if (!isFromTransaction) {
-              const now = Date.now();
-              if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
+              ensureRatesFresh();
 
               const parts = (name || "").split('|');
               const curr = parts[1] || 'IDR';
-              const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
+              const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 15000);
               const amountIDR = Math.round(amount * rate); 
               
               let txType = '', txCat = '';
@@ -2667,8 +2671,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           
           if (!id || isNaN(id)) return res.status(400).json({ error: "ID Tagihan tidak terbaca oleh server." });
 
-          const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
+          ensureRatesFresh();
 
           const debts = await storage.getDebts(user!.id);
           const debt = debts.find((d: any) => d.id === id);
@@ -2848,9 +2851,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           
           const totalInCurrency = quantity * price * m; 
           
-          const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
+          ensureRatesFresh();
+          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 15000);
           const totalIDR = Math.round(totalInCurrency * rate);
 
           if (curr === 'IDR') {
@@ -2918,9 +2920,8 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           
           const totalSellPriceInCurrency = quantity * price * m; 
           
-          const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) await fetchLiveRates(); 
-          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
+          ensureRatesFresh();
+          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 15000);
           const totalSellPriceIDR = Math.round(totalSellPriceInCurrency * rate);
           
           const allInvestments = await storage.getInvestments(user!.id);
@@ -3811,12 +3812,9 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
 
           const results: Record<string, number> = {};
 
-          // 🟢 PERBAIKAN: Tarik data kurs SEKALI SAJA di luar perulangan saham
-          const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) {
-              await fetchLiveRates(); 
-          }
-          const usdToIdr = cachedRates['USD'] || 16200;
+          // 🟢 PERBAIKAN: Gunakan kurs cache instan non-blocking
+          ensureRatesFresh();
+          const usdToIdr = cachedRates['USD'] || DEFAULT_RATES['USD'] || 16200;
 
           await Promise.all(symbols.map(async (rawSymbol: string) => {
               try {
@@ -3866,12 +3864,9 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
 
           const results: Record<string, { timestamps: number[], close: number[] }> = {};
 
-          // 🟢 Tarik data kurs SEKALI SAJA di luar perulangan
-          const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) {
-              await fetchLiveRates(); 
-          }
-          const usdToIdr = cachedRates['USD'] || 16200;
+          // 🟢 Tarik data kurs cache instan non-blocking
+          ensureRatesFresh();
+          const usdToIdr = cachedRates['USD'] || DEFAULT_RATES['USD'] || 16200;
 
           await Promise.all(symbols.map(async (rawSymbol: string) => {
               try {
@@ -3922,12 +3917,9 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
 
           const results: Record<string, { date: number, amount: number }[]> = {};
 
-          // 🟢 PERBAIKAN: Tarik data kurs SEKALI SAJA di luar perulangan
-          const now = Date.now();
-          if (Object.keys(cachedRates).length === 0 || now - lastRatesFetchTime > 600000) {
-              await fetchLiveRates();
-          }
-          const usdToIdr = cachedRates['USD'] || 16200;
+          // 🟢 PERBAIKAN: Tarik data kurs cache instan non-blocking
+          ensureRatesFresh();
+          const usdToIdr = cachedRates['USD'] || DEFAULT_RATES['USD'] || 16200;
 
           await Promise.all(symbols.map(async (rawSymbol: string) => {
               try {
