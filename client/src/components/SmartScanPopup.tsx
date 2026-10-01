@@ -7,7 +7,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
 import { queryClient } from "@/lib/queryClient";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyInput, parseFormattedNumber } from "@/lib/utils";
 
 export interface ScannedItem {
     id: string;
@@ -81,17 +81,8 @@ export default function SmartScanPopup({ isOpen, initialMode = null, onClose }: 
         }
     }, [availableSources, selectedGlobalSource]);
 
-    const formatNumInput = (val: string | number) => {
-        let clean = val.toString().replace(/\D/g, '');
-        if (clean.length > 1) {
-            clean = clean.replace(/^0+/, '');
-        }
-        return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    };
-    const parseNumInput = (val: string | number) => {
-        if (typeof val === 'number') return val;
-        return parseFloat(val.toString().replace(/\./g, '')) || 0;
-    };
+    const formatNumInput = (val: string | number) => formatCurrencyInput(val.toString());
+    const parseNumInput = (val: string | number) => parseFormattedNumber(val);
 
     // Trigger initial mode if passed
     useEffect(() => {
@@ -718,7 +709,7 @@ export default function SmartScanPopup({ isOpen, initialMode = null, onClose }: 
                                                         <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
                                                         <input
                                                             type="text"
-                                                            inputMode="numeric"
+                                                            inputMode="decimal"
                                                             value={formatNumInput(item.amount)}
                                                             onChange={(e) => updateItemField(item.id, 'amount', parseNumInput(e.target.value))}
                                                             className="w-full h-10 pl-8 pr-2.5 rounded-xl border border-slate-200 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"

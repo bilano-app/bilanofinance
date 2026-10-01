@@ -4,14 +4,10 @@ import { Wallet, Plus, Trash2, ArrowRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
 import WalletSourceSelect from "@/components/WalletSourceSelect";
+import { formatCurrencyInput, parseFormattedNumber, formatRp } from "@/lib/utils";
 
-const formatNumber = (val: string) => {
-    let clean = val.replace(/\D/g, '');
-    if (clean.length > 1) clean = clean.replace(/^0+/, ''); 
-    return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-};
-const parseNumber = (val: string) => parseFloat(val.replace(/\./g, '')) || 0;
-const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
+const formatNumber = (val: string) => formatCurrencyInput(val);
+const parseNumber = (val: string) => parseFormattedNumber(val);
 
 export default function LegacyMigrationPopup({ onComplete }: { onComplete: () => void }) {
   const { data: user } = useUser();
@@ -144,7 +140,7 @@ export default function LegacyMigrationPopup({ onComplete }: { onComplete: () =>
                         </div>
                         <div>
                             <label className="text-xs font-bold text-slate-500 mb-1 block">Saldo di Dalamnya</label>
-                            <Input type="tel" placeholder="0" value={entry.balance} onChange={(e) => updateEntry(entry.id, 'balance', formatNumber(e.target.value))} className="h-12 font-black text-lg bg-slate-50 border-slate-200 rounded-xl focus:border-indigo-500" />
+                            <Input type="text" inputMode="decimal" placeholder="0" value={entry.balance} onChange={(e) => updateEntry(entry.id, 'balance', formatNumber(e.target.value))} className="h-12 font-black text-lg bg-slate-50 border-slate-200 rounded-xl focus:border-indigo-500" />
                         </div>
                     </div>
                     ))}

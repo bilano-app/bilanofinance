@@ -14,6 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
 import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
+import { formatDecimalInput, formatCurrencyInput, parseFormattedNumber, formatRp } from "@/lib/utils";
 
 interface RetainedItem {
     id: number;
@@ -87,22 +88,13 @@ export default function Retained() {
       setLocation('/paywall');
     };
 
-    const formatNumber = (val: string) => {
-        let cleaned = val.replace(/[^0-9.,]/g, '');
-        const parts = cleaned.split(',');
-        if (parts.length > 2) {
-            cleaned = parts[0] + ',' + parts.slice(1).join('');
-        }
-        return cleaned;
+    const formatNumber = (val: string, curr = "IDR") => {
+        if (curr === 'IDR') return formatCurrencyInput(val);
+        return formatDecimalInput(val);
     };
     
-    const parseNumber = (val: string) => {
-        if (!val) return 0;
-        const clean = val.replace(/\./g, '').replace(/,/g, '.');
-        return parseFloat(clean) || 0;
-    };
+    const parseNumber = (val: string | number) => parseFormattedNumber(val);
 
-    const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
     const getRate = (curr: string) => curr === 'IDR' ? 1 : (safeForexRates[curr] || 15000);
 
     const totalRetainedIDR = items.reduce((acc, item) => acc + (item.amount * getRate(item.currency)), 0);
@@ -465,7 +457,7 @@ export default function Retained() {
                                             inputMode="decimal" 
                                             placeholder="0" 
                                             value={tempAmount} 
-                                            onChange={e => setTempAmount(formatNumber(e.target.value))} 
+                                            onChange={e => setTempAmount(formatNumber(e.target.value, tempCurrency))} 
                                             className="flex-1 h-12 px-4 font-black text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
                                         />
                                     </div>
@@ -515,7 +507,7 @@ export default function Retained() {
                                             type="text" 
                                             inputMode="decimal" 
                                             value={tempAmount} 
-                                            onChange={e => setTempAmount(formatNumber(e.target.value))} 
+                                            onChange={e => setTempAmount(formatNumber(e.target.value, showEditModal.currency))} 
                                             className="w-full pl-14 pr-4 h-12 font-black text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
                                         />
                                     </div>
@@ -566,7 +558,7 @@ export default function Retained() {
                                             inputMode="decimal" 
                                             placeholder="Masukkan nominal pencairan..." 
                                             value={tempAmount} 
-                                            onChange={e => setTempAmount(formatNumber(e.target.value))} 
+                                            onChange={e => setTempAmount(formatNumber(e.target.value, showWithdrawModal.currency))} 
                                             className="w-full pl-14 pr-4 h-12 font-black text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 outline-none focus:border-brand-navy focus:bg-white transition-all"
                                         />
                                     </div>

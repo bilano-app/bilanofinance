@@ -46,6 +46,31 @@ export default function ProductDetail() {
 
   const productIdOrSlug = params?.id;
 
+  const getVisitorId = () => {
+    let id = localStorage.getItem("af_store_visitor_id");
+    if (!id) {
+      id = "v_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now().toString(36);
+      localStorage.setItem("af_store_visitor_id", id);
+    }
+    return id;
+  };
+
+  const trackEvent = (eventType: string, pId?: number, pTitle?: string) => {
+    try {
+      fetch("/api/adrienfandra/analytics/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType,
+          productId: pId,
+          productTitle: pTitle,
+          visitorId: getVisitorId(),
+          referrer: document.referrer || window.location.href
+        })
+      }).catch(() => {});
+    } catch (e) {}
+  };
+
   useEffect(() => {
     if (!productIdOrSlug) return;
     setLoading(true);
@@ -54,6 +79,8 @@ export default function ProductDetail() {
       .then(data => {
         if (data.success && data.product) {
           setProduct(data.product);
+          // Track real product view
+          trackEvent("PRODUCT_CLICK", data.product.id, data.product.title);
         }
       })
       .catch(err => console.error("Error loading product detail:", err))
@@ -232,7 +259,7 @@ export default function ProductDetail() {
                 onClick={() => setActiveSlide(idx)}
                 className={`transition-all duration-300 rounded-full ${
                   activeSlide === idx 
-                    ? "w-5 h-2 bg-emerald-500" 
+                    ? "w-5 h-2 bg-[#1D3E72]" 
                     : "w-2 h-2 bg-slate-300 hover:bg-slate-400"
                 }`}
               />

@@ -180,8 +180,9 @@ export class DatabaseStorage implements IStorage {
   async createTransaction(userId: number, tx: InsertTransaction): Promise<Transaction> {
     const [transaction] = await db.insert(transactions).values({
         ...tx, 
+        amount: Math.round(Number(tx.amount || 0)),
         userId, 
-        date: new Date(), 
+        date: tx.date ? new Date(tx.date) : new Date(), 
         description: tx.description || null,
         source: tx.source || null
     }).returning();
@@ -198,7 +199,12 @@ export class DatabaseStorage implements IStorage {
   
   async createInvestment(userId: number, inv: InsertInvestment): Promise<Investment> {
       const [investment] = await db.insert(investments).values({
-          ...inv, userId, type: inv.type || 'saham', sekuritas: inv.sekuritas || null
+          ...inv, 
+          userId, 
+          quantity: Number(inv.quantity || 0),
+          avgPrice: Number(inv.avgPrice || 0),
+          type: inv.type || 'saham', 
+          sekuritas: inv.sekuritas || null
       }).returning();
       return investment;
   }
@@ -209,7 +215,10 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateInvestment(id: number, quantity: number, avgPrice: Promise<Investment> | number): Promise<Investment> {
-      const [updated] = await db.update(investments).set({ quantity: quantity as number, avgPrice: avgPrice as number }).where(eq(investments.id, id)).returning();
+      const [updated] = await db.update(investments).set({ 
+          quantity: Number(quantity || 0), 
+          avgPrice: Number(avgPrice || 0) 
+      }).where(eq(investments.id, id)).returning();
       if (!updated) throw new Error("Not found");
       return updated;
   }
@@ -228,7 +237,8 @@ export class DatabaseStorage implements IStorage {
       const [target] = await db.insert(targets).values({
           ...t, 
           userId, 
-          monthlyBudget: t.monthlyBudget || 0, 
+          targetAmount: Math.round(Number(t.targetAmount || 0)),
+          monthlyBudget: Math.round(Number(t.monthlyBudget || 0)), 
           budgetType: t.budgetType || 'static', 
           startMonth: t.startMonth || 1, 
           startYear: t.startYear || 2026
@@ -266,12 +276,16 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createForexAsset(userId: number, asset: any): Promise<ForexAsset> {
-      const [newAsset] = await db.insert(forexAssets).values({ ...asset, userId }).returning();
+      const [newAsset] = await db.insert(forexAssets).values({ 
+          ...asset, 
+          amount: Number(asset.amount || 0),
+          userId 
+      }).returning();
       return newAsset;
   }
 
   async updateForexAsset(id: number, amount: number): Promise<void> {
-      await db.update(forexAssets).set({ amount }).where(eq(forexAssets.id, id));
+      await db.update(forexAssets).set({ amount: Number(amount || 0) }).where(eq(forexAssets.id, id));
   }
 
   async getForexByCurrency(userId: number, currency: string): Promise<ForexAsset | undefined> {
@@ -286,7 +300,12 @@ export class DatabaseStorage implements IStorage {
   
   async createDebt(userId: number, debt: InsertDebt): Promise<Debt> {
       const [newDebt] = await db.insert(debts).values({
-          ...debt, userId, isPaid: false, dueDate: debt.dueDate ? new Date(debt.dueDate) : null, source: debt.source || null
+          ...debt, 
+          amount: Math.round(Number(debt.amount || 0)),
+          userId, 
+          isPaid: false, 
+          dueDate: debt.dueDate ? new Date(debt.dueDate) : null, 
+          source: debt.source || null
       }).returning();
       return newDebt;
   }
@@ -307,7 +326,11 @@ export class DatabaseStorage implements IStorage {
   
   async createSubscription(userId: number, sub: InsertSubscription): Promise<Subscription> {
       const [newSub] = await db.insert(subscriptions).values({
-          ...sub, userId, isActive: true, nextBilling: sub.nextBilling ? new Date(sub.nextBilling) : null
+          ...sub, 
+          cost: Math.round(Number(sub.cost || 0)),
+          userId, 
+          isActive: true, 
+          nextBilling: sub.nextBilling ? new Date(sub.nextBilling) : null
       }).returning();
       return newSub;
   }
@@ -315,6 +338,7 @@ export class DatabaseStorage implements IStorage {
   async updateSubscription(id: number, data: Partial<InsertSubscription>): Promise<Subscription> {
       const updateData: any = { ...data };
       if (updateData.nextBilling) updateData.nextBilling = new Date(updateData.nextBilling);
+      if (updateData.cost !== undefined) updateData.cost = Math.round(Number(updateData.cost || 0));
       const [updated] = await db.update(subscriptions).set(updateData).where(eq(subscriptions.id, id)).returning();
       if (!updated) throw new Error("Subscription not found");
       return updated;

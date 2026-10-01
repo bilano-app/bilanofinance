@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { trackEvent } from "@/lib/tracking";
+import { formatCurrencyInput, parseFormattedNumber, formatRp } from "@/lib/utils";
 
 interface TargetData {
     id: number;
@@ -24,12 +25,8 @@ interface TargetData {
 
 interface ExpenseItem { id: number; name: string; amount: number; }
 
-const formatNumber = (val: string) => {
-    const clean = val.replace(/\D/g, '');
-    return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-};
-const parseNumber = (val: string) => parseFloat(val.toString().replace(/\./g, '')) || 0;
-const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
+const formatNumber = (val: string) => formatCurrencyInput(val);
+const parseNumber = (val: string | number) => parseFormattedNumber(val);
 
 export default function Target() {
     const [, setLocation] = useLocation(); 
@@ -81,11 +78,7 @@ export default function Target() {
     const isEditMode = target && target.targetAmount !== undefined;
 
     const handleNumberChange = (setter: (val: string) => void, value: string) => {
-        let clean = value.replace(/\D/g, '');
-        if (clean.length > 1) {
-            clean = clean.replace(/^0+/, ''); 
-        }
-        setter(formatNumber(clean));
+        setter(formatCurrencyInput(value));
     };
 
     const addBreakdownItem = () => {
@@ -299,6 +292,8 @@ export default function Target() {
                                         <input 
                                             placeholder="Nominal" 
                                             value={newItemAmount} 
+                                            type="text"
+                                            inputMode="decimal"
                                             onChange={(e) => handleNumberChange(setNewItemAmount, e.target.value)} 
                                             className="w-28 text-xs font-bold px-3 h-11 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-brand-navy focus:bg-white tabular-nums"
                                         />
@@ -369,7 +364,8 @@ export default function Target() {
                                             Nominal Target (Rp)
                                         </label>
                                         <input 
-                                            type="tel" 
+                                            type="text" 
+                                            inputMode="decimal"
                                             placeholder="100.000.000" 
                                             value={rawTargetAmount} 
                                             onChange={(e) => handleNumberChange(setRawTargetAmount, e.target.value)} 
@@ -472,7 +468,8 @@ export default function Target() {
                                         Nominal Batas Maksimal (Rp)
                                     </label>
                                     <input 
-                                        type="tel" 
+                                        type="text" 
+                                        inputMode="decimal"
                                         placeholder="1.500.000" 
                                         value={rawBudgetAmount} 
                                         onChange={(e) => handleNumberChange(setRawBudgetAmount, e.target.value)} 

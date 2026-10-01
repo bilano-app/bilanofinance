@@ -2230,10 +2230,10 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
           const { currency, amount, type, paymentMode, debtName, dueDate, notes, rateSnapshot } = req.body;
-          const numAmount = Math.abs(amount);
+          const numAmount = Math.abs(Number(amount) || 0);
           
           ensureRatesFresh();
-          const rate = rateSnapshot || cachedRates[currency as keyof typeof cachedRates] || DEFAULT_RATES[currency] || 15000;
+          const rate = Number(rateSnapshot) || cachedRates[currency as keyof typeof cachedRates] || DEFAULT_RATES[currency] || 15000;
           const amountIDR = Math.round(numAmount * rate);
 
           const existing = await storage.getForexByCurrency(user.id, currency);
@@ -2248,7 +2248,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               await storage.createDebt(user.id, {
                   userId: user.id,
                   name: `${debtName} | ${currency}`,
-                  amount: numAmount,
+                  amount: amountIDR,
                   type: debtType,
                   dueDate: dueDate ? new Date(dueDate) : null,
                   source: null,
@@ -2321,8 +2321,9 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
           const { action, currency, amount, rate, totalIDR, source } = req.body;
-          const numAmount = Math.abs(amount);
-          const numTotalIDR = Math.abs(totalIDR);
+          const numAmount = Math.abs(Number(amount) || 0);
+          const numRate = Number(rate) || cachedRates[currency as keyof typeof cachedRates] || DEFAULT_RATES[currency] || 15000;
+          const numTotalIDR = Math.round(Math.abs(Number(totalIDR) || (numAmount * numRate)));
 
           const existing = await storage.getForexByCurrency(user.id, currency);
           let currentAmount = existing ? existing.amount : 0;
@@ -2348,7 +2349,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   type: 'forex_buy',
                   amount: numTotalIDR,
                   category: 'Tukar Valas',
-                  description: `Beli ${numAmount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`,
+                  description: `Beli ${numAmount} ${currency} (Rate: Rp ${numRate.toLocaleString('id-ID')})`,
                   date: new Date(),
                   source: source || null
               } as any);
@@ -2377,7 +2378,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   type: 'forex_sell',
                   amount: numTotalIDR,
                   category: 'Cairkan Valas',
-                  description: `Jual ${numAmount} ${currency} (Rate: Rp ${rate.toLocaleString('id-ID')})`,
+                  description: `Jual ${numAmount} ${currency} (Rate: Rp ${numRate.toLocaleString('id-ID')})`,
                   date: new Date(),
                   source: source || null
               } as any);
@@ -2839,7 +2840,9 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
   app.post("/api/investments/buy", async (req: any, res: any) => { 
       try {
           const user = await getUser(req); 
-          const { symbol, quantity, price, type } = req.body; 
+          const { symbol, type } = req.body; 
+          const quantity = Number(req.body.quantity) || 0;
+          const price = Number(req.body.price) || 0;
           
           const parts = (symbol || "").split('|');
           const sym = parts[0] || "";
@@ -2908,7 +2911,9 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
   app.post("/api/investments/sell", async (req: any, res: any) => { 
       try {
           const user = await getUser(req); 
-          const { symbol, quantity, price, type } = req.body; 
+          const { symbol, type } = req.body; 
+          const quantity = Number(req.body.quantity) || 0;
+          const price = Number(req.body.price) || 0;
           
           const parts = (symbol || "").split('|');
           const sym = parts[0] || "";

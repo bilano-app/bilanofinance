@@ -1,5 +1,5 @@
 import React, { InputHTMLAttributes, forwardRef } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrencyInput } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
 // --- BUTTON ---
@@ -100,21 +100,16 @@ interface CurrencyInputProps extends Omit<InputProps, 'onChange'> {
   onChange: (value: string) => void;
 }
 export const CurrencyInput = ({ label, value, onChange, className, ...props }: CurrencyInputProps) => {
-  const formatNumber = (numStr: string) => {
-    if (!numStr) return "";
-    const num = numStr.replace(/\D/g, ""); 
-    return new Intl.NumberFormat("id-ID").format(Number(num));
-  };
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = e.target.value.replace(/\./g, ""); 
-    if (!isNaN(Number(rawValue))) onChange(rawValue);
+    const formatted = formatCurrencyInput(e.target.value);
+    onChange(formatted);
   };
   return (
     <div className={cn("space-y-2", className)}>
       {label && <label className="text-sm font-medium leading-none ml-1">{label}</label>}
       <div className="relative">
         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm pointer-events-none">Rp</div>
-        <Input type="text" inputMode="numeric" className="pl-10 font-mono text-lg" value={formatNumber(value.toString())} onChange={handleChange} {...props} />
+        <Input type="text" inputMode="decimal" className="pl-10 font-mono text-lg" value={formatCurrencyInput(value.toString())} onChange={handleChange} {...props} />
       </div>
     </div>
   );

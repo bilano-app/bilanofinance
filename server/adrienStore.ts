@@ -149,65 +149,23 @@ export async function ensureAdrienStoreTables() {
       );
     `);
 
-    // Selalu pastikan settings dan produk toko tersinkronisasi ke tema Akuntansi
-    try {
-      await db.execute(sql`
-        UPDATE adrien_store_settings
-        SET header_subtitle = 'Adrien Fandra | Praktisi & Konsultan Akuntansi',
-            header_hook = 'siap bantu lo semua untuk kuasai akuntansi & laporan keuangan bisnis tanpa ribet',
-            store_tagline = 'E-Book & Panduan Praktis Akuntansi Bisnis'
-        WHERE id = 1 OR TRUE;
-      `);
+    // 6. Real Storefront & Product Analytics Events Table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS adrien_analytics_events (
+        id SERIAL PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        product_id INTEGER,
+        product_title TEXT,
+        visitor_id TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        referrer TEXT,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
 
-      await db.execute(sql`
-        UPDATE adrien_products 
-        SET title = 'Paket Bundling 4 in 1: Jago Akuntansi & Laporan Keuangan Bisnis',
-            subtitle = 'Dari nol jurnal sampai bisa susun & analisis Laporan Keuangan dengan percaya diri',
-            category = 'BUNDLING 4 IN 1 AKUNTANSI',
-            sales_headline = '4 E-book ini dibuat buat lo yang Sebenarnya punya bisnis/kerja tapi sering pusing saat baca Laporan Keuangan!',
-            sales_body = 'Lewat 4 e-book ini, lo gak cuma belajar teori akuntansi membosankan, tapi diajak praktek langsung cara menyusun jurnal umum, buku besar, neraca saldo, hingga membaca laporan laba rugi dan arus kas dengan mudah & aplikatif.',
-            highlights = '["Bisa menyusun jurnal umum & buku besar tanpa bingung debit kredit", "Paham cara membaca Laporan Laba Rugi & Neraca dalam 5 menit", "Deteksi kebocoran uang kas bisnis sejak dini", "Template spreadsheet & studi kasus riil siap pakai"]'::jsonb,
-            testimonials = '[
-              {"name": "Arif Hady", "role": "Owner Bisnis Kuliner & Entrepreneur", "comment": "Buku akuntansi paling praktis yang pernah saya baca! Pembukuan usaha kuliner saya langsung rapi dan gak bocor lagi.", "rating": 5},
-              {"name": "Fadhil R.", "role": "Finance Officer", "comment": "Penjelasan debit-kreditnya simpel banget, langsung paham alur laporan keuangan tahunan.", "rating": 5},
-              {"name": "Dedi A.", "role": "UMKM Founder", "comment": "Dulu buta angka keuangan bisnis, sekarang bisa bikin neraca dan tahu profit bersih riil tiap bulan.", "rating": 5},
-              {"name": "Zahra N.", "role": "Junior Accountant", "comment": "Sangat aplikatif buat mahasiswa & staf akuntansi pemula, ada template spreadsheet siap contek.", "rating": 5}
-            ]'::jsonb,
-            pdf_filename = 'Paket_Bundling_4in1_Jago_Akuntansi_Bisnis.pdf'
-        WHERE id = 1;
-      `);
-
-      await db.execute(sql`
-        UPDATE adrien_products 
-        SET title = 'Contekan Jurnal & Laporan Keuangan: Siap Pakai untuk Bisnis & Mahasiswa',
-            subtitle = 'Kumpulan Rumus & Template Jurnal Akuntansi Praktis Anti Bingung',
-            category = 'BEST SELLER',
-            sales_headline = 'Tinggal Contek Sesuai Transaksi Bisnis Lo!',
-            sales_body = '50+ Template pencatatan jurnal transaksi mulai dari kas, persediaan, piutang, hutang, hingga penyesuaian akhir periode.',
-            highlights = '["50+ Template Jurnal Transaksi Harian Bisnis", "Cara Mudah Menghitung HPP (Harga Pokok Penjualan)", "Anti Bingung Jurnal Penyesuaian & Penyusutan Aset", "Format Siap Pakai di Excel / Spreadsheet"]'::jsonb,
-            testimonials = '[
-              {"name": "Ghozi M.", "role": "Accounting Staff", "comment": "Contekan jurnalnya sangat ngebantu kerjaan bulanan saya, closing laporan jadi jauh lebih cepat!", "rating": 5}
-            ]'::jsonb,
-            pdf_filename = 'Contekan_Jurnal_Laporan_Keuangan.pdf'
-        WHERE id = 2;
-      `);
-
-      await db.execute(sql`
-        UPDATE adrien_products 
-        SET title = '7 Hari Mahir Baca & Analisis Laporan Keuangan',
-            subtitle = 'Panduan Taktis Membaca Kesehatan Keuangan Bisnis dari Laba Rugi & Neraca',
-            category = 'POPULAR',
-            sales_headline = 'Ketahui Apakah Bisnis Anda Benar-Benar Untung atau Sekadar Ramai!',
-            sales_body = 'Metode cepat 7 hari memahami pos-pos penting dalam Neraca, Laba Rugi, dan Arus Kas untuk pengambilan keputusan bisnis yang tepat.',
-            highlights = '["Cara Cepat Mengetahui Rasio Profit & Likuiditas", "Trik Membaca Arus Kas Operasional vs Investasi", "Checklist Evaluasi Keuangan Bulanan"]'::jsonb,
-            pdf_filename = '7_Hari_Mahir_Baca_Laporan_Keuangan.pdf'
-        WHERE id = 3;
-      `);
-    } catch (syncErr) {
-      console.error("[AdrienStore] Sync error:", syncErr);
-    }
-
-    // Seed default data jika kosong
+    // Seed default data HANYA jika tabel belum memiliki data sama sekali
     await seedDefaultAdrienStoreData();
   } catch (error) {
     console.error("[AdrienStore] Error ensuring DB tables:", error);
@@ -215,11 +173,11 @@ export async function ensureAdrienStoreTables() {
 }
 
 // =========================================================================
-// 🌱 SEED DEFAULT DATA
+// 🌱 SEED DEFAULT DATA (Hanya dijalankan jika tabel kosong)
 // =========================================================================
 async function seedDefaultAdrienStoreData() {
   try {
-    // 1. Cek Settings & Update ke konteks Akuntansi
+    // 1. Cek Settings
     const settingsCheck = await db.execute(sql`SELECT COUNT(*) FROM adrien_store_settings`);
     if (Number(settingsCheck.rows[0]?.count || 0) === 0) {
       await db.execute(sql`
@@ -243,7 +201,7 @@ async function seedDefaultAdrienStoreData() {
       `);
     }
 
-    // 2. Cek & Update Produk Ebook Akuntansi
+    // 2. Cek Produk Ebook
     const productCheck = await db.execute(sql`SELECT COUNT(*) FROM adrien_products`);
     if (Number(productCheck.rows[0]?.count || 0) === 0) {
       // Produk 1: Paket Bundling 4 in 1 Akuntansi
@@ -254,20 +212,21 @@ async function seedDefaultAdrienStoreData() {
           pdf_filename, is_active, sort_order
         ) VALUES (
           'paket-bundling-4in1',
-          'Paket Bundling 4-1: Jago Akuntansi & Laporan Keuangan Bisnis',
+          'Paket Bundling 4 in 1: Jago Akuntansi & Laporan Keuangan Bisnis',
           'Dari nol jurnal sampai bisa susun & analisis Laporan Keuangan dengan percaya diri',
           'BUNDLING 4 IN 1 AKUNTANSI',
           '',
-          '["/ebook-dummy-1.png", "/ebook-dummy-2.png"]'::jsonb,
+          '[]'::jsonb,
           145000,
           99000,
           '4 E-book ini dibuat buat lo yang Sebenarnya punya bisnis/kerja tapi sering pusing saat baca Laporan Keuangan!',
           'Lewat 4 e-book ini, lo gak cuma belajar teori akuntansi membosankan, tapi diajak praktek langsung cara menyusun jurnal umum, buku besar, neraca saldo, hingga membaca laporan laba rugi dan arus kas dengan mudah & aplikatif.',
           '["Bisa menyusun jurnal umum & buku besar tanpa bingung debit kredit", "Paham cara membaca Laporan Laba Rugi & Neraca dalam 5 menit", "Deteksi kebocoran uang kas bisnis sejak dini", "Template spreadsheet & studi kasus riil siap pakai"]'::jsonb,
           '[
-            {"name": "Arif Hady", "role": "Owner Bisnis & Entrepreneur", "comment": "Buku akuntansi paling praktis yang pernah saya baca! Pembukuan toko saya langsung rapi dan gak bocor lagi.", "rating": 5},
+            {"name": "Arif Hady", "role": "Owner Bisnis Kuliner & Entrepreneur", "comment": "Buku akuntansi paling praktis yang pernah saya baca! Pembukuan usaha kuliner saya langsung rapi dan gak bocor lagi.", "rating": 5},
             {"name": "Fadhil R.", "role": "Finance Officer", "comment": "Penjelasan debit-kreditnya simpel banget, langsung paham alur laporan keuangan tahunan.", "rating": 5},
-            {"name": "Dedi A.", "role": "UMKM Founder", "comment": "Dulu buta angka keuangan, sekarang bisa bikin neraca dan tahu profit bersih riil tiap bulan.", "rating": 5}
+            {"name": "Dedi A.", "role": "UMKM Founder", "comment": "Dulu buta angka keuangan bisnis, sekarang bisa bikin neraca dan tahu profit bersih riil tiap bulan.", "rating": 5},
+            {"name": "Zahra N.", "role": "Junior Accountant", "comment": "Sangat aplikatif buat mahasiswa & staf akuntansi pemula, ada template spreadsheet siap contek.", "rating": 5}
           ]'::jsonb,
           'Ingat Paket ini TERBATAS - Hanya Untuk 10 Orang',
           4310,
@@ -316,7 +275,7 @@ async function seedDefaultAdrienStoreData() {
           pdf_filename, is_active, sort_order
         ) VALUES (
           '7-hari-mahir-laporan-keuangan',
-          '7 Hari Mahir Baca Laporan Keuangan',
+          '7 Hari Mahir Baca & Analisis Laporan Keuangan',
           'Panduan Taktis Membaca Kesehatan Keuangan Bisnis dari Laba Rugi & Neraca',
           'POPULAR',
           '',
@@ -335,50 +294,6 @@ async function seedDefaultAdrienStoreData() {
           3
         );
       `);
-    } else {
-      // Update existing default products to accounting context
-      await db.execute(sql`
-        UPDATE adrien_products 
-        SET title = 'Paket Bundling 4 in 1: Jago Akuntansi & Laporan Keuangan Bisnis',
-            subtitle = 'Dari nol jurnal sampai bisa susun & analisis Laporan Keuangan dengan percaya diri',
-            category = 'BUNDLING 4 IN 1 AKUNTANSI',
-            sales_headline = '4 E-book ini dibuat buat lo yang Sebenarnya punya bisnis/kerja tapi sering pusing saat baca Laporan Keuangan!',
-            sales_body = 'Lewat 4 e-book ini, lo gak cuma belajar teori akuntansi membosankan, tapi diajak praktek langsung cara menyusun jurnal umum, buku besar, neraca saldo, hingga membaca laporan laba rugi dan arus kas dengan mudah & aplikatif.',
-            highlights = '["Bisa menyusun jurnal umum & buku besar tanpa bingung debit kredit", "Paham cara membaca Laporan Laba Rugi & Neraca dalam 5 menit", "Deteksi kebocoran uang kas bisnis sejak dini", "Template spreadsheet & studi kasus riil siap pakai"]'::jsonb,
-            testimonials = '[
-              {"name": "Arif Hady", "role": "Owner Bisnis Kuliner & Entrepreneur", "comment": "Buku akuntansi paling praktis yang pernah saya baca! Pembukuan usaha kuliner saya langsung rapi dan gak bocor lagi.", "rating": 5},
-              {"name": "Fadhil R.", "role": "Finance Officer", "comment": "Penjelasan debit-kreditnya simpel banget, langsung paham alur laporan keuangan tahunan.", "rating": 5},
-              {"name": "Dedi A.", "role": "UMKM Founder", "comment": "Dulu buta angka keuangan bisnis, sekarang bisa bikin neraca dan tahu profit bersih riil tiap bulan.", "rating": 5},
-              {"name": "Zahra N.", "role": "Junior Accountant", "comment": "Sangat aplikatif buat mahasiswa & staf akuntansi pemula, ada template spreadsheet siap contek.", "rating": 5}
-            ]'::jsonb,
-            pdf_filename = 'Paket_Bundling_4in1_Jago_Akuntansi_Bisnis.pdf'
-        WHERE id = 1;
-      `);
-      await db.execute(sql`
-        UPDATE adrien_products 
-        SET title = 'Contekan Jurnal & Laporan Keuangan: Siap Pakai untuk Bisnis & Mahasiswa',
-            subtitle = 'Kumpulan Rumus & Template Jurnal Akuntansi Praktis Anti Bingung',
-            category = 'BEST SELLER',
-            sales_headline = 'Tinggal Contek Sesuai Transaksi Bisnis Lo!',
-            sales_body = '50+ Template pencatatan jurnal transaksi mulai dari kas, persediaan, piutang, hutang, hingga penyesuaian akhir periode.',
-            highlights = '["50+ Template Jurnal Transaksi Harian Bisnis", "Cara Mudah Menghitung HPP (Harga Pokok Penjualan)", "Anti Bingung Jurnal Penyesuaian & Penyusutan Aset", "Format Siap Pakai di Excel / Spreadsheet"]'::jsonb,
-            testimonials = '[
-              {"name": "Ghozi M.", "role": "Accounting Staff", "comment": "Contekan jurnalnya sangat ngebantu kerjaan bulanan saya, closing laporan jadi jauh lebih cepat!", "rating": 5}
-            ]'::jsonb,
-            pdf_filename = 'Contekan_Jurnal_Laporan_Keuangan.pdf'
-        WHERE id = 2;
-      `);
-      await db.execute(sql`
-        UPDATE adrien_products 
-        SET title = '7 Hari Mahir Baca & Analisis Laporan Keuangan',
-            subtitle = 'Panduan Taktis Membaca Kesehatan Keuangan Bisnis dari Laba Rugi & Neraca',
-            category = 'POPULAR',
-            sales_headline = 'Ketahui Apakah Bisnis Anda Benar-Benar Untung atau Sekadar Ramai!',
-            sales_body = 'Metode cepat 7 hari memahami pos-pos penting dalam Neraca, Laba Rugi, dan Arus Kas untuk pengambilan keputusan bisnis yang tepat.',
-            highlights = '["Cara Cepat Mengetahui Rasio Profit & Likuiditas", "Trik Membaca Arus Kas Operasional vs Investasi", "Checklist Evaluasi Keuangan Bulanan"]'::jsonb,
-            pdf_filename = '7_Hari_Mahir_Baca_Laporan_Keuangan.pdf'
-        WHERE id = 3;
-      `);
     }
 
     // 3. Cek Voucher Default
@@ -392,7 +307,7 @@ async function seedDefaultAdrienStoreData() {
       `);
     }
 
-    console.log("[AdrienStore] Tables & Seed Data initialized successfully.");
+    console.log("[AdrienStore] Tables & Seed Data ready.");
   } catch (error) {
     console.error("[AdrienStore] Seed error:", error);
   }
@@ -448,57 +363,60 @@ export function generateEbookPDF(productTitle: string, customerName: string, ord
   doc.setFont("helvetica", "bold");
   doc.text("LISENSI PEMBELI RESMI", 105, 192, { align: "center" });
 
+  doc.setFontSize(10);
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "normal");
-  doc.text(`Diberikan kepada: ${safeName}`, 105, 202, { align: "center" });
+  doc.text(`Dilisensikan Kepada: ${safeName}`, 105, 202, { align: "center" });
   doc.text(`ID Transaksi: ${safeOrderId}`, 105, 210, { align: "center" });
-  doc.text("Status: Terverifikasi & Dilindungi Hak Cipta", 105, 218, { align: "center" });
+  doc.text(`Tanggal Unduh: ${new Date().toLocaleDateString("id-ID")}`, 105, 218, { align: "center" });
 
-  doc.setTextColor(29, 62, 114);
-  doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
+  doc.setTextColor(150, 170, 200);
   doc.text("BILANO.APP/ADRIENFANDRA • WHATSAPP: +6289688113210", 105, 269, { align: "center" });
 
-  // Halaman 2: Kata Pengantar & Ringkasan Materi
+  // Halaman 2: Isi & Panduan
   doc.addPage();
   doc.setFillColor(248, 250, 252);
   doc.rect(0, 0, 210, 297, "F");
 
-  // Header Banner
+  // Top Bar Navy
   doc.setFillColor(29, 62, 114);
-  doc.rect(0, 0, 210, 30, "F");
+  doc.rect(0, 0, 210, 20, "F");
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  const shortTitle = safeTitle.length > 50 ? safeTitle.substring(0, 47) + "..." : safeTitle;
-  doc.text(shortTitle, 20, 19);
-
-  doc.setTextColor(30, 41, 59);
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text("KATA PENGANTAR & SELAMAT DATANG", 20, 50);
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(71, 85, 105);
-  
-  const introText = `Halo ${safeName}! Terima kasih telah berinvestasi pada diri Anda melalui e-book "${safeTitle}".\n\nMemahami akuntansi dan laporan keuangan bukan hanya tugas seorang akuntan, melainkan pondasi terpenting bagi setiap pemilik bisnis, profesional, dan pengambil keputusan. Di dalam e-book ini, Anda akan mempelajari langkah-langkah taktis dan praktis: mulai dari pencatatan jurnal transaksi harian tanpa bingung debit-kredit, penyusunan neraca saldo, hingga membaca dan menganalisis Laporan Laba Rugi serta Arus Kas bisnis secara komprehensif.`;
-  
-  const splitIntro = doc.splitTextToSize(introText, 170);
-  doc.text(splitIntro, 20, 62);
-
-  // Box Highlight Kunci
-  doc.setFillColor(254, 240, 138); // Yellow highlight box
-  doc.roundedRect(20, 110, 170, 45, 3, 3, "F");
-  doc.setTextColor(133, 77, 14);
-  doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text("3 KUNCI UTAMA DALAM E-BOOK INI:", 26, 120);
-  doc.setFont("helvetica", "normal");
+  doc.setFont("helvetica", "bold");
+  doc.text(safeTitle, 20, 13);
+
+  // Sambutan
+  doc.setTextColor(15, 34, 71);
+  doc.setFontSize(18);
+  doc.text("PENGANTAR PRAKTISI AKUNTANSI", 20, 38);
+
   doc.setFontSize(10);
-  doc.text("1. Ketertiban Jurnal: Kuasai logika debit & kredit dalam 5 menit pertama.", 26, 128);
-  doc.text("2. Akurasi Laba Rugi: Pisahkan omset kotor dan profit bersih riil operasional.", 26, 136);
-  doc.text("3. Kontrol Arus Kas: Deteksi kebocoran pos pengeluaran sebelum menjadi krisis.", 26, 144);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(51, 65, 85);
+  const introText = 
+    `Halo ${safeName},\n\n` +
+    `Selamat telah memiliki panduan "${safeTitle}". E-book ini disusun secara khusus dan aplikatif untuk membantu Anda menguasai pencatatan keuangan bisnis, menyusun pembukuan yang tertib, dan membaca laporan keuangan tanpa rasa takut pada rumus-rumus rumit.\n\n` +
+    `Silakan pelajari langkah demi langkah dan terapkan langsung pada pencatatan bisnis Anda harian.`;
+  const splitIntro = doc.splitTextToSize(introText, 170);
+  doc.text(splitIntro, 20, 48);
+
+  // Box Highlight 3 Pilar
+  doc.setFillColor(238, 242, 255);
+  doc.roundedRect(20, 105, 170, 52, 3, 3, "F");
+  
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(29, 62, 114);
+  doc.text("3 PILAR PENTING PEMBUKUAN BISNIS SEHAT:", 26, 116);
+
+  doc.setFontSize(9.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(30, 41, 59);
+  doc.text("1. Disiplin Pencatatan: Setiap rupiah transaksi kas wajib dicatat pada hari yang sama.", 26, 126);
+  doc.text("2. Akurasi Laba Rugi: Pisahkan omset kotor dan profit bersih riil operasional.", 26, 134);
+  doc.text("3. Kontrol Arus Kas: Deteksi kebocoran pos pengeluaran sebelum menjadi krisis.", 26, 142);
 
   // Bagian Daftar Isi
   doc.setTextColor(30, 41, 59);
@@ -536,9 +454,11 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
     
     // Siapkan buffer attachment PDF
     let pdfAttachmentBuffer: Buffer;
-    if (product?.pdf_data_base64 && product.pdf_data_base64.startsWith("data:")) {
-      const base64Part = product.pdf_data_base64.split(",")[1];
-      pdfAttachmentBuffer = Buffer.from(base64Part, "base64");
+    if (product?.pdf_data_base64 && typeof product.pdf_data_base64 === "string" && product.pdf_data_base64.trim().length > 0) {
+      const rawBase64 = product.pdf_data_base64.includes(",") 
+        ? product.pdf_data_base64.split(",")[1] 
+        : product.pdf_data_base64;
+      pdfAttachmentBuffer = Buffer.from(rawBase64.trim(), "base64");
     } else {
       pdfAttachmentBuffer = generateEbookPDF(product.title, order.customer_name, order.merchant_order_id);
     }
@@ -561,7 +481,7 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
           .greeting { font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 12px; }
           .receipt-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 24px 0; }
           .btn-download { display: block; width: 100%; text-align: center; background: #1D3E72; color: #ffffff !important; padding: 16px 0; border-radius: 100px; font-weight: 800; text-decoration: none; font-size: 15px; margin: 24px 0 12px 0; }
-          .btn-wa { display: block; width: 100%; text-align: center; background: #25D366; color: #ffffff !important; padding: 12px 0; border-radius: 100px; font-weight: 700; text-decoration: none; font-size: 13px; }
+          .btn-wa { display: block; width: 100%; text-align: center; background: #1D3E72; color: #ffffff !important; padding: 12px 0; border-radius: 100px; font-weight: 700; text-decoration: none; font-size: 13px; }
           .footer { background: #f8fafc; padding: 20px 28px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; }
         </style>
       </head>
@@ -603,7 +523,7 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
             </a>
           </div>
           <div class="footer">
-            &copy; 2026 Adrien Fandra. Hak Cipta Dilindungi.
+            &copy; 2026 Adrien Fandra Store. Hak Cipta Dilindungi.
           </div>
         </div>
       </body>
@@ -748,22 +668,25 @@ export function setupAdrienStoreRoutes(app: Express) {
         });
       }
 
-      let discount = 0;
+      let calculated_discount = 0;
       if (voucher.discount_type === "PERCENT") {
-        discount = Math.round((purchaseAmount * Number(voucher.discount_value)) / 100);
+        calculated_discount = Math.round((purchaseAmount * Number(voucher.discount_value)) / 100);
       } else {
-        discount = Number(voucher.discount_value);
+        calculated_discount = Number(voucher.discount_value);
       }
 
-      if (discount > purchaseAmount) discount = purchaseAmount;
+      if (calculated_discount > purchaseAmount) {
+        calculated_discount = purchaseAmount;
+      }
 
       res.json({
         success: true,
         voucher: {
+          id: voucher.id,
           code: voucher.code,
           discount_type: voucher.discount_type,
           discount_value: voucher.discount_value,
-          calculated_discount: discount
+          calculated_discount
         }
       });
     } catch (error: any) {
@@ -771,7 +694,39 @@ export function setupAdrienStoreRoutes(app: Express) {
     }
   });
 
-  // 4. Checkout & Pembuatan Transaksi Duitku API
+  // 4. Real Analytics Event Tracking
+  app.post("/api/adrienfandra/analytics/track", async (req: Request, res: Response) => {
+    try {
+      const { eventType, productId, productTitle, visitorId, referrer, metadata } = req.body;
+      if (!eventType) {
+        return res.status(400).json({ success: false, error: "eventType is required" });
+      }
+
+      const ip = (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "").split(",")[0].trim();
+      const userAgent = (req.headers["user-agent"] as string) || "";
+
+      await db.execute(sql`
+        INSERT INTO adrien_analytics_events (
+          event_type, product_id, product_title, visitor_id, ip_address, user_agent, referrer, metadata
+        ) VALUES (
+          ${eventType},
+          ${productId ? Number(productId) : null},
+          ${productTitle || null},
+          ${visitorId || null},
+          ${ip},
+          ${userAgent},
+          ${referrer || null},
+          ${JSON.stringify(metadata || {})}::jsonb
+        )
+      `);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // 5. Checkout & Pembuatan Transaksi Gateway
   app.post("/api/adrienfandra/checkout", async (req: Request, res: Response) => {
     try {
       const {
@@ -877,6 +832,13 @@ export function setupAdrienStoreRoutes(app: Express) {
         );
       `);
 
+      // Track checkout event automatically
+      const ip = (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "").split(",")[0].trim();
+      db.execute(sql`
+        INSERT INTO adrien_analytics_events (event_type, product_id, product_title, ip_address, metadata)
+        VALUES ('CHECKOUT_START', ${product.id}, ${product.title}, ${ip}, ${JSON.stringify({ orderId: merchantOrderId, email: cleanEmail, totalAmount })}::jsonb)
+      `).catch(() => {});
+
       res.json({
         success: true,
         orderId: merchantOrderId,
@@ -899,7 +861,7 @@ export function setupAdrienStoreRoutes(app: Express) {
     }
   });
 
-  // 5. Cek Status Pembayaran (Polling & Realtime Verification)
+  // 6. Cek Status Pembayaran (Polling & Realtime Verification)
   app.post("/api/adrienfandra/payment/check-status", async (req: Request, res: Response) => {
     try {
       const { merchantOrderId } = req.body;
@@ -962,6 +924,12 @@ export function setupAdrienStoreRoutes(app: Express) {
           WHERE merchant_order_id = ${merchantOrderId}
         `);
 
+        // Track purchase success
+        db.execute(sql`
+          INSERT INTO adrien_analytics_events (event_type, product_id, product_title, metadata)
+          VALUES ('PURCHASE_SUCCESS', ${order.product_id}, ${order.prod_title}, ${JSON.stringify({ orderId: merchantOrderId, amount: order.total_amount })}::jsonb)
+        `).catch(() => {});
+
         sendCustomerDeliveryEmail(order, order).catch(() => {});
 
         return res.json({
@@ -983,7 +951,7 @@ export function setupAdrienStoreRoutes(app: Express) {
     }
   });
 
-  // 6. Webhook Duitku
+  // 7. Webhook Gateway
   const handleWebhook = async (req: Request, res: Response) => {
     try {
       const { merchantOrderId, resultCode } = req.body;
@@ -1004,6 +972,12 @@ export function setupAdrienStoreRoutes(app: Express) {
             WHERE merchant_order_id = ${merchantOrderId}
           `);
 
+          // Track analytics event
+          db.execute(sql`
+            INSERT INTO adrien_analytics_events (event_type, product_id, product_title, metadata)
+            VALUES ('PURCHASE_SUCCESS', ${order.product_id}, ${order.prod_title}, ${JSON.stringify({ orderId: merchantOrderId, amount: order.total_amount })}::jsonb)
+          `).catch(() => {});
+
           if (!order.email_sent) {
             await sendCustomerDeliveryEmail(order, order);
           }
@@ -1018,7 +992,7 @@ export function setupAdrienStoreRoutes(app: Express) {
   app.post("/api/adrienfandra/payment/webhook", handleWebhook);
   app.post("/api/payment/duitku-webhook", handleWebhook);
 
-  // 7. Ambil Detail Order
+  // 8. Ambil Detail Order
   app.get("/api/adrienfandra/order/:orderId", async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
@@ -1048,7 +1022,7 @@ export function setupAdrienStoreRoutes(app: Express) {
     }
   });
 
-  // 8. Download PDF
+  // 9. Download PDF
   app.get("/api/adrienfandra/download/:orderId", async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
@@ -1068,9 +1042,11 @@ export function setupAdrienStoreRoutes(app: Express) {
       const filename = order.pdf_filename || `${order.prod_title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
       let pdfBuffer: Buffer;
-      if (order.pdf_data_base64 && order.pdf_data_base64.startsWith("data:")) {
-        const base64Part = order.pdf_data_base64.split(",")[1];
-        pdfBuffer = Buffer.from(base64Part, "base64");
+      if (order.pdf_data_base64 && typeof order.pdf_data_base64 === "string" && order.pdf_data_base64.trim().length > 0) {
+        const rawBase64 = order.pdf_data_base64.includes(",") 
+          ? order.pdf_data_base64.split(",")[1] 
+          : order.pdf_data_base64;
+        pdfBuffer = Buffer.from(rawBase64.trim(), "base64");
       } else {
         pdfBuffer = generateEbookPDF(order.prod_title, order.customer_name, order.merchant_order_id);
       }
@@ -1084,7 +1060,7 @@ export function setupAdrienStoreRoutes(app: Express) {
     }
   });
 
-  // 9. Baca Online
+  // 10. Baca Online
   app.get("/api/adrienfandra/read-pdf/:orderId", async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
@@ -1102,15 +1078,18 @@ export function setupAdrienStoreRoutes(app: Express) {
 
       const order: any = orderRes.rows[0];
       let pdfBuffer: Buffer;
-      if (order.pdf_data_base64 && order.pdf_data_base64.startsWith("data:")) {
-        const base64Part = order.pdf_data_base64.split(",")[1];
-        pdfBuffer = Buffer.from(base64Part, "base64");
+      if (order.pdf_data_base64 && typeof order.pdf_data_base64 === "string" && order.pdf_data_base64.trim().length > 0) {
+        const rawBase64 = order.pdf_data_base64.includes(",") 
+          ? order.pdf_data_base64.split(",")[1] 
+          : order.pdf_data_base64;
+        pdfBuffer = Buffer.from(rawBase64.trim(), "base64");
       } else {
         pdfBuffer = generateEbookPDF(order.prod_title, order.customer_name, order.merchant_order_id);
       }
 
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `inline; filename="${order.pdf_filename || 'Ebook.pdf'}"`);
+      res.setHeader("Content-Length", pdfBuffer.length);
       res.end(pdfBuffer);
     } catch (error) {
       res.status(500).send("Gagal membuka PDF.");
@@ -1133,23 +1112,25 @@ export function setupAdrienStoreRoutes(app: Express) {
     next();
   };
 
-  // Login Admin dengan Email & Password 'Adrien1401'
+  // Login Manager
   app.post("/api/adrienfandra/admin/login", async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body;
-      const cleanEmail = (email || "").trim().toLowerCase();
-      const cleanPass = (password || "").trim();
-
-      // Cek apakah email diizinkan
-      if (!ALLOWED_ADMIN_EMAILS.includes(cleanEmail)) {
-        return res.status(401).json({ success: false, error: "Email atau password yang Anda masukkan salah." });
+      if (!email || !password) {
+        return res.status(400).json({ success: false, error: "Email dan password harus diisi." });
       }
 
-      // Cek password
-      const settingsRes = await db.execute(sql`SELECT admin_password FROM adrien_store_settings LIMIT 1`);
-      const storedPass = settingsRes.rows[0]?.admin_password || ADMIN_PASSWORD_DEFAULT;
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanPass = password.trim();
 
-      if (cleanPass !== storedPass && cleanPass !== ADMIN_PASSWORD_DEFAULT) {
+      if (!isAdrienAdmin(cleanEmail)) {
+        return res.status(403).json({ success: false, error: "Email tidak terdaftar sebagai pengelola toko." });
+      }
+
+      const settingsRes = await db.execute(sql`SELECT admin_password FROM adrien_store_settings LIMIT 1`);
+      const storedPassword = settingsRes.rows[0]?.admin_password || ADMIN_PASSWORD_DEFAULT;
+
+      if (cleanPass !== storedPassword && cleanPass !== ADMIN_PASSWORD_DEFAULT) {
         return res.status(401).json({ success: false, error: "Email atau password yang Anda masukkan salah." });
       }
 
@@ -1163,34 +1144,103 @@ export function setupAdrienStoreRoutes(app: Express) {
     }
   });
 
-  // Ambil Semua Data Manager
+  // Ambil Semua Data & Analitik Real-Time Manager
   app.get("/api/adrienfandra/admin/data", verifyAdrienAdminMiddleware, async (_req: Request, res: Response) => {
     try {
-      const [settingsRes, productsRes, ordersRes, vouchersRes] = await Promise.all([
+      await ensureAdrienStoreTables();
+
+      const [
+        settingsRes,
+        productsRes,
+        ordersRes,
+        vouchersRes,
+        pageViewsRes,
+        uniqueVisitorsRes,
+        productClicksRes,
+        recentEventsRes,
+        productClickCountsRes
+      ] = await Promise.all([
         db.execute(sql`SELECT * FROM adrien_store_settings LIMIT 1`),
         db.execute(sql`SELECT id, slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price, sales_headline, sales_body, highlights, testimonials, scarcity_text, reader_count, whatsapp_number, pdf_filename, is_active, sort_order, created_at, (pdf_data_base64 IS NOT NULL) AS has_custom_pdf FROM adrien_products ORDER BY sort_order ASC, id ASC`),
-        db.execute(sql`SELECT * FROM adrien_orders ORDER BY created_at DESC LIMIT 200`),
-        db.execute(sql`SELECT * FROM adrien_vouchers ORDER BY created_at DESC`)
+        db.execute(sql`SELECT * FROM adrien_orders ORDER BY created_at DESC LIMIT 500`),
+        db.execute(sql`SELECT * FROM adrien_vouchers ORDER BY created_at DESC`),
+        db.execute(sql`SELECT COUNT(*) as count FROM adrien_analytics_events WHERE event_type = 'PAGE_VIEW'`),
+        db.execute(sql`SELECT COUNT(DISTINCT visitor_id) as count FROM adrien_analytics_events WHERE visitor_id IS NOT NULL AND visitor_id != ''`),
+        db.execute(sql`SELECT COUNT(*) as count FROM adrien_analytics_events WHERE event_type = 'PRODUCT_CLICK'`),
+        db.execute(sql`SELECT * FROM adrien_analytics_events ORDER BY created_at DESC LIMIT 60`),
+        db.execute(sql`
+          SELECT product_id, COUNT(*) as click_count 
+          FROM adrien_analytics_events 
+          WHERE event_type = 'PRODUCT_CLICK' AND product_id IS NOT NULL 
+          GROUP BY product_id
+        `)
       ]);
 
       const orders = ordersRes.rows || [];
       const paidOrders = orders.filter((o: any) => o.payment_status === "PAID");
       const totalRevenue = paidOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
 
+      const totalPageViews = Number(pageViewsRes.rows[0]?.count || 0);
+      const uniqueVisitors = Number(uniqueVisitorsRes.rows[0]?.count || 0);
+      const totalProductClicks = Number(productClicksRes.rows[0]?.count || 0);
+      const totalCheckouts = orders.length;
+      const paidOrdersCount = paidOrders.length;
+
+      // Click breakdown map by productId
+      const clickMap: Record<number, number> = {};
+      (productClickCountsRes.rows || []).forEach((r: any) => {
+        if (r.product_id) clickMap[Number(r.product_id)] = Number(r.click_count);
+      });
+
+      // Augment products with real analytics
+      const productsWithAnalytics = (productsRes.rows || []).map((p: any) => {
+        const prodOrders = orders.filter((o: any) => Number(o.product_id) === Number(p.id));
+        const prodPaid = prodOrders.filter((o: any) => o.payment_status === "PAID");
+        const prodRevenue = prodPaid.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
+        const views = clickMap[Number(p.id)] || 0;
+        return {
+          ...p,
+          views_count: views,
+          checkouts_count: prodOrders.length,
+          purchases_count: prodPaid.length,
+          revenue: prodRevenue,
+          conversion_rate: views > 0 ? ((prodPaid.length / views) * 100).toFixed(1) + "%" : "0%"
+        };
+      });
+
       res.json({
         success: true,
         stats: {
-          totalOrders: orders.length,
-          paidOrdersCount: paidOrders.length,
+          totalPageViews,
+          uniqueVisitors,
+          totalProductClicks,
+          totalCheckouts,
+          paidOrdersCount,
           totalRevenue,
-          conversionRate: orders.length > 0 ? ((paidOrders.length / orders.length) * 100).toFixed(1) + "%" : "0%"
+          conversionRate: totalPageViews > 0 
+            ? ((paidOrdersCount / totalPageViews) * 100).toFixed(1) + "%" 
+            : orders.length > 0 ? ((paidOrdersCount / orders.length) * 100).toFixed(1) + "%" : "0%",
+          checkoutConversionRate: orders.length > 0 
+            ? ((paidOrdersCount / orders.length) * 100).toFixed(1) + "%" 
+            : "0%"
+        },
+        analytics: {
+          totalPageViews,
+          uniqueVisitors,
+          totalProductClicks,
+          totalCheckouts,
+          paidOrdersCount,
+          totalRevenue,
+          recentEvents: recentEventsRes.rows || [],
+          productStats: productsWithAnalytics
         },
         settings: settingsRes.rows[0] || {},
-        products: productsRes.rows || [],
+        products: productsWithAnalytics,
         orders: orders,
         vouchers: vouchersRes.rows || []
       });
     } catch (error: any) {
+      console.error("[AdrienStore] Error fetching admin data:", error);
       res.status(500).json({ success: false, error: "Gagal memuat data manager." });
     }
   });
@@ -1212,25 +1262,52 @@ export function setupAdrienStoreRoutes(app: Express) {
         admin_password
       } = req.body;
 
-      await db.execute(sql`
-        UPDATE adrien_store_settings 
-        SET store_name = ${store_name || 'Adrien Fandra Store'},
-            store_tagline = ${store_tagline || 'E-Book & Panduan Praktis Akuntansi Bisnis'},
-            header_title = ${header_title || 'AdrienFandra.id'},
-            header_subtitle = ${header_subtitle || 'Adrien Fandra | Praktisi & Konsultan Akuntansi'},
-            header_hook = ${header_hook || 'siap bantu lo semua untuk kuasai akuntansi & laporan keuangan bisnis tanpa ribet'},
-            header_image = ${header_image || ''},
-            header_badge = ${header_badge || 'Book Now'},
-            slot_images = ${JSON.stringify(slot_images || ["", "", ""])}::jsonb,
-            whatsapp_number = ${whatsapp_number || DEFAULT_WHATSAPP},
-            support_email = ${support_email || 'adrienfandra14@gmail.com'},
-            admin_password = ${admin_password || ADMIN_PASSWORD_DEFAULT},
-            updated_at = NOW()
-        WHERE id = 1
-      `);
-      res.json({ success: true, message: "Pengaturan berhasil diperbarui." });
+      // Cek apakah row settings sudah ada
+      const countCheck = await db.execute(sql`SELECT COUNT(*) FROM adrien_store_settings`);
+      if (Number(countCheck.rows[0]?.count || 0) === 0) {
+        await db.execute(sql`
+          INSERT INTO adrien_store_settings (
+            store_name, store_tagline, header_title, header_subtitle, header_hook, header_image, header_badge,
+            slot_images, whatsapp_number, support_email, admin_password, banner_slots_count
+          ) VALUES (
+            ${store_name || 'Adrien Fandra Store'},
+            ${store_tagline || 'E-Book & Panduan Praktis Akuntansi Bisnis'},
+            ${header_title || 'AdrienFandra.id'},
+            ${header_subtitle || 'Adrien Fandra | Praktisi & Konsultan Akuntansi'},
+            ${header_hook || 'siap bantu lo semua untuk kuasai akuntansi & laporan keuangan bisnis tanpa ribet'},
+            ${header_image || ''},
+            ${header_badge || 'Book Now'},
+            ${JSON.stringify(slot_images || ["", "", ""])}::jsonb,
+            ${whatsapp_number || DEFAULT_WHATSAPP},
+            ${support_email || 'adrienfandra14@gmail.com'},
+            ${admin_password || ADMIN_PASSWORD_DEFAULT},
+            3
+          );
+        `);
+      } else {
+        await db.execute(sql`
+          UPDATE adrien_store_settings 
+          SET store_name = ${store_name || 'Adrien Fandra Store'},
+              store_tagline = ${store_tagline || 'E-Book & Panduan Praktis Akuntansi Bisnis'},
+              header_title = ${header_title || 'AdrienFandra.id'},
+              header_subtitle = ${header_subtitle || 'Adrien Fandra | Praktisi & Konsultan Akuntansi'},
+              header_hook = ${header_hook || 'siap bantu lo semua untuk kuasai akuntansi & laporan keuangan bisnis tanpa ribet'},
+              header_image = ${header_image || ''},
+              header_badge = ${header_badge || 'Book Now'},
+              slot_images = ${JSON.stringify(slot_images || ["", "", ""])}::jsonb,
+              whatsapp_number = ${whatsapp_number || DEFAULT_WHATSAPP},
+              support_email = ${support_email || 'adrienfandra14@gmail.com'},
+              admin_password = ${admin_password || ADMIN_PASSWORD_DEFAULT},
+              updated_at = NOW()
+          WHERE id = (SELECT id FROM adrien_store_settings ORDER BY id ASC LIMIT 1)
+        `);
+      }
+
+      const updated = await db.execute(sql`SELECT * FROM adrien_store_settings LIMIT 1`);
+      res.json({ success: true, message: "Pengaturan berhasil diperbarui.", settings: updated.rows[0] });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: "Gagal menyimpan pengaturan." });
+      console.error("[AdrienStore] Settings update error:", error);
+      res.status(500).json({ success: false, error: "Gagal menyimpan pengaturan: " + error.message });
     }
   });
 
@@ -1335,6 +1412,7 @@ export function setupAdrienStoreRoutes(app: Express) {
 
       res.json({ success: true, message: "E-Book berhasil disimpan." });
     } catch (error: any) {
+      console.error("[AdrienStore] Product save error:", error);
       res.status(500).json({ success: false, error: "Gagal menyimpan produk: " + error.message });
     }
   });
@@ -1346,11 +1424,11 @@ export function setupAdrienStoreRoutes(app: Express) {
       await db.execute(sql`DELETE FROM adrien_products WHERE id = ${Number(id)}`);
       res.json({ success: true, message: "Produk berhasil dihapus." });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: "Gagal menghapus produk." });
+      res.status(500).json({ success: false, error: error.message });
     }
   });
 
-  // Kirim Ulang Email PDF ke Pembeli
+  // Kirim Ulang Email PDF ke Customer
   app.post("/api/adrienfandra/admin/orders/:orderId/resend-email", verifyAdrienAdminMiddleware, async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
@@ -1363,14 +1441,14 @@ export function setupAdrienStoreRoutes(app: Express) {
       `);
 
       if (!orderRes.rows || orderRes.rows.length === 0) {
-        return res.status(404).json({ error: "Pesanan tidak ditemukan." });
+        return res.status(404).json({ success: false, error: "Pesanan tidak ditemukan." });
       }
 
       const order: any = orderRes.rows[0];
       const sent = await sendCustomerDeliveryEmail(order, order);
 
       if (sent) {
-        res.json({ success: true, message: `Email PDF berhasil dikirim ulang ke ${order.customer_email}` });
+        res.json({ success: true, message: `Email file PDF berhasil dikirim ulang ke ${order.customer_email}.` });
       } else {
         res.status(500).json({ success: false, error: "Gagal mengirim email." });
       }
@@ -1383,12 +1461,6 @@ export function setupAdrienStoreRoutes(app: Express) {
   app.post("/api/adrienfandra/admin/orders/:orderId/mark-paid", verifyAdrienAdminMiddleware, async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
-      await db.execute(sql`
-        UPDATE adrien_orders 
-        SET payment_status = 'PAID', paid_at = NOW() 
-        WHERE merchant_order_id = ${orderId}
-      `);
-
       const orderRes = await db.execute(sql`
         SELECT o.*, p.title as prod_title, p.pdf_filename, p.pdf_data_base64
         FROM adrien_orders o
@@ -1397,26 +1469,40 @@ export function setupAdrienStoreRoutes(app: Express) {
         LIMIT 1
       `);
 
-      if (orderRes.rows && orderRes.rows.length > 0) {
-        const order: any = orderRes.rows[0];
-        sendCustomerDeliveryEmail(order, order).catch(() => {});
+      if (!orderRes.rows || orderRes.rows.length === 0) {
+        return res.status(404).json({ success: false, error: "Pesanan tidak ditemukan." });
       }
 
-      res.json({ success: true, message: "Pesanan berhasil ditandai LUNAS dan email PDF dikirimkan ke pembeli." });
+      const order: any = orderRes.rows[0];
+      await db.execute(sql`
+        UPDATE adrien_orders 
+        SET payment_status = 'PAID', paid_at = NOW() 
+        WHERE merchant_order_id = ${orderId}
+      `);
+
+      // Track analytics
+      db.execute(sql`
+        INSERT INTO adrien_analytics_events (event_type, product_id, product_title, metadata)
+        VALUES ('PURCHASE_SUCCESS', ${order.product_id}, ${order.prod_title}, ${JSON.stringify({ orderId, amount: order.total_amount, manual: true })}::jsonb)
+      `).catch(() => {});
+
+      sendCustomerDeliveryEmail(order, order).catch(() => {});
+
+      res.json({ success: true, message: "Pesanan berhasil ditandai LUNAS." });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
   });
 
-  // Tambah / Hapus Voucher
+  // Buat Voucher
   app.post("/api/adrienfandra/admin/vouchers", verifyAdrienAdminMiddleware, async (req: Request, res: Response) => {
     try {
-      const { code, discount_type, discount_value, min_spend, usage_limit } = req.body;
-      if (!code || !discount_value) return res.status(400).json({ error: "Lengkapi kode dan nilai diskon." });
+      const { code, discount_type = "FIXED", discount_value, min_spend = 0, usage_limit = 100 } = req.body;
+      if (!code || !discount_value) return res.status(400).json({ error: "Lengkapi kode voucher & nominal diskon." });
 
       await db.execute(sql`
         INSERT INTO adrien_vouchers (code, discount_type, discount_value, min_spend, usage_limit, is_active)
-        VALUES (${code.trim().toUpperCase()}, ${discount_type || 'FIXED'}, ${Number(discount_value)}, ${Number(min_spend) || 0}, ${Number(usage_limit) || 100}, true)
+        VALUES (${code.trim().toUpperCase()}, ${discount_type}, ${Number(discount_value)}, ${Number(min_spend)}, ${Number(usage_limit)}, true)
       `);
 
       res.json({ success: true, message: "Voucher berhasil ditambahkan." });
@@ -1425,6 +1511,7 @@ export function setupAdrienStoreRoutes(app: Express) {
     }
   });
 
+  // Hapus Voucher
   app.delete("/api/adrienfandra/admin/vouchers/:id", verifyAdrienAdminMiddleware, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

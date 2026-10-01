@@ -15,7 +15,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
 import { getWalletLogo } from "@/lib/wallet-sources";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatRp, parseFormattedNumber, formatDecimalInput, formatCurrencyInput } from "@/lib/utils";
 
 import TrialFeatureNotice from "@/components/TrialFeatureNotice";
 
@@ -113,7 +113,7 @@ export default function Forex() {
     if (!editingForexAsset) return;
     setIsSavingForex(true);
     try {
-        const newBal = parseFloat(editForexAmount.replace(/,/g, ".")) || 0;
+        const newBal = parseFormattedNumber(editForexAmount);
         const res = await fetch("/api/forex/set-balance", {
             method: "POST",
             headers: {
@@ -195,17 +195,9 @@ export default function Forex() {
 
   const getSafeRate = (code: string) => rates[code] || 1;
 
-  const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
-  const formatIdr = (val: string) => {
-    let clean = val.replace(/\D/g, '');
-    if (clean.length > 1) {
-        clean = clean.replace(/^0+/, ''); 
-    }
-    return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  };
-
-  const parseIdr = (val: string) => parseFloat(val.replace(/\./g, '')) || 0;
-  const parseValas = (val: string) => parseFloat(val.replace(/,/g, '.')) || 0;
+  const formatIdr = (val: string) => formatCurrencyInput(val);
+  const parseIdr = (val: string) => parseFormattedNumber(val);
+  const parseValas = (val: string) => parseFormattedNumber(val);
 
   const filteredCurrencies = CURRENCY_LIST.filter(c => 
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -844,7 +836,7 @@ export default function Forex() {
                                 placeholder="Contoh: 100" 
                                 className="w-full h-12 px-4 text-lg font-black rounded-2xl bg-slate-50 border border-slate-200 focus:border-brand-navy focus:bg-white outline-none tabular-nums" 
                                 value={amountMutation} 
-                                onChange={(e) => setAmountMutation(e.target.value.replace(/[^0-9.,]/g, ''))}
+                                onChange={(e) => setAmountMutation(formatDecimalInput(e.target.value))}
                             />
                         </div>
                         
@@ -914,7 +906,7 @@ export default function Forex() {
                                     placeholder="0" 
                                     className="w-full h-12 px-4 text-base font-black rounded-2xl bg-slate-50 border border-slate-200 focus:border-brand-navy focus:bg-white outline-none tabular-nums" 
                                     value={amountExchange} 
-                                    onChange={(e) => setAmountExchange(e.target.value.replace(/[^0-9.,]/g, ''))}
+                                    onChange={(e) => setAmountExchange(formatDecimalInput(e.target.value))}
                                 />
                             </div>
                             <div>
@@ -927,7 +919,7 @@ export default function Forex() {
                                     placeholder={formatIdr(Math.round(getSafeRate(selectedCurr.code)).toString())} 
                                     className="w-full h-12 px-4 text-base font-black rounded-2xl bg-slate-50 border border-slate-200 focus:border-brand-navy focus:bg-white outline-none tabular-nums" 
                                     value={rateExchange} 
-                                    onChange={(e) => setRateExchange(formatIdr(e.target.value))}
+                                    onChange={(e) => setRateExchange(formatCurrencyInput(e.target.value))}
                                 />
                             </div>
                         </div>
@@ -1121,7 +1113,7 @@ export default function Forex() {
                               type="text"
                               inputMode="decimal"
                               value={editForexAmount}
-                              onChange={(e) => setEditForexAmount(e.target.value.replace(/[^0-9.,]/g, ""))}
+                              onChange={(e) => setEditForexAmount(formatDecimalInput(e.target.value))}
                               placeholder="0"
                               className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-800 text-lg focus:outline-none focus:border-brand-navy focus:bg-white transition-all text-center tabular-nums"
                               autoFocus

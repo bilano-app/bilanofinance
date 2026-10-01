@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { Card, Button, Input } from "@/components/UIComponents";
 import { useUser, useTransactions, useAddTransaction, getAccessTier } from "@/hooks/use-finance";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyInput, parseFormattedNumber } from "@/lib/utils";
 import {
     HeartHandshake, Loader2, CheckCircle2, History, Settings, Info,
     PieChart, X, AlertTriangle, AlertCircle, ArrowLeft, Sparkles,
@@ -66,16 +66,8 @@ export default function Amal() {
         if (savedDict) setAmalDict(JSON.parse(savedDict));
     }, [userEmail]);
 
-    const formatNum = (val: string) => {
-        if (!val) return "";
-        let raw = val.replace(/\./g, "").replace(/[^0-9]/g, "");
-        if (raw.length > 1) {
-            raw = raw.replace(/^0+/, '');
-        }
-        return raw.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    };
-
-    const parseNum = (val: string) => parseFloat(val.replace(/\./g, "").replace(/,/g, ".")) || 0;
+    const formatNum = (val: string) => formatCurrencyInput(val);
+    const parseNum = (val: string) => parseFormattedNumber(val);
 
     const handleSaveSettings = () => {
         const newPct = parseFloat(tempPct);
@@ -446,7 +438,7 @@ export default function Amal() {
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400 text-lg">Rp</span>
                                     <Input
                                         type="text"
-                                        inputMode="numeric"
+                                        inputMode="decimal"
                                         value={amount}
                                         onChange={e => {
                                             setAmount(formatNum(e.target.value));

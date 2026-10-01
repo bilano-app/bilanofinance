@@ -13,34 +13,10 @@ import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import UniversalNewsScanner from "./UniversalNewsScanner";
 import { useDebts } from "@/hooks/use-finance"; 
 import TerminalAIChat from "./TerminalAIChat"; 
+import { parseFormattedNumber } from "@/lib/utils";
 
 const COLORS = ['#00FF41', '#00E5FF', '#FF003C', '#FFD700', '#B500FF', '#FF8C00', '#FFFFFF'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
-
-function parseFormattedNumber(str: string): number {
-  if (!str) return 0;
-  const clean = str.trim();
-  if (clean.includes(',') && clean.includes('.')) {
-    if (clean.indexOf(',') < clean.indexOf('.')) {
-      return parseFloat(clean.replace(/,/g, '')) || 0;
-    } else {
-      return parseFloat(clean.replace(/\./g, '').replace(/,/g, '.')) || 0;
-    }
-  }
-  if (clean.includes(',')) {
-    if (/,\d{3}(?:,|$)/.test(clean) || /,\d{3}$/.test(clean)) {
-      return parseFloat(clean.replace(/,/g, '')) || 0;
-    }
-    return parseFloat(clean.replace(/,/g, '.')) || 0;
-  }
-  if (clean.includes('.')) {
-    if (/\.\d{3}(?:\.|$)/.test(clean) || /\.\d{3}$/.test(clean)) {
-      return parseFloat(clean.replace(/\./g, '')) || 0;
-    }
-    return parseFloat(clean) || 0;
-  }
-  return parseFloat(clean) || 0;
-}
 
 export default function ExpertTerminal() {
   const { toast } = useToast();

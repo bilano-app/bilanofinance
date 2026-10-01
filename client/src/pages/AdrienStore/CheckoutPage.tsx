@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { useRoute, useLocation, Link } from "wouter";
 import { 
-  ArrowLeft, CreditCard, ShieldCheck, CheckCircle2, ChevronRight,
-  QrCode, Building, Wallet, ShoppingBag, Lock, Tag, AlertCircle,
-  Copy, Check, RefreshCw, Smartphone, ExternalLink, HelpCircle
+  ArrowLeft, ShieldCheck, ChevronRight,
+  Tag, Copy, Check, RefreshCw, ExternalLink
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -32,9 +31,7 @@ export default function CheckoutPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: "",
-    age: "",
-    job: ""
+    phone: ""
   });
 
   // Voucher
@@ -44,7 +41,7 @@ export default function CheckoutPage() {
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [showVoucherInput, setShowVoucherInput] = useState(false);
 
-  // Payment Method Selection (Duitku Payment Channels)
+  // Payment Method Selection
   const [paymentMethod, setPaymentMethod] = useState("SQ"); // SQ = QRIS
   const [agreedTerms, setAgreedTerms] = useState(true);
   const [agreedContact, setAgreedContact] = useState(true);
@@ -96,10 +93,10 @@ export default function CheckoutPage() {
           const data = await res.json();
           if (data.isPaid) {
             clearInterval(interval);
-            setPollingStatus("Pembayaran Diterima! Mengarahkan ke E-Book...");
+            setPollingStatus("Pembayaran Berhasil! Mengarahkan ke E-Book...");
             setTimeout(() => {
               setLocation(`/adrienfandra/order/${paymentResult.merchantOrderId}`);
-            }, 1200);
+            }, 1000);
           }
         } catch (e) {
           console.error("Status check error:", e);
@@ -148,7 +145,7 @@ export default function CheckoutPage() {
   const discountAmount = appliedVoucher ? Number(appliedVoucher.calculated_discount) : 0;
   const totalAmount = Math.max(subtotal - discountAmount, 0);
 
-  // Submit Checkout & Panggil Duitku Gateway
+  // Submit Checkout & Panggil Payment Gateway
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
@@ -169,15 +166,11 @@ export default function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productId: product?.id,
-          customerName: formData.name,
-          customerEmail: formData.email,
-          customerPhone: formData.phone,
+          customerName: formData.name.trim(),
+          customerEmail: formData.email.trim(),
+          customerPhone: formData.phone.trim(),
           voucherCode: appliedVoucher?.code || undefined,
-          paymentMethod: paymentMethod,
-          additionalAnswers: {
-            age: formData.age,
-            job: formData.job
-          }
+          paymentMethod: paymentMethod
         })
       });
 
@@ -193,29 +186,12 @@ export default function CheckoutPage() {
         });
         setPaymentModalOpen(true);
       } else {
-        alert(data.error || "Gagal memproses pembayaran Duitku.");
+        alert(data.error || "Gagal memproses pesanan.");
       }
     } catch (err: any) {
       alert("Terjadi kesalahan koneksi saat membuat pesanan: " + err.message);
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  // Simulasi Bayar Berhasil (Khusus Testing / Sandbox)
-  const handleSimulateSuccess = async () => {
-    if (!paymentResult?.merchantOrderId) return;
-    try {
-      await fetch(`/api/adrienfandra/admin/orders/${paymentResult.merchantOrderId}/mark-paid`, {
-        method: "POST",
-        headers: { "x-admin-email": "adrienfandra14@gmail.com" }
-      });
-      setPollingStatus("Pembayaran Terverifikasi! Mengarahkan...");
-      setTimeout(() => {
-        setLocation(`/adrienfandra/order/${paymentResult.merchantOrderId}`);
-      }, 800);
-    } catch (e) {
-      console.error(e);
     }
   };
 
@@ -248,12 +224,12 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-[#F4F7F6] text-slate-900 font-sans selection:bg-[#1D3E72] selection:text-white pb-20">
       
-      {/* 🧭 TOP HEADER (PERSIS SEPERTI GAMBAR 4: "← Checkout") */}
+      {/* 🧭 TOP HEADER */}
       <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
         <div className="max-w-4xl mx-auto px-4 py-3.5 flex items-center gap-3">
           <button
             onClick={() => window.history.back()}
-            className="text-slate-600 hover:text-slate-900 transition-colors p-1"
+            className="text-slate-600 hover:text-slate-900 transition-colors p-1 cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -263,7 +239,7 @@ export default function CheckoutPage() {
         </div>
       </header>
 
-      {/* 🛒 2-COLUMN CHECKOUT GRID (SESUAI GAMBAR REFERENSI 4) */}
+      {/* 🛒 2-COLUMN CHECKOUT GRID */}
       <main className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
         <form onSubmit={handleCheckout} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
@@ -311,7 +287,7 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() => setShowDesc(!showDesc)}
-                  className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors"
+                  className="text-xs font-bold text-[#1D3E72] hover:text-[#0F2247] flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <span>{showDesc ? "Sembunyikan Deskripsi" : "See Description"}</span>
                   <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showDesc ? "rotate-90" : ""}`} />
@@ -341,7 +317,7 @@ export default function CheckoutPage() {
                     placeholder="Your Email (contoh: budi@gmail.com)"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full bg-white border border-emerald-600/40 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all"
+                    className="w-full bg-white border border-slate-300 focus:border-[#1D3E72] focus:ring-1 focus:ring-[#1D3E72] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all"
                   />
                 </div>
 
@@ -355,7 +331,7 @@ export default function CheckoutPage() {
                     placeholder="Your Name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all"
+                    className="w-full bg-white border border-slate-300 focus:border-[#1D3E72] focus:ring-1 focus:ring-[#1D3E72] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all"
                   />
                 </div>
 
@@ -369,40 +345,7 @@ export default function CheckoutPage() {
                     placeholder="08xxxxxx"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full bg-white border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* ADDITIONAL QUESTION */}
-              <div className="pt-3 border-t border-slate-100 space-y-3.5">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
-                  ADDITIONAL QUESTION
-                </span>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">
-                    * Umur
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Type your answer (opsional)"
-                    value={formData.age}
-                    onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                    className="w-full bg-white border border-slate-200 focus:border-blue-600 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">
-                    * Pekerjaan
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Type your answer (opsional)"
-                    value={formData.job}
-                    onChange={(e) => setFormData({ ...formData, job: e.target.value })}
-                    className="w-full bg-white border border-slate-200 focus:border-blue-600 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none"
+                    className="w-full bg-white border border-slate-300 focus:border-[#1D3E72] focus:ring-1 focus:ring-[#1D3E72] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all"
                   />
                 </div>
               </div>
@@ -411,7 +354,7 @@ export default function CheckoutPage() {
           </div>
 
           {/* =========================================================================
-              KOLOM KANAN: PAYMENT DETAIL & METODE DUITKU (LG: COL-5)
+              KOLOM KANAN: PAYMENT DETAIL & METODE PEMBAYARAN (LG: COL-5)
               ========================================================================= */}
           <div className="lg:col-span-5 space-y-5">
             
@@ -429,7 +372,7 @@ export default function CheckoutPage() {
 
                 <div className="flex justify-between text-slate-600">
                   <span>Discount</span>
-                  <span className={`font-semibold ${discountAmount > 0 ? "text-emerald-600" : "text-slate-800"}`}>
+                  <span className={`font-semibold ${discountAmount > 0 ? "text-[#1D3E72]" : "text-slate-800"}`}>
                     - Rp {discountAmount.toLocaleString("id-ID")}
                   </span>
                 </div>
@@ -450,18 +393,18 @@ export default function CheckoutPage() {
               {/* 🏷️ ADD VOUCHER BUTTON / INPUT */}
               <div className="pt-2">
                 {appliedVoucher ? (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                  <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Tag className="w-4 h-4 text-emerald-600" />
+                      <Tag className="w-4 h-4 text-[#1D3E72]" />
                       <div>
-                        <span className="text-xs font-black text-emerald-800 uppercase">{appliedVoucher.code}</span>
-                        <span className="text-[10px] text-emerald-600 block">Hemat Rp {discountAmount.toLocaleString("id-ID")}</span>
+                        <span className="text-xs font-black text-[#1D3E72] uppercase">{appliedVoucher.code}</span>
+                        <span className="text-[10px] text-blue-700 block font-semibold">Hemat Rp {discountAmount.toLocaleString("id-ID")}</span>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={removeVoucher}
-                      className="text-xs text-rose-600 font-bold hover:underline"
+                      className="text-xs text-rose-600 font-bold hover:underline cursor-pointer"
                     >
                       Hapus
                     </button>
@@ -474,13 +417,13 @@ export default function CheckoutPage() {
                         placeholder="Masukkan kode voucher"
                         value={voucherCode}
                         onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-                        className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs uppercase font-bold outline-none focus:border-blue-600"
+                        className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs uppercase font-bold outline-none focus:border-[#1D3E72]"
                       />
                       <button
                         type="button"
                         onClick={handleApplyVoucher}
                         disabled={voucherLoading}
-                        className="bg-[#1D3E72] hover:bg-[#0F2247] text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+                        className="bg-[#1D3E72] hover:bg-[#0F2247] text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         {voucherLoading ? "Cek..." : "Gunakan"}
                       </button>
@@ -491,7 +434,7 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     onClick={() => setShowVoucherInput(true)}
-                    className="w-full border border-dashed border-emerald-500 hover:bg-emerald-50/50 text-emerald-700 font-extrabold text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5"
+                    className="w-full border border-dashed border-[#1D3E72]/40 hover:bg-blue-50/50 text-[#1D3E72] font-extrabold text-xs py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Tag className="w-3.5 h-3.5" />
                     <span>% Add Voucher</span>
@@ -499,16 +442,11 @@ export default function CheckoutPage() {
                 )}
               </div>
 
-              {/* 💳 SELECT PAYMENT METHOD (DUITKU CHANNELS) */}
+              {/* 💳 SELECT PAYMENT METHOD */}
               <div className="pt-2 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider block">
-                    Pilih Metode Pembayaran
-                  </span>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                    Duitku Payment Gateway
-                  </span>
-                </div>
+                <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider block">
+                  Pilih Metode Pembayaran
+                </span>
 
                 <div className="grid grid-cols-1 gap-2.5">
                   {[
@@ -579,7 +517,7 @@ export default function CheckoutPage() {
                       onClick={() => setPaymentMethod(method.id)}
                       className={`border rounded-xl p-3 sm:p-3.5 flex items-center justify-between cursor-pointer transition-all ${
                         paymentMethod === method.id
-                          ? "border-emerald-600 bg-emerald-50/40 shadow-xs ring-1 ring-emerald-500/30"
+                          ? "border-[#1D3E72] bg-blue-50/50 shadow-xs ring-1 ring-[#1D3E72]/30"
                           : "border-slate-200 hover:border-slate-300 bg-white"
                       }`}
                     >
@@ -595,7 +533,7 @@ export default function CheckoutPage() {
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-slate-800 block">{method.label}</span>
                             {method.badge && (
-                              <span className="text-[9px] font-black text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded-sm inline-block">
+                              <span className="text-[9px] font-black text-[#1D3E72] bg-blue-100/80 px-1.5 py-0.5 rounded-sm inline-block">
                                 {method.badge}
                               </span>
                             )}
@@ -619,7 +557,7 @@ export default function CheckoutPage() {
                         name="paymentMethod"
                         checked={paymentMethod === method.id}
                         onChange={() => setPaymentMethod(method.id)}
-                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                        className="w-4 h-4 text-[#1D3E72] focus:ring-[#1D3E72]"
                       />
                     </label>
                   ))}
@@ -627,11 +565,11 @@ export default function CheckoutPage() {
               </div>
 
               {/* 🔒 SECURE PAYMENT BANNER */}
-              <div className="p-3 bg-emerald-50/80 border border-emerald-200/80 rounded-xl flex items-center gap-2.5">
-                <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center gap-2.5">
+                <ShieldCheck className="w-5 h-5 text-[#1D3E72] flex-shrink-0" />
                 <div className="text-[11px] leading-tight">
-                  <span className="font-extrabold text-emerald-950 block">Secure Payment</span>
-                  <span className="text-emerald-700">All your payments are secured with RSA 256-bit encryption</span>
+                  <span className="font-extrabold text-slate-900 block">Secure Payment</span>
+                  <span className="text-slate-500">All your payments are secured with RSA 256-bit encryption</span>
                 </div>
               </div>
 
@@ -642,9 +580,9 @@ export default function CheckoutPage() {
                     type="checkbox"
                     checked={agreedTerms}
                     onChange={(e) => setAgreedTerms(e.target.checked)}
-                    className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
+                    className="mt-0.5 rounded text-[#1D3E72] focus:ring-[#1D3E72]"
                   />
-                  <span>I agree to the <strong className="text-emerald-700 underline">Terms of Use</strong> & Lisensi E-Book.</span>
+                  <span>I agree to the <strong className="text-[#1D3E72] underline">Terms of Use</strong> & Lisensi E-Book.</span>
                 </label>
 
                 <label className="flex items-start gap-2 cursor-pointer">
@@ -652,17 +590,17 @@ export default function CheckoutPage() {
                     type="checkbox"
                     checked={agreedContact}
                     onChange={(e) => setAgreedContact(e.target.checked)}
-                    className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
+                    className="mt-0.5 rounded text-[#1D3E72] focus:ring-[#1D3E72]"
                   />
                   <span>I agree that the creator may contact me by email or phone about my purchase & updates.</span>
                 </label>
               </div>
 
-              {/* 🚀 CTA BUTTON: BUY NOW (PERSIS SEPERTI GAMBAR 4 DENGAN TEMA BIRU BILANO) */}
+              {/* 🚀 CTA BUTTON: BUY NOW */}
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm sm:text-base py-4 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-60 cursor-pointer"
+                className="w-full bg-[#1D3E72] hover:bg-[#0F2247] text-white font-black text-sm sm:text-base py-4 rounded-xl shadow-xl shadow-blue-900/20 transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-60 cursor-pointer"
               >
                 {submitting ? (
                   <>
@@ -682,7 +620,7 @@ export default function CheckoutPage() {
       </main>
 
       {/* =========================================================================
-          💳 POPUP / MODAL PEMBAYARAN DUITKU DENGAN QRIS REALTIME POLLING
+          💳 POPUP / MODAL PEMBAYARAN RESMI DENGAN QRIS REALTIME POLLING
           ========================================================================= */}
       {paymentModalOpen && paymentResult && (
         <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
@@ -690,8 +628,8 @@ export default function CheckoutPage() {
             
             {/* Header Modal */}
             <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
-                DUITKU PAYMENT GATEWAY
+              <span className="text-[10px] font-black uppercase text-[#1D3E72] bg-blue-50 px-3 py-1 rounded-full border border-blue-200/70">
+                PEMBAYARAN RESMI
               </span>
               <h3 className="text-xl font-black text-[#0F2247]">
                 Selesaikan Pembayaran
@@ -702,7 +640,7 @@ export default function CheckoutPage() {
             </div>
 
             {/* Total Bayar Highlight */}
-            <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100">
+            <div className="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-100">
               <span className="text-xs text-slate-500 font-bold block">Total yang Harus Dibayar:</span>
               <span className="text-2xl font-black text-[#1D3E72]">
                 Rp {Number(paymentResult.totalAmount).toLocaleString("id-ID")}
@@ -718,16 +656,41 @@ export default function CheckoutPage() {
                 
                 <div className="w-56 h-56 mx-auto bg-white p-2.5 rounded-2xl shadow-inner border border-slate-200 flex items-center justify-center">
                   {paymentResult.qrCode ? (
-                    <img src={paymentResult.qrCode} alt="QRIS Code" className="w-full h-full object-contain" />
-                  ) : (
-                    /* Mock QRIS Generator untuk testing / production */
+                    paymentResult.qrCode.startsWith("http") || paymentResult.qrCode.startsWith("data:") ? (
+                      <img src={paymentResult.qrCode} alt="QRIS Code" className="w-full h-full object-contain" />
+                    ) : (
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(paymentResult.qrCode)}`}
+                        alt="QRIS Code"
+                        className="w-full h-full object-contain"
+                      />
+                    )
+                  ) : paymentResult.paymentUrl ? (
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://bilano.app/adrienfandra/order/${paymentResult.merchantOrderId}`}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(paymentResult.paymentUrl)}`}
+                      alt="QRIS"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`https://bilano.app/adrienfandra/order/${paymentResult.merchantOrderId}`)}`}
                       alt="QRIS"
                       className="w-full h-full object-contain"
                     />
                   )}
                 </div>
+
+                {paymentResult.paymentUrl && (
+                  <a
+                    href={paymentResult.paymentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-[#1D3E72] hover:text-[#0F2247] bg-white border border-slate-200 px-4 py-2 rounded-xl transition-all shadow-xs"
+                  >
+                    <span>Buka Halaman Pembayaran</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
 
                 <p className="text-[11px] text-slate-500 italic">
                   Sistem otomatis mendeteksi ketika pembayaran Anda berhasil.
@@ -746,36 +709,38 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     onClick={() => copyToClipboard(paymentResult.vaNumber || "880123456789")}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-2.5 py-1.5 rounded-lg"
+                    className="text-xs font-bold text-[#1D3E72] hover:text-[#0F2247] flex items-center gap-1 bg-blue-50 px-2.5 py-1.5 rounded-lg cursor-pointer"
                   >
-                    {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    {isCopied ? <Check className="w-3.5 h-3.5 text-[#1D3E72]" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{isCopied ? "Disalin!" : "Salin"}</span>
                   </button>
                 </div>
+                {paymentResult.paymentUrl && (
+                  <a
+                    href={paymentResult.paymentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-bold text-white bg-[#1D3E72] hover:bg-[#0F2247] px-4 py-2.5 rounded-xl transition-all shadow-sm"
+                  >
+                    <span>Instruksi & Bayar Online</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
               </div>
             )}
 
             {/* Status Polling Live */}
-            <div className="flex items-center justify-center gap-2 text-xs font-bold text-blue-800 bg-blue-50 py-2.5 px-4 rounded-full animate-pulse">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
+            <div className="flex items-center justify-center gap-2 text-xs font-bold text-[#1D3E72] bg-blue-50/80 border border-blue-200/60 py-2.5 px-4 rounded-full animate-pulse">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#1D3E72]" />
               <span>{pollingStatus}</span>
             </div>
 
-            {/* Testing Simulation Button (Mudahkan testing langsung) */}
-            <div className="pt-2 space-y-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={handleSimulateSuccess}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Simulasi Bayar Berhasil (Instant Verification)</span>
-              </button>
-
+            {/* Tombol Tutup */}
+            <div className="pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setPaymentModalOpen(false)}
-                className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 py-1"
+                className="w-full text-xs font-bold text-slate-500 hover:text-slate-800 py-2 transition-colors cursor-pointer"
               >
                 Tutup Popup
               </button>

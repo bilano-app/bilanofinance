@@ -4,7 +4,7 @@ import {
     useUser, useTransactions, useTarget,
     useForexAssets, useSubscriptions, useUndoTransaction
 } from "@/hooks/use-finance";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyInput, parseFormattedNumber } from "@/lib/utils";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
 import {
@@ -234,14 +234,8 @@ export default function Home() {
     const [isSavingWallet, setIsSavingWallet] = useState(false);
     const [editWalletError, setEditWalletError] = useState("");
 
-    const formatNumInput = (val: string) => {
-        let clean = val.replace(/\D/g, '');
-        if (clean.length > 1) {
-            clean = clean.replace(/^0+/, '');
-        }
-        return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    };
-    const parseNumInput = (val: string) => parseFloat(val.replace(/\./g, '')) || 0;
+    const formatNumInput = (val: string) => formatCurrencyInput(val);
+    const parseNumInput = (val: string) => parseFormattedNumber(val);
 
     const handleOpenEditWallet = (wallet: any) => {
         setEditingWallet(wallet);

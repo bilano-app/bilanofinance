@@ -3,7 +3,9 @@ import { Link, useLocation } from "wouter";
 import { 
   Plus, Trash2, Edit3, Image, Upload, FileText, 
   CheckCircle2, AlertCircle, RefreshCw, LogOut, Lock, 
-  DollarSign, ShoppingBag, Tag, ExternalLink, Eye, Send, Download
+  DollarSign, ShoppingBag, Tag, ExternalLink, Eye, Send, Download,
+  Users, Activity, TrendingUp, MousePointerClick, MessageCircle,
+  HelpCircle, BarChart3, Check, Clock, ChevronRight
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -19,11 +21,27 @@ export default function ManagerDashboard() {
   const [authLoading, setAuthLoading] = useState<boolean>(false);
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<"overview" | "header_slots" | "products" | "orders" | "vouchers" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "header_slots" | "products" | "orders" | "vouchers" | "settings">("overview");
+
+  // Filter Pesanan State
+  const [orderFilter, setOrderFilter] = useState<"ALL" | "PAID" | "PENDING">("ALL");
 
   // Data State
   const [loadingData, setLoadingData] = useState<boolean>(false);
-  const [stats, setStats] = useState<any>({ totalOrders: 0, paidOrdersCount: 0, totalRevenue: 0, conversionRate: "0%" });
+  const [stats, setStats] = useState<any>({ 
+    totalPageViews: 0,
+    uniqueVisitors: 0,
+    totalProductClicks: 0,
+    totalCheckouts: 0,
+    paidOrdersCount: 0, 
+    totalRevenue: 0, 
+    conversionRate: "0%",
+    checkoutConversionRate: "0%"
+  });
+  const [analytics, setAnalytics] = useState<any>({
+    recentEvents: [],
+    productStats: []
+  });
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [vouchers, setVouchers] = useState<any[]>([]);
@@ -66,6 +84,7 @@ export default function ManagerDashboard() {
       const data = await res.json();
       if (data.success) {
         setStats(data.stats || {});
+        setAnalytics(data.analytics || {});
         setProducts(data.products || []);
         setOrders(data.orders || []);
         setVouchers(data.vouchers || []);
@@ -141,7 +160,7 @@ export default function ManagerDashboard() {
       });
       const data = await res.json();
       if (data.success) {
-        triggerSuccess("Header dan 3 Ruang Gambar berhasil disimpan.");
+        triggerSuccess("Pengaturan Header & Ruang Gambar berhasil disimpan.");
       } else {
         alert(data.error || "Gagal menyimpan perubahan.");
       }
@@ -245,7 +264,7 @@ export default function ManagerDashboard() {
         headers: { "x-admin-email": adminEmail }
       });
       const data = await res.json();
-      if (data.success) triggerSuccess("Pesanan ditandai LUNAS.");
+      if (data.success) triggerSuccess("Pesanan ditandai LUNAS & PDF dikirim.");
     } catch (err: any) {
       alert(err.message);
     }
@@ -284,73 +303,76 @@ export default function ManagerDashboard() {
     reader.readAsDataURL(file);
   };
 
+  // Filtered Orders List
+  const filteredOrders = orders.filter(ord => {
+    if (orderFilter === "PAID") return ord.payment_status === "PAID";
+    if (orderFilter === "PENDING") return ord.payment_status !== "PAID";
+    return true;
+  });
+
   // =========================================================================
-  // 🔒 SCREEN LOGIN KHUSUS ADMIN (EMAIL TIDAK DITULIS / DIBOCORKAN)
+  // 🔒 SCREEN LOGIN KHUSUS ADMIN
   // =========================================================================
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0F2247] text-white flex flex-col items-center justify-center p-4 selection:bg-blue-500 selection:text-white">
+      <div className="min-h-screen bg-[#0F2247] text-white flex flex-col items-center justify-center p-4 selection:bg-[#1D3E72] selection:text-white">
         <div className="w-full max-w-sm bg-[#1D3E72]/85 backdrop-blur-md rounded-3xl p-8 border border-white/10 shadow-2xl space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg border border-white/20">
-              <Lock className="w-7 h-7 text-white" />
+            <div className="w-14 h-14 bg-gradient-to-br from-[#1D3E72] to-[#0F2247] rounded-2xl mx-auto flex items-center justify-center shadow-lg border border-white/20">
+              <Lock className="w-7 h-7 text-[#F6B93B]" />
             </div>
             <h1 className="text-xl font-black tracking-tight text-white">
               Manager Login
             </h1>
             <p className="text-xs text-blue-200">
-              Silakan masukkan email dan password admin Anda untuk mengakses panel pengelola.
+              Kelola E-Book, Analitik Real-Time & Penjualan
             </p>
           </div>
 
-          {authError && (
-            <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs text-rose-200 leading-relaxed flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
-              <span>{authError}</span>
-            </div>
-          )}
-
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-blue-200 mb-1">
-                Email
-              </label>
+              <label className="block text-xs font-bold text-blue-200 mb-1">Email Pengelola</label>
               <input
                 type="email"
                 required
-                placeholder="Masukkan email"
+                placeholder="adrienfandra14@gmail.com"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                className="w-full bg-[#0F2247] border border-blue-400/30 focus:border-blue-400 rounded-xl px-4 py-3 text-sm text-white placeholder:text-blue-300/40 outline-none"
+                className="w-full bg-slate-900/60 border border-blue-400/30 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-slate-500 outline-none focus:border-[#F6B93B]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-blue-200 mb-1">
-                Password
-              </label>
+              <label className="block text-xs font-bold text-blue-200 mb-1">Password</label>
               <input
                 type="password"
                 required
-                placeholder="Masukkan password"
+                placeholder="••••••••"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
-                className="w-full bg-[#0F2247] border border-blue-400/30 focus:border-blue-400 rounded-xl px-4 py-3 text-sm text-white placeholder:text-blue-300/40 outline-none"
+                className="w-full bg-slate-900/60 border border-blue-400/30 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-slate-500 outline-none focus:border-[#F6B93B]"
               />
             </div>
+
+            {authError && (
+              <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-300 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{authError}</span>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={authLoading}
-              className="w-full bg-[#F6B93B] hover:bg-[#e2a832] text-[#0F2247] font-black text-sm py-3.5 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              className="w-full bg-[#F6B93B] hover:bg-[#E5A825] text-slate-950 font-black text-xs py-3 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              {authLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <span>Masuk ke Dashboard</span>}
+              {authLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Masuk ke Manager"}
             </button>
           </form>
 
           <div className="text-center pt-2">
-            <Link href="/adrienfandra" className="text-xs text-blue-300 hover:text-white underline">
-              ← Kembali ke Toko
+            <Link href="/adrienfandra" className="text-xs text-blue-300 hover:underline">
+              ← Kembali ke Toko E-Book
             </Link>
           </div>
         </div>
@@ -360,24 +382,24 @@ export default function ManagerDashboard() {
 
   const slotImages = Array.isArray(settings.slot_images) ? settings.slot_images : ["", "", ""];
 
-  // =========================================================================
-  // 🎛️ DASHBOARD MANAGER
-  // =========================================================================
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-[#1D3E72] selection:text-white pb-24">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans pb-20 selection:bg-[#1D3E72] selection:text-white">
       
-      {/* 🧭 NAVBAR MANAGER */}
-      <header className="bg-[#0F2247] text-white sticky top-0 z-40 border-b border-blue-900/50 shadow-md">
-        <div className="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between">
+      {/* 🧭 TOP NAVBAR MANAGER */}
+      <header className="bg-[#0F2247] text-white border-b border-white/10 sticky top-0 z-40 shadow-md">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#1D3E72] flex items-center justify-center text-[#F6B93B] font-black text-sm border border-blue-400/30">
+            <div className="w-9 h-9 rounded-xl bg-[#1D3E72] flex items-center justify-center font-black text-[#F6B93B] text-sm border border-white/10">
               AF
             </div>
             <div>
-              <h1 className="font-extrabold text-sm sm:text-base tracking-tight flex items-center gap-2">
-                <span>Manager Adrien Fandra</span>
+              <h1 className="font-extrabold text-sm text-white tracking-tight flex items-center gap-2">
+                <span>Adrien Fandra Manager</span>
+                <span className="text-[9px] font-black uppercase text-[#F6B93B] bg-blue-900/80 px-2 py-0.5 rounded-full border border-blue-700/50">
+                  REAL-TIME
+                </span>
               </h1>
-              <p className="text-[11px] text-blue-200 line-clamp-1">{adminEmail}</p>
+              <p className="text-[10px] text-blue-200">{adminEmail}</p>
             </div>
           </div>
 
@@ -385,36 +407,46 @@ export default function ManagerDashboard() {
             <Link
               href="/adrienfandra"
               target="_blank"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-200 hover:text-white bg-blue-900/40 border border-blue-700/50 px-3 py-1.5 rounded-lg transition-colors"
+              className="px-3 py-1.5 bg-blue-900/60 hover:bg-blue-800 text-blue-100 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 border border-blue-700/40"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Lihat Toko</span>
+              <span className="hidden sm:inline">Buka Toko</span>
             </Link>
 
             <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-300 hover:text-white bg-rose-900/30 hover:bg-rose-900/50 border border-rose-700/40 px-3 py-1.5 rounded-lg transition-colors"
+              onClick={fetchData}
+              disabled={loadingData}
+              className="p-1.5 bg-blue-900/60 hover:bg-blue-800 text-blue-100 rounded-xl text-xs transition-colors border border-blue-700/40"
+              title="Refresh Data"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Keluar</span>
+              <RefreshCw className={`w-4 h-4 ${loadingData ? "animate-spin" : ""}`} />
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="p-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-200 rounded-xl text-xs transition-colors border border-rose-800/40"
+              title="Keluar"
+            >
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* TAB NAVIGATION */}
-        <div className="max-w-6xl mx-auto px-4 flex gap-1 overflow-x-auto no-scrollbar border-t border-blue-900/40">
+        <div className="max-w-6xl mx-auto px-4 flex items-center gap-1 overflow-x-auto no-scrollbar border-t border-white/5 pt-1">
           {[
-            { id: "overview", label: "Ringkasan Penjualan", icon: DollarSign },
-            { id: "header_slots", label: "Header & 3 Gambar Ke Bawah", icon: Image },
-            { id: "products", label: "Kelola E-Book", icon: FileText },
-            { id: "orders", label: "Pesanan & PDF", icon: ShoppingBag },
+            { id: "overview", label: "Ringkasan", icon: BarChart3 },
+            { id: "analytics", label: "Analitik Real-Time", icon: TrendingUp },
+            { id: "header_slots", label: "Header & Ruang Gambar", icon: Image },
+            { id: "products", label: "Kelola E-Book & PDF", icon: FileText },
+            { id: "orders", label: "Pesanan & Calon Pembeli", icon: ShoppingBag },
             { id: "vouchers", label: "Kupon Diskon", icon: Tag },
-            { id: "settings", label: "Pengaturan & Password", icon: Lock }
+            { id: "settings", label: "Pengaturan & Kontak", icon: Lock }
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`py-2.5 px-3.5 text-xs font-bold flex items-center gap-1.5 whitespace-nowrap transition-colors border-b-2 ${
+              className={`py-2.5 px-3.5 text-xs font-bold flex items-center gap-1.5 whitespace-nowrap transition-colors border-b-2 cursor-pointer ${
                 activeTab === tab.id
                   ? "border-[#F6B93B] text-[#F6B93B]"
                   : "border-transparent text-blue-200 hover:text-white"
@@ -430,8 +462,8 @@ export default function ManagerDashboard() {
       {/* FLASH SUCCESS MESSAGE */}
       {actionSuccessMsg && (
         <div className="max-w-6xl mx-auto px-4 pt-4">
-          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <div className="p-3 bg-blue-50 border border-blue-200 text-[#1D3E72] rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in shadow-xs">
+            <CheckCircle2 className="w-4 h-4 text-[#1D3E72] flex-shrink-0" />
             <span>{actionSuccessMsg}</span>
           </div>
         </div>
@@ -441,46 +473,97 @@ export default function ManagerDashboard() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         
         {/* =========================================================================
-            TAB 1: OVERVIEW
+            TAB 1: OVERVIEW (RINGKASAN CEPAT)
             ========================================================================= */}
         {activeTab === "overview" && (
           <div className="space-y-6 animate-in fade-in">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {/* KPI STAT CARDS */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase">Total Omset</span>
+                <span className="text-[11px] font-bold text-slate-400 uppercase">Total Omset (Lunas)</span>
                 <div className="text-xl sm:text-2xl font-black text-[#1D3E72]">
                   {formatCurrency(stats.totalRevenue || 0)}
                 </div>
+                <span className="text-[10px] text-slate-500 font-semibold block">Dari {stats.paidOrdersCount || 0} pembelian berhasil</span>
               </div>
 
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase">E-Book Terjual</span>
-                <div className="text-xl sm:text-2xl font-black text-emerald-600">
-                  {stats.paidOrdersCount || 0}
-                </div>
-              </div>
-
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase">Total Checkout</span>
+                <span className="text-[11px] font-bold text-slate-400 uppercase">Pengunjung Toko</span>
                 <div className="text-xl sm:text-2xl font-black text-slate-800">
-                  {stats.totalOrders || 0}
+                  {stats.totalPageViews || 0}
                 </div>
+                <span className="text-[10px] text-slate-500 font-semibold block">{stats.uniqueVisitors || 0} Pengunjung Unik</span>
               </div>
 
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase">Konversi</span>
-                <div className="text-xl sm:text-2xl font-black text-blue-600">
-                  {stats.conversionRate || "0%"}
+                <span className="text-[11px] font-bold text-slate-400 uppercase">Klik Detail E-Book</span>
+                <div className="text-xl sm:text-2xl font-black text-slate-800">
+                  {stats.totalProductClicks || 0}
+                </div>
+                <span className="text-[10px] text-slate-500 font-semibold block">Interaksi pembaca pada buku</span>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                <span className="text-[11px] font-bold text-slate-400 uppercase">Checkout & Leads</span>
+                <div className="text-xl sm:text-2xl font-black text-[#1D3E72]">
+                  {stats.totalCheckouts || 0}
+                </div>
+                <span className="text-[10px] text-[#1D3E72] font-bold block">Konversi: {stats.conversionRate || "0%"}</span>
+              </div>
+            </div>
+
+            {/* Quick Funnel Summary */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-800">Alur Konversi Pembeli (Sales Funnel)</h3>
+                  <p className="text-xs text-slate-500">Data riil perjalanan calon pembeli dari buka toko hingga transaksi lunas.</p>
+                </div>
+                <button
+                  onClick={() => setActiveTab("analytics")}
+                  className="text-xs font-bold text-[#1D3E72] hover:underline flex items-center gap-1"
+                >
+                  <span>Lihat Detail Analitik</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-black uppercase text-slate-400 block">1. Buka Toko</span>
+                  <div className="text-lg font-black text-slate-900">{stats.totalPageViews || 0} View</div>
+                  <span className="text-[10px] text-slate-500 font-semibold">{stats.uniqueVisitors || 0} User Unik</span>
+                </div>
+
+                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-1">
+                  <span className="text-[10px] font-black uppercase text-[#1D3E72] block">2. Klik E-Book</span>
+                  <div className="text-lg font-black text-[#1D3E72]">{stats.totalProductClicks || 0} Klik</div>
+                  <span className="text-[10px] text-slate-500 font-semibold">Minat membaca isi</span>
+                </div>
+
+                <div className="p-4 bg-amber-50/60 rounded-2xl border border-amber-200/60 space-y-1">
+                  <span className="text-[10px] font-black uppercase text-amber-800 block">3. Masuk Checkout</span>
+                  <div className="text-lg font-black text-amber-900">{stats.totalCheckouts || 0} Leads</div>
+                  <span className="text-[10px] text-slate-500 font-semibold">Mengisi form nama & WA</span>
+                </div>
+
+                <div className="p-4 bg-blue-50/80 rounded-2xl border border-blue-200 space-y-1">
+                  <span className="text-[10px] font-black uppercase text-[#1D3E72] block">4. Pembayaran Lunas</span>
+                  <div className="text-lg font-black text-[#1D3E72]">{stats.paidOrdersCount || 0} Pembeli</div>
+                  <span className="text-[10px] text-[#1D3E72] font-black">{stats.conversionRate || "0%"} Konversi</span>
                 </div>
               </div>
             </div>
 
-            {/* Stream Pesanan Terbaru */}
+            {/* Stream Pesanan & Calon Pembeli Terbaru */}
             <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-extrabold text-sm text-slate-800">Pesanan Masuk Terbaru</h3>
-                <button onClick={() => setActiveTab("orders")} className="text-xs text-blue-600 font-bold hover:underline">
-                  Semua Pesanan →
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-800">Calon Pembeli & Pesanan Masuk</h3>
+                  <p className="text-xs text-slate-500">Daftar calon pembeli yang mengisi data checkout.</p>
+                </div>
+                <button onClick={() => setActiveTab("orders")} className="text-xs text-[#1D3E72] font-bold hover:underline">
+                  Semua Pesanan & Leads →
                 </button>
               </div>
 
@@ -490,27 +573,49 @@ export default function ManagerDashboard() {
                     <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px] font-black">
                       <th className="py-2.5 px-3">Order ID</th>
                       <th className="py-2.5 px-3">Pembeli</th>
+                      <th className="py-2.5 px-3">WhatsApp</th>
                       <th className="py-2.5 px-3">Produk</th>
                       <th className="py-2.5 px-3">Total</th>
                       <th className="py-2.5 px-3">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {orders.slice(0, 5).map((ord) => (
-                      <tr key={ord.id} className="hover:bg-slate-50">
-                        <td className="py-3 px-3 font-mono font-bold text-slate-800">{ord.merchant_order_id}</td>
-                        <td className="py-3 px-3 font-bold text-slate-900">{ord.customer_name}</td>
-                        <td className="py-3 px-3 font-medium text-slate-700 max-w-[180px] truncate">{ord.product_title}</td>
-                        <td className="py-3 px-3 font-black text-[#1D3E72]">{formatCurrency(ord.total_amount)}</td>
-                        <td className="py-3 px-3">
-                          <span className={`inline-block px-2 py-0.5 rounded-full font-black text-[10px] uppercase ${
-                            ord.payment_status === "PAID" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
-                          }`}>
-                            {ord.payment_status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {orders.slice(0, 8).map((ord) => {
+                      const cleanPhone = (ord.customer_phone || "").replace(/[^0-9]/g, "");
+                      const waLink = `https://wa.me/${cleanPhone.startsWith("0") ? "62" + cleanPhone.substring(1) : cleanPhone}?text=Halo%20Kak%20${encodeURIComponent(ord.customer_name)}%2C%20terkait%20pesanan%20e-book%20${encodeURIComponent(ord.product_title)}%20di%20AdrienFandra.id...`;
+
+                      return (
+                        <tr key={ord.id} className="hover:bg-slate-50">
+                          <td className="py-3 px-3 font-mono font-bold text-slate-800">{ord.merchant_order_id}</td>
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-slate-900">{ord.customer_name}</div>
+                            <div className="text-[11px] text-slate-400">{ord.customer_email}</div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <a
+                              href={waLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[#1D3E72] hover:underline font-bold"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 text-[#1D3E72]" />
+                              <span>{ord.customer_phone}</span>
+                            </a>
+                          </td>
+                          <td className="py-3 px-3 font-medium text-slate-700 max-w-[180px] truncate">{ord.product_title}</td>
+                          <td className="py-3 px-3 font-black text-[#1D3E72]">{formatCurrency(ord.total_amount)}</td>
+                          <td className="py-3 px-3">
+                            <span className={`inline-block px-2 py-0.5 rounded-full font-black text-[10px] uppercase ${
+                              ord.payment_status === "PAID" 
+                                ? "bg-blue-100 text-[#1D3E72] border border-blue-200" 
+                                : "bg-amber-100 text-amber-800 border border-amber-200"
+                            }`}>
+                              {ord.payment_status === "PAID" ? "LUNAS" : "MENUNGGU BAYAR"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -519,18 +624,150 @@ export default function ManagerDashboard() {
         )}
 
         {/* =========================================================================
-            TAB 2: HEADER BANNER & 3 GAMBAR KE BAWAH
+            TAB 2: ANALITIK REAL-TIME LENGKAP
+            ========================================================================= */}
+        {activeTab === "analytics" && (
+          <div className="space-y-6 animate-in fade-in">
+            {/* Header Analitik */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div>
+                <h2 className="font-black text-base text-slate-800 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-[#1D3E72]" />
+                  <span>Analitik Real-Time Pengunjung & Penjualan</span>
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Data otomatis tercatat setiap kali pengunjung membuka halaman toko, mengklik e-book, atau melakukan checkout.
+                </p>
+              </div>
+
+              <button
+                onClick={fetchData}
+                className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-[#1D3E72] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingData ? "animate-spin" : ""}`} />
+                <span>Segarkan Data</span>
+              </button>
+            </div>
+
+            {/* Performa Tiap E-Book (Table Breakdown) */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <h3 className="font-extrabold text-sm text-slate-800">
+                Performa Klik & Penjualan Masing-Masing E-Book
+              </h3>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-400 uppercase text-[10px] font-black bg-slate-50/70">
+                      <th className="py-3 px-4">E-Book</th>
+                      <th className="py-3 px-4">Harga</th>
+                      <th className="py-3 px-4 text-center">Total Dilihat / Diklik</th>
+                      <th className="py-3 px-4 text-center">Masuk Checkout</th>
+                      <th className="py-3 px-4 text-center">Berhasil Beli (Lunas)</th>
+                      <th className="py-3 px-4 text-right">Total Omset</th>
+                      <th className="py-3 px-4 text-right">Konversi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {products.map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50">
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900 line-clamp-1 max-w-xs">{p.title}</div>
+                          <span className="text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded font-bold uppercase">{p.category}</span>
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-700">{formatCurrency(p.sale_price)}</td>
+                        <td className="py-3.5 px-4 text-center font-black text-slate-800">
+                          {p.views_count || 0}
+                        </td>
+                        <td className="py-3.5 px-4 text-center font-black text-amber-800">
+                          {p.checkouts_count || 0}
+                        </td>
+                        <td className="py-3.5 px-4 text-center font-black text-[#1D3E72]">
+                          {p.purchases_count || 0}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-black text-[#1D3E72]">
+                          {formatCurrency(p.revenue || 0)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-extrabold text-blue-700">
+                          {p.conversion_rate || "0%"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Live Activity Feed (Log Aktivitas Pengunjung Terkini) */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-extrabold text-sm text-slate-800">
+                  Log Aktivitas Pengunjung Terkini (Real-Time Stream)
+                </h3>
+                <span className="text-[10px] text-slate-400 font-semibold">50 Aktivitas Terakhir</span>
+              </div>
+
+              <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px] font-black bg-slate-50/50 sticky top-0">
+                      <th className="py-2.5 px-3">Waktu</th>
+                      <th className="py-2.5 px-3">Aksi / Event</th>
+                      <th className="py-2.5 px-3">E-Book / Info</th>
+                      <th className="py-2.5 px-3">Visitor ID</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(analytics.recentEvents || []).map((ev: any) => (
+                      <tr key={ev.id} className="hover:bg-slate-50">
+                        <td className="py-2.5 px-3 text-[11px] text-slate-500 whitespace-nowrap">
+                          {new Date(ev.created_at).toLocaleString("id-ID")}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`inline-block px-2 py-0.5 rounded-full font-black text-[9px] uppercase ${
+                            ev.event_type === "PURCHASE_SUCCESS"
+                              ? "bg-blue-100 text-[#1D3E72]"
+                              : ev.event_type === "CHECKOUT_START"
+                              ? "bg-amber-100 text-amber-800"
+                              : ev.event_type === "PRODUCT_CLICK"
+                              ? "bg-blue-50 text-[#1D3E72]"
+                              : "bg-slate-100 text-slate-700"
+                          }`}>
+                            {ev.event_type === "PAGE_VIEW" ? "Buka Toko" :
+                             ev.event_type === "PRODUCT_CLICK" ? "Klik E-Book" :
+                             ev.event_type === "CHECKOUT_START" ? "Masuk Checkout" :
+                             ev.event_type === "PURCHASE_SUCCESS" ? "Lunas" : ev.event_type}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-800 max-w-xs truncate">
+                          {ev.product_title || "Halaman Beranda Toko"}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-[10px] text-slate-400">
+                          {ev.visitor_id || "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* =========================================================================
+            TAB 3: HEADER BANNER & 3 GAMBAR KE BAWAH
             ========================================================================= */}
         {activeTab === "header_slots" && (
           <div className="space-y-6 animate-in fade-in">
             <form onSubmit={handleSaveHeaderAndSlots} className="space-y-6">
               
-              {/* 1. EDITOR HEADER HERO ATAS (SCREENSHOT 4) */}
+              {/* 1. EDITOR HEADER HERO ATAS */}
               <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
                 <div>
-                  <h2 className="font-black text-base text-slate-800">1. Editor Header Hero Paling Atas (Seperti Referensi)</h2>
+                  <h2 className="font-black text-base text-slate-800">1. Editor Header Hero Paling Atas</h2>
                   <p className="text-xs text-slate-500">
-                    Atur teks logo brand, nama profesi, hook copywriting, teks tombol bulat, dan background banner hero.
+                    Atur judul logo brand, nama profesi, hook copywriting, teks tombol bulat, dan background banner hero.
                   </p>
                 </div>
 
@@ -598,7 +835,7 @@ export default function ManagerDashboard() {
                 </div>
               </div>
 
-              {/* 2. 3 RUANG GAMBAR KE BAWAH (SLOT 1, SLOT 2, SLOT 3) */}
+              {/* 2. 3 RUANG GAMBAR KE BAWAH */}
               <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
                 <div>
                   <h2 className="font-black text-base text-slate-800">2. Tiga Ruang Gambar Horizontal (Urutan Ke Bawah)</h2>
@@ -676,7 +913,7 @@ export default function ManagerDashboard() {
         )}
 
         {/* =========================================================================
-            TAB 3: KELOLA E-BOOK
+            TAB 4: KELOLA E-BOOK & PDF
             ========================================================================= */}
         {activeTab === "products" && (
           <div className="space-y-5 animate-in fade-in">
@@ -684,7 +921,7 @@ export default function ManagerDashboard() {
               <div>
                 <h2 className="font-black text-base text-slate-800">Katalog Produk E-Book</h2>
                 <p className="text-xs text-slate-500">
-                  Kelola cover buku, harga promo, harga coret, slide foto tambahan, dan file PDF.
+                  Kelola cover buku, harga promo, harga coret, slide foto tambahan, dan file PDF asli.
                 </p>
               </div>
 
@@ -739,7 +976,7 @@ export default function ManagerDashboard() {
                     </div>
 
                     <div className="flex-1 space-y-1">
-                      <span className="text-[10px] font-black uppercase text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
+                      <span className="text-[10px] font-black uppercase text-[#1D3E72] bg-blue-50 px-2 py-0.5 rounded-md">
                         {prod.category}
                       </span>
                       <h3 className="font-extrabold text-sm text-slate-900 leading-snug line-clamp-2">
@@ -756,6 +993,12 @@ export default function ManagerDashboard() {
                           </span>
                         )}
                       </div>
+
+                      <div className="text-[10px] text-slate-500 font-semibold pt-0.5 flex items-center gap-2">
+                        <span>👁️ {prod.views_count || 0} views</span>
+                        <span>•</span>
+                        <span className="text-[#1D3E72] font-bold">🛒 {prod.purchases_count || 0} terjual</span>
+                      </div>
                     </div>
                   </div>
 
@@ -763,7 +1006,7 @@ export default function ManagerDashboard() {
                     <Link
                       href={`/adrienfandra/p/${prod.slug || prod.id}`}
                       target="_blank"
-                      className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+                      className="text-xs font-bold text-[#1D3E72] hover:underline flex items-center gap-1"
                     >
                       <Eye className="w-3.5 h-3.5" />
                       <span>Preview</span>
@@ -775,7 +1018,7 @@ export default function ManagerDashboard() {
                           setEditingProduct({ ...prod });
                           setProductModalOpen(true);
                         }}
-                        className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+                        className="px-3 py-1.5 bg-blue-50 text-[#1D3E72] hover:bg-blue-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                         <span>Edit</span>
@@ -783,7 +1026,7 @@ export default function ManagerDashboard() {
 
                       <button
                         onClick={() => handleDeleteProduct(prod.id)}
-                        className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -796,22 +1039,45 @@ export default function ManagerDashboard() {
         )}
 
         {/* =========================================================================
-            TAB 4: PESANAN
+            TAB 5: PESANAN & CALON PEMBELI (LEADS)
             ========================================================================= */}
         {activeTab === "orders" && (
           <div className="space-y-5 animate-in fade-in">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 flex items-center justify-between">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
               <div>
-                <h2 className="font-black text-base text-slate-800">Daftar Transaksi Pembeli</h2>
-                <p className="text-xs text-slate-500">Kirim ulang email PDF dan unduh berkas pesanan.</p>
+                <h2 className="font-black text-base text-slate-800">Daftar Transaksi & Calon Pembeli</h2>
+                <p className="text-xs text-slate-500">
+                  Data semua pembeli yang masuk checkout, follow up langsung via WhatsApp, kirim ulang PDF atau verifikasi manual.
+                </p>
               </div>
 
-              <button
-                onClick={fetchData}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold"
-              >
-                Segarkan
-              </button>
+              {/* Filter Tabs */}
+              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                <button
+                  onClick={() => setOrderFilter("ALL")}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                    orderFilter === "ALL" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Semua ({orders.length})
+                </button>
+                <button
+                  onClick={() => setOrderFilter("PAID")}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                    orderFilter === "PAID" ? "bg-white text-[#1D3E72] shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Lunas ({orders.filter(o => o.payment_status === "PAID").length})
+                </button>
+                <button
+                  onClick={() => setOrderFilter("PENDING")}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                    orderFilter === "PENDING" ? "bg-white text-amber-800 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Menunggu ({orders.filter(o => o.payment_status !== "PAID").length})
+                </button>
+              </div>
             </div>
 
             <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs">
@@ -820,7 +1086,8 @@ export default function ManagerDashboard() {
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 uppercase text-[10px] font-black">
                       <th className="py-3 px-4">Order ID</th>
-                      <th className="py-3 px-4">Pembeli</th>
+                      <th className="py-3 px-4">Pembeli & Email</th>
+                      <th className="py-3 px-4">WhatsApp (Follow-up)</th>
                       <th className="py-3 px-4">Produk</th>
                       <th className="py-3 px-4">Total</th>
                       <th className="py-3 px-4">Status</th>
@@ -828,49 +1095,80 @@ export default function ManagerDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {orders.map((ord) => (
-                      <tr key={ord.id} className="hover:bg-slate-50">
-                        <td className="py-3.5 px-4 font-mono font-bold text-slate-800">{ord.merchant_order_id}</td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900">{ord.customer_name}</div>
-                          <div className="text-[11px] text-slate-500">{ord.customer_email}</div>
-                        </td>
-                        <td className="py-3.5 px-4 font-medium text-slate-700 max-w-[200px] truncate">{ord.product_title}</td>
-                        <td className="py-3.5 px-4 font-black text-[#1D3E72]">{formatCurrency(ord.total_amount)}</td>
-                        <td className="py-3.5 px-4">
-                          <span className={`inline-block px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase ${
-                            ord.payment_status === "PAID" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
-                          }`}>
-                            {ord.payment_status}
-                          </span>
-                          {ord.payment_status !== "PAID" && (
-                            <button
-                              onClick={() => handleMarkPaid(ord.merchant_order_id)}
-                              className="block text-[10px] text-blue-600 hover:underline font-bold mt-1"
+                    {filteredOrders.map((ord) => {
+                      const cleanPhone = (ord.customer_phone || "").replace(/[^0-9]/g, "");
+                      const formattedPhone = cleanPhone.startsWith("0") ? "62" + cleanPhone.substring(1) : cleanPhone;
+                      
+                      const waFollowUpText = ord.payment_status === "PAID"
+                        ? `Halo Kak ${ord.customer_name}, terima kasih sudah membeli e-book "${ord.product_title}". File PDF sudah terkirim ke email Anda. Ada yang bisa kami bantu?`
+                        : `Halo Kak ${ord.customer_name}, kami melihat Anda berminat memesan e-book "${ord.product_title}" di AdrienFandra.id. Apakah ada kendala saat pembayaran? Kami siap bantu.`;
+
+                      const waLink = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(waFollowUpText)}`;
+
+                      return (
+                        <tr key={ord.id} className="hover:bg-slate-50">
+                          <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
+                            <div>{ord.merchant_order_id}</div>
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              {new Date(ord.created_at).toLocaleDateString("id-ID")}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-slate-900">{ord.customer_name}</div>
+                            <div className="text-[11px] text-slate-500">{ord.customer_email}</div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <a
+                              href={waLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-[#1D3E72] rounded-lg font-bold text-xs transition-colors border border-blue-200"
+                              title="Chat WhatsApp Calon Pembeli"
                             >
-                              Tandai Lunas
+                              <MessageCircle className="w-3.5 h-3.5 text-[#1D3E72]" />
+                              <span>{ord.customer_phone}</span>
+                            </a>
+                          </td>
+                          <td className="py-3.5 px-4 font-medium text-slate-700 max-w-[180px] truncate">{ord.product_title}</td>
+                          <td className="py-3.5 px-4 font-black text-[#1D3E72]">{formatCurrency(ord.total_amount)}</td>
+                          <td className="py-3.5 px-4">
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase ${
+                              ord.payment_status === "PAID" 
+                                ? "bg-blue-100 text-[#1D3E72] border border-blue-200" 
+                                : "bg-amber-100 text-amber-800 border border-amber-200"
+                            }`}>
+                              {ord.payment_status === "PAID" ? "LUNAS" : "MENUNGGU BAYAR"}
+                            </span>
+                            {ord.payment_status !== "PAID" && (
+                              <button
+                                onClick={() => handleMarkPaid(ord.merchant_order_id)}
+                                className="block text-[10px] text-[#1D3E72] hover:underline font-bold mt-1 cursor-pointer"
+                              >
+                                Tandai Lunas Manual
+                              </button>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                            <button
+                              onClick={() => handleResendEmail(ord.merchant_order_id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-[#1D3E72] rounded-lg font-bold text-[11px] cursor-pointer"
+                              title="Kirim ulang PDF ke email pembeli"
+                            >
+                              <Send className="w-3 h-3" />
+                              <span>Kirim PDF</span>
                             </button>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                          <button
-                            onClick={() => handleResendEmail(ord.merchant_order_id)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold text-[11px]"
-                          >
-                            <Send className="w-3 h-3" />
-                            <span>Kirim PDF</span>
-                          </button>
-                          <a
-                            href={`/api/adrienfandra/download/${ord.merchant_order_id}`}
-                            download
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-[11px]"
-                          >
-                            <Download className="w-3 h-3" />
-                            <span>Unduh</span>
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
+                            <a
+                              href={`/api/adrienfandra/download/${ord.merchant_order_id}`}
+                              download
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-[11px]"
+                            >
+                              <Download className="w-3 h-3" />
+                              <span>Unduh</span>
+                            </a>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -879,19 +1177,19 @@ export default function ManagerDashboard() {
         )}
 
         {/* =========================================================================
-            TAB 5: KUPON DISKON
+            TAB 6: KUPON DISKON
             ========================================================================= */}
         {activeTab === "vouchers" && (
           <div className="space-y-5 animate-in fade-in">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 flex items-center justify-between">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 flex items-center justify-between shadow-xs">
               <div>
-                <h2 className="font-black text-base text-slate-800">Kupon Diskon</h2>
-                <p className="text-xs text-slate-500">Buat kode promo diskon untuk pembeli.</p>
+                <h2 className="font-black text-base text-slate-800">Kupon Diskon Toko</h2>
+                <p className="text-xs text-slate-500">Buat kode promo diskon untuk meningkatkan konversi checkout.</p>
               </div>
 
               <button
                 onClick={() => setVoucherModalOpen(true)}
-                className="bg-[#1D3E72] hover:bg-[#0F2247] text-white text-xs font-bold px-4 py-2 rounded-xl"
+                className="bg-[#1D3E72] hover:bg-[#0F2247] text-white text-xs font-bold px-4 py-2 rounded-xl cursor-pointer"
               >
                 + Buat Kupon
               </button>
@@ -899,12 +1197,12 @@ export default function ManagerDashboard() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {vouchers.map((v) => (
-                <div key={v.id} className="bg-white rounded-2xl border border-slate-200 p-5 space-y-2">
+                <div key={v.id} className="bg-white rounded-2xl border border-slate-200 p-5 space-y-2 shadow-xs">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono font-black text-sm text-[#1D3E72] bg-blue-50 px-2 py-0.5 rounded-md uppercase">
+                    <span className="font-mono font-black text-sm text-[#1D3E72] bg-blue-50 px-2 py-0.5 rounded-md uppercase border border-blue-200">
                       {v.code}
                     </span>
-                    <span className="text-xs font-black text-emerald-600">
+                    <span className="text-xs font-black text-[#1D3E72]">
                       {v.discount_type === "PERCENT" ? `${v.discount_value}% OFF` : `Rp ${Number(v.discount_value).toLocaleString("id-ID")}`}
                     </span>
                   </div>
@@ -915,7 +1213,7 @@ export default function ManagerDashboard() {
         )}
 
         {/* =========================================================================
-            TAB 6: PENGATURAN & PASSWORD ADMIN
+            TAB 7: PENGATURAN & PASSWORD ADMIN
             ========================================================================= */}
         {activeTab === "settings" && (
           <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6 animate-in fade-in shadow-xs">
@@ -925,6 +1223,16 @@ export default function ManagerDashboard() {
             </div>
 
             <form onSubmit={handleSaveHeaderAndSlots} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Nama Toko</label>
+                <input
+                  type="text"
+                  value={settings.store_name || "Adrien Fandra Store"}
+                  onChange={(e) => setSettings({ ...settings, store_name: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-xs text-slate-900 outline-none font-bold"
+                />
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Password Akses Manager</label>
                 <input
@@ -936,7 +1244,7 @@ export default function ManagerDashboard() {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Nomor WhatsApp Support</label>
+                <label className="block font-bold text-slate-700 mb-1">Nomor WhatsApp Support / Penjualan</label>
                 <input
                   type="text"
                   value={settings.whatsapp_number || "+6289688113210"}
@@ -1029,7 +1337,7 @@ export default function ManagerDashboard() {
                     required
                     value={editingProduct.sale_price || 99000}
                     onChange={(e) => setEditingProduct({ ...editingProduct, sale_price: Number(e.target.value) })}
-                    className="w-full bg-slate-50 border border-emerald-500 rounded-xl px-3 py-2 text-xs outline-none font-bold text-emerald-800"
+                    className="w-full bg-slate-50 border border-blue-500 rounded-xl px-3 py-2 text-xs outline-none font-bold text-[#1D3E72]"
                   />
                 </div>
               </div>
@@ -1062,8 +1370,8 @@ export default function ManagerDashboard() {
                       onChange={(e) => e.target.files?.[0] && handlePdfUpload(e.target.files[0])}
                       className="text-[11px] text-slate-500 mb-1"
                     />
-                    <div className="text-[11px] font-semibold text-emerald-700">
-                      File: {editingProduct.pdf_filename || "PDF Default"}
+                    <div className="text-[11px] font-semibold text-[#1D3E72]">
+                      File Terpasang: {editingProduct.pdf_filename || "PDF Default"}
                     </div>
                   </div>
                 </div>
@@ -1073,7 +1381,7 @@ export default function ManagerDashboard() {
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-700">Foto Tambahan / Slide Tulisan Gede</span>
-                  <label className="cursor-pointer bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg font-bold text-[10px] hover:bg-blue-100">
+                  <label className="cursor-pointer bg-blue-50 text-[#1D3E72] px-2.5 py-1 rounded-lg font-bold text-[10px] hover:bg-blue-100">
                     + Upload Slide
                     <input
                       type="file"
@@ -1130,14 +1438,14 @@ export default function ManagerDashboard() {
                 <button
                   type="button"
                   onClick={() => setProductModalOpen(false)}
-                  className="flex-1 py-3 border border-slate-300 rounded-xl font-bold text-slate-600"
+                  className="flex-1 py-3 border border-slate-300 rounded-xl font-bold text-slate-600 cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="flex-1 py-3 bg-[#1D3E72] hover:bg-[#0F2247] text-white rounded-xl font-bold"
+                  className="flex-1 py-3 bg-[#1D3E72] hover:bg-[#0F2247] text-white rounded-xl font-bold cursor-pointer"
                 >
                   {actionLoading ? "Menyimpan..." : "Simpan E-Book"}
                 </button>
@@ -1194,8 +1502,8 @@ export default function ManagerDashboard() {
                 <input type="number" name="discount_value" required placeholder="10" className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2" />
               </div>
               <div className="pt-2 flex gap-2">
-                <button type="button" onClick={() => setVoucherModalOpen(false)} className="flex-1 py-2.5 border border-slate-300 rounded-xl font-bold">Batal</button>
-                <button type="submit" disabled={actionLoading} className="flex-1 py-2.5 bg-[#1D3E72] text-white rounded-xl font-bold">Simpan</button>
+                <button type="button" onClick={() => setVoucherModalOpen(false)} className="flex-1 py-2.5 border border-slate-300 rounded-xl font-bold cursor-pointer">Batal</button>
+                <button type="submit" disabled={actionLoading} className="flex-1 py-2.5 bg-[#1D3E72] text-white rounded-xl font-bold cursor-pointer">Simpan</button>
               </div>
             </form>
           </div>

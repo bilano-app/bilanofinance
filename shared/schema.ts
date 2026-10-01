@@ -205,13 +205,33 @@ export const incomeAttempts = pgTable("income_attempts", {
 
 // --- ZOD SCHEMAS ---
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
-export const insertTransactionSchema = createInsertSchema(transactions, { date: z.coerce.date() }).omit({ id: true, userId: true });
-export const insertInvestmentSchema = createInsertSchema(investments).omit({ id: true, userId: true, createdAt: true });
-export const insertTargetSchema = createInsertSchema(targets).omit({ id: true, userId: true });
-export const insertDebtSchema = createInsertSchema(debts, { dueDate: z.coerce.date() }).omit({ id: true, userId: true, createdAt: true });
-export const insertSubscriptionSchema = createInsertSchema(subscriptions, { nextBilling: z.coerce.date() }).omit({ id: true, userId: true });
+export const insertTransactionSchema = createInsertSchema(transactions, { 
+  date: z.coerce.date(),
+  amount: z.coerce.number() 
+}).omit({ id: true, userId: true });
+export const insertInvestmentSchema = createInsertSchema(investments, {
+  quantity: z.coerce.number(),
+  avgPrice: z.coerce.number()
+}).omit({ id: true, userId: true, createdAt: true });
+export const insertTargetSchema = createInsertSchema(targets, {
+  targetAmount: z.coerce.number().optional(),
+  monthlyBudget: z.coerce.number().optional(),
+  durationMonths: z.coerce.number().optional(),
+  startMonth: z.coerce.number().optional(),
+  startYear: z.coerce.number().optional()
+}).omit({ id: true, userId: true });
+export const insertDebtSchema = createInsertSchema(debts, { 
+  dueDate: z.coerce.date().nullable().optional(),
+  amount: z.coerce.number()
+}).omit({ id: true, userId: true, createdAt: true });
+export const insertSubscriptionSchema = createInsertSchema(subscriptions, { 
+  nextBilling: z.coerce.date().nullable().optional(),
+  cost: z.coerce.number()
+}).omit({ id: true, userId: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, userId: true });
-export const insertForexAssetSchema = createInsertSchema(forexAssets).omit({ id: true, userId: true, createdAt: true });
+export const insertForexAssetSchema = createInsertSchema(forexAssets, {
+  amount: z.coerce.number()
+}).omit({ id: true, userId: true, createdAt: true });
 export const insertOtpSessionSchema = createInsertSchema(otpSessions).omit({ id: true, createdAt: true });
 export const insertTrackingEventSchema = createInsertSchema(trackingEvents).omit({ id: true, createdAt: true });
 export const insertUserIncomeProfileSchema = createInsertSchema(userIncomeProfiles).omit({ id: true, completedAt: true });

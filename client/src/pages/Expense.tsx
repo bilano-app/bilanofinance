@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser, useTransactions, useTarget, useAddTransaction } from "@/hooks/use-finance";
 import { useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyInput, parseFormattedNumber } from "@/lib/utils";
 import { trackEvent } from "@/lib/tracking";
 import { isTrialMode, recordTrialExpense } from "@/lib/trial-data";
 
@@ -54,23 +54,17 @@ export default function Expense() {
 
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
 
-  const formatNumber = (val: string) => {
-    let clean = val.replace(/\D/g, '');
-    if (clean.length > 1) {
-        clean = clean.replace(/^0+/, ''); 
-    }
-    return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  };
-  const parseNumber = (val: string) => parseFloat(val.replace(/\./g, '')) || 0;
+  const formatNumber = (val: string) => formatCurrencyInput(val);
+  const parseNumber = (val: string) => parseFormattedNumber(val);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAmountStr(formatNumber(e.target.value));
+    setAmountStr(formatCurrencyInput(e.target.value));
     setErrorMsg("");
   };
 
   const handleQuickAdd = (amt: number) => {
-    const current = parseNumber(amountStr);
-    setAmountStr(formatNumber((current + amt).toString()));
+    const current = parseFormattedNumber(amountStr);
+    setAmountStr(formatCurrencyInput((current + amt).toString()));
     setErrorMsg("");
   };
 
@@ -443,8 +437,8 @@ export default function Expense() {
                     <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400 text-xl">Rp</span>
                         <Input 
-                            type="tel" 
-                            inputMode="numeric" 
+                            type="text" 
+                            inputMode="decimal" 
                             placeholder="0" 
                             value={amountStr} 
                             onChange={handleAmountChange} 

@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { trackEvent } from "@/lib/tracking";
 import WalletSourceSelect from "@/components/WalletSourceSelect";
 import { ALL_WALLET_NAMES } from "@/lib/wallet-sources";
+import { formatCurrencyInput, formatDecimalInput, parseFormattedNumber, formatRp } from "@/lib/utils";
 
 const CURRENCIES = ["IDR", "USD", "EUR", "SGD", "JPY", "GBP", "AUD", "MYR", "CNY"];
 
@@ -32,15 +33,8 @@ interface DebtEntry {
 }
 
 // Helpers
-const formatNumber = (val: string) => {
-  let clean = val.replace(/\D/g, '');
-  if (clean.length > 1) {
-    clean = clean.replace(/^0+/, ''); 
-  }
-  return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-};
-const parseNumber = (val: string) => parseFloat(val.replace(/\./g, '')) || 0;
-const formatRp = (val: number) => "Rp " + Math.round(val).toLocaleString("id-ID");
+const formatNumber = (val: string) => formatCurrencyInput(val);
+const parseNumber = (val: string) => parseFormattedNumber(val);
 
 export default function SetupBalance() {
   const { toast } = useToast();
@@ -77,27 +71,31 @@ export default function SetupBalance() {
     }));
   };
   
-  const handleAmountChange = (id: string, value: string) => updateEntry(id, 'amount', formatNumber(value));
+  const handleAmountChange = (id: string, value: string) => {
+    const entry = entries.find(e => e.id === id);
+    const formatted = entry && entry.currency !== 'IDR' ? formatDecimalInput(value) : formatCurrencyInput(value);
+    updateEntry(id, 'amount', formatted);
+  };
 
   const handleAddInvestment = () => {
     setInvestments([...investments, { id: Date.now().toString(), symbol: "", quantity: "", price: "", type: "saham" }]);
   };
   const updateInvestment = (id: string, field: keyof InvestmentEntry, value: any) => {
-    if (field === 'quantity' || field === 'price') value = formatNumber(value);
+    if (field === 'quantity' || field === 'price') value = formatDecimalInput(value);
     setInvestments(investments.map(e => e.id === id ? { ...e, [field]: value } : e));
   };
   const removeInvestment = (id: string) => setInvestments(investments.filter(e => e.id !== id));
 
   const handleAddDebt = () => setDebts([...debts, { id: Date.now().toString(), name: "", amount: "" }]);
   const updateDebt = (id: string, field: keyof DebtEntry, value: any) => {
-    if (field === 'amount') value = formatNumber(value);
+    if (field === 'amount') value = formatCurrencyInput(value);
     setDebts(debts.map(e => e.id === id ? { ...e, [field]: value } : e));
   };
   const removeDebt = (id: string) => setDebts(debts.filter(e => e.id !== id));
 
   const handleAddReceivable = () => setReceivables([...receivables, { id: Date.now().toString(), name: "", amount: "" }]);
   const updateReceivable = (id: string, field: keyof DebtEntry, value: any) => {
-    if (field === 'amount') value = formatNumber(value);
+    if (field === 'amount') value = formatCurrencyInput(value);
     setReceivables(receivables.map(e => e.id === id ? { ...e, [field]: value } : e));
   };
   const removeReceivable = (id: string) => setReceivables(receivables.filter(e => e.id !== id));
@@ -271,7 +269,8 @@ export default function SetupBalance() {
                     <div className="flex-1">
                       <label className="text-xs font-bold text-slate-500 mb-1.5 block">Nominal Saldo</label>
                       <Input 
-                        type="tel" 
+                        type="text" 
+                        inputMode="decimal"
                         placeholder="0" 
                         value={entry.amount} 
                         onChange={(e) => handleAmountChange(entry.id, e.target.value)} 
@@ -330,11 +329,11 @@ export default function SetupBalance() {
                   <div className="flex gap-3">
                     <div className="flex-1">
                       <label className="text-xs font-bold text-slate-500 mb-1.5 block">Jumlah Lembar/Unit</label>
-                      <Input type="tel" placeholder="100" value={entry.quantity} onChange={(e) => updateInvestment(entry.id, 'quantity', e.target.value)} className="h-14 font-black bg-slate-50 border-slate-200 rounded-2xl" />
+                      <Input type="text" inputMode="decimal" placeholder="100" value={entry.quantity} onChange={(e) => updateInvestment(entry.id, 'quantity', e.target.value)} className="h-14 font-black bg-slate-50 border-slate-200 rounded-2xl" />
                     </div>
                     <div className="flex-1">
                       <label className="text-xs font-bold text-slate-500 mb-1.5 block">Harga Beli Rata-Rata</label>
-                      <Input type="tel" placeholder="0" value={entry.price} onChange={(e) => updateInvestment(entry.id, 'price', e.target.value)} className="h-14 font-black bg-slate-50 border-slate-200 rounded-2xl" />
+                      <Input type="text" inputMode="decimal" placeholder="0" value={entry.price} onChange={(e) => updateInvestment(entry.id, 'price', e.target.value)} className="h-14 font-black bg-slate-50 border-slate-200 rounded-2xl" />
                     </div>
                   </div>
                 </div>
@@ -362,7 +361,7 @@ export default function SetupBalance() {
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-500 mb-1.5 block">Nominal Uang</label>
-                    <Input type="tel" placeholder="0" value={entry.amount} onChange={(e) => updateReceivable(entry.id, 'amount', e.target.value)} className="h-14 font-black text-xl bg-slate-50 border-slate-200 rounded-2xl text-amber-600" />
+                    <Input type="text" inputMode="decimal" placeholder="0" value={entry.amount} onChange={(e) => updateReceivable(entry.id, 'amount', e.target.value)} className="h-14 font-black text-xl bg-slate-50 border-slate-200 rounded-2xl text-amber-600" />
                   </div>
                 </div>
               </div>
@@ -389,7 +388,7 @@ export default function SetupBalance() {
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-500 mb-1.5 block">Sisa Hutang</label>
-                    <Input type="tel" placeholder="0" value={entry.amount} onChange={(e) => updateDebt(entry.id, 'amount', e.target.value)} className="h-14 font-black text-xl bg-slate-50 border-slate-200 rounded-2xl text-rose-600" />
+                    <Input type="text" inputMode="decimal" placeholder="0" value={entry.amount} onChange={(e) => updateDebt(entry.id, 'amount', e.target.value)} className="h-14 font-black text-xl bg-slate-50 border-slate-200 rounded-2xl text-rose-600" />
                   </div>
                 </div>
               </div>

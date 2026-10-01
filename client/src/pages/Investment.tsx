@@ -15,10 +15,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
 import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
+import { formatDecimalInput, parseFormattedNumber, formatRp } from "@/lib/utils";
 
 type AssetType = 'saham' | 'reksadana' | 'kripto' | 'emas' | 'p2p' | 'properti' | 'obligasi' | 'bisnis';
-
-const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
 
 export default function Investment() {
   const [, setLocation] = useLocation();
@@ -61,14 +60,8 @@ export default function Investment() {
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const isUserPro = user?.isPro || (typeof window !== 'undefined' && localStorage.getItem("bilano_pro") === "true");
 
-  const formatNum = (val: string) => {
-    let clean = val.replace(/\D/g, '');
-    if (clean.length > 1) {
-        clean = clean.replace(/^0+/, ''); 
-    }
-    return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  };
-  const parseNum = (val: string) => parseFloat(val.replace(/\./g, '')) || 0;
+  const formatNum = (val: string) => formatDecimalInput(val);
+  const parseNum = (val: string) => parseFormattedNumber(val);
 
   const wsSum = (user?.walletSources && Array.isArray(user.walletSources))
       ? (user.walletSources as any[]).filter((w: any) => (Number(w.balance) || 0) > 0).reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0)
@@ -388,7 +381,7 @@ export default function Investment() {
                       </label>
                       <input
                           type="text"
-                          inputMode="numeric"
+                          inputMode="decimal"
                           placeholder="0"
                           value={inputQty}
                           onChange={(e) => setInputQty(formatNum(e.target.value))}
@@ -401,7 +394,7 @@ export default function Investment() {
                       </label>
                       <input
                           type="text"
-                          inputMode="numeric"
+                          inputMode="decimal"
                           placeholder="0"
                           value={inputPrice}
                           onChange={(e) => setInputPrice(formatNum(e.target.value))}

@@ -11,16 +11,10 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import WalletSourceSelect from "@/components/WalletSourceSelect";
 import { getWalletLogo } from "@/lib/wallet-sources";
+import { formatCurrencyInput, parseFormattedNumber, formatRp } from "@/lib/utils";
 
-const formatNumber = (val: string) => {
-    let clean = val.replace(/\D/g, '');
-    if (clean.length > 1) {
-        clean = clean.replace(/^0+/, ''); 
-    }
-    return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-};
-const parseNumber = (val: string) => parseFloat(val.replace(/\./g, '')) || 0;
-const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
+const formatNumber = (val: string) => formatCurrencyInput(val);
+const parseNumber = (val: string) => parseFormattedNumber(val);
 
 export default function Transfer() {
   const { data: user, refetch: refetchUser } = useUser();
@@ -507,7 +501,8 @@ export default function Transfer() {
                             </div>
 
                             <input 
-                                type="tel"
+                                type="text"
+                                inputMode="decimal"
                                 placeholder="0" 
                                 value={amount} 
                                 onChange={(e) => setAmount(formatNumber(e.target.value))}
@@ -605,7 +600,8 @@ export default function Transfer() {
                                     <span className="text-[10px] text-slate-400 font-medium">Bisa diisi 0</span>
                                 </div>
                                 <input 
-                                    type="tel"
+                                    type="text"
+                                    inputMode="decimal"
                                     placeholder="0 (Atau isi saldo awal yang sudah ada)" 
                                     value={createInitialBalance} 
                                     onChange={(e) => setCreateInitialBalance(formatNumber(e.target.value))}

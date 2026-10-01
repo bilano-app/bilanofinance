@@ -14,6 +14,7 @@ import { getTrialInfo } from "@/lib/trial-manager";
 import TrialFeatureNotice from "@/components/TrialFeatureNotice";
 import { useQueryClient } from "@tanstack/react-query";
 import { trackEvent } from "@/lib/tracking";
+import { formatCurrencyInput, parseFormattedNumber } from "@/lib/utils";
 
 interface ScannedItem {
     id: string;
@@ -75,15 +76,11 @@ export default function SmartScan() {
 
     const formatNum = (val: string | number) => {
         if (val === undefined || val === null || val === "") return "";
-        let raw = val.toString().replace(/\./g, "").replace(/[^0-9]/g, "");
-        if (raw.length > 1) {
-            raw = raw.replace(/^0+/, '');
-        }
-        return raw.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        return formatCurrencyInput(val.toString());
     };
     const parseNum = (val: string | number) => {
         if (typeof val === 'number') return val;
-        return parseFloat(val.toString().replace(/\./g, "").replace(/,/g, ".")) || 0;
+        return parseFormattedNumber(val);
     };
     const formatRp = (val: number) => "Rp " + Math.round(val || 0).toLocaleString("id-ID");
 
@@ -958,12 +955,12 @@ export default function SmartScan() {
                                             <div className="w-36 relative">
                                                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">Rp</span>
                                                 <input 
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    value={formatNum(item.amount)}
-                                                    onChange={(e) => updateItem(item.id, 'amount', parseNum(e.target.value))}
-                                                    placeholder="0"
-                                                    className="w-full h-11 pl-8 pr-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-900 text-right outline-none focus:border-brand-navy tabular-nums"
+                                                    type="text" 
+                                                    inputMode="decimal" 
+                                                    value={formatNum(item.amount)} 
+                                                    onChange={(e) => updateItem(item.id, 'amount', parseNum(e.target.value))} 
+                                                    placeholder="0" 
+                                                    className="w-full h-11 pl-8 pr-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-900 text-right outline-none focus:border-brand-navy tabular-nums" 
                                                 />
                                             </div>
                                         </div>

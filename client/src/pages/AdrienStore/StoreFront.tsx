@@ -36,7 +36,35 @@ export default function StoreFront() {
   });
   const [products, setProducts] = useState<Product[]>([]);
 
+  const getVisitorId = () => {
+    let id = localStorage.getItem("af_store_visitor_id");
+    if (!id) {
+      id = "v_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now().toString(36);
+      localStorage.setItem("af_store_visitor_id", id);
+    }
+    return id;
+  };
+
+  const trackEvent = (eventType: string, productId?: number, productTitle?: string) => {
+    try {
+      fetch("/api/adrienfandra/analytics/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType,
+          productId,
+          productTitle,
+          visitorId: getVisitorId(),
+          referrer: document.referrer || window.location.href
+        })
+      }).catch(() => {});
+    } catch (e) {}
+  };
+
   useEffect(() => {
+    // Record real storefront page view
+    trackEvent("PAGE_VIEW");
+
     fetch("/api/adrienfandra/store-data")
       .then(res => res.json())
       .then(data => {
@@ -195,7 +223,10 @@ export default function StoreFront() {
                       <div className="w-full md:w-1/2 flex items-center justify-center">
                         <div
                           className="relative group cursor-pointer"
-                          onClick={() => setLocation(`/adrienfandra/p/${product.slug || product.id}`)}
+                          onClick={() => {
+                            trackEvent("PRODUCT_CLICK", product.id, product.title);
+                            setLocation(`/adrienfandra/p/${product.slug || product.id}`);
+                          }}
                         >
                           {product.cover_url ? (
                             <img

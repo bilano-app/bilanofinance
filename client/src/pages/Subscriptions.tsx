@@ -10,7 +10,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { trackEvent } from "@/lib/tracking";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyInput, parseFormattedNumber } from "@/lib/utils";
 import TrialFeatureNotice from "@/components/TrialFeatureNotice";
 
 interface Subscription {
@@ -59,15 +59,10 @@ export default function Subscriptions() {
   const getAuthHeaders = () => ({ "x-user-email": currentUserEmail });
 
   const formatNum = (val: string) => {
-      if (!val) return "";
-      let raw = val.replace(/\./g, "").replace(/[^0-9]/g, "");
-      if (raw.length > 1) {
-          raw = raw.replace(/^0+/, '');
-      }
-      return raw.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return formatCurrencyInput(val);
   };
 
-  const parseNum = (val: string) => parseFloat(val.replace(/\./g, "")) || 0;
+  const parseNum = (val: string) => parseFormattedNumber(val);
 
   const { data: subs = [], isLoading: loading, refetch: fetchSubs } = useQuery<Subscription[]>({
       queryKey: ['subscriptions', currentUserEmail],
@@ -633,7 +628,7 @@ export default function Subscriptions() {
                                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-xs text-slate-400">Rp</span>
                                       <Input 
                                           type="text" 
-                                          inputMode="numeric" 
+                                          inputMode="decimal" 
                                           placeholder="50.000" 
                                           value={price} 
                                           onChange={e => setPrice(formatNum(e.target.value))} 

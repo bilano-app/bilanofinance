@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Coffee, Utensils, Fuel, X, Sparkles, ArrowRight, CheckCircle2 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyInput, parseFormattedNumber } from "@/lib/utils";
 import { recordTrialExpense, getTrialData } from "@/lib/trial-data";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -61,15 +61,8 @@ export default function TrialSimulationModal({ isOpen, onClose, onSuccess }: Tri
     setNote(p.note);
   };
 
-  const formatNumber = (val: string) => {
-    let clean = val.replace(/\D/g, "");
-    if (clean.length > 1) {
-      clean = clean.replace(/^0+/, "");
-    }
-    return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  };
-
-  const parseNumber = (val: string) => parseFloat(val.replace(/\./g, "")) || 0;
+  const formatNumber = (val: string) => formatCurrencyInput(val);
+  const parseNumber = (val: string) => parseFormattedNumber(val);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatNumber(e.target.value);

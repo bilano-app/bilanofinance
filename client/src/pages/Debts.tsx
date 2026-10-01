@@ -13,6 +13,8 @@ import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
 import TrialFeatureNotice from "@/components/TrialFeatureNotice";
 
+import { formatDecimalInput, formatCurrencyInput, parseFormattedNumber } from "@/lib/utils";
+
 interface DebtItem {
   id: number;
   name: string;
@@ -60,20 +62,12 @@ export default function Debts() {
 
   const formatNum = (val: string, isForeign = false) => {
       if (!val) return "";
-      let raw = val.replace(/\./g, "").replace(/[^0-9,]/g, "");
-      const parts = raw.split(",");
-      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-      if (isForeign) return parts.slice(0, 2).join(",");
-      return parts[0];
+      if (isForeign) return formatDecimalInput(val);
+      return formatCurrencyInput(val);
   };
 
-  const parseNum = (val: string, isForeign = false) => {
-      if (!val) return 0;
-      if (isForeign) {
-          const normalized = val.replace(/\./g, "").replace(/,/g, ".");
-          return parseFloat(normalized) || 0;
-      }
-      return parseFloat(val.replace(/\./g, "")) || 0;
+  const parseNum = (val: string, _isForeign = false) => {
+      return parseFormattedNumber(val);
   };
 
   const fetchData = async () => {
