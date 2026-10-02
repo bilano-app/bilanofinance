@@ -130,7 +130,9 @@ export class DatabaseStorage implements IStorage {
     const ws = walletSources || [];
     let wsSum: number | null = null;
     if (Array.isArray(ws)) {
-      wsSum = ws.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+      wsSum = ws
+        .filter((w: any) => (w.currency || 'IDR').toUpperCase() === 'IDR')
+        .reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
     }
     const updatePayload: any = { walletSources: ws };
     if (wsSum !== null) {

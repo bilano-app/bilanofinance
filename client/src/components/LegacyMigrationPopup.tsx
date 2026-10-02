@@ -6,6 +6,7 @@ import { useUser } from "@/hooks/use-finance";
 import WalletSourceSelect from "@/components/WalletSourceSelect";
 import { formatCurrencyInput, formatDecimalInput, parseFormattedNumber, formatRp } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { isTrialMode, getTrialData, saveTrialData } from "@/lib/trial-data";
 
 interface UnallocatedAsset {
   currency: string;
@@ -65,15 +66,15 @@ export default function LegacyMigrationPopup({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddEntry = () => {
-    setEntries([...entries, { id: Date.now().toString(), source: "GoPay", isCustomSource: false, balance: "" }]);
+    setEntries(prev => [...prev, { id: Date.now().toString(), source: "GoPay", isCustomSource: false, balance: "" }]);
   };
 
   const handleRemoveEntry = (id: string) => {
-    setEntries(entries.filter(e => e.id !== id));
+    setEntries(prev => prev.filter(e => e.id !== id));
   };
   
   const updateEntry = (id: string, field: string, value: any) => {
-    setEntries(entries.map(e => {
+    setEntries(prev => prev.map(e => {
       if (e.id === id) {
         const updated = { ...e, [field]: value };
         if (field === 'source' && value === 'custom') {
@@ -90,11 +91,16 @@ export default function LegacyMigrationPopup({
     return entries.reduce((sum, e) => sum + (parseFormattedNumber(e.balance) || 0), 0);
   }, [entries]);
 
-  const remainingTotal = Math.round((currentTotal - distributedTotal) * 10000) / 10000;
+  // Calculate clean remaining balance (strictly preventing -0 and float precision anomalies)
+  const rawRemaining = currentTotal - distributedTotal;
+  const isAccurateZero = Math.abs(rawRemaining) < 0.0001;
+  const remainingTotal = isAccurateZero ? 0 : Math.round(rawRemaining * 10000) / 10000;
+  const safeRemaining = Object.is(remainingTotal, -0) ? 0 : remainingTotal;
 
   const formatBalanceDisplay = (val: number) => {
-    if (!isValas) return formatRp(val);
-    return `${val.toLocaleString('en-US')} ${activeCurrency}`;
+    const cleanNum = Object.is(val, -0) || Math.abs(val) < 0.0001 ? 0 : val;
+    if (!isValas) return formatRp(cleanNum);
+    return `${cleanNum.toLocaleString('en-US', { maximumFractionDigits: 6 })} ${activeCurrency}`;
   };
 
   const handleSubmit = async () => {
@@ -107,7 +113,8 @@ export default function LegacyMigrationPopup({
       });
       return;
     }
-    if (remainingTotal < -0.0001) {
+
+    if (safeRemaining < -0.0001) {
       toast({ 
         title: isValas ? "Total Melebihi Saldo Valas" : "Total Melebihi Kas", 
         description: isValas 
@@ -120,29 +127,29 @@ export default function LegacyMigrationPopup({
 
     // Compile current step's sources
     const stepSources = entries.map(e => ({
-      id: e.id,
+      id: e.id || Date.now().toString(),
       name: e.source.trim(),
-      isCustomSource: e.isCustomSource,
+      isCustomSource: !!e.isCustomSource,
       currency: activeCurrency,
       balance: parseFormattedNumber(e.balance) || 0,
       type: isValas ? 'valas' : undefined
     }));
 
-    if (remainingTotal > 0.0001) {
+    if (safeRemaining > 0.0001) {
       stepSources.push({
         id: Date.now().toString() + "_" + activeCurrency + "_remaining",
         name: isValas ? `Dompet Utama (${activeCurrency})` : "Cash (Lainnya)",
         isCustomSource: true,
         currency: activeCurrency,
-        balance: remainingTotal,
+        balance: safeRemaining,
         type: isValas ? 'valas' : undefined
       });
     }
 
     // If there are more assets in unallocatedAssets, advance step
     if (unallocatedAssets && stepIndex < unallocatedAssets.length - 1) {
-      setAccumulatedSources([...accumulatedSources, ...stepSources]);
-      setStepIndex(stepIndex + 1);
+      setAccumulatedSources(prev => [...prev, ...stepSources]);
+      setStepIndex(prev => prev + 1);
       return;
     }
 
@@ -151,41 +158,59 @@ export default function LegacyMigrationPopup({
     try {
       const allCompiledSources = [...accumulatedSources, ...stepSources];
 
+      // Handle Trial Mode local storage sandbox
+      if (isTrialMode()) {
+        const trial = getTrialData();
+        const existingTrialWS = ((trial.user?.walletSources as any[]) || []);
+        if (isValas) {
+          const migratedCurrencies = new Set(allCompiledSources.map(s => s.currency.toUpperCase()));
+          const preserved = existingTrialWS.filter(w => !migratedCurrencies.has((w.currency || 'IDR').toUpperCase()));
+          trial.user.walletSources = [...preserved, ...allCompiledSources];
+          localStorage.setItem("bilano_forex_migration_completed", "true");
+        } else {
+          trial.user.walletSources = allCompiledSources;
+          trial.user.cashBalance = allCompiledSources.reduce((sum, w) => sum + (Number(w.balance) || 0), 0);
+          localStorage.setItem("bilano_migration_completed", "true");
+        }
+        saveTrialData(trial);
+      }
+
+      const existingWS = ((user?.walletSources as any[]) || []);
+      let finalWalletSources: any[] = [];
+      let totalCash: number | undefined = undefined;
+
       if (isValas) {
-        // Merge with existing wallet sources
-        const existingWS = ((user?.walletSources as any[]) || []);
         const migratedCurrencies = new Set(allCompiledSources.map(s => s.currency.toUpperCase()));
         const preservedWS = existingWS.filter(w => !migratedCurrencies.has((w.currency || 'IDR').toUpperCase()));
-        const finalWalletSources = [...preservedWS, ...allCompiledSources];
+        finalWalletSources = [...preservedWS, ...allCompiledSources];
+      } else {
+        finalWalletSources = allCompiledSources;
+        totalCash = allCompiledSources.reduce((acc, w) => acc + (Number(w.balance) || 0), 0);
+      }
 
-        const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-        const res = await fetch("/api/user/wallet-sources", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "x-user-email": userEmail
-          },
-          body: JSON.stringify({ walletSources: finalWalletSources })
-        });
-        
-        if (!res.ok) throw new Error("Gagal menyimpan data rekening valas.");
-        
+      const userEmail = (typeof window !== 'undefined' ? localStorage.getItem("bilano_email") : "") || "guest";
+      const res = await fetch("/api/user/wallet-sources", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "x-user-email": userEmail
+        },
+        body: JSON.stringify({ 
+          walletSources: finalWalletSources,
+          ...(totalCash !== undefined ? { cashBalance: totalCash } : {})
+        })
+      });
+      
+      if (!res.ok) {
+        if (!isTrialMode()) {
+          throw new Error("Gagal menyimpan data sumber dana.");
+        }
+      }
+      
+      if (isValas) {
         localStorage.setItem("bilano_forex_migration_completed", "true");
         toast({ title: "Migrasi Selesai", description: "Rincian dompet valas berhasil disimpan." });
       } else {
-        const totalFromSources = allCompiledSources.reduce((acc, w) => acc + (Number(w.balance) || 0), 0);
-        const userEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-        const res = await fetch("/api/user/wallet-sources", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "x-user-email": userEmail
-          },
-          body: JSON.stringify({ walletSources: allCompiledSources, cashBalance: totalFromSources })
-        });
-        
-        if (!res.ok) throw new Error("Gagal menyimpan data sumber dana.");
-        
         localStorage.setItem("bilano_migration_completed", "true");
         toast({ title: "Migrasi Selesai", description: "Rincian dompet berhasil disimpan." });
       }
@@ -236,15 +261,15 @@ export default function LegacyMigrationPopup({
         <div className="p-5 overflow-y-auto flex-1 bg-slate-50">
           
           {/* Sticky Sisa Bar */}
-          <div className={`sticky top-0 z-10 mb-4 p-3 rounded-2xl flex justify-between items-center text-sm font-bold shadow-sm ${
-            remainingTotal === 0 
+          <div className={`sticky top-0 z-10 mb-4 p-3 rounded-2xl flex justify-between items-center text-sm font-bold shadow-sm transition-colors ${
+            isAccurateZero 
               ? 'bg-emerald-100 text-emerald-700' 
-              : remainingTotal < 0 
+              : safeRemaining < 0 
                 ? 'bg-rose-100 text-rose-700' 
                 : 'bg-blue-100 text-blue-700'
           }`}>
-            <span>Sisa untuk dirincikan:</span>
-            <span className="text-lg">{formatBalanceDisplay(remainingTotal)}</span>
+            <span>{isAccurateZero ? "Sisa untuk dirincikan: (Pas)" : "Sisa untuk dirincikan:"}</span>
+            <span className="text-lg">{formatBalanceDisplay(safeRemaining)}</span>
           </div>
 
           <div className="space-y-4">
@@ -254,7 +279,7 @@ export default function LegacyMigrationPopup({
                   <button 
                     type="button"
                     onClick={() => handleRemoveEntry(entry.id)} 
-                    className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors"
+                    className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -268,7 +293,7 @@ export default function LegacyMigrationPopup({
                     isCustom={entry.isCustomSource}
                     currency={activeCurrency}
                     onChange={(val, isCustom) => {
-                      setEntries(entries.map(e => {
+                      setEntries(prev => prev.map(e => {
                         if (e.id === entry.id) {
                           return { ...e, source: val, isCustomSource: !!isCustom };
                         }
@@ -295,7 +320,7 @@ export default function LegacyMigrationPopup({
           <button 
             type="button"
             onClick={handleAddEntry} 
-            className="w-full flex items-center justify-center gap-2 h-12 border-2 border-dashed border-slate-300 text-slate-500 font-bold rounded-[20px] hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all active:scale-95 mt-4"
+            className="w-full flex items-center justify-center gap-2 h-12 border-2 border-dashed border-slate-300 text-slate-500 font-bold rounded-[20px] hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all active:scale-95 mt-4 cursor-pointer"
           >
             <Plus className="w-5 h-5" /> TAMBAH SUMBER
           </button>
@@ -305,8 +330,8 @@ export default function LegacyMigrationPopup({
         <div className="p-4 bg-white border-t border-slate-100">
           <Button 
             onClick={handleSubmit} 
-            disabled={isSubmitting || remainingTotal < -0.0001} 
-            className="w-full h-14 bg-brand-navy hover:bg-slate-800 text-brand-gold font-black rounded-full shadow-[4px_4px_0px_0px] shadow-slate-300 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px] transition-all"
+            disabled={isSubmitting || safeRemaining < -0.0001} 
+            className="w-full h-14 bg-brand-navy hover:bg-slate-800 text-brand-gold font-black rounded-full shadow-[4px_4px_0px_0px] shadow-slate-300 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px] transition-all cursor-pointer disabled:opacity-50"
           >
             {isSubmitting ? (
               <Loader2 className="w-6 h-6 animate-spin"/>
