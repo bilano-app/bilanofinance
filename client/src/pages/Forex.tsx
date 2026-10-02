@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser, useTransactions, getAccessTier } from "@/hooks/use-finance";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
-import ForexMigrationPopup from "@/components/ForexMigrationPopup";
+import LegacyMigrationPopup from "@/components/LegacyMigrationPopup";
 import { trackEvent } from "@/lib/tracking";
 import { getWalletLogo, getForexPresetsForCurrency } from "@/lib/wallet-sources";
 import { formatCurrency, formatRp, parseFormattedNumber, formatDecimalInput, formatCurrencyInput } from "@/lib/utils";
@@ -1460,7 +1460,7 @@ export default function Forex() {
 
       {/* POPUP MIGRASI VALAS UNTUK PENGGUNA LAMA */}
       {needsForexMigration && (
-          <ForexMigrationPopup
+          <LegacyMigrationPopup
               unallocatedAssets={unallocatedForexAssets}
               onComplete={() => {
                   setHasCompletedForexMigration(true);

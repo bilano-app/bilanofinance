@@ -3,15 +3,17 @@ import {
   WALLET_CATEGORIES, 
   ALL_WALLET_SOURCES, 
   getWalletLogo, 
+  getForexPresetsForCurrency,
   WalletSourceItem 
 } from '@/lib/wallet-sources';
-import { ChevronDown, Search, X, Check, Wallet, Edit3, Building2, Smartphone, TrendingUp } from 'lucide-react';
+import { ChevronDown, Search, X, Check, Wallet, Edit3, Building2, Smartphone, TrendingUp, Globe } from 'lucide-react';
 import { Input } from '@/components/UIComponents';
 
 interface WalletSourceSelectProps {
   value: string;
   onChange: (value: string, isCustom?: boolean) => void;
   isCustom?: boolean;
+  currency?: string; // 'IDR' or foreign currency code like 'USD', 'EUR', 'SGD'
   className?: string;
   placeholder?: string;
   allowCustom?: boolean;
@@ -23,6 +25,7 @@ export default function WalletSourceSelect({
   value,
   onChange,
   isCustom = false,
+  currency = 'IDR',
   className = "",
   placeholder = "Pilih Sumber Uang...",
   allowCustom = true,
@@ -33,9 +36,17 @@ export default function WalletSourceSelect({
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<'All' | 'Bank' | 'E-Wallet' | 'Sekuritas & Platform Investasi'>('All');
 
+  const activeCurrency = (currency || 'IDR').toUpperCase();
+  const isForex = activeCurrency !== 'IDR';
+
   const selectedLogo = getWalletLogo(value);
 
-  const filteredCategories = WALLET_CATEGORIES.map(group => {
+  const forexPresets = isForex ? getForexPresetsForCurrency(activeCurrency) : [];
+  const filteredForexPresets = isForex 
+    ? forexPresets.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.category.toLowerCase().includes(searchQuery.toLowerCase()))
+    : [];
+
+  const filteredCategories = !isForex ? WALLET_CATEGORIES.map(group => {
     if (activeCategory !== 'All' && group.category !== activeCategory) {
       return null;
     }
@@ -47,9 +58,9 @@ export default function WalletSourceSelect({
       ...group,
       items: matchedItems
     };
-  }).filter(Boolean) as typeof WALLET_CATEGORIES;
+  }).filter(Boolean) as typeof WALLET_CATEGORIES : [];
 
-  const handleSelect = (item: WalletSourceItem) => {
+  const handleSelect = (item: { name: string }) => {
     onChange(item.name, false);
     setIsOpen(false);
     setSearchQuery("");
@@ -130,8 +141,12 @@ export default function WalletSourceSelect({
             {/* Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
-                <h3 className="text-base font-black text-slate-900">Pilih Sumber Uang</h3>
-                <p className="text-xs text-slate-500 font-medium">Pilih bank, e-wallet, atau sekuritas Anda</p>
+                <h3 className="text-base font-black text-slate-900">
+                  {isForex ? `Pilih Rekening ${activeCurrency}` : "Pilih Sumber Uang"}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  {isForex ? `Pilih rekening atau dompet valas ${activeCurrency} Anda` : "Pilih bank, e-wallet, atau sekuritas Anda"}
+                </p>
               </div>
               <button
                 type="button"
@@ -149,7 +164,7 @@ export default function WalletSourceSelect({
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Cari BCA, GoPay, Bibit..."
+                  placeholder={isForex ? `Cari Wise, Bank Jago, Paypal (${activeCurrency})...` : "Cari BCA, GoPay, Bibit..."}
                   className="pl-10 h-11 bg-slate-50 border-slate-200 rounded-xl text-sm font-semibold"
                   autoFocus
                 />
@@ -164,75 +179,126 @@ export default function WalletSourceSelect({
                 )}
               </div>
 
-              {/* Category Filter Pills */}
-              <div className="flex items-center gap-1.5 mt-3 overflow-x-auto pb-1 scrollbar-hide">
-                {[
-                  { id: 'All', label: 'Semua', icon: null },
-                  { id: 'Bank', label: 'Bank', icon: Building2 },
-                  { id: 'E-Wallet', label: 'E-Wallet', icon: Smartphone },
-                  { id: 'Sekuritas & Platform Investasi', label: 'Investasi', icon: TrendingUp }
-                ].map((cat) => {
-                  const Icon = cat.icon;
-                  const isActive = activeCategory === cat.id;
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setActiveCategory(cat.id as any)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
-                        isActive 
-                          ? 'bg-brand-navy text-brand-gold shadow-xs' 
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {Icon && <Icon className="w-3 h-3" />}
-                      {cat.label}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Category Filter Pills (Only for IDR) */}
+              {!isForex && (
+                <div className="flex items-center gap-1.5 mt-3 overflow-x-auto pb-1 scrollbar-hide">
+                  {[
+                    { id: 'All', label: 'Semua', icon: null },
+                    { id: 'Bank', label: 'Bank', icon: Building2 },
+                    { id: 'E-Wallet', label: 'E-Wallet', icon: Smartphone },
+                    { id: 'Sekuritas & Platform Investasi', label: 'Investasi', icon: TrendingUp }
+                  ].map((cat) => {
+                    const Icon = cat.icon;
+                    const isActive = activeCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setActiveCategory(cat.id as any)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${
+                          isActive 
+                            ? 'bg-brand-navy text-brand-gold shadow-xs' 
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {Icon && <Icon className="w-3 h-3" />}
+                        {cat.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* List Content */}
             <div className="p-4 overflow-y-auto flex-1 space-y-5 bg-slate-50/50">
-              {/* Cash Option */}
-              {allowCash && (activeCategory === 'All' || searchQuery === '') && (
-                <div>
-                  <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-2 mb-2">
-                    Tunai
+              {isForex ? (
+                /* Forex Preset List */
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 px-2">
+                    <Globe className="w-3.5 h-3.5 text-amber-600" />
+                    <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                      Daftar Rekening {activeCurrency}
+                    </h4>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleSelectCash}
-                    className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-left bg-white ${
-                      value === "Cash (Uang Kertas)" && !isCustom
-                        ? 'border-brand-navy bg-blue-50/30 shadow-xs ring-1 ring-brand-navy'
-                        : 'border-slate-200/80 hover:border-slate-300 hover:bg-slate-50/80 shadow-xs'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 p-1 flex items-center justify-center shrink-0 shadow-2xs">
-                        <img 
-                          src="/CASH.svg" 
-                          alt="Cash" 
-                          className="w-full h-full object-contain"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-800 text-sm">Cash (Uang Kertas)</div>
-                        <div className="text-[11px] text-slate-400 font-medium">Uang tunai / dompet fisik</div>
-                      </div>
-                    </div>
-                    {value === "Cash (Uang Kertas)" && !isCustom && (
-                      <div className="w-6 h-6 rounded-full bg-brand-navy text-brand-gold flex items-center justify-center">
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      </div>
-                    )}
-                  </button>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {filteredForexPresets.map((item) => {
+                      const isSelected = value === item.name && !isCustom;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleSelect(item)}
+                          className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-left bg-white ${
+                            isSelected
+                              ? 'border-brand-navy bg-blue-50/30 shadow-xs ring-1 ring-brand-navy'
+                              : 'border-slate-200/80 hover:border-slate-300 hover:bg-slate-50/80 shadow-xs'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                              <img
+                                src={item.logo}
+                                alt={item.name}
+                                className="w-full h-full object-contain"
+                                loading="lazy"
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-slate-800 text-sm truncate">{item.name}</div>
+                              <div className="text-[10px] text-slate-400 font-semibold">{item.category}</div>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <div className="w-6 h-6 rounded-full bg-brand-navy text-brand-gold flex items-center justify-center shrink-0 ml-2">
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+              ) : (
+                /* IDR Cash Option */
+                allowCash && (activeCategory === 'All' || searchQuery === '') && (
+                  <div>
+                    <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-2 mb-2">
+                      Tunai
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSelectCash}
+                      className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-left bg-white ${
+                        value === "Cash (Uang Kertas)" && !isCustom
+                          ? 'border-brand-navy bg-blue-50/30 shadow-xs ring-1 ring-brand-navy'
+                          : 'border-slate-200/80 hover:border-slate-300 hover:bg-slate-50/80 shadow-xs'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                          <img 
+                            src="/CASH.svg" 
+                            alt="Cash" 
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-800 text-sm">Cash (Uang Kertas)</div>
+                          <div className="text-[11px] text-slate-400 font-medium">Uang tunai / dompet fisik</div>
+                        </div>
+                      </div>
+                      {value === "Cash (Uang Kertas)" && !isCustom && (
+                        <div className="w-6 h-6 rounded-full bg-brand-navy text-brand-gold flex items-center justify-center">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        </div>
+                      )}
+                    </button>
+                  </div>
+                )
               )}
 
               {/* Categorized Items */}

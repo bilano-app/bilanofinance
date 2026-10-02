@@ -17,7 +17,6 @@ import {
     Gift, Clock, ArrowRight, Smartphone, Sparkles
 } from "lucide-react";
 import LegacyMigrationPopup from "@/components/LegacyMigrationPopup";
-import ForexMigrationPopup from "@/components/ForexMigrationPopup";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import SmartScanPopup from "@/components/SmartScanPopup";
 import { getWalletLogo } from "@/lib/wallet-sources";
@@ -764,7 +763,7 @@ export default function Home() {
             )}
 
             {needsForexMigration && (
-                <ForexMigrationPopup 
+                <LegacyMigrationPopup 
                     unallocatedAssets={unallocatedForexAssets} 
                     onComplete={() => setHasCompletedForexMigration(true)} 
                 />
