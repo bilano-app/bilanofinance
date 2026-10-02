@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-finance";
 import WalletSourceSelect from "@/components/WalletSourceSelect";
 import { formatCurrencyInput, formatDecimalInput, parseFormattedNumber, formatRp } from "@/lib/utils";
-import { getForexPresetsForCurrency } from "@/lib/wallet-sources";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface UnallocatedAsset {
@@ -54,35 +53,19 @@ export default function LegacyMigrationPopup({
     ? (activeAsset.remaining ?? activeAsset.amount ?? 0)
     : (totalAmount !== undefined ? totalAmount : (user?.cashBalance || 0));
 
-  const presets = useMemo(() => {
-    return isValas ? getForexPresetsForCurrency(activeCurrency) : [];
-  }, [isValas, activeCurrency]);
+  const [entries, setEntries] = useState<WalletEntry[]>([
+    { id: Date.now().toString(), source: "BCA", isCustomSource: false, balance: "" }
+  ]);
 
-  const [entries, setEntries] = useState<WalletEntry[]>(() => {
-    if (isValas) {
-      const defaultSource = getForexPresetsForCurrency(activeCurrency)[0]?.name || `Wise (${activeCurrency})`;
-      return [{ id: Date.now().toString(), source: defaultSource, isCustomSource: false, balance: "" }];
-    }
-    return [{ id: Date.now().toString(), source: "BCA", isCustomSource: false, balance: "" }];
-  });
-
-  // When step changes (for multi-currency valas), reset entries for that currency
+  // When step changes (for multi-currency valas), reset entries
   useEffect(() => {
-    if (isValas) {
-      const defaultSource = getForexPresetsForCurrency(activeCurrency)[0]?.name || `Wise (${activeCurrency})`;
-      setEntries([{ id: Date.now().toString(), source: defaultSource, isCustomSource: false, balance: "" }]);
-    }
-  }, [stepIndex, activeCurrency, isValas]);
+    setEntries([{ id: Date.now().toString(), source: "BCA", isCustomSource: false, balance: "" }]);
+  }, [stepIndex, activeCurrency]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddEntry = () => {
-    if (isValas) {
-      const defaultNext = presets[entries.length % (presets.length || 1)]?.name || `Rekening ${activeCurrency} ${entries.length + 1}`;
-      setEntries([...entries, { id: Date.now().toString(), source: defaultNext, isCustomSource: false, balance: "" }]);
-    } else {
-      setEntries([...entries, { id: Date.now().toString(), source: "GoPay", isCustomSource: false, balance: "" }]);
-    }
+    setEntries([...entries, { id: Date.now().toString(), source: "GoPay", isCustomSource: false, balance: "" }]);
   };
 
   const handleRemoveEntry = (id: string) => {
@@ -278,7 +261,7 @@ export default function LegacyMigrationPopup({
                 )}
                 <div className="mb-3 pr-8">
                   <label className="text-xs font-bold text-slate-500 mb-1.5 block">
-                    {isValas ? `Dompet / Rekening ${index + 1} (${activeCurrency})` : `Dompet ${index + 1}`}
+                    Dompet {index + 1}
                   </label>
                   <WalletSourceSelect
                     value={entry.source}
