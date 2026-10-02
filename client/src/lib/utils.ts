@@ -49,24 +49,18 @@ export function parseFormattedNumber(val: string | number | null | undefined): n
       // Multiple commas -> thousands separator
       return parseFloat(trimmed.replace(/,/g, '')) || 0;
     }
-    // Single comma -> standard decimal separator
+    // Single comma -> decimal separator (koma)
     return parseFloat(trimmed.replace(/,/g, '.')) || 0;
   }
 
-  // Case 3: Only dot . is present (e.g. "0.5", "12.50", "1.000", "1.000.000")
+  // Case 3: Only dot . is present (e.g. "0.5", "1.000", "12.50", "1.000.000")
   if (trimmed.includes('.')) {
     const dotCount = (trimmed.match(/\./g) || []).length;
     if (dotCount > 1) {
       // Multiple dots -> thousands separator
       return parseFloat(trimmed.replace(/\./g, '')) || 0;
     }
-    // Single dot:
-    // If it looks like Indonesian thousands separator (e.g. 1.000 or 50.000 where after dot is exactly 3 digits and integer part is > 0 and 1-3 digits)
-    const dotParts = trimmed.split('.');
-    if (dotParts[0] !== '0' && dotParts[1] && dotParts[1].length === 3 && dotParts[0].length >= 1 && dotParts[0].length <= 3) {
-      return parseFloat(trimmed.replace(/\./g, '')) || 0;
-    }
-    // Otherwise decimal dot (e.g. "0.5", "10.5", "182.50", "0.005")
+    // Single dot -> decimal separator (koma), e.g. "0.5", "1.000", "180.50"
     return parseFloat(trimmed) || 0;
   }
 

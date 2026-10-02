@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { 
     TrendingUp, PieChart, Layers,
     ArrowLeft, Loader2, RefreshCcw,
     Wallet, Info, AlertCircle,
     Gem, HandCoins, Building2, ShieldCheck, Store, Coins,
-    Calculator, CheckCircle2, ArrowRight
+    Calculator, CheckCircle2, ArrowRight, ExternalLink
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useInvestments, useForexRates } from "@/hooks/use-finance";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
 import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
@@ -61,7 +61,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
                 return {
                     unitLabel: "Jumlah Lembar (Shares)",
                     unitHint: "1 Share = 1 Lembar (Bisa pecahan/desimal)",
-                    unitShort: "Lembar (Shares)",
+                    unitShort: "Shares",
                     priceLabel: `Harga per Share / Lembar (${curr})`,
                     priceShort: "per share",
                     tickerLabel: "Kode Saham US / Global (Ticker)",
@@ -113,7 +113,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
             return {
                 unitLabel: "Jumlah Koin / Token",
                 unitHint: "Bisa pecahan desimal presisi tinggi (cth: 0.05 BTC)",
-                unitShort: "Koin/Token",
+                unitShort: "Koin",
                 priceLabel: `Harga per Koin / Token (${curr})`,
                 priceShort: "per koin",
                 tickerLabel: "Simbol Kripto (Ticker)",
@@ -164,7 +164,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
             return {
                 unitLabel: "Jumlah Unit / Porsi Properti",
                 unitHint: "Unit fisik atau porsi kepemilikan crowdfunding",
-                unitShort: "Unit/Porsi",
+                unitShort: "Porsi",
                 priceLabel: `Nilai Modal per Unit / Porsi (${curr})`,
                 priceShort: "per unit",
                 tickerLabel: "Nama Properti / Lokasi Aset",
@@ -181,7 +181,7 @@ export const getAssetSpec = (category: AssetType, currency: string): AssetSpec =
             return {
                 unitLabel: "Jumlah Slot / Lembar Saham Bisnis",
                 unitHint: "Slot kemitraan, franchise, atau lembar saham UMKM",
-                unitShort: "Slot/Lembar",
+                unitShort: "Slot",
                 priceLabel: `Modal per Slot / Lembar (${curr})`,
                 priceShort: "per slot",
                 tickerLabel: "Nama Usaha / Mitra Bisnis",
@@ -218,9 +218,22 @@ export default function Investment() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
+
   const { data: user, isLoading: isUserLoading } = useUser();
   const { data: investments, isLoading: isInvLoading } = useInvestments();
   const { data: forexRates = {}, refetch: refetchRates } = useForexRates();
+
+  // Query Saldo Valas Fisik
+  const { data: forexAssetsData = [], isLoading: isForexLoading } = useQuery<any[]>({
+      queryKey: ["forexAssets", currentUserEmail],
+      queryFn: async () => {
+          const res = await fetch("/api/forex/assets", { headers: { "x-user-email": currentUserEmail } });
+          if (!res.ok) return [];
+          return res.json();
+      },
+      staleTime: 1000 * 30,
+  });
 
   const [availableCurrencies, setAvailableCurrencies] = useState<string[]>(["IDR", "USD", "EUR", "SGD", "GBP", "JPY", "AUD", "MYR", "USDT"]);
 
@@ -249,8 +262,6 @@ export default function Investment() {
     description: string;
   } | null>(null);
 
-  const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-
   const formatNum = (val: string) => formatDecimalInput(val);
   const parseNum = (val: string) => parseFormattedNumber(val);
 
@@ -260,6 +271,10 @@ export default function Investment() {
   const hasRealWallet = user?.walletSources && Array.isArray(user.walletSources) && user.walletSources.filter((w: any) => (Number(w.balance) || 0) > 0).length > 0;
   const fcf = hasRealWallet ? wsSum : (user?.cashBalance || 0);
   const portfolioRaw = investments || [];
+
+  // Saldo valas yang cocok dengan inputCurrency
+  const availableForex = (forexAssetsData || []).find((f: any) => f.currency?.toUpperCase() === inputCurrency.toUpperCase())?.amount || 0;
+  const availableSourceBalance = inputCurrency === 'IDR' ? fcf : availableForex;
 
   const assetConfig: Record<AssetType, { label: string; icon: any; bg: string; iconColor: string; description: string }> = {
       saham: {
@@ -392,20 +407,33 @@ export default function Investment() {
       if (!activeCategory) return;
       const qty = parseNum(inputQty);
       const prc = parseNum(inputPrice);
+      const totalCostNative = calculateTotalCost();
       const totalIDR = calculateTotalCostInIDR();
 
-      if (txType === 'BUY' && totalIDR > fcf) {
-          toast({
-              title: "Saldo Kas Tidak Cukup",
-              description: `Total pembelian (${formatRp(totalIDR)}) melebihi Saldo Kas FCF Anda (${formatRp(fcf)}).`,
-              variant: "destructive"
-          });
-          return;
+      // Validasi Saldo Sesuai Mata Uang
+      if (txType === 'BUY') {
+          if (inputCurrency === 'IDR' && totalCostNative > fcf) {
+              toast({
+                  title: "Saldo Kas IDR Tidak Cukup",
+                  description: `Total pembelian (${formatRp(totalCostNative)}) melebihi Saldo Kas FCF Anda (${formatRp(fcf)}).`,
+                  variant: "destructive"
+              });
+              return;
+          }
+          if (inputCurrency !== 'IDR' && totalCostNative > availableForex) {
+              toast({
+                  title: `Saldo Valas ${inputCurrency} Tidak Cukup`,
+                  description: `Total pembelian (${inputCurrency} ${totalCostNative.toLocaleString('en-US')}) melebihi Saldo Valas ${inputCurrency} Anda (${inputCurrency} ${availableForex.toLocaleString('en-US')}). Silakan top up di menu Valas.`,
+                  variant: "destructive"
+              });
+              return;
+          }
       }
 
       setIsSubmitting(true);
       try {
           const finalSymbol = inputCurrency !== 'IDR' ? `${inputName.trim().toUpperCase()}|${inputCurrency}` : inputName.trim().toUpperCase();
+          const finalSource = inputCurrency !== 'IDR' ? `Dompet Valas ${inputCurrency}` : (targetSource || "Kas Utama");
 
           const res = await fetch(txType === 'BUY' ? "/api/investments/buy" : "/api/investments/sell", {
               method: "POST",
@@ -419,7 +447,7 @@ export default function Investment() {
                   type: activeCategory,
                   quantity: qty,
                   price: prc,
-                  source: targetSource || "Kas Utama",
+                  source: finalSource,
                   currency: inputCurrency
               })
           });
@@ -438,7 +466,7 @@ export default function Investment() {
 
           toast({
               title: txType === 'BUY' ? "Pembelian Sukses! 📈" : "Penjualan Sukses! 💰",
-              description: `Transaksi ${assetConfig[activeCategory].label} berhasil tercatat dan kas diperbarui.`
+              description: `Transaksi ${assetConfig[activeCategory].label} berhasil tercatat dan saldo ${inputCurrency} diperbarui.`
           });
 
           setInputName("");
@@ -451,6 +479,7 @@ export default function Investment() {
           Promise.all([
               queryClient.invalidateQueries({ queryKey: ["investments"] }),
               queryClient.invalidateQueries({ queryKey: ["user"] }),
+              queryClient.invalidateQueries({ queryKey: ["forexAssets"] }),
               queryClient.invalidateQueries({ queryKey: ["transactions"] })
           ]).catch(() => {});
       } catch (e: any) {
@@ -478,30 +507,40 @@ export default function Investment() {
           return;
       }
 
-      if (txType === 'SELL') {
-          setSourcePopupConfig({
-              type: 'income',
-              title: 'Tujuan Masuk Saldo Penjualan',
-              description: 'Pilih akun atau dompet yang menerima dana hasil penjualan aset ini:'
-          });
+      // Jika mata uang transaksi IDR, tampilkan pilihan rekening/dompet IDR
+      if (inputCurrency === 'IDR') {
+          if (txType === 'SELL') {
+              setSourcePopupConfig({
+                  type: 'income',
+                  title: 'Tujuan Masuk Saldo Penjualan',
+                  description: 'Pilih akun atau dompet yang menerima dana hasil penjualan aset ini:'
+              });
+          } else {
+              setSourcePopupConfig({
+                  type: 'expense',
+                  title: 'Pilih Sumber Dana Pembelian',
+                  description: 'Dana pembelian aset investasi diambil dari rekening atau dompet mana?'
+              });
+          }
+          setShowSourcePopup(true);
       } else {
-          setSourcePopupConfig({
-              type: 'expense',
-              title: 'Pilih Sumber Dana Pembelian',
-              description: 'Dana pembelian aset investasi diambil dari rekening atau dompet mana?'
-          });
+          // Jika transaksi Valas (USD, dll.), langsung potong / masukkan dari Saldo Valas terkait
+          executeTransaction(`Dompet Valas ${inputCurrency}`);
       }
-      setShowSourcePopup(true);
   };
 
   const renderDynamicForm = () => {
       if (!activeCategory || !currentSpec) return null;
+      const totalCostNative = calculateTotalCost();
       const totalIDR = calculateTotalCostInIDR();
-      const isInsufficient = txType === 'BUY' && totalIDR > fcf;
       const qtyNum = parseNum(inputQty);
       const prcNum = parseNum(inputPrice);
       const rate = getConversionRate(inputCurrency);
       const formulaResult = currentSpec.formatFormula(qtyNum, prcNum, inputCurrency, rate);
+
+      const isInsufficient = txType === 'BUY' && (
+          inputCurrency === 'IDR' ? totalCostNative > fcf : totalCostNative > availableForex
+      );
 
       return (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -537,7 +576,7 @@ export default function Investment() {
                           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
                               {currentSpec.tickerLabel}
                           </label>
-                          <span className="text-[10px] font-bold text-sky-600">
+                          <span className="text-[10px] font-bold text-sky-700">
                               Mata Uang Transaksi
                           </span>
                       </div>
@@ -584,7 +623,7 @@ export default function Investment() {
                               const itemSpec = getAssetSpec(activeCategory, itemCurr);
                               return (
                                   <option key={item.symbol} value={item.symbol}>
-                                      {item.symbol} (Sisa: {item.quantity.toLocaleString('id-ID')} {itemSpec.unitShort})
+                                      {item.symbol} (Sisa: {item.quantity.toLocaleString(itemCurr === 'IDR' ? 'id-ID' : 'en-US')} {itemSpec.unitShort})
                                   </option>
                               );
                           })}
@@ -628,11 +667,22 @@ export default function Investment() {
                   </div>
               </div>
 
+              {/* INFO SALDO SUMBER DANA SPESIFIK MATA UANG */}
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-100/90 border border-slate-200 text-xs">
+                  <span className="font-bold text-slate-600 flex items-center gap-1.5">
+                      <Wallet className="w-4 h-4 text-sky-600" />
+                      Sumber Dana ({inputCurrency === 'IDR' ? 'Kas Rupiah / FCF' : `Saldo Valas ${inputCurrency}`}):
+                  </span>
+                  <span className={`font-black tabular-nums ${availableSourceBalance > 0 ? 'text-slate-900' : 'text-rose-600'}`}>
+                      {inputCurrency === 'IDR' ? formatRp(fcf) : `${inputCurrency} ${availableForex.toLocaleString('en-US')}`}
+                  </span>
+              </div>
+
               {/* LIVE CALCULATION & BREAKDOWN CARD */}
               <div className="bg-gradient-to-br from-sky-50/90 via-sky-50/50 to-blue-50/60 border border-sky-200/90 rounded-2xl p-4 text-center space-y-1.5 relative overflow-hidden">
                   <div className="flex items-center justify-center gap-1 text-[10px] font-bold text-sky-900 uppercase tracking-widest">
                       <Calculator className="w-3.5 h-3.5 text-sky-600" />
-                      <span>Kalkulasi Nilai Transaksi Sesuai Satuan</span>
+                      <span>Kalkulasi Nilai Transaksi ({inputCurrency})</span>
                   </div>
 
                   {qtyNum > 0 && prcNum > 0 ? (
@@ -654,18 +704,40 @@ export default function Investment() {
 
                   <div className="pt-1">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Total Nilai Bersih (Rupiah)
+                          Total Nilai Transaksi ({inputCurrency})
                       </p>
                       <p className="text-2xl font-black text-brand-navy tabular-nums">
-                          {formatRp(totalIDR)}
+                          {inputCurrency === 'IDR' ? formatRp(totalCostNative) : `${inputCurrency} ${totalCostNative.toLocaleString('en-US')}`}
                       </p>
+                      {inputCurrency !== 'IDR' && (
+                          <p className="text-[11px] font-bold text-sky-700 mt-0.5 tabular-nums">
+                              (Setara {formatRp(totalIDR)})
+                          </p>
+                      )}
                   </div>
               </div>
 
+              {/* ALERT JIKA SALDO VALAS / KAS KURANG */}
               {isInsufficient && (
-                  <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-2xl flex items-center gap-2 font-medium">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>Saldo kas Anda ({formatRp(fcf)}) tidak cukup untuk transaksi ini.</span>
+                  <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-2xl flex flex-col gap-2 font-medium">
+                      <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                          <span>
+                              {inputCurrency === 'IDR' 
+                                  ? `Saldo Kas Rupiah Anda (${formatRp(fcf)}) tidak cukup untuk pembelian ini.`
+                                  : `Saldo Valas ${inputCurrency} Anda (${inputCurrency} ${availableForex.toLocaleString('en-US')}) tidak cukup (Dibutuhkan: ${inputCurrency} ${totalCostNative.toLocaleString('en-US')}). Sumber dana dipotong langsung dari saldo ${inputCurrency}.`
+                              }
+                          </span>
+                      </div>
+                      {inputCurrency !== 'IDR' && (
+                          <Link 
+                              href="/forex" 
+                              className="self-start inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all shadow-xs cursor-pointer"
+                          >
+                              <span>Buka Menu Valas & Top Up {inputCurrency}</span>
+                              <ArrowRight className="w-3 h-3" />
+                          </Link>
+                      )}
                   </div>
               )}
 
@@ -684,14 +756,14 @@ export default function Investment() {
                           <span>MEMPROSES...</span>
                       </>
                   ) : (
-                      <span>{txType === 'BUY' ? "KONFIRMASI BELI / TOP UP" : "KONFIRMASI JUAL / CAIRKAN"}</span>
+                      <span>{txType === 'BUY' ? `KONFIRMASI BELI (${inputCurrency})` : `KONFIRMASI JUAL (${inputCurrency})`}</span>
                   )}
               </button>
           </form>
       );
   };
 
-  if (isUserLoading || isInvLoading) {
+  if (isUserLoading || isInvLoading || isForexLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
               <img src="/BILANO-ICON-NEW.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
@@ -784,7 +856,7 @@ export default function Investment() {
 
                     <div className="flex items-center justify-between pt-2.5 border-t border-white/15 text-[11px] font-bold">
                         <span className="flex items-center gap-1.5 text-sky-100">
-                            <Wallet className="w-3.5 h-3.5 text-sky-300" /> Dana Kas Tersedia (FCF):
+                            <Wallet className="w-3.5 h-3.5 text-sky-300" /> Saldo Kas Rupiah (FCF):
                         </span>
                         <span className="bg-sky-400/20 border border-sky-300/40 text-sky-100 px-2.5 py-0.5 rounded-lg font-black tabular-nums">
                             {formatRp(fcf)}
@@ -940,7 +1012,7 @@ export default function Investment() {
         </div>
       </div>
 
-      {/* POPUP SUMBER DANA KETIKA MEMBELI / MENJUAL ASET */}
+      {/* POPUP SUMBER DANA KETIKA MEMBELI / MENJUAL ASET KHUSUS RUPIAH (IDR) */}
       {showSourcePopup && sourcePopupConfig && (
           <SourceSelectionPopup
               type={sourcePopupConfig.type}

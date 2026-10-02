@@ -2868,20 +2868,20 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 16000);
           const totalIDR = Math.round(totalInCurrency * rate);
 
-          const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
-          const sourceName = req.body.source || "Kas Utama";
-
-          // Cek apakah sumber dana adalah dompet valas yang cocok
-          const existingForex = curr !== 'IDR' ? await storage.getForexByCurrency(user!.id, curr) : null;
-          const isExplicitForexSource = existingForex && (sourceName.toLowerCase().includes(curr.toLowerCase()) || sourceName.toLowerCase().includes('valas'));
-
-          if (isExplicitForexSource) {
-              if (existingForex.amount < totalInCurrency) {
-                  return res.status(400).json({ message: `Saldo Valas ${curr} tidak cukup (Butuh ${totalInCurrency.toLocaleString('en-US')} ${curr}).` });
+          if (curr !== 'IDR') {
+              // Transaksi Valas (USD, EUR, dll.): Sumber dana WAJIB dari saldo valas mata uang terkait
+              const existingForex = await storage.getForexByCurrency(user!.id, curr);
+              const availableForex = existingForex ? Number(existingForex.amount || 0) : 0;
+              if (availableForex < totalInCurrency) {
+                  return res.status(400).json({ 
+                      message: `Saldo Valas ${curr} tidak cukup. Tersedia: ${availableForex.toLocaleString('en-US')} ${curr}, Dibutuhkan: ${totalInCurrency.toLocaleString('en-US')} ${curr}. Silakan top up di menu Valas & Forex.` 
+                  });
               }
-              await storage.updateForexAsset(existingForex.id, existingForex.amount - totalInCurrency);
+              await storage.updateForexAsset(existingForex!.id, availableForex - totalInCurrency);
           } else {
-              // Pembayaran dari Kas IDR / Rekening Rupiah (Auto-konversi kurs jika valas)
+              // Transaksi Rupiah: Potong dari Saldo Kas Rupiah & Dompet RDN/Bank
+              const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
+              const sourceName = req.body.source || "Kas Utama";
               const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
               if (wsIdx >= 0 && walletSources[wsIdx].balance < totalIDR) {
                   return res.status(400).json({ message: `Saldo ${sourceName} tidak cukup (Butuh Rp ${totalIDR.toLocaleString('id-ID')}).` });
@@ -2907,18 +2907,19 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           else if (typeLower === 'p2p') unitLabel = "Paket";
           else if (typeLower === 'properti' || typeLower === 'bisnis') unitLabel = "Porsi";
 
+          const txSource = curr !== 'IDR' ? `Dompet Valas ${curr}` : (req.body.source || "Kas Utama");
           const txDesc = curr === 'IDR'
               ? `${quantity} ${unitLabel} ${sym} @ Rp ${price.toLocaleString('id-ID')}`
-              : `${quantity} ${unitLabel} ${sym} @ ${curr} ${price.toLocaleString('en-US')} (Eqv: Rp ${totalIDR.toLocaleString('id-ID')})`;
+              : `${quantity} ${unitLabel} ${sym} @ ${curr} ${price.toLocaleString('en-US')} (Dipotong dari Saldo ${curr})`;
 
           await storage.createTransaction(user!.id, {
               userId: user!.id, 
               type: 'invest_buy', 
               amount: totalIDR, 
-              category: 'Beli Aset', 
+              category: curr !== 'IDR' ? 'Beli Aset Valas' : 'Beli Aset', 
               description: txDesc, 
               date: new Date(),
-              source: sourceName
+              source: txSource
           } as any); 
           
           const finalSymbol = (curr !== 'IDR' && !symbol.includes('|')) ? `${sym.toUpperCase()}|${curr}` : symbol.toUpperCase();
@@ -2985,18 +2986,17 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const plIDR = Math.round(plCurrency * rate);
           const profitLossText = ` (P/L: ${plIDR >= 0 ? '+' : ''}Rp ${plIDR.toLocaleString('id-ID')})`;
 
-          const sourceName = req.body.source || "Kas Utama";
-          const isExplicitForexTarget = curr !== 'IDR' && (sourceName.toLowerCase().includes(curr.toLowerCase()) || sourceName.toLowerCase().includes('valas'));
-
-          if (isExplicitForexTarget) {
+          if (curr !== 'IDR') {
+              // Hasil Penjualan Valas: WAJIB Masuk ke Saldo Valas Terkait
               const existingForex = await storage.getForexByCurrency(user!.id, curr);
               if (existingForex) {
-                  await storage.updateForexAsset(existingForex.id, existingForex.amount + totalSellPriceInCurrency);
+                  await storage.updateForexAsset(existingForex.id, Number(existingForex.amount || 0) + totalSellPriceInCurrency);
               } else {
                   await storage.createForexAsset(user!.id, { currency: curr, amount: totalSellPriceInCurrency } as any);
               }
           } else {
-              // Masuk ke Saldo Rupiah / Rekening Dompet Pilihan
+              // Hasil Penjualan Rupiah: Masuk ke Saldo Kas / Rekening Dompet Pilihan
+              const sourceName = req.body.source || "Kas Utama";
               const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
               if (sourceName) {
                   const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
@@ -3017,18 +3017,19 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           else if (typeLower === 'p2p') unitLabel = "Paket";
           else if (typeLower === 'properti' || typeLower === 'bisnis') unitLabel = "Porsi";
 
+          const txSource = curr !== 'IDR' ? `Dompet Valas ${curr}` : (req.body.source || "Kas Utama");
           const txDesc = curr === 'IDR'
               ? `${quantity} ${unitLabel} ${sym} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`
-              : `${quantity} ${unitLabel} ${sym} @ ${curr} ${price.toLocaleString('en-US')}${profitLossText} (Eqv: Rp ${totalSellPriceIDR.toLocaleString('id-ID')})`;
+              : `${quantity} ${unitLabel} ${sym} @ ${curr} ${price.toLocaleString('en-US')}${profitLossText} (Masuk ke Saldo ${curr})`;
 
           await storage.createTransaction(user!.id, {
               userId: user!.id, 
               type: 'invest_sell', 
               amount: totalSellPriceIDR, 
-              category: 'Jual Aset', 
+              category: curr !== 'IDR' ? 'Jual Aset Valas' : 'Jual Aset', 
               description: txDesc, 
               date: new Date(),
-              source: sourceName
+              source: txSource
           } as any); 
           
           res.json({ success: true }); 
