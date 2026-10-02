@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Link } from "wouter";
 import { MobileLayout } from "@/components/Layout";
 import { Button, Input } from "@/components/UIComponents";
@@ -7,14 +7,15 @@ import {
     Wallet, Plus, Trash2, ArrowLeft, X, ChevronDown, 
     Search, Activity, FileText, ArrowDownCircle, ArrowUpCircle, 
     StickyNote, Loader2, HandCoins, Check, DollarSign, ChevronRight,
-    Pencil, Eye, EyeOff
+    Pencil, Eye, EyeOff, Layers, Building2, Sparkles
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useTransactions, getAccessTier } from "@/hooks/use-finance";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
+import ForexMigrationPopup from "@/components/ForexMigrationPopup";
 import { trackEvent } from "@/lib/tracking";
-import { getWalletLogo } from "@/lib/wallet-sources";
+import { getWalletLogo, getForexPresetsForCurrency } from "@/lib/wallet-sources";
 import { formatCurrency, formatRp, parseFormattedNumber, formatDecimalInput, formatCurrencyInput } from "@/lib/utils";
 
 import TrialFeatureNotice from "@/components/TrialFeatureNotice";
@@ -76,10 +77,11 @@ export default function Forex() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Modal State untuk Pilihan Sumber Dana
   const [showSourcePopup, setShowSourcePopup] = useState(false);
-  const [pendingForexSubmit, setPendingForexSubmit] = useState<{ action: 'exchange' | 'mutation' } | null>(null);
   const [sourcePopupConfig, setSourcePopupConfig] = useState<{
     type: 'income' | 'expense';
+    currency: string;
     title: string;
     description: string;
     onSelect: (src: string) => void;
@@ -90,9 +92,48 @@ export default function Forex() {
   const [editForexAmount, setEditForexAmount] = useState("");
   const [isSavingForex, setIsSavingForex] = useState(false);
 
+  // State untuk Tambah Rekening / Kantong Valas Baru per Mata Uang
+  const [addingPocketCurr, setAddingPocketCurr] = useState<string | null>(null);
+  const [newPocketName, setNewPocketName] = useState("");
+  const [newPocketBalance, setNewPocketBalance] = useState("");
+  const [isSavingPocket, setIsSavingPocket] = useState(false);
+
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   const accessTier = getAccessTier(user);
   const isPro = accessTier !== "free";
+
+  const [hasCompletedForexMigration, setHasCompletedForexMigration] = useState(false);
+  const isAlreadyForexMigrated = hasCompletedForexMigration || (typeof window !== 'undefined' && localStorage.getItem("bilano_forex_migration_completed") === "true");
+
+  const unallocatedForexAssets = useMemo(() => {
+      if (!assets || assets.length === 0) return [];
+      const allWS = ((user?.walletSources as any[]) || []);
+      
+      return assets
+          .map((asset: ForexAsset) => {
+              const curr = (asset.currency || '').toUpperCase();
+              const totalAmt = Number(asset.amount || 0);
+              if (totalAmt <= 0) return null;
+
+              const allocated = allWS
+                  .filter((w: any) => (w.currency || '').toUpperCase() === curr)
+                  .reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+              
+              const remaining = totalAmt - allocated;
+              if (allocated < totalAmt && remaining > 0.0001) {
+                  return {
+                      currency: curr,
+                      amount: totalAmt,
+                      allocated,
+                      remaining
+                  };
+              }
+              return null;
+          })
+          .filter(Boolean) as { currency: string; amount: number; allocated: number; remaining: number }[];
+  }, [assets, user?.walletSources]);
+
+  const needsForexMigration = unallocatedForexAssets.length > 0 && !isAlreadyForexMigrated;
 
   useEffect(() => {
     setIsPrivacyMode(localStorage.getItem("bilano_privacy") === "true");
@@ -114,6 +155,7 @@ export default function Forex() {
     setIsSavingForex(true);
     try {
         const newBal = parseFormattedNumber(editForexAmount);
+        const curr = editingForexAsset.currency.toUpperCase();
         const res = await fetch("/api/forex/set-balance", {
             method: "POST",
             headers: {
@@ -121,16 +163,15 @@ export default function Forex() {
                 "x-user-email": currentUserEmail
             },
             body: JSON.stringify({
-                currency: editingForexAsset.currency,
+                currency: curr,
                 amount: newBal
             })
         });
 
         if (res.ok) {
-            const curr = editingForexAsset.currency;
             toast({ 
-                title: "Saldo Valas Diperbarui! 🌍", 
-                description: `Saldo ${curr} berhasil diubah ke ${newBal.toLocaleString()} ${curr}.` 
+                title: `Saldo ${curr} Diperbarui! 🌍`, 
+                description: `Saldo total ${curr} berhasil diubah ke ${newBal.toLocaleString('en-US')} ${curr}.` 
             });
             setEditingForexAsset(null);
             setIsSavingForex(false);
@@ -145,6 +186,7 @@ export default function Forex() {
                 }
             });
             fetchData().catch(() => {});
+            refetchUser().catch(() => {});
         } else {
             toast({ title: "Gagal Update", description: "Terjadi kesalahan saat menyimpan saldo valas.", variant: "destructive" });
             setIsSavingForex(false);
@@ -152,6 +194,95 @@ export default function Forex() {
     } catch (e) {
         toast({ title: "Gagal Update", description: "Terjadi kesalahan jaringan.", variant: "destructive" });
         setIsSavingForex(false);
+    }
+  };
+
+  const handleAddPocket = async (curr: string) => {
+    if (!newPocketName.trim()) {
+        toast({ title: "Nama Rekening Kosong", description: "Pilih atau ketik nama rekening valas.", variant: "destructive" });
+        return;
+    }
+    setIsSavingPocket(true);
+    try {
+        const initBal = parseFormattedNumber(newPocketBalance) || 0;
+        const allWS = ((user?.walletSources as any[]) || []);
+        const targetCurr = curr.toUpperCase();
+
+        const updatedWS = [
+            ...allWS,
+            {
+                id: Date.now().toString(),
+                name: newPocketName.trim(),
+                currency: targetCurr,
+                balance: initBal,
+                type: 'valas'
+            }
+        ];
+
+        // Hitung total saldo untuk mata uang ini
+        const totalCurr = updatedWS
+            .filter((w: any) => (w.currency || '').toUpperCase() === targetCurr)
+            .reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+
+        const res = await fetch("/api/user/wallet-sources", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+            body: JSON.stringify({ walletSources: updatedWS })
+        });
+
+        if (res.ok) {
+            // Update total aset valas di tabel forex_assets
+            await fetch("/api/forex/set-balance", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+                body: JSON.stringify({ currency: targetCurr, amount: totalCurr })
+            });
+
+            toast({
+                title: `Rekening ${targetCurr} Berhasil Ditambahkan! ✨`,
+                description: `${newPocketName.trim()} siap digunakan dengan saldo awal ${initBal.toLocaleString('en-US')} ${targetCurr}.`
+            });
+
+            setAddingPocketCurr(null);
+            setNewPocketName("");
+            setNewPocketBalance("");
+            Promise.all([fetchData(), refetchUser()]).catch(() => {});
+        } else {
+            toast({ title: "Gagal Menyimpan", description: "Terjadi kesalahan server.", variant: "destructive" });
+        }
+    } catch (e: any) {
+        toast({ title: "Gagal Menyimpan", description: e.message, variant: "destructive" });
+    } finally {
+        setIsSavingPocket(false);
+    }
+  };
+
+  const handleDeletePocket = async (pocketId: string, curr: string) => {
+    try {
+        const allWS = ((user?.walletSources as any[]) || []);
+        const targetCurr = curr.toUpperCase();
+        const updatedWS = allWS.filter((w: any) => w.id !== pocketId);
+
+        const totalCurr = updatedWS
+            .filter((w: any) => (w.currency || '').toUpperCase() === targetCurr)
+            .reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+
+        await fetch("/api/user/wallet-sources", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+            body: JSON.stringify({ walletSources: updatedWS })
+        });
+
+        await fetch("/api/forex/set-balance", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-user-email": currentUserEmail },
+            body: JSON.stringify({ currency: targetCurr, amount: totalCurr })
+        });
+
+        toast({ title: "Rekening Dihapus", description: `Rekening ${targetCurr} telah dihapus.` });
+        Promise.all([fetchData(), refetchUser()]).catch(() => {});
+    } catch (e: any) {
+        toast({ title: "Gagal Menghapus", description: e.message, variant: "destructive" });
     }
   };
 
@@ -183,21 +314,21 @@ export default function Forex() {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const getSafeRate = (code: string) => {
+    return rates[code] || 15000;
+  };
 
-  const getSafeRate = (code: string) => rates[code] || 1;
+  const parseValas = (val: string) => {
+    return parseFormattedNumber(val);
+  };
 
-  const formatIdr = (val: string) => formatCurrencyInput(val);
-  const parseIdr = (val: string) => parseFormattedNumber(val);
-  const parseValas = (val: string) => parseFormattedNumber(val);
+  const parseIdr = (val: string) => {
+    return parseFormattedNumber(val);
+  };
+
+  const formatIdr = (val: string) => {
+    return formatCurrencyInput(val);
+  };
 
   const filteredCurrencies = CURRENCY_LIST.filter(c => 
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -212,41 +343,43 @@ export default function Forex() {
     }, 0);
   };
 
-  const handleMutation = () => {
+  const displayTotalValas = isPrivacyMode ? "Rp •••••••" : formatRp(calculateTotalValasIDR());
+
+  const handleMutation = async () => {
     const num = parseValas(amountMutation);
     if (!num || num <= 0) {
-        toast({ title: "Nominal Belum Diisi", description: "Masukkan nominal valas yang valid.", variant: "destructive" });
+        toast({ title: "Nominal Belum Diisi", description: "Masukkan nominal transaksi valas yang valid.", variant: "destructive" });
         return;
     }
-
     if (paymentMode === 'debt' && !debtName.trim()) {
-        toast({ title: "Nama Pihak Belum Diisi", description: "Harap isi nama pihak terkait hutang/piutang ini.", variant: "destructive" });
+        toast({ title: "Nama Pihak Belum Diisi", description: "Harap isi nama pihak terkait hutang/piutang.", variant: "destructive" });
         return;
     }
 
-    // Untuk mode debt tidak perlu pilih sumber, langsung eksekusi
-    if (paymentMode === 'debt') {
-        executeMutation("");
-        return;
-    }
-
-    // Tampilkan popup pilih sumber uang
+    // Tampilkan popup pilih rekening valas yang terisolasi khusus untuk mata uang ini
     if (mutationMode === 'in') {
         setSourcePopupConfig({
             type: 'income',
-            title: 'Pilih Dompet Penerima Valas',
+            currency: selectedCurr.code,
+            title: `Pilih Rekening Penerima ${selectedCurr.code}`,
             description: `Valas ${selectedCurr.code} masuk ke rekening atau dompet mana?`,
-            onSelect: (src) => { setShowSourcePopup(false); executeMutation(src); }
+            onSelect: (src) => { 
+                setShowSourcePopup(false); 
+                executeMutation(src); 
+            }
         });
     } else {
         setSourcePopupConfig({
             type: 'expense',
-            title: 'Pilih Sumber Dana Valas Keluar',
-            description: `Valas ${selectedCurr.code} keluar dari rekening atau dompet mana?`,
-            onSelect: (src) => { setShowSourcePopup(false); executeMutation(src); }
+            currency: selectedCurr.code,
+            title: `Pilih Rekening Asal ${selectedCurr.code}`,
+            description: `Valas ${selectedCurr.code} ditarik dari rekening atau dompet mana?`,
+            onSelect: (src) => { 
+                setShowSourcePopup(false); 
+                executeMutation(src); 
+            }
         });
     }
-    setPendingForexSubmit({ action: 'mutation' });
     setShowSourcePopup(true);
   };
 
@@ -279,7 +412,6 @@ export default function Forex() {
 
         const data = await res.json().catch(() => null);
 
-        // Optimistically update assets list immediately
         if (data && typeof data.newBalance === 'number') {
             setAssets(prev => {
                 const idx = prev.findIndex(a => a.currency === selectedCurr.code);
@@ -302,7 +434,7 @@ export default function Forex() {
 
         toast({
             title: "Mutasi Valas Berhasil! 🌍",
-            description: `Saldo ${selectedCurr.code} berhasil diperbarui.`
+            description: `Saldo ${selectedCurr.code} berhasil diperbarui di ${selectedSource}.`
         });
 
         setAmountMutation("");
@@ -311,7 +443,6 @@ export default function Forex() {
         setDueDate("");
         setIsSubmitting(false);
 
-        // Refresh data in background without blocking UI
         Promise.all([fetchData(), refetchUser()]).catch(() => {});
     } catch (e: any) {
         toast({ title: "Gagal Mencatat", description: e.message, variant: "destructive" });
@@ -330,51 +461,97 @@ export default function Forex() {
     }
 
     if (exchangeMode === 'buy') {
-        const wsSum = (user?.walletSources && Array.isArray(user.walletSources))
-            ? (user.walletSources as any[]).filter((w: any) => (Number(w.balance) || 0) > 0).reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0)
-            : 0;
-        const hasRealWallet = user?.walletSources && Array.isArray(user.walletSources) && user.walletSources.filter((w: any) => (Number(w.balance) || 0) > 0).length > 0;
+        const idrWallets = ((user?.walletSources as any[]) || []).filter((w: any) => (w.currency || 'IDR').toUpperCase() === 'IDR');
+        const wsSum = idrWallets.filter((w: any) => (Number(w.balance) || 0) > 0).reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+        const hasRealWallet = idrWallets.filter((w: any) => (Number(w.balance) || 0) > 0).length > 0;
         const cashBalance = hasRealWallet ? wsSum : (user?.cashBalance || 0);
+
         if (totalIDR > cashBalance) {
             toast({
-                title: "Saldo Kas Tidak Cukup",
-                description: `Pembelian membutuhkan ${formatRp(totalIDR)}, saldo kas Anda ${formatRp(cashBalance)}.`,
+                title: "Saldo Kas Rupiah Tidak Cukup",
+                description: `Pembelian membutuhkan ${formatRp(totalIDR)}, total saldo kas rupiah Anda ${formatRp(cashBalance)}.`,
                 variant: "destructive"
             });
             return;
         }
-        // Tampilkan popup untuk memilih sumber dana pembelian valas
+
+        // STEP 1: Pilih Sumber Dana Rupiah (Asal)
         setSourcePopupConfig({
             type: 'expense',
-            title: 'Pilih Sumber Dana Pembelian',
-            description: `Dana pembelian ${selectedCurr.code} diambil dari rekening atau dompet mana?`,
-            onSelect: (src) => { setShowSourcePopup(false); executeExchangeDirect(src); }
+            currency: 'IDR',
+            title: '1/2. Pilih Sumber Dana Rupiah (Asal)',
+            description: `Dana pembelian ${selectedCurr.code} senilai ${formatRp(totalIDR)} ditarik dari rekening rupiah mana?`,
+            onSelect: (selectedIDRSrc) => {
+                setShowSourcePopup(false);
+                // STEP 2: Pilih Rekening Valas Penerima (Tujuan)
+                setTimeout(() => {
+                    setSourcePopupConfig({
+                        type: 'income',
+                        currency: selectedCurr.code,
+                        title: `2/2. Pilih Rekening Penerima ${selectedCurr.code} (Tujuan)`,
+                        description: `Saldo ${amountVal.toLocaleString('en-US')} ${selectedCurr.code} akan dimasukkan ke rekening mana?`,
+                        onSelect: (selectedValasDst) => {
+                            setShowSourcePopup(false);
+                            executeExchangeDirect({
+                                sourceIDR: selectedIDRSrc,
+                                targetValasSource: selectedValasDst
+                            });
+                        }
+                    });
+                    setShowSourcePopup(true);
+                }, 250);
+            }
         });
-        setPendingForexSubmit({ action: 'exchange' });
         setShowSourcePopup(true);
     } else {
         const existingAsset = assets.find(a => a.currency === selectedCurr.code);
         const currentValasBal = existingAsset ? existingAsset.amount : 0;
         if (amountVal > currentValasBal) {
             toast({
-                title: "Saldo Valas Tidak Cukup",
-                description: `Anda hanya memiliki ${currentValasBal.toLocaleString()} ${selectedCurr.code}.`,
+                title: `Saldo Valas ${selectedCurr.code} Tidak Cukup`,
+                description: `Anda hanya memiliki ${currentValasBal.toLocaleString('en-US')} ${selectedCurr.code}.`,
                 variant: "destructive"
             });
             return;
         }
+
+        // STEP 1: Pilih Sumber Valas yang Dijual (Asal)
         setSourcePopupConfig({
-            type: 'income',
-            title: 'Tujuan Masuk Saldo Penjualan',
-            description: `Pilih akun atau dompet yang menerima dana hasil penukaran valas ini:`,
-            onSelect: (src) => { setShowSourcePopup(false); executeExchangeDirect(src); }
+            type: 'expense',
+            currency: selectedCurr.code,
+            title: `1/2. Sumber ${selectedCurr.code} yang Dijual (Asal)`,
+            description: `Saldo ${amountVal.toLocaleString('en-US')} ${selectedCurr.code} yang akan dicairkan ditarik dari rekening mana?`,
+            onSelect: (selectedValasSrc) => {
+                setShowSourcePopup(false);
+                // STEP 2: Pilih Rekening Rupiah Penerima (Tujuan)
+                setTimeout(() => {
+                    setSourcePopupConfig({
+                        type: 'income',
+                        currency: 'IDR',
+                        title: '2/2. Pilih Rekening Penerima Rupiah (Tujuan)',
+                        description: `Dana pencairan ${formatRp(totalIDR)} akan dimasukkan ke rekening rupiah mana?`,
+                        onSelect: (selectedIDRDst) => {
+                            setShowSourcePopup(false);
+                            executeExchangeDirect({
+                                sourceValasSource: selectedValasSrc,
+                                targetIDRSource: selectedIDRDst
+                            });
+                        }
+                    });
+                    setShowSourcePopup(true);
+                }, 250);
+            }
         });
-        setPendingForexSubmit({ action: 'exchange' });
         setShowSourcePopup(true);
     }
   };
 
-  const executeExchangeDirect = async (targetSource?: string) => {
+  const executeExchangeDirect = async (options: {
+      sourceIDR?: string;
+      targetValasSource?: string;
+      sourceValasSource?: string;
+      targetIDRSource?: string;
+  }) => {
     const amountVal = parseValas(amountExchange);
     const rateVal = parseIdr(rateExchange) || getSafeRate(selectedCurr.code);
     const totalIDR = amountVal * rateVal;
@@ -390,7 +567,11 @@ export default function Forex() {
                 amount: amountVal,
                 rate: rateVal,
                 totalIDR: totalIDR,
-                source: targetSource || "Kas Utama"
+                sourceIDR: options.sourceIDR,
+                targetValasSource: options.targetValasSource,
+                sourceValasSource: options.sourceValasSource,
+                targetIDRSource: options.targetIDRSource,
+                source: options.sourceIDR || options.targetIDRSource || "Kas Utama"
             })
         });
 
@@ -401,7 +582,6 @@ export default function Forex() {
 
         const data = await res.json().catch(() => null);
 
-        // Optimistically update assets list immediately
         if (data && typeof data.newBalance === 'number') {
             setAssets(prev => {
                 const idx = prev.findIndex(a => a.currency === selectedCurr.code);
@@ -430,11 +610,8 @@ export default function Forex() {
 
         setAmountExchange("");
         setRateExchange("");
-        setShowSourcePopup(false);
-        setPendingForexSubmit(null);
         setIsSubmitting(false);
 
-        // Refresh data in background without blocking UI
         Promise.all([fetchData(), refetchUser()]).catch(() => {});
     } catch (e: any) {
         toast({ title: "Gagal Menukar", description: e.message, variant: "destructive" });
@@ -443,6 +620,8 @@ export default function Forex() {
   };
 
   const handleCurrencyClick = async (curr: string) => {
+    const info = CURRENCY_LIST.find(c => c.code === curr);
+    if (info) setSelectedCurr(info);
     setChartCurr(curr);
     setLoadingChart(true);
     try {
@@ -450,8 +629,8 @@ export default function Forex() {
             headers: { "x-user-email": currentUserEmail }
         });
         if (res.ok) {
-            const json = await res.json();
-            setChartData(json.data || []);
+            const data = await res.json();
+            setChartData(data);
         } else {
             setChartData([]);
         }
@@ -462,21 +641,6 @@ export default function Forex() {
         setLoadingChart(false);
     }
   };
-
-  if (isLoading) {
-      return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6">
-              <img src="/BILANO-ICON-NEW.png" alt="Loading BILANO" className="w-24 h-24 mb-6 animate-pulse object-contain drop-shadow-lg" />
-              <div className="flex items-center gap-2 text-brand-navy font-bold text-sm bg-amber-50 border border-amber-200 px-5 py-2.5 rounded-full shadow-sm">
-                  <Loader2 className="w-4 h-4 animate-spin text-brand-gold"/>
-                  <span>Memuat Portofolio Valas...</span>
-              </div>
-          </div>
-      );
-  }
-
-  const totalValasIDR = calculateTotalValasIDR();
-  const displayTotalValas = formatRp(totalValasIDR);
 
   return (
     <MobileLayout>
@@ -506,7 +670,7 @@ export default function Forex() {
                         <div className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
                             <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest">
-                                Multi-Mata Uang
+                                Multi-Mata Uang & Kantong Valas
                             </p>
                         </div>
                         <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
@@ -527,7 +691,7 @@ export default function Forex() {
                 </div>
             </div>
 
-            {/* 2. HERO CARD TOTAL ASET VALAS (SATU-SATUNYA DENGAN SOLID SHADOW KHAS BILANO) */}
+            {/* 2. HERO CARD TOTAL ASET VALAS */}
             <div className="bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B] text-white p-5 sm:p-6 rounded-[28px] border-l-[6px] border-l-brand-gold shadow-[6px_6px_0px_0px] shadow-slate-900 relative overflow-hidden mt-4">
                 <Globe className="absolute -right-4 -bottom-4 w-36 h-36 text-brand-gold/10 -rotate-12 pointer-events-none" strokeWidth={1} />
                 <div className="absolute right-0 top-0 w-32 h-32 bg-brand-gold/15 rounded-full blur-xl pointer-events-none" />
@@ -568,7 +732,7 @@ export default function Forex() {
                                                 <span className="text-sm shrink-0">{currInfo.flag}</span>
                                                 <span className="font-extrabold text-amber-200 text-[11px]">{asset.currency}:</span>
                                                 <span className="font-bold text-white tabular-nums">
-                                                    {isPrivacyMode ? "•••" : asset.amount.toLocaleString("id-ID")}
+                                                    {isPrivacyMode ? "•••" : asset.amount.toLocaleString("en-US")}
                                                 </span>
                                                 <button
                                                     type="button"
@@ -591,7 +755,7 @@ export default function Forex() {
                                             setMutationMode('in');
                                             window.scrollTo({ top: 380, behavior: 'smooth' });
                                         }}
-                                        className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-gold text-brand-navy shrink-0 ml-1 hover:bg-brand-goldDark transition-colors active:scale-95 shadow-sm cursor-pointer" 
+                                        className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-gold text-brand-navy shrink-0 ml-1 hover:bg-[#e5a825] transition-colors active:scale-95 shadow-sm cursor-pointer" 
                                         title="Tambah Mata Uang Asing Baru"
                                     >
                                         <Plus className="w-4 h-4" strokeWidth={3} />
@@ -617,7 +781,7 @@ export default function Forex() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 2. BODY CONTENT SECTION - CLEAN, CRISP & MODERN ELEVATION */}
+        {/* 2. BODY CONTENT SECTION */}
         {/* ========================================================================= */}
         <div className="px-5 pt-5 pb-28 bg-slate-50 flex flex-col gap-4">
             
@@ -759,7 +923,7 @@ export default function Forex() {
                                     mutationMode === 'in' 
                                         ? 'bg-emerald-600 text-white shadow-xs' 
                                         : 'text-slate-500 hover:text-slate-900'
-                                }`}
+                                    }`}
                             >
                                 <ArrowDownCircle className="w-4 h-4" /> PEMASUKAN
                             </button>
@@ -770,7 +934,7 @@ export default function Forex() {
                                     mutationMode === 'out' 
                                         ? 'bg-rose-600 text-white shadow-xs' 
                                         : 'text-slate-500 hover:text-slate-900'
-                                }`}
+                                    }`}
                             >
                                 <ArrowUpCircle className="w-4 h-4" /> PENGELUARAN
                             </button>
@@ -786,7 +950,7 @@ export default function Forex() {
                                         : 'text-slate-500'
                                 }`}
                             >
-                                <Wallet className="w-3.5 h-3.5"/> TUNAI (Cash Valas)
+                                <Wallet className="w-3.5 h-3.5"/> REKENING / TUNAI ({selectedCurr.code})
                             </button>
                             <button 
                                 type="button"
@@ -867,7 +1031,7 @@ export default function Forex() {
                     </div>
                 )}
 
-                {/* FORM TAB 2: TUKAR VALAS (JUAL / BELI) */}
+                {/* FORM TAB 2: TUKAR VALAS (JUAL / BELI) DENGAN PEMILIHAN SUMBER 2-LANGKAH */}
                 {activeTab === 'exchange' && (
                     <div className="space-y-4 animate-in fade-in">
                         <div className="flex bg-slate-100 p-1 rounded-2xl">
@@ -880,7 +1044,7 @@ export default function Forex() {
                                         : 'text-slate-500 hover:text-slate-900'
                                 }`}
                             >
-                                BELI ({selectedCurr.code})
+                                BELI VALAS (IDR ➔ {selectedCurr.code})
                             </button>
                             <button 
                                 type="button"
@@ -891,7 +1055,7 @@ export default function Forex() {
                                         : 'text-slate-500 hover:text-slate-900'
                                 }`}
                             >
-                                JUAL ({selectedCurr.code})
+                                JUAL VALAS ({selectedCurr.code} ➔ IDR)
                             </button>
                         </div>
                         
@@ -927,10 +1091,13 @@ export default function Forex() {
                         {/* Kalkulasi Total Rupiah */}
                         <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50/70 text-center space-y-1">
                             <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest">
-                                Total Rupiah ({exchangeMode === 'buy' ? 'Dipotong Kas' : 'Masuk Kas'})
+                                Total Rupiah ({exchangeMode === 'buy' ? 'Dipotong dari Rekening IDR' : 'Masuk ke Rekening IDR'})
                             </p>
                             <p className="text-xl font-black text-slate-900 tabular-nums">
                                 {amountExchange && rateExchange ? formatRp(parseValas(amountExchange) * parseIdr(rateExchange)) : "Rp 0"}
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-medium">
+                                *Anda akan diminta memilih rekening asal & rekening penerima sesuai mata uang masing-masing.
                             </p>
                         </div>
                         
@@ -946,12 +1113,12 @@ export default function Forex() {
                 )}
             </div>
 
-            {/* DAFTAR PORTOFOLIO VALAS SAYA */}
+            {/* DAFTAR PORTOFOLIO VALAS SAYA LENGKAP DENGAN KANTONG / REKENING */}
             <div className="space-y-3">
                 <div className="flex justify-between items-center px-1">
                     <h3 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
                         <Wallet className="w-3.5 h-3.5 text-amber-600" />
-                        Portofolio Valas Saya ({assets.length})
+                        Portofolio Valas & Kantong Rekening ({assets.length})
                     </h3>
                 </div>
 
@@ -970,11 +1137,18 @@ export default function Forex() {
                         const currInfo = CURRENCY_LIST.find(c => c.code === asset.currency) || { country: "", name: asset.currency, flag: "🌐" };
                         const liveRate = getSafeRate(asset.currency);
                         const idrVal = asset.amount * liveRate;
+                        
+                        // Cari daftar rekening/kantong khusus untuk mata uang ini
+                        const currencyWallets = ((user?.walletSources as any[]) || []).filter(
+                            (w: any) => (w.currency || '').toUpperCase() === asset.currency.toUpperCase()
+                        );
+
                         return (
                             <div
                                 key={asset.id}
-                                className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-sm transition-all"
+                                className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-sm transition-all space-y-4"
                             >
+                                {/* Header Info Valas */}
                                 <div className="flex justify-between items-center gap-3">
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className="bg-brand-navy text-brand-gold font-black w-11 h-11 rounded-2xl flex items-center justify-center text-xs shadow-xs shrink-0 border border-brand-gold/30">
@@ -982,7 +1156,7 @@ export default function Forex() {
                                         </div>
                                         <div className="min-w-0">
                                             <div className="font-extrabold text-slate-900 text-sm truncate">
-                                                {asset.amount.toLocaleString()} <span className="text-xs text-slate-500 font-semibold">{asset.currency}</span>
+                                                {asset.amount.toLocaleString('en-US')} <span className="text-xs text-slate-500 font-semibold">{asset.currency}</span>
                                             </div>
                                             <div className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
                                                 <span>{currInfo.flag}</span>
@@ -1000,6 +1174,71 @@ export default function Forex() {
                                             <span>@ {formatRp(liveRate)}</span>
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* DAFTAR SUB-KANTONG / REKENING PADA MATA UANG INI */}
+                                <div className="pt-3 border-t border-slate-100 space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-1.5">
+                                            <Layers className="w-3.5 h-3.5 text-slate-400" />
+                                            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                                                Kantong / Rekening {asset.currency}
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAddingPocketCurr(asset.currency)}
+                                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-2xs"
+                                        >
+                                            <Plus className="w-3 h-3 text-amber-700 stroke-[3]" />
+                                            <span>+ Tambah Rekening</span>
+                                        </button>
+                                    </div>
+
+                                    {currencyWallets.length > 0 ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                                            {currencyWallets.map((wallet: any) => {
+                                                const logo = getWalletLogo(wallet.name);
+                                                const bal = Number(wallet.balance || 0);
+                                                return (
+                                                    <div 
+                                                        key={wallet.id || wallet.name} 
+                                                        className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-2"
+                                                    >
+                                                        <div className="flex items-center gap-2.5 min-w-0">
+                                                            <div className="w-8 h-8 rounded-xl bg-white p-1 border border-slate-200 shadow-2xs flex items-center justify-center shrink-0">
+                                                                {logo ? (
+                                                                    <img src={logo} alt="" className="w-full h-full object-contain" />
+                                                                ) : (
+                                                                    <Wallet className="w-4 h-4 text-slate-400" />
+                                                                )}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <div className="font-bold text-slate-800 text-xs truncate">
+                                                                    {wallet.name}
+                                                                </div>
+                                                                <div className="text-[11px] font-extrabold text-brand-navy tabular-nums">
+                                                                    {bal.toLocaleString('en-US')} {asset.currency}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeletePocket(wallet.id, asset.currency)}
+                                                            className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                                            title="Hapus Rekening"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="p-3 bg-slate-50/70 rounded-2xl border border-dashed border-slate-200 text-slate-400 text-[11px] font-medium flex items-center justify-between">
+                                            <span>Saldo tercatat di dompet utama. Tambah sub-rekening (Wise, Bank Jago, dll.) untuk memisahkan kantong.</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -1038,11 +1277,11 @@ export default function Forex() {
                   </div>
                   
                   {/* Container Grafik */}
-                  <div className="w-full bg-slate-50 rounded-2xl border border-slate-200 p-3 mb-4" style={{ height: '240px' }}>
+                  <div className="w-full h-56 bg-slate-50 rounded-2xl p-2 mb-4 border border-slate-100 flex items-center justify-center">
                       {loadingChart ? (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 animate-pulse">
-                              <Activity className="w-8 h-8 mx-auto mb-2 text-brand-gold animate-spin"/>
-                              <p className="text-xs font-bold text-brand-navy">Mengambil data pasar...</p>
+                          <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold">
+                              <Loader2 className="w-4 h-4 animate-spin text-brand-navy" />
+                              Memuat data pasar...
                           </div>
                       ) : chartData.length > 0 ? (
                           <ResponsiveContainer width="100%" height="100%">
@@ -1081,7 +1320,7 @@ export default function Forex() {
           </div>
       )}
 
-      {/* Modal Edit Saldo Valas Langsung */}
+      {/* MODAL EDIT SALDO VALAS LANGSUNG */}
       {editingForexAsset && (
           <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100 space-y-4">
@@ -1091,7 +1330,7 @@ export default function Forex() {
                               {editingForexAsset.currency}
                           </div>
                           <div>
-                              <h3 className="font-extrabold text-slate-800 text-base">Edit Saldo Valas</h3>
+                              <h3 className="font-extrabold text-slate-800 text-base">Edit Saldo Valas Total</h3>
                               <p className="text-xs text-slate-400 font-bold">Mata Uang: {editingForexAsset.currency}</p>
                           </div>
                       </div>
@@ -1133,15 +1372,113 @@ export default function Forex() {
           </div>
       )}
 
-      {/* POPUP SUMBER DANA KETIKA MUTASI / TUKAR VALAS */}
+      {/* MODAL TAMBAH KANTONG / REKENING VALAS PER MATA UANG */}
+      {addingPocketCurr && (
+          <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border border-slate-100 space-y-4">
+                  <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center gap-2.5">
+                          <div className="w-10 h-10 bg-amber-100 text-amber-800 rounded-2xl flex items-center justify-center font-black text-sm">
+                              {addingPocketCurr}
+                          </div>
+                          <div>
+                              <h3 className="font-extrabold text-slate-800 text-base">Tambah Rekening Valas</h3>
+                              <p className="text-xs text-slate-400 font-bold">Mata Uang: {addingPocketCurr}</p>
+                          </div>
+                      </div>
+                      <button
+                          type="button"
+                          onClick={() => setAddingPocketCurr(null)}
+                          className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center cursor-pointer"
+                      >
+                          <X className="w-4 h-4" />
+                      </button>
+                  </div>
+
+                  <div className="space-y-3">
+                      <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                              Pilih Preset Rekening ({addingPocketCurr}):
+                          </label>
+                          <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-200">
+                              {getForexPresetsForCurrency(addingPocketCurr).map((preset) => (
+                                  <button
+                                      key={preset.id}
+                                      type="button"
+                                      onClick={() => setNewPocketName(preset.name)}
+                                      className={`text-left p-2 rounded-lg border text-[11px] font-bold transition-all truncate flex items-center gap-1.5 cursor-pointer ${
+                                          newPocketName === preset.name 
+                                              ? 'bg-amber-100 border-amber-300 text-amber-900 ring-1 ring-amber-400' 
+                                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                                      }`}
+                                  >
+                                      <img src={preset.logo} alt="" className="w-3.5 h-3.5 object-contain shrink-0" />
+                                      <span className="truncate">{preset.name}</span>
+                                  </button>
+                              ))}
+                          </div>
+                      </div>
+
+                      <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                              Nama Rekening / Dompet
+                          </label>
+                          <Input
+                              value={newPocketName}
+                              onChange={(e) => setNewPocketName(e.target.value)}
+                              placeholder={`Contoh: Wise (${addingPocketCurr}) / Bank Jago...`}
+                              className="h-11 text-xs font-bold bg-slate-50 border-slate-200 rounded-xl"
+                          />
+                      </div>
+
+                      <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                              Saldo Awal ({addingPocketCurr})
+                          </label>
+                          <input
+                              type="text"
+                              inputMode="decimal"
+                              value={newPocketBalance}
+                              onChange={(e) => setNewPocketBalance(formatDecimalInput(e.target.value))}
+                              placeholder="0"
+                              className="w-full h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 text-sm focus:outline-none focus:border-brand-navy focus:bg-white transition-all tabular-nums"
+                          />
+                      </div>
+
+                      <Button
+                          type="button"
+                          onClick={() => handleAddPocket(addingPocketCurr)}
+                          disabled={isSavingPocket || !newPocketName.trim()}
+                          className="w-full h-12 bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm transition-all cursor-pointer mt-2"
+                      >
+                          {isSavingPocket ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Simpan Rekening ${addingPocketCurr}`}
+                      </Button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* POPUP MIGRASI VALAS UNTUK PENGGUNA LAMA */}
+      {needsForexMigration && (
+          <ForexMigrationPopup
+              unallocatedAssets={unallocatedForexAssets}
+              onComplete={() => {
+                  setHasCompletedForexMigration(true);
+                  fetchData();
+                  refetchUser();
+              }}
+          />
+      )}
+
+      {/* POPUP SUMBER DANA KETIKA MUTASI / TUKAR VALAS (MULTI-CURRENCY DENGAN ISOLASI MATA UANG) */}
       {showSourcePopup && sourcePopupConfig && (
           <SourceSelectionPopup
               type={sourcePopupConfig.type}
+              currency={sourcePopupConfig.currency}
               title={sourcePopupConfig.title}
               description={sourcePopupConfig.description}
               onCancel={() => {
                   setShowSourcePopup(false);
-                  setPendingForexSubmit(null);
               }}
               onSelect={sourcePopupConfig.onSelect}
           />

@@ -2,16 +2,17 @@ import { useState } from "react";
 import { Button, Input } from "@/components/UIComponents";
 import { 
     Wallet, X, ArrowDown, ArrowUp, Plus, Check, Loader2, 
-    Sparkles, CheckCircle2 
+    Sparkles, CheckCircle2, Globe, Building2, Smartphone, TrendingUp
 } from "lucide-react";
 import { useUser } from "@/hooks/use-finance";
-import { getWalletLogo } from "@/lib/wallet-sources";
+import { getWalletLogo, getForexPresetsForCurrency } from "@/lib/wallet-sources";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import WalletSourceSelect from "@/components/WalletSourceSelect";
 
 interface SourceSelectionPopupProps {
     type?: 'income' | 'expense' | 'piutang' | 'hutang';
+    currency?: string; // e.g. 'IDR', 'USD', 'EUR', 'SGD'
     title?: string;
     description?: string;
     onSelect: (sourceName: string) => void;
@@ -20,7 +21,16 @@ interface SourceSelectionPopupProps {
     onClose?: () => void;
 }
 
-export default function SourceSelectionPopup({ type = 'income', title, description, onSelect, onCancel, isOpen, onClose }: SourceSelectionPopupProps) {
+export default function SourceSelectionPopup({ 
+    type = 'income', 
+    currency = 'IDR',
+    title, 
+    description, 
+    onSelect, 
+    onCancel, 
+    isOpen, 
+    onClose 
+}: SourceSelectionPopupProps) {
     if (isOpen !== undefined && !isOpen) return null;
     const handleClose = onCancel || onClose || (() => {});
 
@@ -28,7 +38,17 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
     const queryClient = useQueryClient();
     const { toast } = useToast();
     
-    const walletSources = (user?.walletSources as any[]) || [];
+    const activeCurrency = (currency || 'IDR').toUpperCase();
+    const isIDR = activeCurrency === 'IDR';
+
+    const allWalletSources = ((user?.walletSources as any[]) || []);
+    
+    // Filter wallet sources strictly by matching currency
+    const filteredWalletSources = allWalletSources.filter((w: any) => {
+        const itemCurr = (w.currency || 'IDR').toUpperCase();
+        return itemCurr === activeCurrency;
+    });
+
     const [selected, setSelected] = useState("");
     
     // State untuk mode tambah dompet baru langsung di pop-up
@@ -38,18 +58,24 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
     const [isSavingNew, setIsSavingNew] = useState(false);
 
     const isIncome = type === 'income' || type === 'piutang';
-    const defaultTitle = isIncome ? 'Pilih Dompet Penerima' : 'Pilih Dompet Asal';
-    const defaultDesc = isIncome ? 'Dana ini akan masuk dan menambah saldo di dompet mana?' : 'Dana ini akan diambil dan memotong saldo di dompet mana?';
+    const defaultTitle = isIncome 
+        ? (isIDR ? 'Pilih Dompet Penerima Rupiah' : `Pilih Rekening Penerima ${activeCurrency}`)
+        : (isIDR ? 'Pilih Dompet Asal Rupiah' : `Pilih Rekening Asal ${activeCurrency}`);
+    const defaultDesc = isIncome 
+        ? `Dana ${activeCurrency} akan masuk dan menambah saldo di rekening mana?` 
+        : `Dana ${activeCurrency} akan ditarik dan memotong saldo di rekening mana?`;
+
+    const forexPresets = !isIDR ? getForexPresetsForCurrency(activeCurrency) : [];
 
     const handleCreateAndSelectNew = async () => {
         const nameToSave = newSourceName.trim();
         if (!nameToSave) {
-            toast({ title: "Nama Dompet Kosong", description: "Pilih atau ketikkan nama dompet baru.", variant: "destructive" });
+            toast({ title: "Nama Rekening Kosong", description: "Pilih atau ketikkan nama rekening baru.", variant: "destructive" });
             return;
         }
 
-        // Cek duplikasi
-        const existing = walletSources.find(w => w.name.toLowerCase() === nameToSave.toLowerCase());
+        // Cek duplikasi di mata uang yang sama
+        const existing = filteredWalletSources.find(w => w.name.toLowerCase() === nameToSave.toLowerCase());
         if (existing) {
             setSelected(existing.name);
             setIsCreatingNew(false);
@@ -60,12 +86,12 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
         setIsSavingNew(true);
         try {
             const updatedSources = [
-                ...walletSources,
+                ...allWalletSources,
                 {
                     id: Date.now().toString(),
                     name: nameToSave,
                     isCustomSource: isCustomSource,
-                    currency: 'IDR',
+                    currency: activeCurrency,
                     balance: 0
                 }
             ];
@@ -81,7 +107,10 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
             });
 
             if (res.ok) {
-                toast({ title: "Dompet Baru Ditambahkan! ✨", description: `${nameToSave} siap digunakan.` });
+                toast({ 
+                    title: `Rekening ${activeCurrency} Ditambahkan! ✨`, 
+                    description: `${nameToSave} siap digunakan untuk transaksi ${activeCurrency}.` 
+                });
                 await refetchUser();
                 queryClient.invalidateQueries();
                 setIsCreatingNew(false);
@@ -111,13 +140,26 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
 
                 {/* Header Banner */}
                 <div className={`p-6 text-white text-center relative ${
-                    isIncome ? 'bg-gradient-to-br from-emerald-600 to-teal-700' : 'bg-gradient-to-br from-rose-600 to-red-700'
+                    isIncome 
+                        ? (isIDR ? 'bg-gradient-to-br from-emerald-600 to-teal-700' : 'bg-gradient-to-br from-emerald-700 via-teal-800 to-cyan-900') 
+                        : (isIDR ? 'bg-gradient-to-br from-rose-600 to-red-700' : 'bg-gradient-to-br from-[#1D3E72] via-[#16386D] to-[#0A162B]')
                 }`}>
                     <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-white/30 shadow-inner">
-                        {isIncome ? <ArrowDown className="w-7 h-7 stroke-[2.5]" /> : <ArrowUp className="w-7 h-7 stroke-[2.5]" />}
+                        {!isIDR ? (
+                            <Globe className="w-7 h-7 stroke-[2.2] text-amber-300" />
+                        ) : isIncome ? (
+                            <ArrowDown className="w-7 h-7 stroke-[2.5]" />
+                        ) : (
+                            <ArrowUp className="w-7 h-7 stroke-[2.5]" />
+                        )}
                     </div>
+                    
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 border border-white/25 text-[10px] font-black uppercase tracking-wider mb-1.5 text-amber-200">
+                        <span>Mata Uang: {activeCurrency}</span>
+                    </div>
+
                     <h2 className="text-xl font-black mb-0.5 tracking-tight">{title || defaultTitle}</h2>
-                    <p className="text-xs text-white/90 font-medium max-w-[240px] mx-auto leading-relaxed">
+                    <p className="text-xs text-white/90 font-medium max-w-[250px] mx-auto leading-relaxed">
                         {description || defaultDesc}
                     </p>
                 </div>
@@ -125,25 +167,25 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
                 {/* Content Body */}
                 <div className="p-4 max-h-[52vh] overflow-y-auto space-y-2.5 bg-slate-50">
                     
-                    {/* KHUSUS PEMASUKAN / PENAMBAHAN SALDO: OPSI BUAT SUMBER BARU TANPA KELUAR HALAMAN */}
-                    {isIncome && !isCreatingNew && (
+                    {/* OPSI BUAT SUMBER BARU */}
+                    {!isCreatingNew ? (
                         <button
                             type="button"
                             onClick={() => setIsCreatingNew(true)}
                             className="w-full flex items-center justify-center gap-2 p-3 bg-amber-50 hover:bg-amber-100/80 border border-dashed border-amber-300 rounded-2xl text-amber-900 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 shadow-xs cursor-pointer mb-2"
                         >
                             <Plus className="w-4 h-4 stroke-[2.5] text-amber-700" />
-                            <span>+ BUAT AKUN / DOMPET BARU</span>
+                            <span>+ TAMBAH REKENING {activeCurrency} BARU</span>
                         </button>
-                    )}
-
-                    {/* BOX FORM BUAT AKUN BARU SECARA INLINE */}
-                    {isIncome && isCreatingNew && (
+                    ) : (
+                        /* BOX FORM BUAT AKUN / REKENING BARU SECARA INLINE */
                         <div className="bg-white p-4 rounded-2xl border border-amber-300 shadow-xs space-y-3 animate-in fade-in">
                             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                                 <div className="flex items-center gap-1.5">
                                     <Wallet className="w-4 h-4 text-amber-600" />
-                                    <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">Tambah Dompet Baru</h4>
+                                    <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">
+                                        Tambah Rekening {activeCurrency}
+                                    </h4>
                                 </div>
                                 <button 
                                     type="button"
@@ -154,15 +196,52 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
                                 </button>
                             </div>
 
-                            <WalletSourceSelect
-                                value={newSourceName}
-                                isCustom={isCustomSource}
-                                onChange={(val, isCustom) => {
-                                    setNewSourceName(val);
-                                    setIsCustomSource(!!isCustom);
-                                }}
-                                placeholder="Pilih Bank / E-Wallet / Sekuritas..."
-                            />
+                            {isIDR ? (
+                                <WalletSourceSelect
+                                    value={newSourceName}
+                                    isCustom={isCustomSource}
+                                    onChange={(val, isCustom) => {
+                                        setNewSourceName(val);
+                                        setIsCustomSource(!!isCustom);
+                                    }}
+                                    placeholder="Pilih Bank / E-Wallet / Sekuritas..."
+                                />
+                            ) : (
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                        Pilihan Preset Rekening Valas:
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-100">
+                                        {forexPresets.map((preset) => (
+                                            <button
+                                                key={preset.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setNewSourceName(preset.name);
+                                                    setIsCustomSource(false);
+                                                }}
+                                                className={`text-left p-2 rounded-lg border text-[11px] font-bold transition-all truncate flex items-center gap-1.5 cursor-pointer ${
+                                                    newSourceName === preset.name 
+                                                        ? 'bg-amber-100/80 border-amber-300 text-amber-900 ring-1 ring-amber-400' 
+                                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                                                }`}
+                                            >
+                                                <img src={preset.logo} alt="" className="w-3.5 h-3.5 object-contain shrink-0" />
+                                                <span className="truncate">{preset.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <Input
+                                        value={newSourceName}
+                                        onChange={(e) => {
+                                            setNewSourceName(e.target.value);
+                                            setIsCustomSource(true);
+                                        }}
+                                        placeholder={`Atau ketik nama rekening / dompet ${activeCurrency}...`}
+                                        className="h-11 text-xs font-semibold bg-white border-slate-200 rounded-xl"
+                                    />
+                                </div>
+                            )}
 
                             <button
                                 type="button"
@@ -175,16 +254,17 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
                                 ) : (
                                     <Check className="w-4 h-4 stroke-[2.5]" />
                                 )}
-                                <span>SIMPAN & PILIH DOMPET INI</span>
+                                <span>SIMPAN & PILIH REKENING INI</span>
                             </button>
                         </div>
                     )}
 
-                    {/* LIST DOMPET TERDAFTAR */}
-                    {walletSources.length > 0 ? (
-                        walletSources.map((wallet) => {
+                    {/* LIST REKENING TERDAFTAR SESUAI MATA UANG */}
+                    {filteredWalletSources.length > 0 ? (
+                        filteredWalletSources.map((wallet) => {
                             const logo = getWalletLogo(wallet.name);
                             const isSelected = selected === wallet.name;
+                            const bal = Number(wallet.balance || 0);
                             return (
                                 <button
                                     key={wallet.name}
@@ -196,7 +276,7 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
                                             : 'border-slate-200/80 bg-white hover:border-slate-300'
                                     }`}
                                 >
-                                    <div className="flex items-center gap-3.5">
+                                    <div className="flex items-center gap-3.5 min-w-0">
                                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center p-2 shadow-xs border shrink-0 ${
                                             isSelected ? 'bg-white border-brand-navy' : 'bg-slate-50 border-slate-200'
                                         }`}>
@@ -206,10 +286,12 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
                                                 <Wallet className="w-5 h-5 text-slate-500" />
                                             )}
                                         </div>
-                                        <div>
-                                            <div className="font-extrabold text-slate-900 text-xs sm:text-sm">{wallet.name}</div>
-                                            <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-                                                Saldo: Rp {Number(wallet.balance || 0).toLocaleString('id-ID')}
+                                        <div className="min-w-0">
+                                            <div className="font-extrabold text-slate-900 text-xs sm:text-sm truncate">
+                                                {wallet.name}
+                                            </div>
+                                            <div className="text-[11px] text-slate-500 font-medium mt-0.5 tabular-nums">
+                                                Saldo: {isIDR ? `Rp ${bal.toLocaleString('id-ID')}` : `${activeCurrency} ${bal.toLocaleString('en-US')}`}
                                             </div>
                                         </div>
                                     </div>
@@ -222,8 +304,11 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
                             );
                         })
                     ) : (
-                        <div className="text-center p-5 bg-white rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500 font-medium">
-                            Belum ada dompet terdaftar. Klik tombol di atas untuk membuat akun dompet baru.
+                        <div className="text-center p-5 bg-white rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500 font-medium space-y-1">
+                            <p className="font-bold text-slate-700">Belum ada rekening {activeCurrency} terdaftar</p>
+                            <p className="text-[11px] text-slate-400">
+                                Klik tombol <strong>+ TAMBAH REKENING {activeCurrency}</strong> di atas untuk membuat kantong/rekening {activeCurrency} pertama Anda.
+                            </p>
                         </div>
                     )}
                 </div>
@@ -238,7 +323,7 @@ export default function SourceSelectionPopup({ type = 'income', title, descripti
                             isIncome ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-brand-navy hover:bg-[#152e55] text-brand-gold'
                         }`}
                     >
-                        PILIH DOMPET INI
+                        PILIH REKENING INI
                     </button>
                 </div>
             </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import {
     useUser, useTransactions, useTarget,
@@ -17,6 +17,7 @@ import {
     Gift, Clock, ArrowRight, Smartphone, Sparkles
 } from "lucide-react";
 import LegacyMigrationPopup from "@/components/LegacyMigrationPopup";
+import ForexMigrationPopup from "@/components/ForexMigrationPopup";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import SmartScanPopup from "@/components/SmartScanPopup";
 import { getWalletLogo } from "@/lib/wallet-sources";
@@ -706,6 +707,40 @@ export default function Home() {
 
     const needsMigration = user && (!user.walletSources || user.walletSources.length === 0) && (user.cashBalance > 0) && !isAlreadyMigrated;
 
+    const { data: forexAssetsList = [] } = useForexAssets();
+    const [hasCompletedForexMigration, setHasCompletedForexMigration] = useState(false);
+    const isAlreadyForexMigrated = hasCompletedForexMigration || (typeof window !== 'undefined' && localStorage.getItem("bilano_forex_migration_completed") === "true");
+
+    const unallocatedForexAssets = useMemo(() => {
+        if (!forexAssetsList || !Array.isArray(forexAssetsList) || forexAssetsList.length === 0) return [];
+        const allWS = ((user?.walletSources as any[]) || []);
+        
+        return forexAssetsList
+            .map((asset: any) => {
+                const curr = (asset.currency || '').toUpperCase();
+                const totalAmt = Number(asset.amount || 0);
+                if (totalAmt <= 0) return null;
+
+                const allocated = allWS
+                    .filter((w: any) => (w.currency || '').toUpperCase() === curr)
+                    .reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+                
+                const remaining = totalAmt - allocated;
+                if (allocated < totalAmt && remaining > 0.0001) {
+                    return {
+                        currency: curr,
+                        amount: totalAmt,
+                        allocated,
+                        remaining
+                    };
+                }
+                return null;
+            })
+            .filter(Boolean) as { currency: string; amount: number; allocated: number; remaining: number }[];
+    }, [forexAssetsList, user?.walletSources]);
+
+    const needsForexMigration = !needsMigration && unallocatedForexAssets.length > 0 && !isAlreadyForexMigrated;
+
     if (isUserLoading || (isTxLoading && !transactions)) {
         return (
             <div className="min-h-screen bg-gradient-to-b from-[#F0F6FD] via-[#E4EFFB] to-[#D8E8F9] flex flex-col items-center justify-center px-6 select-none relative overflow-hidden">
@@ -726,6 +761,13 @@ export default function Home() {
         <MobileLayout>
             {needsMigration && (
                 <LegacyMigrationPopup onComplete={() => setHasCompletedMigration(true)} />
+            )}
+
+            {needsForexMigration && (
+                <ForexMigrationPopup 
+                    unallocatedAssets={unallocatedForexAssets} 
+                    onComplete={() => setHasCompletedForexMigration(true)} 
+                />
             )}
 
             {/* Modal Edit Saldo Sumber Dana */}

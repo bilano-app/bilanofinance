@@ -507,26 +507,28 @@ export default function Investment() {
           return;
       }
 
-      // Jika mata uang transaksi IDR, tampilkan pilihan rekening/dompet IDR
-      if (inputCurrency === 'IDR') {
-          if (txType === 'SELL') {
-              setSourcePopupConfig({
-                  type: 'income',
-                  title: 'Tujuan Masuk Saldo Penjualan',
-                  description: 'Pilih akun atau dompet yang menerima dana hasil penjualan aset ini:'
-              });
-          } else {
-              setSourcePopupConfig({
-                  type: 'expense',
-                  title: 'Pilih Sumber Dana Pembelian',
-                  description: 'Dana pembelian aset investasi diambil dari rekening atau dompet mana?'
-              });
-          }
-          setShowSourcePopup(true);
+      const targetCurrency = txType === 'SELL'
+          ? ((selectedSellSymbol || '').split('|')[1] || inputCurrency || 'IDR').toUpperCase()
+          : (inputCurrency || 'IDR').toUpperCase();
+
+      if (txType === 'SELL') {
+          setSourcePopupConfig({
+              type: 'income',
+              title: targetCurrency === 'IDR' ? 'Tujuan Masuk Saldo Penjualan' : `Pilih Rekening Penerima ${targetCurrency}`,
+              description: targetCurrency === 'IDR' 
+                  ? 'Pilih akun atau dompet rupiah yang menerima dana hasil penjualan aset ini:' 
+                  : `Pilih rekening / kantong ${targetCurrency} yang menerima hasil penjualan aset ini:`
+          });
       } else {
-          // Jika transaksi Valas (USD, dll.), langsung potong / masukkan dari Saldo Valas terkait
-          executeTransaction(`Dompet Valas ${inputCurrency}`);
+          setSourcePopupConfig({
+              type: 'expense',
+              title: targetCurrency === 'IDR' ? 'Pilih Sumber Dana Pembelian' : `Pilih Sumber Dana Valas ${targetCurrency}`,
+              description: targetCurrency === 'IDR' 
+                  ? 'Dana pembelian aset investasi diambil dari rekening atau dompet mana?' 
+                  : `Dana pembelian aset ${targetCurrency} ditarik dari rekening/kantong mana?`
+          });
       }
+      setShowSourcePopup(true);
   };
 
   const renderDynamicForm = () => {
@@ -1012,10 +1014,11 @@ export default function Investment() {
         </div>
       </div>
 
-      {/* POPUP SUMBER DANA KETIKA MEMBELI / MENJUAL ASET KHUSUS RUPIAH (IDR) */}
+      {/* POPUP SUMBER DANA KETIKA MEMBELI / MENJUAL ASET (TERISOLASI SESUAI MATA UANG) */}
       {showSourcePopup && sourcePopupConfig && (
           <SourceSelectionPopup
               type={sourcePopupConfig.type}
+              currency={txType === 'SELL' ? ((selectedSellSymbol || '').split('|')[1] || inputCurrency || 'IDR') : inputCurrency}
               onCancel={() => setShowSourcePopup(false)}
               onSelect={(source) => {
                   setShowSourcePopup(false);

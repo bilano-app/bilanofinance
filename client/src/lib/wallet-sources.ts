@@ -91,6 +91,10 @@ export function getWalletLogo(name: string | undefined | null): string | null {
   if (clean.includes('bibit')) return '/Bibit.png';
   if (clean.includes('bareksa')) return '/Bareksa.png';
   if (clean.includes('pluang')) return '/Pluang.png';
+  if (clean.includes('interactive brokers') || clean.includes('ibkr')) return '/Investasi.png';
+  
+  // Valas & Fintech Global
+  if (clean.includes('wise') || clean.includes('paypal') || clean.includes('revolut') || clean.includes('valas') || clean.includes('forex')) return '/Valas-ICON.png';
   
   // Cash / Tunai
   if (clean.includes('cash') || clean.includes('tunai') || clean.includes('kertas') || clean.includes('dompet')) return '/CASH.svg';
@@ -99,3 +103,26 @@ export function getWalletLogo(name: string | undefined | null): string | null {
   const found = ALL_WALLET_SOURCES.find(s => s.name.toLowerCase() === clean);
   return found ? found.logo : null;
 }
+
+export interface ForexPresetItem {
+  id: string;
+  name: string;
+  category: string;
+  logo: string;
+}
+
+export function getForexPresetsForCurrency(currency: string): ForexPresetItem[] {
+  const curr = (currency || 'USD').toUpperCase();
+  return [
+    { id: `${curr.toLowerCase()}_wise`, name: `Wise (${curr})`, category: 'Fintech Valas', logo: '/Valas-ICON.png' },
+    { id: `${curr.toLowerCase()}_jago`, name: `Bank Jago Valas (${curr})`, category: 'Bank Valas', logo: '/Bank Jago.png' },
+    { id: `${curr.toLowerCase()}_jenius`, name: `Jenius Valas (${curr})`, category: 'Bank Valas', logo: '/Jenius.png' },
+    { id: `${curr.toLowerCase()}_bca`, name: `BCA Valas (${curr})`, category: 'Bank Valas', logo: '/BCA.png' },
+    { id: `${curr.toLowerCase()}_mandiri`, name: `Mandiri Valas (${curr})`, category: 'Bank Valas', logo: '/Mandiri.png' },
+    { id: `${curr.toLowerCase()}_cimb`, name: `CIMB Niaga Valas (${curr})`, category: 'Bank Valas', logo: '/CIMB.png' },
+    { id: `${curr.toLowerCase()}_paypal`, name: `PayPal (${curr})`, category: 'Fintech Valas', logo: '/Valas-ICON.png' },
+    { id: `${curr.toLowerCase()}_ibkr`, name: `Interactive Brokers (${curr})`, category: 'Sekuritas Valas', logo: '/Investasi.png' },
+    { id: `${curr.toLowerCase()}_cash`, name: `Kas Fisik / Tunai (${curr})`, category: 'Uang Fisik', logo: '/CASH.svg' },
+  ];
+}
+

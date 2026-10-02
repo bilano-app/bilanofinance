@@ -1985,7 +1985,10 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           let totalCash = cashBalance !== undefined ? Math.round(cashBalance) : undefined;
           if (walletSources !== undefined) {
               if (Array.isArray(walletSources)) {
-                  totalCash = walletSources.reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
+                  // Only sum IDR sources for totalCash (IDR cashBalance)
+                  totalCash = walletSources
+                      .filter((w: any) => (w.currency || 'IDR').toUpperCase() === 'IDR')
+                      .reduce((acc: number, w: any) => acc + (Number(w.balance) || 0), 0);
               }
               await storage.updateUserWalletSources(user.id, walletSources);
           } else if (totalCash !== undefined) {
@@ -2233,29 +2236,52 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const user = await getUser(req);
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
-          const { currency, amount, type, paymentMode, debtName, dueDate, notes, rateSnapshot } = req.body;
+          const { currency, amount, type, paymentMode, debtName, dueDate, notes, rateSnapshot, source } = req.body;
+          const curr = (currency || 'USD').toUpperCase();
           const numAmount = Math.abs(Number(amount) || 0);
           
           ensureRatesFresh();
-          const rate = Number(rateSnapshot) || cachedRates[currency as keyof typeof cachedRates] || DEFAULT_RATES[currency] || 15000;
+          const rate = Number(rateSnapshot) || cachedRates[curr as keyof typeof cachedRates] || DEFAULT_RATES[curr] || 15000;
           const amountIDR = Math.round(numAmount * rate);
 
-          const existing = await storage.getForexByCurrency(user.id, currency);
-          let currentAmount = existing ? existing.amount : 0;
+          const existing = await storage.getForexByCurrency(user.id, curr);
+          let currentAmount = existing ? Number(existing.amount || 0) : 0;
+          let walletSources = user.walletSources ? [...(user.walletSources as any[])] : [];
 
           if (type === 'OUT' && currentAmount < numAmount) {
-              return res.status(400).json({ message: `Saldo ${currency} tidak mencukupi.` });
+              return res.status(400).json({ message: `Saldo ${curr} tidak mencukupi.` });
+          }
+
+          // Update specific Valas wallet source if specified
+          if (source) {
+              const wsIdx = walletSources.findIndex((w: any) => w.name === source && (w.currency || '').toUpperCase() === curr);
+              if (wsIdx >= 0) {
+                  if (type === 'IN') {
+                      walletSources[wsIdx].balance = (Number(walletSources[wsIdx].balance) || 0) + numAmount;
+                  } else {
+                      walletSources[wsIdx].balance = Math.max(0, (Number(walletSources[wsIdx].balance) || 0) - numAmount);
+                  }
+              } else if (type === 'IN') {
+                  walletSources.push({
+                      id: Date.now().toString(),
+                      name: source,
+                      type: 'valas',
+                      currency: curr,
+                      balance: numAmount
+                  });
+              }
+              await storage.updateUserWalletSources(user.id, walletSources);
           }
 
           if (paymentMode === 'debt') {
               const debtType = type === 'IN' ? 'piutang' : 'hutang';
               await storage.createDebt(user.id, {
                   userId: user.id,
-                  name: `${debtName} | ${currency}`,
+                  name: `${debtName} | ${curr}`,
                   amount: amountIDR,
                   type: debtType,
                   dueDate: dueDate ? new Date(dueDate) : null,
-                  source: null,
+                  source: source || null,
                   isPaid: false
               } as any);
 
@@ -2266,7 +2292,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   category: debtType === 'piutang' ? 'Piutang Valas' : 'Hutang Valas',
                   description: `[MUTASI DEBT] ${notes || ''}`,
                   date: new Date(),
-                  source: null
+                  source: source || null
               } as any);
           } else {
               await storage.createTransaction(user.id, {
@@ -2274,9 +2300,9 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   type: type === 'IN' ? 'income' : 'expense',
                   amount: amountIDR,
                   category: type === 'IN' ? 'Pemasukan Valas' : 'Pengeluaran Valas',
-                  description: notes || `Mutasi ${type} ${currency}`,
+                  description: notes || `Mutasi ${type} ${curr}${source ? ` via ${source}` : ''}`,
                   date: new Date(),
-                  source: null
+                  source: source || null
               } as any);
           }
 
@@ -2289,7 +2315,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           if (existing) {
               await storage.updateForexAsset(existing.id, currentAmount);
           } else {
-              await storage.createForexAsset(user.id, { currency, amount: currentAmount } as any);
+              await storage.createForexAsset(user.id, { currency: curr, amount: currentAmount } as any);
           }
 
           res.json({ success: true, newBalance: currentAmount });
@@ -2304,16 +2330,17 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
           const { currency, amount } = req.body;
+          const curr = (currency || 'USD').toUpperCase();
           const numAmount = Math.max(0, parseFloat(amount) || 0);
 
-          const existing = await storage.getForexByCurrency(user.id, currency);
+          const existing = await storage.getForexByCurrency(user.id, curr);
           if (existing) {
               await storage.updateForexAsset(existing.id, numAmount);
           } else {
-              await storage.createForexAsset(user.id, { currency, amount: numAmount } as any);
+              await storage.createForexAsset(user.id, { currency: curr, amount: numAmount } as any);
           }
 
-          res.json({ success: true, currency, newAmount: numAmount });
+          res.json({ success: true, currency: curr, newAmount: numAmount });
       } catch (error: any) {
           res.status(500).json({ error: error.message || "Terjadi kesalahan pada server." });
       }
@@ -2324,27 +2351,49 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const user = await getUser(req);
           if (!user) return res.status(401).json({ error: "Sesi tidak valid." });
 
-          const { action, currency, amount, rate, totalIDR, source } = req.body;
+          const { action, currency, amount, rate, totalIDR, sourceIDR, targetValasSource, sourceValasSource, targetIDRSource, source } = req.body;
+          const curr = (currency || 'USD').toUpperCase();
           const numAmount = Math.abs(Number(amount) || 0);
-          const numRate = Number(rate) || cachedRates[currency as keyof typeof cachedRates] || DEFAULT_RATES[currency] || 15000;
+          const numRate = Number(rate) || cachedRates[curr as keyof typeof cachedRates] || DEFAULT_RATES[curr] || 15000;
           const numTotalIDR = Math.round(Math.abs(Number(totalIDR) || (numAmount * numRate)));
 
-          const existing = await storage.getForexByCurrency(user.id, currency);
-          let currentAmount = existing ? existing.amount : 0;
+          const existing = await storage.getForexByCurrency(user.id, curr);
+          let currentAmount = existing ? Number(existing.amount || 0) : 0;
 
           let newCashBalance = Math.round(user.cashBalance);
           let walletSources = user.walletSources ? [...(user.walletSources as any[])] : [];
 
           if (action === 'BUY') {
-              if (newCashBalance < numTotalIDR) {
+              const idrSrc = sourceIDR || source || "Kas Utama";
+              const valasDst = targetValasSource || `Dompet Valas ${curr}`;
+
+              // Validasi Saldo Rupiah
+              const idrIdx = walletSources.findIndex((w: any) => w.name === idrSrc && (w.currency || 'IDR').toUpperCase() === 'IDR');
+              if (idrIdx >= 0 && walletSources[idrIdx].balance < numTotalIDR) {
+                  return res.status(400).json({ message: `Saldo ${idrSrc} tidak mencukupi (Butuh Rp ${numTotalIDR.toLocaleString('id-ID')}).` });
+              }
+              if (newCashBalance < numTotalIDR && idrIdx < 0) {
                   return res.status(400).json({ message: "Saldo Rupiah tidak cukup untuk beli Valas." });
               }
-              newCashBalance -= numTotalIDR;
-              if (source) {
-                  const wsIdx = walletSources.findIndex((w: any) => w.name === source);
-                  if (wsIdx >= 0) {
-                      walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - numTotalIDR);
-                  }
+
+              // Potong Saldo IDR
+              if (idrIdx >= 0) {
+                  walletSources[idrIdx].balance = Math.max(0, walletSources[idrIdx].balance - numTotalIDR);
+              }
+              newCashBalance = Math.max(0, newCashBalance - numTotalIDR);
+
+              // Tambah Saldo Valas ke Kantong Terkait
+              const valasIdx = walletSources.findIndex((w: any) => w.name === valasDst && (w.currency || '').toUpperCase() === curr);
+              if (valasIdx >= 0) {
+                  walletSources[valasIdx].balance = (Number(walletSources[valasIdx].balance) || 0) + numAmount;
+              } else {
+                  walletSources.push({
+                      id: Date.now().toString(),
+                      name: valasDst,
+                      type: 'valas',
+                      currency: curr,
+                      balance: numAmount
+                  });
               }
               currentAmount += numAmount;
 
@@ -2353,50 +2402,63 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   type: 'forex_buy',
                   amount: numTotalIDR,
                   category: 'Tukar Valas',
-                  description: `Beli ${numAmount} ${currency} (Rate: Rp ${numRate.toLocaleString('id-ID')})`,
+                  description: `Beli ${numAmount.toLocaleString('en-US')} ${curr} dari [${idrSrc}] ke [${valasDst}] (Kurs: Rp ${numRate.toLocaleString('id-ID')})`,
                   date: new Date(),
-                  source: source || null
+                  source: idrSrc
               } as any);
           } else {
+              // JUAL VALAS
+              const valasSrc = sourceValasSource || source || `Dompet Valas ${curr}`;
+              const idrDst = targetIDRSource || "Kas Utama";
+
+              // Validasi Saldo Valas
+              const valasIdx = walletSources.findIndex((w: any) => w.name === valasSrc && (w.currency || '').toUpperCase() === curr);
+              if (valasIdx >= 0 && walletSources[valasIdx].balance < numAmount) {
+                  return res.status(400).json({ message: `Saldo ${valasSrc} tidak mencukupi (Tersedia: ${walletSources[valasIdx].balance} ${curr}).` });
+              }
               if (currentAmount < numAmount) {
-                  return res.status(400).json({ message: `Saldo ${currency} tidak mencukupi untuk dijual.` });
+                  return res.status(400).json({ message: `Saldo ${curr} tidak mencukupi untuk dijual.` });
               }
+
+              // Potong Saldo Valas dari Kantong Terkait
+              if (valasIdx >= 0) {
+                  walletSources[valasIdx].balance = Math.max(0, (Number(walletSources[valasIdx].balance) || 0) - numAmount);
+              }
+              currentAmount = Math.max(0, currentAmount - numAmount);
+
+              // Tambah Saldo Rupiah ke Rekening Pilihan
               newCashBalance += numTotalIDR;
-              if (source) {
-                  const wsIdx = walletSources.findIndex((w: any) => w.name === source);
-                  if (wsIdx >= 0) {
-                      walletSources[wsIdx].balance += numTotalIDR;
-                  } else {
-                      walletSources.push({
-                          id: Date.now().toString(),
-                          name: source,
-                          type: 'bank',
-                          balance: numTotalIDR
-                      });
-                  }
+              const idrIdx = walletSources.findIndex((w: any) => w.name === idrDst && (w.currency || 'IDR').toUpperCase() === 'IDR');
+              if (idrIdx >= 0) {
+                  walletSources[idrIdx].balance += numTotalIDR;
+              } else {
+                  walletSources.push({
+                      id: Date.now().toString(),
+                      name: idrDst,
+                      type: 'bank',
+                      currency: 'IDR',
+                      balance: numTotalIDR
+                  });
               }
-              currentAmount -= numAmount;
 
               await storage.createTransaction(user.id, {
                   userId: user.id,
                   type: 'forex_sell',
                   amount: numTotalIDR,
                   category: 'Cairkan Valas',
-                  description: `Jual ${numAmount} ${currency} (Rate: Rp ${numRate.toLocaleString('id-ID')})`,
+                  description: `Jual ${numAmount.toLocaleString('en-US')} ${curr} dari [${valasSrc}] ke [${idrDst}] (Kurs: Rp ${numRate.toLocaleString('id-ID')})`,
                   date: new Date(),
-                  source: source || null
+                  source: idrDst
               } as any);
           }
 
           await storage.updateUserBalance(user.id, newCashBalance);
-          if (source) {
-              await storage.updateUserWalletSources(user.id, walletSources);
-          }
+          await storage.updateUserWalletSources(user.id, walletSources);
 
           if (existing) {
               await storage.updateForexAsset(existing.id, currentAmount);
           } else {
-              await storage.createForexAsset(user.id, { currency, amount: currentAmount } as any);
+              await storage.createForexAsset(user.id, { currency: curr, amount: currentAmount } as any);
           }
 
           res.json({ success: true, newBalance: currentAmount, newCashBalance });
@@ -2877,12 +2939,23 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                       message: `Saldo Valas ${curr} tidak cukup. Tersedia: ${availableForex.toLocaleString('en-US')} ${curr}, Dibutuhkan: ${totalInCurrency.toLocaleString('en-US')} ${curr}. Silakan top up di menu Valas & Forex.` 
                   });
               }
-              await storage.updateForexAsset(existingForex!.id, availableForex - totalInCurrency);
+              await storage.updateForexAsset(existingForex!.id, Math.max(0, availableForex - totalInCurrency));
+
+              // Potong dari kantong valas spesifik jika diberikan
+              const sourceName = req.body.source;
+              if (sourceName) {
+                  const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName && (w.currency || '').toUpperCase() === curr);
+                  if (wsIdx >= 0) {
+                      walletSources[wsIdx].balance = Math.max(0, (Number(walletSources[wsIdx].balance) || 0) - totalInCurrency);
+                      await storage.updateUserWalletSources(user!.id, walletSources);
+                  }
+              }
           } else {
               // Transaksi Rupiah: Potong dari Saldo Kas Rupiah & Dompet RDN/Bank
               const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
               const sourceName = req.body.source || "Kas Utama";
-              const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
+              const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName && (w.currency || 'IDR').toUpperCase() === 'IDR');
               if (wsIdx >= 0 && walletSources[wsIdx].balance < totalIDR) {
                   return res.status(400).json({ message: `Saldo ${sourceName} tidak cukup (Butuh Rp ${totalIDR.toLocaleString('id-ID')}).` });
               }
@@ -2907,10 +2980,10 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           else if (typeLower === 'p2p') unitLabel = "Paket";
           else if (typeLower === 'properti' || typeLower === 'bisnis') unitLabel = "Porsi";
 
-          const txSource = curr !== 'IDR' ? `Dompet Valas ${curr}` : (req.body.source || "Kas Utama");
+          const txSource = req.body.source || (curr !== 'IDR' ? `Dompet Valas ${curr}` : "Kas Utama");
           const txDesc = curr === 'IDR'
               ? `${quantity} ${unitLabel} ${sym} @ Rp ${price.toLocaleString('id-ID')}`
-              : `${quantity} ${unitLabel} ${sym} @ ${curr} ${price.toLocaleString('en-US')} (Dipotong dari Saldo ${curr})`;
+              : `${quantity} ${unitLabel} ${sym} @ ${curr} ${price.toLocaleString('en-US')} (Dipotong dari ${txSource})`;
 
           await storage.createTransaction(user!.id, {
               userId: user!.id, 
@@ -2994,12 +3067,31 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
               } else {
                   await storage.createForexAsset(user!.id, { currency: curr, amount: totalSellPriceInCurrency } as any);
               }
+
+              // Masukkan ke kantong valas pilihan jika ada
+              const sourceName = req.body.source;
+              if (sourceName) {
+                  const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName && (w.currency || '').toUpperCase() === curr);
+                  if (wsIdx >= 0) {
+                      walletSources[wsIdx].balance = (Number(walletSources[wsIdx].balance) || 0) + totalSellPriceInCurrency;
+                  } else {
+                      walletSources.push({
+                          id: Date.now().toString(),
+                          name: sourceName,
+                          type: 'valas',
+                          currency: curr,
+                          balance: totalSellPriceInCurrency
+                      });
+                  }
+                  await storage.updateUserWalletSources(user!.id, walletSources);
+              }
           } else {
               // Hasil Penjualan Rupiah: Masuk ke Saldo Kas / Rekening Dompet Pilihan
               const sourceName = req.body.source || "Kas Utama";
               const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
               if (sourceName) {
-                  const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
+                  const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName && (w.currency || 'IDR').toUpperCase() === 'IDR');
                   if (wsIdx >= 0) {
                       walletSources[wsIdx].balance += totalSellPriceIDR;
                       await storage.updateUserWalletSources(user!.id, walletSources);
