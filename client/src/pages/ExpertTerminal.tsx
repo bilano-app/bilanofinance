@@ -679,9 +679,9 @@ export default function ExpertTerminal() {
       
       chronologicalTxs.forEach((t: any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
-              const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
+              const match = t.description?.match(/(?:unit\/lot|lot\/unit|lot|unit|lembar\/shares|lembar|shares|gram|gr|up|koin|token|paket)\s+([^|@\s]+)/i);
               const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
-              const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i); 
+              const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|lot|unit|lembar\/shares|lembar|shares|gram|gr|up|koin|token|paket)/i); 
               const qty = qtyMatch ? parseFormattedNumber(qtyMatch[1]) : 0;
               
               const priceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
@@ -689,7 +689,8 @@ export default function ExpertTerminal() {
 
               const asset = activePortfolio.find((p: any) => p.symbol === sym);
               const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
-              const multiplier = asset ? asset.liveMultiplier : (sym.length === 4 ? 100 : 1);
+              const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
+              const multiplier = asset ? asset.liveMultiplier : ((sym.length === 4 && currency === 'IDR' && !isGold) ? 100 : 1);
               const rate = currency === 'IDR' ? 1 : getHistoricalRate(new Date(t.date).getTime(), currency);
 
               let realAmountIDR = Number(t.amount);
@@ -739,10 +740,10 @@ export default function ExpertTerminal() {
       const pastTx = chronologicalTxs.filter((t:any) => new Date(t.date).getTime() <= targetTs);
       pastTx.forEach((t:any) => {
           if (t.type === 'invest_buy' || t.type === 'invest_sell') {
-              const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
+              const match = t.description?.match(/(?:unit\/lot|lot\/unit|lot|unit|lembar\/shares|lembar|shares|gram|gr|up|koin|token|paket)\s+([^|@\s]+)/i);
               if (match) {
                   const sym = match[1].toUpperCase().trim();
-                  const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i);
+                  const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|lot|unit|lembar\/shares|lembar|shares|gram|gr|up|koin|token|paket)/i);
                   const qty = qtyMatch ? parseFormattedNumber(qtyMatch[1]) : 0; 
                   
                   const priceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
@@ -750,7 +751,8 @@ export default function ExpertTerminal() {
 
                   const asset = activePortfolio.find((p: any) => p.symbol === sym);
                   const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
-                  const multiplier = asset ? asset.liveMultiplier : (sym.length === 4 ? 100 : 1);
+                  const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
+                  const multiplier = asset ? asset.liveMultiplier : ((sym.length === 4 && currency === 'IDR' && !isGold) ? 100 : 1);
                   const rate = currency === 'IDR' ? 1 : getHistoricalRate(new Date(t.date).getTime(), currency);
 
                   let realAmountIDR = Number(t.amount);
@@ -893,9 +895,9 @@ export default function ExpertTerminal() {
   const chartDataDaily = useMemo(() => {
      if (activePortfolio.length === 0 && cashBalance === 0) return [];
      const parsedInvestTxs = chronologicalTxs.filter((t: any) => t.type === 'invest_buy' || t.type === 'invest_sell').map((t: any) => {
-          const match = t.description?.match(/(?:unit\/lot|lot\/unit|\s+unit|\s+lot)\s+([^|@\s]+)/i);
+          const match = t.description?.match(/(?:unit\/lot|lot\/unit|lot|unit|lembar\/shares|lembar|shares|gram|gr|up|koin|token|paket)\s+([^|@\s]+)/i);
           const sym = match ? match[1].toUpperCase().trim() : 'Unknown';
-          const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|unit|lot)/i);
+          const qtyMatch = t.description?.match(/([0-9.,]+)\s*(?:unit\/lot|lot\/unit|lot|unit|lembar\/shares|lembar|shares|gram|gr|up|koin|token|paket)/i);
           const qty = qtyMatch ? parseFormattedNumber(qtyMatch[1]) : 0;
 
           const priceMatch = t.description?.match(/@\s*(?:IDR|Rp|USD|US\$)?\s*([0-9.,]+)/i);
@@ -903,7 +905,8 @@ export default function ExpertTerminal() {
 
           const asset = activePortfolio.find((p: any) => p.symbol === sym);
           const currency = asset ? asset.currency : (t.description?.includes('USD') ? 'USD' : 'IDR');
-          const multiplier = asset ? asset.liveMultiplier : (sym.length === 4 ? 100 : 1);
+          const isGold = ['ANTAM', 'UBS', 'EMAS', 'GOLD'].includes(sym);
+          const multiplier = asset ? asset.liveMultiplier : ((sym.length === 4 && currency === 'IDR' && !isGold) ? 100 : 1);
           const txDateTs = new Date(t.date).getTime();
           const historicalRate = currency === 'IDR' ? 1 : getHistoricalRate(txDateTs, currency);
 

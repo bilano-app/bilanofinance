@@ -282,12 +282,21 @@ export default function ChatAI() {
             ? investments.map((i: any) => {
                 const parts = (i.symbol || "").split('|');
                 const sym = parts[0] || "";
-                const curr = parts[1] || 'IDR';
-                const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 15000);
-                const isSaham = i.type === 'saham' || (!i.type && sym.length === 4 && i.type !== 'crypto');
-                const m = (isSaham && curr === 'IDR') ? 100 : 1;
+                const curr = (parts[1] || 'IDR').toUpperCase();
+                const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 16000);
+                const typeLower = (i.type || 'saham').toLowerCase();
+                const isIDRSaham = typeLower === 'saham' && curr === 'IDR';
+                const m = isIDRSaham ? 100 : 1;
                 const totalVal = i.quantity * i.avgPrice * m * rate;
-                return `- ${sym} [${i.type || 'Aset'}]: ${i.quantity} ${isSaham ? 'lot' : 'unit'} @ ${i.avgPrice.toLocaleString('id-ID')} ${curr} (Total: Rp ${Math.round(totalVal).toLocaleString('id-ID')})`;
+                
+                let unitStr = "unit";
+                if (typeLower === 'saham') unitStr = curr === 'IDR' ? `lot (${i.quantity * 100} lembar)` : 'lembar/shares';
+                else if (typeLower === 'emas') unitStr = 'gram';
+                else if (typeLower === 'reksadana') unitStr = 'UP';
+                else if (typeLower === 'kripto') unitStr = 'koin/token';
+                else if (typeLower === 'obligasi') unitStr = 'unit SBN';
+
+                return `- ${sym} [${i.type || 'Aset'}]: ${i.quantity} ${unitStr} @ ${curr} ${i.avgPrice.toLocaleString('id-ID')} (Total: Rp ${Math.round(totalVal).toLocaleString('id-ID')})`;
             }).join('\n')
             : '- Tidak ada aset investasi aktif';
 

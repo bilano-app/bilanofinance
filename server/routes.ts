@@ -1030,8 +1030,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           let totalInvestIDRAUM = 0;
           investmentsList.forEach((inv: any) => {
-              const m = (inv.type === 'saham' || !inv.type) ? 100 : 1;
-              totalInvestIDRAUM += (Number(inv.quantity || 0) * Number(inv.avgPrice || inv.avg_price || 0) * m);
+              const parts = (inv.symbol || "").split('|');
+              const curr = (parts[1] || 'IDR').toUpperCase();
+              const isIDRSaham = (inv.type === 'saham' || !inv.type) && curr === 'IDR';
+              const m = isIDRSaham ? 100 : 1;
+              const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 16000);
+              totalInvestIDRAUM += (Number(inv.quantity || 0) * Number(inv.avgPrice || inv.avg_price || 0) * m * rate);
           });
 
           let totalRetainedIDRAUM = 0;
@@ -1391,7 +1395,7 @@ function parseCleanJson(text: string): any {
                   if (wsIdx >= 0) walletSources[wsIdx].balance += amt;
               }
 
-              const matchInv = desc.match(/([0-9.]+)\s+(?:unit\/lot|lot\/unit|lot|unit)\s+([A-Z0-9|_-]+)/i);
+              const matchInv = desc.match(/([0-9.]+)\s+(?:unit\/lot|lot\/unit|lot|unit|lembar\/shares|lembar|shares|gram|gr|up|koin|token|paket)\s+([A-Z0-9|._-]+)/i);
               if (matchInv) {
                   const qty = parseFloat(matchInv[1]);
                   const symbol = matchInv[2].toUpperCase();
@@ -1417,7 +1421,7 @@ function parseCleanJson(text: string): any {
                   if (wsIdx >= 0) walletSources[wsIdx].balance = Math.max(0, walletSources[wsIdx].balance - amt);
               }
 
-              const matchInvSell = desc.match(/([0-9.]+)\s+(?:unit\/lot|lot\/unit|lot|unit)\s+([A-Z0-9|_-]+)(?:\s+@\s+([A-Z]{3})?\s*([0-9.,]+))?/i);
+              const matchInvSell = desc.match(/([0-9.]+)\s+(?:unit\/lot|lot\/unit|lot|unit|lembar\/shares|lembar|shares|gram|gr|up|koin|token|paket)\s+([A-Z0-9|._-]+)(?:\s+@\s+([A-Z]{3})?\s*([0-9.,]+))?/i);
               if (matchInvSell) {
                   const qty = parseFloat(matchInvSell[1]);
                   const symbol = matchInvSell[2].toUpperCase();
@@ -2843,66 +2847,91 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const { symbol, type } = req.body; 
           const quantity = Number(req.body.quantity) || 0;
           const price = Number(req.body.price) || 0;
+
+          if (!symbol || quantity <= 0 || price <= 0) {
+              return res.status(400).json({ message: "Jumlah dan harga aset harus lebih dari 0." });
+          }
           
           const parts = (symbol || "").split('|');
           const sym = parts[0] || "";
-          const curr = parts[1] || 'IDR';
+          const curr = (parts[1] || req.body.currency || 'IDR').toUpperCase();
           const typeLower = (type || 'saham').toLowerCase();
           
+          // IHSG Saham Indonesia uses Lot multiplier (1 Lot = 100 lembar).
+          // US Stocks, Gold (gr), Reksa Dana (UP), Crypto, Obligasi, P2P use multiplier 1.
           const isIDRSaham = typeLower === 'saham' && curr === 'IDR';
           const m = isIDRSaham ? 100 : 1; 
           
           const totalInCurrency = quantity * price * m; 
           
           ensureRatesFresh();
-          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 15000);
+          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 16000);
           const totalIDR = Math.round(totalInCurrency * rate);
 
-          if (curr === 'IDR') {
-              const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
-              const sourceName = req.body.source;
-              if (sourceName) {
-                  const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
-                  if (wsIdx >= 0 && walletSources[wsIdx].balance < totalIDR) {
-                      return res.status(400).json({message: `Saldo RDN/Dompet ${sourceName} tidak cukup.`});
-                  }
-                  if (wsIdx >= 0) {
-                      walletSources[wsIdx].balance -= totalIDR;
-                      await storage.updateUserWalletSources(user!.id, walletSources);
-                  }
+          const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
+          const sourceName = req.body.source || "Kas Utama";
+
+          // Cek apakah sumber dana adalah dompet valas yang cocok
+          const existingForex = curr !== 'IDR' ? await storage.getForexByCurrency(user!.id, curr) : null;
+          const isExplicitForexSource = existingForex && (sourceName.toLowerCase().includes(curr.toLowerCase()) || sourceName.toLowerCase().includes('valas'));
+
+          if (isExplicitForexSource) {
+              if (existingForex.amount < totalInCurrency) {
+                  return res.status(400).json({ message: `Saldo Valas ${curr} tidak cukup (Butuh ${totalInCurrency.toLocaleString('en-US')} ${curr}).` });
+              }
+              await storage.updateForexAsset(existingForex.id, existingForex.amount - totalInCurrency);
+          } else {
+              // Pembayaran dari Kas IDR / Rekening Rupiah (Auto-konversi kurs jika valas)
+              const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
+              if (wsIdx >= 0 && walletSources[wsIdx].balance < totalIDR) {
+                  return res.status(400).json({ message: `Saldo ${sourceName} tidak cukup (Butuh Rp ${totalIDR.toLocaleString('id-ID')}).` });
+              }
+              if (wsIdx >= 0) {
+                  walletSources[wsIdx].balance -= totalIDR;
+                  await storage.updateUserWalletSources(user!.id, walletSources);
               }
 
               if (user!.cashBalance < totalIDR) {
-                  return res.status(400).json({message: "Saldo Rupiah tidak cukup untuk pembelian ini."}); 
+                  return res.status(400).json({ message: `Saldo Kas Anda tidak cukup (Butuh Rp ${totalIDR.toLocaleString('id-ID')}).` }); 
               }
               await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance - totalIDR)); 
-          } else {
-              const existingForex = await storage.getForexByCurrency(user!.id, curr);
-              if (!existingForex || existingForex.amount < totalInCurrency) {
-                  return res.status(400).json({message: `Saldo Valas ${curr} tidak cukup (Butuh ${totalInCurrency} ${curr}).`});
-              }
-              await storage.updateForexAsset(existingForex.id, existingForex.amount - totalInCurrency);
           }
+
+          // Format keterangan transaksi yang presisi sesuai kelas aset
+          let unitLabel = "Unit";
+          if (typeLower === 'saham') unitLabel = curr === 'IDR' ? `Lot (${(quantity * 100).toLocaleString('id-ID')} Lembar)` : "Lembar (Shares)";
+          else if (typeLower === 'emas') unitLabel = "Gram";
+          else if (typeLower === 'reksadana') unitLabel = "UP";
+          else if (typeLower === 'kripto') unitLabel = "Koin";
+          else if (typeLower === 'obligasi') unitLabel = "Unit SBN";
+          else if (typeLower === 'p2p') unitLabel = "Paket";
+          else if (typeLower === 'properti' || typeLower === 'bisnis') unitLabel = "Porsi";
+
+          const txDesc = curr === 'IDR'
+              ? `${quantity} ${unitLabel} ${sym} @ Rp ${price.toLocaleString('id-ID')}`
+              : `${quantity} ${unitLabel} ${sym} @ ${curr} ${price.toLocaleString('en-US')} (Eqv: Rp ${totalIDR.toLocaleString('id-ID')})`;
 
           await storage.createTransaction(user!.id, {
               userId: user!.id, 
               type: 'invest_buy', 
               amount: totalIDR, 
               category: 'Beli Aset', 
-              description: `${quantity} unit/lot ${symbol} @ ${curr} ${price.toLocaleString('en-US')} (Eqv: Rp ${totalIDR.toLocaleString('id-ID')})`, 
+              description: txDesc, 
               date: new Date(),
-              source: req.body.source || null
+              source: sourceName
           } as any); 
           
+          const finalSymbol = (curr !== 'IDR' && !symbol.includes('|')) ? `${sym.toUpperCase()}|${curr}` : symbol.toUpperCase();
+
           await storage.createInvestment(user!.id, {
               userId: user!.id, 
-              symbol: symbol.toUpperCase(), 
+              symbol: finalSymbol, 
               quantity, 
               avgPrice: price, 
               type: typeLower
           } as any); 
           
-          res.json({success: true}); 
+          res.json({ success: true }); 
       } catch (error: any) { 
           res.status(500).json({ message: "Terjadi kesalahan server saat menyimpan aset." }); 
       }
@@ -2914,10 +2943,14 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const { symbol, type } = req.body; 
           const quantity = Number(req.body.quantity) || 0;
           const price = Number(req.body.price) || 0;
+
+          if (!symbol || quantity <= 0 || price <= 0) {
+              return res.status(400).json({ message: "Jumlah dan harga jual harus lebih dari 0." });
+          }
           
           const parts = (symbol || "").split('|');
           const sym = parts[0] || "";
-          const curr = parts[1] || 'IDR';
+          const curr = (parts[1] || 'IDR').toUpperCase();
           const typeLower = (type || 'saham').toLowerCase(); 
           
           const isIDRSaham = typeLower === 'saham' && curr === 'IDR';
@@ -2926,7 +2959,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const totalSellPriceInCurrency = quantity * price * m; 
           
           ensureRatesFresh();
-          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 15000);
+          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 16000);
           const totalSellPriceIDR = Math.round(totalSellPriceInCurrency * rate);
           
           const allInvestments = await storage.getInvestments(user!.id);
@@ -2952,9 +2985,19 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const plIDR = Math.round(plCurrency * rate);
           const profitLossText = ` (P/L: ${plIDR >= 0 ? '+' : ''}Rp ${plIDR.toLocaleString('id-ID')})`;
 
-          if (curr === 'IDR') {
+          const sourceName = req.body.source || "Kas Utama";
+          const isExplicitForexTarget = curr !== 'IDR' && (sourceName.toLowerCase().includes(curr.toLowerCase()) || sourceName.toLowerCase().includes('valas'));
+
+          if (isExplicitForexTarget) {
+              const existingForex = await storage.getForexByCurrency(user!.id, curr);
+              if (existingForex) {
+                  await storage.updateForexAsset(existingForex.id, existingForex.amount + totalSellPriceInCurrency);
+              } else {
+                  await storage.createForexAsset(user!.id, { currency: curr, amount: totalSellPriceInCurrency } as any);
+              }
+          } else {
+              // Masuk ke Saldo Rupiah / Rekening Dompet Pilihan
               const walletSources = user!.walletSources ? [...(user!.walletSources as any[])] : [];
-              const sourceName = req.body.source;
               if (sourceName) {
                   const wsIdx = walletSources.findIndex((w: any) => w.name === sourceName);
                   if (wsIdx >= 0) {
@@ -2963,25 +3006,32 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
                   }
               }
               await storage.updateUserBalance(user!.id, Math.round(user!.cashBalance + totalSellPriceIDR)); 
-          } else {
-              const existingForex = await storage.getForexByCurrency(user!.id, curr);
-              if (existingForex) {
-                  await storage.updateForexAsset(existingForex.id, existingForex.amount + totalSellPriceInCurrency);
-              } else {
-                  await storage.createForexAsset(user!.id, { currency: curr, amount: totalSellPriceInCurrency } as any);
-              }
           }
+
+          let unitLabel = "Unit";
+          if (typeLower === 'saham') unitLabel = curr === 'IDR' ? `Lot (${(quantity * 100).toLocaleString('id-ID')} Lembar)` : "Lembar (Shares)";
+          else if (typeLower === 'emas') unitLabel = "Gram";
+          else if (typeLower === 'reksadana') unitLabel = "UP";
+          else if (typeLower === 'kripto') unitLabel = "Koin";
+          else if (typeLower === 'obligasi') unitLabel = "Unit SBN";
+          else if (typeLower === 'p2p') unitLabel = "Paket";
+          else if (typeLower === 'properti' || typeLower === 'bisnis') unitLabel = "Porsi";
+
+          const txDesc = curr === 'IDR'
+              ? `${quantity} ${unitLabel} ${sym} @ Rp ${price.toLocaleString('id-ID')}${profitLossText}`
+              : `${quantity} ${unitLabel} ${sym} @ ${curr} ${price.toLocaleString('en-US')}${profitLossText} (Eqv: Rp ${totalSellPriceIDR.toLocaleString('id-ID')})`;
 
           await storage.createTransaction(user!.id, {
               userId: user!.id, 
               type: 'invest_sell', 
               amount: totalSellPriceIDR, 
               category: 'Jual Aset', 
-              description: `${quantity} unit/lot ${symbol} @ ${curr} ${price.toLocaleString('en-US')}${profitLossText}`, 
-              date: new Date()
+              description: txDesc, 
+              date: new Date(),
+              source: sourceName
           } as any); 
           
-          res.json({success: true}); 
+          res.json({ success: true }); 
       } catch (error: any) { 
           res.status(500).json({ message: "Terjadi kesalahan server saat menjual aset." }); 
       }

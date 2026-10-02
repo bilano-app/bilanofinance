@@ -310,17 +310,32 @@ export default function SetupBalance() {
                 <div className="mt-3 space-y-4">
                   <div className="flex gap-3">
                     <div className="flex-1">
-                      <label className="text-xs font-bold text-slate-500 mb-1.5 block">Simbol / Nama Aset</label>
-                      <Input placeholder="BBCA" value={entry.symbol} onChange={(e) => updateInvestment(entry.id, 'symbol', e.target.value.toUpperCase())} className="h-14 font-black bg-slate-50 border-slate-200 rounded-2xl" />
+                      <label className="text-xs font-bold text-slate-500 mb-1.5 block">
+                        {entry.type === 'saham' ? 'Ticker (Cth: BBCA / AAPL)' : entry.type === 'kripto' ? 'Simbol (Cth: BTC / ETH)' : entry.type === 'emas' ? 'Jenis (Cth: Antam)' : 'Nama / Simbol Aset'}
+                      </label>
+                      <Input 
+                        placeholder={entry.type === 'saham' ? 'BBCA' : entry.type === 'kripto' ? 'BTC' : entry.type === 'emas' ? 'Antam' : 'Nama Aset'} 
+                        value={entry.symbol} 
+                        onChange={(e) => updateInvestment(entry.id, 'symbol', e.target.value.toUpperCase())} 
+                        className="h-14 font-black bg-slate-50 border-slate-200 rounded-2xl" 
+                      />
                     </div>
-                    <div className="w-1/3">
+                    <div className="w-2/5">
                       <label className="text-xs font-bold text-slate-500 mb-1.5 block">Tipe Aset</label>
                       <div className="relative">
-                        <select value={entry.type} onChange={(e) => updateInvestment(entry.id, 'type', e.target.value)} className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 text-sm font-bold rounded-2xl h-14 px-4 focus:ring-2 focus:ring-indigo-500">
-                          <option value="saham">Saham</option>
-                          <option value="crypto">Crypto</option>
-                          <option value="reksadana">Reksadana</option>
-                          <option value="deposito">Deposito</option>
+                        <select 
+                          value={entry.type} 
+                          onChange={(e) => updateInvestment(entry.id, 'type', e.target.value)} 
+                          className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-2xl h-14 px-3 focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="saham">Saham (IHSG/US)</option>
+                          <option value="reksadana">Reksa Dana</option>
+                          <option value="kripto">Kripto</option>
+                          <option value="emas">Emas & Logam</option>
+                          <option value="obligasi">Surat Berharga / SBN</option>
+                          <option value="p2p">P2P Lending</option>
+                          <option value="properti">Properti</option>
+                          <option value="bisnis">Bisnis Riil</option>
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       </div>
@@ -328,12 +343,30 @@ export default function SetupBalance() {
                   </div>
                   <div className="flex gap-3">
                     <div className="flex-1">
-                      <label className="text-xs font-bold text-slate-500 mb-1.5 block">Jumlah Lembar/Unit</label>
-                      <Input type="text" inputMode="decimal" placeholder="100" value={entry.quantity} onChange={(e) => updateInvestment(entry.id, 'quantity', e.target.value)} className="h-14 font-black bg-slate-50 border-slate-200 rounded-2xl" />
+                      <label className="text-xs font-bold text-slate-500 mb-1.5 block truncate">
+                        {entry.type === 'saham' ? 'Jumlah (Lot IHSG / Lbr US)' : entry.type === 'emas' ? 'Berat (Gram)' : entry.type === 'reksadana' ? 'Jumlah (UP)' : entry.type === 'kripto' ? 'Jumlah (Koin/Token)' : 'Jumlah Unit'}
+                      </label>
+                      <Input 
+                        type="text" 
+                        inputMode="decimal" 
+                        placeholder={entry.type === 'emas' ? '10' : entry.type === 'saham' ? '1' : '100'} 
+                        value={entry.quantity} 
+                        onChange={(e) => updateInvestment(entry.id, 'quantity', e.target.value)} 
+                        className="h-14 font-black bg-slate-50 border-slate-200 rounded-2xl" 
+                      />
                     </div>
                     <div className="flex-1">
-                      <label className="text-xs font-bold text-slate-500 mb-1.5 block">Harga Beli Rata-Rata</label>
-                      <Input type="text" inputMode="decimal" placeholder="0" value={entry.price} onChange={(e) => updateInvestment(entry.id, 'price', e.target.value)} className="h-14 font-black bg-slate-50 border-slate-200 rounded-2xl" />
+                      <label className="text-xs font-bold text-slate-500 mb-1.5 block truncate">
+                        {entry.type === 'saham' ? 'Harga Beli / Lembar' : entry.type === 'emas' ? 'Harga / Gram' : entry.type === 'reksadana' ? 'NAB / Unit UP' : 'Harga Beli Rata-Rata'}
+                      </label>
+                      <Input 
+                        type="text" 
+                        inputMode="decimal" 
+                        placeholder="0" 
+                        value={entry.price} 
+                        onChange={(e) => updateInvestment(entry.id, 'price', e.target.value)} 
+                        className="h-14 font-black bg-slate-50 border-slate-200 rounded-2xl" 
+                      />
                     </div>
                   </div>
                 </div>
