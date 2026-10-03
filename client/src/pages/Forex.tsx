@@ -629,13 +629,14 @@ export default function Forex() {
             headers: { "x-user-email": currentUserEmail }
         });
         if (res.ok) {
-            const data = await res.json();
-            setChartData(data);
+            const resJson = await res.json();
+            const dataArray = Array.isArray(resJson) ? resJson : (resJson.data || []);
+            setChartData(dataArray);
         } else {
             setChartData([]);
         }
     } catch (e) {
-        console.error(e);
+        console.error("Gagal memuat data grafik valas:", e);
         setChartData([]);
     } finally {
         setLoadingChart(false);
@@ -1151,9 +1152,14 @@ export default function Forex() {
                                 {/* Header Info Valas */}
                                 <div className="flex justify-between items-center gap-3">
                                     <div className="flex items-center gap-3 min-w-0">
-                                        <div className="bg-brand-navy text-brand-gold font-black w-11 h-11 rounded-2xl flex items-center justify-center text-xs shadow-xs shrink-0 border border-brand-gold/30">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCurrencyClick(asset.currency)}
+                                            className="bg-brand-navy hover:bg-[#152e55] text-brand-gold font-black w-11 h-11 rounded-2xl flex items-center justify-center text-xs shadow-xs shrink-0 border border-brand-gold/30 active:scale-95 transition-all cursor-pointer"
+                                            title={`Buka Grafik Pasar ${asset.currency}`}
+                                        >
                                             {asset.currency}
-                                        </div>
+                                        </button>
                                         <div className="min-w-0">
                                             <div className="font-extrabold text-slate-900 text-sm truncate">
                                                 {asset.amount.toLocaleString('en-US')} <span className="text-xs text-slate-500 font-semibold">{asset.currency}</span>
@@ -1169,10 +1175,15 @@ export default function Forex() {
                                         <div className="font-black text-emerald-700 text-sm sm:text-base tabular-nums">
                                             {formatRp(idrVal)}
                                         </div>
-                                        <div className="text-[10px] text-slate-500 font-medium flex items-center justify-end gap-1 mt-0.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCurrencyClick(asset.currency)}
+                                            className="text-[10px] text-slate-500 hover:text-amber-700 font-medium flex items-center justify-end gap-1 mt-0.5 cursor-pointer transition-colors"
+                                            title="Klik untuk melihat grafik pergerakan kurs"
+                                        >
                                             <Activity className="w-3 h-3 text-amber-600"/>
-                                            <span>@ {formatRp(liveRate)}</span>
-                                        </div>
+                                            <span>@ {formatRp(liveRate)} 📈</span>
+                                        </button>
                                     </div>
                                 </div>
 
@@ -1253,69 +1264,100 @@ export default function Forex() {
       {/* 📈 MODAL GRAFIK PASAR VALAS */}
       {/* ========================================================================= */}
       {chartCurr && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in">
               <div className="bg-white w-full max-w-md rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 relative border border-slate-100">
-                  <div className="flex justify-between items-center mb-4">
+                  <div className="flex justify-between items-start mb-4">
                       <div>
                           <div className="flex items-center gap-2">
-                              <span className="text-lg">{CURRENCY_LIST.find(c => c.code === chartCurr)?.flag}</span>
-                              <h3 className="font-extrabold text-xl text-slate-900">
-                                  {chartCurr} / IDR
-                              </h3>
+                              <span className="text-2xl">{CURRENCY_LIST.find(c => c.code === chartCurr)?.flag}</span>
+                              <div>
+                                  <h3 className="font-black text-xl text-slate-900 leading-tight">
+                                      {chartCurr} / IDR
+                                  </h3>
+                                  <p className="text-[11px] text-slate-500 font-semibold">
+                                      {CURRENCY_LIST.find(c => c.code === chartCurr)?.name}
+                                  </p>
+                              </div>
                           </div>
-                          <p className="text-xs text-slate-500 font-medium mt-0.5">
-                              Tren Nilai Tukar 30 Hari Terakhir
-                          </p>
+                          <div className="mt-2 flex items-baseline gap-2">
+                              <span className="text-2xl font-black text-brand-navy tabular-nums">
+                                  Rp {Math.round(getSafeRate(chartCurr)).toLocaleString("id-ID")}
+                              </span>
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                  Kurs Live
+                              </span>
+                          </div>
                       </div>
                       <button 
                           type="button"
                           onClick={() => setChartCurr(null)} 
                           className="w-9 h-9 bg-slate-100 rounded-full hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+                          title="Tutup"
                       >
-                          <X className="w-4 h-4" />
+                          <X className="w-5 h-5" />
                       </button>
                   </div>
                   
                   {/* Container Grafik */}
-                  <div className="w-full h-56 bg-slate-50 rounded-2xl p-2 mb-4 border border-slate-100 flex items-center justify-center">
+                  <div className="w-full h-60 bg-slate-50 rounded-2xl p-2 mb-4 border border-slate-100 flex items-center justify-center min-w-0">
                       {loadingChart ? (
-                          <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold">
-                              <Loader2 className="w-4 h-4 animate-spin text-brand-navy" />
-                              Memuat data pasar...
+                          <div className="flex items-center gap-2 text-slate-500 text-xs font-semibold">
+                              <Loader2 className="w-5 h-5 animate-spin text-brand-navy" />
+                              Memuat pergerakan kurs pasar 30 hari...
                           </div>
-                      ) : chartData.length > 0 ? (
-                          <ResponsiveContainer width="100%" height="100%">
-                              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                  <defs>
-                                      <linearGradient id="colorRate" x1="0" y1="0" x2="0" y2="1">
-                                          <stop offset="5%" stopColor="#1D3E72" stopOpacity={0.4}/>
-                                          <stop offset="95%" stopColor="#1D3E72" stopOpacity={0.0}/>
-                                      </linearGradient>
-                                  </defs>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} axisLine={false} />
-                                  <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v) => `Rp ${v.toLocaleString('id-ID')}`} />
-                                  <Tooltip 
-                                      contentStyle={{ borderRadius: '16px', border: '1px solid #E2E8F0', fontSize: '12px', fontWeight: 'bold' }}
-                                      formatter={(v: any) => [`Rp ${Number(v).toLocaleString('id-ID')}`, 'Kurs Penutupan']}
-                                  />
-                                  <Area type="monotone" dataKey="rate" stroke="#1D3E72" strokeWidth={3} fillOpacity={1} fill="url(#colorRate)" />
-                              </AreaChart>
-                          </ResponsiveContainer>
+                      ) : chartData && chartData.length > 0 ? (
+                          <div className="w-full h-full">
+                              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                                      <defs>
+                                          <linearGradient id="colorRate" x1="0" y1="0" x2="0" y2="1">
+                                              <stop offset="5%" stopColor="#1D3E72" stopOpacity={0.4}/>
+                                              <stop offset="95%" stopColor="#1D3E72" stopOpacity={0.0}/>
+                                          </linearGradient>
+                                      </defs>
+                                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                                      <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#64748B' }} tickLine={false} axisLine={false} />
+                                      <YAxis domain={['auto', 'auto']} tick={{ fontSize: 9, fill: '#64748B' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${Math.round(v).toLocaleString('id-ID')}`} />
+                                      <Tooltip 
+                                          contentStyle={{ borderRadius: '16px', border: '1px solid #E2E8F0', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                                          formatter={(v: any) => [`Rp ${Number(v).toLocaleString('id-ID')}`, 'Kurs Penutupan']}
+                                      />
+                                      <Area type="monotone" dataKey="rate" stroke="#1D3E72" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRate)" />
+                                  </AreaChart>
+                              </ResponsiveContainer>
+                          </div>
                       ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
-                              Data grafik pasar belum tersedia untuk mata uang ini.
+                          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs p-4 text-center">
+                              <Activity className="w-8 h-8 text-slate-300 mb-2" />
+                              <p className="font-semibold text-slate-600">Data grafik pasar sedang dipersiapkan</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Silakan segarkan kembali dalam beberapa saat.</p>
                           </div>
                       )}
                   </div>
 
-                  <button 
-                      type="button"
-                      onClick={() => setChartCurr(null)} 
-                      className="w-full h-12 rounded-2xl bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider shadow-sm active:scale-95 transition-all cursor-pointer"
-                  >
-                      Tutup Grafik
-                  </button>
+                  <div className="flex gap-2">
+                      <button 
+                          type="button"
+                          onClick={() => {
+                              const info = CURRENCY_LIST.find(c => c.code === chartCurr);
+                              if (info) setSelectedCurr(info);
+                              setChartCurr(null);
+                              setActiveTab('exchange');
+                              window.scrollTo({ top: 400, behavior: 'smooth' });
+                          }}
+                          className="flex-1 h-11 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                          <ArrowRightLeft className="w-3.5 h-3.5" />
+                          <span>Tukar {chartCurr}</span>
+                      </button>
+                      <button 
+                          type="button"
+                          onClick={() => setChartCurr(null)} 
+                          className="flex-1 h-11 rounded-2xl bg-brand-navy hover:bg-[#152e55] text-brand-gold font-bold text-xs uppercase tracking-wider shadow-sm active:scale-95 transition-all cursor-pointer"
+                      >
+                          Tutup
+                      </button>
+                  </div>
               </div>
           </div>
       )}
