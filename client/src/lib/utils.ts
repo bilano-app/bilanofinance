@@ -28,40 +28,52 @@ export function parseFormattedNumber(val: string | number | null | undefined): n
   if (val === null || val === undefined || val === '') return 0;
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
   
-  const trimmed = val.toString().trim();
+  let trimmed = val.toString().trim();
   if (!trimmed) return 0;
 
-  // Case 1: Both . and , are present (e.g. 1.250,50 or 1,250.50)
+  // Strip currency prefixes, spaces, and non-numeric chars except digits, comma, period, minus
+  trimmed = trimmed.replace(/[^0-9.,-]/g, '');
+  if (!trimmed || trimmed === '-' || trimmed === '.' || trimmed === ',') return 0;
+
+  // Case 1: Both . and , are present (e.g. 1.250.000,50 or 1,250,000.50)
   if (trimmed.includes(',') && trimmed.includes('.')) {
     if (trimmed.lastIndexOf(',') > trimmed.lastIndexOf('.')) {
-      // "1.250,50" -> . is thousand, , is decimal
+      // "1.250.000,50" -> . is thousand, , is decimal
       return parseFloat(trimmed.replace(/\./g, '').replace(/,/g, '.')) || 0;
     } else {
-      // "1,250.50" -> , is thousand, . is decimal
+      // "1,250,000.50" -> , is thousand, . is decimal
       return parseFloat(trimmed.replace(/,/g, '')) || 0;
     }
   }
 
-  // Case 2: Only comma , is present (e.g. "0,5" or "12,50" or "1,000,000")
+  // Case 2: Only comma , is present (e.g. "0,5" or "12,50" or "500,000" or "1,000,000")
   if (trimmed.includes(',')) {
     const commaCount = (trimmed.match(/,/g) || []).length;
     if (commaCount > 1) {
-      // Multiple commas -> thousands separator
       return parseFloat(trimmed.replace(/,/g, '')) || 0;
     }
-    // Single comma -> decimal separator (koma)
-    return parseFloat(trimmed.replace(/,/g, '.')) || 0;
+    const parts = trimmed.split(',');
+    const intPart = parts[0];
+    const decPart = parts[1] || '';
+    if (intPart === '0' || intPart === '-0' || decPart.length !== 3) {
+      return parseFloat(trimmed.replace(/,/g, '.')) || 0;
+    }
+    return parseFloat(trimmed.replace(/,/g, '')) || 0;
   }
 
-  // Case 3: Only dot . is present (e.g. "0.5", "1.000", "12.50", "1.000.000")
+  // Case 3: Only dot . is present (e.g. "500.000", "300.000", "50.000", "1.000", "1.000.000", "0.5", "12.50")
   if (trimmed.includes('.')) {
     const dotCount = (trimmed.match(/\./g) || []).length;
     if (dotCount > 1) {
-      // Multiple dots -> thousands separator
       return parseFloat(trimmed.replace(/\./g, '')) || 0;
     }
-    // Single dot -> decimal separator (koma), e.g. "0.5", "1.000", "180.50"
-    return parseFloat(trimmed) || 0;
+    const parts = trimmed.split('.');
+    const intPart = parts[0];
+    const decPart = parts[1] || '';
+    if (intPart === '0' || intPart === '-0' || decPart.length !== 3) {
+      return parseFloat(trimmed) || 0;
+    }
+    return parseFloat(trimmed.replace(/\./g, '')) || 0;
   }
 
   return parseFloat(trimmed) || 0;

@@ -203,34 +203,86 @@ export const incomeAttempts = pgTable("income_attempts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export function parseFormattedNumber(val: string | number | null | undefined): number {
+  if (val === null || val === undefined || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  
+  let trimmed = val.toString().trim();
+  if (!trimmed) return 0;
+
+  trimmed = trimmed.replace(/[^0-9.,-]/g, '');
+  if (!trimmed || trimmed === '-' || trimmed === '.' || trimmed === ',') return 0;
+
+  if (trimmed.includes(',') && trimmed.includes('.')) {
+    if (trimmed.lastIndexOf(',') > trimmed.lastIndexOf('.')) {
+      return parseFloat(trimmed.replace(/\./g, '').replace(/,/g, '.')) || 0;
+    } else {
+      return parseFloat(trimmed.replace(/,/g, '')) || 0;
+    }
+  }
+
+  if (trimmed.includes(',')) {
+    const commaCount = (trimmed.match(/,/g) || []).length;
+    if (commaCount > 1) {
+      return parseFloat(trimmed.replace(/,/g, '')) || 0;
+    }
+    const parts = trimmed.split(',');
+    const intPart = parts[0];
+    const decPart = parts[1] || '';
+    if (intPart === '0' || intPart === '-0' || decPart.length !== 3) {
+      return parseFloat(trimmed.replace(/,/g, '.')) || 0;
+    }
+    return parseFloat(trimmed.replace(/,/g, '')) || 0;
+  }
+
+  if (trimmed.includes('.')) {
+    const dotCount = (trimmed.match(/\./g) || []).length;
+    if (dotCount > 1) {
+      return parseFloat(trimmed.replace(/\./g, '')) || 0;
+    }
+    const parts = trimmed.split('.');
+    const intPart = parts[0];
+    const decPart = parts[1] || '';
+    if (intPart === '0' || intPart === '-0' || decPart.length !== 3) {
+      return parseFloat(trimmed) || 0;
+    }
+    return parseFloat(trimmed.replace(/\./g, '')) || 0;
+  }
+
+  return parseFloat(trimmed) || 0;
+}
+
+const safeNumber = z.preprocess((val) => parseFormattedNumber(val as any), z.number());
+const safeNumberOptional = z.preprocess((val) => (val === undefined || val === null || val === '' ? undefined : parseFormattedNumber(val as any)), z.number().optional());
+
 // --- ZOD SCHEMAS ---
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertTransactionSchema = createInsertSchema(transactions, { 
   date: z.coerce.date(),
-  amount: z.coerce.number() 
+  amount: safeNumber 
 }).omit({ id: true, userId: true });
 export const insertInvestmentSchema = createInsertSchema(investments, {
-  quantity: z.coerce.number(),
-  avgPrice: z.coerce.number()
+  quantity: safeNumber,
+  avgPrice: safeNumber
 }).omit({ id: true, userId: true, createdAt: true });
 export const insertTargetSchema = createInsertSchema(targets, {
-  targetAmount: z.coerce.number().optional(),
-  monthlyBudget: z.coerce.number().optional(),
+  targetAmount: safeNumberOptional,
+  monthlyBudget: safeNumberOptional,
   durationMonths: z.coerce.number().optional(),
   startMonth: z.coerce.number().optional(),
   startYear: z.coerce.number().optional()
 }).omit({ id: true, userId: true });
 export const insertDebtSchema = createInsertSchema(debts, { 
   dueDate: z.coerce.date().nullable().optional(),
-  amount: z.coerce.number()
+  amount: safeNumber
 }).omit({ id: true, userId: true, createdAt: true });
 export const insertSubscriptionSchema = createInsertSchema(subscriptions, { 
   nextBilling: z.coerce.date().nullable().optional(),
-  cost: z.coerce.number()
+  cost: safeNumber
 }).omit({ id: true, userId: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, userId: true });
 export const insertForexAssetSchema = createInsertSchema(forexAssets, {
-  amount: z.coerce.number()
+  amount: safeNumber
 }).omit({ id: true, userId: true, createdAt: true });
 export const insertOtpSessionSchema = createInsertSchema(otpSessions).omit({ id: true, createdAt: true });
 export const insertTrackingEventSchema = createInsertSchema(trackingEvents).omit({ id: true, createdAt: true });

@@ -887,7 +887,7 @@ export default function Manager() {
                     <div><span className="text-[#f59e0b] font-black text-xl">{data.plans?.year || 0}</span> <span className="text-[11px] text-[#64748b] font-bold">Tahun</span></div>
                     <div><span className="text-[#2563eb] font-black text-xl">{data.plans?.month || 0}</span> <span className="text-[11px] text-[#64748b] font-bold">Bulan</span></div>
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-1 font-medium">Klik Pasang PWA: {data.metrics?.pwa_button_clicked || 0} kali</p>
+                  <p className="text-[10px] text-slate-500 mt-1 font-medium">Klik Pasang PWA: {data.metrics?.pwa_button_clicked || 0} orang</p>
                 </div>
                 <div className="text-[#f59e0b] bg-[#fffbeb] p-2.5 rounded-lg"><IconRadar /></div>
               </div>

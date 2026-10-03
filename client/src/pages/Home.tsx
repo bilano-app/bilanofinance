@@ -455,7 +455,7 @@ export default function Home() {
         if (!dueSub) return;
         if (dueSub.category === 'dinamis' && !dynamicAmount) return;
 
-        const amountToPay = dueSub.category === 'dinamis' ? parseFloat(dynamicAmount) : (dueSub.price || dueSub.cost || 0);
+        const amountToPay = dueSub.category === 'dinamis' ? parseFormattedNumber(dynamicAmount) : (dueSub.price || dueSub.cost || 0);
 
         try {
             // 1. Catat transaksi pengeluaran

@@ -2,7 +2,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
-import { insertTransactionSchema, insertTargetSchema } from "../shared/schema.js";
+import { insertTransactionSchema, insertTargetSchema, parseFormattedNumber } from "../shared/schema.js";
 import { z } from "zod";
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
@@ -779,6 +779,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               faq_toggled: 0, 
               video_played: 0,
               pwa_button_clicked: 0,
+              pwa_total_clicks: 0,
               pwa_prompted: 0,
               pwa_installed: 0,
               pwa_manual_needed: 0,
@@ -791,11 +792,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
           const plans = { year: 0, month: 0 };
           const devices = { desktop: 0, mobile: 0 };
-          const uniqueVisitors = new Set();
+          const uniqueVisitors = new Set<string>();
+          const uniqueLandingVisitors = new Set<string>();
+          const uniquePwaClickers = new Set<string>();
+          const uniquePwaInstalled = new Set<string>();
+          const uniqueCheckoutInitiated = new Set<string>();
           
           let totalRevenue = 0;
           const transactionHistory: any[] = []; 
-          const dailyTrend: Record<string, { visitors: number, pwa_clicks: number, sales: number, checkouts: number }> = {};
+          const dailyTrendSets: Record<string, { visitors: Set<string>, pwa_clicks: Set<string>, checkouts: Set<string>, sales: number }> = {};
           
           const featureAdoption = { 
               ai_chat: 0, 
@@ -839,6 +844,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               let props: any = {};
               try { props = e.properties ? JSON.parse(e.properties) : {}; } catch(err) { props = {}; }
               
+              const anonId = (e.anonymous_id && e.anonymous_id !== 'unknown') ? e.anonymous_id : `raw_${e.id || Math.random()}`;
+
               if (e.anonymous_id && e.anonymous_id !== 'unknown') {
                   uniqueVisitors.add(e.anonymous_id);
               }
@@ -847,7 +854,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (eventDate < sep1Date) return;
               const dateStr = eventDate.toISOString().split('T')[0];
               if (dateStr < '2026-09-01') return;
-              if (!dailyTrend[dateStr]) dailyTrend[dateStr] = { visitors: 0, pwa_clicks: 0, sales: 0, checkouts: 0 };
+              if (!dailyTrendSets[dateStr]) {
+                  dailyTrendSets[dateStr] = { 
+                      visitors: new Set<string>(), 
+                      pwa_clicks: new Set<string>(), 
+                      checkouts: new Set<string>(), 
+                      sales: 0 
+                  };
+              }
 
               if (e.user_id) {
                  if (eventDate >= thirtyDaysAgo) activeUsers30Days.add(e.user_id);
@@ -859,18 +873,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // WEBSITE & PWA LANDING EVENTS
               if (ev === 'landing_page_viewed' || ev === 'landing_visit') {
                   metrics.landing_viewed++;
-                  dailyTrend[dateStr].visitors++;
+                  uniqueLandingVisitors.add(anonId);
+                  dailyTrendSets[dateStr].visitors.add(anonId);
                   if (props.device === 'mobile' || (props.screen_width && props.screen_width < 768)) devices.mobile++; 
                   else devices.desktop++;
               }
               if (ev === 'faq_toggled') metrics.faq_toggled++;
               if (ev === 'video_play_clicked' || ev === 'video_played') metrics.video_played++;
               if (ev === 'pwa_install_button_clicked' || ev === 'cta_landing_clicked') {
-                  metrics.pwa_button_clicked++;
-                  dailyTrend[dateStr].pwa_clicks++;
+                  metrics.pwa_total_clicks++;
+                  uniquePwaClickers.add(anonId);
+                  dailyTrendSets[dateStr].pwa_clicks.add(anonId);
               }
               if (ev === 'pwa_install_prompted') metrics.pwa_prompted++;
-              if (ev === 'pwa_install_accepted' || ev === 'pwa_installed') metrics.pwa_installed++;
+              if (ev === 'pwa_install_accepted' || ev === 'pwa_installed') {
+                  metrics.pwa_installed++;
+                  uniquePwaInstalled.add(anonId);
+              }
               if (ev === 'pwa_manual_install_needed' || ev === 'pwa_manual_install_viewed') metrics.pwa_manual_needed++;
               if (ev === 'open_in_chrome_tapped') metrics.open_in_chrome++;
               if (ev === 'escaped_ig_webview_success') metrics.escaped_ig_webview++;
@@ -878,12 +897,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               if (ev === 'checkout_initiated') {
                   metrics.checkout_initiated++;
-                  dailyTrend[dateStr].checkouts++;
+                  uniqueCheckoutInitiated.add(anonId);
+                  dailyTrendSets[dateStr].checkouts.add(anonId);
               }
 
               if (ev === 'payment_success') {
                   metrics.payment_success++;
-                  dailyTrend[dateStr].sales++;
+                  dailyTrendSets[dateStr].sales++;
                   if (props.plan === 'year' || props.plan === 'yearly') plans.year++;
                   else if (props.plan === 'month' || props.plan === 'monthly') plans.month++;
 
@@ -969,13 +989,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Lengkapi hitungan manual input dari total transaksi di DB
           featureAdoption.manual_input = Math.max(featureAdoption.manual_input, allTxs.length);
 
+          // Update metrics dengan angka unique visitor
+          metrics.pwa_button_clicked = uniquePwaClickers.size;
+
           const funnel = {
-             landing: Math.max(metrics.landing_viewed, new Set(allEvents.filter(e => e.event_name === 'landing_page_viewed' || e.event_name === 'landing_visit').map(e => e.anonymous_id)).size),
-             pwa_clicked: Math.max(metrics.pwa_button_clicked, new Set(allEvents.filter(e => e.event_name === 'pwa_install_button_clicked').map(e => e.anonymous_id)).size),
-             pwa_installed: Math.max(metrics.pwa_installed, new Set(allEvents.filter(e => e.event_name === 'pwa_install_accepted' || e.event_name === 'pwa_installed').map(e => e.anonymous_id)).size),
+             landing: uniqueLandingVisitors.size || (metrics.landing_viewed ? Math.min(metrics.landing_viewed, uniqueVisitors.size) : 0),
+             pwa_clicked: uniquePwaClickers.size,
+             pwa_installed: uniquePwaInstalled.size || metrics.pwa_installed,
              registered: allUsers.length,
-             checkout: Math.max(metrics.checkout_initiated, new Set(allEvents.filter(e => e.event_name === 'checkout_initiated').map(e => e.anonymous_id)).size),
-             paid: Math.max(metrics.payment_success, new Set(allEvents.filter(e => e.event_name === 'payment_success').map(e => e.anonymous_id)).size),
+             checkout: uniqueCheckoutInitiated.size || metrics.checkout_initiated,
+             paid: Math.max(metrics.payment_success, new Set(allEvents.filter(e => e.event_name === 'payment_success' && e.anonymous_id && e.anonymous_id !== 'unknown').map(e => e.anonymous_id)).size),
           };
 
           const installRate = funnel.pwa_clicked > 0 ? Math.round((funnel.pwa_installed / funnel.pwa_clicked) * 100) : 0;
@@ -1053,12 +1076,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
           });
 
-          const dailyTrendArray = Object.keys(dailyTrend).filter(key => key >= '2026-09-01').sort().map(key => ({
+          const dailyTrendArray = Object.keys(dailyTrendSets).filter(key => key >= '2026-09-01').sort().map(key => ({
               date: key, 
-              visitors: dailyTrend[key].visitors, 
-              pwa_clicks: dailyTrend[key].pwa_clicks,
-              sales: dailyTrend[key].sales,
-              checkouts: dailyTrend[key].checkouts
+              visitors: dailyTrendSets[key].visitors.size, 
+              pwa_clicks: dailyTrendSets[key].pwa_clicks.size,
+              sales: dailyTrendSets[key].sales,
+              checkouts: dailyTrendSets[key].checkouts.size
           }));
 
           const appMetrics = {
@@ -2071,7 +2094,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const parsed = insertTransactionSchema.safeParse({
               ...item,
               date: item.date ? new Date(item.date) : new Date(),
-              amount: Math.round(parseFloat(item.amount) || 0)
+              amount: Math.round(parseFormattedNumber(item.amount) || 0)
           });
           if (!parsed.success) continue;
 
@@ -2331,7 +2354,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
 
           const { currency, amount } = req.body;
           const curr = (currency || 'USD').toUpperCase();
-          const numAmount = Math.max(0, parseFloat(amount) || 0);
+          const numAmount = Math.max(0, parseFormattedNumber(amount) || 0);
 
           const existing = await storage.getForexByCurrency(user.id, curr);
           if (existing) {
