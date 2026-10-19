@@ -50,7 +50,7 @@ const DEFAULT_PRODUCTS: Product[] = [
     id: 2,
     slug: "paket-bundling-3-buku",
     title: "Paket Bundling 3 Buku",
-    subtitle: "3 E-Book Komprehensif: Logika, Praktik Riil, & Gudang Soal",
+    subtitle: "",
     category: "SUPER HEMAT",
     cover_url: "/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp",
     promo_images: [],
@@ -367,9 +367,13 @@ export default function StoreFront() {
           <div className="space-y-6">
             {products.length > 0 ? (
               products.map((product) => {
-                const discountPercent = product.regular_price > product.sale_price
-                  ? Math.round(((product.regular_price - product.sale_price) / product.regular_price) * 100)
+                const regularPriceNum = Number(product.regular_price) || 0;
+                const salePriceNum = Number(product.sale_price) || 0;
+                const discountPercent = regularPriceNum > salePriceNum
+                  ? Math.round(((regularPriceNum - salePriceNum) / regularPriceNum) * 100)
                   : 0;
+
+                const isBundling = Number(product.id) === 2 || product.slug === "paket-bundling-3-buku";
 
                 return (
                   <div
@@ -382,7 +386,7 @@ export default function StoreFront() {
                         {product.title}
                       </h3>
 
-                      {product.subtitle && (
+                      {product.subtitle && !isBundling && (
                         <p className="text-sm sm:text-base text-slate-600 font-semibold italic max-w-2xl mx-auto leading-relaxed">
                           "{product.subtitle}"
                         </p>
@@ -471,7 +475,7 @@ export default function StoreFront() {
                               <span className="text-2xl sm:text-3xl font-black text-[#1D3E72]">
                                 {formatCurrency(product.sale_price)}
                               </span>
-                              {product.regular_price > product.sale_price && (
+                              {Number(product.regular_price) > Number(product.sale_price) && (
                                 <span className="text-sm font-semibold text-slate-400 line-through">
                                   {formatCurrency(product.regular_price)}
                                 </span>

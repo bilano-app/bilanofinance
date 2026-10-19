@@ -250,9 +250,9 @@ async function seedDefaultAdrienStoreData() {
           2,
           'paket-bundling-3-buku',
           'Paket Bundling 3 Buku',
-          'Koleksi Lengkap 3 E-Book: Logika Akuntansi + Full Accounting + Gudang Soal Akuntansi',
+          '',
           'PAKET BUNDLING 3 BUKU',
-          '/Akuntansi/Tiga Buku Akuntansi Interaktif.png',
+          '/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp',
           '[]'::jsonb,
           213000,
           82000,
@@ -348,6 +348,9 @@ async function seedDefaultAdrienStoreData() {
 
       UPDATE adrien_products 
       SET cover_url = '/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp',
+          subtitle = '',
+          regular_price = 213000,
+          sale_price = 82000,
           sales_body = 'Paket Bundling 3 Buku ini menyajikan seluruh materi esensial akuntansi: mulai dari fondasi konsep dan logika di Logika Akuntansi, siklus pembukuan dan penyusunan laporan keuangan di Full Accounting, hingga ratusan latihan kasus di Gudang Soal Akuntansi. Ketiga e-book diberikan lengkap terpisah (3 file PDF) agar Anda leluasa mengunduh dan mempelajarinya masing-masing.',
           highlights = '["Super Hemat: Potongan Rp131.000 dibandingkan membeli terpisah", "3 E-Book Terpisah Lengkap: Logika Akuntansi, Full Accounting, & Gudang Soal", "Unduh & Baca Masing-Masing: Dapatkan 3 file PDF resmi tersendiri", "Total 430+ Halaman materi berbobot dari dasar hingga mahir", "Studi kasus bisnis riil + ratusan latihan soal lengkap dengan pembahasan"]'::jsonb
       WHERE (id = 2 OR slug = 'paket-bundling-3-buku');
@@ -903,10 +906,16 @@ export function setupAdrienStoreRoutes(app: Express) {
       // Hapus password dari respons publik
       delete settingsData.admin_password;
 
+      const formattedProducts = (productsRes.rows || []).map((p: any) => ({
+        ...p,
+        regular_price: Number(p.regular_price) || 0,
+        sale_price: Number(p.sale_price) || 0
+      }));
+
       storeDataCache = {
         success: true,
         settings: settingsData,
-        products: productsRes.rows || []
+        products: formattedProducts
       };
       storeDataCacheTime = now;
 
@@ -941,6 +950,8 @@ export function setupAdrienStoreRoutes(app: Express) {
       const row: any = { ...result.rows[0] };
       delete row.pdf_data_base64;
       row.has_pdf = Boolean(result.rows[0].pdf_filename || result.rows[0].pdf_data_base64);
+      row.regular_price = Number(row.regular_price) || 0;
+      row.sale_price = Number(row.sale_price) || 0;
 
       res.json({ success: true, product: row });
     } catch (error: any) {

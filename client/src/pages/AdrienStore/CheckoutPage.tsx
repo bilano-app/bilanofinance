@@ -33,7 +33,7 @@ const DEFAULT_CHECKOUT_PRODUCTS: Product[] = [
     id: 2,
     slug: "paket-bundling-3-buku",
     title: "Paket Bundling 3 Buku",
-    subtitle: "Solusi Terlengkap & Hemat: 3 E-Book Sekaligus dari Dasar hingga Mahir",
+    subtitle: "",
     cover_url: "/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp",
     regular_price: 213000,
     sale_price: 82000,
