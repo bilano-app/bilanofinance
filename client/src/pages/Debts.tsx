@@ -8,7 +8,7 @@ import {
     ArrowLeft, Sparkles, HeartCrack, Wallet, Calendar, ArrowRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, useTransactions, getAccessTier } from "@/hooks/use-finance";
+import { useUser, useTransactions, getAccessTier, getInitialForexRates, DEFAULT_FOREX_RATES } from "@/hooks/use-finance";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
 import TrialFeatureNotice from "@/components/TrialFeatureNotice";
@@ -32,7 +32,7 @@ export default function Debts() {
   
   const [items, setItems] = useState<DebtItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeRates, setActiveRates] = useState<Record<string, number>>({});
+  const [activeRates, setActiveRates] = useState<Record<string, number>>(getInitialForexRates);
   const [availableCurrencies, setAvailableCurrencies] = useState<string[]>(["IDR", "USD", "EUR", "SGD", "GBP", "JPY", "AUD", "MYR"]);
   
   // Form State

@@ -10,7 +10,7 @@ import {
     Pencil, Eye, EyeOff, Layers, Building2, Sparkles
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, useTransactions, getAccessTier } from "@/hooks/use-finance";
+import { useUser, useTransactions, getAccessTier, DEFAULT_FOREX_RATES, getInitialForexRates, useForexRates } from "@/hooks/use-finance";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import LegacyMigrationPopup from "@/components/LegacyMigrationPopup";
@@ -47,10 +47,11 @@ interface ForexAsset {
 export default function Forex() {
   const { data: user, refetch: refetchUser } = useUser();
   const { toast } = useToast();
+  const { data: liveRatesData, refetch: refetchForexRates } = useForexRates();
   
-  const [rates, setRates] = useState<Record<string, number>>({});
+  const [rates, setRates] = useState<Record<string, number>>(getInitialForexRates);
   const [assets, setAssets] = useState<ForexAsset[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'mutation' | 'exchange'>('mutation');
@@ -289,15 +290,11 @@ export default function Forex() {
   const fetchData = async () => {
     try {
       setRefreshing(true);
-      const [resRates, resAssets] = await Promise.all([
-          fetch("/api/forex/rates", { headers: { "x-user-email": currentUserEmail } }),
-          fetch("/api/forex/assets", { headers: { "x-user-email": currentUserEmail } })
+      const [resAssets] = await Promise.all([
+          fetch("/api/forex/assets", { headers: { "x-user-email": currentUserEmail } }),
+          refetchForexRates()
       ]);
       
-      if (resRates.ok) {
-          const ratesData = await resRates.json();
-          setRates(ratesData);
-      }
       if (resAssets.ok) {
           const assetsData = await resAssets.json();
           setAssets(assetsData);
@@ -315,7 +312,7 @@ export default function Forex() {
   }, []);
 
   const getSafeRate = (code: string) => {
-    return rates[code] || 15000;
+    return liveRatesData?.[code] || rates[code] || DEFAULT_FOREX_RATES[code] || 16250;
   };
 
   const parseValas = (val: string) => {

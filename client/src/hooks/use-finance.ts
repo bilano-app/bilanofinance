@@ -417,15 +417,54 @@ export function useSaveSnapshot() {
   });
 }
 
+export const DEFAULT_FOREX_RATES: Record<string, number> = {
+  USD: 16250,
+  EUR: 17600,
+  SGD: 12150,
+  JPY: 108,
+  AUD: 10550,
+  GBP: 20600,
+  CNY: 2260,
+  MYR: 3480,
+  SAR: 4320,
+  KRW: 12,
+  THB: 450,
+  AED: 4420,
+  IDR: 1
+};
+
+export const getInitialForexRates = (): Record<string, number> => {
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem("bilano_forex_rates");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+          if (parsed.USD && parsed.USD <= 15000) {
+            parsed.USD = DEFAULT_FOREX_RATES.USD;
+          }
+          return { ...DEFAULT_FOREX_RATES, ...parsed };
+        }
+      }
+    } catch (e) {}
+  }
+  return DEFAULT_FOREX_RATES;
+};
+
 export function useForexRates() {
   const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
   return useQuery<Record<string, number>>({
     queryKey: ["forex-rates", currentUserEmail],
     queryFn: async () => {
       const res = await fetch("/api/forex/rates", { headers: getHeaders() });
-      if (!res.ok) return {};
-      return res.json();
+      if (!res.ok) return DEFAULT_FOREX_RATES;
+      const data = await res.json();
+      if (typeof window !== 'undefined') {
+        localStorage.setItem("bilano_forex_rates", JSON.stringify(data));
+      }
+      return data;
     },
+    initialData: getInitialForexRates,
     staleTime: CACHE_TIME,
     refetchInterval: 60000,
   });

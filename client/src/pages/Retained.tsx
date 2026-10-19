@@ -9,7 +9,7 @@ import {
     RefreshCcw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, getAccessTier } from "@/hooks/use-finance";
+import { useUser, getAccessTier, DEFAULT_FOREX_RATES, getInitialForexRates } from "@/hooks/use-finance";
 import { useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
@@ -50,7 +50,7 @@ export default function Retained() {
     const accessTier = getAccessTier(user);
     const isPro = accessTier !== "free";
 
-    const [safeForexRates, setSafeForexRates] = useState<Record<string, number>>({});
+    const [safeForexRates, setSafeForexRates] = useState<Record<string, number>>(getInitialForexRates);
     const [availableCurrencies, setAvailableCurrencies] = useState<string[]>(["IDR", "USD", "EUR", "SGD", "GBP", "JPY", "AUD", "MYR"]);
 
     const fetchRetained = async () => {
@@ -68,6 +68,9 @@ export default function Retained() {
             if (resForex.ok) {
                 const rates = await resForex.json();
                 setSafeForexRates(rates);
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem("bilano_forex_rates", JSON.stringify(rates));
+                }
                 if (rates && Object.keys(rates).length > 0) {
                     setAvailableCurrencies(["IDR", ...Object.keys(rates).filter(c => c !== "IDR")]);
                 }
@@ -95,7 +98,7 @@ export default function Retained() {
     
     const parseNumber = (val: string | number) => parseFormattedNumber(val);
 
-    const getRate = (curr: string) => curr === 'IDR' ? 1 : (safeForexRates[curr] || 15000);
+    const getRate = (curr: string) => curr === 'IDR' ? 1 : (safeForexRates[curr] || DEFAULT_FOREX_RATES[curr] || 16250);
 
     const totalRetainedIDR = items.reduce((acc, item) => acc + (item.amount * getRate(item.currency)), 0);
 

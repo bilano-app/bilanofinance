@@ -11,16 +11,12 @@ import ReactMarkdown from "react-markdown";
 import { useQuery } from "@tanstack/react-query";
 import { 
     useUser, useTransactions, useForexAssets, 
-    useInvestments, useTarget, useSubscriptions, getAccessTier 
+    useInvestments, useTarget, useSubscriptions, getAccessTier,
+    DEFAULT_FOREX_RATES, getInitialForexRates, useForexRates
 } from "@/hooks/use-finance"; 
 import { formatCurrency } from "@/lib/utils";
 import { trackEvent } from "@/lib/tracking";
 import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
-
-const DEFAULT_RATES: Record<string, number> = {
-    "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
-    "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
-};
 
 interface Message {
     id: number;
@@ -44,18 +40,9 @@ export default function ChatAI() {
     const { data: investments } = useInvestments();
     const { data: target } = useTarget();
     const { data: subscriptions } = useSubscriptions();
+    const { data: forexRates = getInitialForexRates() } = useForexRates();
 
     const currentUserEmail = typeof window !== 'undefined' ? localStorage.getItem("bilano_email") || "" : "";
-    
-    // Ambil data Valas, Hutang, dan Tertahan
-    const { data: forexRates = {} } = useQuery({
-        queryKey: ['forexRates', currentUserEmail],
-        queryFn: async () => {
-            const res = await fetch(`/api/forex/rates`, { headers: { "x-user-email": currentUserEmail } });
-            return res.json();
-        },
-        enabled: !!currentUserEmail
-    });
 
     const { data: debtsData = [] } = useQuery({
         queryKey: ['debts', currentUserEmail],
@@ -174,7 +161,7 @@ export default function ChatAI() {
         const cashReal = hasRealWallet ? wsSum : (user?.cashBalance || 0); 
         const forexValue = Array.isArray(forexAssetsData) ? forexAssetsData.reduce((acc: number, asset: any) => {
             const curr = asset.currency;
-            const rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+            const rate = forexRates[curr] || DEFAULT_FOREX_RATES[curr] || DEFAULT_FOREX_RATES['USD'];
             return acc + (asset.amount * rate);
         }, 0) : 0;
 
@@ -183,7 +170,7 @@ export default function ChatAI() {
             const sym = parts[0] || "";
             const curr = parts[1];
             const actualCurr = curr || 'IDR';
-            const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_RATES[actualCurr] || 15000);
+            const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_FOREX_RATES[actualCurr] || DEFAULT_FOREX_RATES['USD']);
             const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
             const m = (isSaham && actualCurr === 'IDR') ? 100 : 1;
             return acc + (inv.quantity * inv.avgPrice * m * rate);
@@ -191,7 +178,7 @@ export default function ChatAI() {
 
         const retainedReal = Array.isArray(retainedData) ? retainedData.reduce((acc: number, r: any) => {
             const curr = r.currency;
-            const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 15000);
+            const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_FOREX_RATES[curr] || DEFAULT_FOREX_RATES['USD']);
             return acc + (r.amount * rate);
         }, 0) : 0;
 
@@ -200,7 +187,7 @@ export default function ChatAI() {
             debtsData.forEach((d: any) => {
                 if (d.isPaid) return;
                 const curr = (d.name || "").split('|')[1] || 'IDR';
-                const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 15000);
+                const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_FOREX_RATES[curr] || DEFAULT_FOREX_RATES['USD']);
                 if (d.type === 'piutang') piutangReal += (d.amount * rate);
                 else if (d.type === 'hutang') hutangReal += (d.amount * rate);
             });
@@ -267,7 +254,7 @@ export default function ChatAI() {
         const retainedItems = Array.isArray(retainedData) ? retainedData : [];
         const retainedList = retainedItems.length > 0
             ? retainedItems.map((r: any) => {
-                const rRate = r.currency === 'IDR' ? 1 : (forexRates[r.currency] || DEFAULT_RATES[r.currency] || 15000);
+                const rRate = r.currency === 'IDR' ? 1 : (forexRates[r.currency] || DEFAULT_FOREX_RATES[r.currency] || DEFAULT_FOREX_RATES['USD']);
                 return `- ${r.source}: ${r.amount.toLocaleString('id-ID')} ${r.currency} (≈ Rp ${Math.round(r.amount * rRate).toLocaleString('id-ID')})`;
             }).join('\n')
             : '- Tidak ada saldo tertahan di platform eksternal';
@@ -283,7 +270,7 @@ export default function ChatAI() {
                 const parts = (i.symbol || "").split('|');
                 const sym = parts[0] || "";
                 const curr = (parts[1] || 'IDR').toUpperCase();
-                const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 16000);
+                const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_FOREX_RATES[curr] || DEFAULT_FOREX_RATES['USD']);
                 const typeLower = (i.type || 'saham').toLowerCase();
                 const isIDRSaham = typeLower === 'saham' && curr === 'IDR';
                 const m = isIDRSaham ? 100 : 1;
@@ -303,7 +290,7 @@ export default function ChatAI() {
         // 7. Forex Assets
         const forexList = Array.isArray(forexAssetsData) && forexAssetsData.length > 0
             ? forexAssetsData.map((f: any) => {
-                const rate = forexRates[f.currency] || DEFAULT_RATES[f.currency] || 15000;
+                const rate = forexRates[f.currency] || DEFAULT_FOREX_RATES[f.currency] || DEFAULT_FOREX_RATES['USD'];
                 return `- ${f.currency}: ${f.amount.toLocaleString('id-ID')} (Kurs @ Rp ${Math.round(rate).toLocaleString('id-ID')} → Total: Rp ${Math.round(f.amount * rate).toLocaleString('id-ID')})`;
             }).join('\n')
             : '- Tidak ada aset valuta asing aktif';

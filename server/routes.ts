@@ -128,7 +128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next();
   });
 
-  const DEFAULT_RATES: Record<string, number> = { "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1 };
+  const DEFAULT_RATES: Record<string, number> = { "USD": 16250, "EUR": 17600, "SGD": 12150, "JPY": 108, "AUD": 10550, "GBP": 20600, "CNY": 2260, "MYR": 3480, "SAR": 4320, "KRW": 12, "THB": 450, "AED": 4420, "IDR": 1 };
   let cachedRates: Record<string, number> = { ...DEFAULT_RATES }; 
   let lastRatesFetchTime = 0;
   let isFetchingRates = false;
@@ -138,15 +138,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       isFetchingRates = true;
       try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3500);
-          const response = await fetch("https://open.er-api.com/v6/latest/USD", { signal: controller.signal });
+          const timeoutId = setTimeout(() => controller.abort(), 4500);
+          let response = await fetch("https://open.er-api.com/v6/latest/USD", { signal: controller.signal });
+          if (!response.ok) {
+              response = await fetch("https://api.exchangerate-api.com/v4/latest/USD", { signal: controller.signal });
+          }
           clearTimeout(timeoutId);
           if (response.ok) {
               const data = await response.json();
               const rates = data.rates;
               const idrBase = rates?.IDR;
               if (idrBase && typeof idrBase === 'number') {
-                  cachedRates = { "USD": idrBase, "EUR": idrBase / rates.EUR, "SGD": idrBase / rates.SGD, "JPY": idrBase / rates.JPY, "AUD": idrBase / rates.AUD, "GBP": idrBase / rates.GBP, "CNY": idrBase / rates.CNY, "MYR": idrBase / rates.MYR, "THB": idrBase / rates.THB, "SAR": idrBase / rates.SAR, "KRW": idrBase / rates.KRW, "IDR": 1 };
+                  cachedRates = { 
+                      "USD": idrBase, 
+                      "EUR": idrBase / (rates.EUR || 0.92), 
+                      "SGD": idrBase / (rates.SGD || 1.34), 
+                      "JPY": idrBase / (rates.JPY || 155), 
+                      "AUD": idrBase / (rates.AUD || 1.52), 
+                      "GBP": idrBase / (rates.GBP || 0.78), 
+                      "CNY": idrBase / (rates.CNY || 7.23), 
+                      "MYR": idrBase / (rates.MYR || 4.70), 
+                      "THB": idrBase / (rates.THB || 36.5), 
+                      "SAR": idrBase / (rates.SAR || 3.75), 
+                      "KRW": idrBase / (rates.KRW || 1380), 
+                      "AED": idrBase / (rates.AED || 3.67),
+                      "IDR": 1 
+                  };
                   lastRatesFetchTime = Date.now(); 
                   return true;
               }
@@ -159,14 +176,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const ensureRatesFresh = () => {
       const now = Date.now();
-      if (now - lastRatesFetchTime > 30 * 60 * 1000) {
+      if (now - lastRatesFetchTime > 15 * 60 * 1000) {
           fetchLiveRates().catch(() => {});
       }
   };
 
-  // Pre-fetch in background without blocking server startup
-  setTimeout(() => { fetchLiveRates().catch(() => {}); }, 1500);
-  setInterval(() => { fetchLiveRates().catch(() => {}); }, 30 * 60 * 1000);
+  // Pre-fetch immediately on server startup
+  fetchLiveRates().catch(() => {});
+  setInterval(() => { fetchLiveRates().catch(() => {}); }, 15 * 60 * 1000);
 
   const isAdminValid = (email?: string) => { 
     if (!email) return false;
@@ -1047,7 +1064,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           let totalValasIDRAUM = 0;
           forexAssetsList.forEach((f: any) => {
-              const rate = cachedRates[f.currency] || DEFAULT_RATES[f.currency] || 16000;
+              const rate = cachedRates[f.currency] || DEFAULT_RATES[f.currency] || DEFAULT_RATES['USD'];
               totalValasIDRAUM += (Number(f.amount || 0) * rate);
           });
 
@@ -1057,13 +1074,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const curr = (parts[1] || 'IDR').toUpperCase();
               const isIDRSaham = (inv.type === 'saham' || !inv.type) && curr === 'IDR';
               const m = isIDRSaham ? 100 : 1;
-              const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 16000);
+              const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || DEFAULT_RATES['USD']);
               totalInvestIDRAUM += (Number(inv.quantity || 0) * Number(inv.avgPrice || inv.avg_price || 0) * m * rate);
           });
 
           let totalRetainedIDRAUM = 0;
           retainedList.forEach((ret: any) => {
-              const rate = ret.currency === 'IDR' ? 1 : (cachedRates[ret.currency] || DEFAULT_RATES[ret.currency] || 16000);
+              const rate = ret.currency === 'IDR' ? 1 : (cachedRates[ret.currency] || DEFAULT_RATES[ret.currency] || DEFAULT_RATES['USD']);
               totalRetainedIDRAUM += (Number(ret.amount || 0) * rate);
           });
 
@@ -1071,7 +1088,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           debtsList.forEach((d: any) => {
               if (d.type === 'piutang' && !d.is_paid && !d.isPaid) {
                   const curr = (d.name || "").split('|')[1] || 'IDR';
-                  const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 16000);
+                  const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || DEFAULT_RATES['USD']);
                   totalPiutangIDRAUM += (Number(d.amount || 0) * rate);
               }
           });
@@ -1961,7 +1978,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           await db.execute(sql`UPDATE retained_balances SET amount = ${newAmount}, updated_at = NOW() WHERE id = ${req.params.id}`);
 
           ensureRatesFresh();
-          const rate = retained.currency === 'IDR' ? 1 : (cachedRates[retained.currency] || DEFAULT_RATES[retained.currency] || 15000);
+          const rate = retained.currency === 'IDR' ? 1 : (cachedRates[retained.currency] || DEFAULT_RATES[retained.currency] || DEFAULT_RATES['USD']);
           const amountIDR = Math.round(amount * rate);
 
           let newBalance = Math.round(user!.cashBalance) + amountIDR;
@@ -2250,7 +2267,11 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
   app.get("/api/forex/assets", async (req: any, res: any) => { const user = await getUser(req); res.json(await storage.getForexAssets(user!.id)); });
   
   app.get("/api/forex/rates", async (req: any, res: any) => { 
-      ensureRatesFresh();
+      if (lastRatesFetchTime === 0 || Date.now() - lastRatesFetchTime > 15 * 60 * 1000) {
+          await fetchLiveRates();
+      } else {
+          ensureRatesFresh();
+      }
       res.json(cachedRates); 
   });
 
@@ -2264,7 +2285,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const numAmount = Math.abs(Number(amount) || 0);
           
           ensureRatesFresh();
-          const rate = Number(rateSnapshot) || cachedRates[curr as keyof typeof cachedRates] || DEFAULT_RATES[curr] || 15000;
+          const rate = Number(rateSnapshot) || cachedRates[curr as keyof typeof cachedRates] || DEFAULT_RATES[curr] || DEFAULT_RATES['USD'];
           const amountIDR = Math.round(numAmount * rate);
 
           const existing = await storage.getForexByCurrency(user.id, curr);
@@ -2377,7 +2398,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const { action, currency, amount, rate, totalIDR, sourceIDR, targetValasSource, sourceValasSource, targetIDRSource, source } = req.body;
           const curr = (currency || 'USD').toUpperCase();
           const numAmount = Math.abs(Number(amount) || 0);
-          const numRate = Number(rate) || cachedRates[curr as keyof typeof cachedRates] || DEFAULT_RATES[curr] || 15000;
+          const numRate = Number(rate) || cachedRates[curr as keyof typeof cachedRates] || DEFAULT_RATES[curr] || DEFAULT_RATES['USD'];
           const numTotalIDR = Math.round(Math.abs(Number(totalIDR) || (numAmount * numRate)));
 
           const existing = await storage.getForexByCurrency(user.id, curr);
@@ -2495,7 +2516,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const currency = req.params.currency.toUpperCase();
           
           ensureRatesFresh();
-          const baseRate = cachedRates[currency as keyof typeof cachedRates] || DEFAULT_RATES[currency] || 15000;
+          const baseRate = cachedRates[currency as keyof typeof cachedRates] || DEFAULT_RATES[currency] || DEFAULT_RATES['USD'];
           
           const data = [];
           const today = new Date();
@@ -2533,7 +2554,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           
           ensureRatesFresh();
           // 3. Gunakan customRate jika tersedia, jika kosong gunakan cachedRates sebagai fallback
-          const rate = customRate || cachedRates[currency as keyof typeof cachedRates] || DEFAULT_RATES[currency] || 15000;
+          const rate = customRate || cachedRates[currency as keyof typeof cachedRates] || DEFAULT_RATES[currency] || DEFAULT_RATES['USD'];
           const amountIDR = Math.round(amount * rate);
           let newCashBalance = Math.round(user!.cashBalance);
           let walletSources: any[] = user!.walletSources ? [...(user!.walletSources as any[])] : [];
@@ -2647,7 +2668,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
 
               const parts = (name || "").split('|');
               const curr = parts[1] || 'IDR';
-              const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 15000);
+              const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || DEFAULT_RATES['USD']);
               const amountIDR = Math.round(amount * rate); 
               
               let txType = '', txCat = '';
@@ -2777,7 +2798,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           let walletSources: any[] = user!.walletSources ? [...(user!.walletSources as any[])] : [];
           
           const curr = (debt.name || "").split('|')[1] || 'IDR';
-          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || 15000);
+          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || DEFAULT_RATES['USD']);
           const payAmountIDR = Math.round(payAmount * rate); 
           
           if (isWriteOff) {
@@ -2950,7 +2971,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const totalInCurrency = quantity * price * m; 
           
           ensureRatesFresh();
-          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 16000);
+          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || DEFAULT_RATES['USD']);
           const totalIDR = Math.round(totalInCurrency * rate);
 
           if (curr !== 'IDR') {
@@ -3056,7 +3077,7 @@ Jawab dengan format Markdown yang rapi, elegan, berwibawa, langsung ke solusinya
           const totalSellPriceInCurrency = quantity * price * m; 
           
           ensureRatesFresh();
-          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || 16000);
+          const rate = curr === 'IDR' ? 1 : (cachedRates[curr] || DEFAULT_RATES[curr] || DEFAULT_RATES['USD']);
           const totalSellPriceIDR = Math.round(totalSellPriceInCurrency * rate);
           
           const allInvestments = await storage.getInvestments(user!.id);

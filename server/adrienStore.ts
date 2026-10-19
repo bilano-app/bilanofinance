@@ -2,8 +2,15 @@ import { type Express, type Request, type Response } from "express";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import { jsPDF } from "jspdf";
+import fs from "fs";
+import path, { dirname } from "path";
+import { fileURLToPath } from "url";
+import { PDFDocument } from "pdf-lib";
 import { db } from "./db.js";
 import { sql } from "drizzle-orm";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // =========================================================================
 // 🔒 DAFTAR EMAIL ADMIN YANG DIIZINKAN & PASSWORD RESMI
@@ -201,97 +208,136 @@ async function seedDefaultAdrienStoreData() {
       `);
     }
 
-    // 2. Cek Produk Ebook
+    // 2. Cek Produk Ebook (4 Paket Sesuai Urutan Resmi)
     const productCheck = await db.execute(sql`SELECT COUNT(*) FROM adrien_products`);
     if (Number(productCheck.rows[0]?.count || 0) === 0) {
-      // Produk 1: Paket Bundling 4 in 1 Akuntansi
+      // 1. Logika Akuntansi Rp46.000 dengan harga coret Rp72.000
       await db.execute(sql`
         INSERT INTO adrien_products (
-          slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price,
+          id, slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price,
           sales_headline, sales_body, highlights, testimonials, scarcity_text, reader_count, whatsapp_number,
           pdf_filename, is_active, sort_order
         ) VALUES (
-          'paket-bundling-4in1',
-          'Paket Bundling 4 in 1: Jago Akuntansi & Laporan Keuangan Bisnis',
-          'Dari nol jurnal sampai bisa susun & analisis Laporan Keuangan dengan percaya diri',
-          'BUNDLING 4 IN 1 AKUNTANSI',
-          '',
+          1,
+          'logika-akuntansi',
+          'Logika Akuntansi',
+          'Kuasai Fondasi & Logika Debit Kredit Akuntansi Tanpa Perlu Menghafal Rumus Rumit',
+          'BEST SELLER',
+          '/Akuntansi/Mockup Buku Logika Akuntansi.png',
           '[]'::jsonb,
-          145000,
-          99000,
-          '4 E-book ini dibuat buat lo yang Sebenarnya punya bisnis/kerja tapi sering pusing saat baca Laporan Keuangan!',
-          'Lewat 4 e-book ini, lo gak cuma belajar teori akuntansi membosankan, tapi diajak praktek langsung cara menyusun jurnal umum, buku besar, neraca saldo, hingga membaca laporan laba rugi dan arus kas dengan mudah & aplikatif.',
-          '["Bisa menyusun jurnal umum & buku besar tanpa bingung debit kredit", "Paham cara membaca Laporan Laba Rugi & Neraca dalam 5 menit", "Deteksi kebocoran uang kas bisnis sejak dini", "Template spreadsheet & studi kasus riil siap pakai"]'::jsonb,
+          72000,
+          46000,
+          'Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!',
+          'Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya. Anda akan memahami mengapa suatu transaksi dicatat di debit atau kredit dengan logika yang masuk akal, bukan sekadar menghafal aturan baku yang bikin bingung.',
+          '["Paham alur & logika debit-kredit tanpa perlu menghafal aturan kaku", "Kuasai persamaan dasar akuntansi dan analisis transaksi riil", "Praktik langsung pencatatan jurnal umum bisnis & studi kasus", "Bahasa santai, mudah dicerna pemula, mahasiswa, dan pemilik usaha"]'::jsonb,
           '[
-            {"name": "Arif Hady", "role": "Owner Bisnis Kuliner & Entrepreneur", "comment": "Buku akuntansi paling praktis yang pernah saya baca! Pembukuan usaha kuliner saya langsung rapi dan gak bocor lagi.", "rating": 5},
-            {"name": "Fadhil R.", "role": "Finance Officer", "comment": "Penjelasan debit-kreditnya simpel banget, langsung paham alur laporan keuangan tahunan.", "rating": 5},
-            {"name": "Dedi A.", "role": "UMKM Founder", "comment": "Dulu buta angka keuangan bisnis, sekarang bisa bikin neraca dan tahu profit bersih riil tiap bulan.", "rating": 5},
-            {"name": "Zahra N.", "role": "Junior Accountant", "comment": "Sangat aplikatif buat mahasiswa & staf akuntansi pemula, ada template spreadsheet siap contek.", "rating": 5}
+            {"name": "Arif Hady", "role": "Owner Bisnis Kuliner", "comment": "Buku akuntansi paling praktis yang pernah saya baca! Logika debit kreditnya masuk akal banget, pembukuan usaha saya langsung rapi.", "rating": 5},
+            {"name": "Zahra N.", "role": "Mahasiswi Akuntansi", "comment": "Penjelasannya runut dan gak ngebosenin. Dulu bingung banget debit kredit, setelah baca buku ini langsung terang benderang.", "rating": 5},
+            {"name": "Fadhil R.", "role": "Staff Keuangan", "comment": "Sangat aplikatif untuk pemula, pondasi akuntansinya bener-bener dapet.", "rating": 5}
           ]'::jsonb,
-          'Ingat Paket ini TERBATAS - Hanya Untuk 10 Orang',
-          4310,
+          'Promo Terbatas - Diskon Spesial Hari Ini',
+          3420,
           '+6289688113210',
-          'Paket_Bundling_4in1_Jago_Akuntansi_Bisnis.pdf',
+          'LOGIKA AKUNTANSI - Adrien Fandra.pdf',
           true,
           1
         );
       `);
 
-      // Produk 2: Contekan Jurnal
+      // 2. Paket Bundling 3 Buku Rp82.000 dengan harga coret Rp213.000
       await db.execute(sql`
         INSERT INTO adrien_products (
-          slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price,
+          id, slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price,
           sales_headline, sales_body, highlights, testimonials, scarcity_text, reader_count, whatsapp_number,
           pdf_filename, is_active, sort_order
         ) VALUES (
-          'contekan-jurnal-keuangan',
-          'Contekan Jurnal & Laporan Keuangan: Siap Pakai untuk Bisnis & Mahasiswa',
-          'Kumpulan Rumus & Template Jurnal Akuntansi Praktis Anti Bingung',
-          'BEST SELLER',
-          '',
+          2,
+          'paket-bundling-3-buku',
+          'Paket Bundling 3 Buku',
+          'Koleksi Lengkap 3 E-Book: Logika Akuntansi + Full Accounting + Gudang Soal Akuntansi',
+          'PAKET BUNDLING 3 BUKU',
+          '/Akuntansi/Tiga Buku Akuntansi Interaktif.png',
           '[]'::jsonb,
-          89000,
-          49000,
-          'Tinggal Contek Sesuai Transaksi Bisnis Lo!',
-          '50+ Template pencatatan jurnal transaksi mulai dari kas, persediaan, piutang, hutang, hingga penyesuaian akhir periode.',
-          '["50+ Template Jurnal Transaksi Harian Bisnis", "Cara Mudah Menghitung HPP (Harga Pokok Penjualan)", "Anti Bingung Jurnal Penyesuaian & Penyusutan Aset", "Format Siap Pakai di Excel / Spreadsheet"]'::jsonb,
+          213000,
+          82000,
+          'Dapatkan 3 E-Book Akuntansi Terlengkap Sekaligus dalam 1 Paket Super Hemat!',
+          'Paket Bundling 3 Buku ini menggabungkan seluruh materi esensial akuntansi: mulai dari fondasi konsep dan logika di Logika Akuntansi, siklus pembukuan dan penyusunan laporan keuangan di Full Accounting, hingga ratusan latihan kasus di Gudang Soal Akuntansi. Ketiga materi langsung digabung lengkap untuk pembelajaran komprehensif Anda.',
+          '["Super Hemat: Potongan Rp131.000 dibandingkan membeli terpisah", "3 Buku Lengkap Sekaligus: Logika Akuntansi, Full Accounting, & Gudang Soal", "Total 430+ Halaman materi berbobot dari dasar hingga mahir", "Ketiga buku langsung digabung lengkap saat pembelian selesai", "Studi kasus bisnis riil + ratusan latihan soal lengkap dengan pembahasan"]'::jsonb,
           '[
-            {"name": "Ghozi M.", "role": "Accounting Staff", "comment": "Contekan jurnalnya sangat ngebantu kerjaan bulanan saya, closing laporan jadi jauh lebih cepat!", "rating": 5}
+            {"name": "Hendra Wijaya", "role": "Business Owner", "comment": "Ambil paket bundling 3 buku ini keputusan terbaik! Sangat komplit dari konsep, praktik bikin laporan laba rugi, sampai latihan soalnya.", "rating": 5},
+            {"name": "Dedi A.", "role": "UMKM Founder", "comment": "Dulu buta angka keuangan bisnis, sekarang bisa bikin neraca dan tahu profit bersih riil tiap bulan berkat paket lengkap ini.", "rating": 5},
+            {"name": "Putri S.", "role": "Accounting Junior", "comment": "Worth it banget paket 3 buku ini. Bahasanya aplikatif, ada contekannya, dan ilmunya kepake banget di kantor!", "rating": 5}
           ]'::jsonb,
-          'Promo Terbatas Minggu Ini',
-          2840,
+          'Ingat Paket ini TERBATAS - Hanya Untuk 10 Orang',
+          4890,
           '+6289688113210',
-          'Contekan_Jurnal_Laporan_Keuangan.pdf',
+          'Paket_Bundling_3_Buku_Akuntansi_Adrien_Fandra.pdf',
           true,
           2
         );
       `);
 
-      // Produk 3: 7 Hari Mahir Baca Laporan Keuangan
+      // 3. Full Accounting Rp69.000 dengan harga coret Rp99.000
       await db.execute(sql`
         INSERT INTO adrien_products (
-          slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price,
+          id, slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price,
           sales_headline, sales_body, highlights, testimonials, scarcity_text, reader_count, whatsapp_number,
           pdf_filename, is_active, sort_order
         ) VALUES (
-          '7-hari-mahir-laporan-keuangan',
-          '7 Hari Mahir Baca & Analisis Laporan Keuangan',
-          'Panduan Taktis Membaca Kesehatan Keuangan Bisnis dari Laba Rugi & Neraca',
-          'POPULAR',
-          '',
+          3,
+          'full-accounting',
+          'Full Accounting',
+          'Panduan Siklus Akuntansi Penuh: Dari Jurnal, Buku Besar, Neraca Saldo, hingga Laporan Keuangan Bisnis',
+          'PANDUAN LENGKAP',
+          '/Akuntansi/Mockup Buku Full Accounting Tebal.png',
           '[]'::jsonb,
-          75000,
-          39000,
-          'Ketahui Apakah Bisnis Anda Benar-Benar Untung atau Sekadar Ramai!',
-          'Metode cepat 7 hari memahami pos-pos penting dalam Neraca, Laba Rugi, dan Arus Kas untuk pengambilan keputusan bisnis yang tepat.',
-          '["Cara Cepat Mengetahui Rasio Profit & Likuiditas", "Trik Membaca Arus Kas Operasional vs Investasi", "Checklist Evaluasi Keuangan Bulanan"]'::jsonb,
-          '[]'::jsonb,
-          'Diskon Spesial Terbatas',
-          1950,
+          99000,
+          69000,
+          'Kuasai Siklus Akuntansi Lengkap dan Susun Laporan Keuangan Sendiri!',
+          'Lewat e-book Full Accounting, Anda diajak menuntaskan seluruh siklus pembukuan: pencatatan transaksi harian, posting ke buku besar, penyusunan neraca saldo, jurnal penyesuaian akhir periode, hingga menerbitkan Laporan Laba Rugi, Perubahan Modal, dan Neraca secara presisi.',
+          '["Siklus akuntansi menyeluruh dari transaksi awal hingga laporan akhir", "Langkah demi langkah menyusun Jurnal Penyesuaian & Neraca Lajur", "Teknik membaca & menganalisis Laporan Laba Rugi serta Arus Kas", "Dilengkapi contoh kasus bisnis nyata dan format pembukuan rapi"]'::jsonb,
+          '[
+            {"name": "Ghozi M.", "role": "Accounting Staff", "comment": "Buku Full Accounting ini sangat ngebantu kerjaan bulanan saya. Closing laporan akhir bulan jadi jauh lebih cepat dan minim revisi!", "rating": 5},
+            {"name": "Maya R.", "role": "Finance Supervisor", "comment": "Panduan yang sangat terstruktur. Sangat direkomendasikan untuk staf finance maupun pemilik bisnis yang ingin mandiri menyusun laporan.", "rating": 5}
+          ]'::jsonb,
+          'Promo Terbatas Minggu Ini',
+          2760,
           '+6289688113210',
-          '7_Hari_Mahir_Baca_Laporan_Keuangan.pdf',
+          'FULL ACCOUNTING - Adrien Fandra.pdf',
           true,
           3
+        );
+      `);
+
+      // 4. Gudang Akuntansi Rp28.000 dengan harga coret Rp42.000
+      await db.execute(sql`
+        INSERT INTO adrien_products (
+          id, slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price,
+          sales_headline, sales_body, highlights, testimonials, scarcity_text, reader_count, whatsapp_number,
+          pdf_filename, is_active, sort_order
+        ) VALUES (
+          4,
+          'gudang-akuntansi',
+          'Gudang Akuntansi',
+          'Kumpulan Bank Soal & Kasus Akuntansi Praktis Lengkap dengan Kunci Jawaban & Pembahasan',
+          'LATIHAN & BANK SOAL',
+          '/Akuntansi/Mockup Buku Gudang Soal Akuntansi.png',
+          '[]'::jsonb,
+          42000,
+          28000,
+          'Uji dan Asah Kemampuan Akuntansi Anda dengan Ratusan Latihan Soal Praktis!',
+          'Gudang Akuntansi berisi kumpulan studi kasus dan bank soal komprehensif mulai dari penjurnalan transaksi, penyesuaian pos keuangan, hingga penyusunan laporan keuangan. Dilengkapi pembahasan mendalam step-by-step untuk memastikan Anda benar-benar mahir.',
+          '["Ratusan latihan soal akuntansi terstruktur dari level dasar hingga lanjutan", "Kunci jawaban dan pembahasan rinci setiap butir soal", "Simulasi kasus transaksi bisnis nyata untuk menguji ketelitian", "Solusi cepat mengatasi keraguan saat menghadapi ujian maupun praktik kerja"]'::jsonb,
+          '[
+            {"name": "Budi Santoso", "role": "Mahasiswa", "comment": "Soal-soalnya lengkap banget dan pembahasannya jelas. Sangat membantu persiapan ujian dan sertifikasi akuntansi!", "rating": 5},
+            {"name": "Rina K.", "role": "Akuntan Pemula", "comment": "Bagus banget buat latihan ngasah insting debit kredit dan jurnal penyesuaian. Gak nyesel beli!", "rating": 5}
+          ]'::jsonb,
+          'Diskon Spesial Terbatas',
+          1850,
+          '+6289688113210',
+          'Gudang Soal Akuntansi - Adrien Fandra.pdf',
+          true,
+          4
         );
       `);
     }
@@ -445,23 +491,146 @@ export function generateEbookPDF(productTitle: string, customerName: string, ord
 }
 
 // =========================================================================
+// 📚 RESOLVER & PENGGABUNG FILE PDF ASLI (AKUNTANSI)
+// =========================================================================
+
+// Direktori tempat file PDF disimpan
+function getAkuntansiDirectory(): string {
+  const candidates = [
+    path.resolve(process.cwd(), "client", "public", "Akuntansi"),
+    path.resolve(process.cwd(), "dist", "public", "Akuntansi"),
+    path.resolve(process.cwd(), "public", "Akuntansi"),
+    path.resolve(__dirname, "..", "client", "public", "Akuntansi"),
+    path.resolve(__dirname, "..", "dist", "public", "Akuntansi"),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return candidates[0];
+}
+
+// Penggabung otomatis 3 PDF untuk Paket Bundling
+async function generateOrGetBundlingPDF(akuntansiDir: string): Promise<Buffer> {
+  const mergedFilePath = path.join(akuntansiDir, "Paket_Bundling_3_Buku_Akuntansi_Adrien_Fandra.pdf");
+  if (fs.existsSync(mergedFilePath)) {
+    try {
+      return fs.readFileSync(mergedFilePath);
+    } catch (e) {}
+  }
+
+  // Jika belum ada di disk, gabungkan langsung menggunakan pdf-lib
+  const bundleFiles = [
+    "LOGIKA AKUNTANSI - Adrien Fandra.pdf",
+    "FULL ACCOUNTING - Adrien Fandra.pdf",
+    "Gudang Soal Akuntansi - Adrien Fandra.pdf"
+  ];
+
+  const mergedPdf = await PDFDocument.create();
+  for (const f of bundleFiles) {
+    const fPath = path.join(akuntansiDir, f);
+    if (fs.existsSync(fPath)) {
+      const bytes = fs.readFileSync(fPath);
+      const doc = await PDFDocument.load(bytes);
+      const copiedPages = await mergedPdf.copyPages(doc, doc.getPageIndices());
+      copiedPages.forEach(p => mergedPdf.addPage(p));
+    }
+  }
+
+  const mergedBytes = await mergedPdf.save();
+  const buffer = Buffer.from(mergedBytes);
+  try {
+    fs.writeFileSync(mergedFilePath, buffer);
+  } catch (e) {}
+  return buffer;
+}
+
+// Helper universal untuk mendapatkan PDF resmi untuk download, baca, dan kirim email
+export async function getEbookPdfBuffer(
+  product: { id?: number; title?: string; slug?: string; pdf_filename?: string; pdf_data_base64?: string },
+  customerName: string = "Pembaca Terhormat",
+  orderId: string = "AF-ORDER"
+): Promise<{ buffer: Buffer; filename: string }> {
+  // 1. Cek jika ada custom base64 di DB
+  if (product.pdf_data_base64 && typeof product.pdf_data_base64 === "string" && product.pdf_data_base64.trim().length > 0) {
+    const raw = product.pdf_data_base64.includes(",") ? product.pdf_data_base64.split(",")[1] : product.pdf_data_base64;
+    return {
+      buffer: Buffer.from(raw.trim(), "base64"),
+      filename: product.pdf_filename || `${(product.title || "Ebook").replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+    };
+  }
+
+  const akuntansiDir = getAkuntansiDirectory();
+  const title = (product.title || "").toLowerCase();
+  const slug = (product.slug || "").toLowerCase();
+  const filename = product.pdf_filename || "";
+
+  // 2. Cek apakah ini Paket Bundling (3 Buku digabung)
+  if (
+    slug.includes("bundling") || 
+    title.includes("bundling") || 
+    filename.includes("Bundling") ||
+    Number(product.id) === 2
+  ) {
+    const bundleBuffer = await generateOrGetBundlingPDF(akuntansiDir);
+    return {
+      buffer: bundleBuffer,
+      filename: "Paket_Bundling_3_Buku_Akuntansi_Adrien_Fandra.pdf"
+    };
+  }
+
+  // 3. Cek file fisik berdasarkan pdf_filename yang tersimpan
+  if (filename) {
+    const exactPath = path.join(akuntansiDir, filename);
+    if (fs.existsSync(exactPath)) {
+      return {
+        buffer: fs.readFileSync(exactPath),
+        filename: filename
+      };
+    }
+  }
+
+  // 4. Pencocokan cerdas berdasarkan judul
+  if (title.includes("logika") || slug.includes("logika")) {
+    const p = path.join(akuntansiDir, "LOGIKA AKUNTANSI - Adrien Fandra.pdf");
+    if (fs.existsSync(p)) {
+      return { buffer: fs.readFileSync(p), filename: "LOGIKA AKUNTANSI - Adrien Fandra.pdf" };
+    }
+  }
+
+  if (title.includes("full") || slug.includes("full")) {
+    const p = path.join(akuntansiDir, "FULL ACCOUNTING - Adrien Fandra.pdf");
+    if (fs.existsSync(p)) {
+      return { buffer: fs.readFileSync(p), filename: "FULL ACCOUNTING - Adrien Fandra.pdf" };
+    }
+  }
+
+  if (title.includes("gudang") || slug.includes("gudang")) {
+    const p = path.join(akuntansiDir, "Gudang Soal Akuntansi - Adrien Fandra.pdf");
+    if (fs.existsSync(p)) {
+      return { buffer: fs.readFileSync(p), filename: "Gudang Soal Akuntansi - Adrien Fandra.pdf" };
+    }
+  }
+
+  // 5. Fallback generator resmi jsPDF
+  return {
+    buffer: generateEbookPDF(product.title || "E-Book Akuntansi", customerName, orderId),
+    filename: filename || `${(product.title || "Ebook").replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+  };
+}
+
+// =========================================================================
 // 📧 PENGIRIMAN EMAIL OTOMATIS KE PEMBELI
 // =========================================================================
 export async function sendCustomerDeliveryEmail(order: any, product: any) {
   try {
     const transporter = getTransporter();
-    const pdfFilename = product?.pdf_filename || `${product.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
     
-    // Siapkan buffer attachment PDF
-    let pdfAttachmentBuffer: Buffer;
-    if (product?.pdf_data_base64 && typeof product.pdf_data_base64 === "string" && product.pdf_data_base64.trim().length > 0) {
-      const rawBase64 = product.pdf_data_base64.includes(",") 
-        ? product.pdf_data_base64.split(",")[1] 
-        : product.pdf_data_base64;
-      pdfAttachmentBuffer = Buffer.from(rawBase64.trim(), "base64");
-    } else {
-      pdfAttachmentBuffer = generateEbookPDF(product.title, order.customer_name, order.merchant_order_id);
-    }
+    // Ambil PDF resmi (termasuk paket bundling yang digabung)
+    const { buffer: pdfAttachmentBuffer, filename: pdfFilename } = await getEbookPdfBuffer(
+      product,
+      order.customer_name,
+      order.merchant_order_id
+    );
 
     const downloadLink = `https://bilano.app/adrienfandra/order/${order.merchant_order_id}`;
     const formattedTotal = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(order.total_amount);
@@ -1027,7 +1196,7 @@ export function setupAdrienStoreRoutes(app: Express) {
     try {
       const { orderId } = req.params;
       const orderRes = await db.execute(sql`
-        SELECT o.*, p.title as prod_title, p.pdf_filename, p.pdf_data_base64
+        SELECT o.*, p.title as prod_title, p.slug as prod_slug, p.pdf_filename, p.pdf_data_base64
         FROM adrien_orders o
         JOIN adrien_products p ON o.product_id = p.id
         WHERE o.merchant_order_id = ${orderId}
@@ -1039,24 +1208,24 @@ export function setupAdrienStoreRoutes(app: Express) {
       }
 
       const order: any = orderRes.rows[0];
-      const filename = order.pdf_filename || `${order.prod_title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-
-      let pdfBuffer: Buffer;
-      if (order.pdf_data_base64 && typeof order.pdf_data_base64 === "string" && order.pdf_data_base64.trim().length > 0) {
-        const rawBase64 = order.pdf_data_base64.includes(",") 
-          ? order.pdf_data_base64.split(",")[1] 
-          : order.pdf_data_base64;
-        pdfBuffer = Buffer.from(rawBase64.trim(), "base64");
-      } else {
-        pdfBuffer = generateEbookPDF(order.prod_title, order.customer_name, order.merchant_order_id);
-      }
+      const { buffer: pdfBuffer, filename } = await getEbookPdfBuffer(
+        { 
+          id: order.product_id, 
+          title: order.prod_title, 
+          slug: order.prod_slug, 
+          pdf_filename: order.pdf_filename, 
+          pdf_data_base64: order.pdf_data_base64 
+        },
+        order.customer_name,
+        order.merchant_order_id
+      );
 
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.setHeader("Content-Length", pdfBuffer.length);
       res.end(pdfBuffer);
     } catch (error: any) {
-      res.status(500).send("Gagal mengunduh file PDF.");
+      res.status(500).send("Gagal mengunduh file PDF: " + error.message);
     }
   });
 
@@ -1065,7 +1234,7 @@ export function setupAdrienStoreRoutes(app: Express) {
     try {
       const { orderId } = req.params;
       const orderRes = await db.execute(sql`
-        SELECT o.*, p.title as prod_title, p.pdf_filename, p.pdf_data_base64
+        SELECT o.*, p.title as prod_title, p.slug as prod_slug, p.pdf_filename, p.pdf_data_base64
         FROM adrien_orders o
         JOIN adrien_products p ON o.product_id = p.id
         WHERE o.merchant_order_id = ${orderId}
@@ -1077,22 +1246,24 @@ export function setupAdrienStoreRoutes(app: Express) {
       }
 
       const order: any = orderRes.rows[0];
-      let pdfBuffer: Buffer;
-      if (order.pdf_data_base64 && typeof order.pdf_data_base64 === "string" && order.pdf_data_base64.trim().length > 0) {
-        const rawBase64 = order.pdf_data_base64.includes(",") 
-          ? order.pdf_data_base64.split(",")[1] 
-          : order.pdf_data_base64;
-        pdfBuffer = Buffer.from(rawBase64.trim(), "base64");
-      } else {
-        pdfBuffer = generateEbookPDF(order.prod_title, order.customer_name, order.merchant_order_id);
-      }
+      const { buffer: pdfBuffer, filename } = await getEbookPdfBuffer(
+        { 
+          id: order.product_id, 
+          title: order.prod_title, 
+          slug: order.prod_slug, 
+          pdf_filename: order.pdf_filename, 
+          pdf_data_base64: order.pdf_data_base64 
+        },
+        order.customer_name,
+        order.merchant_order_id
+      );
 
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `inline; filename="${order.pdf_filename || 'Ebook.pdf'}"`);
+      res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
       res.setHeader("Content-Length", pdfBuffer.length);
       res.end(pdfBuffer);
-    } catch (error) {
-      res.status(500).send("Gagal membuka PDF.");
+    } catch (error: any) {
+      res.status(500).send("Gagal membuka PDF: " + error.message);
     }
   });
 

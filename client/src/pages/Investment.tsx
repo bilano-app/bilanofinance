@@ -9,7 +9,7 @@ import {
     Calculator, CheckCircle2, ArrowRight, ExternalLink
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, useInvestments, useForexRates } from "@/hooks/use-finance";
+import { useUser, useInvestments, useForexRates, DEFAULT_FOREX_RATES } from "@/hooks/use-finance";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import SourceSelectionPopup from "@/components/SourceSelectionPopup";
 import { trackEvent } from "@/lib/tracking";
@@ -368,14 +368,14 @@ export default function Investment() {
 
   const getConversionRate = (currency: string) => {
       if (currency === 'IDR') return 1;
-      return forexRates[currency] || 16000;
+      return forexRates[currency] || DEFAULT_FOREX_RATES[currency] || DEFAULT_FOREX_RATES['USD'] || 16250;
   };
 
   const calculateLiveValue = (p: any) => {
       const parts = (p.symbol || "").split('|');
       const sym = parts[0] || "";
       const curr = (parts[1] || 'IDR').toUpperCase();
-      const rate = curr === 'IDR' ? 1 : (forexRates[curr] || 16000);
+      const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_FOREX_RATES[curr] || DEFAULT_FOREX_RATES['USD'] || 16250);
       const isIDRStock = (p.type?.toLowerCase() === 'saham' || (!p.type && sym.length === 4)) && curr === 'IDR';
       const multiplier = isIDRStock ? 100 : 1; 
       return p.quantity * (p.avgPrice || 0) * multiplier * rate;

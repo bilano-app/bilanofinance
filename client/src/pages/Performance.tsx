@@ -9,18 +9,13 @@ import {
     HeartHandshake, ChevronDown, ChevronUp, ArrowDownCircle, ArrowUpCircle,
     Trash2, ArrowRight, Pencil, Sparkles
 } from "lucide-react";
-import { useUser, useTarget, useTransactions, useForexRates, useInvestments, getAccessTier } from "@/hooks/use-finance";
+import { useUser, useTarget, useTransactions, useForexRates, useInvestments, getAccessTier, DEFAULT_FOREX_RATES } from "@/hooks/use-finance";
 import { formatCurrency } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isTrialMode, getTrialData } from "@/lib/trial-data";
 import TrialInstallModal from "@/components/TrialInstallModal";
 import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
-
-const DEFAULT_RATES: Record<string, number> = {
-    USD: 16250, EUR: 17500, SGD: 12200, JPY: 108, GBP: 20500,
-    MYR: 3500, AUD: 10600, SAR: 4330, CNY: 2240, KRW: 12, THB: 450, AED: 4420
-};
 
 export default function Performance() {
   const [, setLocation] = useLocation();
@@ -142,7 +137,7 @@ export default function Performance() {
   
   const forexValue = Array.isArray(forexAssetsData) ? forexAssetsData.reduce((acc: number, asset: any) => {
       const curr = asset.currency;
-      const rate = forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+      const rate = forexRates[curr] || DEFAULT_FOREX_RATES[curr] || 16250;
       return acc + (asset.amount * rate);
   }, 0) : 0;
 
@@ -151,7 +146,7 @@ export default function Performance() {
       const sym = parts[0] || "";
       const curr = parts[1];
       const actualCurr = curr || 'IDR';
-      const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_RATES[actualCurr] || 15000);
+      const rate = actualCurr === 'IDR' ? 1 : (forexRates[actualCurr] || DEFAULT_FOREX_RATES[actualCurr] || 16250);
       const isSaham = inv.type === 'saham' || (!inv.type && sym.length === 4 && inv.type !== 'crypto');
       const m = (isSaham && actualCurr === 'IDR') ? 100 : 1;
       return acc + (inv.quantity * inv.avgPrice * m * rate);
@@ -159,7 +154,7 @@ export default function Performance() {
 
   const retainedReal = Array.isArray(retainedData) ? retainedData.reduce((acc: number, r: any) => {
       const curr = r.currency;
-      const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 15000);
+      const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_FOREX_RATES[curr] || 16250);
       return acc + (r.amount * rate);
   }, 0) : 0;
 
@@ -170,7 +165,7 @@ export default function Performance() {
       debtsData.filter((d: any) => !d.isPaid).forEach((d: any) => {
           const parts = (d.name || "").split('|');
           const curr = parts[1] || 'IDR';
-          const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_RATES[curr] || 15000);
+          const rate = curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_FOREX_RATES[curr] || 16250);
           const val = d.amount * rate;
           if (d.type === 'piutang') piutangReal += val;
           if (d.type === 'hutang') hutangReal += val;
@@ -241,7 +236,7 @@ export default function Performance() {
               const currMatch = plString.match(/^([A-Z]{3})/);
               const currCode = currMatch ? currMatch[1] : 'IDR';
               const isAlreadyIdr = plString.includes('Rp') || currCode === 'IDR';
-              const rate = isAlreadyIdr ? 1 : (forexRates[currCode] || DEFAULT_RATES[currCode] || 15000);
+              const rate = isAlreadyIdr ? 1 : (forexRates[currCode] || DEFAULT_FOREX_RATES[currCode] || 16250);
 
               let plValue = 0;
               if (isAlreadyIdr || rate === 1) {

@@ -9,7 +9,7 @@ import {
     Layers, Sparkles
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, getAccessTier } from "@/hooks/use-finance";
+import { useUser, getAccessTier, getInitialForexRates, DEFAULT_FOREX_RATES } from "@/hooks/use-finance";
 import { getTrialInfo } from "@/lib/trial-manager";
 import TrialFeatureNotice from "@/components/TrialFeatureNotice";
 import { useQueryClient } from "@tanstack/react-query";
@@ -49,7 +49,7 @@ export default function SmartScan() {
     const [selectedGlobalSource, setSelectedGlobalSource] = useState<string>("");
     
     // Rates & Budget Data
-    const [liveRates, setLiveRates] = useState<Record<string, number>>({});
+    const [liveRates, setLiveRates] = useState<Record<string, number>>(getInitialForexRates);
     const [targetData, setTargetData] = useState<any>(null);
     const [currentExpense, setCurrentExpense] = useState(0);
     const [isDataLoaded, setIsDataLoaded] = useState(false);

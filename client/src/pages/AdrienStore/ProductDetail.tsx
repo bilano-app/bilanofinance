@@ -198,36 +198,32 @@ export default function ProductDetail() {
                 className="max-h-72 w-auto object-contain rounded-xl shadow-lg transition-all duration-300"
               />
             ) : (
-              /* High-Converting Dummy Book Cover Visual */
-              <div className="w-full flex flex-col items-center justify-center text-center py-4 space-y-4">
-                <div className="space-y-1">
-                  <span className="text-xs font-black uppercase text-rose-600 tracking-widest bg-rose-50 px-3 py-1 rounded-full border border-rose-200">
-                    EDISI SPESIAL LENGKAP
-                  </span>
-                  <h3 className="text-3xl font-black text-[#0F2247] tracking-tight">
-                    Paket <span className="text-rose-600">Bundling</span>
-                  </h3>
-                  <div className="text-5xl font-black text-slate-900 tracking-tighter">
-                    4 in 1
+              /* High-Converting Book Cover Visual */
+              <div className="w-full flex flex-col items-center justify-center text-center py-6 space-y-4">
+                <div className="w-48 sm:w-56 h-64 sm:h-72 bg-gradient-to-br from-[#1D3E72] via-[#2563EB] to-[#0F2247] rounded-2xl shadow-2xl p-6 text-white flex flex-col justify-between relative overflow-hidden border-2 border-white/20">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+                  <div className="absolute left-0 top-0 bottom-0 w-4 bg-black/20 border-r border-white/10"></div>
+                  
+                  <div className="relative z-10 pl-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#F6B93B] block">BILANO E-BOOK</span>
+                    <span className="text-xs font-bold text-blue-200 uppercase">{product.category || "EDISI RESMI"}</span>
                   </div>
-                  <p className="text-xs italic font-bold text-slate-600 max-w-[260px]">
-                    Dari nol pencatatan jurnal sampai bisa bikin Laporan Keuangan <span className="font-black text-[#0F2247] uppercase">RAPI & PROFESIONAL</span>
-                  </p>
-                </div>
 
-                {/* 4 Dummy Book Spine Representation (Akuntansi) */}
-                <div className="flex items-end justify-center gap-1.5 pt-2">
-                  {[
-                    { title: "Dasar Akuntansi & Jurnal Umum", bg: "bg-slate-800 text-white" },
-                    { title: "Buku Besar & Neraca Saldo", bg: "bg-slate-900 text-[#F6B93B]" },
-                    { title: "Laba Rugi & Arus Kas Bisnis", bg: "bg-blue-900 text-white" },
-                    { title: "Analisis Keuangan & Pajak UMKM", bg: "bg-[#0F2247] text-white" }
-                  ].map((bk, i) => (
-                    <div key={i} className={`w-14 sm:w-16 h-24 sm:h-28 rounded-t-md p-1.5 shadow-md flex flex-col justify-between text-left text-[8px] font-black border border-white/20 ${bk.bg}`}>
-                      <span className="line-clamp-2 leading-tight">{bk.title}</span>
-                      <span className="text-[6px] opacity-70">VOL.{i+1}</span>
-                    </div>
-                  ))}
+                  <div className="relative z-10 pl-2 my-auto">
+                    <h4 className="font-black text-lg sm:text-xl leading-snug line-clamp-3 text-white">
+                      {product.title}
+                    </h4>
+                    {product.subtitle && (
+                      <p className="text-[10px] text-blue-100 line-clamp-2 mt-1 opacity-90">
+                        {product.subtitle}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="relative z-10 pl-2 text-[11px] text-blue-200 flex items-center justify-between border-t border-white/10 pt-3">
+                    <span>Adrien Fandra</span>
+                    <span className="font-bold text-[#F6B93B]">PDF HD</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -272,15 +268,23 @@ export default function ProductDetail() {
             ========================================================================= */}
         <div className="space-y-4 text-center">
           <div className="space-y-2">
-            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 leading-snug">
-              <span className="font-black text-[#0F2247]">{product.title.split(":")[0] || "E-Book"}</span> ini dibuat buat lo yang
-            </h2>
-            <div className="text-sm sm:text-base font-bold text-slate-800 leading-snug">
-              Sebenernya punya bisnis/kerja tapi sering ngerasa pembukuan & laporan keuangan{" "}
-              <span className="bg-rose-600 text-white px-2 py-0.5 rounded-sm font-black whitespace-nowrap">
-                Pusing & Berantakan!
-              </span>
-            </div>
+            {product.sales_headline ? (
+              <h2 className="text-base sm:text-lg font-black text-[#0F2247] leading-snug">
+                {product.sales_headline}
+              </h2>
+            ) : (
+              <>
+                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 leading-snug">
+                  <span className="font-black text-[#0F2247]">{product.title}</span> ini dibuat buat lo yang
+                </h2>
+                <div className="text-sm sm:text-base font-bold text-slate-800 leading-snug">
+                  Sebenernya punya bisnis/kerja tapi sering ngerasa pembukuan & laporan keuangan{" "}
+                  <span className="bg-rose-600 text-white px-2 py-0.5 rounded-sm font-black whitespace-nowrap">
+                    Pusing & Berantakan!
+                  </span>
+                </div>
+              </>
+            )}
           </div>
 
           <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-sm mx-auto">

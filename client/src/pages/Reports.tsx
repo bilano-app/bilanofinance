@@ -9,23 +9,18 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useUser } from "@/hooks/use-finance"; 
+import { useUser, DEFAULT_FOREX_RATES, getInitialForexRates } from "@/hooks/use-finance"; 
 import { Link, useLocation } from "wouter";
 import { trackEvent } from "@/lib/tracking";
 import { TrialFeatureNotice } from "@/components/TrialFeatureNotice";
 import { getTrialInfo } from "@/lib/trial-manager";
-
-const DEFAULT_RATES: Record<string, number> = {
-    "USD": 16200, "EUR": 17500, "SGD": 12100, "JPY": 108, "AUD": 10500, 
-    "GBP": 20500, "CNY": 2250, "MYR": 3450, "SAR": 4300, "KRW": 12, "THB": 450, "IDR": 1
-};
 
 export default function Reports() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { data: userProfile, isLoading: isUserLoading } = useUser(); 
   const [data, setData] = useState<any>(null);
-  const [forexRates, setForexRates] = useState<any>({});
+  const [forexRates, setForexRates] = useState<Record<string, number>>(getInitialForexRates);
   const [targetData, setTargetData] = useState<any>(null); 
   
   const [loading, setLoading] = useState(true);
@@ -43,7 +38,7 @@ export default function Reports() {
       return sign + num.toString();
   };
 
-  const getRate = (curr: string) => forexRates[curr] || DEFAULT_RATES[curr] || 15000;
+  const getRate = (curr: string) => curr === 'IDR' ? 1 : (forexRates[curr] || DEFAULT_FOREX_RATES[curr] || 16250);
 
   useEffect(() => {
     try {
