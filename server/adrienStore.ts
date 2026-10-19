@@ -194,8 +194,8 @@ async function seedDefaultAdrienStoreData() {
         ) VALUES (
           'Adrien Fandra Store',
           'E-Book & Panduan Praktis Akuntansi Bisnis',
-          'AdrienFandra.id',
-          'Adrien Fandra | Praktisi & Konsultan Akuntansi',
+          'Adrien Fandra',
+          'Edukator Akuntansi',
           'siap bantu lo semua untuk kuasai akuntansi & laporan keuangan bisnis tanpa ribet',
           '',
           'Book Now',
@@ -221,7 +221,7 @@ async function seedDefaultAdrienStoreData() {
           1,
           'logika-akuntansi',
           'Logika Akuntansi',
-          'Kuasai Fondasi & Logika Debit Kredit Akuntansi Tanpa Perlu Menghafal Rumus Rumit',
+          'Bukan hanya tahu, tapi juga menguasai alur berpikirnya',
           'BEST SELLER',
           '/Akuntansi/Mockup Buku Logika Akuntansi.png',
           '[]'::jsonb,
@@ -230,11 +230,7 @@ async function seedDefaultAdrienStoreData() {
           'Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!',
           'Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya. Anda akan memahami mengapa suatu transaksi dicatat di debit atau kredit dengan logika yang masuk akal, bukan sekadar menghafal aturan baku yang bikin bingung.',
           '["Paham alur & logika debit-kredit tanpa perlu menghafal aturan kaku", "Kuasai persamaan dasar akuntansi dan analisis transaksi riil", "Praktik langsung pencatatan jurnal umum bisnis & studi kasus", "Bahasa santai, mudah dicerna pemula, mahasiswa, dan pemilik usaha"]'::jsonb,
-          '[
-            {"name": "Arif Hady", "role": "Owner Bisnis Kuliner", "comment": "Buku akuntansi paling praktis yang pernah saya baca! Logika debit kreditnya masuk akal banget, pembukuan usaha saya langsung rapi.", "rating": 5},
-            {"name": "Zahra N.", "role": "Mahasiswi Akuntansi", "comment": "Penjelasannya runut dan gak ngebosenin. Dulu bingung banget debit kredit, setelah baca buku ini langsung terang benderang.", "rating": 5},
-            {"name": "Fadhil R.", "role": "Staff Keuangan", "comment": "Sangat aplikatif untuk pemula, pondasi akuntansinya bener-bener dapet.", "rating": 5}
-          ]'::jsonb,
+          '[]'::jsonb,
           'Promo Terbatas - Diskon Spesial Hari Ini',
           3420,
           '+6289688113210',
@@ -263,11 +259,7 @@ async function seedDefaultAdrienStoreData() {
           'Dapatkan 3 E-Book Akuntansi Terlengkap Sekaligus dalam 1 Paket Super Hemat!',
           'Paket Bundling 3 Buku ini menggabungkan seluruh materi esensial akuntansi: mulai dari fondasi konsep dan logika di Logika Akuntansi, siklus pembukuan dan penyusunan laporan keuangan di Full Accounting, hingga ratusan latihan kasus di Gudang Soal Akuntansi. Ketiga materi langsung digabung lengkap untuk pembelajaran komprehensif Anda.',
           '["Super Hemat: Potongan Rp131.000 dibandingkan membeli terpisah", "3 Buku Lengkap Sekaligus: Logika Akuntansi, Full Accounting, & Gudang Soal", "Total 430+ Halaman materi berbobot dari dasar hingga mahir", "Ketiga buku langsung digabung lengkap saat pembelian selesai", "Studi kasus bisnis riil + ratusan latihan soal lengkap dengan pembahasan"]'::jsonb,
-          '[
-            {"name": "Hendra Wijaya", "role": "Business Owner", "comment": "Ambil paket bundling 3 buku ini keputusan terbaik! Sangat komplit dari konsep, praktik bikin laporan laba rugi, sampai latihan soalnya.", "rating": 5},
-            {"name": "Dedi A.", "role": "UMKM Founder", "comment": "Dulu buta angka keuangan bisnis, sekarang bisa bikin neraca dan tahu profit bersih riil tiap bulan berkat paket lengkap ini.", "rating": 5},
-            {"name": "Putri S.", "role": "Accounting Junior", "comment": "Worth it banget paket 3 buku ini. Bahasanya aplikatif, ada contekannya, dan ilmunya kepake banget di kantor!", "rating": 5}
-          ]'::jsonb,
+          '[]'::jsonb,
           'Ingat Paket ini TERBATAS - Hanya Untuk 10 Orang',
           4890,
           '+6289688113210',
@@ -296,10 +288,7 @@ async function seedDefaultAdrienStoreData() {
           'Kuasai Siklus Akuntansi Lengkap dan Susun Laporan Keuangan Sendiri!',
           'Lewat e-book Full Accounting, Anda diajak menuntaskan seluruh siklus pembukuan: pencatatan transaksi harian, posting ke buku besar, penyusunan neraca saldo, jurnal penyesuaian akhir periode, hingga menerbitkan Laporan Laba Rugi, Perubahan Modal, dan Neraca secara presisi.',
           '["Siklus akuntansi menyeluruh dari transaksi awal hingga laporan akhir", "Langkah demi langkah menyusun Jurnal Penyesuaian & Neraca Lajur", "Teknik membaca & menganalisis Laporan Laba Rugi serta Arus Kas", "Dilengkapi contoh kasus bisnis nyata dan format pembukuan rapi"]'::jsonb,
-          '[
-            {"name": "Ghozi M.", "role": "Accounting Staff", "comment": "Buku Full Accounting ini sangat ngebantu kerjaan bulanan saya. Closing laporan akhir bulan jadi jauh lebih cepat dan minim revisi!", "rating": 5},
-            {"name": "Maya R.", "role": "Finance Supervisor", "comment": "Panduan yang sangat terstruktur. Sangat direkomendasikan untuk staf finance maupun pemilik bisnis yang ingin mandiri menyusun laporan.", "rating": 5}
-          ]'::jsonb,
+          '[]'::jsonb,
           'Promo Terbatas Minggu Ini',
           2760,
           '+6289688113210',
@@ -328,10 +317,7 @@ async function seedDefaultAdrienStoreData() {
           'Uji dan Asah Kemampuan Akuntansi Anda dengan Ratusan Latihan Soal Praktis!',
           'Gudang Akuntansi berisi kumpulan studi kasus dan bank soal komprehensif mulai dari penjurnalan transaksi, penyesuaian pos keuangan, hingga penyusunan laporan keuangan. Dilengkapi pembahasan mendalam step-by-step untuk memastikan Anda benar-benar mahir.',
           '["Ratusan latihan soal akuntansi terstruktur dari level dasar hingga lanjutan", "Kunci jawaban dan pembahasan rinci setiap butir soal", "Simulasi kasus transaksi bisnis nyata untuk menguji ketelitian", "Solusi cepat mengatasi keraguan saat menghadapi ujian maupun praktik kerja"]'::jsonb,
-          '[
-            {"name": "Budi Santoso", "role": "Mahasiswa", "comment": "Soal-soalnya lengkap banget dan pembahasannya jelas. Sangat membantu persiapan ujian dan sertifikasi akuntansi!", "rating": 5},
-            {"name": "Rina K.", "role": "Akuntan Pemula", "comment": "Bagus banget buat latihan ngasah insting debit kredit dan jurnal penyesuaian. Gak nyesel beli!", "rating": 5}
-          ]'::jsonb,
+          '[]'::jsonb,
           'Diskon Spesial Terbatas',
           1850,
           '+6289688113210',
@@ -348,6 +334,7 @@ async function seedDefaultAdrienStoreData() {
       await db.execute(sql`
         INSERT INTO adrien_vouchers (code, discount_type, discount_value, min_spend, usage_limit, times_used, is_active)
         VALUES 
+        ('SEREBU', 'SET_PRICE', 1000, 0, 99999, 0, true),
         ('HEMAT10', 'PERCENT', 10, 0, 500, 0, true),
         ('ADRIEN15', 'PERCENT', 15, 50000, 200, 0, true);
       `);
@@ -759,8 +746,8 @@ export function setupAdrienStoreRoutes(app: Express) {
       const settingsData: any = settingsRes.rows[0] || {
         store_name: "Adrien Fandra Store",
         store_tagline: "E-Book & Panduan Praktis Akuntansi Bisnis",
-        header_title: "AdrienFandra.id",
-        header_subtitle: "Adrien Fandra | Praktisi & Konsultan Akuntansi",
+        header_title: "Adrien Fandra",
+        header_subtitle: "Edukator Akuntansi",
         header_hook: "siap bantu lo semua untuk kuasai akuntansi & laporan keuangan bisnis tanpa ribet",
         header_image: "",
         header_badge: "Book Now",
@@ -838,7 +825,9 @@ export function setupAdrienStoreRoutes(app: Express) {
       }
 
       let calculated_discount = 0;
-      if (voucher.discount_type === "PERCENT") {
+      if (cleanCode === "SEREBU" || voucher.code === "SEREBU" || voucher.discount_type === "SET_PRICE") {
+        calculated_discount = Math.max(purchaseAmount - 1000, 0);
+      } else if (voucher.discount_type === "PERCENT") {
         calculated_discount = Math.round((purchaseAmount * Number(voucher.discount_value)) / 100);
       } else {
         calculated_discount = Number(voucher.discount_value);
@@ -931,7 +920,10 @@ export function setupAdrienStoreRoutes(app: Express) {
         `);
         if (vRes.rows && vRes.rows.length > 0) {
           const voucher: any = vRes.rows[0];
-          if (voucher.discount_type === "PERCENT") {
+          const cleanVoucherCode = voucherCode.trim().toUpperCase();
+          if (cleanVoucherCode === "SEREBU" || voucher.code === "SEREBU" || voucher.discount_type === "SET_PRICE") {
+            discountAmount = Math.max(subtotal - 1000, 0);
+          } else if (voucher.discount_type === "PERCENT") {
             discountAmount = Math.round((subtotal * Number(voucher.discount_value)) / 100);
           } else {
             discountAmount = Number(voucher.discount_value);
