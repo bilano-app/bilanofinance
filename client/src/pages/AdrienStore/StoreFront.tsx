@@ -26,9 +26,9 @@ export default function StoreFront() {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<any>({
     store_name: "Adrien Fandra Store",
-    header_title: "AdrienFandra.id",
-    header_subtitle: "Adrien Fandra | Tips & Praktik Akuntansi Bisnis",
-    header_hook: "siap bantu lo semua untuk jago akuntansi & kuasai laporan keuangan tanpa ribet",
+    header_title: "Adrien Fandra",
+    header_subtitle: "Edukator Akuntansi",
+    header_hook: "siap bantu lo semua untuk kuasai akuntansi & laporan keuangan bisnis tanpa ribet",
     header_image: "",
     header_badge: "Book Now",
     slot_images: ["", "", ""],
@@ -106,15 +106,12 @@ export default function StoreFront() {
             
             {/* Logo / Brand Header */}
             <div className="inline-flex items-center text-3xl sm:text-4xl font-black text-slate-950 tracking-tight">
-              <span>{settings.header_title?.replace('.id', '') || 'AdrienFandra'}</span>
-              <span className="bg-[#F6B93B] text-slate-950 px-1.5 py-0.5 rounded-sm ml-1 text-2xl sm:text-3xl">
-                .id
-              </span>
+              <span>{settings.header_title?.replace(/\.id$/i, '') || 'Adrien Fandra'}</span>
             </div>
 
             {/* Subtitle / Nama & Profesi */}
             <h2 className="text-sm sm:text-base font-extrabold text-slate-800 tracking-tight">
-              {settings.header_subtitle || "Adrien Fandra | Praktisi & Konsultan Akuntansi"}
+              {settings.header_subtitle || "Edukator Akuntansi"}
             </h2>
 
             {/* Hook Text */}

@@ -308,86 +308,52 @@ export default function ProductDetail() {
         </div>
 
         {/* =========================================================================
-            4. SOCIAL PROOF / TESTIMONIALS (PERSIS SEPERTI GAMBAR REFERENSI 3)
+            4. SOCIAL PROOF / TESTIMONIALS (HANYA MUNCUL JIKA ADA ULASAN ASLI)
             ========================================================================= */}
-        <section className="pt-4 border-t border-slate-100 space-y-4 text-center">
-          
-          <div className="space-y-1">
-            <h3 className="text-sm font-extrabold text-slate-600">
-              Mereka Sudah Membuktikan
-            </h3>
-            <div className="text-lg font-black text-[#0F2247]">
-              Sekarang Giliran lo !
-            </div>
-          </div>
-
-          {/* Testimonial Bubbles */}
-          <div className="space-y-3 text-left">
-            {(product.testimonials && product.testimonials.length > 0 ? product.testimonials : [
-              {
-                name: "Arif Hady",
-                comment: "Buku akuntansi paling praktis yang pernah saya baca! Pembukuan usaha kuliner saya langsung rapi dan gak bocor lagi. Makasih ilmunya bang! 🔥🔥",
-                role: "Owner Bisnis Kuliner & Entrepreneur"
-              },
-              {
-                name: "Fadhil R.",
-                comment: "Penjelasan debit-kreditnya simpel banget, langsung paham alur laporan keuangan tahunan dan closing bulanan jadi cepet.",
-                role: "Finance & Accounting Officer"
-              },
-              {
-                name: "Dedi A.",
-                comment: "Dulu buta angka keuangan bisnis, sekarang bisa bikin neraca dan tahu profit bersih riil tiap bulan tanpa bingung.",
-                role: "UMKM Founder"
-              },
-              {
-                name: "Zahra N.",
-                comment: "Sangat aplikatif buat mahasiswa & staf akuntansi pemula, ada template spreadsheet siap contek yang kepake banget di kantor!",
-                role: "Junior Accountant"
-              }
-            ]).map((t, idx) => (
-              <div
-                key={idx}
-                className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-1.5 shadow-xs"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 text-[#1D3E72] font-black text-[10px] flex items-center justify-center">
-                      {t.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <span className="font-bold text-xs text-slate-800 block leading-tight">{t.name}</span>
-                      {t.role && <span className="text-[10px] text-slate-400 font-medium">{t.role}</span>}
-                    </div>
-                  </div>
-                  <div className="flex text-amber-400">
-                    {[...Array(5)].map((_, s) => (
-                      <Star key={s} className="w-3 h-3 fill-amber-400 text-amber-400" />
-                    ))}
-                  </div>
-                </div>
-                <p className="text-xs text-slate-600 italic leading-relaxed">
-                  "{t.comment}"
-                </p>
+        {product.testimonials && product.testimonials.length > 0 && (
+          <section className="pt-4 border-t border-slate-100 space-y-4 text-center">
+            <div className="space-y-1">
+              <h3 className="text-sm font-extrabold text-slate-600">
+                Ulasan Pembaca
+              </h3>
+              <div className="text-lg font-black text-[#0F2247]">
+                Apa Kata Mereka yang Sudah Membaca
               </div>
-            ))}
-          </div>
+            </div>
 
-          {/* Stat Pembaca Counter (Image 3) */}
-          <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 flex items-center justify-between text-left">
-            <div>
-              <span className="text-xs font-bold text-slate-700 block">
-                Buku ini Sudah Di Baca oleh
-              </span>
-              <span className="text-base font-black text-[#1D3E72]">
-                {(product.reader_count || 4310).toLocaleString("id-ID")}+ Pembaca
-              </span>
+            {/* Testimonial Bubbles */}
+            <div className="space-y-3 text-left">
+              {product.testimonials.map((t, idx) => (
+                <div
+                  key={idx}
+                  className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-1.5 shadow-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-blue-100 text-[#1D3E72] font-black text-[10px] flex items-center justify-center">
+                        {t.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-slate-800 block leading-tight">{t.name}</span>
+                        {t.role && <span className="text-[10px] text-slate-400 font-medium">{t.role}</span>}
+                      </div>
+                    </div>
+                    {t.rating && (
+                      <div className="flex text-amber-400">
+                        {[...Array(t.rating)].map((_, s) => (
+                          <Star key={s} className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-600 italic leading-relaxed">
+                    "{t.comment}"
+                  </p>
+                </div>
+              ))}
             </div>
-            <div className="text-right">
-              <span className="text-[10px] font-bold text-slate-400 block uppercase">Lifetime Orders</span>
-              <span className="text-sm font-black text-slate-700">4,310</span>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* =========================================================================
             5. KOTAK HARGA & AKSES LANGSUNG
