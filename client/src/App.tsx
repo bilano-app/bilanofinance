@@ -216,9 +216,7 @@ function Router() {
     const isPublicStore = normalizedLocation.startsWith("/adrienfandra") || publicRoutes.includes(normalizedLocation);
 
     if (!isAuth) {
-      if (isStandalone && normalizedLocation !== "/auth") {
-        setLocation("/auth");
-      } else if (!isStandalone && !isPublicStore) {
+      if (!isPublicStore && normalizedLocation !== "/auth") {
         setLocation("/auth");
       }
     }

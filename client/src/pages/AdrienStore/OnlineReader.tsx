@@ -73,9 +73,33 @@ export default function OnlineReader() {
     ? `/api/adrienfandra/read-pdf/${orderId}?book=${activeBook}`
     : `/api/adrienfandra/read-pdf/${orderId}`;
 
-  const downloadUrl = isBundle
-    ? `/api/adrienfandra/download/${orderId}?book=${activeBook}`
-    : `/api/adrienfandra/download/${orderId}`;
+  const [downloading, setDownloading] = useState(false);
+
+  const downloadBlob = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const fname = isBundle ? `${activeBook}_Akuntansi.pdf` : (order.pdf_filename || "Ebook_Akuntansi.pdf");
+      const res = await fetch(downloadUrl);
+      if (!res.ok) throw new Error("Gagal mengambil file");
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = blobUrl;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (document.body.contains(a)) document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 4000);
+    } catch (e) {
+      window.open(downloadUrl, "_blank");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const handleTabChange = (key: string) => {
     setActiveBook(key);
@@ -105,14 +129,15 @@ export default function OnlineReader() {
           </div>
         </div>
 
-        <a
-          href={downloadUrl}
-          download
-          className="inline-flex items-center gap-1.5 text-xs font-bold bg-[#1D3E72] hover:bg-blue-600 text-white px-3.5 py-1.5 rounded-full transition-colors shadow-sm"
+        <button
+          type="button"
+          onClick={downloadBlob}
+          disabled={downloading}
+          className="inline-flex items-center gap-1.5 text-xs font-bold bg-[#1D3E72] hover:bg-blue-600 text-white px-3.5 py-1.5 rounded-full transition-colors shadow-sm cursor-pointer disabled:opacity-75"
         >
-          <Download className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Download PDF Ini</span>
-        </a>
+          <Download className={`w-3.5 h-3.5 ${downloading ? "animate-bounce" : ""}`} />
+          <span className="hidden sm:inline">{downloading ? "Mengunduh..." : "Download PDF Ini"}</span>
+        </button>
       </header>
 
       {/* 📑 Tab Switcher untuk Paket Bundling 3 Buku */}

@@ -1398,9 +1398,14 @@ export function setupAdrienStoreRoutes(app: Express) {
         bookKey
       );
 
+      const safeFilename = filename.replace(/["\\]/g, "");
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodeURIComponent(safeFilename)}`);
       res.setHeader("Content-Length", pdfBuffer.length);
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("X-Content-Type-Options", "nosniff");
       res.end(pdfBuffer);
     } catch (error: any) {
       res.status(500).send("Gagal mengunduh file PDF: " + error.message);

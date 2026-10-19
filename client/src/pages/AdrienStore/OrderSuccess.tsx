@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute, Link } from "wouter";
 import { 
   CheckCircle2, Download, BookOpen, MessageCircle, 
@@ -99,30 +99,55 @@ export default function OrderSuccess() {
       .finally(() => setLoading(false));
   }, [orderId]);
 
+  // Mengunduh file langsung sebagai Blob memory agar langsung tersimpan di HP/Laptop tanpa masuk ke PWA
+  const downloadFileBlob = async (url: string, filename: string): Promise<boolean> => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Gagal mengambil file PDF dari server.");
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.style.display = "none";
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        if (document.body.contains(link)) document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 4000);
+      return true;
+    } catch (err) {
+      console.warn("Blob download fallback:", err);
+      const fallbackLink = document.createElement("a");
+      fallbackLink.style.display = "none";
+      fallbackLink.href = url;
+      fallbackLink.download = filename;
+      fallbackLink.target = "_blank";
+      document.body.appendChild(fallbackLink);
+      fallbackLink.click();
+      setTimeout(() => {
+        if (document.body.contains(fallbackLink)) document.body.removeChild(fallbackLink);
+      }, 1500);
+      return false;
+    }
+  };
+
   // Download satu file untuk produk non-bundling
-  const handleDownloadSingle = () => {
-    if (!orderId) return;
+  const handleDownloadSingle = async () => {
+    if (!orderId || downloadingSingle) return;
     setDownloadingSingle(true);
-    const link = document.createElement("a");
-    link.href = `/api/adrienfandra/download/${orderId}`;
-    link.download = order?.pdf_filename || "Ebook.pdf";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => setDownloadingSingle(false), 1500);
+    const fname = order?.pdf_filename || "Ebook_Akuntansi.pdf";
+    await downloadFileBlob(`/api/adrienfandra/download/${orderId}`, fname);
+    setDownloadingSingle(false);
   };
 
   // Download salah satu buku spesifik dalam paket bundling
-  const handleDownloadBook = (bookKey: string, filename: string) => {
-    if (!orderId) return;
+  const handleDownloadBook = async (bookKey: string, filename: string) => {
+    if (!orderId || downloadingBookKey) return;
     setDownloadingBookKey(bookKey);
-    const link = document.createElement("a");
-    link.href = `/api/adrienfandra/download/${orderId}?book=${bookKey}`;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => setDownloadingBookKey(null), 1500);
+    await downloadFileBlob(`/api/adrienfandra/download/${orderId}?book=${bookKey}`, filename);
+    setDownloadingBookKey(null);
   };
 
   // Download ke-3 buku sekaligus secara berurutan (3 file PDF terpisah, tidak digabung)
@@ -133,16 +158,12 @@ export default function OrderSuccess() {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       setDownloadAllProgress(`Mengunduh (${i + 1}/${items.length}) ${item.title}...`);
-      
-      const link = document.createElement("a");
-      link.href = `/api/adrienfandra/download/${orderId}?book=${item.key}`;
-      link.download = item.filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      await downloadFileBlob(`/api/adrienfandra/download/${orderId}?book=${item.key}`, item.filename);
 
-      // Jeda agar browser tidak memblokir multiple download otomatis
-      await new Promise(r => setTimeout(r, 900));
+      // Jeda agar browser mobile dapat menyelesaikan penulisan file ke folder download
+      if (i < items.length - 1) {
+        await new Promise(r => setTimeout(r, 1200));
+      }
     }
 
     setDownloadAllProgress("Semua 3 file e-book berhasil diunduh!");
@@ -151,6 +172,25 @@ export default function OrderSuccess() {
       setDownloadAllProgress("");
     }, 2500);
   };
+
+  // 🚀 AUTO-DOWNLOAD LANGSUNG SAAT HALAMAN SUKSES MEMUAT TRANSAKSI LUNAS
+  const hasAutoDownloaded = useRef(false);
+  useEffect(() => {
+    if (!order || hasAutoDownloaded.current) return;
+    if (order.payment_status === "PAID") {
+      hasAutoDownloaded.current = true;
+      const isBundling = Boolean(order.is_bundle || order.product_title?.toLowerCase().includes("bundling") || order.product_id === 2);
+      const timer = setTimeout(() => {
+        if (isBundling) {
+          const list = (order.bundle_items && order.bundle_items.length > 0) ? order.bundle_items : DEFAULT_BUNDLE_ITEMS;
+          handleDownloadAllBundle(list);
+        } else {
+          handleDownloadSingle();
+        }
+      }, 900);
+      return () => clearTimeout(timer);
+    }
+  }, [order?.id, order?.payment_status]);
 
   if (loading) {
     return (
