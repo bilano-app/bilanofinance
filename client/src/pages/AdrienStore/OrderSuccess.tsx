@@ -289,11 +289,11 @@ export default function OrderSuccess() {
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
                       {/* Cover Thumbnail */}
-                      <div className="w-12 h-16 rounded-lg bg-gradient-to-br from-[#1D3E72] to-[#0F2247] overflow-hidden flex-shrink-0 border border-slate-200 shadow-xs flex items-center justify-center">
+                      <div className="w-16 h-22 sm:w-20 sm:h-26 rounded-xl bg-slate-50 overflow-hidden flex-shrink-0 border border-slate-200 shadow-sm flex items-center justify-center p-1">
                         <img 
                           src={item.coverUrl} 
                           alt={item.title} 
-                          className="w-full h-full object-cover" 
+                          className="w-full h-full object-contain drop-shadow-sm" 
                           loading="eager"
                         />
                       </div>
@@ -342,7 +342,20 @@ export default function OrderSuccess() {
             /* =========================================================================
                KONTEN PRODUK TUNGGAL
                ========================================================================= */
-            <div className="space-y-2.5 pt-2">
+            <div className="space-y-4 pt-2">
+              {order.cover_url && (
+                <div className="flex justify-center py-2">
+                  <div className="w-36 h-48 sm:w-44 sm:h-56 bg-slate-50 rounded-2xl border border-slate-200 p-2 shadow-md flex items-center justify-center">
+                    <img 
+                      src={order.cover_url} 
+                      alt={order.product_title} 
+                      className="max-h-full max-w-full object-contain drop-shadow-md"
+                      loading="eager"
+                    />
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={handleDownloadSingle}
                 disabled={downloadingSingle}

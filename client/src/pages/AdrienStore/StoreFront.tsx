@@ -24,29 +24,6 @@ interface Product {
 
 const DEFAULT_PRODUCTS: Product[] = [
   {
-    id: 1,
-    slug: "logika-akuntansi",
-    title: "Logika Akuntansi",
-    subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya",
-    category: "BEST SELLER",
-    cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
-    promo_images: [],
-    regular_price: 72000,
-    sale_price: 46000,
-    sales_headline: "Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!",
-    sales_body: "Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya.",
-    highlights: [
-      "Paham alur & logika debit-kredit tanpa perlu menghafal aturan kaku",
-      "Kuasai persamaan dasar akuntansi dan analisis transaksi riil",
-      "Praktik langsung pencatatan jurnal umum bisnis & studi kasus",
-      "Bahasa santai, mudah dicerna pemula, mahasiswa, dan pemilik usaha"
-    ],
-    scarcity_text: "Promo Terbatas - Diskon Spesial Hari Ini",
-    reader_count: 3420,
-    whatsapp_number: "+6289688113210",
-    has_pdf: true
-  },
-  {
     id: 2,
     slug: "paket-bundling-3-buku",
     title: "Paket Bundling 3 Buku",
@@ -66,6 +43,29 @@ const DEFAULT_PRODUCTS: Product[] = [
     ],
     scarcity_text: "Paket Bundling Terlaris - Hemat Rp131.000 Hari Ini",
     reader_count: 5120,
+    whatsapp_number: "+6289688113210",
+    has_pdf: true
+  },
+  {
+    id: 1,
+    slug: "logika-akuntansi",
+    title: "Logika Akuntansi",
+    subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya",
+    category: "BEST SELLER",
+    cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
+    promo_images: [],
+    regular_price: 72000,
+    sale_price: 46000,
+    sales_headline: "Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!",
+    sales_body: "Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya.",
+    highlights: [
+      "Paham alur & logika debit-kredit tanpa perlu menghafal aturan kaku",
+      "Kuasai persamaan dasar akuntansi dan analisis transaksi riil",
+      "Praktik langsung pencatatan jurnal umum bisnis & studi kasus",
+      "Bahasa santai, mudah dicerna pemula, mahasiswa, dan pemilik usaha"
+    ],
+    scarcity_text: "Promo Terbatas - Diskon Spesial Hari Ini",
+    reader_count: 3420,
     whatsapp_number: "+6289688113210",
     has_pdf: true
   },
@@ -138,7 +138,7 @@ function resolveWebpUrl(url?: string): string {
   return url;
 }
 
-const STORE_CACHE_KEY = "af_store_cache_v2";
+const STORE_CACHE_KEY = "af_store_cache_v3";
 
 export default function StoreFront() {
   const [, setLocation] = useLocation();
@@ -366,7 +366,7 @@ export default function StoreFront() {
           {/* Daftar Kartu Produk E-Book */}
           <div className="space-y-6">
             {products.length > 0 ? (
-              products.map((product) => {
+              products.map((product, idx) => {
                 const regularPriceNum = Number(product.regular_price) || 0;
                 const salePriceNum = Number(product.sale_price) || 0;
                 const discountPercent = regularPriceNum > salePriceNum
@@ -397,9 +397,9 @@ export default function StoreFront() {
                     <div className="p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-8 bg-white">
                       
                       {/* Visual Mockup */}
-                      <div className="w-full md:w-1/2 flex items-center justify-center">
+                      <div className="w-full md:w-[52%] flex items-center justify-center">
                         <div
-                          className="relative group cursor-pointer w-full max-w-[280px] sm:max-w-[320px] min-h-[260px] sm:min-h-[300px] flex items-center justify-center bg-gradient-to-b from-slate-50 to-white/60 rounded-2xl p-2"
+                          className="relative group cursor-pointer w-full max-w-[360px] sm:max-w-[460px] md:max-w-[520px] min-h-[340px] sm:min-h-[440px] md:min-h-[480px] flex items-center justify-center bg-gradient-to-b from-slate-50 to-white/70 rounded-3xl p-4 sm:p-6"
                           onClick={() => {
                             trackEvent("PRODUCT_CLICK", product.id, product.title);
                             setLocation(`/adrienfandra/p/${product.slug || product.id}`);
@@ -414,14 +414,14 @@ export default function StoreFront() {
                                 .replace("/Akuntansi/Mockup Buku Gudang Soal Akuntansi.png", "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp")
                               }
                               alt={product.title}
-                              loading={product.id === 1 ? "eager" : "lazy"}
+                              loading={idx === 0 ? "eager" : "lazy"}
                               decoding="async"
-                              className="max-h-64 sm:max-h-72 w-auto object-contain rounded-xl shadow-2xl transition-transform duration-300 group-hover:scale-105"
+                              className="max-h-[340px] sm:max-h-[440px] md:max-h-[480px] w-auto max-w-full object-contain rounded-2xl shadow-2xl transition-transform duration-300 group-hover:scale-105"
                             />
                           ) : (
                             /* Dummy Book 3D Mockup */
-                            <div className="w-52 sm:w-64 h-72 sm:h-80 bg-gradient-to-br from-[#1D3E72] via-[#2563EB] to-[#0F2247] rounded-2xl shadow-2xl p-6 text-white flex flex-col justify-between relative overflow-hidden border-2 border-white/20 group-hover:scale-105 transition-transform duration-300">
-                              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+                            <div className="w-64 sm:w-80 h-88 sm:h-[420px] bg-gradient-to-br from-[#1D3E72] via-[#2563EB] to-[#0F2247] rounded-3xl shadow-2xl p-7 text-white flex flex-col justify-between relative overflow-hidden border-2 border-white/20 group-hover:scale-105 transition-transform duration-300">
+                              <div className="absolute top-0 right-0 w-36 h-36 bg-white/10 rounded-full blur-2xl"></div>
                               <div className="absolute left-0 top-0 bottom-0 w-4 bg-black/20 border-r border-white/10"></div>
                               
                               <div className="relative z-10 pl-2">
@@ -430,7 +430,7 @@ export default function StoreFront() {
                               </div>
 
                               <div className="relative z-10 pl-2 my-auto">
-                                <h4 className="font-extrabold text-lg sm:text-xl leading-snug line-clamp-3 text-white">
+                                <h4 className="font-extrabold text-xl sm:text-2xl leading-snug line-clamp-3 text-white">
                                   {product.title}
                                 </h4>
                               </div>
@@ -443,7 +443,7 @@ export default function StoreFront() {
                           )}
 
                           {discountPercent > 0 && (
-                            <div className="absolute -top-3 -right-3 bg-rose-600 text-white text-xs font-black px-3 py-1.5 rounded-full shadow-lg border-2 border-white">
+                            <div className="absolute -top-3 -right-3 bg-rose-600 text-white text-xs font-black px-3.5 py-1.5 rounded-full shadow-lg border-2 border-white">
                               HEMAT {discountPercent}%
                             </div>
                           )}
@@ -451,7 +451,7 @@ export default function StoreFront() {
                       </div>
 
                       {/* Detail Ringkas & Tombol Beli */}
-                      <div className="w-full md:w-1/2 space-y-5">
+                      <div className="w-full md:w-[48%] space-y-5">
                         {/* Highlight Keunggulan */}
                         {product.highlights && product.highlights.length > 0 && (
                           <div className="space-y-2">

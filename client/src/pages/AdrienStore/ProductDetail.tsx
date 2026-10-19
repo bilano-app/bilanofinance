@@ -37,30 +37,6 @@ interface Product {
 
 const DEFAULT_PRODUCTS: Product[] = [
   {
-    id: 1,
-    slug: "logika-akuntansi",
-    title: "Logika Akuntansi",
-    subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya",
-    category: "BEST SELLER",
-    cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
-    promo_images: [],
-    regular_price: 72000,
-    sale_price: 46000,
-    sales_headline: "Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!",
-    sales_body: "Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya.",
-    highlights: [
-      "Paham alur & logika debit-kredit tanpa perlu menghafal aturan kaku",
-      "Kuasai persamaan dasar akuntansi dan analisis transaksi riil",
-      "Praktik langsung pencatatan jurnal umum bisnis & studi kasus",
-      "Bahasa santai, mudah dicerna pemula, mahasiswa, dan pemilik usaha"
-    ],
-    testimonials: [],
-    scarcity_text: "Promo Terbatas - Diskon Spesial Hari Ini",
-    reader_count: 3420,
-    whatsapp_number: "+6289688113210",
-    has_pdf: true
-  },
-  {
     id: 2,
     slug: "paket-bundling-3-buku",
     title: "Paket Bundling 3 Buku",
@@ -81,6 +57,30 @@ const DEFAULT_PRODUCTS: Product[] = [
     testimonials: [],
     scarcity_text: "Paket Bundling Terlaris - Hemat Rp131.000 Hari Ini",
     reader_count: 5120,
+    whatsapp_number: "+6289688113210",
+    has_pdf: true
+  },
+  {
+    id: 1,
+    slug: "logika-akuntansi",
+    title: "Logika Akuntansi",
+    subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya",
+    category: "BEST SELLER",
+    cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
+    promo_images: [],
+    regular_price: 72000,
+    sale_price: 46000,
+    sales_headline: "Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!",
+    sales_body: "Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya.",
+    highlights: [
+      "Paham alur & logika debit-kredit tanpa perlu menghafal aturan kaku",
+      "Kuasai persamaan dasar akuntansi dan analisis transaksi riil",
+      "Praktik langsung pencatatan jurnal umum bisnis & studi kasus",
+      "Bahasa santai, mudah dicerna pemula, mahasiswa, dan pemilik usaha"
+    ],
+    testimonials: [],
+    scarcity_text: "Promo Terbatas - Diskon Spesial Hari Ini",
+    reader_count: 3420,
     whatsapp_number: "+6289688113210",
     has_pdf: true
   },
@@ -141,7 +141,7 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<Product | null>(() => {
     if (!productIdOrSlug) return null;
     try {
-      const cached = localStorage.getItem("af_store_cache_v2");
+      const cached = localStorage.getItem("af_store_cache_v3") || localStorage.getItem("af_store_cache_v2");
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed?.products) {
@@ -284,7 +284,7 @@ export default function ProductDetail() {
       
       {/* 🧭 TOP APP BAR */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-xs">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <Link
             href="/adrienfandra"
             className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
@@ -309,7 +309,7 @@ export default function ProductDetail() {
       {/* ⚡ BANNER TRANSAKSI AKTIF (30 MENIT) */}
       {activePayment && (
         <div className="bg-[#1D3E72] text-white px-4 py-2.5 sticky top-[57px] z-30 shadow-md animate-in slide-in-from-top duration-200">
-          <div className="max-w-md mx-auto flex items-center justify-between gap-2.5 text-xs">
+          <div className="max-w-lg mx-auto flex items-center justify-between gap-2.5 text-xs">
             <div className="flex items-center gap-1.5 min-w-0">
               <Clock className="w-3.5 h-3.5 text-amber-300 animate-pulse flex-shrink-0" />
               <span className="truncate">Tagihan aktif ({activePayment.orderId})</span>
@@ -326,7 +326,7 @@ export default function ProductDetail() {
       )}
 
       {/* 📱 DETAIL SALES LETTER CONTAINER */}
-      <main className="max-w-md mx-auto px-4 py-4 space-y-6">
+      <main className="max-w-lg mx-auto px-4 py-4 space-y-6">
         
         {/* =========================================================================
             1. JUDUL PRODUK & HOOK UTAMA
@@ -346,20 +346,22 @@ export default function ProductDetail() {
             2. IMAGE GALLERY / SLIDER (DENGAN INDIKATOR TITIK 4 TITIK SEPERTI REFERENSI)
             ========================================================================= */}
         <div className="space-y-3">
-          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100 border border-slate-200 p-6 flex items-center justify-center min-h-[300px] shadow-xs">
+          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100 border border-slate-200 p-4 sm:p-8 flex items-center justify-center min-h-[360px] sm:min-h-[460px] shadow-sm">
             
             {/* Slide Visual */}
             {slides.length > 0 && slides[activeSlide] !== "/placeholder-cover" ? (
               <img
                 src={slides[activeSlide]}
                 alt={`${product.title} slide ${activeSlide + 1}`}
-                className="max-h-72 w-auto object-contain rounded-xl shadow-lg transition-all duration-300"
+                loading="eager"
+                decoding="async"
+                className="max-h-80 sm:max-h-[420px] md:max-h-[460px] w-auto max-w-full object-contain rounded-2xl shadow-xl transition-all duration-300 hover:scale-102"
               />
             ) : (
               /* High-Converting Book Cover Visual */
-              <div className="w-full flex flex-col items-center justify-center text-center py-6 space-y-4">
-                <div className="w-48 sm:w-56 h-64 sm:h-72 bg-gradient-to-br from-[#1D3E72] via-[#2563EB] to-[#0F2247] rounded-2xl shadow-2xl p-6 text-white flex flex-col justify-between relative overflow-hidden border-2 border-white/20">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+              <div className="w-full flex flex-col items-center justify-center text-center py-4 space-y-4">
+                <div className="w-56 sm:w-64 md:w-72 h-80 sm:h-96 md:h-[420px] bg-gradient-to-br from-[#1D3E72] via-[#2563EB] to-[#0F2247] rounded-3xl shadow-2xl p-7 text-white flex flex-col justify-between relative overflow-hidden border-2 border-white/20">
+                  <div className="absolute top-0 right-0 w-36 h-36 bg-white/10 rounded-full blur-2xl"></div>
                   <div className="absolute left-0 top-0 bottom-0 w-4 bg-black/20 border-r border-white/10"></div>
                   
                   <div className="relative z-10 pl-2">
@@ -368,19 +370,19 @@ export default function ProductDetail() {
                   </div>
 
                   <div className="relative z-10 pl-2 my-auto">
-                    <h4 className="font-black text-lg sm:text-xl leading-snug line-clamp-3 text-white">
+                    <h4 className="font-black text-xl sm:text-2xl leading-snug line-clamp-3 text-white">
                       {product.title}
                     </h4>
                     {product.subtitle && (
-                      <p className="text-[10px] text-blue-100 line-clamp-2 mt-1 opacity-90">
+                      <p className="text-xs text-blue-100 line-clamp-2 mt-2 opacity-90">
                         {product.subtitle}
                       </p>
                     )}
                   </div>
 
-                  <div className="relative z-10 pl-2 text-[11px] text-blue-200 flex items-center justify-between border-t border-white/10 pt-3">
-                    <span>Adrien Fandra</span>
-                    <span className="font-bold text-[#F6B93B]">PDF HD</span>
+                  <div className="relative z-10 pl-2 text-xs text-blue-200 flex items-center justify-between border-t border-white/10 pt-3">
+                    <span className="font-semibold">Adrien Fandra</span>
+                    <span className="font-extrabold text-[#F6B93B]">PDF HD</span>
                   </div>
                 </div>
               </div>
@@ -539,7 +541,7 @@ export default function ProductDetail() {
           🚀 STICKY BOTTOM ACTION BAR (SESUAI REQUEST USER: WHATSAPP + BUY NOW TANPA KERANJANG)
           ========================================================================= */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-2xl p-3">
-        <div className="max-w-md mx-auto flex items-center gap-3">
+        <div className="max-w-lg mx-auto flex items-center gap-3">
           
           {/* Tombol WhatsApp (Ikon Hijau) */}
           <a

@@ -343,25 +343,29 @@ async function seedDefaultAdrienStoreData() {
     // 3. Migrasi Otomatis Cover ke WebP & Pembaruan Copy Bundling Terpisah
     await db.execute(sql`
       UPDATE adrien_products 
-      SET cover_url = '/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp' 
-      WHERE (id = 1 OR slug = 'logika-akuntansi') AND (cover_url LIKE '%.png' OR cover_url IS NULL);
+      SET cover_url = '/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp',
+          sort_order = 2
+      WHERE (id = 1 OR slug = 'logika-akuntansi');
 
       UPDATE adrien_products 
       SET cover_url = '/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp',
           subtitle = '',
           regular_price = 213000,
           sale_price = 82000,
+          sort_order = 1,
           sales_body = 'Paket Bundling 3 Buku ini menyajikan seluruh materi esensial akuntansi: mulai dari fondasi konsep dan logika di Logika Akuntansi, siklus pembukuan dan penyusunan laporan keuangan di Full Accounting, hingga ratusan latihan kasus di Gudang Soal Akuntansi. Ketiga e-book diberikan lengkap terpisah (3 file PDF) agar Anda leluasa mengunduh dan mempelajarinya masing-masing.',
           highlights = '["Super Hemat: Potongan Rp131.000 dibandingkan membeli terpisah", "3 E-Book Terpisah Lengkap: Logika Akuntansi, Full Accounting, & Gudang Soal", "Unduh & Baca Masing-Masing: Dapatkan 3 file PDF resmi tersendiri", "Total 430+ Halaman materi berbobot dari dasar hingga mahir", "Studi kasus bisnis riil + ratusan latihan soal lengkap dengan pembahasan"]'::jsonb
       WHERE (id = 2 OR slug = 'paket-bundling-3-buku');
 
       UPDATE adrien_products 
-      SET cover_url = '/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp' 
-      WHERE (id = 3 OR slug = 'full-accounting') AND (cover_url LIKE '%.png' OR cover_url IS NULL);
+      SET cover_url = '/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp',
+          sort_order = 3
+      WHERE (id = 3 OR slug = 'full-accounting');
 
       UPDATE adrien_products 
-      SET cover_url = '/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp' 
-      WHERE (id = 4 OR slug = 'gudang-akuntansi') AND (cover_url LIKE '%.png' OR cover_url IS NULL);
+      SET cover_url = '/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp',
+          sort_order = 4
+      WHERE (id = 4 OR slug = 'gudang-akuntansi');
 
       UPDATE adrien_store_settings
       SET slot_images = '["/Akuntansi/DISPLAY_1.webp", "/Akuntansi/DISPLAY_2.webp", "/Akuntansi/DISPLAY_3.webp"]'::jsonb

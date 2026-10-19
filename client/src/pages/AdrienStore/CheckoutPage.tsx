@@ -20,16 +20,6 @@ interface Product {
 
 const DEFAULT_CHECKOUT_PRODUCTS: Product[] = [
   {
-    id: 1,
-    slug: "logika-akuntansi",
-    title: "Logika Akuntansi",
-    subtitle: "Kuasai Pondasi Logika & Alur Berpikir Akuntansi Modern Tanpa Hafalan",
-    cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
-    regular_price: 72000,
-    sale_price: 46000,
-    sales_body: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya"
-  },
-  {
     id: 2,
     slug: "paket-bundling-3-buku",
     title: "Paket Bundling 3 Buku",
@@ -38,6 +28,16 @@ const DEFAULT_CHECKOUT_PRODUCTS: Product[] = [
     regular_price: 213000,
     sale_price: 82000,
     sales_body: "Dapatkan ketiga buku terpisah lengkap (3 file PDF) yang dapat diunduh masing-masing."
+  },
+  {
+    id: 1,
+    slug: "logika-akuntansi",
+    title: "Logika Akuntansi",
+    subtitle: "Kuasai Pondasi Logika & Alur Berpikir Akuntansi Modern Tanpa Hafalan",
+    cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
+    regular_price: 72000,
+    sale_price: 46000,
+    sales_body: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya"
   },
   {
     id: 3,
@@ -80,7 +80,7 @@ export default function CheckoutPage() {
 
   const [product, setProduct] = useState<Product | null>(() => {
     try {
-      const cached = localStorage.getItem("af_store_cache_v2");
+      const cached = localStorage.getItem("af_store_cache_v3") || localStorage.getItem("af_store_cache_v2");
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -659,35 +659,40 @@ export default function CheckoutPage() {
                 PRODUCT
               </span>
 
-              <div className="flex items-center gap-3.5">
+              <div className="flex items-center gap-4">
                 {/* Thumbnail */}
-                <div className="w-14 h-16 bg-gradient-to-br from-[#1D3E72] to-[#0F2247] rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center text-white border border-slate-200">
+                <div className="w-20 h-24 sm:w-24 sm:h-28 bg-slate-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/90 shadow-sm p-1.5">
                   {product.cover_url ? (
                     <img 
                       src={resolveWebpUrl(product.cover_url)} 
                       alt={product.title} 
-                      className="w-full h-full object-cover" 
+                      className="w-full h-full object-contain drop-shadow-sm" 
                       loading="eager"
                       decoding="async"
                     />
                   ) : (
-                    <span className="text-[9px] font-black text-center px-1">PDF</span>
+                    <span className="text-[10px] font-black text-[#1D3E72] text-center px-1">PDF E-BOOK</span>
                   )}
                 </div>
 
                 {/* Info Produk */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-xs font-bold text-slate-500">1x</span>
-                    <h3 className="font-bold text-xs sm:text-sm text-slate-900 truncate">
+                    <span className="text-xs font-black text-[#1D3E72] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">1x</span>
+                    <h3 className="font-extrabold text-sm sm:text-base text-slate-900 line-clamp-2">
                       {product.title}
                     </h3>
                   </div>
+                  {product.subtitle && (
+                    <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">
+                      {product.subtitle}
+                    </p>
+                  )}
                 </div>
 
                 {/* Harga */}
                 <div className="text-right flex-shrink-0">
-                  <span className="font-black text-sm text-slate-800">
+                  <span className="font-black text-sm sm:text-base text-slate-800">
                     {Number(product.sale_price).toLocaleString("id-ID")}
                   </span>
                 </div>
