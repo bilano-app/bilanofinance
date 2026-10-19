@@ -3,7 +3,7 @@ import { useRoute, useLocation, Link } from "wouter";
 import { 
   ArrowLeft, MessageCircle, Zap, CheckCircle2, Star, 
   ShieldCheck, Clock, Users, BookOpen, ChevronRight,
-  Flame, Award, Sparkles, Share2, Check, AlertCircle
+  Flame, Award, Sparkles, Share2, Check, AlertCircle, ArrowRight
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -35,16 +35,130 @@ interface Product {
   has_pdf: boolean;
 }
 
+const DEFAULT_PRODUCTS: Product[] = [
+  {
+    id: 1,
+    slug: "logika-akuntansi",
+    title: "Logika Akuntansi",
+    subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya",
+    category: "BEST SELLER",
+    cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
+    promo_images: [],
+    regular_price: 72000,
+    sale_price: 46000,
+    sales_headline: "Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!",
+    sales_body: "Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya.",
+    highlights: [
+      "Paham alur & logika debit-kredit tanpa perlu menghafal aturan kaku",
+      "Kuasai persamaan dasar akuntansi dan analisis transaksi riil",
+      "Praktik langsung pencatatan jurnal umum bisnis & studi kasus",
+      "Bahasa santai, mudah dicerna pemula, mahasiswa, dan pemilik usaha"
+    ],
+    testimonials: [],
+    scarcity_text: "Promo Terbatas - Diskon Spesial Hari Ini",
+    reader_count: 3420,
+    whatsapp_number: "+6289688113210",
+    has_pdf: true
+  },
+  {
+    id: 2,
+    slug: "paket-bundling-3-buku",
+    title: "Paket Bundling 3 Buku",
+    subtitle: "3 E-Book Komprehensif: Logika, Praktik Riil, & Gudang Soal",
+    category: "SUPER HEMAT",
+    cover_url: "/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp",
+    promo_images: [],
+    regular_price: 213000,
+    sale_price: 82000,
+    sales_headline: "Kuasai Akuntansi Lengkap Sekaligus Lebih Hemat 60%!",
+    sales_body: "Dapatkan akses langsung ke 3 mahakarya akuntansi sekaligus.",
+    highlights: [
+      "Buku 1: Logika Akuntansi (Paham akar & logika debit-kredit)",
+      "Buku 2: Full Accounting (Siklus lengkap laporan keuangan bisnis)",
+      "Buku 3: Gudang Soal Akuntansi (Ratusan studi kasus & solusi)",
+      "Unduh masing-masing: Diberikan 3 file PDF resmi terpisah"
+    ],
+    testimonials: [],
+    scarcity_text: "Paket Bundling Terlaris - Hemat Rp131.000 Hari Ini",
+    reader_count: 5120,
+    whatsapp_number: "+6289688113210",
+    has_pdf: true
+  },
+  {
+    id: 3,
+    slug: "full-accounting",
+    title: "Full Accounting",
+    subtitle: "Panduan Lengkap Penyusunan Laporan Keuangan dari Nol",
+    category: "PRAKTIS & LENGKAP",
+    cover_url: "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp",
+    promo_images: [],
+    regular_price: 99000,
+    sale_price: 69000,
+    sales_headline: "Satu Buku untuk Semua Kebutuhan Pembukuan & Laporan Bisnis!",
+    sales_body: "Mulai dari pencatatan bukti transaksi hingga neraca & laba rugi.",
+    highlights: [
+      "Panduan lengkap siklus akuntansi dari transaksi sampai neraca akhir",
+      "Contoh riil neraca lajur, jurnal penyesuaian, dan penutup",
+      "Template tabel & format laporan keuangan standar industri"
+    ],
+    testimonials: [],
+    scarcity_text: "Stok Akses Digital Tersedia Hari Ini",
+    reader_count: 2890,
+    whatsapp_number: "+6289688113210",
+    has_pdf: true
+  },
+  {
+    id: 4,
+    slug: "gudang-akuntansi",
+    title: "Gudang Akuntansi",
+    subtitle: "Ratusan Latihan Soal & Pembahasan Kasus Akuntansi Riil",
+    category: "BANK SOAL",
+    cover_url: "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp",
+    promo_images: [],
+    regular_price: 42000,
+    sale_price: 28000,
+    sales_headline: "Asah Jam Terbang Akuntansi Anda dengan Ratusan Latihan Kasus Riil!",
+    sales_body: "Kumpulan soal terlengkap dari tingkat dasar hingga kasus kompleks.",
+    highlights: [
+      "Ratusan bank soal latihan dari jurnal hingga laporan keuangan",
+      "Kunci jawaban terperinci dan langkah demi langkah pengerjaan",
+      "Sangat cocok untuk persiapan ujian, sertifikasi, atau tes kerja"
+    ],
+    testimonials: [],
+    scarcity_text: "Akses Instan & Pembahasan Terlengkap",
+    reader_count: 1940,
+    whatsapp_number: "+6289688113210",
+    has_pdf: true
+  }
+];
+
 export default function ProductDetail() {
   const [, params] = useRoute("/adrienfandra/p/:id");
   const [, setLocation] = useLocation();
+  const productIdOrSlug = params?.id;
   
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
+  // 🚀 Instant Frame-0 Load dari Cache atau Fallback Produk (Menghilangkan Loading Spinner)
+  const [product, setProduct] = useState<Product | null>(() => {
+    if (!productIdOrSlug) return null;
+    try {
+      const cached = localStorage.getItem("af_store_cache_v2");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.products) {
+          const found = parsed.products.find((p: any) => 
+            String(p.id) === String(productIdOrSlug) || p.slug === productIdOrSlug
+          );
+          if (found) return found;
+        }
+      }
+    } catch (e) {}
+    return DEFAULT_PRODUCTS.find(p => String(p.id) === String(productIdOrSlug) || p.slug === productIdOrSlug) || null;
+  });
+
+  const [loading, setLoading] = useState(() => !product);
   const [activeSlide, setActiveSlide] = useState(0);
   const [copied, setCopied] = useState(false);
-
-  const productIdOrSlug = params?.id;
+  const [activePayment, setActivePayment] = useState<any>(null);
 
   const getVisitorId = () => {
     let id = localStorage.getItem("af_store_visitor_id");
@@ -73,18 +187,31 @@ export default function ProductDetail() {
 
   useEffect(() => {
     if (!productIdOrSlug) return;
-    setLoading(true);
+    if (!product) setLoading(true);
+
     fetch(`/api/adrienfandra/products/${productIdOrSlug}`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.product) {
           setProduct(data.product);
-          // Track real product view
           trackEvent("PRODUCT_CLICK", data.product.id, data.product.title);
         }
       })
       .catch(err => console.error("Error loading product detail:", err))
       .finally(() => setLoading(false));
+
+    // Cek apakah ada sesi pembayaran aktif yang belum kedaluwarsa (< 30 menit)
+    try {
+      const raw = localStorage.getItem("adrienfandra_active_payment");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.expiresAt && Date.now() < parsed.expiresAt) {
+          setActivePayment(parsed);
+        } else if (parsed && parsed.expiresAt && Date.now() >= parsed.expiresAt) {
+          localStorage.removeItem("adrienfandra_active_payment");
+        }
+      }
+    } catch (e) {}
   }, [productIdOrSlug]);
 
   if (loading) {
@@ -116,9 +243,17 @@ export default function ProductDetail() {
     ? Math.round(((product.regular_price - product.sale_price) / product.regular_price) * 100)
     : 0;
 
+  const resolveWebpUrl = (url: string) => {
+    return (url || "")
+      .replace("/Akuntansi/Mockup Buku Logika Akuntansi.png", "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp")
+      .replace("/Akuntansi/Tiga Buku Akuntansi Interaktif.png", "/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp")
+      .replace("/Akuntansi/Mockup Buku Full Accounting Tebal.png", "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp")
+      .replace("/Akuntansi/Mockup Buku Gudang Soal Akuntansi.png", "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp");
+  };
+
   // Daftar slide visual (cover + promo images tambahan)
   const slides = [
-    product.cover_url || "/placeholder-cover",
+    resolveWebpUrl(product.cover_url || "/placeholder-cover"),
     ...(product.promo_images || [])
   ].filter(Boolean);
 
@@ -166,6 +301,25 @@ export default function ProductDetail() {
           </button>
         </div>
       </header>
+
+      {/* ⚡ BANNER TRANSAKSI AKTIF (30 MENIT) */}
+      {activePayment && (
+        <div className="bg-[#1D3E72] text-white px-4 py-2.5 sticky top-[57px] z-30 shadow-md animate-in slide-in-from-top duration-200">
+          <div className="max-w-md mx-auto flex items-center justify-between gap-2.5 text-xs">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Clock className="w-3.5 h-3.5 text-amber-300 animate-pulse flex-shrink-0" />
+              <span className="truncate">Tagihan aktif ({activePayment.orderId})</span>
+            </div>
+            <Link
+              href={`/adrienfandra/checkout/${activePayment.productId || 1}`}
+              className="bg-amber-400 hover:bg-amber-300 text-slate-900 font-black text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-xs transition-colors flex-shrink-0"
+            >
+              <span>Bayar</span>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* 📱 DETAIL SALES LETTER CONTAINER */}
       <main className="max-w-md mx-auto px-4 py-4 space-y-6">

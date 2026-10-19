@@ -196,7 +196,7 @@ function Router() {
        const allowedRoutes = ["/", "/income", "/expense", "/profile", "/auth", "/onboarding"];
        const currentPath = location.endsWith('/') && location !== '/' ? location.slice(0, -1) : location;
 
-       if (isExpired && !allowedRoutes.includes(currentPath)) {
+       if (isExpired && !allowedRoutes.includes(currentPath) && !currentPath.startsWith("/adrienfandra")) {
            setShowExpiredWarning(true);
            setLocation("/"); // Lempar kembali ke beranda
        } else {
@@ -229,8 +229,16 @@ function Router() {
     window.addEventListener('online', handleOnline);
 
     // Event Listener dari respon Backend (402 Expired)
-    const handleExpiredLock = () => setShowExpiredWarning(true);
-    const handlePaywallLock = () => setLocation('/paywall');
+    const handleExpiredLock = () => {
+      if (!window.location.pathname.startsWith('/adrienfandra')) {
+        setShowExpiredWarning(true);
+      }
+    };
+    const handlePaywallLock = () => {
+      if (!window.location.pathname.startsWith('/adrienfandra')) {
+        setLocation('/paywall');
+      }
+    };
     window.addEventListener('trigger-expired-lock', handleExpiredLock);
     window.addEventListener('trigger-paywall-lock', handlePaywallLock);
 

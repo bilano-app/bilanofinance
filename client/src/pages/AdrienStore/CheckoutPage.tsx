@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useRoute, useLocation, Link } from "wouter";
 import { 
   ArrowLeft, ShieldCheck, ChevronRight,
-  Tag, Copy, Check, RefreshCw, ExternalLink
+  Tag, Copy, Check, RefreshCw, ExternalLink,
+  Clock, AlertCircle
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -17,14 +18,90 @@ interface Product {
   sales_body: string;
 }
 
+const DEFAULT_CHECKOUT_PRODUCTS: Product[] = [
+  {
+    id: 1,
+    slug: "logika-akuntansi",
+    title: "Logika Akuntansi",
+    subtitle: "Kuasai Pondasi Logika & Alur Berpikir Akuntansi Modern Tanpa Hafalan",
+    cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
+    regular_price: 72000,
+    sale_price: 46000,
+    sales_body: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya"
+  },
+  {
+    id: 2,
+    slug: "paket-bundling-3-buku",
+    title: "Paket Bundling 3 Buku",
+    subtitle: "Solusi Terlengkap & Hemat: 3 E-Book Sekaligus dari Dasar hingga Mahir",
+    cover_url: "/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp",
+    regular_price: 213000,
+    sale_price: 82000,
+    sales_body: "Dapatkan ketiga buku terpisah lengkap (3 file PDF) yang dapat diunduh masing-masing."
+  },
+  {
+    id: 3,
+    slug: "full-accounting",
+    title: "Full Accounting",
+    subtitle: "Panduan Komprehensif Siklus Akuntansi & Laporan Keuangan Perusahaan",
+    cover_url: "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp",
+    regular_price: 99000,
+    sale_price: 69000,
+    sales_body: "Bedah tuntas siklus akuntansi lengkap dan laporan keuangan."
+  },
+  {
+    id: 4,
+    slug: "gudang-akuntansi",
+    title: "Gudang Akuntansi",
+    subtitle: "Kumpulan Studi Kasus, Latihan Soal, & Pembahasan Praktis Siap Uji",
+    cover_url: "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp",
+    regular_price: 42000,
+    sale_price: 28000,
+    sales_body: "Ratusan soal latihan akuntansi lengkap dengan pembahasan logis."
+  }
+];
+
+function resolveWebpUrl(url?: string): string {
+  if (!url) return "";
+  if (url.endsWith(".png") && url.includes("/Akuntansi/")) {
+    return url.replace(/\.png$/, ".webp");
+  }
+  return url;
+}
+
+const SESSION_PAYMENT_KEY = "adrienfandra_active_payment";
+const SESSION_DRAFT_KEY = "adrienfandra_checkout_draft";
+
 export default function CheckoutPage() {
   const [, params] = useRoute("/adrienfandra/checkout/:id");
   const [, setLocation] = useLocation();
 
   const productId = params?.id;
 
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [product, setProduct] = useState<Product | null>(() => {
+    try {
+      const cached = localStorage.getItem("af_store_cache_v2");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          if (productId) {
+            const found = parsed.find((p: any) => String(p.id) === String(productId) || p.slug === productId);
+            if (found) return found;
+          } else {
+            return parsed[0];
+          }
+        }
+      }
+    } catch (e) {}
+
+    if (productId) {
+      const foundDef = DEFAULT_CHECKOUT_PRODUCTS.find(p => String(p.id) === String(productId) || p.slug === productId);
+      if (foundDef) return foundDef;
+    }
+    return DEFAULT_CHECKOUT_PRODUCTS[0];
+  });
+
+  const [loading, setLoading] = useState(false);
   const [showDesc, setShowDesc] = useState(false);
 
   // Form Pembeli
@@ -52,8 +129,82 @@ export default function CheckoutPage() {
   const [paymentResult, setPaymentResult] = useState<any>(null);
   const [pollingStatus, setPollingStatus] = useState<string>("Menunggu Pembayaran...");
   const [isCopied, setIsCopied] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number>(30 * 60);
+  const [checkingManual, setCheckingManual] = useState(false);
 
-  // Load Product Data
+  // 1. Pulihkan Draft Formulir & Sesi Transaksi Aktif (< 30 menit)
+  useEffect(() => {
+    // Pulihkan input formulir pembeli jika ada
+    try {
+      const savedDraft = localStorage.getItem(SESSION_DRAFT_KEY);
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed.name || parsed.email || parsed.phone) {
+          setFormData(prev => ({
+            name: parsed.name || prev.name,
+            email: parsed.email || prev.email,
+            phone: parsed.phone || prev.phone
+          }));
+        }
+      }
+    } catch (e) {}
+
+    // Pulihkan sesi pembayaran aktif yang belum kedaluwarsa (< 30 menit)
+    try {
+      const activeRaw = localStorage.getItem(SESSION_PAYMENT_KEY);
+      if (activeRaw) {
+        const active = JSON.parse(activeRaw);
+        const now = Date.now();
+        if (active && active.expiresAt && now < active.expiresAt && active.paymentResult) {
+          setPaymentResult(active.paymentResult);
+          if (active.paymentMethod) setPaymentMethod(active.paymentMethod);
+          if (active.customerName || active.customerEmail || active.customerPhone) {
+            setFormData({
+              name: active.customerName || "",
+              email: active.customerEmail || "",
+              phone: active.customerPhone || ""
+            });
+          }
+          setPaymentModalOpen(true);
+          const remainingSecs = Math.max(0, Math.floor((active.expiresAt - now) / 1000));
+          setTimeLeft(remainingSecs);
+
+          // Cek seketika apakah sudah dibayar saat berada di luar browser
+          fetch("/api/adrienfandra/payment/check-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ merchantOrderId: active.paymentResult.merchantOrderId })
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data.isPaid) {
+                localStorage.removeItem(SESSION_PAYMENT_KEY);
+                setPollingStatus("Pembayaran Berhasil! Mengarahkan ke E-Book...");
+                setTimeout(() => {
+                  setLocation(`/adrienfandra/order/${active.paymentResult.merchantOrderId}`);
+                }, 800);
+              }
+            })
+            .catch(() => {});
+        } else if (active && active.expiresAt && now >= active.expiresAt) {
+          localStorage.removeItem(SESSION_PAYMENT_KEY);
+        }
+      }
+    } catch (e) {
+      console.error("Gagal memulihkan sesi transaksi:", e);
+    }
+  }, [setLocation]);
+
+  // 2. Simpan input draft secara otomatis
+  useEffect(() => {
+    if (formData.name || formData.email || formData.phone) {
+      try {
+        localStorage.setItem(SESSION_DRAFT_KEY, JSON.stringify(formData));
+      } catch (e) {}
+    }
+  }, [formData]);
+
+  // 3. Load Data Produk
   useEffect(() => {
     if (!productId) {
       // Fallback load first product from store
@@ -79,10 +230,37 @@ export default function CheckoutPage() {
       .finally(() => setLoading(false));
   }, [productId]);
 
-  // Handle Polling Status Pembayaran Real-Time
+  // 4. Hitung mundur 30 menit secara konsisten terhadap waktu kadaluarsa tersimpan
+  useEffect(() => {
+    if (!paymentResult) return;
+
+    const tick = () => {
+      try {
+        const activeRaw = localStorage.getItem(SESSION_PAYMENT_KEY);
+        if (activeRaw) {
+          const active = JSON.parse(activeRaw);
+          if (active.expiresAt) {
+            const remaining = Math.max(0, Math.floor((active.expiresAt - Date.now()) / 1000));
+            setTimeLeft(remaining);
+            if (remaining <= 0) {
+              setPollingStatus("Waktu pembayaran 30 menit telah berakhir.");
+            }
+            return remaining;
+          }
+        }
+      } catch (e) {}
+      return 0;
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [paymentResult]);
+
+  // 5. Polling Status Pembayaran Real-Time (Setiap 2.5 Detik selama belum lunas & waktu belum habis)
   useEffect(() => {
     let interval: any = null;
-    if (paymentModalOpen && paymentResult?.merchantOrderId) {
+    if (paymentModalOpen && paymentResult?.merchantOrderId && timeLeft > 0) {
       interval = setInterval(async () => {
         try {
           const res = await fetch("/api/adrienfandra/payment/check-status", {
@@ -93,10 +271,13 @@ export default function CheckoutPage() {
           const data = await res.json();
           if (data.isPaid) {
             clearInterval(interval);
+            try {
+              localStorage.removeItem(SESSION_PAYMENT_KEY);
+            } catch (e) {}
             setPollingStatus("Pembayaran Berhasil! Mengarahkan ke E-Book...");
             setTimeout(() => {
               setLocation(`/adrienfandra/order/${paymentResult.merchantOrderId}`);
-            }, 1000);
+            }, 800);
           }
         } catch (e) {
           console.error("Status check error:", e);
@@ -106,7 +287,88 @@ export default function CheckoutPage() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [paymentModalOpen, paymentResult, setLocation]);
+  }, [paymentModalOpen, paymentResult, timeLeft, setLocation]);
+
+  // 6. ⚡ RADAR RE-ENTRY: Cek seketika saat pengguna kembali dari m-Banking / E-Wallet
+  useEffect(() => {
+    const handleReEntry = () => {
+      if (document.visibilityState === "visible" && paymentResult?.merchantOrderId && timeLeft > 0) {
+        setPollingStatus("Mengecek status pembayaran terbaru...");
+        fetch("/api/adrienfandra/payment/check-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ merchantOrderId: paymentResult.merchantOrderId })
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.isPaid) {
+              try {
+                localStorage.removeItem(SESSION_PAYMENT_KEY);
+              } catch (e) {}
+              setPollingStatus("Pembayaran Berhasil! Mengarahkan ke E-Book...");
+              setTimeout(() => {
+                setLocation(`/adrienfandra/order/${paymentResult.merchantOrderId}`);
+              }, 600);
+            } else {
+              setPollingStatus("Menunggu Pembayaran...");
+            }
+          })
+          .catch(() => {
+            setPollingStatus("Menunggu Pembayaran...");
+          });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleReEntry);
+    window.addEventListener("focus", handleReEntry);
+    return () => {
+      document.removeEventListener("visibilitychange", handleReEntry);
+      window.removeEventListener("focus", handleReEntry);
+    };
+  }, [paymentResult, timeLeft, setLocation]);
+
+  // 7. 🛡️ Cegah reload browser / penutupan tab tidak sengaja selama transaksi berlangsung
+  useEffect(() => {
+    if (!paymentResult || timeLeft <= 0) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "Pembayaran Anda sedang berjalan. Sesi pembayaran aman disimpan selama 30 menit.";
+      return e.returnValue;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [paymentResult, timeLeft]);
+
+  // 8. 🛡️ Tangkap gesture Back browser / HP agar tidak keluar secara tidak sengaja
+  useEffect(() => {
+    if (!paymentModalOpen) return;
+
+    window.history.pushState({ afPaymentModal: true }, "");
+
+    const handlePopState = () => {
+      const confirmCancel = window.confirm(
+        "Pembayaran Anda sedang berjalan dan tersimpan aman selama 30 menit.\n\nApakah Anda yakin ingin membatalkan transaksi ini dan kembali?"
+      );
+      if (confirmCancel) {
+        try {
+          localStorage.removeItem(SESSION_PAYMENT_KEY);
+        } catch (e) {}
+        setPaymentModalOpen(false);
+        setPaymentResult(null);
+      } else {
+        window.history.pushState({ afPaymentModal: true }, "");
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [paymentModalOpen]);
 
   // Validasi Voucher
   const handleApplyVoucher = async () => {
@@ -176,15 +438,38 @@ export default function CheckoutPage() {
 
       const data = await res.json();
       if (data.success) {
-        setPaymentResult({
+        const result = {
           merchantOrderId: data.orderId,
           qrCode: data.paymentData?.qrCode,
           vaNumber: data.paymentData?.vaNumber,
           paymentUrl: data.paymentData?.paymentUrl,
           totalAmount: data.totalAmount,
           method: paymentMethod
-        });
+        };
+        setPaymentResult(result);
         setPaymentModalOpen(true);
+
+        // Simpan sesi aktif 30 Menit ke localStorage
+        const now = Date.now();
+        const expiresAt = now + 30 * 60 * 1000; // 30 Menit
+        setTimeLeft(30 * 60);
+
+        const sessionData = {
+          orderId: data.orderId,
+          productId: product?.id,
+          productTitle: product?.title,
+          customerName: formData.name.trim(),
+          customerEmail: formData.email.trim(),
+          customerPhone: formData.phone.trim(),
+          voucherCode: appliedVoucher?.code || null,
+          paymentMethod: paymentMethod,
+          paymentResult: result,
+          createdAt: now,
+          expiresAt: expiresAt
+        };
+        try {
+          localStorage.setItem(SESSION_PAYMENT_KEY, JSON.stringify(sessionData));
+        } catch (e) {}
       } else {
         alert(data.error || "Gagal memproses pesanan.");
       }
@@ -193,6 +478,69 @@ export default function CheckoutPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleManualCheck = async () => {
+    if (!paymentResult?.merchantOrderId || checkingManual) return;
+    setCheckingManual(true);
+    setPollingStatus("Mengecek verifikasi pembayaran...");
+    try {
+      const res = await fetch("/api/adrienfandra/payment/check-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ merchantOrderId: paymentResult.merchantOrderId })
+      });
+      const data = await res.json();
+      if (data.isPaid) {
+        try {
+          localStorage.removeItem(SESSION_PAYMENT_KEY);
+        } catch (e) {}
+        setPollingStatus("Pembayaran Berhasil! Mengarahkan ke E-Book...");
+        setTimeout(() => {
+          setLocation(`/adrienfandra/order/${paymentResult.merchantOrderId}`);
+        }, 600);
+      } else {
+        setPollingStatus("Pembayaran belum masuk. Silakan selesaikan di aplikasi bank.");
+      }
+    } catch (e) {
+      setPollingStatus("Gagal mengecek status.");
+    } finally {
+      setTimeout(() => setCheckingManual(false), 1200);
+    }
+  };
+
+  const handleCancelPayment = () => {
+    const confirmed = window.confirm(
+      "Apakah Anda yakin ingin membatalkan transaksi ini dan memilih metode lain?"
+    );
+    if (confirmed) {
+      try {
+        localStorage.removeItem(SESSION_PAYMENT_KEY);
+      } catch (e) {}
+      setPaymentModalOpen(false);
+      setPaymentResult(null);
+    }
+  };
+
+  const handleTopBack = () => {
+    if (paymentModalOpen && paymentResult) {
+      const confirmCancel = window.confirm(
+        "Pembayaran Anda sedang berjalan dan tersimpan selama 30 menit.\n\nApakah Anda yakin ingin membatalkan transaksi ini dan kembali?"
+      );
+      if (!confirmCancel) return;
+      try {
+        localStorage.removeItem(SESSION_PAYMENT_KEY);
+      } catch (e) {}
+      setPaymentModalOpen(false);
+      setPaymentResult(null);
+    }
+    window.history.back();
+  };
+
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   const copyToClipboard = (text: string) => {
@@ -228,8 +576,10 @@ export default function CheckoutPage() {
       <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
         <div className="max-w-4xl mx-auto px-4 py-3.5 flex items-center gap-3">
           <button
-            onClick={() => window.history.back()}
+            type="button"
+            onClick={handleTopBack}
             className="text-slate-600 hover:text-slate-900 transition-colors p-1 cursor-pointer"
+            title="Kembali"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -238,6 +588,37 @@ export default function CheckoutPage() {
           </h1>
         </div>
       </header>
+
+      {/* ⚡ BANNER LANJUTKAN TRANSAKSI (JIKA MODAL DISEMBUNYIKAN) */}
+      {paymentResult && !paymentModalOpen && timeLeft > 0 && (
+        <div className="bg-[#1D3E72] text-white px-4 py-3 sticky top-[57px] z-25 shadow-md animate-in slide-in-from-top duration-200">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 text-xs">
+              <Clock className="w-4 h-4 text-amber-300 animate-pulse flex-shrink-0" />
+              <span>
+                Transaksi <strong>{paymentResult.merchantOrderId}</strong> sedang aktif. Sisa waktu:{" "}
+                <strong className="text-amber-300 font-mono text-sm">{formatCountdown(timeLeft)}</strong>
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPaymentModalOpen(true)}
+                className="bg-white hover:bg-blue-50 text-[#1D3E72] font-black text-xs px-3.5 py-1.5 rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Buka QRIS / Bayar
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelPayment}
+                className="text-blue-200 hover:text-white text-xs underline font-semibold cursor-pointer"
+              >
+                Batalkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 🛒 2-COLUMN CHECKOUT GRID */}
       <main className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
@@ -258,7 +639,13 @@ export default function CheckoutPage() {
                 {/* Thumbnail */}
                 <div className="w-14 h-16 bg-gradient-to-br from-[#1D3E72] to-[#0F2247] rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center text-white border border-slate-200">
                   {product.cover_url ? (
-                    <img src={product.cover_url} alt={product.title} className="w-full h-full object-cover" />
+                    <img 
+                      src={resolveWebpUrl(product.cover_url)} 
+                      alt={product.title} 
+                      className="w-full h-full object-cover" 
+                      loading="eager"
+                      decoding="async"
+                    />
                   ) : (
                     <span className="text-[9px] font-black text-center px-1">PDF</span>
                   )}
@@ -620,15 +1007,15 @@ export default function CheckoutPage() {
       </main>
 
       {/* =========================================================================
-          💳 POPUP / MODAL PEMBAYARAN RESMI DENGAN QRIS REALTIME POLLING
+          💳 POPUP / MODAL PEMBAYARAN RESMI DENGAN QRIS REALTIME POLLING (30 MENIT)
           ========================================================================= */}
       {paymentModalOpen && paymentResult && (
         <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 text-center border border-slate-100 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center border border-slate-100 max-h-[92vh] overflow-y-auto">
             
             {/* Header Modal */}
             <div className="space-y-1">
-              <span className="text-[10px] font-black uppercase text-[#1D3E72] bg-blue-50 px-3 py-1 rounded-full border border-blue-200/70">
+              <span className="text-[10px] font-black uppercase text-[#1D3E72] bg-blue-50 px-3 py-1 rounded-full border border-blue-200/70 inline-block">
                 PEMBAYARAN RESMI
               </span>
               <h3 className="text-xl font-black text-[#0F2247]">
@@ -639,6 +1026,32 @@ export default function CheckoutPage() {
               </p>
             </div>
 
+            {/* ⏱️ HITUNG MUNDUR 30 MENIT */}
+            {timeLeft > 0 ? (
+              <div className="bg-gradient-to-r from-blue-50 via-slate-50 to-blue-50 border border-blue-200/80 rounded-2xl p-3 flex items-center justify-between text-slate-800 shadow-xs">
+                <div className="flex items-center gap-2 text-left">
+                  <Clock className="w-4 h-4 text-[#1D3E72] animate-pulse flex-shrink-0" />
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block leading-tight">Sisa Waktu Pembayaran</span>
+                    <span className="text-[10px] text-slate-500">Berlaku selama 30 menit</span>
+                  </div>
+                </div>
+                <div className="font-mono font-black text-lg text-[#1D3E72] bg-white px-3 py-1 rounded-xl shadow-xs border border-blue-100">
+                  {formatCountdown(timeLeft)}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 text-center space-y-1">
+                <div className="flex items-center justify-center gap-1.5 text-rose-700 font-bold text-xs">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Waktu Pembayaran (30 Menit) Telah Habis</span>
+                </div>
+                <p className="text-[11px] text-rose-600">
+                  Kode QRIS / Virtual Account ini sudah kedaluwarsa.
+                </p>
+              </div>
+            )}
+
             {/* Total Bayar Highlight */}
             <div className="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-100">
               <span className="text-xs text-slate-500 font-bold block">Total yang Harus Dibayar:</span>
@@ -647,102 +1060,141 @@ export default function CheckoutPage() {
               </span>
             </div>
 
-            {/* Tampilan QRIS jika metode QRIS */}
-            {paymentResult.method === "SQ" && (
-              <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                <span className="text-xs font-bold text-slate-700 block">
-                  Scan QRIS dengan GoPay, OVO, Dana, ShopeePay, atau BCA:
-                </span>
-                
-                <div className="w-56 h-56 mx-auto bg-white p-2.5 rounded-2xl shadow-inner border border-slate-200 flex items-center justify-center">
-                  {paymentResult.qrCode ? (
-                    paymentResult.qrCode.startsWith("http") || paymentResult.qrCode.startsWith("data:") ? (
-                      <img src={paymentResult.qrCode} alt="QRIS Code" className="w-full h-full object-contain" />
-                    ) : (
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(paymentResult.qrCode)}`}
-                        alt="QRIS Code"
-                        className="w-full h-full object-contain"
-                      />
-                    )
-                  ) : paymentResult.paymentUrl ? (
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(paymentResult.paymentUrl)}`}
-                      alt="QRIS"
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`https://bilano.app/adrienfandra/order/${paymentResult.merchantOrderId}`)}`}
-                      alt="QRIS"
-                      className="w-full h-full object-contain"
-                    />
-                  )}
-                </div>
+            {timeLeft > 0 ? (
+              <>
+                {/* Tampilan QRIS jika metode QRIS */}
+                {paymentResult.method === "SQ" && (
+                  <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <span className="text-xs font-bold text-slate-700 block">
+                      Scan QRIS dengan GoPay, OVO, Dana, ShopeePay, atau BCA:
+                    </span>
+                    
+                    <div className="w-56 h-56 mx-auto bg-white p-2.5 rounded-2xl shadow-inner border border-slate-200 flex items-center justify-center">
+                      {paymentResult.qrCode ? (
+                        paymentResult.qrCode.startsWith("http") || paymentResult.qrCode.startsWith("data:") ? (
+                          <img src={paymentResult.qrCode} alt="QRIS Code" className="w-full h-full object-contain" />
+                        ) : (
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(paymentResult.qrCode)}`}
+                            alt="QRIS Code"
+                            className="w-full h-full object-contain"
+                          />
+                        )
+                      ) : paymentResult.paymentUrl ? (
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(paymentResult.paymentUrl)}`}
+                          alt="QRIS"
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`https://bilano.app/adrienfandra/order/${paymentResult.merchantOrderId}`)}`}
+                          alt="QRIS"
+                          className="w-full h-full object-contain"
+                        />
+                      )}
+                    </div>
 
-                {paymentResult.paymentUrl && (
-                  <a
-                    href={paymentResult.paymentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-[#1D3E72] hover:text-[#0F2247] bg-white border border-slate-200 px-4 py-2 rounded-xl transition-all shadow-xs"
-                  >
-                    <span>Buka Halaman Pembayaran</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+                    {paymentResult.paymentUrl && (
+                      <a
+                        href={paymentResult.paymentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-[#1D3E72] hover:text-[#0F2247] bg-white border border-slate-200 px-4 py-2 rounded-xl transition-all shadow-xs"
+                      >
+                        <span>Buka Halaman Pembayaran</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
                 )}
 
-                <p className="text-[11px] text-slate-500 italic">
-                  Sistem otomatis mendeteksi ketika pembayaran Anda berhasil.
-                </p>
-              </div>
-            )}
+                {/* Tampilan Virtual Account jika metode VA */}
+                {paymentResult.method !== "SQ" && (
+                  <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-left">
+                    <span className="text-xs font-bold text-slate-600 block">Nomor Virtual Account:</span>
+                    <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-300">
+                      <span className="font-mono font-black text-lg text-slate-900 tracking-wider">
+                        {paymentResult.vaNumber || "8801" + Math.floor(10000000 + Math.random() * 90000000)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(paymentResult.vaNumber || "880123456789")}
+                        className="text-xs font-bold text-[#1D3E72] hover:text-[#0F2247] flex items-center gap-1 bg-blue-50 px-2.5 py-1.5 rounded-lg cursor-pointer"
+                      >
+                        {isCopied ? <Check className="w-3.5 h-3.5 text-[#1D3E72]" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{isCopied ? "Disalin!" : "Salin"}</span>
+                      </button>
+                    </div>
+                    {paymentResult.paymentUrl && (
+                      <a
+                        href={paymentResult.paymentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-bold text-white bg-[#1D3E72] hover:bg-[#0F2247] px-4 py-2.5 rounded-xl transition-all shadow-sm"
+                      >
+                        <span>Instruksi & Bayar Online</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                )}
 
-            {/* Tampilan Virtual Account jika metode VA */}
-            {paymentResult.method !== "SQ" && (
-              <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-left">
-                <span className="text-xs font-bold text-slate-600 block">Nomor Virtual Account:</span>
-                <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-300">
-                  <span className="font-mono font-black text-lg text-slate-900 tracking-wider">
-                    {paymentResult.vaNumber || "8801" + Math.floor(10000000 + Math.random() * 90000000)}
+                {/* 🛡️ REASSURANCE BANNER (AMAN DITINGGAL KE M-BANKING) */}
+                <div className="text-[11px] text-slate-600 bg-emerald-50/80 p-3 rounded-2xl border border-emerald-200/80 flex items-start gap-2.5 text-left leading-relaxed">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Aman Ditinggal:</strong> Halaman ini tidak akan ter-reset saat Anda membuka m-Banking atau E-Wallet. Cukup kembali ke sini dan status otomatis terverifikasi.
                   </span>
+                </div>
+
+                {/* Status Polling Live + Manual Trigger */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-2 text-xs font-bold text-[#1D3E72] bg-blue-50/80 border border-blue-200/60 py-2.5 px-4 rounded-full">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#1D3E72]" />
+                    <span>{pollingStatus}</span>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(paymentResult.vaNumber || "880123456789")}
-                    className="text-xs font-bold text-[#1D3E72] hover:text-[#0F2247] flex items-center gap-1 bg-blue-50 px-2.5 py-1.5 rounded-lg cursor-pointer"
+                    onClick={handleManualCheck}
+                    disabled={checkingManual}
+                    className="text-xs font-bold text-slate-600 hover:text-[#1D3E72] underline cursor-pointer disabled:opacity-50"
                   >
-                    {isCopied ? <Check className="w-3.5 h-3.5 text-[#1D3E72]" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{isCopied ? "Disalin!" : "Salin"}</span>
+                    {checkingManual ? "Mengecek ke Bank..." : "Sudah bayar? Cek Status Sekarang"}
                   </button>
                 </div>
-                {paymentResult.paymentUrl && (
-                  <a
-                    href={paymentResult.paymentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-bold text-white bg-[#1D3E72] hover:bg-[#0F2247] px-4 py-2.5 rounded-xl transition-all shadow-sm"
-                  >
-                    <span>Instruksi & Bayar Online</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                )}
+              </>
+            ) : (
+              /* State jika waktu 30 menit sudah habis */
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleCancelPayment}
+                  className="w-full bg-[#1D3E72] text-white font-bold text-xs py-3 rounded-xl shadow-md cursor-pointer hover:bg-[#0F2247]"
+                >
+                  Ulangi / Buat Pembayaran Baru
+                </button>
               </div>
             )}
 
-            {/* Status Polling Live */}
-            <div className="flex items-center justify-center gap-2 text-xs font-bold text-[#1D3E72] bg-blue-50/80 border border-blue-200/60 py-2.5 px-4 rounded-full animate-pulse">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#1D3E72]" />
-              <span>{pollingStatus}</span>
-            </div>
-
-            {/* Tombol Tutup */}
-            <div className="pt-2 border-t border-slate-100">
+            {/* Tombol Aksi Bawah */}
+            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+              {timeLeft > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentModalOpen(false)}
+                  className="w-full text-xs font-bold text-slate-600 hover:text-slate-900 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  Sembunyikan Sementara (Tetap Aktif 30 Menit)
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setPaymentModalOpen(false)}
-                className="w-full text-xs font-bold text-slate-500 hover:text-slate-800 py-2 transition-colors cursor-pointer"
+                onClick={handleCancelPayment}
+                className="w-full text-xs font-bold text-rose-600 hover:text-rose-800 py-1.5 transition-colors cursor-pointer"
               >
-                Tutup Popup
+                Batalkan Transaksi / Ganti Metode
               </button>
             </div>
 

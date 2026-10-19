@@ -1,10 +1,20 @@
 import { useState, useEffect } from "react";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, Download, BookOpen, RefreshCw, ZoomIn, ZoomOut, AlertCircle } from "lucide-react";
+import { ArrowLeft, Download, BookOpen, RefreshCw, AlertCircle } from "lucide-react";
 
 export default function OnlineReader() {
   const [, params] = useRoute("/adrienfandra/read/:orderId");
   const orderId = params?.orderId;
+
+  // Cek parameter ?book= dari URL
+  const [activeBook, setActiveBook] = useState<string>(() => {
+    try {
+      const search = new URLSearchParams(window.location.search);
+      return search.get("book") || "logika";
+    } catch (e) {
+      return "logika";
+    }
+  });
 
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -43,7 +53,35 @@ export default function OnlineReader() {
     );
   }
 
-  const pdfUrl = `/api/adrienfandra/read-pdf/${orderId}`;
+  const isBundle = Boolean(
+    order.is_bundle || 
+    Number(order.product_id) === 2 || 
+    (order.product_title || "").toLowerCase().includes("bundling")
+  );
+
+  const bundleTabs = [
+    { key: "logika", label: "📗 Logika Akuntansi", title: "Logika Akuntansi" },
+    { key: "full", label: "📘 Full Accounting", title: "Full Accounting" },
+    { key: "gudang", label: "📙 Gudang Soal", title: "Gudang Soal Akuntansi" }
+  ];
+
+  const currentBookTitle = isBundle 
+    ? (bundleTabs.find(t => t.key === activeBook)?.title || order.product_title)
+    : order.product_title;
+
+  const pdfUrl = isBundle
+    ? `/api/adrienfandra/read-pdf/${orderId}?book=${activeBook}`
+    : `/api/adrienfandra/read-pdf/${orderId}`;
+
+  const downloadUrl = isBundle
+    ? `/api/adrienfandra/download/${orderId}?book=${activeBook}`
+    : `/api/adrienfandra/download/${orderId}`;
+
+  const handleTabChange = (key: string) => {
+    setActiveBook(key);
+    const newUrl = `${window.location.pathname}?book=${key}`;
+    window.history.replaceState(null, "", newUrl);
+  };
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col">
@@ -52,34 +90,63 @@ export default function OnlineReader() {
         <div className="flex items-center gap-3">
           <Link
             href={`/adrienfandra/order/${orderId}`}
-            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 transition-colors"
+            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 transition-colors cursor-pointer"
+            title="Kembali ke Ringkasan Pesanan"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-xs sm:text-sm font-bold text-white line-clamp-1 max-w-[240px] sm:max-w-md">
-              {order.product_title}
+            <h1 className="text-xs sm:text-sm font-bold text-white line-clamp-1 max-w-[200px] sm:max-w-md">
+              {currentBookTitle}
             </h1>
-            <p className="text-[10px] text-slate-400">Pembaca: {order.customer_name}</p>
+            <p className="text-[10px] text-slate-400">
+              Pembaca: {order.customer_name} {isBundle ? "• Paket Bundling 3 Buku" : ""}
+            </p>
           </div>
         </div>
 
         <a
-          href={`/api/adrienfandra/download/${orderId}`}
+          href={downloadUrl}
           download
-          className="inline-flex items-center gap-1.5 text-xs font-bold bg-[#1D3E72] hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-full transition-colors shadow-sm"
+          className="inline-flex items-center gap-1.5 text-xs font-bold bg-[#1D3E72] hover:bg-blue-600 text-white px-3.5 py-1.5 rounded-full transition-colors shadow-sm"
         >
           <Download className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Download PDF</span>
+          <span className="hidden sm:inline">Download PDF Ini</span>
         </a>
       </header>
+
+      {/* 📑 Tab Switcher untuk Paket Bundling 3 Buku */}
+      {isBundle && (
+        <div className="bg-slate-950/90 border-b border-slate-800/80 px-4 py-2 flex items-center gap-2 overflow-x-auto">
+          <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider mr-1 hidden sm:inline flex-shrink-0">
+            PILIH BUKU:
+          </span>
+          <div className="flex items-center gap-1.5">
+            {bundleTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => handleTabChange(tab.key)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  activeBook === tab.key
+                    ? "bg-[#1D3E72] text-white shadow-md shadow-blue-900/30 ring-1 ring-blue-400/30"
+                    : "bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* PDF Iframe Viewport */}
       <div className="flex-1 w-full bg-slate-800 flex items-center justify-center relative">
         <iframe
+          key={`${orderId}-${activeBook}`}
           src={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`}
-          title={order.product_title}
-          className="w-full h-[calc(100vh-60px)] border-0"
+          title={currentBookTitle}
+          className="w-full h-[calc(100vh-105px)] border-0"
         />
       </div>
     </div>

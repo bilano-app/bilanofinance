@@ -199,7 +199,7 @@ async function seedDefaultAdrienStoreData() {
           'siap bantu lo semua untuk kuasai akuntansi & laporan keuangan bisnis tanpa ribet',
           '',
           'Book Now',
-          '["", "", ""]'::jsonb,
+          '["/Akuntansi/DISPLAY_1.webp", "/Akuntansi/DISPLAY_2.webp", "/Akuntansi/DISPLAY_3.webp"]'::jsonb,
           '+6289688113210',
           'adrienfandra14@gmail.com',
           'Adrien1401',
@@ -339,6 +339,33 @@ async function seedDefaultAdrienStoreData() {
         ('ADRIEN15', 'PERCENT', 15, 50000, 200, 0, true);
       `);
     }
+
+    // 3. Migrasi Otomatis Cover ke WebP & Pembaruan Copy Bundling Terpisah
+    await db.execute(sql`
+      UPDATE adrien_products 
+      SET cover_url = '/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp' 
+      WHERE (id = 1 OR slug = 'logika-akuntansi') AND (cover_url LIKE '%.png' OR cover_url IS NULL);
+
+      UPDATE adrien_products 
+      SET cover_url = '/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp',
+          sales_body = 'Paket Bundling 3 Buku ini menyajikan seluruh materi esensial akuntansi: mulai dari fondasi konsep dan logika di Logika Akuntansi, siklus pembukuan dan penyusunan laporan keuangan di Full Accounting, hingga ratusan latihan kasus di Gudang Soal Akuntansi. Ketiga e-book diberikan lengkap terpisah (3 file PDF) agar Anda leluasa mengunduh dan mempelajarinya masing-masing.',
+          highlights = '["Super Hemat: Potongan Rp131.000 dibandingkan membeli terpisah", "3 E-Book Terpisah Lengkap: Logika Akuntansi, Full Accounting, & Gudang Soal", "Unduh & Baca Masing-Masing: Dapatkan 3 file PDF resmi tersendiri", "Total 430+ Halaman materi berbobot dari dasar hingga mahir", "Studi kasus bisnis riil + ratusan latihan soal lengkap dengan pembahasan"]'::jsonb
+      WHERE (id = 2 OR slug = 'paket-bundling-3-buku');
+
+      UPDATE adrien_products 
+      SET cover_url = '/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp' 
+      WHERE (id = 3 OR slug = 'full-accounting') AND (cover_url LIKE '%.png' OR cover_url IS NULL);
+
+      UPDATE adrien_products 
+      SET cover_url = '/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp' 
+      WHERE (id = 4 OR slug = 'gudang-akuntansi') AND (cover_url LIKE '%.png' OR cover_url IS NULL);
+
+      UPDATE adrien_store_settings
+      SET slot_images = '["/Akuntansi/DISPLAY_1.webp", "/Akuntansi/DISPLAY_2.webp", "/Akuntansi/DISPLAY_3.webp"]'::jsonb
+      WHERE slot_images IS NULL 
+         OR slot_images = '["", "", ""]'::jsonb 
+         OR slot_images = '[]'::jsonb;
+    `);
 
     console.log("[AdrienStore] Tables & Seed Data ready.");
   } catch (error) {
@@ -496,47 +523,74 @@ function getAkuntansiDirectory(): string {
   return candidates[0];
 }
 
-// Penggabung otomatis 3 PDF untuk Paket Bundling
-async function generateOrGetBundlingPDF(akuntansiDir: string): Promise<Buffer> {
-  const mergedFilePath = path.join(akuntansiDir, "Paket_Bundling_3_Buku_Akuntansi_Adrien_Fandra.pdf");
-  if (fs.existsSync(mergedFilePath)) {
-    try {
-      return fs.readFileSync(mergedFilePath);
-    } catch (e) {}
+// =========================================================================
+// 📚 DAFTAR RESMI E-BOOK DALAM PAKET BUNDLING (3 BUKU TERPISAH)
+// =========================================================================
+export const BUNDLE_BOOKS = [
+  {
+    key: "logika",
+    order: 1,
+    title: "Logika Akuntansi",
+    subtitle: "Kuasai Pondasi Logika & Alur Berpikir Akuntansi Modern Tanpa Hafalan",
+    filename: "LOGIKA AKUNTANSI - Adrien Fandra.pdf",
+    coverUrl: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp"
+  },
+  {
+    key: "full",
+    order: 2,
+    title: "Full Accounting",
+    subtitle: "Panduan Komprehensif Siklus Akuntansi Penuh & Laporan Keuangan",
+    filename: "FULL ACCOUNTING - Adrien Fandra.pdf",
+    coverUrl: "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp"
+  },
+  {
+    key: "gudang",
+    order: 3,
+    title: "Gudang Soal Akuntansi",
+    subtitle: "Kumpulan Studi Kasus, Latihan Soal, & Pembahasan Praktis Siap Uji",
+    filename: "Gudang Soal Akuntansi - Adrien Fandra.pdf",
+    coverUrl: "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp"
   }
+];
 
-  // Jika belum ada di disk, gabungkan langsung menggunakan pdf-lib
-  const bundleFiles = [
-    "LOGIKA AKUNTANSI - Adrien Fandra.pdf",
-    "FULL ACCOUNTING - Adrien Fandra.pdf",
-    "Gudang Soal Akuntansi - Adrien Fandra.pdf"
-  ];
-
-  const mergedPdf = await PDFDocument.create();
-  for (const f of bundleFiles) {
-    const fPath = path.join(akuntansiDir, f);
+// Helper untuk mengambil buffer ke-3 file PDF Paket Bundling secara terpisah
+export function getBundlePdfBuffers(): Array<{
+  key: string;
+  order: number;
+  title: string;
+  subtitle: string;
+  filename: string;
+  buffer: Buffer;
+  coverUrl: string;
+}> {
+  const akuntansiDir = getAkuntansiDirectory();
+  return BUNDLE_BOOKS.map(b => {
+    const fPath = path.join(akuntansiDir, b.filename);
+    let buf: Buffer;
     if (fs.existsSync(fPath)) {
-      const bytes = fs.readFileSync(fPath);
-      const doc = await PDFDocument.load(bytes);
-      const copiedPages = await mergedPdf.copyPages(doc, doc.getPageIndices());
-      copiedPages.forEach(p => mergedPdf.addPage(p));
+      buf = fs.readFileSync(fPath);
+    } else {
+      buf = generateEbookPDF(b.title, "Pembaca Terhormat", "AF-BUNDLE");
     }
-  }
-
-  const mergedBytes = await mergedPdf.save();
-  const buffer = Buffer.from(mergedBytes);
-  try {
-    fs.writeFileSync(mergedFilePath, buffer);
-  } catch (e) {}
-  return buffer;
+    return {
+      key: b.key,
+      order: b.order,
+      title: b.title,
+      subtitle: b.subtitle,
+      filename: b.filename,
+      buffer: buf,
+      coverUrl: b.coverUrl
+    };
+  });
 }
 
 // Helper universal untuk mendapatkan PDF resmi untuk download, baca, dan kirim email
 export async function getEbookPdfBuffer(
   product: { id?: number; title?: string; slug?: string; pdf_filename?: string; pdf_data_base64?: string },
   customerName: string = "Pembaca Terhormat",
-  orderId: string = "AF-ORDER"
-): Promise<{ buffer: Buffer; filename: string }> {
+  orderId: string = "AF-ORDER",
+  bookKey?: string
+): Promise<{ buffer: Buffer; filename: string; title?: string }> {
   // 1. Cek jika ada custom base64 di DB
   if (product.pdf_data_base64 && typeof product.pdf_data_base64 === "string" && product.pdf_data_base64.trim().length > 0) {
     const raw = product.pdf_data_base64.includes(",") ? product.pdf_data_base64.split(",")[1] : product.pdf_data_base64;
@@ -551,18 +605,28 @@ export async function getEbookPdfBuffer(
   const slug = (product.slug || "").toLowerCase();
   const filename = product.pdf_filename || "";
 
-  // 2. Cek apakah ini Paket Bundling (3 Buku digabung)
-  if (
-    slug.includes("bundling") || 
-    title.includes("bundling") || 
-    filename.includes("Bundling") ||
-    Number(product.id) === 2
-  ) {
-    const bundleBuffer = await generateOrGetBundlingPDF(akuntansiDir);
-    return {
-      buffer: bundleBuffer,
-      filename: "Paket_Bundling_3_Buku_Akuntansi_Adrien_Fandra.pdf"
-    };
+  // 2. Cek apakah ini Paket Bundling (Diberikan 3 buku terpisah masing-masing)
+  const isBundle = Number(product.id) === 2 || slug.includes("bundling") || title.includes("bundling");
+  if (isBundle) {
+    const key = (bookKey || "").toLowerCase();
+    let targetBook = BUNDLE_BOOKS[0]; // Default ke buku 1 (Logika Akuntansi)
+
+    if (key === "2" || key === "full" || key.includes("full")) {
+      targetBook = BUNDLE_BOOKS[1];
+    } else if (key === "3" || key === "gudang" || key.includes("gudang") || key.includes("soal")) {
+      targetBook = BUNDLE_BOOKS[2];
+    } else if (key === "1" || key === "logika" || key.includes("logika")) {
+      targetBook = BUNDLE_BOOKS[0];
+    }
+
+    const exactPath = path.join(akuntansiDir, targetBook.filename);
+    if (fs.existsSync(exactPath)) {
+      return {
+        buffer: fs.readFileSync(exactPath),
+        filename: targetBook.filename,
+        title: targetBook.title
+      };
+    }
   }
 
   // 3. Cek file fisik berdasarkan pdf_filename yang tersimpan
@@ -611,16 +675,84 @@ export async function getEbookPdfBuffer(
 export async function sendCustomerDeliveryEmail(order: any, product: any) {
   try {
     const transporter = getTransporter();
-    
-    // Ambil PDF resmi (termasuk paket bundling yang digabung)
-    const { buffer: pdfAttachmentBuffer, filename: pdfFilename } = await getEbookPdfBuffer(
-      product,
-      order.customer_name,
-      order.merchant_order_id
-    );
-
-    const downloadLink = `https://bilano.app/adrienfandra/order/${order.merchant_order_id}`;
     const formattedTotal = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(order.total_amount);
+    const orderPageUrl = `https://bilano.app/adrienfandra/order/${order.merchant_order_id}`;
+
+    const isBundle = Number(product.id) === 2 || 
+      (product.slug || "").toLowerCase().includes("bundling") || 
+      (product.title || "").toLowerCase().includes("bundling");
+
+    let attachments: any[] = [];
+    let itemsDownloadHtml = "";
+
+    if (isBundle) {
+      // Ambil ke-3 file PDF terpisah
+      const bundleFiles = getBundlePdfBuffers();
+      attachments = bundleFiles.map(b => ({
+        filename: b.filename,
+        content: b.buffer,
+        contentType: "application/pdf"
+      }));
+
+      itemsDownloadHtml = `
+        <div style="margin: 24px 0;">
+          <p style="font-size: 14px; font-weight: 800; color: #1D3E72; margin-bottom: 14px; letter-spacing: -0.2px;">
+            📚 Paket Bundling 3 Buku — Unduh Masing-Masing File E-Book:
+          </p>
+          
+          <!-- Buku 1: Logika Akuntansi -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+            <div style="font-weight: 800; font-size: 14px; color: #0f172a; margin-bottom: 4px;">📗 1. Logika Akuntansi</div>
+            <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Kuasai Pondasi Logika & Alur Berpikir Akuntansi Modern Tanpa Hafalan</div>
+            <a href="https://bilano.app/api/adrienfandra/download/${order.merchant_order_id}?book=logika" style="display: block; text-align: center; background: #1D3E72; color: #ffffff !important; padding: 12px 0; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 13px;" target="_blank">
+              UNDUH BUKU 1: LOGIKA AKUNTANSI (PDF)
+            </a>
+          </div>
+
+          <!-- Buku 2: Full Accounting -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+            <div style="font-weight: 800; font-size: 14px; color: #0f172a; margin-bottom: 4px;">📘 2. Full Accounting</div>
+            <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Panduan Komprehensif Siklus Akuntansi Penuh & Laporan Keuangan</div>
+            <a href="https://bilano.app/api/adrienfandra/download/${order.merchant_order_id}?book=full" style="display: block; text-align: center; background: #2563EB; color: #ffffff !important; padding: 12px 0; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 13px;" target="_blank">
+              UNDUH BUKU 2: FULL ACCOUNTING (PDF)
+            </a>
+          </div>
+
+          <!-- Buku 3: Gudang Soal Akuntansi -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+            <div style="font-weight: 800; font-size: 14px; color: #0f172a; margin-bottom: 4px;">📙 3. Gudang Soal Akuntansi</div>
+            <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Kumpulan Studi Kasus, Latihan Soal, & Pembahasan Praktis Siap Uji</div>
+            <a href="https://bilano.app/api/adrienfandra/download/${order.merchant_order_id}?book=gudang" style="display: block; text-align: center; background: #0D9488; color: #ffffff !important; padding: 12px 0; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 13px;" target="_blank">
+              UNDUH BUKU 3: GUDANG SOAL (PDF)
+            </a>
+          </div>
+
+          <a href="${orderPageUrl}" style="display: block; width: 100%; text-align: center; background: #f1f5f9; color: #1e293b !important; padding: 12px 0; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 13px; border: 1px solid #cbd5e1; margin-bottom: 12px;" target="_blank">
+            📖 BUKA HALAMAN PESANAN & BACA ONLINE
+          </a>
+        </div>
+      `;
+    } else {
+      // Produk Tunggal
+      const { buffer: pdfAttachmentBuffer, filename: pdfFilename } = await getEbookPdfBuffer(
+        product,
+        order.customer_name,
+        order.merchant_order_id
+      );
+      attachments = [
+        {
+          filename: pdfFilename,
+          content: pdfAttachmentBuffer,
+          contentType: "application/pdf"
+        }
+      ];
+
+      itemsDownloadHtml = `
+        <a href="${orderPageUrl}" class="btn-download" target="_blank">
+          DOWNLOAD & BUKA E-BOOK SEKARANG
+        </a>
+      `;
+    }
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -650,7 +782,7 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
           <div class="content">
             <div class="greeting">Halo ${order.customer_name},</div>
             <p style="font-size: 14px; line-height: 1.6; color: #475569;">
-              Terima kasih! Pembayaran untuk e-book <strong>"${product.title}"</strong> telah kami terima dan diverifikasi.
+              Terima kasih! Pembayaran untuk <strong>"${product.title}"</strong> telah kami terima dan diverifikasi. ${isBundle ? "Ketiga e-book telah dilampirkan terpisah pada email ini serta dapat diunduh masing-masing lewat tautan di bawah." : "File e-book telah dilampirkan pada email ini serta dapat diunduh melalui tombol di bawah."}
             </p>
 
             <div class="receipt-box">
@@ -670,9 +802,7 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
               </table>
             </div>
 
-            <a href="${downloadLink}" class="btn-download" target="_blank">
-              DOWNLOAD & BUKA E-BOOK SEKARANG
-            </a>
+            ${itemsDownloadHtml}
 
             <a href="https://wa.me/6289688113210?text=Halo%20Mas%20Adrien%2C%20saya%20sudah%20membeli%20${encodeURIComponent(product.title)}%20dengan%20Order%20ID%20${order.merchant_order_id}" class="btn-wa" target="_blank">
               Bantuan WhatsApp (+6289688113210)
@@ -691,13 +821,7 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
       to: order.customer_email,
       subject: `[LUNAS] E-Book "${product.title}" - Pesanan #${order.merchant_order_id}`,
       html: emailHtml,
-      attachments: [
-        {
-          filename: pdfFilename,
-          content: pdfAttachmentBuffer,
-          contentType: "application/pdf"
-        }
-      ]
+      attachments: attachments
     });
 
     // Update status email di DB
@@ -726,12 +850,31 @@ export function isAdrienAdmin(email: string | undefined | null): boolean {
 // =========================================================================
 // 🚀 DAFTARKAN SEMUA ENDPOINT STOREFRONT & MANAGER
 // =========================================================================
+let isStoreDbInitialized = false;
+let storeDataCache: any = null;
+let storeDataCacheTime = 0;
+const STORE_CACHE_TTL = 60 * 1000; // 60 Detik Cache In-Memory
+
+export function invalidateStoreDataCache() {
+  storeDataCache = null;
+  storeDataCacheTime = 0;
+}
+
 export function setupAdrienStoreRoutes(app: Express) {
   
-  // 1. Ambil Data Storefront Publik
+  // 1. Ambil Data Storefront Publik (High-Speed In-Memory Cache)
   app.get("/api/adrienfandra/store-data", async (_req: Request, res: Response) => {
     try {
-      await ensureAdrienStoreTables();
+      if (!isStoreDbInitialized) {
+        await ensureAdrienStoreTables();
+        isStoreDbInitialized = true;
+      }
+
+      const now = Date.now();
+      if (storeDataCache && (now - storeDataCacheTime) < STORE_CACHE_TTL) {
+        res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+        return res.json(storeDataCache);
+      }
 
       const settingsRes = await db.execute(sql`SELECT * FROM adrien_store_settings LIMIT 1`);
       const productsRes = await db.execute(sql`
@@ -760,11 +903,15 @@ export function setupAdrienStoreRoutes(app: Express) {
       // Hapus password dari respons publik
       delete settingsData.admin_password;
 
-      res.json({
+      storeDataCache = {
         success: true,
         settings: settingsData,
         products: productsRes.rows || []
-      });
+      };
+      storeDataCacheTime = now;
+
+      res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+      res.json(storeDataCache);
     } catch (error: any) {
       console.error("[AdrienStore] Error fetching store data:", error);
       res.status(500).json({ success: false, error: "Gagal mengambil data toko." });
@@ -774,6 +921,10 @@ export function setupAdrienStoreRoutes(app: Express) {
   // 2. Ambil Detail 1 Produk Publik
   app.get("/api/adrienfandra/products/:idOrSlug", async (req: Request, res: Response) => {
     try {
+      if (!isStoreDbInitialized) {
+        await ensureAdrienStoreTables();
+        isStoreDbInitialized = true;
+      }
       const { idOrSlug } = req.params;
       let query;
       if (!isNaN(Number(idOrSlug))) {
@@ -1163,30 +1314,53 @@ export function setupAdrienStoreRoutes(app: Express) {
                o.email_sent, o.paid_at, o.created_at,
                p.cover_url, p.pdf_filename, (p.pdf_data_base64 IS NOT NULL) AS has_custom_pdf,
                p.whatsapp_number
-        FROM adrien_orders o
-        JOIN adrien_products p ON o.product_id = p.id
-        WHERE o.merchant_order_id = ${orderId}
-        LIMIT 1
+          FROM adrien_orders o
+          JOIN adrien_products p ON o.product_id = p.id
+         WHERE o.merchant_order_id = ${orderId}
+         LIMIT 1
       `);
 
       if (!result.rows || result.rows.length === 0) {
         return res.status(404).json({ success: false, error: "Pesanan tidak ditemukan." });
       }
 
+      const orderData: any = result.rows[0];
+      const isBundle = Number(orderData.product_id) === 2 || 
+        (orderData.product_title || "").toLowerCase().includes("bundling");
+
+      const bundleItems = isBundle ? BUNDLE_BOOKS.map(b => ({
+        id: b.order,
+        key: b.key,
+        title: b.title,
+        subtitle: b.subtitle,
+        filename: b.filename,
+        coverUrl: b.coverUrl,
+        downloadUrl: `/api/adrienfandra/download/${orderData.merchant_order_id}?book=${b.key}`,
+        readUrl: `/adrienfandra/read/${orderData.merchant_order_id}?book=${b.key}`
+      })) : null;
+
       res.json({
         success: true,
-        order: result.rows[0],
-        downloadUrl: `/api/adrienfandra/download/${result.rows[0].merchant_order_id}`
+        order: {
+          ...orderData,
+          is_bundle: isBundle,
+          bundle_items: bundleItems
+        },
+        downloadUrl: `/api/adrienfandra/download/${orderData.merchant_order_id}`,
+        isBundle,
+        bundleItems
       });
     } catch (error: any) {
       res.status(500).json({ success: false, error: "Gagal memuat pesanan." });
     }
   });
 
-  // 9. Download PDF
+  // 9. Download PDF (Mendukung parameter ?book=logika | full | gudang untuk bundling)
   app.get("/api/adrienfandra/download/:orderId", async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
+      const bookKey = (req.query.book as string) || (req.query.item as string) || "";
+
       const orderRes = await db.execute(sql`
         SELECT o.*, p.title as prod_title, p.slug as prod_slug, p.pdf_filename, p.pdf_data_base64
         FROM adrien_orders o
@@ -1209,7 +1383,8 @@ export function setupAdrienStoreRoutes(app: Express) {
           pdf_data_base64: order.pdf_data_base64 
         },
         order.customer_name,
-        order.merchant_order_id
+        order.merchant_order_id,
+        bookKey
       );
 
       res.setHeader("Content-Type", "application/pdf");
@@ -1221,10 +1396,12 @@ export function setupAdrienStoreRoutes(app: Express) {
     }
   });
 
-  // 10. Baca Online
+  // 10. Baca Online (Mendukung parameter ?book=logika | full | gudang untuk bundling)
   app.get("/api/adrienfandra/read-pdf/:orderId", async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
+      const bookKey = (req.query.book as string) || (req.query.item as string) || "";
+
       const orderRes = await db.execute(sql`
         SELECT o.*, p.title as prod_title, p.slug as prod_slug, p.pdf_filename, p.pdf_data_base64
         FROM adrien_orders o
@@ -1247,7 +1424,8 @@ export function setupAdrienStoreRoutes(app: Express) {
           pdf_data_base64: order.pdf_data_base64 
         },
         order.customer_name,
-        order.merchant_order_id
+        order.merchant_order_id,
+        bookKey
       );
 
       res.setHeader("Content-Type", "application/pdf");
@@ -1467,6 +1645,7 @@ export function setupAdrienStoreRoutes(app: Express) {
       }
 
       const updated = await db.execute(sql`SELECT * FROM adrien_store_settings LIMIT 1`);
+      invalidateStoreDataCache();
       res.json({ success: true, message: "Pengaturan berhasil diperbarui.", settings: updated.rows[0] });
     } catch (error: any) {
       console.error("[AdrienStore] Settings update error:", error);
@@ -1573,6 +1752,7 @@ export function setupAdrienStoreRoutes(app: Express) {
         `);
       }
 
+      invalidateStoreDataCache();
       res.json({ success: true, message: "E-Book berhasil disimpan." });
     } catch (error: any) {
       console.error("[AdrienStore] Product save error:", error);
@@ -1585,6 +1765,7 @@ export function setupAdrienStoreRoutes(app: Express) {
     try {
       const { id } = req.params;
       await db.execute(sql`DELETE FROM adrien_products WHERE id = ${Number(id)}`);
+      invalidateStoreDataCache();
       res.json({ success: true, message: "Produk berhasil dihapus." });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });

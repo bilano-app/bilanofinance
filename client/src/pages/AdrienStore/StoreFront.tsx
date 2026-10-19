@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { formatCurrency } from "@/lib/utils";
+import { Clock, ArrowRight } from "lucide-react";
 
 interface Product {
   id: number;
@@ -21,20 +22,162 @@ interface Product {
   has_pdf: boolean;
 }
 
+const DEFAULT_PRODUCTS: Product[] = [
+  {
+    id: 1,
+    slug: "logika-akuntansi",
+    title: "Logika Akuntansi",
+    subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya",
+    category: "BEST SELLER",
+    cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
+    promo_images: [],
+    regular_price: 72000,
+    sale_price: 46000,
+    sales_headline: "Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!",
+    sales_body: "Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya.",
+    highlights: [
+      "Paham alur & logika debit-kredit tanpa perlu menghafal aturan kaku",
+      "Kuasai persamaan dasar akuntansi dan analisis transaksi riil",
+      "Praktik langsung pencatatan jurnal umum bisnis & studi kasus",
+      "Bahasa santai, mudah dicerna pemula, mahasiswa, dan pemilik usaha"
+    ],
+    scarcity_text: "Promo Terbatas - Diskon Spesial Hari Ini",
+    reader_count: 3420,
+    whatsapp_number: "+6289688113210",
+    has_pdf: true
+  },
+  {
+    id: 2,
+    slug: "paket-bundling-3-buku",
+    title: "Paket Bundling 3 Buku",
+    subtitle: "3 E-Book Komprehensif: Logika, Praktik Riil, & Gudang Soal",
+    category: "SUPER HEMAT",
+    cover_url: "/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp",
+    promo_images: [],
+    regular_price: 213000,
+    sale_price: 82000,
+    sales_headline: "Kuasai Akuntansi Lengkap Sekaligus Lebih Hemat 60%!",
+    sales_body: "Dapatkan akses langsung ke 3 mahakarya akuntansi sekaligus.",
+    highlights: [
+      "Buku 1: Logika Akuntansi (Paham akar & logika debit-kredit)",
+      "Buku 2: Full Accounting (Siklus lengkap laporan keuangan bisnis)",
+      "Buku 3: Gudang Soal Akuntansi (Ratusan studi kasus & solusi)",
+      "Unduh masing-masing: Diberikan 3 file PDF resmi terpisah"
+    ],
+    scarcity_text: "Paket Bundling Terlaris - Hemat Rp131.000 Hari Ini",
+    reader_count: 5120,
+    whatsapp_number: "+6289688113210",
+    has_pdf: true
+  },
+  {
+    id: 3,
+    slug: "full-accounting",
+    title: "Full Accounting",
+    subtitle: "Panduan Lengkap Penyusunan Laporan Keuangan dari Nol",
+    category: "PRAKTIS & LENGKAP",
+    cover_url: "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp",
+    promo_images: [],
+    regular_price: 99000,
+    sale_price: 69000,
+    sales_headline: "Satu Buku untuk Semua Kebutuhan Pembukuan & Laporan Bisnis!",
+    sales_body: "Mulai dari pencatatan bukti transaksi hingga neraca & laba rugi.",
+    highlights: [
+      "Panduan lengkap siklus akuntansi dari transaksi sampai neraca akhir",
+      "Contoh riil neraca lajur, jurnal penyesuaian, dan penutup",
+      "Template tabel & format laporan keuangan standar industri"
+    ],
+    scarcity_text: "Stok Akses Digital Tersedia Hari Ini",
+    reader_count: 2890,
+    whatsapp_number: "+6289688113210",
+    has_pdf: true
+  },
+  {
+    id: 4,
+    slug: "gudang-akuntansi",
+    title: "Gudang Akuntansi",
+    subtitle: "Ratusan Latihan Soal & Pembahasan Kasus Akuntansi Riil",
+    category: "BANK SOAL",
+    cover_url: "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp",
+    promo_images: [],
+    regular_price: 42000,
+    sale_price: 28000,
+    sales_headline: "Asah Jam Terbang Akuntansi Anda dengan Ratusan Latihan Kasus Riil!",
+    sales_body: "Kumpulan soal terlengkap dari tingkat dasar hingga kasus kompleks.",
+    highlights: [
+      "Ratusan bank soal latihan dari jurnal hingga laporan keuangan",
+      "Kunci jawaban terperinci dan langkah demi langkah pengerjaan",
+      "Sangat cocok untuk persiapan ujian, sertifikasi, atau tes kerja"
+    ],
+    scarcity_text: "Akses Instan & Pembahasan Terlengkap",
+    reader_count: 1940,
+    whatsapp_number: "+6289688113210",
+    has_pdf: true
+  }
+];
+
+const DEFAULT_SLOT_IMAGES = [
+  "/Akuntansi/DISPLAY_1.webp",
+  "/Akuntansi/DISPLAY_2.webp",
+  "/Akuntansi/DISPLAY_3.webp"
+];
+
+function resolveWebpUrl(url?: string): string {
+  if (!url) return "";
+  if (url.includes("DISPLAY 1") || url.includes("DISPLAY_1") || url.includes("DISPLAY%201")) {
+    return "/Akuntansi/DISPLAY_1.webp";
+  }
+  if (url.includes("DISPLAY 2") || url.includes("DISPLAY_2") || url.includes("DISPLAY%202")) {
+    return "/Akuntansi/DISPLAY_2.webp";
+  }
+  if (url.includes("DISPLAY 3") || url.includes("DISPLAY_3") || url.includes("DISPLAY%203")) {
+    return "/Akuntansi/DISPLAY_3.webp";
+  }
+  if (url.endsWith(".png") && url.includes("/Akuntansi/")) {
+    return url.replace(/\.png$/, ".webp").replace(/\s+/g, "_");
+  }
+  return url;
+}
+
+const STORE_CACHE_KEY = "af_store_cache_v2";
+
 export default function StoreFront() {
   const [, setLocation] = useLocation();
-  const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState<any>({
-    store_name: "Adrien Fandra Store",
-    header_title: "Adrien Fandra",
-    header_subtitle: "Edukator Akuntansi",
-    header_hook: "siap bantu lo semua untuk kuasai akuntansi & laporan keuangan bisnis tanpa ribet",
-    header_image: "",
-    header_badge: "Book Now",
-    slot_images: ["", "", ""],
-    whatsapp_number: "+6289688113210"
+  const [loading, setLoading] = useState(false);
+  const [activePayment, setActivePayment] = useState<any>(null);
+
+  // 🚀 Instant Frame-0 Load dari Cache LocalStorage atau Default Products (Mencegah Flashing / Bug Render)
+  const [settings, setSettings] = useState<any>(() => {
+    try {
+      const cached = localStorage.getItem(STORE_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.settings) return parsed.settings;
+      }
+    } catch (e) {}
+    return {
+      store_name: "Adrien Fandra Store",
+      header_title: "Adrien Fandra",
+      header_subtitle: "Edukator Akuntansi",
+      header_hook: "siap bantu lo semua untuk kuasai akuntansi & laporan keuangan bisnis tanpa ribet",
+      header_image: "",
+      header_badge: "Book Now",
+      slot_images: DEFAULT_SLOT_IMAGES,
+      whatsapp_number: "+6289688113210"
+    };
   });
-  const [products, setProducts] = useState<Product[]>([]);
+
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const cached = localStorage.getItem(STORE_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.products && Array.isArray(parsed.products) && parsed.products.length > 0) {
+          return parsed.products;
+        }
+      }
+    } catch (e) {}
+    return DEFAULT_PRODUCTS;
+  });
 
   const getVisitorId = () => {
     let id = localStorage.getItem("af_store_visitor_id");
@@ -65,23 +208,63 @@ export default function StoreFront() {
     // Record real storefront page view
     trackEvent("PAGE_VIEW");
 
+    // SWR: Fetch data terbaru di background dan simpan ke cache
     fetch("/api/adrienfandra/store-data")
       .then(res => res.json())
       .then(data => {
         if (data.success) {
           if (data.settings) setSettings(data.settings);
-          if (data.products) setProducts(data.products);
+          if (data.products && data.products.length > 0) setProducts(data.products);
+          try {
+            localStorage.setItem(STORE_CACHE_KEY, JSON.stringify(data));
+          } catch (e) {}
         }
       })
       .catch(err => console.error("Error loading store data:", err))
       .finally(() => setLoading(false));
+
+    // Cek apakah ada sesi pembayaran aktif yang belum kedaluwarsa (< 30 menit)
+    try {
+      const raw = localStorage.getItem("adrienfandra_active_payment");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.expiresAt && Date.now() < parsed.expiresAt) {
+          setActivePayment(parsed);
+        } else if (parsed && parsed.expiresAt && Date.now() >= parsed.expiresAt) {
+          localStorage.removeItem("adrienfandra_active_payment");
+        }
+      }
+    } catch (e) {}
   }, []);
 
-  const slotImages = Array.isArray(settings.slot_images) ? settings.slot_images : ["", "", ""];
+  const slotImages = Array.isArray(settings?.slot_images) && settings.slot_images.length === 3
+    ? settings.slot_images.map((s: string, idx: number) => (s && s.trim().length > 0) ? s : DEFAULT_SLOT_IMAGES[idx])
+    : DEFAULT_SLOT_IMAGES;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-[#1D3E72] selection:text-white pb-20">
       
+      {/* ⚡ BANNER TRANSAKSI AKTIF (30 MENIT) */}
+      {activePayment && (
+        <div className="bg-[#1D3E72] text-white px-4 py-3 sticky top-0 z-50 shadow-md animate-in slide-in-from-top duration-200">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 text-xs">
+              <Clock className="w-4 h-4 text-amber-300 animate-pulse flex-shrink-0" />
+              <span>
+                Pesanan <strong>{activePayment.orderId}</strong> sedang menunggu pembayaran (Aktif 30 Menit).
+              </span>
+            </div>
+            <Link
+              href={`/adrienfandra/checkout/${activePayment.productId || 1}`}
+              className="bg-amber-400 hover:bg-amber-300 text-slate-900 font-black text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            >
+              <span>Lanjutkan Pembayaran</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* =========================================================================
           1. HEADER ATAS SEPERTI REFERENSI (SCREENSHOT 4) - BISA DIUBAH DI MANAGER
           ========================================================================= */}
@@ -139,31 +322,24 @@ export default function StoreFront() {
       <main className="max-w-4xl mx-auto px-4 py-6 sm:py-8 space-y-8">
         
         {/* =========================================================================
-            2. 3 RUANG KOTAK GAMBAR HORIZONTAL KE BAWAH (SLOT 1, SLOT 2, SLOT 3)
-            (Sesuai Instruksi: 3 ke bawah, Gambar 1 di atas, Gambar 2 di bawahnya, dst. dan kosongkan)
+            2. 3 GAMBAR DISPLAY (DISPLAY 1, DISPLAY 2, DISPLAY 3)
+            (Sesuai urutannya & ukurannya proporsional tanpa terpotong)
             ========================================================================= */}
-        <section className="space-y-4">
-          {[0, 1, 2].map((slotIndex) => {
-            const imgUrl = slotImages[slotIndex];
+        <section className="space-y-4 sm:space-y-6">
+          {slotImages.map((rawUrl: string, slotIndex: number) => {
+            const imgUrl = resolveWebpUrl(rawUrl) || DEFAULT_SLOT_IMAGES[slotIndex];
             return (
               <div
                 key={slotIndex}
-                className="w-full rounded-2xl overflow-hidden border border-slate-200 bg-white transition-all duration-300 min-h-[120px] sm:min-h-[160px] flex items-center justify-center shadow-xs"
+                className="w-full rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200/90 bg-white shadow-xs hover:shadow-md transition-shadow"
               >
-                {imgUrl ? (
-                  <img
-                    src={imgUrl}
-                    alt={`Gambar ${slotIndex + 1}`}
-                    className="w-full h-auto max-h-[300px] object-cover"
-                  />
-                ) : (
-                  /* Kotak Kosong Bersih Siap Pasang Gambar */
-                  <div className="w-full h-28 sm:h-36 bg-slate-50 border-2 border-dashed border-slate-200/80 rounded-2xl flex items-center justify-center">
-                    <span className="text-[11px] font-bold text-slate-300">
-                      Ruang Gambar #{slotIndex + 1}
-                    </span>
-                  </div>
-                )}
+                <img
+                  src={imgUrl}
+                  alt={`Display ${slotIndex + 1}`}
+                  className="w-full h-auto block object-contain"
+                  loading="eager"
+                  decoding="async"
+                />
               </div>
             );
           })}
@@ -219,7 +395,7 @@ export default function StoreFront() {
                       {/* Visual Mockup */}
                       <div className="w-full md:w-1/2 flex items-center justify-center">
                         <div
-                          className="relative group cursor-pointer"
+                          className="relative group cursor-pointer w-full max-w-[280px] sm:max-w-[320px] min-h-[260px] sm:min-h-[300px] flex items-center justify-center bg-gradient-to-b from-slate-50 to-white/60 rounded-2xl p-2"
                           onClick={() => {
                             trackEvent("PRODUCT_CLICK", product.id, product.title);
                             setLocation(`/adrienfandra/p/${product.slug || product.id}`);
@@ -227,8 +403,15 @@ export default function StoreFront() {
                         >
                           {product.cover_url ? (
                             <img
-                              src={product.cover_url}
+                              src={(product.cover_url || "")
+                                .replace("/Akuntansi/Mockup Buku Logika Akuntansi.png", "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp")
+                                .replace("/Akuntansi/Tiga Buku Akuntansi Interaktif.png", "/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp")
+                                .replace("/Akuntansi/Mockup Buku Full Accounting Tebal.png", "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp")
+                                .replace("/Akuntansi/Mockup Buku Gudang Soal Akuntansi.png", "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp")
+                              }
                               alt={product.title}
+                              loading={product.id === 1 ? "eager" : "lazy"}
+                              decoding="async"
                               className="max-h-64 sm:max-h-72 w-auto object-contain rounded-xl shadow-2xl transition-transform duration-300 group-hover:scale-105"
                             />
                           ) : (
