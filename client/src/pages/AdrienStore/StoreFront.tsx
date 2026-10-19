@@ -488,6 +488,7 @@ export default function StoreFront() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                           <Link
                             href={`/adrienfandra/p/${product.slug || product.id}`}
+                            onClick={() => trackEvent("PRODUCT_CLICK", product.id, product.title)}
                             className="w-full bg-white hover:bg-slate-50 text-[#1D3E72] font-black text-xs sm:text-sm py-3.5 px-4 rounded-xl border-2 border-[#1D3E72] transition-all flex items-center justify-center shadow-sm active:scale-98 text-center"
                           >
                             Lihat Detail Isi
@@ -495,6 +496,7 @@ export default function StoreFront() {
 
                           <Link
                             href={`/adrienfandra/checkout/${product.id}`}
+                            onClick={() => trackEvent("PRODUCT_CLICK", product.id, product.title)}
                             className="w-full bg-[#1D3E72] hover:bg-[#0F2247] text-white font-black text-xs sm:text-sm py-3.5 px-4 rounded-xl shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center active:scale-98 text-center"
                           >
                             Beli Sekarang

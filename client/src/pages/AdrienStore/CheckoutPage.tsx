@@ -132,6 +132,30 @@ export default function CheckoutPage() {
   const [timeLeft, setTimeLeft] = useState<number>(30 * 60);
   const [checkingManual, setCheckingManual] = useState(false);
 
+  // Track checkout page view in analytics
+  useEffect(() => {
+    if (product) {
+      try {
+        let visitorId = localStorage.getItem("af_store_visitor_id");
+        if (!visitorId) {
+          visitorId = "v_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now().toString(36);
+          localStorage.setItem("af_store_visitor_id", visitorId);
+        }
+        fetch("/api/adrienfandra/analytics/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventType: "CHECKOUT_OPEN",
+            productId: product.id,
+            productTitle: product.title,
+            visitorId,
+            referrer: document.referrer || window.location.href
+          })
+        }).catch(() => {});
+      } catch (e) {}
+    }
+  }, [product?.id]);
+
   // 1. Pulihkan Draft Formulir & Sesi Transaksi Aktif (< 30 menit)
   useEffect(() => {
     // Pulihkan input formulir pembeli jika ada

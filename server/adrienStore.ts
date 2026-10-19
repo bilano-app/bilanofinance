@@ -1510,7 +1510,8 @@ export function setupAdrienStoreRoutes(app: Express) {
         uniqueVisitorsRes,
         productClicksRes,
         recentEventsRes,
-        productClickCountsRes
+        productClickCountsRes,
+        checkoutEventsRes
       ] = await Promise.all([
         db.execute(sql`SELECT * FROM adrien_store_settings LIMIT 1`),
         db.execute(sql`SELECT id, slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price, sales_headline, sales_body, highlights, testimonials, scarcity_text, reader_count, whatsapp_number, pdf_filename, is_active, sort_order, created_at, (pdf_data_base64 IS NOT NULL) AS has_custom_pdf FROM adrien_products ORDER BY sort_order ASC, id ASC`),
@@ -1525,7 +1526,8 @@ export function setupAdrienStoreRoutes(app: Express) {
           FROM adrien_analytics_events 
           WHERE event_type = 'PRODUCT_CLICK' AND product_id IS NOT NULL 
           GROUP BY product_id
-        `)
+        `),
+        db.execute(sql`SELECT COUNT(*) as count FROM adrien_analytics_events WHERE event_type IN ('CHECKOUT_START', 'CHECKOUT_OPEN')`)
       ]);
 
       const orders = ordersRes.rows || [];
@@ -1535,7 +1537,8 @@ export function setupAdrienStoreRoutes(app: Express) {
       const totalPageViews = Number(pageViewsRes.rows[0]?.count || 0);
       const uniqueVisitors = Number(uniqueVisitorsRes.rows[0]?.count || 0);
       const totalProductClicks = Number(productClicksRes.rows[0]?.count || 0);
-      const totalCheckouts = orders.length;
+      const checkoutEventsCount = Number(checkoutEventsRes.rows[0]?.count || 0);
+      const totalCheckouts = Math.max(orders.length, checkoutEventsCount);
       const paidOrdersCount = paidOrders.length;
 
       // Click breakdown map by productId
@@ -1560,6 +1563,42 @@ export function setupAdrienStoreRoutes(app: Express) {
         };
       });
 
+      const pendingOrders = orders.filter((o: any) => o.payment_status === "PENDING");
+      const pendingOrdersCount = pendingOrders.length;
+      const clickThroughRate = totalPageViews > 0 
+        ? ((totalProductClicks / totalPageViews) * 100).toFixed(1) + "%" 
+        : "0%";
+      const averageOrderValue = paidOrdersCount > 0 
+        ? Math.round(totalRevenue / paidOrdersCount) 
+        : 0;
+
+      const funnel = [
+        { 
+          step: "Kunjungan Toko (Page Views)", 
+          count: totalPageViews, 
+          percentage: "100%",
+          description: "Pengunjung yang membuka katalog e-book"
+        },
+        { 
+          step: "Eksplorasi E-Book (Product Clicks)", 
+          count: totalProductClicks, 
+          percentage: totalPageViews > 0 ? ((totalProductClicks / totalPageViews) * 100).toFixed(1) + "%" : "0%",
+          description: "Pengunjung yang mengklik atau melihat detail e-book"
+        },
+        { 
+          step: "Mulai Checkout (Checkouts)", 
+          count: totalCheckouts, 
+          percentage: totalProductClicks > 0 ? ((totalCheckouts / totalProductClicks) * 100).toFixed(1) + "%" : "0%",
+          description: "Pengunjung yang masuk ke tahap formulir pemesanan"
+        },
+        { 
+          step: "Pembayaran Lunas (Purchases)", 
+          count: paidOrdersCount, 
+          percentage: totalCheckouts > 0 ? ((paidOrdersCount / totalCheckouts) * 100).toFixed(1) + "%" : "0%",
+          description: "Pembeli yang berhasil menyelesaikan transaksi pembayaran"
+        }
+      ];
+
       res.json({
         success: true,
         stats: {
@@ -1568,13 +1607,16 @@ export function setupAdrienStoreRoutes(app: Express) {
           totalProductClicks,
           totalCheckouts,
           paidOrdersCount,
+          pendingOrdersCount,
           totalRevenue,
-          conversionRate: totalPageViews > 0 
-            ? ((paidOrdersCount / totalPageViews) * 100).toFixed(1) + "%" 
-            : orders.length > 0 ? ((paidOrdersCount / orders.length) * 100).toFixed(1) + "%" : "0%",
-          checkoutConversionRate: orders.length > 0 
-            ? ((paidOrdersCount / orders.length) * 100).toFixed(1) + "%" 
-            : "0%"
+          conversionRate: uniqueVisitors > 0 
+            ? ((paidOrdersCount / uniqueVisitors) * 100).toFixed(1) + "%" 
+            : totalPageViews > 0 ? ((paidOrdersCount / totalPageViews) * 100).toFixed(1) + "%" : "0%",
+          clickThroughRate,
+          checkoutConversionRate: totalCheckouts > 0 
+            ? ((paidOrdersCount / totalCheckouts) * 100).toFixed(1) + "%" 
+            : "0%",
+          averageOrderValue
         },
         analytics: {
           totalPageViews,
@@ -1582,7 +1624,17 @@ export function setupAdrienStoreRoutes(app: Express) {
           totalProductClicks,
           totalCheckouts,
           paidOrdersCount,
+          pendingOrdersCount,
           totalRevenue,
+          conversionRate: uniqueVisitors > 0 
+            ? ((paidOrdersCount / uniqueVisitors) * 100).toFixed(1) + "%" 
+            : "0%",
+          clickThroughRate,
+          checkoutConversionRate: totalCheckouts > 0 
+            ? ((paidOrdersCount / totalCheckouts) * 100).toFixed(1) + "%" 
+            : "0%",
+          averageOrderValue,
+          funnel,
           recentEvents: recentEventsRes.rows || [],
           productStats: productsWithAnalytics
         },
@@ -1594,6 +1646,21 @@ export function setupAdrienStoreRoutes(app: Express) {
     } catch (error: any) {
       console.error("[AdrienStore] Error fetching admin data:", error);
       res.status(500).json({ success: false, error: "Gagal memuat data manager." });
+    }
+  });
+
+  // Reset Data Analitik & Pesanan Toko (Hanya Admin)
+  app.post("/api/adrienfandra/admin/reset-data", verifyAdrienAdminMiddleware, async (_req: Request, res: Response) => {
+    try {
+      await db.execute(sql`TRUNCATE TABLE adrien_orders RESTART IDENTITY;`);
+      await db.execute(sql`TRUNCATE TABLE adrien_analytics_events RESTART IDENTITY;`);
+      await db.execute(sql`UPDATE adrien_products SET reader_count = 0;`);
+      await db.execute(sql`UPDATE adrien_vouchers SET times_used = 0;`);
+      invalidateStoreDataCache();
+      res.json({ success: true, message: "Semua data transaksi dan analitik toko berhasil direset ke 0." });
+    } catch (error: any) {
+      console.error("[AdrienStore] Error resetting store data:", error);
+      res.status(500).json({ success: false, error: "Gagal mereset data: " + error.message });
     }
   });
 
