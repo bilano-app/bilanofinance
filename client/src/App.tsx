@@ -136,6 +136,24 @@ import AdrienOnlineReader from "@/pages/AdrienStore/OnlineReader";
 import AdrienManagerDashboard from "@/pages/AdrienStore/ManagerDashboard";
 import { isTrialMode } from "@/lib/trial-data";
 
+// =========================================================================
+// 🚀 SCROLL TO TOP OTOMATIS: SELALU MULAI DARI PALING ATAS SETIAP GANTI HALAMAN
+// =========================================================================
+function ScrollToTop() {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    // Jika tidak ada hash in-page anchor (#katalog-buku dll), scroll langsung ke paling atas (0, 0)
+    if (!window.location.hash) {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    }
+  }, [location]);
+
+  return null;
+}
+
 function Router() {
   const [location, setLocation] = useLocation();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -304,6 +322,7 @@ function Router() {
 
   return (
     <>
+      <ScrollToTop />
       <Switch>
         <Route path="/">
           {isStandalone ? (hasAuth ? <Home /> : <Auth />) : (typeof window !== 'undefined' && window.location.search.includes('trial=true') ? <Home /> : <Landing />)}

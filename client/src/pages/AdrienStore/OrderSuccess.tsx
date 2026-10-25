@@ -81,6 +81,7 @@ export default function OrderSuccess() {
   const [downloadAllProgress, setDownloadAllProgress] = useState<string>("");
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     // Bersihkan sesi pembayaran aktif karena transaksi sudah sukses
     try {
       localStorage.removeItem("adrienfandra_active_payment");

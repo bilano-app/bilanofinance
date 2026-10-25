@@ -98,7 +98,7 @@ export default function CheckoutPage() {
 
   const [product, setProduct] = useState<Product | null>(() => {
     try {
-      const cached = localStorage.getItem("af_store_cache_v6") || localStorage.getItem("af_store_cache_v5") || localStorage.getItem("af_store_cache_v4");
+      const cached = localStorage.getItem("af_store_cache_v9") || localStorage.getItem("af_store_cache_v8") || localStorage.getItem("af_store_cache_v7") || localStorage.getItem("af_store_cache_v6");
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -176,6 +176,7 @@ export default function CheckoutPage() {
 
   // 1. Pulihkan Draft Formulir & Sesi Transaksi Aktif (< 30 menit)
   useEffect(() => {
+    window.scrollTo(0, 0);
     // Pulihkan input formulir pembeli jika ada
     try {
       const savedDraft = localStorage.getItem(SESSION_DRAFT_KEY);
@@ -456,6 +457,14 @@ export default function CheckoutPage() {
   const totalDiscount = productDiscount + voucherDiscount;
   const subtotal = regularPrice;
   const totalAmount = Math.max(salePrice - voucherDiscount, 0);
+  const isBundling = product ? (
+    Number(product.id) === 2 || 
+    product.slug === "paket-bundling-3-buku" || 
+    (product.title || "").toLowerCase().includes("bundling")
+  ) : false;
+  const discountPercent = regularPrice > salePrice
+    ? Math.round(((regularPrice - salePrice) / regularPrice) * 100)
+    : 0;
 
   // Submit Checkout & Panggil Payment Gateway
   const handleCheckout = async (e: React.FormEvent) => {
@@ -685,49 +694,100 @@ export default function CheckoutPage() {
                 PRODUCT
               </span>
 
-              <div className="flex items-center gap-4">
-                {/* Thumbnail */}
-                <div className="w-20 h-24 sm:w-24 sm:h-28 bg-white rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/90 shadow-sm p-1.5">
-                  {product.cover_url ? (
+              {isBundling ? (
+                /* KHUSUS PAKET BUNDLING: TAMPILAN GAMBAR BESAR & LEBAR (LANDSCAPE) */
+                <div className="space-y-3.5">
+                  {/* Info Header Produk */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black text-[#1D3E72] bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-100">1x</span>
+                        <h3 className="font-extrabold text-base sm:text-lg text-slate-900 tracking-tight">
+                          {product.title}
+                        </h3>
+                        {discountPercent > 0 && (
+                          <span className="bg-rose-600 text-white text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-full shadow-2xs">
+                            HEMAT {discountPercent}%
+                          </span>
+                        )}
+                      </div>
+                      {product.subtitle && (
+                        <p className="text-xs text-slate-500 font-medium">
+                          {product.subtitle}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Harga Ringkas */}
+                    <div className="sm:text-right flex-shrink-0">
+                      <span className="font-black text-lg sm:text-xl text-[#1D3E72] block">
+                        Rp {Number(product.sale_price).toLocaleString("id-ID")}
+                      </span>
+                      {Number(product.regular_price) > Number(product.sale_price) && (
+                        <span className="text-xs font-semibold text-slate-400 line-through block">
+                          Rp {Number(product.regular_price).toLocaleString("id-ID")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* DISPLAY GAMBAR BUNDLING BESAR & LEBAR */}
+                  <div className="w-full bg-slate-50/70 rounded-2xl p-3 sm:p-5 flex items-center justify-center border border-slate-200/80 shadow-2xs">
                     <img 
                       src={resolveWebpUrl(product.cover_url)} 
                       alt={product.title} 
-                      className="w-full h-full object-contain mix-blend-multiply" 
+                      className="w-full max-w-[480px] sm:max-w-[560px] h-auto max-h-[220px] sm:max-h-[280px] object-contain mix-blend-multiply transition-transform hover:scale-102" 
                       loading="eager"
                       decoding="async"
                     />
-                  ) : (
-                    <span className="text-[10px] font-black text-[#1D3E72] text-center px-1">PDF E-BOOK</span>
-                  )}
-                </div>
-
-                {/* Info Produk */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xs font-black text-[#1D3E72] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">1x</span>
-                    <h3 className="font-extrabold text-sm sm:text-base text-slate-900 line-clamp-2">
-                      {product.title}
-                    </h3>
                   </div>
-                  {product.subtitle && (
-                    <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">
-                      {product.subtitle}
-                    </p>
-                  )}
                 </div>
+              ) : (
+                /* E-BOOK SINGLE (PORTRAIT): TAMPILAN THUMBNAIL BERSIH */
+                <div className="flex items-center gap-4">
+                  {/* Thumbnail */}
+                  <div className="w-20 h-24 sm:w-24 sm:h-28 bg-white rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/90 shadow-sm p-1.5">
+                    {product.cover_url ? (
+                      <img 
+                        src={resolveWebpUrl(product.cover_url)} 
+                        alt={product.title} 
+                        className="w-full h-full object-contain mix-blend-multiply" 
+                        loading="eager"
+                        decoding="async"
+                      />
+                    ) : (
+                      <span className="text-[10px] font-black text-[#1D3E72] text-center px-1">PDF E-BOOK</span>
+                    )}
+                  </div>
 
-                {/* Harga */}
-                <div className="text-right flex-shrink-0">
-                  <span className="font-black text-sm sm:text-base text-[#1D3E72] block">
-                    Rp {Number(product.sale_price).toLocaleString("id-ID")}
-                  </span>
-                  {Number(product.regular_price) > Number(product.sale_price) && (
-                    <span className="text-[11px] font-semibold text-slate-400 line-through block">
-                      Rp {Number(product.regular_price).toLocaleString("id-ID")}
+                  {/* Info Produk */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xs font-black text-[#1D3E72] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">1x</span>
+                      <h3 className="font-extrabold text-sm sm:text-base text-slate-900 line-clamp-2">
+                        {product.title}
+                      </h3>
+                    </div>
+                    {product.subtitle && (
+                      <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">
+                        {product.subtitle}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Harga */}
+                  <div className="text-right flex-shrink-0">
+                    <span className="font-black text-sm sm:text-base text-[#1D3E72] block">
+                      Rp {Number(product.sale_price).toLocaleString("id-ID")}
                     </span>
-                  )}
+                    {Number(product.regular_price) > Number(product.sale_price) && (
+                      <span className="text-[11px] font-semibold text-slate-400 line-through block">
+                        Rp {Number(product.regular_price).toLocaleString("id-ID")}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* See Description Toggle */}
               <div>

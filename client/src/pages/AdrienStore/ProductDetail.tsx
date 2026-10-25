@@ -141,7 +141,7 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<Product | null>(() => {
     if (!productIdOrSlug) return null;
     try {
-      const cached = localStorage.getItem("af_store_cache_v6") || localStorage.getItem("af_store_cache_v5") || localStorage.getItem("af_store_cache_v4");
+      const cached = localStorage.getItem("af_store_cache_v9") || localStorage.getItem("af_store_cache_v8") || localStorage.getItem("af_store_cache_v7");
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed?.products) {
@@ -186,6 +186,7 @@ export default function ProductDetail() {
   };
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     if (!productIdOrSlug) return;
     if (!product) setLoading(true);
 
@@ -531,21 +532,36 @@ export default function ProductDetail() {
         )}
 
         {/* =========================================================================
-            5. KOTAK HARGA & AKSES LANGSUNG
+            5. KOTAK HARGA & RINCIAN (SUBTOTAL, DISKON, TOTAL)
             ========================================================================= */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 text-center space-y-2 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-            Harga E-Book
+        <div className="bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 space-y-3 shadow-xs">
+          <span className="text-xs font-black text-[#1D3E72] bg-blue-50 px-3 py-1 rounded-full uppercase tracking-wider inline-block">
+            Rincian Harga Spesial
           </span>
-          <div className="text-3xl font-black text-[#1D3E72]">
-            {formatCurrency(product.sale_price)}
-          </div>
-          {Number(product.regular_price) > Number(product.sale_price) && (
-            <div className="text-sm font-bold text-slate-400 line-through">
-              {formatCurrency(product.regular_price)}
+          
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 text-left">
+            <div className="flex items-center justify-between text-xs sm:text-sm text-slate-500 font-semibold">
+              <span>Subtotal (Harga Normal)</span>
+              <span className="line-through text-slate-400 font-bold">{formatCurrency(product.regular_price)}</span>
             </div>
-          )}
-          <p className="text-[11px] text-slate-500 pt-1">
+            {regularPriceNum > salePriceNum && (
+              <div className="flex items-center justify-between text-xs sm:text-sm text-rose-600 font-bold">
+                <span>Diskon Spesial {discountPercent > 0 ? `(${discountPercent}%)` : ""}</span>
+                <span>-{formatCurrency(regularPriceNum - salePriceNum)}</span>
+              </div>
+            )}
+            <div className="pt-2 border-t border-slate-200 flex items-baseline justify-between">
+              <div>
+                <span className="text-xs sm:text-sm font-black text-[#0F2247] block">Total Pembayaran</span>
+                {regularPriceNum > salePriceNum && (
+                  <span className="text-[10px] text-emerald-600 font-bold">Hemat {formatCurrency(regularPriceNum - salePriceNum)}</span>
+                )}
+              </div>
+              <span className="text-2xl sm:text-3xl font-black text-[#1D3E72]">{formatCurrency(product.sale_price)}</span>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-slate-500 text-center pt-1">
             File PDF dikirim otomatis ke email & bisa langsung diunduh setelah pembayaran.
           </p>
         </div>
