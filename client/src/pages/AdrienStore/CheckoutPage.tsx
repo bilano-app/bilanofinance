@@ -98,7 +98,7 @@ export default function CheckoutPage() {
 
   const [product, setProduct] = useState<Product | null>(() => {
     try {
-      const cached = localStorage.getItem("af_store_cache_v9") || localStorage.getItem("af_store_cache_v8") || localStorage.getItem("af_store_cache_v7") || localStorage.getItem("af_store_cache_v6");
+      const cached = localStorage.getItem("af_store_cache_v10") || localStorage.getItem("af_store_cache_v9") || localStorage.getItem("af_store_cache_v8");
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {

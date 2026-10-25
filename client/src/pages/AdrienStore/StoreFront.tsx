@@ -156,7 +156,7 @@ function resolveWebpUrl(url?: string): string {
   return url;
 }
 
-const STORE_CACHE_KEY = "af_store_cache_v9";
+const STORE_CACHE_KEY = "af_store_cache_v10";
 
 export default function StoreFront() {
   const [, setLocation] = useLocation();
@@ -290,29 +290,28 @@ export default function StoreFront() {
           1. HEADER HERO RESMI (PRESTIGIOUS CREATOR HERO SECTION)
           ========================================================================= */}
       <section className="relative w-full bg-gradient-to-b from-white via-slate-50/70 to-[#F8FAFC] border-b border-slate-200/60 overflow-hidden">
-        {/* Subtle Ambient Radial Lighting Glow */}
+        {/* Subtle Ambient Radial Lighting Glow Biru & Kuning */}
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-blue-100/40 rounded-full blur-3xl pointer-events-none -z-0" />
-        <div className="absolute top-1/3 right-10 w-80 h-80 bg-amber-100/30 rounded-full blur-3xl pointer-events-none -z-0" />
+        <div className="absolute top-1/4 right-10 w-80 h-80 bg-amber-100/35 rounded-full blur-3xl pointer-events-none -z-0" />
 
-        <div className="max-w-4xl mx-auto px-4 pt-6 sm:pt-10 pb-6 sm:pb-10 relative z-10">
+        <div className="max-w-4xl mx-auto px-4 pt-6 sm:pt-10 pb-6 sm:pb-8 relative z-10">
           
           {/* DESKTOP & TABLET LAYOUT (>= md): 2-Column Balanced Hero */}
           <div className="hidden md:flex items-center justify-between gap-8">
             
-            {/* Kolom Kiri: Teks Otoritas, Profil, Hook & Aksi */}
-            <div className="flex-1 space-y-4 max-w-xl">
+            {/* Kolom Kiri: Nama, Profesi, Aksen Biru-Kuning & Aksi */}
+            <div className="flex-1 space-y-5 max-w-xl">
               
-              {/* Badge Verifikasi Toko Resmi */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 shadow-2xs">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[11px] font-black uppercase tracking-wider text-[#1D3E72] flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  Official Creator & Author Store
+              {/* Badge Kategori dengan Aksen Biru & Kuning */}
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200/80 shadow-2xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                <span className="text-xs font-black uppercase tracking-wider text-[#1D3E72]">
+                  E-Book Akuntansi Interaktif
                 </span>
               </div>
 
-              {/* Nama Adrien Fandra + Centang Biru Terverifikasi */}
-              <div className="space-y-1">
+              {/* Nama Adrien Fandra + Centang Biru */}
+              <div className="space-y-1.5">
                 <div className="flex items-center gap-2.5">
                   <h1 className="text-4xl lg:text-5xl font-black text-[#0F2247] tracking-tight leading-tight">
                     {settings.header_title?.replace(/\.id$/i, '') || 'Adrien Fandra'}
@@ -321,46 +320,20 @@ export default function StoreFront() {
                 </div>
                 
                 {/* Subtitle / Profesi */}
-                <p className="text-base font-extrabold text-[#1D3E72] tracking-tight flex items-center gap-2">
-                  <span>{settings.header_subtitle || "Edukator Akuntansi & Praktisi Bisnis"}</span>
-                  <span className="text-slate-300">•</span>
-                  <span className="text-amber-600 font-bold text-xs inline-flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
-                    <Star className="w-3 h-3 fill-amber-400 text-amber-500" />
-                    4.9 / 5 (10.000+ Pembaca)
-                  </span>
+                <p className="text-base lg:text-lg font-extrabold text-[#1D3E72] tracking-tight">
+                  {settings.header_subtitle || "Edukator Akuntansi"}
                 </p>
               </div>
 
-              {/* Hook Text: Masalah & Solusi yang Nyambung Langsung ke Buku */}
-              <p className="text-sm lg:text-[15px] text-slate-600 font-medium leading-relaxed">
-                {settings.header_hook || "Siap bantu lo semua untuk kuasai akuntansi & laporan keuangan bisnis dari nol sampai tuntas tanpa ribet dan tanpa hafalan rumus kaku!"}
-              </p>
-
-              {/* Trust Badges Bar */}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-white px-3 py-1.5 rounded-xl border border-slate-200/80 shadow-2xs">
-                  <BookOpen className="w-3.5 h-3.5 text-[#1D3E72]" />
-                  3 Pilihan E-Book Praktis
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-white px-3 py-1.5 rounded-xl border border-slate-200/80 shadow-2xs">
-                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                  Akses PDF HD Instan
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-white px-3 py-1.5 rounded-xl border border-slate-200/80 shadow-2xs">
-                  <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
-                  100% Modul Original
-                </span>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-3 pt-2">
+              {/* Action Buttons dengan Aksen Biru & Kuning */}
+              <div className="flex items-center gap-3 pt-1">
                 <a
                   href="#katalog-buku"
                   className="inline-flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-[#0F2247] hover:bg-[#1D3E72] text-white font-black text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer group"
                 >
                   <span>{settings?.header_badge && settings.header_badge !== "Book Now" ? settings.header_badge : "Pilih E-Book Sekarang"}</span>
-                  <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                    <ArrowDown className="w-3.5 h-3.5 text-white group-hover:translate-y-0.5 transition-transform" />
+                  <div className="w-6 h-6 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-bold group-hover:bg-amber-300 transition-colors">
+                    <ArrowDown className="w-3.5 h-3.5 group-hover:translate-y-0.5 transition-transform" />
                   </div>
                 </a>
 
@@ -379,50 +352,32 @@ export default function StoreFront() {
 
             {/* Kolom Kanan: Foto Resmi Adrien Fandra (Cutout Berdiri Memegang Tablet) */}
             <div className="relative flex-shrink-0 w-64 lg:w-72 flex items-end justify-center">
-              {/* Backlight Ambient Glow */}
-              <div className="absolute inset-0 bg-gradient-to-t from-blue-600/10 via-amber-400/10 to-transparent rounded-full blur-2xl -z-10" />
+              {/* Backlight Ambient Glow Biru & Kuning */}
+              <div className="absolute inset-0 bg-gradient-to-t from-blue-600/15 via-amber-300/20 to-transparent rounded-full blur-2xl -z-10" />
               
               <img
                 src="/adrienfandra_photos.webp"
                 alt={settings.header_title || "Adrien Fandra"}
-                className="w-full h-auto max-h-[340px] lg:max-h-[380px] object-contain drop-shadow-[0_15px_25px_rgba(15,34,71,0.15)] select-none pointer-events-none transition-transform duration-500 hover:scale-102"
+                className="w-full h-auto max-h-[320px] lg:max-h-[360px] object-contain drop-shadow-[0_15px_25px_rgba(15,34,71,0.15)] select-none pointer-events-none transition-transform duration-500 hover:scale-102"
               />
-
-              {/* Floating Credibility Pill */}
-              <div className="absolute bottom-2 -left-4 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-slate-200/80 shadow-md flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                  <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
-                </div>
-                <div>
-                  <p className="text-[11px] font-black text-slate-900 leading-tight">Edukator Terpercaya</p>
-                  <p className="text-[10px] font-semibold text-slate-500">10k+ Murid & Pembaca</p>
-                </div>
-              </div>
             </div>
 
           </div>
 
-          {/* MOBILE LAYOUT (< md): Compact, High-Impact, Sangat Pas di Layar HP */}
-          <div className="md:hidden space-y-4">
+          {/* MOBILE LAYOUT (< md): Bersih, Ringkas, Pas di HP */}
+          <div className="md:hidden space-y-3.5">
             
-            {/* Top Bar: Foto Profil + Identitas Singkat */}
+            {/* Top Bar: Foto Profil + Identitas Singkat dengan Aksen Biru-Kuning */}
             <div className="flex items-center gap-3.5">
-              <div className="relative w-16 h-16 rounded-2xl overflow-hidden ring-3 ring-[#1D3E72]/15 shadow-sm bg-gradient-to-b from-blue-50 to-slate-100 flex-shrink-0">
+              <div className="relative w-16 h-16 rounded-2xl overflow-hidden ring-3 ring-amber-400 shadow-sm bg-gradient-to-b from-blue-50 to-slate-100 flex-shrink-0">
                 <img
                   src="/adrien_avatar.webp"
                   alt={settings.header_title || "Adrien Fandra"}
                   className="w-full h-full object-cover object-top"
                 />
-                <div className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white" />
               </div>
 
               <div className="space-y-0.5 flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/60 inline-flex items-center gap-1">
-                    <Sparkles className="w-2.5 h-2.5 text-amber-500" />
-                    Official Author
-                  </span>
-                </div>
                 <div className="flex items-center gap-1.5 truncate">
                   <h1 className="text-xl font-black text-[#0F2247] tracking-tight truncate">
                     {settings.header_title?.replace(/\.id$/i, '') || 'Adrien Fandra'}
@@ -432,26 +387,11 @@ export default function StoreFront() {
                 <p className="text-xs font-bold text-[#1D3E72] truncate">
                   {settings.header_subtitle || "Edukator Akuntansi"}
                 </p>
-              </div>
-            </div>
-
-            {/* Hook Text Mobile */}
-            <div className="bg-white/80 backdrop-blur-xs rounded-2xl p-3.5 border border-slate-200/70 shadow-2xs">
-              <p className="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed">
-                "{settings.header_hook || "Siap bantu lo semua untuk kuasai akuntansi & laporan keuangan bisnis tanpa ribet!"}"
-              </p>
-              
-              {/* Trust Metric Chips Mobile */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-2.5 mt-2.5 border-t border-slate-100">
-                <span className="text-[10px] font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                  ⭐ 4.9 Rating
-                </span>
-                <span className="text-[10px] font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                  📚 3 E-Book
-                </span>
-                <span className="text-[10px] font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                  ⚡ Unduh Langsung
-                </span>
+                <div className="pt-0.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#1D3E72] bg-amber-100/80 px-2 py-0.5 rounded-md border border-amber-300/60 inline-block">
+                    E-Book Akuntansi
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -462,7 +402,7 @@ export default function StoreFront() {
                 className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-[#0F2247] active:bg-[#1D3E72] text-white font-black text-xs shadow-sm cursor-pointer"
               >
                 <span>{settings?.header_badge && settings.header_badge !== "Book Now" ? settings.header_badge : "Lihat E-Book"}</span>
-                <ArrowDown className="w-3.5 h-3.5" />
+                <ArrowDown className="w-3.5 h-3.5 text-amber-300" />
               </a>
 
               <a
@@ -589,26 +529,19 @@ export default function StoreFront() {
 
                       {/* Box Harga & Kedua Tombol di Bawah Gambar */}
                       <div className="p-5 sm:p-7 pt-2 space-y-3.5 max-w-xl mx-auto w-full">
-                        {/* Box Rincian Harga: Subtotal (Harga Coret) - Diskon - Total Spesial */}
-                        <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50/90 border border-slate-100 space-y-2">
-                          <div className="flex items-center justify-between text-xs sm:text-sm text-slate-500 font-semibold">
-                            <span>Subtotal (Harga Normal)</span>
-                            <span className="line-through text-slate-400 font-bold">{formatCurrency(product.regular_price)}</span>
-                          </div>
-                          {regularPriceNum > salePriceNum && (
-                            <div className="flex items-center justify-between text-xs sm:text-sm text-rose-600 font-bold">
-                              <span>Diskon Promo {discountPercent > 0 ? `(${discountPercent}%)` : ""}</span>
-                              <span>-{formatCurrency(regularPriceNum - salePriceNum)}</span>
+                        <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50/90 flex items-baseline justify-between">
+                          <div>
+                            <span className="text-xs font-bold text-slate-500 block mb-0.5">Harga Spesial Hari Ini:</span>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-2xl sm:text-3xl font-black text-[#1D3E72]">
+                                {formatCurrency(product.sale_price)}
+                              </span>
+                              {Number(product.regular_price) > Number(product.sale_price) && (
+                                <span className="text-sm font-semibold text-slate-400 line-through">
+                                  {formatCurrency(product.regular_price)}
+                                </span>
+                              )}
                             </div>
-                          )}
-                          <div className="pt-2 border-t border-slate-200/90 flex items-baseline justify-between">
-                            <div>
-                              <span className="text-xs sm:text-sm font-black text-[#0F2247] block">Total Harga Spesial</span>
-                              <span className="text-[10px] text-emerald-600 font-bold">Hemat {formatCurrency(regularPriceNum - salePriceNum)}</span>
-                            </div>
-                            <span className="text-2xl sm:text-3xl font-black text-[#1D3E72]">
-                              {formatCurrency(product.sale_price)}
-                            </span>
                           </div>
                         </div>
 
@@ -689,23 +622,17 @@ export default function StoreFront() {
                           )}
                         </div>
 
-                        {/* Box Rincian Harga: Subtotal (Harga Coret) - Diskon - Total */}
-                        <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50/90 border border-slate-100 space-y-1">
-                          <div className="flex items-center justify-between text-[10px] sm:text-xs text-slate-500 font-semibold">
-                            <span>Subtotal</span>
-                            <span className="line-through text-slate-400 font-bold">{formatCurrency(product.regular_price)}</span>
-                          </div>
-                          {regularPriceNum > salePriceNum && (
-                            <div className="flex items-center justify-between text-[10px] sm:text-xs text-rose-600 font-bold">
-                              <span>Diskon</span>
-                              <span>-{formatCurrency(regularPriceNum - salePriceNum)}</span>
-                            </div>
-                          )}
-                          <div className="pt-1 border-t border-slate-200/90 flex items-baseline justify-between">
-                            <span className="text-[11px] sm:text-xs font-black text-[#0F2247]">Total</span>
-                            <span className="text-sm sm:text-lg font-black text-[#1D3E72]">
+                        <div className="p-2 sm:p-3 rounded-xl bg-slate-50/90">
+                          <span className="text-[9px] sm:text-xs font-bold text-slate-500 block leading-tight">Harga Spesial Hari Ini:</span>
+                          <div className="flex items-baseline gap-1.5 sm:gap-2 mt-0.5">
+                            <span className="text-base sm:text-2xl font-black text-[#1D3E72]">
                               {formatCurrency(product.sale_price)}
                             </span>
+                            {Number(product.regular_price) > Number(product.sale_price) && (
+                              <span className="text-[11px] sm:text-sm font-semibold text-slate-400 line-through">
+                                {formatCurrency(product.regular_price)}
+                              </span>
+                            )}
                           </div>
                         </div>
 
