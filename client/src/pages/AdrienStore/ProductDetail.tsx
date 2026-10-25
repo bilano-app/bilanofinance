@@ -346,7 +346,7 @@ export default function ProductDetail() {
             2. IMAGE GALLERY / SLIDER (DENGAN INDIKATOR TITIK 4 TITIK SEPERTI REFERENSI)
             ========================================================================= */}
         <div className="space-y-3">
-          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100 border border-slate-200 p-4 sm:p-8 flex items-center justify-center min-h-[360px] sm:min-h-[460px] shadow-sm">
+          <div className="relative rounded-3xl overflow-hidden bg-white border border-slate-200/90 p-4 sm:p-6 flex items-center justify-center min-h-[300px] sm:min-h-[380px] shadow-sm">
             
             {/* Slide Visual */}
             {slides.length > 0 && slides[activeSlide] !== "/placeholder-cover" ? (
@@ -355,7 +355,7 @@ export default function ProductDetail() {
                 alt={`${product.title} slide ${activeSlide + 1}`}
                 loading="eager"
                 decoding="async"
-                className="max-h-80 sm:max-h-[420px] md:max-h-[460px] w-auto max-w-full object-contain rounded-2xl shadow-xl transition-all duration-300 hover:scale-102"
+                className="max-h-72 sm:max-h-[360px] md:max-h-[400px] w-auto max-w-full object-contain mix-blend-multiply transition-all duration-300 hover:scale-102"
               />
             ) : (
               /* High-Converting Book Cover Visual */

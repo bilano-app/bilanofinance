@@ -328,17 +328,25 @@ async function seedDefaultAdrienStoreData() {
       `);
     }
 
-    // 3. Cek Voucher Default
-    const voucherCheck = await db.execute(sql`SELECT COUNT(*) FROM adrien_vouchers`);
-    if (Number(voucherCheck.rows[0]?.count || 0) === 0) {
-      await db.execute(sql`
-        INSERT INTO adrien_vouchers (code, discount_type, discount_value, min_spend, usage_limit, times_used, is_active)
-        VALUES 
-        ('SEREBU', 'SET_PRICE', 1000, 0, 99999, 0, true),
-        ('HEMAT10', 'PERCENT', 10, 0, 500, 0, true),
-        ('ADRIEN15', 'PERCENT', 15, 50000, 200, 0, true);
-      `);
-    }
+    // 3. Cek & Migrasi Voucher (Tambahkan Promo AF14 40% Bundling & Kolom Restriksi Produk)
+    await db.execute(sql`
+      ALTER TABLE adrien_vouchers ADD COLUMN IF NOT EXISTS applicable_product_id INTEGER;
+    `);
+
+    await db.execute(sql`
+      INSERT INTO adrien_vouchers (code, discount_type, discount_value, min_spend, usage_limit, times_used, is_active, applicable_product_id)
+      VALUES 
+      ('AF14', 'PERCENT', 40, 0, 99999, 0, true, 2),
+      ('SEREBU', 'SET_PRICE', 1000, 0, 99999, 0, true, NULL),
+      ('HEMAT10', 'PERCENT', 10, 0, 500, 0, true, NULL),
+      ('ADRIEN15', 'PERCENT', 15, 50000, 200, 0, true, NULL)
+      ON CONFLICT (code) 
+      DO UPDATE SET 
+        discount_type = EXCLUDED.discount_type,
+        discount_value = EXCLUDED.discount_value,
+        is_active = true,
+        applicable_product_id = EXCLUDED.applicable_product_id;
+    `);
 
     // 3. Migrasi Otomatis Cover ke WebP & Pembaruan Copy Bundling Terpisah
     await db.execute(sql`
@@ -966,7 +974,7 @@ export function setupAdrienStoreRoutes(app: Express) {
   // 3. Validasi Kupon Diskon
   app.post("/api/adrienfandra/voucher/validate", async (req: Request, res: Response) => {
     try {
-      const { code, amount } = req.body;
+      const { code, amount, productId } = req.body;
       if (!code) return res.status(400).json({ error: "Masukkan kode voucher." });
 
       const cleanCode = code.trim().toUpperCase();
@@ -982,6 +990,34 @@ export function setupAdrienStoreRoutes(app: Express) {
 
       const voucher: any = check.rows[0];
       const purchaseAmount = Number(amount) || 0;
+
+      // 🛡️ Restriksi Khusus Produk (Khususnya Promo AF14 40% Hanya untuk Paket Bundling 3 Buku)
+      const isBundlingVoucher = cleanCode === "AF14" || 
+                               (voucher.applicable_product_id && Number(voucher.applicable_product_id) === 2);
+
+      if (isBundlingVoucher) {
+        let isBundle = false;
+        if (productId) {
+          const prodCheck = await db.execute(sql`SELECT id, slug, title FROM adrien_products WHERE id = ${Number(productId)} LIMIT 1`);
+          if (prodCheck.rows && prodCheck.rows.length > 0) {
+            const p: any = prodCheck.rows[0];
+            isBundle = Number(p.id) === 2 || 
+                       (p.slug || "").includes("bundling") || 
+                       (p.title || "").toLowerCase().includes("bundling");
+          }
+        }
+        if (!isBundle) {
+          return res.status(400).json({
+            success: false,
+            error: "Kode promo AF14 hanya berlaku khusus untuk Paket Bundling 3 Buku."
+          });
+        }
+      } else if (voucher.applicable_product_id && productId && Number(voucher.applicable_product_id) !== Number(productId)) {
+        return res.status(400).json({
+          success: false,
+          error: `Kode promo ${cleanCode} tidak dapat digunakan untuk produk ini.`
+        });
+      }
 
       if (voucher.min_spend && purchaseAmount < Number(voucher.min_spend)) {
         return res.status(400).json({
@@ -1087,6 +1123,26 @@ export function setupAdrienStoreRoutes(app: Express) {
         if (vRes.rows && vRes.rows.length > 0) {
           const voucher: any = vRes.rows[0];
           const cleanVoucherCode = voucherCode.trim().toUpperCase();
+
+          const isBundleProduct = Number(product.id) === 2 || 
+                                 (product.slug || "").includes("bundling") || 
+                                 (product.title || "").toLowerCase().includes("bundling");
+
+          const isBundlingRestricted = cleanVoucherCode === "AF14" || 
+                                      (voucher.applicable_product_id && Number(voucher.applicable_product_id) === 2);
+
+          if (isBundlingRestricted && !isBundleProduct) {
+            return res.status(400).json({
+              error: `Kode promo ${cleanVoucherCode} hanya berlaku khusus untuk Paket Bundling 3 Buku.`
+            });
+          }
+
+          if (voucher.applicable_product_id && Number(voucher.applicable_product_id) !== Number(product.id) && !isBundleProduct) {
+            return res.status(400).json({
+              error: `Kode promo ${cleanVoucherCode} tidak dapat digunakan untuk produk ini.`
+            });
+          }
+
           if (cleanVoucherCode === "SEREBU" || voucher.code === "SEREBU" || voucher.discount_type === "SET_PRICE") {
             discountAmount = Math.max(subtotal - 1000, 0);
           } else if (voucher.discount_type === "PERCENT") {

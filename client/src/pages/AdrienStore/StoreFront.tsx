@@ -319,24 +319,25 @@ export default function StoreFront() {
       </section>
 
       {/* 📦 MAIN CONTENT CONTAINER */}
-      <main className="max-w-4xl mx-auto px-4 py-6 sm:py-8 space-y-8">
+      <main className="max-w-4xl mx-auto px-4 py-6 sm:py-8 space-y-6 sm:space-y-8">
         
         {/* =========================================================================
-            2. 3 GAMBAR DISPLAY (DISPLAY 1, DISPLAY 2, DISPLAY 3)
-            (Sesuai urutannya & ukurannya proporsional tanpa terpotong)
+            2. 3 GAMBAR DISPLAY (MENYATU DALAM SATU ALUR CERITA TANPA GARIS KOTAK KAKU)
             ========================================================================= */}
-        <section className="space-y-4 sm:space-y-6">
+        <section className="w-full bg-white rounded-3xl p-4 sm:p-7 md:p-8 shadow-sm space-y-4 sm:space-y-6">
           {slotImages.map((rawUrl: string, slotIndex: number) => {
             const imgUrl = resolveWebpUrl(rawUrl) || DEFAULT_SLOT_IMAGES[slotIndex];
             return (
               <div
                 key={slotIndex}
-                className="w-full rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200/90 bg-white shadow-xs hover:shadow-md transition-shadow"
+                className="w-full flex items-center justify-center"
               >
                 <img
                   src={imgUrl}
                   alt={`Display ${slotIndex + 1}`}
-                  className="w-full h-auto block object-contain"
+                  className={`w-full h-auto block object-contain mix-blend-multiply ${
+                    slotIndex === 1 ? "rounded-2xl sm:rounded-3xl" : ""
+                  }`}
                   loading="eager"
                   decoding="async"
                 />
@@ -348,7 +349,7 @@ export default function StoreFront() {
         {/* =========================================================================
             3. KATALOG E-BOOK (BERSIH DARI IKON BERLEBIH)
             ========================================================================= */}
-        <section id="katalog-buku" className="space-y-6 pt-2">
+        <section id="katalog-buku" className="space-y-4 sm:space-y-5 pt-1">
           
           {/* Header Section Tanpa Ikon */}
           <div className="text-center max-w-xl mx-auto space-y-1.5">
@@ -364,7 +365,7 @@ export default function StoreFront() {
           </div>
 
           {/* Daftar Kartu Produk E-Book */}
-          <div className="space-y-6">
+          <div className="space-y-5 sm:space-y-6">
             {products.length > 0 ? (
               products.map((product, idx) => {
                 const regularPriceNum = Number(product.regular_price) || 0;
@@ -378,28 +379,28 @@ export default function StoreFront() {
                 return (
                   <div
                     key={product.id}
-                    className="bg-white rounded-3xl border border-slate-200/90 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden"
+                    className="bg-white rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
                   >
-                    {/* Bagian Atas Kartu: Hook Tulisan Gede */}
-                    <div className="p-6 sm:p-8 bg-gradient-to-b from-slate-50/80 to-white border-b border-slate-100 text-center space-y-2">
-                      <h3 className="text-2xl sm:text-4xl font-black text-[#0F2247] tracking-tight leading-tight">
+                    {/* Bagian Atas Kartu: Judul Buku yang Ringkas & Tegas */}
+                    <div className="px-5 py-4 sm:px-6 sm:py-5 bg-gradient-to-b from-slate-50/50 to-white border-b border-slate-100 text-center space-y-1">
+                      <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-[#0F2247] tracking-tight leading-tight">
                         {product.title}
                       </h3>
 
                       {product.subtitle && !isBundling && (
-                        <p className="text-sm sm:text-base text-slate-600 font-semibold italic max-w-2xl mx-auto leading-relaxed">
+                        <p className="text-xs sm:text-sm text-slate-500 font-semibold italic max-w-xl mx-auto leading-relaxed">
                           "{product.subtitle}"
                         </p>
                       )}
                     </div>
 
-                    {/* Tampilan Visual Buku / 3D Mockup Box */}
-                    <div className="p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-8 bg-white">
+                    {/* Body Kartu: Visual Mockup + Harga & Tombol Beli */}
+                    <div className="p-4 sm:p-6 md:p-7 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8 bg-white">
                       
-                      {/* Visual Mockup */}
-                      <div className="w-full md:w-[52%] flex items-center justify-center">
+                      {/* Visual Mockup - Tanpa kotak abu-abu yang tabrakan, putih menyatu mulus */}
+                      <div className="w-full md:w-[48%] flex items-center justify-center relative">
                         <div
-                          className="relative group cursor-pointer w-full max-w-[360px] sm:max-w-[460px] md:max-w-[520px] min-h-[340px] sm:min-h-[440px] md:min-h-[480px] flex items-center justify-center bg-gradient-to-b from-slate-50 to-white/70 rounded-3xl p-4 sm:p-6"
+                          className="relative group cursor-pointer w-full max-w-[340px] sm:max-w-[400px] flex items-center justify-center py-2 bg-transparent"
                           onClick={() => {
                             trackEvent("PRODUCT_CLICK", product.id, product.title);
                             setLocation(`/adrienfandra/p/${product.slug || product.id}`);
@@ -416,13 +417,13 @@ export default function StoreFront() {
                               alt={product.title}
                               loading={idx === 0 ? "eager" : "lazy"}
                               decoding="async"
-                              className="max-h-[340px] sm:max-h-[440px] md:max-h-[480px] w-auto max-w-full object-contain rounded-2xl shadow-2xl transition-transform duration-300 group-hover:scale-105"
+                              className="max-h-[220px] sm:max-h-[260px] md:max-h-[290px] w-auto max-w-full object-contain mix-blend-multiply transition-transform duration-300 group-hover:scale-105"
                             />
                           ) : (
                             /* Dummy Book 3D Mockup */
-                            <div className="w-64 sm:w-80 h-88 sm:h-[420px] bg-gradient-to-br from-[#1D3E72] via-[#2563EB] to-[#0F2247] rounded-3xl shadow-2xl p-7 text-white flex flex-col justify-between relative overflow-hidden border-2 border-white/20 group-hover:scale-105 transition-transform duration-300">
-                              <div className="absolute top-0 right-0 w-36 h-36 bg-white/10 rounded-full blur-2xl"></div>
-                              <div className="absolute left-0 top-0 bottom-0 w-4 bg-black/20 border-r border-white/10"></div>
+                            <div className="w-56 sm:w-64 h-72 sm:h-80 bg-gradient-to-br from-[#1D3E72] via-[#2563EB] to-[#0F2247] rounded-2xl shadow-xl p-6 text-white flex flex-col justify-between relative overflow-hidden border-2 border-white/20 group-hover:scale-105 transition-transform duration-300">
+                              <div className="absolute top-0 right-0 w-28 h-28 bg-white/10 rounded-full blur-xl"></div>
+                              <div className="absolute left-0 top-0 bottom-0 w-3.5 bg-black/20 border-r border-white/10"></div>
                               
                               <div className="relative z-10 pl-2">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-[#F6B93B] block">BILANO E-BOOK</span>
@@ -430,12 +431,12 @@ export default function StoreFront() {
                               </div>
 
                               <div className="relative z-10 pl-2 my-auto">
-                                <h4 className="font-extrabold text-xl sm:text-2xl leading-snug line-clamp-3 text-white">
+                                <h4 className="font-extrabold text-lg sm:text-xl leading-snug line-clamp-3 text-white">
                                   {product.title}
                                 </h4>
                               </div>
 
-                              <div className="relative z-10 pl-2 text-[11px] text-blue-200 flex items-center justify-between border-t border-white/10 pt-3">
+                              <div className="relative z-10 pl-2 text-[11px] text-blue-200 flex items-center justify-between border-t border-white/10 pt-2.5">
                                 <span>Adrien Fandra</span>
                                 <span className="font-bold text-[#F6B93B]">PDF HD</span>
                               </div>
@@ -443,34 +444,33 @@ export default function StoreFront() {
                           )}
 
                           {discountPercent > 0 && (
-                            <div className="absolute -top-3 -right-3 bg-rose-600 text-white text-xs font-black px-3.5 py-1.5 rounded-full shadow-lg border-2 border-white">
+                            <div className="absolute top-1 right-2 sm:top-2 sm:right-4 bg-rose-600 text-white text-[11px] sm:text-xs font-black px-3 py-1 rounded-full shadow-md border-2 border-white">
                               HEMAT {discountPercent}%
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Detail Ringkas & Tombol Beli */}
-                      <div className="w-full md:w-[48%] space-y-5">
-                        {/* Highlight Keunggulan */}
-                        {product.highlights && product.highlights.length > 0 && (
-                          <div className="space-y-2">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Keunggulan Utama:</h4>
-                            <ul className="space-y-1.5 text-xs sm:text-sm font-semibold text-slate-700">
-                              {product.highlights.slice(0, 3).map((hl: string, i: number) => (
-                                <li key={i} className="flex items-start gap-2">
-                                  <span className="text-blue-600 font-bold">•</span>
-                                  <span>{hl}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                      {/* Detail Ringkas: Harga & Tombol Aksi */}
+                      <div className="w-full md:w-[52%] space-y-4">
+                        {/* Kategori Badge & Scarcity */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {product.category && (
+                            <span className="text-[11px] font-black text-[#1D3E72] bg-blue-50 border border-blue-200/60 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                              {product.category}
+                            </span>
+                          )}
+                          {product.scarcity_text && (
+                            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded-full">
+                              {product.scarcity_text}
+                            </span>
+                          )}
+                        </div>
 
                         {/* Box Harga */}
                         <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-100 flex items-baseline justify-between">
                           <div>
-                            <span className="text-xs font-bold text-slate-500 block">Harga Spesial Hari Ini:</span>
+                            <span className="text-xs font-bold text-slate-500 block mb-0.5">Harga Spesial Hari Ini:</span>
                             <div className="flex items-baseline gap-2">
                               <span className="text-2xl sm:text-3xl font-black text-[#1D3E72]">
                                 {formatCurrency(product.sale_price)}
@@ -485,11 +485,11 @@ export default function StoreFront() {
                         </div>
 
                         {/* Tombol Aksi */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-0.5">
                           <Link
                             href={`/adrienfandra/p/${product.slug || product.id}`}
                             onClick={() => trackEvent("PRODUCT_CLICK", product.id, product.title)}
-                            className="w-full bg-white hover:bg-slate-50 text-[#1D3E72] font-black text-xs sm:text-sm py-3.5 px-4 rounded-xl border-2 border-[#1D3E72] transition-all flex items-center justify-center shadow-sm active:scale-98 text-center"
+                            className="w-full bg-white hover:bg-slate-50 text-[#1D3E72] font-black text-xs sm:text-sm py-3 px-4 rounded-xl border-2 border-[#1D3E72] transition-all flex items-center justify-center shadow-xs active:scale-98 text-center"
                           >
                             Lihat Detail Isi
                           </Link>
@@ -497,7 +497,7 @@ export default function StoreFront() {
                           <Link
                             href={`/adrienfandra/checkout/${product.id}`}
                             onClick={() => trackEvent("PRODUCT_CLICK", product.id, product.title)}
-                            className="w-full bg-[#1D3E72] hover:bg-[#0F2247] text-white font-black text-xs sm:text-sm py-3.5 px-4 rounded-xl shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center active:scale-98 text-center"
+                            className="w-full bg-[#1D3E72] hover:bg-[#0F2247] text-white font-black text-xs sm:text-sm py-3 px-4 rounded-xl shadow-md shadow-blue-900/20 transition-all flex items-center justify-center active:scale-98 text-center"
                           >
                             Beli Sekarang
                           </Link>

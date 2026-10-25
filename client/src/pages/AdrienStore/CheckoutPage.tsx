@@ -404,7 +404,11 @@ export default function CheckoutPage() {
       const res = await fetch("/api/adrienfandra/voucher/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: voucherCode, amount: product.sale_price })
+        body: JSON.stringify({ 
+          code: voucherCode, 
+          amount: product.sale_price,
+          productId: product.id 
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -661,12 +665,12 @@ export default function CheckoutPage() {
 
               <div className="flex items-center gap-4">
                 {/* Thumbnail */}
-                <div className="w-20 h-24 sm:w-24 sm:h-28 bg-slate-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/90 shadow-sm p-1.5">
+                <div className="w-20 h-24 sm:w-24 sm:h-28 bg-white rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200/90 shadow-sm p-1.5">
                   {product.cover_url ? (
                     <img 
                       src={resolveWebpUrl(product.cover_url)} 
                       alt={product.title} 
-                      className="w-full h-full object-contain drop-shadow-sm" 
+                      className="w-full h-full object-contain mix-blend-multiply" 
                       loading="eager"
                       decoding="async"
                     />
@@ -809,12 +813,17 @@ export default function CheckoutPage() {
               {/* 🏷️ ADD VOUCHER BUTTON / INPUT */}
               <div className="pt-2">
                 {appliedVoucher ? (
-                  <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl flex items-center justify-between">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200/90 rounded-xl flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Tag className="w-4 h-4 text-[#1D3E72]" />
+                      <Tag className="w-4 h-4 text-emerald-700" />
                       <div>
-                        <span className="text-xs font-black text-[#1D3E72] uppercase">{appliedVoucher.code}</span>
-                        <span className="text-[10px] text-blue-700 block font-semibold">Hemat Rp {discountAmount.toLocaleString("id-ID")}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black text-[#1D3E72] uppercase">{appliedVoucher.code}</span>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded">
+                            {appliedVoucher.discount_type === "PERCENT" ? `Diskon ${appliedVoucher.discount_value}%` : "Diskon Spesial"}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-emerald-800 block font-bold">Hemat Rp {discountAmount.toLocaleString("id-ID")}</span>
                       </div>
                     </div>
                     <button
