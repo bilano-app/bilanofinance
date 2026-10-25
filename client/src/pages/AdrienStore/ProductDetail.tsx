@@ -42,20 +42,20 @@ const DEFAULT_PRODUCTS: Product[] = [
     title: "Paket Bundling 3 Buku",
     subtitle: "",
     category: "SUPER HEMAT",
-    cover_url: "/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp",
+    cover_url: "/Akuntansi/Paket_Bundling_3_E-Book.webp",
     promo_images: [],
-    regular_price: 213000,
-    sale_price: 82000,
-    sales_headline: "Kuasai Akuntansi Lengkap Sekaligus Lebih Hemat 60%!",
+    regular_price: 204000,
+    sale_price: 99000,
+    sales_headline: "Kuasai Akuntansi Lengkap Sekaligus Lebih Hemat!",
     sales_body: "Dapatkan akses langsung ke 3 mahakarya akuntansi sekaligus.",
     highlights: [
-      "Buku 1: Logika Akuntansi (Paham akar & logika debit-kredit)",
-      "Buku 2: Full Accounting (Siklus lengkap laporan keuangan bisnis)",
+      "Buku 1: Akuntansi pakai Bahasa Bayi (Paham akar & logika debit-kredit)",
+      "Buku 2: Akuntansi Tuntas (Siklus lengkap laporan keuangan bisnis)",
       "Buku 3: Gudang Soal Akuntansi (Ratusan studi kasus & solusi)",
       "Unduh masing-masing: Diberikan 3 file PDF resmi terpisah"
     ],
     testimonials: [],
-    scarcity_text: "Paket Bundling Terlaris - Hemat Rp131.000 Hari Ini",
+    scarcity_text: "",
     reader_count: 5120,
     whatsapp_number: "+6289688113210",
     has_pdf: true
@@ -63,15 +63,15 @@ const DEFAULT_PRODUCTS: Product[] = [
   {
     id: 1,
     slug: "logika-akuntansi",
-    title: "Logika Akuntansi",
-    subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya",
+    title: "Akuntansi pakai Bahasa Bayi",
+    subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya dengan bahasa paling sederhana",
     category: "BEST SELLER",
-    cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
+    cover_url: "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp",
     promo_images: [],
-    regular_price: 72000,
-    sale_price: 46000,
+    regular_price: 77000,
+    sale_price: 59000,
     sales_headline: "Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!",
-    sales_body: "Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya.",
+    sales_body: "Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya dengan bahasa yang ramah pemula.",
     highlights: [
       "Paham alur & logika debit-kredit tanpa perlu menghafal aturan kaku",
       "Kuasai persamaan dasar akuntansi dan analisis transaksi riil",
@@ -79,7 +79,7 @@ const DEFAULT_PRODUCTS: Product[] = [
       "Bahasa santai, mudah dicerna pemula, mahasiswa, dan pemilik usaha"
     ],
     testimonials: [],
-    scarcity_text: "Promo Terbatas - Diskon Spesial Hari Ini",
+    scarcity_text: "",
     reader_count: 3420,
     whatsapp_number: "+6289688113210",
     has_pdf: true
@@ -87,13 +87,13 @@ const DEFAULT_PRODUCTS: Product[] = [
   {
     id: 3,
     slug: "full-accounting",
-    title: "Full Accounting",
+    title: "Akuntansi Tuntas",
     subtitle: "Panduan Lengkap Penyusunan Laporan Keuangan dari Nol",
     category: "PRAKTIS & LENGKAP",
-    cover_url: "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp",
+    cover_url: "/Akuntansi/Akuntansi_Tuntas.webp",
     promo_images: [],
-    regular_price: 99000,
-    sale_price: 69000,
+    regular_price: 93000,
+    sale_price: 75000,
     sales_headline: "Satu Buku untuk Semua Kebutuhan Pembukuan & Laporan Bisnis!",
     sales_body: "Mulai dari pencatatan bukti transaksi hingga neraca & laba rugi.",
     highlights: [
@@ -102,7 +102,7 @@ const DEFAULT_PRODUCTS: Product[] = [
       "Template tabel & format laporan keuangan standar industri"
     ],
     testimonials: [],
-    scarcity_text: "Stok Akses Digital Tersedia Hari Ini",
+    scarcity_text: "",
     reader_count: 2890,
     whatsapp_number: "+6289688113210",
     has_pdf: true
@@ -110,13 +110,13 @@ const DEFAULT_PRODUCTS: Product[] = [
   {
     id: 4,
     slug: "gudang-akuntansi",
-    title: "Gudang Akuntansi",
+    title: "Gudang Soal Akuntansi",
     subtitle: "Ratusan Latihan Soal & Pembahasan Kasus Akuntansi Riil",
     category: "BANK SOAL",
-    cover_url: "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp",
+    cover_url: "/Akuntansi/Gudang_Soal_Akuntansi.webp",
     promo_images: [],
-    regular_price: 42000,
-    sale_price: 28000,
+    regular_price: 34000,
+    sale_price: 26000,
     sales_headline: "Asah Jam Terbang Akuntansi Anda dengan Ratusan Latihan Kasus Riil!",
     sales_body: "Kumpulan soal terlengkap dari tingkat dasar hingga kasus kompleks.",
     highlights: [
@@ -125,7 +125,7 @@ const DEFAULT_PRODUCTS: Product[] = [
       "Sangat cocok untuk persiapan ujian, sertifikasi, atau tes kerja"
     ],
     testimonials: [],
-    scarcity_text: "Akses Instan & Pembahasan Terlengkap",
+    scarcity_text: "",
     reader_count: 1940,
     whatsapp_number: "+6289688113210",
     has_pdf: true
@@ -141,7 +141,7 @@ export default function ProductDetail() {
   const [product, setProduct] = useState<Product | null>(() => {
     if (!productIdOrSlug) return null;
     try {
-      const cached = localStorage.getItem("af_store_cache_v3") || localStorage.getItem("af_store_cache_v2");
+      const cached = localStorage.getItem("af_store_cache_v6") || localStorage.getItem("af_store_cache_v5") || localStorage.getItem("af_store_cache_v4");
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed?.products) {
@@ -248,11 +248,26 @@ export default function ProductDetail() {
   const isBundling = Number(product.id) === 2 || product.slug === "paket-bundling-3-buku";
 
   const resolveWebpUrl = (url: string) => {
-    return (url || "")
-      .replace("/Akuntansi/Mockup Buku Logika Akuntansi.png", "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp")
-      .replace("/Akuntansi/Tiga Buku Akuntansi Interaktif.png", "/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp")
-      .replace("/Akuntansi/Mockup Buku Full Accounting Tebal.png", "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp")
-      .replace("/Akuntansi/Mockup Buku Gudang Soal Akuntansi.png", "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp");
+    if (!url) return "";
+    if (url.includes("Bahasa Bayi") || url.includes("Bahasa_Bayi") || url.includes("bayi")) {
+      return "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp";
+    }
+    if (url.includes("Tuntas") || url.includes("tuntas")) {
+      return "/Akuntansi/Akuntansi_Tuntas.webp";
+    }
+    if (url.includes("Gudang Soal") || url.includes("Gudang_Soal") || url.includes("gudang")) {
+      return "/Akuntansi/Gudang_Soal_Akuntansi.webp";
+    }
+    if (url.includes("Bundling") || url.includes("bundling") || url.includes("E-Book") || url.includes("Interaktif")) {
+      return "/Akuntansi/Paket_Bundling_3_E-Book.webp";
+    }
+    if (url.includes("Logika")) {
+      return "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp";
+    }
+    if (url.includes("Full")) {
+      return "/Akuntansi/Akuntansi_Tuntas.webp";
+    }
+    return url;
   };
 
   // Daftar slide visual (cover + promo images tambahan)

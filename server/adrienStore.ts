@@ -211,7 +211,7 @@ async function seedDefaultAdrienStoreData() {
     // 2. Cek Produk Ebook (4 Paket Sesuai Urutan Resmi)
     const productCheck = await db.execute(sql`SELECT COUNT(*) FROM adrien_products`);
     if (Number(productCheck.rows[0]?.count || 0) === 0) {
-      // 1. Logika Akuntansi Rp46.000 dengan harga coret Rp72.000
+      // 1. Akuntansi pakai Bahasa Bayi Rp59.000 dengan harga coret Rp77.000
       await db.execute(sql`
         INSERT INTO adrien_products (
           id, slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price,
@@ -220,27 +220,27 @@ async function seedDefaultAdrienStoreData() {
         ) VALUES (
           1,
           'logika-akuntansi',
-          'Logika Akuntansi',
-          'Bukan hanya tahu, tapi juga menguasai alur berpikirnya',
+          'Akuntansi pakai Bahasa Bayi',
+          'Bukan hanya tahu, tapi juga menguasai alur berpikirnya dengan bahasa paling sederhana',
           'BEST SELLER',
-          '/Akuntansi/Mockup Buku Logika Akuntansi.png',
+          '/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp',
           '[]'::jsonb,
-          72000,
-          46000,
+          77000,
+          59000,
           'Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!',
-          'Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya. Anda akan memahami mengapa suatu transaksi dicatat di debit atau kredit dengan logika yang masuk akal, bukan sekadar menghafal aturan baku yang bikin bingung.',
+          'Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya. Anda akan memahami mengapa suatu transaksi dicatat di debit atau kredit dengan logika yang masuk akal dan bahasa yang sangat ramah pemula, bukan sekadar menghafal aturan baku yang bikin bingung.',
           '["Paham alur & logika debit-kredit tanpa perlu menghafal aturan kaku", "Kuasai persamaan dasar akuntansi dan analisis transaksi riil", "Praktik langsung pencatatan jurnal umum bisnis & studi kasus", "Bahasa santai, mudah dicerna pemula, mahasiswa, dan pemilik usaha"]'::jsonb,
           '[]'::jsonb,
           'Promo Terbatas - Diskon Spesial Hari Ini',
           3420,
           '+6289688113210',
-          'LOGIKA AKUNTANSI - Adrien Fandra.pdf',
+          '[E-Book] AKUNTANSI PAKAI BAHASA BAYI - Adrien Fandra.pdf',
           true,
           1
         );
       `);
 
-      // 2. Paket Bundling 3 Buku Rp82.000 dengan harga coret Rp213.000
+      // 2. Paket Bundling 3 Buku Rp99.000 dengan harga coret Rp204.000
       await db.execute(sql`
         INSERT INTO adrien_products (
           id, slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price,
@@ -252,13 +252,13 @@ async function seedDefaultAdrienStoreData() {
           'Paket Bundling 3 Buku',
           '',
           'PAKET BUNDLING 3 BUKU',
-          '/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp',
+          '/Akuntansi/Paket_Bundling_3_E-Book.webp',
           '[]'::jsonb,
-          213000,
-          82000,
+          204000,
+          99000,
           'Dapatkan 3 E-Book Akuntansi Terlengkap Sekaligus dalam 1 Paket Super Hemat!',
-          'Paket Bundling 3 Buku ini menggabungkan seluruh materi esensial akuntansi: mulai dari fondasi konsep dan logika di Logika Akuntansi, siklus pembukuan dan penyusunan laporan keuangan di Full Accounting, hingga ratusan latihan kasus di Gudang Soal Akuntansi. Ketiga materi langsung digabung lengkap untuk pembelajaran komprehensif Anda.',
-          '["Super Hemat: Potongan Rp131.000 dibandingkan membeli terpisah", "3 Buku Lengkap Sekaligus: Logika Akuntansi, Full Accounting, & Gudang Soal", "Total 430+ Halaman materi berbobot dari dasar hingga mahir", "Ketiga buku langsung digabung lengkap saat pembelian selesai", "Studi kasus bisnis riil + ratusan latihan soal lengkap dengan pembahasan"]'::jsonb,
+          'Paket Bundling 3 E-Book ini menyajikan seluruh materi esensial akuntansi: mulai dari konsep dasar di Akuntansi pakai Bahasa Bayi, siklus pembukuan lengkap di Akuntansi Tuntas, hingga ratusan latihan kasus di Gudang Soal Akuntansi. Ketiga e-book diberikan lengkap terpisah (3 file PDF) agar Anda leluasa mengunduh dan mempelajarinya masing-masing.',
+          '["Super Hemat: Potongan Rp105.000 dibandingkan membeli terpisah", "3 E-Book Terpisah Lengkap: Akuntansi Bahasa Bayi, Akuntansi Tuntas, & Gudang Soal", "Unduh & Baca Masing-Masing: Dapatkan 3 file PDF resmi tersendiri", "Total materi berbobot dari dasar hingga mahir", "Studi kasus bisnis riil + ratusan latihan soal lengkap dengan pembahasan"]'::jsonb,
           '[]'::jsonb,
           'Ingat Paket ini TERBATAS - Hanya Untuk 10 Orang',
           4890,
@@ -269,7 +269,7 @@ async function seedDefaultAdrienStoreData() {
         );
       `);
 
-      // 3. Full Accounting Rp69.000 dengan harga coret Rp99.000
+      // 3. Akuntansi Tuntas Rp75.000 dengan harga coret Rp93.000
       await db.execute(sql`
         INSERT INTO adrien_products (
           id, slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price,
@@ -278,27 +278,27 @@ async function seedDefaultAdrienStoreData() {
         ) VALUES (
           3,
           'full-accounting',
-          'Full Accounting',
+          'Akuntansi Tuntas',
           'Panduan Siklus Akuntansi Penuh: Dari Jurnal, Buku Besar, Neraca Saldo, hingga Laporan Keuangan Bisnis',
           'PANDUAN LENGKAP',
-          '/Akuntansi/Mockup Buku Full Accounting Tebal.png',
+          '/Akuntansi/Akuntansi_Tuntas.webp',
           '[]'::jsonb,
-          99000,
-          69000,
+          93000,
+          75000,
           'Kuasai Siklus Akuntansi Lengkap dan Susun Laporan Keuangan Sendiri!',
-          'Lewat e-book Full Accounting, Anda diajak menuntaskan seluruh siklus pembukuan: pencatatan transaksi harian, posting ke buku besar, penyusunan neraca saldo, jurnal penyesuaian akhir periode, hingga menerbitkan Laporan Laba Rugi, Perubahan Modal, dan Neraca secara presisi.',
+          'Lewat e-book Akuntansi Tuntas, Anda diajak menuntaskan seluruh siklus pembukuan: pencatatan transaksi harian, posting ke buku besar, penyusunan neraca saldo, jurnal penyesuaian akhir periode, hingga menerbitkan Laporan Laba Rugi, Perubahan Modal, dan Neraca secara presisi.',
           '["Siklus akuntansi menyeluruh dari transaksi awal hingga laporan akhir", "Langkah demi langkah menyusun Jurnal Penyesuaian & Neraca Lajur", "Teknik membaca & menganalisis Laporan Laba Rugi serta Arus Kas", "Dilengkapi contoh kasus bisnis nyata dan format pembukuan rapi"]'::jsonb,
           '[]'::jsonb,
           'Promo Terbatas Minggu Ini',
           2760,
           '+6289688113210',
-          'FULL ACCOUNTING - Adrien Fandra.pdf',
+          '[E-Book] AKUNTANSI TUNTAS - Adrien Fandra.pdf',
           true,
           3
         );
       `);
 
-      // 4. Gudang Akuntansi Rp28.000 dengan harga coret Rp42.000
+      // 4. Gudang Soal Akuntansi Rp26.000 dengan harga coret Rp34.000
       await db.execute(sql`
         INSERT INTO adrien_products (
           id, slug, title, subtitle, category, cover_url, promo_images, regular_price, sale_price,
@@ -307,21 +307,21 @@ async function seedDefaultAdrienStoreData() {
         ) VALUES (
           4,
           'gudang-akuntansi',
-          'Gudang Akuntansi',
+          'Gudang Soal Akuntansi',
           'Kumpulan Bank Soal & Kasus Akuntansi Praktis Lengkap dengan Kunci Jawaban & Pembahasan',
           'LATIHAN & BANK SOAL',
-          '/Akuntansi/Mockup Buku Gudang Soal Akuntansi.png',
+          '/Akuntansi/Gudang_Soal_Akuntansi.webp',
           '[]'::jsonb,
-          42000,
-          28000,
+          34000,
+          26000,
           'Uji dan Asah Kemampuan Akuntansi Anda dengan Ratusan Latihan Soal Praktis!',
-          'Gudang Akuntansi berisi kumpulan studi kasus dan bank soal komprehensif mulai dari penjurnalan transaksi, penyesuaian pos keuangan, hingga penyusunan laporan keuangan. Dilengkapi pembahasan mendalam step-by-step untuk memastikan Anda benar-benar mahir.',
+          'Gudang Soal Akuntansi berisi kumpulan studi kasus dan bank soal komprehensif mulai dari penjurnalan transaksi, penyesuaian pos keuangan, hingga penyusunan laporan keuangan. Dilengkapi pembahasan mendalam step-by-step untuk memastikan Anda benar-benar mahir.',
           '["Ratusan latihan soal akuntansi terstruktur dari level dasar hingga lanjutan", "Kunci jawaban dan pembahasan rinci setiap butir soal", "Simulasi kasus transaksi bisnis nyata untuk menguji ketelitian", "Solusi cepat mengatasi keraguan saat menghadapi ujian maupun praktik kerja"]'::jsonb,
           '[]'::jsonb,
           'Diskon Spesial Terbatas',
           1850,
           '+6289688113210',
-          'Gudang Soal Akuntansi - Adrien Fandra.pdf',
+          '[E-Book] Gudang Soal Latihan Akuntansi - Adrien Fandra.pdf',
           true,
           4
         );
@@ -348,30 +348,43 @@ async function seedDefaultAdrienStoreData() {
         applicable_product_id = EXCLUDED.applicable_product_id;
     `);
 
-    // 3. Migrasi Otomatis Cover ke WebP & Pembaruan Copy Bundling Terpisah
+    // 3. Migrasi Otomatis Judul, Cover, File PDF Resmi, & Pembaruan Copy Bundling
     await db.execute(sql`
       UPDATE adrien_products 
-      SET cover_url = '/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp',
+      SET title = 'Akuntansi pakai Bahasa Bayi',
+          cover_url = '/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp',
+          pdf_filename = '[E-Book] AKUNTANSI PAKAI BAHASA BAYI - Adrien Fandra.pdf',
+          regular_price = 77000,
+          sale_price = 59000,
           sort_order = 2
       WHERE (id = 1 OR slug = 'logika-akuntansi');
 
       UPDATE adrien_products 
-      SET cover_url = '/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp',
+      SET title = 'Paket Bundling 3 Buku',
+          cover_url = '/Akuntansi/Paket_Bundling_3_E-Book.webp',
           subtitle = '',
-          regular_price = 213000,
-          sale_price = 82000,
+          regular_price = 204000,
+          sale_price = 99000,
           sort_order = 1,
-          sales_body = 'Paket Bundling 3 Buku ini menyajikan seluruh materi esensial akuntansi: mulai dari fondasi konsep dan logika di Logika Akuntansi, siklus pembukuan dan penyusunan laporan keuangan di Full Accounting, hingga ratusan latihan kasus di Gudang Soal Akuntansi. Ketiga e-book diberikan lengkap terpisah (3 file PDF) agar Anda leluasa mengunduh dan mempelajarinya masing-masing.',
-          highlights = '["Super Hemat: Potongan Rp131.000 dibandingkan membeli terpisah", "3 E-Book Terpisah Lengkap: Logika Akuntansi, Full Accounting, & Gudang Soal", "Unduh & Baca Masing-Masing: Dapatkan 3 file PDF resmi tersendiri", "Total 430+ Halaman materi berbobot dari dasar hingga mahir", "Studi kasus bisnis riil + ratusan latihan soal lengkap dengan pembahasan"]'::jsonb
+          sales_body = 'Paket Bundling 3 Buku ini menyajikan seluruh materi esensial akuntansi: mulai dari konsep dasar di Akuntansi pakai Bahasa Bayi, siklus pembukuan lengkap di Akuntansi Tuntas, hingga ratusan latihan kasus di Gudang Soal Akuntansi. Ketiga e-book diberikan lengkap terpisah (3 file PDF) agar Anda leluasa mengunduh dan mempelajarinya masing-masing.',
+          highlights = '["Super Hemat: Potongan Rp105.000 dibandingkan membeli terpisah", "3 E-Book Terpisah Lengkap: Akuntansi Bahasa Bayi, Akuntansi Tuntas, & Gudang Soal", "Unduh & Baca Masing-Masing: Dapatkan 3 file PDF resmi tersendiri", "Total materi berbobot dari dasar hingga mahir", "Studi kasus bisnis riil + ratusan latihan soal lengkap dengan pembahasan"]'::jsonb
       WHERE (id = 2 OR slug = 'paket-bundling-3-buku');
 
       UPDATE adrien_products 
-      SET cover_url = '/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp',
+      SET title = 'Akuntansi Tuntas',
+          cover_url = '/Akuntansi/Akuntansi_Tuntas.webp',
+          pdf_filename = '[E-Book] AKUNTANSI TUNTAS - Adrien Fandra.pdf',
+          regular_price = 93000,
+          sale_price = 75000,
           sort_order = 3
       WHERE (id = 3 OR slug = 'full-accounting');
 
       UPDATE adrien_products 
-      SET cover_url = '/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp',
+      SET title = 'Gudang Soal Akuntansi',
+          cover_url = '/Akuntansi/Gudang_Soal_Akuntansi.webp',
+          pdf_filename = '[E-Book] Gudang Soal Latihan Akuntansi - Adrien Fandra.pdf',
+          regular_price = 34000,
+          sale_price = 26000,
           sort_order = 4
       WHERE (id = 4 OR slug = 'gudang-akuntansi');
 
@@ -543,28 +556,31 @@ function getAkuntansiDirectory(): string {
 // =========================================================================
 export const BUNDLE_BOOKS = [
   {
-    key: "logika",
+    key: "bayi",
+    aliases: ["logika", "1"],
     order: 1,
-    title: "Logika Akuntansi",
-    subtitle: "Kuasai Pondasi Logika & Alur Berpikir Akuntansi Modern Tanpa Hafalan",
-    filename: "LOGIKA AKUNTANSI - Adrien Fandra.pdf",
-    coverUrl: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp"
+    title: "Akuntansi pakai Bahasa Bayi",
+    subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya dengan bahasa paling sederhana",
+    filename: "[E-Book] AKUNTANSI PAKAI BAHASA BAYI - Adrien Fandra.pdf",
+    coverUrl: "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp"
   },
   {
-    key: "full",
+    key: "tuntas",
+    aliases: ["full", "2"],
     order: 2,
-    title: "Full Accounting",
+    title: "Akuntansi Tuntas",
     subtitle: "Panduan Komprehensif Siklus Akuntansi Penuh & Laporan Keuangan",
-    filename: "FULL ACCOUNTING - Adrien Fandra.pdf",
-    coverUrl: "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp"
+    filename: "[E-Book] AKUNTANSI TUNTAS - Adrien Fandra.pdf",
+    coverUrl: "/Akuntansi/Akuntansi_Tuntas.webp"
   },
   {
     key: "gudang",
+    aliases: ["soal", "3"],
     order: 3,
     title: "Gudang Soal Akuntansi",
     subtitle: "Kumpulan Studi Kasus, Latihan Soal, & Pembahasan Praktis Siap Uji",
-    filename: "Gudang Soal Akuntansi - Adrien Fandra.pdf",
-    coverUrl: "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp"
+    filename: "[E-Book] Gudang Soal Latihan Akuntansi - Adrien Fandra.pdf",
+    coverUrl: "/Akuntansi/Gudang_Soal_Akuntansi.webp"
   }
 ];
 
@@ -624,13 +640,13 @@ export async function getEbookPdfBuffer(
   const isBundle = Number(product.id) === 2 || slug.includes("bundling") || title.includes("bundling");
   if (isBundle) {
     const key = (bookKey || "").toLowerCase();
-    let targetBook = BUNDLE_BOOKS[0]; // Default ke buku 1 (Logika Akuntansi)
+    let targetBook = BUNDLE_BOOKS[0]; // Default ke buku 1 (Akuntansi pakai Bahasa Bayi)
 
-    if (key === "2" || key === "full" || key.includes("full")) {
+    if (key === "2" || key === "tuntas" || key === "full" || key.includes("tuntas") || key.includes("full")) {
       targetBook = BUNDLE_BOOKS[1];
     } else if (key === "3" || key === "gudang" || key.includes("gudang") || key.includes("soal")) {
       targetBook = BUNDLE_BOOKS[2];
-    } else if (key === "1" || key === "logika" || key.includes("logika")) {
+    } else {
       targetBook = BUNDLE_BOOKS[0];
     }
 
@@ -650,30 +666,43 @@ export async function getEbookPdfBuffer(
     if (fs.existsSync(exactPath)) {
       return {
         buffer: fs.readFileSync(exactPath),
-        filename: filename
+        filename: filename,
+        title: product.title
       };
     }
   }
 
   // 4. Pencocokan cerdas berdasarkan judul
-  if (title.includes("logika") || slug.includes("logika")) {
-    const p = path.join(akuntansiDir, "LOGIKA AKUNTANSI - Adrien Fandra.pdf");
-    if (fs.existsSync(p)) {
-      return { buffer: fs.readFileSync(p), filename: "LOGIKA AKUNTANSI - Adrien Fandra.pdf" };
+  if (title.includes("bayi") || slug.includes("bayi") || title.includes("logika") || slug.includes("logika")) {
+    const candidates = [
+      "[E-Book] AKUNTANSI PAKAI BAHASA BAYI - Adrien Fandra.pdf",
+      "LOGIKA AKUNTANSI - Adrien Fandra.pdf"
+    ];
+    for (const c of candidates) {
+      const p = path.join(akuntansiDir, c);
+      if (fs.existsSync(p)) return { buffer: fs.readFileSync(p), filename: c, title: "Akuntansi pakai Bahasa Bayi" };
     }
   }
 
-  if (title.includes("full") || slug.includes("full")) {
-    const p = path.join(akuntansiDir, "FULL ACCOUNTING - Adrien Fandra.pdf");
-    if (fs.existsSync(p)) {
-      return { buffer: fs.readFileSync(p), filename: "FULL ACCOUNTING - Adrien Fandra.pdf" };
+  if (title.includes("tuntas") || slug.includes("tuntas") || title.includes("full") || slug.includes("full")) {
+    const candidates = [
+      "[E-Book] AKUNTANSI TUNTAS - Adrien Fandra.pdf",
+      "FULL ACCOUNTING - Adrien Fandra.pdf"
+    ];
+    for (const c of candidates) {
+      const p = path.join(akuntansiDir, c);
+      if (fs.existsSync(p)) return { buffer: fs.readFileSync(p), filename: c, title: "Akuntansi Tuntas" };
     }
   }
 
-  if (title.includes("gudang") || slug.includes("gudang")) {
-    const p = path.join(akuntansiDir, "Gudang Soal Akuntansi - Adrien Fandra.pdf");
-    if (fs.existsSync(p)) {
-      return { buffer: fs.readFileSync(p), filename: "Gudang Soal Akuntansi - Adrien Fandra.pdf" };
+  if (title.includes("gudang") || slug.includes("gudang") || title.includes("soal") || slug.includes("soal")) {
+    const candidates = [
+      "[E-Book] Gudang Soal Latihan Akuntansi - Adrien Fandra.pdf",
+      "Gudang Soal Akuntansi - Adrien Fandra.pdf"
+    ];
+    for (const c of candidates) {
+      const p = path.join(akuntansiDir, c);
+      if (fs.existsSync(p)) return { buffer: fs.readFileSync(p), filename: c, title: "Gudang Soal Akuntansi" };
     }
   }
 
@@ -715,21 +744,21 @@ export async function sendCustomerDeliveryEmail(order: any, product: any) {
             📚 Paket Bundling 3 Buku — Unduh Masing-Masing File E-Book:
           </p>
           
-          <!-- Buku 1: Logika Akuntansi -->
+          <!-- Buku 1: Akuntansi pakai Bahasa Bayi -->
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
-            <div style="font-weight: 800; font-size: 14px; color: #0f172a; margin-bottom: 4px;">📗 1. Logika Akuntansi</div>
-            <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Kuasai Pondasi Logika & Alur Berpikir Akuntansi Modern Tanpa Hafalan</div>
-            <a href="https://bilano.app/api/adrienfandra/download/${order.merchant_order_id}?book=logika" style="display: block; text-align: center; background: #1D3E72; color: #ffffff !important; padding: 12px 0; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 13px;" target="_blank">
-              UNDUH BUKU 1: LOGIKA AKUNTANSI (PDF)
+            <div style="font-weight: 800; font-size: 14px; color: #0f172a; margin-bottom: 4px;">📗 1. Akuntansi pakai Bahasa Bayi</div>
+            <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Kuasai Pondasi Logika & Alur Berpikir Akuntansi Modern dengan Bahasa Sederhana</div>
+            <a href="https://bilano.app/api/adrienfandra/download/${order.merchant_order_id}?book=bayi" style="display: block; text-align: center; background: #1D3E72; color: #ffffff !important; padding: 12px 0; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 13px;" target="_blank">
+              UNDUH BUKU 1: AKUNTANSI BAHASA BAYI (PDF)
             </a>
           </div>
 
-          <!-- Buku 2: Full Accounting -->
+          <!-- Buku 2: Akuntansi Tuntas -->
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
-            <div style="font-weight: 800; font-size: 14px; color: #0f172a; margin-bottom: 4px;">📘 2. Full Accounting</div>
+            <div style="font-weight: 800; font-size: 14px; color: #0f172a; margin-bottom: 4px;">📘 2. Akuntansi Tuntas</div>
             <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Panduan Komprehensif Siklus Akuntansi Penuh & Laporan Keuangan</div>
-            <a href="https://bilano.app/api/adrienfandra/download/${order.merchant_order_id}?book=full" style="display: block; text-align: center; background: #2563EB; color: #ffffff !important; padding: 12px 0; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 13px;" target="_blank">
-              UNDUH BUKU 2: FULL ACCOUNTING (PDF)
+            <a href="https://bilano.app/api/adrienfandra/download/${order.merchant_order_id}?book=tuntas" style="display: block; text-align: center; background: #2563EB; color: #ffffff !important; padding: 12px 0; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 13px;" target="_blank">
+              UNDUH BUKU 2: AKUNTANSI TUNTAS (PDF)
             </a>
           </div>
 

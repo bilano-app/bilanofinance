@@ -10,9 +10,12 @@ export default function OnlineReader() {
   const [activeBook, setActiveBook] = useState<string>(() => {
     try {
       const search = new URLSearchParams(window.location.search);
-      return search.get("book") || "logika";
+      const b = search.get("book") || "";
+      if (b === "full" || b === "tuntas" || b === "2") return "tuntas";
+      if (b === "gudang" || b === "soal" || b === "3") return "gudang";
+      return "bayi";
     } catch (e) {
-      return "logika";
+      return "bayi";
     }
   });
 
@@ -60,8 +63,8 @@ export default function OnlineReader() {
   );
 
   const bundleTabs = [
-    { key: "logika", label: "📗 Logika Akuntansi", title: "Logika Akuntansi" },
-    { key: "full", label: "📘 Full Accounting", title: "Full Accounting" },
+    { key: "bayi", label: "📗 Bahasa Bayi", title: "Akuntansi pakai Bahasa Bayi" },
+    { key: "tuntas", label: "📘 Akuntansi Tuntas", title: "Akuntansi Tuntas" },
     { key: "gudang", label: "📙 Gudang Soal", title: "Gudang Soal Akuntansi" }
   ];
 

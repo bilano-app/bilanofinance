@@ -24,45 +24,63 @@ const DEFAULT_CHECKOUT_PRODUCTS: Product[] = [
     slug: "paket-bundling-3-buku",
     title: "Paket Bundling 3 Buku",
     subtitle: "",
-    cover_url: "/Akuntansi/Tiga_Buku_Akuntansi_Interaktif.webp",
-    regular_price: 213000,
-    sale_price: 82000,
-    sales_body: "Dapatkan ketiga buku terpisah lengkap (3 file PDF) yang dapat diunduh masing-masing."
+    cover_url: "/Akuntansi/Paket_Bundling_3_E-Book.webp",
+    regular_price: 204000,
+    sale_price: 99000,
+    sales_body: "Dapatkan ketiga e-book terpisah lengkap (3 file PDF) yang dapat diunduh masing-masing."
   },
   {
     id: 1,
     slug: "logika-akuntansi",
-    title: "Logika Akuntansi",
-    subtitle: "Kuasai Pondasi Logika & Alur Berpikir Akuntansi Modern Tanpa Hafalan",
-    cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
-    regular_price: 72000,
-    sale_price: 46000,
-    sales_body: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya"
+    title: "Akuntansi pakai Bahasa Bayi",
+    subtitle: "Kuasai Pondasi Logika & Alur Berpikir Akuntansi Modern dengan Bahasa Sederhana",
+    cover_url: "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp",
+    regular_price: 77000,
+    sale_price: 59000,
+    sales_body: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya dengan bahasa yang ramah pemula."
   },
   {
     id: 3,
     slug: "full-accounting",
-    title: "Full Accounting",
+    title: "Akuntansi Tuntas",
     subtitle: "Panduan Komprehensif Siklus Akuntansi & Laporan Keuangan Perusahaan",
-    cover_url: "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp",
-    regular_price: 99000,
-    sale_price: 69000,
+    cover_url: "/Akuntansi/Akuntansi_Tuntas.webp",
+    regular_price: 93000,
+    sale_price: 75000,
     sales_body: "Bedah tuntas siklus akuntansi lengkap dan laporan keuangan."
   },
   {
     id: 4,
     slug: "gudang-akuntansi",
-    title: "Gudang Akuntansi",
+    title: "Gudang Soal Akuntansi",
     subtitle: "Kumpulan Studi Kasus, Latihan Soal, & Pembahasan Praktis Siap Uji",
-    cover_url: "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp",
-    regular_price: 42000,
-    sale_price: 28000,
+    cover_url: "/Akuntansi/Gudang_Soal_Akuntansi.webp",
+    regular_price: 34000,
+    sale_price: 26000,
     sales_body: "Ratusan soal latihan akuntansi lengkap dengan pembahasan logis."
   }
 ];
 
 function resolveWebpUrl(url?: string): string {
   if (!url) return "";
+  if (url.includes("Bahasa Bayi") || url.includes("Bahasa_Bayi") || url.includes("bayi")) {
+    return "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp";
+  }
+  if (url.includes("Tuntas") || url.includes("tuntas")) {
+    return "/Akuntansi/Akuntansi_Tuntas.webp";
+  }
+  if (url.includes("Gudang Soal") || url.includes("Gudang_Soal") || url.includes("gudang")) {
+    return "/Akuntansi/Gudang_Soal_Akuntansi.webp";
+  }
+  if (url.includes("Bundling") || url.includes("bundling") || url.includes("E-Book") || url.includes("Interaktif")) {
+    return "/Akuntansi/Paket_Bundling_3_E-Book.webp";
+  }
+  if (url.includes("Logika")) {
+    return "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp";
+  }
+  if (url.includes("Full")) {
+    return "/Akuntansi/Akuntansi_Tuntas.webp";
+  }
   if (url.endsWith(".png") && url.includes("/Akuntansi/")) {
     return url.replace(/\.png$/, ".webp");
   }
@@ -80,7 +98,7 @@ export default function CheckoutPage() {
 
   const [product, setProduct] = useState<Product | null>(() => {
     try {
-      const cached = localStorage.getItem("af_store_cache_v3") || localStorage.getItem("af_store_cache_v2");
+      const cached = localStorage.getItem("af_store_cache_v6") || localStorage.getItem("af_store_cache_v5") || localStorage.getItem("af_store_cache_v4");
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -430,10 +448,14 @@ export default function CheckoutPage() {
     setVoucherError("");
   };
 
-  // Perhitungan Harga
-  const subtotal = product ? Number(product.sale_price) : 0;
-  const discountAmount = appliedVoucher ? Number(appliedVoucher.calculated_discount) : 0;
-  const totalAmount = Math.max(subtotal - discountAmount, 0);
+  // Perhitungan Harga: Subtotal fokus pada Harga Coret (Regular Price), Diskon sebagai pengurang, Total adalah Harga Kini
+  const regularPrice = product ? Number(product.regular_price || product.sale_price) : 0;
+  const salePrice = product ? Number(product.sale_price) : 0;
+  const productDiscount = Math.max(regularPrice - salePrice, 0);
+  const voucherDiscount = appliedVoucher ? Number(appliedVoucher.calculated_discount || 0) : 0;
+  const totalDiscount = productDiscount + voucherDiscount;
+  const subtotal = regularPrice;
+  const totalAmount = Math.max(salePrice - voucherDiscount, 0);
 
   // Submit Checkout & Panggil Payment Gateway
   const handleCheckout = async (e: React.FormEvent) => {
@@ -696,9 +718,14 @@ export default function CheckoutPage() {
 
                 {/* Harga */}
                 <div className="text-right flex-shrink-0">
-                  <span className="font-black text-sm sm:text-base text-slate-800">
-                    {Number(product.sale_price).toLocaleString("id-ID")}
+                  <span className="font-black text-sm sm:text-base text-[#1D3E72] block">
+                    Rp {Number(product.sale_price).toLocaleString("id-ID")}
                   </span>
+                  {Number(product.regular_price) > Number(product.sale_price) && (
+                    <span className="text-[11px] font-semibold text-slate-400 line-through block">
+                      Rp {Number(product.regular_price).toLocaleString("id-ID")}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -783,27 +810,38 @@ export default function CheckoutPage() {
                 PAYMENT DETAIL
               </span>
 
-              {/* Rincian Harga */}
-              <div className="space-y-2 text-xs sm:text-sm">
+              {/* Rincian Harga: Subtotal dari harga coret, diskon sebagai pengurang, total harga kini */}
+              <div className="space-y-2.5 text-xs sm:text-sm">
                 <div className="flex justify-between text-slate-600">
-                  <span>Subtotal</span>
-                  <span className="font-semibold text-slate-800">Rp {subtotal.toLocaleString("id-ID")}</span>
+                  <span>Subtotal (Harga Normal)</span>
+                  <span className="font-semibold text-slate-800">Rp {regularPrice.toLocaleString("id-ID")}</span>
                 </div>
 
-                <div className="flex justify-between text-slate-600">
-                  <span>Discount</span>
-                  <span className={`font-semibold ${discountAmount > 0 ? "text-[#1D3E72]" : "text-slate-800"}`}>
-                    - Rp {discountAmount.toLocaleString("id-ID")}
-                  </span>
-                </div>
+                {productDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-medium">
+                    <span>Diskon Promo</span>
+                    <span className="font-bold text-emerald-700">
+                      - Rp {productDiscount.toLocaleString("id-ID")}
+                    </span>
+                  </div>
+                )}
+
+                {appliedVoucher && voucherDiscount > 0 && (
+                  <div className="flex justify-between text-blue-700 font-medium">
+                    <span>Diskon Voucher ({appliedVoucher.code})</span>
+                    <span className="font-bold text-blue-700">
+                      - Rp {voucherDiscount.toLocaleString("id-ID")}
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex justify-between text-slate-600">
-                  <span>Convenience fee</span>
-                  <span className="font-semibold text-slate-800">Rp 0</span>
+                  <span>Biaya Layanan</span>
+                  <span className="font-bold text-emerald-600">Gratis</span>
                 </div>
 
-                <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline font-black text-sm sm:text-base text-[#0F2247]">
-                  <span>TOTAL</span>
+                <div className="pt-2.5 border-t border-slate-200 flex justify-between items-baseline font-black text-sm sm:text-base text-[#0F2247]">
+                  <span>TOTAL PEMBAYARAN</span>
                   <span className="text-base sm:text-lg text-[#1D3E72]">
                     Rp {totalAmount.toLocaleString("id-ID")}
                   </span>
@@ -823,7 +861,7 @@ export default function CheckoutPage() {
                             {appliedVoucher.discount_type === "PERCENT" ? `Diskon ${appliedVoucher.discount_value}%` : "Diskon Spesial"}
                           </span>
                         </div>
-                        <span className="text-[11px] text-emerald-800 block font-bold">Hemat Rp {discountAmount.toLocaleString("id-ID")}</span>
+                        <span className="text-[11px] text-emerald-800 block font-bold">Hemat Rp {voucherDiscount.toLocaleString("id-ID")}</span>
                       </div>
                     </div>
                     <button
@@ -878,14 +916,14 @@ export default function CheckoutPage() {
                     {
                       id: "SQ",
                       label: "QRIS (Semua E-Wallet & Mobile Banking)",
-                      badge: "INSTAN & OTOMATIS",
+                      badge: "Instan & Otomatis",
                       logo: "/QRIS.png",
                       subLogos: ["/Gopay.png", "/OVO.png", "/DANA.png", "/ShopeePay.png", "/BCA.png"]
                     },
                     {
                       id: "BC",
                       label: "BCA Virtual Account",
-                      badge: "Verifikasi Otomatis",
+                      badge: "Otomatis 24 Jam",
                       logo: "/BCA.png"
                     },
                     {
@@ -909,25 +947,25 @@ export default function CheckoutPage() {
                     {
                       id: "BT",
                       label: "Permata Bank Virtual Account",
-                      badge: "",
+                      badge: "Otomatis 24 Jam",
                       logo: "/Permata.png"
                     },
                     {
                       id: "B1",
                       label: "CIMB Niaga Virtual Account",
-                      badge: "",
+                      badge: "Otomatis 24 Jam",
                       logo: "/CIMB.png"
                     },
                     {
                       id: "BS",
                       label: "Bank Syariah Indonesia (BSI)",
-                      badge: "",
+                      badge: "Otomatis 24 Jam",
                       logo: "/BSI.png"
                     },
                     {
                       id: "DM",
                       label: "Bank Danamon",
-                      badge: "",
+                      badge: "Otomatis 24 Jam",
                       logo: "/Danamon.png"
                     },
                     {
@@ -940,13 +978,13 @@ export default function CheckoutPage() {
                     <label
                       key={method.id}
                       onClick={() => setPaymentMethod(method.id)}
-                      className={`border rounded-xl p-3 sm:p-3.5 flex items-center justify-between cursor-pointer transition-all ${
+                      className={`border rounded-xl p-3 sm:p-3.5 flex items-center justify-between gap-3 cursor-pointer transition-all ${
                         paymentMethod === method.id
                           ? "border-[#1D3E72] bg-blue-50/50 shadow-xs ring-1 ring-[#1D3E72]/30"
                           : "border-slate-200 hover:border-slate-300 bg-white"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="w-12 h-9 bg-white border border-slate-100 rounded-lg flex items-center justify-center p-1 shadow-xs flex-shrink-0">
                           <img
                             src={method.logo}
@@ -954,15 +992,8 @@ export default function CheckoutPage() {
                             className="max-h-full max-w-full object-contain"
                           />
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-800 block">{method.label}</span>
-                            {method.badge && (
-                              <span className="text-[9px] font-black text-[#1D3E72] bg-blue-100/80 px-1.5 py-0.5 rounded-sm inline-block">
-                                {method.badge}
-                              </span>
-                            )}
-                          </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-xs font-bold text-slate-800 block truncate">{method.label}</span>
                           {method.subLogos && (
                             <div className="flex items-center gap-1.5 mt-1">
                               {method.subLogos.map((sub, idx) => (
@@ -977,13 +1008,27 @@ export default function CheckoutPage() {
                           )}
                         </div>
                       </div>
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        checked={paymentMethod === method.id}
-                        onChange={() => setPaymentMethod(method.id)}
-                        className="w-4 h-4 text-[#1D3E72] focus:ring-[#1D3E72]"
-                      />
+
+                      {/* Right-aligned clean badge & radio */}
+                      <div className="flex items-center gap-2.5 flex-shrink-0">
+                        {method.badge && (
+                          <>
+                            <span className="hidden sm:inline-flex items-center text-[10px] font-bold text-[#1D3E72] bg-[#EBF3FC] border border-[#CDE0F7] px-2.5 py-0.5 rounded-full whitespace-nowrap leading-tight">
+                              {method.badge}
+                            </span>
+                            <span className="sm:hidden inline-flex items-center text-[9px] font-bold text-[#1D3E72] bg-[#EBF3FC] border border-[#CDE0F7] px-2 py-0.5 rounded-full whitespace-nowrap leading-tight">
+                              {method.badge.replace(" 24 Jam", "").replace(" & Otomatis", "")}
+                            </span>
+                          </>
+                        )}
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          checked={paymentMethod === method.id}
+                          onChange={() => setPaymentMethod(method.id)}
+                          className="w-4 h-4 text-[#1D3E72] focus:ring-[#1D3E72] cursor-pointer"
+                        />
+                      </div>
                     </label>
                   ))}
                 </div>
