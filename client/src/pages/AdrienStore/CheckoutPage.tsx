@@ -32,29 +32,29 @@ const DEFAULT_CHECKOUT_PRODUCTS: Product[] = [
   {
     id: 1,
     slug: "logika-akuntansi",
-    title: "Akuntansi pakai Bahasa Bayi",
+    title: "Logika Akuntansi",
     subtitle: "Kuasai Pondasi Logika & Alur Berpikir Akuntansi Modern dengan Bahasa Sederhana",
-    cover_url: "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp",
+    cover_url: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
     regular_price: 72000,
     sale_price: 46000,
-    sales_body: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya dengan bahasa yang ramah pemula."
+    sales_body: "Buku Logika Akuntansi dirancang khusus untuk Anda yang ingin menguasai alur berpikir akuntansi dari akarnya secara ramah pemula."
   },
   {
     id: 3,
     slug: "full-accounting",
-    title: "Akuntansi Tuntas",
+    title: "Akuntansi Lengkap",
     subtitle: "Panduan Komprehensif Siklus Akuntansi & Laporan Keuangan Perusahaan",
-    cover_url: "/Akuntansi/Akuntansi_Tuntas.webp",
+    cover_url: "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp",
     regular_price: 95000,
     sale_price: 75000,
-    sales_body: "Bedah tuntas siklus akuntansi lengkap dan laporan keuangan."
+    sales_body: "Bedah tuntas siklus akuntansi lengkap dan laporan keuangan bisnis."
   },
   {
     id: 4,
     slug: "gudang-akuntansi",
     title: "Gudang Soal Akuntansi",
     subtitle: "Kumpulan Studi Kasus, Latihan Soal, & Pembahasan Praktis Siap Uji",
-    cover_url: "/Akuntansi/Gudang_Soal_Akuntansi.webp",
+    cover_url: "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp",
     regular_price: 38000,
     sale_price: 26000,
     sales_body: "Ratusan soal latihan akuntansi lengkap dengan pembahasan logis."
@@ -63,26 +63,20 @@ const DEFAULT_CHECKOUT_PRODUCTS: Product[] = [
 
 function resolveWebpUrl(url?: string): string {
   if (!url) return "";
-  if (url.includes("Bahasa Bayi") || url.includes("Bahasa_Bayi") || url.includes("bayi")) {
-    return "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp";
-  }
-  if (url.includes("Tuntas") || url.includes("tuntas")) {
-    return "/Akuntansi/Akuntansi_Tuntas.webp";
-  }
-  if (url.includes("Gudang Soal") || url.includes("Gudang_Soal") || url.includes("gudang")) {
-    return "/Akuntansi/Gudang_Soal_Akuntansi.webp";
-  }
-  if (url.includes("Bundling") || url.includes("bundling") || url.includes("E-Book") || url.includes("Interaktif")) {
+  if (url.includes("Bundling") || url.includes("bundling") || url.includes("Interaktif")) {
     return "/Akuntansi/Paket_Bundling_3_E-Book.webp";
   }
-  if (url.includes("Logika")) {
-    return "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp";
+  if (url.includes("Logika") || url.includes("logika") || url.includes("Bayi") || url.includes("bayi")) {
+    return "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp";
   }
-  if (url.includes("Full")) {
-    return "/Akuntansi/Akuntansi_Tuntas.webp";
+  if (url.includes("Lengkap") || url.includes("lengkap") || url.includes("Full") || url.includes("full") || url.includes("Tuntas") || url.includes("tuntas")) {
+    return "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp";
+  }
+  if (url.includes("Gudang") || url.includes("gudang") || url.includes("Soal") || url.includes("soal")) {
+    return "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp";
   }
   if (url.endsWith(".png") && url.includes("/Akuntansi/")) {
-    return url.replace(/\.png$/, ".webp");
+    return url.replace(/\.png$/, ".webp").replace(/\s+/g, "_");
   }
   return url;
 }
@@ -98,7 +92,7 @@ export default function CheckoutPage() {
 
   const [product, setProduct] = useState<Product | null>(() => {
     try {
-      const cached = localStorage.getItem("af_store_cache_v11") || localStorage.getItem("af_store_cache_v10") || localStorage.getItem("af_store_cache_v9");
+      const cached = localStorage.getItem("af_store_cache_v12") || localStorage.getItem("af_store_cache_v11") || localStorage.getItem("af_store_cache_v10");
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {

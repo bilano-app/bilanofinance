@@ -40,20 +40,20 @@ const DEFAULT_BUNDLE_ITEMS: BundleItem[] = [
   {
     id: 1,
     key: "bayi",
-    title: "Akuntansi pakai Bahasa Bayi",
+    title: "Logika Akuntansi",
     subtitle: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya dengan bahasa paling sederhana",
-    filename: "[E-Book] AKUNTANSI PAKAI BAHASA BAYI - Adrien Fandra.pdf",
-    coverUrl: "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp",
+    filename: "LOGIKA AKUNTANSI - Adrien Fandra.pdf",
+    coverUrl: "/Akuntansi/Mockup_Buku_Logika_Akuntansi.webp",
     downloadUrl: "",
     readUrl: ""
   },
   {
     id: 2,
     key: "tuntas",
-    title: "Akuntansi Tuntas",
+    title: "Akuntansi Lengkap",
     subtitle: "Panduan Komprehensif Siklus Akuntansi Penuh & Laporan Keuangan",
-    filename: "[E-Book] AKUNTANSI TUNTAS - Adrien Fandra.pdf",
-    coverUrl: "/Akuntansi/Akuntansi_Tuntas.webp",
+    filename: "FULL ACCOUNTING - Adrien Fandra.pdf",
+    coverUrl: "/Akuntansi/Mockup_Buku_Full_Accounting_Tebal.webp",
     downloadUrl: "",
     readUrl: ""
   },
@@ -62,8 +62,8 @@ const DEFAULT_BUNDLE_ITEMS: BundleItem[] = [
     key: "gudang",
     title: "Gudang Soal Akuntansi",
     subtitle: "Kumpulan Studi Kasus, Latihan Soal, & Pembahasan Praktis Siap Uji",
-    filename: "[E-Book] Gudang Soal Latihan Akuntansi - Adrien Fandra.pdf",
-    coverUrl: "/Akuntansi/Gudang_Soal_Akuntansi.webp",
+    filename: "Gudang Soal Akuntansi - Adrien Fandra.pdf",
+    coverUrl: "/Akuntansi/Mockup_Buku_Gudang_Soal_Akuntansi.webp",
     downloadUrl: "",
     readUrl: ""
   }

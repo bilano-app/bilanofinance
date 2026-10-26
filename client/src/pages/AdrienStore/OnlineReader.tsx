@@ -63,8 +63,8 @@ export default function OnlineReader() {
   );
 
   const bundleTabs = [
-    { key: "bayi", label: "📗 Bahasa Bayi", title: "Akuntansi pakai Bahasa Bayi" },
-    { key: "tuntas", label: "📘 Akuntansi Tuntas", title: "Akuntansi Tuntas" },
+    { key: "bayi", label: "📗 Logika Akuntansi", title: "Logika Akuntansi" },
+    { key: "tuntas", label: "📘 Akuntansi Lengkap", title: "Akuntansi Lengkap" },
     { key: "gudang", label: "📙 Gudang Soal", title: "Gudang Soal Akuntansi" }
   ];
 
