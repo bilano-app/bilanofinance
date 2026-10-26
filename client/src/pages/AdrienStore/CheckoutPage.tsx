@@ -25,8 +25,8 @@ const DEFAULT_CHECKOUT_PRODUCTS: Product[] = [
     title: "Paket Bundling 3 Buku",
     subtitle: "",
     cover_url: "/Akuntansi/Paket_Bundling_3_E-Book.webp",
-    regular_price: 204000,
-    sale_price: 99000,
+    regular_price: 205000,
+    sale_price: 82000,
     sales_body: "Dapatkan ketiga e-book terpisah lengkap (3 file PDF) yang dapat diunduh masing-masing."
   },
   {
@@ -35,8 +35,8 @@ const DEFAULT_CHECKOUT_PRODUCTS: Product[] = [
     title: "Akuntansi pakai Bahasa Bayi",
     subtitle: "Kuasai Pondasi Logika & Alur Berpikir Akuntansi Modern dengan Bahasa Sederhana",
     cover_url: "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp",
-    regular_price: 77000,
-    sale_price: 59000,
+    regular_price: 72000,
+    sale_price: 46000,
     sales_body: "Bukan hanya tahu, tapi juga menguasai alur berpikirnya dengan bahasa yang ramah pemula."
   },
   {
@@ -45,7 +45,7 @@ const DEFAULT_CHECKOUT_PRODUCTS: Product[] = [
     title: "Akuntansi Tuntas",
     subtitle: "Panduan Komprehensif Siklus Akuntansi & Laporan Keuangan Perusahaan",
     cover_url: "/Akuntansi/Akuntansi_Tuntas.webp",
-    regular_price: 93000,
+    regular_price: 95000,
     sale_price: 75000,
     sales_body: "Bedah tuntas siklus akuntansi lengkap dan laporan keuangan."
   },
@@ -55,7 +55,7 @@ const DEFAULT_CHECKOUT_PRODUCTS: Product[] = [
     title: "Gudang Soal Akuntansi",
     subtitle: "Kumpulan Studi Kasus, Latihan Soal, & Pembahasan Praktis Siap Uji",
     cover_url: "/Akuntansi/Gudang_Soal_Akuntansi.webp",
-    regular_price: 34000,
+    regular_price: 38000,
     sale_price: 26000,
     sales_body: "Ratusan soal latihan akuntansi lengkap dengan pembahasan logis."
   }
@@ -98,7 +98,7 @@ export default function CheckoutPage() {
 
   const [product, setProduct] = useState<Product | null>(() => {
     try {
-      const cached = localStorage.getItem("af_store_cache_v10") || localStorage.getItem("af_store_cache_v9") || localStorage.getItem("af_store_cache_v8");
+      const cached = localStorage.getItem("af_store_cache_v11") || localStorage.getItem("af_store_cache_v10") || localStorage.getItem("af_store_cache_v9");
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {

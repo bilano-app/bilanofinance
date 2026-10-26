@@ -44,8 +44,8 @@ async function main() {
         subtitle = 'Bukan hanya tahu, tapi juga menguasai alur berpikirnya dengan bahasa paling sederhana',
         category = 'BEST SELLER',
         cover_url = '/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp',
-        regular_price = 77000,
-        sale_price = 59000,
+        regular_price = 72000,
+        sale_price = 46000,
         sales_headline = 'Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!',
         sales_body = 'Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya. Anda akan memahami mengapa suatu transaksi dicatat di debit atau kredit dengan logika yang masuk akal dan bahasa yang sangat ramah pemula, bukan sekadar menghafal aturan baku yang bikin bingung.',
         highlights = '["Paham alur & logika debit-kredit tanpa perlu menghafal aturan kaku", "Kuasai persamaan dasar akuntansi dan analisis transaksi riil", "Praktik langsung pencatatan jurnal umum bisnis & studi kasus", "Bahasa santai, mudah dicerna pemula, mahasiswa, dan pemilik usaha"]'::jsonb,
@@ -59,7 +59,7 @@ async function main() {
         updated_at = NOW()
     WHERE id = 1;
   `);
-  console.log("✅ Produk 1: Akuntansi pakai Bahasa Bayi (Rp59.000 / Rp77.000) updated.");
+  console.log("✅ Produk 1: Akuntansi pakai Bahasa Bayi (Rp46.000 / Rp72.000) updated.");
 
   // Produk 2: Paket Bundling 3 Buku
   await db.execute(sql`
@@ -69,11 +69,11 @@ async function main() {
         subtitle = 'Koleksi Lengkap 3 E-Book: Akuntansi Bahasa Bayi + Akuntansi Tuntas + Gudang Soal Akuntansi',
         category = 'PAKET BUNDLING 3 BUKU',
         cover_url = '/Akuntansi/Paket_Bundling_3_E-Book.webp',
-        regular_price = 204000,
-        sale_price = 99000,
+        regular_price = 205000,
+        sale_price = 82000,
         sales_headline = 'Dapatkan 3 E-Book Akuntansi Terlengkap Sekaligus dalam 1 Paket Super Hemat!',
         sales_body = 'Paket Bundling 3 E-Book ini menyajikan seluruh materi esensial akuntansi: mulai dari konsep dasar di Akuntansi pakai Bahasa Bayi, siklus pembukuan lengkap di Akuntansi Tuntas, hingga ratusan latihan kasus di Gudang Soal Akuntansi. Ketiga e-book diberikan lengkap terpisah (3 file PDF) agar Anda leluasa mengunduh dan mempelajarinya masing-masing.',
-        highlights = '["Super Hemat: Potongan Rp105.000 dibandingkan membeli terpisah", "3 E-Book Terpisah Lengkap: Akuntansi Bahasa Bayi, Akuntansi Tuntas, & Gudang Soal", "Unduh & Baca Masing-Masing: Dapatkan 3 file PDF resmi tersendiri", "Total materi berbobot dari dasar hingga mahir", "Studi kasus bisnis riil + ratusan latihan soal lengkap dengan pembahasan"]'::jsonb,
+        highlights = '["Super Hemat: Potongan Rp123.000 dibandingkan membeli terpisah", "3 E-Book Terpisah Lengkap: Akuntansi Bahasa Bayi, Akuntansi Tuntas, & Gudang Soal", "Unduh & Baca Masing-Masing: Dapatkan 3 file PDF resmi tersendiri", "Total materi berbobot dari dasar hingga mahir", "Studi kasus bisnis riil + ratusan latihan soal lengkap dengan pembahasan"]'::jsonb,
         testimonials = '[]'::jsonb,
         scarcity_text = 'Ingat Paket ini TERBATAS - Hanya Untuk 10 Orang',
         reader_count = 4890,
@@ -84,7 +84,7 @@ async function main() {
         updated_at = NOW()
     WHERE id = 2;
   `);
-  console.log("✅ Produk 2: Paket Bundling 3 Buku (Rp99.000 / Rp204.000) updated.");
+  console.log("✅ Produk 2: Paket Bundling 3 Buku (Rp82.000 / Rp205.000) updated.");
 
   // Produk 3: Akuntansi Tuntas
   await db.execute(sql`
@@ -94,7 +94,7 @@ async function main() {
         subtitle = 'Panduan Siklus Akuntansi Penuh: Dari Jurnal, Buku Besar, Neraca Saldo, hingga Laporan Keuangan Bisnis',
         category = 'PANDUAN LENGKAP',
         cover_url = '/Akuntansi/Akuntansi_Tuntas.webp',
-        regular_price = 93000,
+        regular_price = 95000,
         sale_price = 75000,
         sales_headline = 'Kuasai Siklus Akuntansi Lengkap dan Susun Laporan Keuangan Sendiri!',
         sales_body = 'Lewat e-book Akuntansi Tuntas, Anda diajak menuntaskan seluruh siklus pembukuan: pencatatan transaksi harian, posting ke buku besar, penyusunan neraca saldo, jurnal penyesuaian akhir periode, hingga menerbitkan Laporan Laba Rugi, Perubahan Modal, dan Neraca secara presisi.',
@@ -109,7 +109,7 @@ async function main() {
         updated_at = NOW()
     WHERE id = 3;
   `);
-  console.log("✅ Produk 3: Akuntansi Tuntas (Rp75.000 / Rp93.000) updated.");
+  console.log("✅ Produk 3: Akuntansi Tuntas (Rp75.000 / Rp95.000) updated.");
 
   // Produk 4: Gudang Soal Akuntansi
   await db.execute(sql`
@@ -119,7 +119,7 @@ async function main() {
         subtitle = 'Kumpulan Bank Soal & Kasus Akuntansi Praktis Lengkap dengan Kunci Jawaban & Pembahasan',
         category = 'LATIHAN & BANK SOAL',
         cover_url = '/Akuntansi/Gudang_Soal_Akuntansi.webp',
-        regular_price = 34000,
+        regular_price = 38000,
         sale_price = 26000,
         sales_headline = 'Uji dan Asah Kemampuan Akuntansi Anda dengan Ratusan Latihan Soal Praktis!',
         sales_body = 'Gudang Soal Akuntansi berisi kumpulan studi kasus dan bank soal komprehensif mulai dari penjurnalan transaksi, penyesuaian pos keuangan, hingga penyusunan laporan keuangan. Dilengkapi pembahasan mendalam step-by-step untuk memastikan Anda benar-benar mahir.',
@@ -134,7 +134,7 @@ async function main() {
         updated_at = NOW()
     WHERE id = 4;
   `);
-  console.log("✅ Produk 4: Gudang Soal Akuntansi (Rp26.000 / Rp34.000) updated.");
+  console.log("✅ Produk 4: Gudang Soal Akuntansi (Rp26.000 / Rp38.000) updated.");
 
   console.log("\n=== ALL REQUESTS PROCESSED SUCCESSFULLY! ===");
   process.exit(0);

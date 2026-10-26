@@ -31,8 +31,8 @@ const DEFAULT_PRODUCTS: Product[] = [
     category: "SUPER HEMAT",
     cover_url: "/Akuntansi/Paket_Bundling_3_E-Book.webp",
     promo_images: [],
-    regular_price: 204000,
-    sale_price: 99000,
+    regular_price: 205000,
+    sale_price: 82000,
     sales_headline: "Kuasai Akuntansi Lengkap Sekaligus Lebih Hemat!",
     sales_body: "Dapatkan akses langsung ke 3 mahakarya akuntansi sekaligus.",
     highlights: [
@@ -54,8 +54,8 @@ const DEFAULT_PRODUCTS: Product[] = [
     category: "BEST SELLER",
     cover_url: "/Akuntansi/Akuntansi_pakai_Bahasa_Bayi.webp",
     promo_images: [],
-    regular_price: 77000,
-    sale_price: 59000,
+    regular_price: 72000,
+    sale_price: 46000,
     sales_headline: "Pahami Akuntansi dari Logikanya, Bukan dari Hafalan Rumusnya!",
     sales_body: "Buku ini dirancang khusus untuk Anda yang ingin menguasai akuntansi dari akarnya dengan bahasa yang ramah pemula.",
     highlights: [
@@ -77,7 +77,7 @@ const DEFAULT_PRODUCTS: Product[] = [
     category: "PRAKTIS & LENGKAP",
     cover_url: "/Akuntansi/Akuntansi_Tuntas.webp",
     promo_images: [],
-    regular_price: 93000,
+    regular_price: 95000,
     sale_price: 75000,
     sales_headline: "Satu Buku untuk Semua Kebutuhan Pembukuan & Laporan Bisnis!",
     sales_body: "Mulai dari pencatatan bukti transaksi hingga neraca & laba rugi.",
@@ -99,7 +99,7 @@ const DEFAULT_PRODUCTS: Product[] = [
     category: "BANK SOAL",
     cover_url: "/Akuntansi/Gudang_Soal_Akuntansi.webp",
     promo_images: [],
-    regular_price: 34000,
+    regular_price: 38000,
     sale_price: 26000,
     sales_headline: "Asah Jam Terbang Akuntansi Anda dengan Ratusan Latihan Kasus Riil!",
     sales_body: "Kumpulan soal terlengkap dari tingkat dasar hingga kasus kompleks.",
@@ -156,7 +156,7 @@ function resolveWebpUrl(url?: string): string {
   return url;
 }
 
-const STORE_CACHE_KEY = "af_store_cache_v10";
+const STORE_CACHE_KEY = "af_store_cache_v11";
 
 export default function StoreFront() {
   const [, setLocation] = useLocation();

@@ -135,6 +135,7 @@ import AdrienOrderSuccess from "@/pages/AdrienStore/OrderSuccess";
 import AdrienOnlineReader from "@/pages/AdrienStore/OnlineReader";
 import AdrienManagerDashboard from "@/pages/AdrienStore/ManagerDashboard";
 import { isTrialMode } from "@/lib/trial-data";
+import { resetAppScrollToTop } from "@/lib/utils";
 
 // =========================================================================
 // 🚀 SCROLL TO TOP OTOMATIS: SELALU MULAI DARI PALING ATAS SETIAP GANTI HALAMAN
@@ -143,12 +144,17 @@ function ScrollToTop() {
   const [location] = useLocation();
 
   useEffect(() => {
-    // Jika tidak ada hash in-page anchor (#katalog-buku dll), scroll langsung ke paling atas (0, 0)
-    if (!window.location.hash) {
-      window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
-      if (document.documentElement) document.documentElement.scrollTop = 0;
-      if (document.body) document.body.scrollTop = 0;
+    // Jika ada hash anchor di URL dan elemennya ada di halaman ini, scroll ke elemen tersebut
+    if (window.location.hash) {
+      const targetId = window.location.hash.replace("#", "");
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
     }
+    // Jika tidak ada hash atau elemen tidak ditemukan, paksa scroll #root dan window ke paling atas (0, 0)
+    resetAppScrollToTop();
   }, [location]);
 
   return null;

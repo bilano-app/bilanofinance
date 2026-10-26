@@ -155,3 +155,50 @@ export function formatCurrencyInput(val: string): string {
   }
   return intOnly.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
+
+/**
+ * 🚀 Reset scroll aplikasi ke paling atas (0, 0).
+ * Mengatasi arsitektur App Shell di mana scroll bar berada di elemen '#root'
+ * (karena html & body memiliki overflow: hidden).
+ */
+export function resetAppScrollToTop(smooth: boolean = false) {
+  if (typeof window === "undefined") return;
+
+  const behavior: ScrollBehavior = smooth ? "smooth" : ("instant" as ScrollBehavior);
+
+  const performReset = () => {
+    // 1. Reset elemen #root (kontainer scroll utama aplikasi)
+    const rootEl = document.getElementById("root");
+    if (rootEl) {
+      rootEl.scrollTop = 0;
+      rootEl.scrollLeft = 0;
+      try {
+        rootEl.scrollTo({ top: 0, left: 0, behavior });
+      } catch (e) {
+        rootEl.scrollTop = 0;
+      }
+    }
+
+    // 2. Reset window dan fallback documentElement / body
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior });
+    } catch (e) {}
+
+    if (document.documentElement) {
+      document.documentElement.scrollTop = 0;
+      document.documentElement.scrollLeft = 0;
+    }
+    if (document.body) {
+      document.body.scrollTop = 0;
+      document.body.scrollLeft = 0;
+    }
+  };
+
+  performReset();
+  if (typeof requestAnimationFrame !== "undefined") {
+    requestAnimationFrame(performReset);
+  }
+  setTimeout(performReset, 10);
+  setTimeout(performReset, 50);
+  setTimeout(performReset, 150);
+}

@@ -7,6 +7,11 @@ if (typeof window !== "undefined") {
   document.documentElement.classList.remove('dark');
   document.documentElement.style.colorScheme = 'only light';
 
+  // Matikan pemulihan scroll otomatis bawaan browser agar halaman baru selalu mulai dari atas (0, 0)
+  if ("scrollRestoration" in window.history) {
+    window.history.scrollRestoration = "manual";
+  }
+
   window.addEventListener("contextmenu", (e: MouseEvent | TouchEvent) => {
     const target = e.target as HTMLElement | null;
     if (!target) return;
