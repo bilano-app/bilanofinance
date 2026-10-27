@@ -76,6 +76,10 @@ export default function OnlineReader() {
     ? `/api/adrienfandra/read-pdf/${orderId}?book=${activeBook}`
     : `/api/adrienfandra/read-pdf/${orderId}`;
 
+  const downloadUrl = isBundle
+    ? `/api/adrienfandra/download/${orderId}?book=${activeBook}`
+    : `/api/adrienfandra/download/${orderId}`;
+
   const [downloading, setDownloading] = useState(false);
 
   const downloadBlob = async () => {

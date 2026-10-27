@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useRoute, useLocation, Link } from "wouter";
 import { 
-  ArrowLeft, ShieldCheck, ChevronRight,
+  ArrowLeft, ShieldCheck, ChevronRight, ChevronDown, ChevronUp,
   Tag, Copy, Check, RefreshCw, ExternalLink,
-  Clock, AlertCircle
+  Clock, AlertCircle, Sparkles
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -81,6 +81,67 @@ function resolveWebpUrl(url?: string): string {
   return url;
 }
 
+interface PaymentMethodOption {
+  id: string;
+  label: string;
+  logo: string;
+  subLogos?: string[];
+}
+
+const PAYMENT_METHODS: PaymentMethodOption[] = [
+  {
+    id: "SQ",
+    label: "QRIS (Semua E-Wallet & Mobile Banking)",
+    logo: "/QRIS.png",
+    subLogos: ["/Gopay.png", "/OVO.png", "/DANA.png", "/ShopeePay.png", "/BCA.png"]
+  },
+  {
+    id: "BC",
+    label: "BCA Virtual Account",
+    logo: "/BCA.png"
+  },
+  {
+    id: "M2",
+    label: "Mandiri Virtual Account (Livin')",
+    logo: "/Mandiri.png"
+  },
+  {
+    id: "BR",
+    label: "BRI Virtual Account (BRIVA)",
+    logo: "/BRI.png"
+  },
+  {
+    id: "I1",
+    label: "BNI Virtual Account",
+    logo: "/BNI.png"
+  },
+  {
+    id: "BT",
+    label: "Permata Bank Virtual Account",
+    logo: "/Permata.png"
+  },
+  {
+    id: "B1",
+    label: "CIMB Niaga Virtual Account",
+    logo: "/CIMB.png"
+  },
+  {
+    id: "BS",
+    label: "Bank Syariah Indonesia (BSI)",
+    logo: "/BSI.png"
+  },
+  {
+    id: "DM",
+    label: "Bank Danamon",
+    logo: "/Danamon.png"
+  },
+  {
+    id: "AL",
+    label: "Alfamart / Alfa Midi",
+    logo: "/Alfa.png"
+  }
+];
+
 const SESSION_PAYMENT_KEY = "adrienfandra_active_payment";
 const SESSION_DRAFT_KEY = "adrienfandra_checkout_draft";
 
@@ -132,6 +193,7 @@ export default function CheckoutPage() {
 
   // Payment Method Selection
   const [paymentMethod, setPaymentMethod] = useState("SQ"); // SQ = QRIS
+  const [showAllPaymentMethods, setShowAllPaymentMethods] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(true);
   const [agreedContact, setAgreedContact] = useState(true);
 
@@ -463,8 +525,8 @@ export default function CheckoutPage() {
   // Submit Checkout & Panggil Payment Gateway
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
-      alert("Harap lengkapi Nama Lengkap, Email, dan No. WhatsApp Anda.");
+    if (!formData.name.trim() || !formData.email.trim()) {
+      alert("Harap lengkapi Nama Lengkap dan Email Anda.");
       return;
     }
 
@@ -483,7 +545,7 @@ export default function CheckoutPage() {
           productId: product?.id,
           customerName: formData.name.trim(),
           customerEmail: formData.email.trim(),
-          customerPhone: formData.phone.trim(),
+          customerPhone: formData.phone?.trim() || "-",
           voucherCode: appliedVoucher?.code || undefined,
           paymentMethod: paymentMethod
         })
@@ -818,7 +880,7 @@ export default function CheckoutPage() {
                     placeholder="Your Email (contoh: budi@gmail.com)"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full bg-white border border-slate-300 focus:border-[#1D3E72] focus:ring-1 focus:ring-[#1D3E72] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all"
+                    className="w-full bg-white border border-slate-400 hover:border-slate-500 focus:border-[#1D3E72] focus:ring-1 focus:ring-[#1D3E72] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all shadow-2xs"
                   />
                 </div>
 
@@ -832,21 +894,7 @@ export default function CheckoutPage() {
                     placeholder="Your Name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-white border border-slate-300 focus:border-[#1D3E72] focus:ring-1 focus:ring-[#1D3E72] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    * Phone Number (WhatsApp)
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="08xxxxxx"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full bg-white border border-slate-300 focus:border-[#1D3E72] focus:ring-1 focus:ring-[#1D3E72] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all"
+                    className="w-full bg-white border border-slate-400 hover:border-slate-500 focus:border-[#1D3E72] focus:ring-1 focus:ring-[#1D3E72] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all shadow-2xs"
                   />
                 </div>
               </div>
@@ -898,6 +946,14 @@ export default function CheckoutPage() {
                   <span>TOTAL PEMBAYARAN</span>
                   <span className="text-base sm:text-lg text-[#1D3E72]">
                     Rp {totalAmount.toLocaleString("id-ID")}
+                  </span>
+                </div>
+
+                {/* 💡 Dorongan Investasi Calon Pembeli */}
+                <div className="mt-2.5 p-2.5 sm:p-3 bg-gradient-to-r from-blue-50/90 via-slate-50 to-amber-50/80 rounded-xl border border-blue-100/90 flex items-start gap-2 shadow-2xs">
+                  <Sparkles className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-[11px] sm:text-xs font-bold text-[#1D3E72] leading-snug">
+                    Satu kali investasi untuk aset pengetahuan yang akan menguntungkan Anda seumur hidup
                   </span>
                 </div>
               </div>
@@ -966,69 +1022,7 @@ export default function CheckoutPage() {
                 </span>
 
                 <div className="grid grid-cols-1 gap-2.5">
-                  {[
-                    {
-                      id: "SQ",
-                      label: "QRIS (Semua E-Wallet & Mobile Banking)",
-                      badge: "Instan & Otomatis",
-                      logo: "/QRIS.png",
-                      subLogos: ["/Gopay.png", "/OVO.png", "/DANA.png", "/ShopeePay.png", "/BCA.png"]
-                    },
-                    {
-                      id: "BC",
-                      label: "BCA Virtual Account",
-                      badge: "Otomatis 24 Jam",
-                      logo: "/BCA.png"
-                    },
-                    {
-                      id: "M2",
-                      label: "Mandiri Virtual Account (Livin')",
-                      badge: "Otomatis 24 Jam",
-                      logo: "/Mandiri.png"
-                    },
-                    {
-                      id: "BR",
-                      label: "BRI Virtual Account (BRIVA)",
-                      badge: "Otomatis 24 Jam",
-                      logo: "/BRI.png"
-                    },
-                    {
-                      id: "I1",
-                      label: "BNI Virtual Account",
-                      badge: "Otomatis 24 Jam",
-                      logo: "/BNI.png"
-                    },
-                    {
-                      id: "BT",
-                      label: "Permata Bank Virtual Account",
-                      badge: "Otomatis 24 Jam",
-                      logo: "/Permata.png"
-                    },
-                    {
-                      id: "B1",
-                      label: "CIMB Niaga Virtual Account",
-                      badge: "Otomatis 24 Jam",
-                      logo: "/CIMB.png"
-                    },
-                    {
-                      id: "BS",
-                      label: "Bank Syariah Indonesia (BSI)",
-                      badge: "Otomatis 24 Jam",
-                      logo: "/BSI.png"
-                    },
-                    {
-                      id: "DM",
-                      label: "Bank Danamon",
-                      badge: "Otomatis 24 Jam",
-                      logo: "/Danamon.png"
-                    },
-                    {
-                      id: "AL",
-                      label: "Alfamart / Alfa Midi",
-                      badge: "Gerai Retail",
-                      logo: "/Alfa.png"
-                    }
-                  ].map((method) => (
+                  {(showAllPaymentMethods ? PAYMENT_METHODS : PAYMENT_METHODS.slice(0, 5)).map((method) => (
                     <label
                       key={method.id}
                       onClick={() => setPaymentMethod(method.id)}
@@ -1038,24 +1032,24 @@ export default function CheckoutPage() {
                           : "border-slate-200 hover:border-slate-300 bg-white"
                       }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="w-12 h-9 bg-white border border-slate-100 rounded-lg flex items-center justify-center p-1 shadow-xs flex-shrink-0">
+                      <div className="flex items-center gap-3 sm:gap-3.5 min-w-0 flex-1">
+                        <div className="w-14 h-11 sm:w-16 sm:h-12 bg-white border border-slate-200/80 rounded-xl flex items-center justify-center p-1 sm:p-1.5 shadow-2xs flex-shrink-0">
                           <img
                             src={method.logo}
                             alt={method.label}
-                            className="max-h-full max-w-full object-contain"
+                            className="w-full h-full object-contain"
                           />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <span className="text-xs font-bold text-slate-800 block truncate">{method.label}</span>
+                          <span className="text-xs sm:text-sm font-bold text-slate-800 block truncate">{method.label}</span>
                           {method.subLogos && (
-                            <div className="flex items-center gap-1.5 mt-1">
+                            <div className="flex items-center gap-2 mt-1 sm:mt-1.5">
                               {method.subLogos.map((sub, idx) => (
                                 <img
                                   key={idx}
                                   src={sub}
                                   alt="Wallet Logo"
-                                  className="h-3.5 w-auto object-contain opacity-80"
+                                  className="h-4 sm:h-4.5 w-auto object-contain opacity-95"
                                 />
                               ))}
                             </div>
@@ -1063,18 +1057,8 @@ export default function CheckoutPage() {
                         </div>
                       </div>
 
-                      {/* Right-aligned clean badge & radio */}
+                      {/* Right-aligned radio */}
                       <div className="flex items-center gap-2.5 flex-shrink-0">
-                        {method.badge && (
-                          <>
-                            <span className="hidden sm:inline-flex items-center text-[10px] font-bold text-[#1D3E72] bg-[#EBF3FC] border border-[#CDE0F7] px-2.5 py-0.5 rounded-full whitespace-nowrap leading-tight">
-                              {method.badge}
-                            </span>
-                            <span className="sm:hidden inline-flex items-center text-[9px] font-bold text-[#1D3E72] bg-[#EBF3FC] border border-[#CDE0F7] px-2 py-0.5 rounded-full whitespace-nowrap leading-tight">
-                              {method.badge.replace(" 24 Jam", "").replace(" & Otomatis", "")}
-                            </span>
-                          </>
-                        )}
                         <input
                           type="radio"
                           name="paymentMethod"
@@ -1086,6 +1070,20 @@ export default function CheckoutPage() {
                     </label>
                   ))}
                 </div>
+
+                {/* Tombol Lihat Lebih Banyak */}
+                <button
+                  type="button"
+                  onClick={() => setShowAllPaymentMethods(!showAllPaymentMethods)}
+                  className="w-full py-2.5 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 rounded-xl text-xs font-bold text-[#1D3E72] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <span>{showAllPaymentMethods ? "Lihat Lebih Sedikit" : "Lihat Lebih Banyak"}</span>
+                  {showAllPaymentMethods ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-[#1D3E72]" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-[#1D3E72]" />
+                  )}
+                </button>
               </div>
 
               {/* 🔒 SECURE PAYMENT BANNER */}
@@ -1116,11 +1114,11 @@ export default function CheckoutPage() {
                     onChange={(e) => setAgreedContact(e.target.checked)}
                     className="mt-0.5 rounded text-[#1D3E72] focus:ring-[#1D3E72]"
                   />
-                  <span>I agree that the creator may contact me by email or phone about my purchase & updates.</span>
+                  <span>I agree that the creator may contact me by email about my purchase & updates.</span>
                 </label>
               </div>
 
-              {/* 🚀 CTA BUTTON: BUY NOW */}
+              {/* 🚀 CTA BUTTON: GET NOW */}
               <button
                 type="submit"
                 disabled={submitting}
@@ -1132,7 +1130,7 @@ export default function CheckoutPage() {
                     <span>Memproses Transaksi...</span>
                   </>
                 ) : (
-                  <span>Buy Now - IDR {totalAmount.toLocaleString("id-ID")}</span>
+                  <span>Get Now - IDR {totalAmount.toLocaleString("id-ID")}</span>
                 )}
               </button>
 

@@ -421,13 +421,17 @@ export default function StoreFront() {
         {/* =========================================================================
             2. 3 GAMBAR DISPLAY (MENYATU DALAM SATU ALUR CERITA TANPA GARIS KOTAK KAKU)
             ========================================================================= */}
-        <section className="w-full bg-white rounded-3xl p-4 sm:p-7 md:p-8 shadow-sm space-y-4 sm:space-y-6">
+        <section className="w-full bg-white rounded-3xl p-4 sm:p-7 md:p-8 shadow-sm space-y-4 sm:space-y-6 overflow-hidden">
           {slotImages.map((rawUrl: string, slotIndex: number) => {
             const imgUrl = resolveWebpUrl(rawUrl) || DEFAULT_SLOT_IMAGES[slotIndex];
             return (
               <div
                 key={slotIndex}
-                className="w-full flex items-center justify-center"
+                className={`w-full flex items-center justify-center ${
+                  slotIndex === 0
+                    ? "-mx-1.5 sm:-mx-3 md:-mx-4 w-[calc(100%+0.75rem)] sm:w-[calc(100%+1.5rem)] md:w-[calc(100%+2rem)] scale-[1.04] sm:scale-[1.07] transform-gpu origin-center py-1 sm:py-1.5"
+                    : ""
+                }`}
               >
                 <img
                   src={imgUrl}
@@ -552,7 +556,7 @@ export default function StoreFront() {
                             onClick={() => trackEvent("PRODUCT_CLICK", product.id, product.title)}
                             className="w-full bg-[#1D3E72] hover:bg-[#0F2247] text-white font-black text-xs sm:text-sm py-3 px-4 rounded-xl shadow-md shadow-blue-900/20 transition-all flex items-center justify-center active:scale-98 text-center"
                           >
-                            Beli Sekarang
+                            Dapatkan Sekarang
                           </Link>
                         </div>
                       </div>
@@ -645,7 +649,7 @@ export default function StoreFront() {
                             onClick={() => trackEvent("PRODUCT_CLICK", product.id, product.title)}
                             className="w-full bg-[#1D3E72] hover:bg-[#0F2247] text-white font-black text-[11px] sm:text-xs md:text-sm py-2 sm:py-2.5 md:py-3 px-2 sm:px-3 rounded-xl shadow-md shadow-blue-900/20 transition-all flex items-center justify-center active:scale-98 text-center"
                           >
-                            Beli Sekarang
+                            Dapatkan Sekarang
                           </Link>
                         </div>
 

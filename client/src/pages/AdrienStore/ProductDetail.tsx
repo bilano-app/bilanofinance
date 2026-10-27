@@ -582,12 +582,12 @@ export default function ProductDetail() {
             <MessageCircle className="w-6 h-6 fill-emerald-500 text-emerald-500" />
           </a>
 
-          {/* Tombol BUY NOW (Langsung ke Checkout - Tanpa Keranjang Sesuai Instruksi User) */}
+          {/* Tombol GET NOW (Langsung ke Checkout - Tanpa Keranjang Sesuai Instruksi User) */}
           <Link
             href={`/adrienfandra/checkout/${product.id}`}
             className="flex-1 h-13 bg-gradient-to-r from-[#1D3E72] via-[#2563EB] to-[#1D3E72] hover:opacity-95 text-white font-black text-sm uppercase tracking-wider rounded-2xl shadow-xl shadow-blue-900/25 flex items-center justify-center gap-2 active:scale-98 transition-all"
           >
-            <span>BUY NOW</span>
+            <span>GET NOW</span>
             <span className="text-xs text-blue-200 font-bold">• {formatCurrency(product.sale_price)}</span>
             {Number(product.regular_price) > Number(product.sale_price) && (
               <span className="text-[11px] text-blue-300 line-through">

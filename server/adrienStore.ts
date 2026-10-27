@@ -1129,11 +1129,12 @@ export function setupAdrienStoreRoutes(app: Express) {
         additionalAnswers = {}
       } = req.body;
 
-      if (!productId || !customerName || !customerEmail || !customerPhone) {
-        return res.status(400).json({ error: "Lengkapi semua data pembeli (Nama, Email, dan No. WhatsApp)." });
+      if (!productId || !customerName || !customerEmail) {
+        return res.status(400).json({ error: "Lengkapi data pembeli (Nama dan Email)." });
       }
 
       const cleanEmail = customerEmail.trim().toLowerCase();
+      const cleanPhone = (customerPhone && typeof customerPhone === "string" && customerPhone.trim().length > 0) ? customerPhone.trim() : "-";
 
       const prodRes = await db.execute(sql`SELECT * FROM adrien_products WHERE id = ${Number(productId)} LIMIT 1`);
       if (!prodRes.rows || prodRes.rows.length === 0) {
@@ -1199,7 +1200,7 @@ export function setupAdrienStoreRoutes(app: Express) {
         merchantOrderId: merchantOrderId,
         productDetails: `E-Book: ${product.title.substring(0, 45)}`,
         email: cleanEmail,
-        phoneNumber: customerPhone || "089688113210",
+        phoneNumber: cleanPhone !== "-" ? cleanPhone : "089688113210",
         customerVaName: customerName || "Pembeli E-Book",
         itemDetails: [{ name: product.title.substring(0, 40), price: totalAmount, quantity: 1 }],
         returnUrl: `https://bilano.app/adrienfandra/order/${merchantOrderId}`,
@@ -1239,7 +1240,7 @@ export function setupAdrienStoreRoutes(app: Express) {
           additional_answers, subtotal, discount_amount, total_amount, voucher_code, payment_method,
           payment_status, duitku_reference, duitku_payment_url, duitku_va_number, duitku_qr_code
         ) VALUES (
-          ${merchantOrderId}, ${product.id}, ${product.title}, ${customerName}, ${cleanEmail}, ${customerPhone},
+          ${merchantOrderId}, ${product.id}, ${product.title}, ${customerName}, ${cleanEmail}, ${cleanPhone},
           ${JSON.stringify(additionalAnswers)}::jsonb, ${subtotal}, ${discountAmount}, ${totalAmount}, ${voucherCode || null}, ${paymentMethod},
           'PENDING', ${reference || null}, ${paymentUrl || null}, ${vaNumber || null}, ${qrCode || null}
         );
