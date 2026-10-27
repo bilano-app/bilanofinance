@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRoute, Link } from "wouter";
 import { 
   CheckCircle2, Download, BookOpen, MessageCircle, 
-  Mail, ShieldCheck, ArrowRight, Sparkles, RefreshCw, FileText, Check
+  Mail, ShieldCheck, ArrowRight, RefreshCw, FileText, Check
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 

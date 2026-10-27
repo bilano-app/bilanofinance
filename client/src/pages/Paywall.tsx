@@ -173,8 +173,7 @@ export default function Paywall() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-2.5 pt-2 border-t border-amber-200/60 text-[10px] text-slate-600 leading-relaxed flex items-start gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+                <div className="mt-2.5 pt-2 border-t border-amber-200/60 text-[10px] text-slate-600 leading-relaxed">
                   <span>
                     {trial.totalSecondsLeft > 24 * 3600 
                       ? "Anda sedang menikmati uji coba gratis 7 hari. Anda dapat mengaktifkan Paket VIP Tahunan sekarang untuk akses permanen tanpa batas."
@@ -508,8 +507,8 @@ export default function Paywall() {
                     <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 mb-3">
                       <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(paymentDetails.qrString || paymentDetails.paymentUrl)}`} alt="QRIS" className="w-44 h-44" />
                     </div>
-                    <span className="text-emerald-600 text-[10px] font-black tracking-widest uppercase flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" /> Verifikasi Otomatis
+                    <span className="text-emerald-600 text-[10px] font-black tracking-widest uppercase">
+                      Verifikasi Otomatis
                     </span>
                   </div>
                 ) : (

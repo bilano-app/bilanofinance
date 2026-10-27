@@ -3,7 +3,7 @@ import { useRoute, useLocation, Link } from "wouter";
 import { 
   ArrowLeft, MessageCircle, Zap, CheckCircle2, Star, 
   ShieldCheck, Clock, Users, BookOpen, ChevronRight,
-  Flame, Award, Sparkles, Share2, Check, AlertCircle, ArrowRight
+  Flame, Award, Share2, Check, AlertCircle, ArrowRight
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { formatCurrency } from "@/lib/utils";
-import { Clock, ArrowRight, ArrowDown, CheckCircle2, MessageCircle, Star, BookOpen, Sparkles, ShieldCheck } from "lucide-react";
+import { Clock, ArrowRight, ArrowDown, CheckCircle2, MessageCircle, Star, BookOpen, ShieldCheck } from "lucide-react";
 
 interface Product {
   id: number;

@@ -3,7 +3,7 @@ import { useRoute, useLocation, Link } from "wouter";
 import { 
   ArrowLeft, ShieldCheck, ChevronRight, ChevronDown, ChevronUp,
   Tag, Copy, Check, RefreshCw, ExternalLink,
-  Clock, AlertCircle, Sparkles
+  Clock, AlertCircle
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -950,9 +950,8 @@ export default function CheckoutPage() {
                 </div>
 
                 {/* 💡 Dorongan Investasi Calon Pembeli */}
-                <div className="mt-2.5 p-2.5 sm:p-3 bg-gradient-to-r from-blue-50/90 via-slate-50 to-amber-50/80 rounded-xl border border-blue-100/90 flex items-start gap-2 shadow-2xs">
-                  <Sparkles className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-[11px] sm:text-xs font-bold text-[#1D3E72] leading-snug">
+                <div className="mt-2.5 p-2.5 sm:p-3 bg-gradient-to-r from-blue-50/90 via-slate-50 to-amber-50/80 rounded-xl border border-blue-100/90 text-center shadow-2xs">
+                  <span className="text-[11px] sm:text-xs font-bold text-[#1D3E72] leading-snug block">
                     Satu kali investasi untuk aset pengetahuan yang akan menguntungkan Anda seumur hidup
                   </span>
                 </div>
