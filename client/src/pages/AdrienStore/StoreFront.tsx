@@ -171,7 +171,7 @@ export default function StoreFront() {
 
   const scrollReviews = (direction: "left" | "right") => {
     if (reviewsScrollRef.current) {
-      const scrollAmount = direction === "left" ? -220 : 220;
+      const scrollAmount = direction === "left" ? -260 : 260;
       reviewsScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
     }
   };
@@ -592,25 +592,25 @@ export default function StoreFront() {
                       </div>
 
                       {/* 💬 SEKSI REVIEW PEMBELI (KATA MEREKA) - DI BAWAH PAKET BUNDLING */}
-                      <div className="pt-0.5 pb-1">
-                        {/* Pembatas Tidak Terlalu Menonjol */}
-                        <div className="relative flex items-center justify-center my-3 sm:my-3.5">
+                      <div className="pt-1 pb-1">
+                        {/* Pembatas Halus dengan Teks Hitam Pekat & Lebih Besar */}
+                        <div className="relative flex items-center justify-center my-3.5 sm:my-4">
                           <div className="absolute inset-0 flex items-center" aria-hidden="true">
                             <div className="w-full border-t border-slate-200/90" />
                           </div>
-                          <div className="relative bg-[#F8FAFC] px-3.5 py-0.5 flex items-center gap-1.5 text-slate-500 font-extrabold text-xs tracking-wide select-none">
+                          <div className="relative bg-[#F8FAFC] px-4 py-1 flex items-center gap-2 text-black font-black text-sm sm:text-base tracking-tight select-none">
                             <span>Ini kata mereka</span>
-                            <span className="text-sm">👇</span>
+                            <span className="text-base sm:text-lg">👇</span>
                           </div>
                         </div>
 
-                        {/* List Foto Berjejer ke Kanan (Bisa Digulir Kanan Kiri, Ukuran Ringkas & Pas) */}
+                        {/* List Foto Berjejer ke Kanan (Kotak Petak 1:1, Ukuran Sedikit Lebih Besar) */}
                         <div className="relative group/reviews">
                           {/* Tombol Gulir Desktop */}
                           <button
                             type="button"
                             onClick={() => scrollReviews("left")}
-                            className="hidden md:flex absolute -left-2.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-white/95 border border-slate-200 shadow-md items-center justify-center text-slate-600 hover:text-[#1D3E72] hover:bg-slate-50 transition-all opacity-0 group-hover/reviews:opacity-100 cursor-pointer"
+                            className="hidden md:flex absolute -left-2.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 border border-slate-300 shadow-md items-center justify-center text-slate-700 hover:text-black hover:bg-slate-50 transition-all opacity-0 group-hover/reviews:opacity-100 cursor-pointer"
                             aria-label="Geser ke kiri"
                           >
                             <ChevronLeft className="w-4 h-4" />
@@ -618,7 +618,7 @@ export default function StoreFront() {
                           <button
                             type="button"
                             onClick={() => scrollReviews("right")}
-                            className="hidden md:flex absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-white/95 border border-slate-200 shadow-md items-center justify-center text-slate-600 hover:text-[#1D3E72] hover:bg-slate-50 transition-all opacity-0 group-hover/reviews:opacity-100 cursor-pointer"
+                            className="hidden md:flex absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 border border-slate-300 shadow-md items-center justify-center text-slate-700 hover:text-black hover:bg-slate-50 transition-all opacity-0 group-hover/reviews:opacity-100 cursor-pointer"
                             aria-label="Geser ke kanan"
                           >
                             <ChevronRight className="w-4 h-4" />
@@ -627,14 +627,14 @@ export default function StoreFront() {
                           {/* Track Scroll Horizontal */}
                           <div
                             ref={reviewsScrollRef}
-                            className="flex items-center gap-2.5 sm:gap-3 overflow-x-auto scroll-smooth py-1 px-1 snap-x snap-mandatory"
+                            className="flex items-center gap-3 sm:gap-4 overflow-x-auto scroll-smooth py-1 px-1 snap-x snap-mandatory"
                             style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
                           >
                             {REVIEW_ITEMS.map((rev) => (
                               <div
                                 key={rev.id}
                                 onClick={() => setSelectedReview(rev.src)}
-                                className="flex-shrink-0 w-28 sm:w-32 md:w-36 aspect-square rounded-2xl overflow-hidden bg-white border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer group/card snap-start relative"
+                                className="flex-shrink-0 w-36 sm:w-44 md:w-48 aspect-square bg-white border border-slate-300 shadow-xs hover:shadow-md hover:border-slate-400 transition-all duration-200 cursor-pointer group/card snap-start relative overflow-hidden"
                                 title="Klik untuk memperbesar review"
                               >
                                 <img
@@ -642,16 +642,16 @@ export default function StoreFront() {
                                   alt={rev.alt}
                                   loading="lazy"
                                   decoding="async"
-                                  className="w-full h-full object-cover transition-transform duration-300 group-hover/card:scale-104"
+                                  className="w-full h-full object-cover transition-transform duration-300 group-hover/card:scale-103"
                                   onError={(e: any) => {
                                     if (e.target.src !== rev.fallback) {
                                       e.target.src = rev.fallback;
                                     }
                                   }}
                                 />
-                                <div className="absolute inset-0 bg-slate-900/0 group-hover/card:bg-slate-900/10 transition-colors flex items-center justify-center">
-                                  <span className="opacity-0 group-hover/card:opacity-100 bg-slate-900/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-xs transition-opacity shadow-xs">
-                                    Buka
+                                <div className="absolute inset-0 bg-slate-900/0 group-hover/card:bg-slate-900/15 transition-colors flex items-center justify-center">
+                                  <span className="opacity-0 group-hover/card:opacity-100 bg-black/80 text-white text-[11px] font-bold px-2.5 py-1 backdrop-blur-xs transition-opacity shadow-sm">
+                                    Lihat Detail
                                   </span>
                                 </div>
                               </div>
@@ -783,25 +783,25 @@ export default function StoreFront() {
           onClick={() => setSelectedReview(null)}
         >
           <div
-            className="relative max-w-sm sm:max-w-md w-full bg-white rounded-3xl overflow-hidden shadow-2xl p-2.5 sm:p-3 animate-in zoom-in-95 duration-150"
+            className="relative max-w-sm sm:max-w-lg w-full bg-white rounded-2xl overflow-hidden shadow-2xl p-3 animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setSelectedReview(null)}
-              className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center shadow-md transition-all cursor-pointer"
+              className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-black/75 hover:bg-black text-white flex items-center justify-center shadow-md transition-all cursor-pointer"
               aria-label="Tutup preview"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
-            <div className="rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center max-h-[75vh]">
+            <div className="bg-slate-100 flex items-center justify-center max-h-[80vh] overflow-hidden">
               <img
                 src={selectedReview}
                 alt="Detail Review Pembeli"
-                className="w-full h-auto max-h-[75vh] object-contain"
+                className="w-full h-auto max-h-[80vh] object-contain"
               />
             </div>
-            <div className="pt-2 text-center">
-              <p className="text-[11px] text-slate-500 font-semibold">
+            <div className="pt-2.5 text-center">
+              <p className="text-xs text-slate-600 font-semibold">
                 Sentuh di luar gambar atau tombol silang untuk menutup
               </p>
             </div>
