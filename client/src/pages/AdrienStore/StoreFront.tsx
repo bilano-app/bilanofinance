@@ -1,7 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { formatCurrency } from "@/lib/utils";
-import { Clock, ArrowRight, ArrowDown, CheckCircle2, MessageCircle, Star, BookOpen, ShieldCheck } from "lucide-react";
+import { Clock, ArrowRight, ArrowDown, CheckCircle2, MessageCircle, Star, BookOpen, ShieldCheck, ChevronLeft, ChevronRight, X } from "lucide-react";
+
+const REVIEW_ITEMS = [
+  { id: 1, src: "/Akuntansi/Review_1.webp", fallback: "/Akuntansi/Review 1.jpg", alt: "Review Pembeli 1" },
+  { id: 2, src: "/Akuntansi/Review_2.webp", fallback: "/Akuntansi/Review 2.jpg", alt: "Review Pembeli 2" },
+  { id: 3, src: "/Akuntansi/Review_3.webp", fallback: "/Akuntansi/Review 3.jpg", alt: "Review Pembeli 3" },
+  { id: 4, src: "/Akuntansi/Review_4.webp", fallback: "/Akuntansi/Review 4.jpg", alt: "Review Pembeli 4" },
+  { id: 5, src: "/Akuntansi/Review_5.webp", fallback: "/Akuntansi/Review 5.jpg", alt: "Review Pembeli 5" },
+  { id: 6, src: "/Akuntansi/Review_6.webp", fallback: "/Akuntansi/Review 6.jpg", alt: "Review Pembeli 6" },
+  { id: 7, src: "/Akuntansi/Review_7.webp", fallback: "/Akuntansi/Review 7.jpg", alt: "Review Pembeli 7" },
+];
 
 interface Product {
   id: number;
@@ -156,6 +166,25 @@ export default function StoreFront() {
   const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
   const [activePayment, setActivePayment] = useState<any>(null);
+  const reviewsScrollRef = useRef<HTMLDivElement>(null);
+  const [selectedReview, setSelectedReview] = useState<string | null>(null);
+
+  const scrollReviews = (direction: "left" | "right") => {
+    if (reviewsScrollRef.current) {
+      const scrollAmount = direction === "left" ? -220 : 220;
+      reviewsScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedReview(null);
+    };
+    if (selectedReview) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedReview]);
 
   // 🚀 Instant Frame-0 Load dari Cache LocalStorage atau Default Products (Mencegah Flashing / Bug Render)
   const [settings, setSettings] = useState<any>(() => {
@@ -485,79 +514,149 @@ export default function StoreFront() {
                 // =========================================================================
                 if (isBundling) {
                   return (
-                    <div
-                      key={product.id}
-                      className="bg-white rounded-3xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
-                    >
-                      {/* Judul di Atas Gambar */}
-                      <div className="pt-6 pb-2 px-5 sm:px-6 text-center space-y-1">
-                        <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-[#0F2247] tracking-tight leading-tight">
-                          {product.title}
-                        </h3>
-                        {product.subtitle && (
-                          <p className="text-xs sm:text-sm text-slate-500 font-semibold italic max-w-xl mx-auto leading-relaxed">
-                            "{product.subtitle}"
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Gambar Landscape di Bawah Judul */}
-                      <div className="w-full px-4 sm:px-8 py-2 flex items-center justify-center relative">
-                        <div
-                          className="relative group cursor-pointer w-full max-w-[480px] sm:max-w-[560px] flex items-center justify-center py-2"
-                          onClick={() => {
-                            trackEvent("PRODUCT_CLICK", product.id, product.title);
-                            setLocation(`/adrienfandra/p/${product.slug || product.id}`);
-                          }}
-                        >
-                          <img
-                            src={resolveWebpUrl(product.cover_url)}
-                            alt={product.title}
-                            loading={idx === 0 ? "eager" : "lazy"}
-                            decoding="async"
-                            className="w-full h-auto max-h-[240px] sm:max-h-[300px] object-contain mix-blend-multiply transition-transform duration-300 group-hover:scale-102"
-                          />
-                          {discountPercent > 0 && (
-                            <div className="absolute top-1 right-2 sm:top-2 sm:right-4 bg-rose-600 text-white text-[11px] sm:text-xs font-black px-3 py-1 rounded-full shadow-sm">
-                              HEMAT {discountPercent}%
-                            </div>
+                    <div key={product.id} className="space-y-4 sm:space-y-5">
+                      <div
+                        className="bg-white rounded-3xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
+                      >
+                        {/* Judul di Atas Gambar */}
+                        <div className="pt-6 pb-2 px-5 sm:px-6 text-center space-y-1">
+                          <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-[#0F2247] tracking-tight leading-tight">
+                            {product.title}
+                          </h3>
+                          {product.subtitle && (
+                            <p className="text-xs sm:text-sm text-slate-500 font-semibold italic max-w-xl mx-auto leading-relaxed">
+                              "{product.subtitle}"
+                            </p>
                           )}
                         </div>
-                      </div>
 
-                      {/* Box Harga & Kedua Tombol di Bawah Gambar */}
-                      <div className="p-5 sm:p-7 pt-2 space-y-3.5 max-w-xl mx-auto w-full">
-                        <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50/90 flex items-baseline justify-between">
-                          <div>
-                            <span className="text-xs font-bold text-slate-500 block mb-0.5">Harga Spesial Hari Ini:</span>
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-2xl sm:text-3xl font-black text-[#1D3E72]">
-                                {formatCurrency(product.sale_price)}
-                              </span>
-                              {Number(product.regular_price) > Number(product.sale_price) && (
-                                <span className="text-sm font-semibold text-slate-400 line-through">
-                                  {formatCurrency(product.regular_price)}
-                                </span>
-                              )}
-                            </div>
+                        {/* Gambar Landscape di Bawah Judul */}
+                        <div className="w-full px-4 sm:px-8 py-2 flex items-center justify-center relative">
+                          <div
+                            className="relative group cursor-pointer w-full max-w-[480px] sm:max-w-[560px] flex items-center justify-center py-2"
+                            onClick={() => {
+                              trackEvent("PRODUCT_CLICK", product.id, product.title);
+                              setLocation(`/adrienfandra/p/${product.slug || product.id}`);
+                            }}
+                          >
+                            <img
+                              src={resolveWebpUrl(product.cover_url)}
+                              alt={product.title}
+                              loading={idx === 0 ? "eager" : "lazy"}
+                              decoding="async"
+                              className="w-full h-auto max-h-[240px] sm:max-h-[300px] object-contain mix-blend-multiply transition-transform duration-300 group-hover:scale-102"
+                            />
+                            {discountPercent > 0 && (
+                              <div className="absolute top-1 right-2 sm:top-2 sm:right-4 bg-rose-600 text-white text-[11px] sm:text-xs font-black px-3 py-1 rounded-full shadow-sm">
+                                HEMAT {discountPercent}%
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          <Link
-                            href={`/adrienfandra/p/${product.slug || product.id}`}
-                            onClick={() => trackEvent("PRODUCT_CLICK", product.id, product.title)}
-                            className="w-full bg-slate-100 hover:bg-slate-200 text-[#1D3E72] font-black text-xs sm:text-sm py-3 px-4 rounded-xl transition-all flex items-center justify-center shadow-xs active:scale-98 text-center"
+                        {/* Box Harga & Kedua Tombol di Bawah Gambar */}
+                        <div className="p-5 sm:p-7 pt-2 space-y-3.5 max-w-xl mx-auto w-full">
+                          <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50/90 flex items-baseline justify-between">
+                            <div>
+                              <span className="text-xs font-bold text-slate-500 block mb-0.5">Harga Spesial Hari Ini:</span>
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-2xl sm:text-3xl font-black text-[#1D3E72]">
+                                  {formatCurrency(product.sale_price)}
+                                </span>
+                                {Number(product.regular_price) > Number(product.sale_price) && (
+                                  <span className="text-sm font-semibold text-slate-400 line-through">
+                                    {formatCurrency(product.regular_price)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <Link
+                              href={`/adrienfandra/p/${product.slug || product.id}`}
+                              onClick={() => trackEvent("PRODUCT_CLICK", product.id, product.title)}
+                              className="w-full bg-slate-100 hover:bg-slate-200 text-[#1D3E72] font-black text-xs sm:text-sm py-3 px-4 rounded-xl transition-all flex items-center justify-center shadow-xs active:scale-98 text-center"
+                            >
+                              Lihat Detail Isi
+                            </Link>
+                            <Link
+                              href={`/adrienfandra/checkout/${product.id}`}
+                              onClick={() => trackEvent("PRODUCT_CLICK", product.id, product.title)}
+                              className="w-full bg-[#1D3E72] hover:bg-[#0F2247] text-white font-black text-xs sm:text-sm py-3 px-4 rounded-xl shadow-md shadow-blue-900/20 transition-all flex items-center justify-center active:scale-98 text-center"
+                            >
+                              Dapatkan Sekarang
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 💬 SEKSI REVIEW PEMBELI (KATA MEREKA) - DI BAWAH PAKET BUNDLING */}
+                      <div className="pt-0.5 pb-1">
+                        {/* Pembatas Tidak Terlalu Menonjol */}
+                        <div className="relative flex items-center justify-center my-3 sm:my-3.5">
+                          <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                            <div className="w-full border-t border-slate-200/90" />
+                          </div>
+                          <div className="relative bg-[#F8FAFC] px-3.5 py-0.5 flex items-center gap-1.5 text-slate-500 font-extrabold text-xs tracking-wide select-none">
+                            <span>Ini kata mereka</span>
+                            <span className="text-sm">👇</span>
+                          </div>
+                        </div>
+
+                        {/* List Foto Berjejer ke Kanan (Bisa Digulir Kanan Kiri, Ukuran Ringkas & Pas) */}
+                        <div className="relative group/reviews">
+                          {/* Tombol Gulir Desktop */}
+                          <button
+                            type="button"
+                            onClick={() => scrollReviews("left")}
+                            className="hidden md:flex absolute -left-2.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-white/95 border border-slate-200 shadow-md items-center justify-center text-slate-600 hover:text-[#1D3E72] hover:bg-slate-50 transition-all opacity-0 group-hover/reviews:opacity-100 cursor-pointer"
+                            aria-label="Geser ke kiri"
                           >
-                            Lihat Detail Isi
-                          </Link>
-                          <Link
-                            href={`/adrienfandra/checkout/${product.id}`}
-                            onClick={() => trackEvent("PRODUCT_CLICK", product.id, product.title)}
-                            className="w-full bg-[#1D3E72] hover:bg-[#0F2247] text-white font-black text-xs sm:text-sm py-3 px-4 rounded-xl shadow-md shadow-blue-900/20 transition-all flex items-center justify-center active:scale-98 text-center"
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => scrollReviews("right")}
+                            className="hidden md:flex absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-white/95 border border-slate-200 shadow-md items-center justify-center text-slate-600 hover:text-[#1D3E72] hover:bg-slate-50 transition-all opacity-0 group-hover/reviews:opacity-100 cursor-pointer"
+                            aria-label="Geser ke kanan"
                           >
-                            Dapatkan Sekarang
-                          </Link>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+
+                          {/* Track Scroll Horizontal */}
+                          <div
+                            ref={reviewsScrollRef}
+                            className="flex items-center gap-2.5 sm:gap-3 overflow-x-auto scroll-smooth py-1 px-1 snap-x snap-mandatory"
+                            style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
+                          >
+                            {REVIEW_ITEMS.map((rev) => (
+                              <div
+                                key={rev.id}
+                                onClick={() => setSelectedReview(rev.src)}
+                                className="flex-shrink-0 w-28 sm:w-32 md:w-36 aspect-square rounded-2xl overflow-hidden bg-white border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer group/card snap-start relative"
+                                title="Klik untuk memperbesar review"
+                              >
+                                <img
+                                  src={rev.src}
+                                  alt={rev.alt}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="w-full h-full object-cover transition-transform duration-300 group-hover/card:scale-104"
+                                  onError={(e: any) => {
+                                    if (e.target.src !== rev.fallback) {
+                                      e.target.src = rev.fallback;
+                                    }
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-slate-900/0 group-hover/card:bg-slate-900/10 transition-colors flex items-center justify-center">
+                                  <span className="opacity-0 group-hover/card:opacity-100 bg-slate-900/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-xs transition-opacity shadow-xs">
+                                    Buka
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -676,6 +775,39 @@ export default function StoreFront() {
           &copy; 2026 {settings.store_name || "Adrien Fandra Store"}
         </p>
       </footer>
+
+      {/* 🔍 LIGHTBOX MODAL PREVIEW REVIEW FULL-SCREEN */}
+      {selectedReview && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setSelectedReview(null)}
+        >
+          <div
+            className="relative max-w-sm sm:max-w-md w-full bg-white rounded-3xl overflow-hidden shadow-2xl p-2.5 sm:p-3 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setSelectedReview(null)}
+              className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center shadow-md transition-all cursor-pointer"
+              aria-label="Tutup preview"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center max-h-[75vh]">
+              <img
+                src={selectedReview}
+                alt="Detail Review Pembeli"
+                className="w-full h-auto max-h-[75vh] object-contain"
+              />
+            </div>
+            <div className="pt-2 text-center">
+              <p className="text-[11px] text-slate-500 font-semibold">
+                Sentuh di luar gambar atau tombol silang untuk menutup
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
