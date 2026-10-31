@@ -171,7 +171,7 @@ export default function StoreFront() {
 
   const scrollReviews = (direction: "left" | "right") => {
     if (reviewsScrollRef.current) {
-      const scrollAmount = direction === "left" ? -260 : 260;
+      const scrollAmount = direction === "left" ? -300 : 300;
       reviewsScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
     }
   };
@@ -604,37 +604,37 @@ export default function StoreFront() {
                           </div>
                         </div>
 
-                        {/* List Foto Berjejer ke Kanan (Kotak Petak 1:1, Ukuran Sedikit Lebih Besar) */}
+                        {/* List Foto Berjejer ke Kanan (Kotak Petak 1:1, Ukuran Lebih Besar & Jelas Terbaca) */}
                         <div className="relative group/reviews">
                           {/* Tombol Gulir Desktop */}
                           <button
                             type="button"
                             onClick={() => scrollReviews("left")}
-                            className="hidden md:flex absolute -left-2.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 border border-slate-300 shadow-md items-center justify-center text-slate-700 hover:text-black hover:bg-slate-50 transition-all opacity-0 group-hover/reviews:opacity-100 cursor-pointer"
+                            className="hidden md:flex absolute -left-3.5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/95 border border-slate-300 shadow-md items-center justify-center text-slate-700 hover:text-black hover:bg-slate-50 transition-all opacity-0 group-hover/reviews:opacity-100 cursor-pointer"
                             aria-label="Geser ke kiri"
                           >
-                            <ChevronLeft className="w-4 h-4" />
+                            <ChevronLeft className="w-5 h-5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => scrollReviews("right")}
-                            className="hidden md:flex absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 border border-slate-300 shadow-md items-center justify-center text-slate-700 hover:text-black hover:bg-slate-50 transition-all opacity-0 group-hover/reviews:opacity-100 cursor-pointer"
+                            className="hidden md:flex absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/95 border border-slate-300 shadow-md items-center justify-center text-slate-700 hover:text-black hover:bg-slate-50 transition-all opacity-0 group-hover/reviews:opacity-100 cursor-pointer"
                             aria-label="Geser ke kanan"
                           >
-                            <ChevronRight className="w-4 h-4" />
+                            <ChevronRight className="w-5 h-5" />
                           </button>
 
                           {/* Track Scroll Horizontal */}
                           <div
                             ref={reviewsScrollRef}
-                            className="flex items-center gap-3 sm:gap-4 overflow-x-auto scroll-smooth py-1 px-1 snap-x snap-mandatory"
+                            className="flex items-center gap-3.5 sm:gap-4 overflow-x-auto scroll-smooth py-1 px-1 snap-x snap-mandatory"
                             style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
                           >
                             {REVIEW_ITEMS.map((rev) => (
                               <div
                                 key={rev.id}
                                 onClick={() => setSelectedReview(rev.src)}
-                                className="flex-shrink-0 w-36 sm:w-44 md:w-48 aspect-square bg-white border border-slate-300 shadow-xs hover:shadow-md hover:border-slate-400 transition-all duration-200 cursor-pointer group/card snap-start relative overflow-hidden"
+                                className="flex-shrink-0 w-[240px] sm:w-[270px] md:w-[300px] aspect-square bg-white border border-slate-300 shadow-xs hover:shadow-md hover:border-slate-400 transition-all duration-200 cursor-pointer group/card snap-start relative overflow-hidden"
                                 title="Klik untuk memperbesar review"
                               >
                                 <img
@@ -650,7 +650,7 @@ export default function StoreFront() {
                                   }}
                                 />
                                 <div className="absolute inset-0 bg-slate-900/0 group-hover/card:bg-slate-900/15 transition-colors flex items-center justify-center">
-                                  <span className="opacity-0 group-hover/card:opacity-100 bg-black/80 text-white text-[11px] font-bold px-2.5 py-1 backdrop-blur-xs transition-opacity shadow-sm">
+                                  <span className="opacity-0 group-hover/card:opacity-100 bg-black/80 text-white text-xs font-bold px-3 py-1.5 backdrop-blur-xs transition-opacity shadow-sm">
                                     Lihat Detail
                                   </span>
                                 </div>
